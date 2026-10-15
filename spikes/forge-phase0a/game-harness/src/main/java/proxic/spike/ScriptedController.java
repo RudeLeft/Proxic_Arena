@@ -51,6 +51,9 @@ import java.util.Map;
 public final class ScriptedController extends GeneratedControllerBase {
 
     private final String tag;
+    /** Shared decision boundary; null means answer inline (P0A-B mode). */
+    static DecisionGate GATE = null;
+    static final Map<String, AdversarialClient> CLIENTS = new LinkedHashMap<>();
     /** Counts of every decision kind this controller actually answered. */
     public static final LinkedHashMap<String, Integer> ANSWERED = new LinkedHashMap<>();
 
@@ -100,6 +103,22 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         seen("chooseSpellAbilityToPlay");
+        // P0A-G/H: the main decision also crosses the authority
+        // boundary. declareAttackers alone fires ~9 times a game, far
+        // too few to exercise duplicate/stale/wrong-seat/reconnect;
+        // this one fires ~250 times, so the adversarial client gets
+        // real opportunities against a live, blocked engine.
+        if (GATE != null) {
+            AdversarialClient gc = CLIENTS.get(player.getName());
+            try {
+                GATE.ask(player.getName(), "chooseSpellAbilityToPlay",
+                        pending -> { if (gc != null) gc.deliver(pending); });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            GATE.bumpStateVersion();
+        }
         // P0A-E: sample hidden information from BOTH seats while the
         // game is live. Cheap next to a Forge decision, and it means
         // the assertion is made against real mid-game state rather
@@ -352,6 +371,23 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public void declareAttackers(Player attacker, Combat combat) {
         seen("declareAttackers");
+        // P0A-G/H: route a REAL Forge decision through the authority
+        // boundary. declareAttackers is chosen because it is
+        // synchronous, happens several times a game, and Forge is
+        // genuinely blocked inside it -- which is exactly the condition
+        // under which a leaked duplicate would answer the NEXT question
+        // (§0.68).
+        if (GATE != null) {
+            AdversarialClient client = CLIENTS.get(player.getName());
+            try {
+                GATE.ask(player.getName(), "declareAttackers",
+                        pending -> { if (client != null) client.deliver(pending); });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            GATE.bumpStateVersion();
+        }
         GameEntity defender = combat.getDefenders().isEmpty() ? null : combat.getDefenders().get(0);
         if (defender == null) return;
         int declared = 0;

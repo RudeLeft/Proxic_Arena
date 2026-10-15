@@ -65,6 +65,18 @@ public final class GameRunner {
         RegisteredPlayer rp1 = new RegisteredPlayer(d1).setPlayer(lp1);
         RegisteredPlayer rp2 = new RegisteredPlayer(d2).setPlayer(lp2);
 
+        // P0A-G/H: install the decision boundary and two headless
+        // clients that deliberately misbehave. Enabled with --gate=on.
+        if ("on".equals(arg(args, "gate", "off"))) {
+            DecisionGate gate = new DecisionGate();
+            ScriptedController.GATE = gate;
+            for (String seat : new String[]{"Alice", "Bob"}) {
+                AdversarialClient c = new AdversarialClient(seat, gate, pending -> Boolean.TRUE);
+                ScriptedController.CLIENTS.put(seat, c);
+                c.start();
+            }
+        }
+
         GameRules rules = new GameRules(GameType.Constructed);
         rules.setGamesPerMatch(1);
         Match match = new Match(rules, List.of(rp1, rp2), "Phase 0A spike");
@@ -158,6 +170,10 @@ public final class GameRunner {
             System.out.println("=== actions declined: cost kind not payable by this adapter ===");
             ScriptedController.UNPAYABLE_SKIPPED.forEach(
                     (k, v) -> System.out.printf("    %6dx  %s%n", v, k));
+        }
+        if (ScriptedController.GATE != null) {
+            DecisionGate.report();
+            AdversarialClient.report();
         }
         boolean hidOk = VisibilityProbe.report();
         boolean idOk = IdentityProbe.report();
