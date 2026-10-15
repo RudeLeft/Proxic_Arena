@@ -20,6 +20,14 @@
 > Content is unchanged. Only the status and the dependency notes below
 > were added.
 
+> **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
+> Proxic Arena supports **one play mode: Open Format** — 65-card deck
+> maximum, no more than 4 copies of a specific card, unrestricted card
+> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
+> Wherever this document describes a format choice, a preset catalog,
+> a command zone, teams or shared life, that content is **void**.
+> See `docs/architecture/OPEN_FORMAT.md`.
+
 **Phase-0A-dependent decisions in this phase:**
 
 - §5.28–5.31 — the match preset catalog depends on 0A.9's format
@@ -651,14 +659,16 @@ The host selects from a server-provided catalog of supported match presets.
 Conceptually:
 
 ```text
-CONSTRUCTED_1V1
-
-COMMANDER_FFA
-
-<other Phase-0-verified presets>
+OPEN_FORMAT_1V1
 ```
 
-The exact final preset list must come from accepted Forge capability evidence.
+**AMENDED 2026-10-15.** There is exactly one preset. Open Format,
+2 players, 65-card maximum, 4 copies of any specific card.
+COMMANDER_FFA and any team preset are removed.
+
+The preset remains server-authoritative (§5.32) and the endpoint
+remains, so a second mode could be added later without a protocol
+change — but none is planned.
 
 ---
 
@@ -692,11 +702,13 @@ Conceptually:
 
 ```json
 {
-  "id": "COMMANDER_FFA",
-  "display_name": "Commander",
-  "min_players": 3,
-  "max_players": 4,
-  "allowed_player_counts": [3, 4]
+  "id": "OPEN_FORMAT_1V1",
+  "display_name": "Open Format",
+  "min_players": 2,
+  "max_players": 2,
+  "allowed_player_counts": [2],
+  "deck_max_cards": 65,
+  "max_copies_per_card": 4
 }
 ```
 

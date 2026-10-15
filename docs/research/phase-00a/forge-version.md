@@ -225,8 +225,8 @@ required in Phase 0A. Phase 5's preset catalog must not offer it
 | P0A-A — Forge builds clean | **PASSED** |
 | §0A.4 — pin recorded, delta from old pin | **DONE** (pin awaiting owner acceptance) |
 | §0A.6 — PlayerController audit | **PARTIAL** — surface counted and diffed; adapter strategy not yet chosen |
-| §0A.9 — 2HG classification | **DONE — UNSUPPORTED** |
-| §0A.9 — Commander | not started |
+| §0A.9 — 2HG classification | **DONE — UNSUPPORTED**, then removed from scope |
+| §0A.9 — formats | **removed** — Open Format only, 2026-10-15 |
 | §0A.5 — bootstrap and resource inventory | not started |
 | Everything else | not started |
 

@@ -215,5 +215,5 @@ never do it.
 | P0A-E hidden information | PASSED, both halves |
 | **P0A-F object identity** | **PASSED** + typed-id requirement |
 | P0A-G/H protocol safety, reconnect | not started |
-| P0A-I Commander | not started |
+| P0A-K zone coverage | not started (replaces Commander) |
 | P0A-J adapter recommendation | pending owner acceptance |

@@ -144,6 +144,22 @@ public final class ScriptedController extends GeneratedControllerBase {
                 }
             }
         }
+        // P0A-I: the COMMAND ZONE is a third source of playable actions.
+        // An adapter that walks only hand and battlefield will never
+        // offer the commander, and the game looks superficially fine --
+        // it just quietly never casts it. This is Phase 6 §6.56's
+        // zone-dependent actions, found by a Commander game rather than
+        // by reading the rule.
+        for (Card c : player.getCardsIn(ZoneType.Command)) {
+            for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
+                if (!sa.isSpell()) continue;
+                if (sa.getPayCosts().getTotalMana().getCMC() > mana) continue;
+                if (!canPayNonManaCosts(sa)) continue;
+                if (requiresTargetButHasNone(sa)) continue;
+                spells.add(sa);
+            }
+        }
+
         for (Card c : player.getCardsIn(ZoneType.Battlefield)) {
             for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
                 if (sa.isManaAbility() || !sa.isActivatedAbility()) continue;

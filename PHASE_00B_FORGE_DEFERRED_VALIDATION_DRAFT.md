@@ -132,23 +132,6 @@ NOTE      The old bridge could not express this: each controller held one
           so Alice acting for Bob would see Bob's board as "opponent".
 ```
 
-## 0B.7 Commander full runtime
-
-```text
-SOURCE    0.38, 0.39, P0-J
-WHY SAFE  0A.9 requires the blocking part -- that a Commander game can be
-          CONSTRUCTED and STARTED, and the commander cast from the command
-          zone -- because that touches deck mapping and player setup. The
-          rest is rules coverage that does not change architecture.
-TRIGGER   Before Commander appears as a selectable lobby preset
-EVIDENCE  SOURCE + RUN: commander tax across recasts, commander damage,
-          zone-change replacement choice, colour identity, multiple
-          commanders, starting life, mulligan
-STATUS    DEFERRED
-NOTE      The old project never configured or ran Commander at all. There
-          is no prior evidence here to lean on.
-```
-
 ## 0B.8 Hidden information: reveal, look-without-reveal, re-hiding
 
 ```text
@@ -363,7 +346,6 @@ The live summary. Keep this table current; it is what a phase gate reads.
 | 0B.4 Benchmarks | Slow startup, memory pressure, or pre-warming proposed | DEFERRED |
 | 0B.5 Docker image | Before first deployment | DEFERRED |
 | 0B.6 Mindslaver runtime | Control-player deck importable, or protocol 1.0 | DEFERRED |
-| 0B.7 Commander runtime | Before Commander is a lobby preset | DEFERRED |
 | 0B.8 Reveal / look / re-hide | Such a card enters a deck, or non-owner release | DEFERRED |
 | 0B.9 Combat matrix | Phase 8, or first combat bug | DEFERRED |
 | 0B.10 Decision shapes | Phase 8, or an inexpressible decision | DEFERRED |
@@ -394,6 +376,10 @@ for
 ```text
 "we checked this"
 ```
+
+Note that 0B.7 (Commander runtime) was **removed, not completed**:
+the owner cancelled Commander on 2026-10-15 and Open Format is the only
+supported mode. See `docs/architecture/OPEN_FORMAT.md`.
 
 Three of these entries exist because the old project discovered the
 problem and ran out of road: attachments and DFCs were untested because no

@@ -58,11 +58,31 @@ you were asked to do, stop and say so.
 | `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
 | `PHASE_01`–`PHASE_06` `_PROVISIONAL.md` | Production phases. Provisional because they were locked before Phase 0 ran; each carries a note on what 0A may change. |
 | `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
+| `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
 | `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
 
 ---
+
+## FORMAT — the only supported play mode
+
+- **FMT-001 — MUST NOT:** Implement, offer or plan for any play mode
+  other than **Open Format**: 65-card deck maximum, no more than 4
+  copies of a specific card, unrestricted card pool, 2 players.
+  Commander and Two-Headed Giant were removed by owner decision on
+  2026-10-15. _USER to change._
+- **FMT-002 — MUST:** Enforce deck legality in Proxic, not Forge.
+  `DeckFormat.Constructed` is min 60 with **no maximum**; Open Format
+  is **max 65**. They are different rules, so the check cannot be
+  delegated. Deck-construction legality is format policy; everything
+  after the game starts is still Forge's. _REVIEW._
+- **FMT-003 — MUST:** Enumerate playable actions from **every zone
+  Forge can offer them from**, not just hand and battlefield. A
+  Commander in the command zone was never offered because the
+  enumerator never looked there — no error, the game just never cast
+  it. Open Format allows any card, so graveyard, exile and library
+  actions are all reachable. _REVIEW._
 
 ## ISO — Isolation boundaries
 

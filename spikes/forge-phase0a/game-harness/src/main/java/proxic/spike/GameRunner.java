@@ -136,6 +136,7 @@ public final class GameRunner {
         }
 
         System.out.printf("[%5d ms] game over%n", System.currentTimeMillis() - t0);
+
         System.out.println();
         System.out.println("turns played : " + game.getPhaseHandler().getTurn());
         if (game.getOutcome() == null) {

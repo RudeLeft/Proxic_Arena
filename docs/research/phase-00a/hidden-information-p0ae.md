@@ -187,7 +187,7 @@ they are not the wire format.
 | **P0A-E hidden information** | **PASSED**, both halves, both negative controls fire |
 | P0A-F object identity | not started |
 | P0A-G/H protocol safety, reconnect | not started |
-| P0A-I Commander | not started |
+| P0A-K zone coverage | not started (replaces Commander) |
 | P0A-J adapter recommendation | pending owner acceptance |
 
 H5 (look without reveal), H6 (reveal) and H7 (return to hidden zone)

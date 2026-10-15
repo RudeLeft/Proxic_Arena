@@ -29,9 +29,20 @@ final class DeckLoader {
     static Deck load(String path, String name) throws IOException {
         Deck deck = new Deck(name);
         int missing = 0;
+        // Section headers: [Main] / [Commander]. Commander decks need the
+        // commander in its own section, because RegisteredPlayer.forCommander
+        // reads deck.getCommanders() from DeckSection.Commander.
+        forge.deck.DeckSection section = forge.deck.DeckSection.Main;
         for (String raw : Files.readAllLines(Path.of(path), StandardCharsets.UTF_8)) {
             String line = raw.trim();
             if (line.isEmpty() || line.startsWith("//") || line.startsWith("#")) {
+                continue;
+            }
+            if (line.startsWith("[") && line.endsWith("]")) {
+                String secName = line.substring(1, line.length() - 1).trim();
+                section = "commander".equalsIgnoreCase(secName)
+                        ? forge.deck.DeckSection.Commander
+                        : forge.deck.DeckSection.Main;
                 continue;
             }
             Matcher m = LINE.matcher(line);
@@ -47,7 +58,11 @@ final class DeckLoader {
                 missing++;
                 continue;
             }
-            deck.getMain().add(pc, qty);
+            if (section == forge.deck.DeckSection.Main) {
+                deck.getMain().add(pc, qty);
+            } else {
+                deck.getOrCreate(section).add(pc, qty);
+            }
         }
         if (missing > 0) {
             throw new IllegalStateException(missing + " card(s) not found in " + path);

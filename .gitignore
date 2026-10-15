@@ -33,3 +33,6 @@ Thumbs.db
 # versioned. The checkout itself is reproducible from that hash.
 spikes/*/forge-upstream/
 third_party/forge/
+
+# Spike run logs
+spikes/**/*.log

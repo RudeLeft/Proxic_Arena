@@ -9,6 +9,11 @@ philosophy — and it maps the rest of the documents.
 **Phase 0A has not been executed. No production feature work is
 authorized.** See `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md`.
 
+**One play mode only: Open Format** — 65-card deck maximum, max 4
+copies of a specific card, unrestricted card pool, 2 players. Commander
+and Two-Headed Giant are out of scope (owner decision 2026-10-15). See
+`docs/architecture/OPEN_FORMAT.md` and AGENTS.md FMT-001.
+
 This session is scoped to `Proxic_Arena` (this folder) only.
 
 - `../Proxic_Arena_OLD` is the previous implementation: **read-only

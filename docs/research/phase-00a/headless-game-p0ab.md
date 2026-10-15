@@ -247,5 +247,5 @@ Both cost more time than either finding above.
 | P0A-E — hidden information | not started |
 | P0A-F — object identity | not started |
 | P0A-G/H — protocol safety, reconnect | not started |
-| P0A-I — Commander | not started |
+| P0A-K — zone coverage | not started (replaces Commander) |
 | P0A-J — adapter recommendation | done, pending owner acceptance |

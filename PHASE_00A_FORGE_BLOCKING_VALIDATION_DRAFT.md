@@ -110,8 +110,6 @@ Protocol:          PROTOCOL.md
 | Reconnect to same seat | `RUN` — `test_reconnect.py` | Medium |
 | Process-per-match | `RUN` — one JVM per game, in production on Unraid | Low |
 | Event bus | `SOURCE` 58 event types; `RUN` 9 translated | Low |
-| Commander | **Never configured or run** | Full work, see 0A.9 |
-| Two-Headed Giant | `SOURCE` — no `TwoHeadedGiant` GameType exists | Low: one grep |
 | Exact printing | `SOURCE` — `CardDb.CardRequest` supports it; bridge discarded it | Low |
 | Control-another-player | `SOURCE` — `Player.getController` routes to controller | See 0A.8 |
 | Attachments, DFCs | **Untested** | Phase 0B |
@@ -136,7 +134,7 @@ Phase 0A answers exactly these. Nothing else is in scope.
 7. What is a stable public object identity for one match?
 8. How are decision ownership, duplicates and stale responses enforced?
 9. One JVM per match, or something else? And how is Forge packaged?
-10. Commander: viable? Two-Headed Giant: classified?
+10. Can an action be offered from a zone other than hand/battlefield?
 ```
 
 Ten questions. If an experiment does not serve one of them, it belongs in
@@ -192,11 +190,11 @@ The split is only trustworthy if nothing fell through it. `PHASE_00` has
 | 0.35 | Scry / Surveil / Ordering | 0B.10 |
 | 0.36 | Name / Type / Colour Selection | 0B.10 |
 | 0.37 | Multiplayer Voting | 0B.11 |
-| 0.38 | Commander Capability Audit | **0A.9** |
-| 0.39 | Commander Runtime Test | **0A.9** (construct/start/cast); 0B.7 |
-| 0.40 | 2HG Capability Audit | **0A.9** |
-| 0.41 | 2HG Classification | **0A.9** |
-| 0.42 | 2HG Escalation Gate | **0A.9** — already answered by owner |
+| 0.38 | Commander Capability Audit | **REMOVED** — format cancelled |
+| 0.39 | Commander Runtime Test | **REMOVED** — format cancelled |
+| 0.40 | 2HG Capability Audit | **REMOVED** — format cancelled |
+| 0.41 | 2HG Classification | **REMOVED** — format cancelled |
+| 0.42 | 2HG Escalation Gate | **REMOVED** — format cancelled |
 | 0.43 | Evaluate Forge Network Play | 0B.16 |
 | 0.44 | Forge Network Test Questions | 0B.16 |
 | 0.45 | Browser Must Not Speak Forge Protocol | RULE |
@@ -265,7 +263,7 @@ Clean build result
 Then run `PHASE_00 §0.11`'s comparison against the old pin
 `83168c1d`, limited to areas that could change the architecture:
 `PlayerController`, game construction, the view/visibility model, the
-event system, card loading, `StaticData`, Commander, teams.
+event system, card loading, `StaticData`.
 
 A full Forge changelog is out of scope.
 
@@ -307,7 +305,7 @@ Then score the three strategies from `PHASE_00 §0.17` and **recommend
 one**, decisively, per `§0.79`.
 
 Relevant prior evidence: the old project implemented 42 of 109 controller
-methods through Strategy A and completed real games with Commander-scale
+methods through Strategy A and completed real games with 100-card
 decks. That is a known-viable floor. It also found that a stub can be
 swallowed by Forge's own `try/catch` — `CountersPutEffect.resolve` did
 exactly that, silently disabling every counter in the game while printing
@@ -462,41 +460,31 @@ Never parse Oracle text into gameplay behaviour (`§0.82`).
 
 ---
 
-## 0A.9 Formats
+## 0A.9 Formats — removed from scope
 
-### Commander — blocking, minimally
-
-Commander affects deck construction, `RegisteredPlayer` setup, starting
-life and the command zone, all of which are core to Phase 2 and Phase 6.
-The old project **never configured or ran it**, so there is no prior
-evidence to lean on.
-
-Required in 0A:
+**Owner decision, 2026-10-15: Proxic Arena supports one play mode,
+Open Format.** See `docs/architecture/OPEN_FORMAT.md`.
 
 ```text
-SOURCE audit of Commander support
-a Commander game can be CONSTRUCTED and STARTED
-commander begins in the command zone
-commander can be cast
+deck size     65 cards maximum
+copy limit    no more than 4 copies of a specific card
+card pool     unrestricted
 ```
 
-Deferred to 0B: commander tax across recasts, commander damage tracking,
-zone-change replacement choice, colour identity enforcement, multiple
-commanders.
+Commander and Two-Headed Giant are both out of scope. There is no
+format capability gate left to evaluate: Open Format runs on
+`GameType.Constructed`, which every passing Phase 0A test already used.
 
-### Two-Headed Giant — closed, not researched
+Deck legality (65 max) differs from Forge's `DeckFormat.Constructed`
+(60 min, no max) and is therefore enforced by Proxic at import and
+match setup, not delegated to Forge. That is a format policy, not a
+game rule, so it does not cross the Forge boundary.
 
-The project owner has decided to skip 2HG. It is therefore a **gate to
-record, not a research project**.
-
-Required in 0A: confirm at the new pin whether a `TwoHeadedGiant` GameType
-exists, and classify per `§0.41`. At the old pin it did not — the only
-`TwoHeaded` string in the entire tree was the card text of Wars Toll, and
-teams existed only as an integer deciding who loses together, with no
-shared turn structure and no shared life total.
-
-If still `UNSUPPORTED`, record it and stop. `PHASE_00 §0.42`'s escalation
-has already been answered by the owner: removed from initial scope.
+The Commander work that had been done before cancellation produced one
+finding that outlives it, and it is now `P0A-K` in §0A.12: the action
+enumerator must walk **every zone Forge can offer an action from**, not
+just hand and battlefield. Open Format's unrestricted card pool makes
+that broader, not narrower. Details in `OPEN_FORMAT.md` §5.
 
 ---
 
@@ -550,7 +538,7 @@ targeted instant             targeting, stack, priority
 ETB trigger with a target    trigger decision path
 alternative cost             payment that is not the printed cost
 face-down object             hidden information H4
-Commander                    command zone, 0A.9
+graveyard/exile action       zone coverage, P0A-K
 ```
 
 Use stacked decks so rare paths are reached deterministically. The old
@@ -565,8 +553,9 @@ Phase 0A deck requirements. They are 0B.12, 0B.13 and 0B.9.
 
 ## 0A.12 Acceptance Tests
 
-Phase 0A is complete when these have evidence. Ten tests, down from
-sixteen.
+Phase 0A is complete when these have evidence. Nine tests, down from
+sixteen — Commander's P0A-I was removed with the format (§0A.9) and
+replaced by P0A-K, which generalises the gap it found.
 
 | ID | Test | Evidence |
 | --- | --- | --- |
@@ -578,11 +567,12 @@ sixteen.
 | P0A-F | Stable object identity holds across snapshots, duplicates and zone changes | `RUN` |
 | P0A-G | Wrong-player, duplicate and stale responses all rejected | `RUN` |
 | P0A-H | Reconnect restores the seat and the game continues | `RUN` |
-| P0A-I | Commander game constructs, starts, commander castable from command zone | `RUN` |
+| P0A-K | An action is offered from a zone other than hand or battlefield | `RUN` |
 | P0A-J | Adapter strategy recommended decisively, alternatives rejected with reasons | Combined |
 
-2HG classification is recorded under P0A-J's report rather than as its own
-test, since the owner has closed the question.
+Both 2HG and Commander are closed by owner decision rather than by
+evidence, and are recorded in §0A.9 and `OPEN_FORMAT.md` rather than as
+acceptance tests.
 
 ---
 
@@ -604,8 +594,8 @@ Required headings, reduced from `PHASE_00 §0.78`'s twenty-three:
 7.  Object identity strategy
 8.  Decision ownership and protocol safety
 9.  Process model and Forge packaging
-10. Commander result
-11. Two-Headed Giant classification
+10. Open Format: deck-legality enforcement point
+11. Zone coverage (P0A-K)
 12. Prior-evidence re-validation: confirmed / changed / not re-tested
 13. Known risks and known unknowns
 14. Required Phase 1 architecture

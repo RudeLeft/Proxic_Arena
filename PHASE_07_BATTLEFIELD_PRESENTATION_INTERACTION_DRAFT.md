@@ -9,6 +9,14 @@
 
 ---
 
+> **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
+> Proxic Arena supports **one play mode: Open Format** — 65-card deck
+> maximum, no more than 4 copies of a specific card, unrestricted card
+> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
+> Wherever this document describes a format choice, a preset catalog,
+> a command zone, teams or shared life, that content is **void**.
+> See `docs/architecture/OPEN_FORMAT.md`.
+
 ## 7.0 Purpose
 
 Phase 7 builds the thing a player actually looks at and clicks: the
@@ -315,7 +323,7 @@ React owns chrome, panels, menus and forms. PixiJS owns the board.
 
 ## 7.16 Texture Strategy
 
-Card faces are the dominant asset cost. A Commander board plus two hands
+Card faces are the dominant asset cost. A 60-permanent board plus two hands
 plus graveyards is easily 150+ distinct faces.
 
 Phase 7 must determine, with measurement:
@@ -713,7 +721,7 @@ filtering hidden information in the UI after transmitting it
 | P7-J | Reconnect rebuilds the board from snapshot alone and play continues | `RUN` |
 | P7-K | Dropping an event costs an animation, not correctness | `RUN` |
 | P7-L | Attachments render from relationship data, not parsed text | `RUN` |
-| P7-M | Texture strategy measured under a Commander-sized board | `BENCHMARK` |
+| P7-M | Texture strategy measured under a 60-permanent board | `BENCHMARK` |
 | P7-N | Layout property suite green across the viewport × card-count matrix | `RUN` |
 | P7-O | Owner has seen and accepted the board | `USER` |
 

@@ -183,7 +183,7 @@ claim being made.
 | P0A-F object identity | PASSED + typed-id requirement |
 | **P0A-G decision authority** | **PASSED**, all four rejection classes, leak reproduced on removal |
 | **P0A-H reconnect** | **PASSED**, game completes after reconnect |
-| P0A-I Commander | not started |
+| P0A-K zone coverage | not started (replaces Commander) |
 | P0A-J adapter recommendation | pending owner acceptance |
 
 Deferred as scoped: the Mindslaver runtime test (0B.6). §0A.8's

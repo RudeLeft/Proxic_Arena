@@ -22,6 +22,14 @@
 > Content is unchanged. Only the status and the dependency notes below
 > were added.
 
+> **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
+> Proxic Arena supports **one play mode: Open Format** — 65-card deck
+> maximum, no more than 4 copies of a specific card, unrestricted card
+> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
+> Wherever this document describes a format choice, a preset catalog,
+> a command zone, teams or shared life, that content is **void**.
+> See `docs/architecture/OPEN_FORMAT.md`.
+
 **Phase-0A-dependent decisions in this phase: most of them.**
 
 This is the phase 0A exists to inform.
@@ -4473,21 +4481,29 @@ lack of imported token PNG does not crash match
 
 ---
 
-## P6-BH — Commander Runtime
+## P6-BH — Zone coverage  *(replaces "Commander Runtime")*
 
-If Commander is accepted as supported by Phase 0/5:
+**AMENDED 2026-10-15.** Commander is out of scope; this test is
+replaced rather than deleted, because the Phase 0A Commander work found
+a gap that outlives the format.
 
-launch and interact with a real Commander match enough to prove:
+An adapter that enumerates playable actions from only hand and
+battlefield silently never offers anything else. Open Format allows any
+card, so graveyard (flashback, escape), exile (foretell, adventure) and
+even library (Panglacial Wurm, which is in the Mechanics Lab corpus)
+are all reachable.
+
+Prove that an action offered by Forge from a zone **other than hand or
+battlefield** is enumerated, presented, and can be performed.
 
 ```text
-player count
-command-zone state
-commander identities
+zone coverage of the action enumerator
+object identity across that zone
 viewer snapshots
 decision routing
 ```
 
-**Required evidence:** RUN.
+**Required evidence:** RUN. See `docs/architecture/OPEN_FORMAT.md` §5.
 
 ---
 
@@ -4725,7 +4741,7 @@ Use the project-pinned tool versions.
 
 ## Multiplayer
 
-- [ ] Commander/multiplayer test when accepted.
+- [ ] Zone-coverage test (P6-BH): an action offered from a zone other than hand or battlefield.
 - [ ] At least one sequential multi-user decision when supported.
 - [ ] Unsupported 2HG blocked.
 

@@ -18,6 +18,14 @@
 > Content is unchanged. Only the status and the dependency notes below
 > were added.
 
+> **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
+> Proxic Arena supports **one play mode: Open Format** — 65-card deck
+> maximum, no more than 4 copies of a specific card, unrestricted card
+> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
+> Wherever this document describes a format choice, a preset catalog,
+> a command zone, teams or shared life, that content is **void**.
+> See `docs/architecture/OPEN_FORMAT.md`.
+
 **Phase-0A-dependent decisions in this phase:**
 
 - §2.10 already states that Phase 0 Forge decisions remain authoritative.
