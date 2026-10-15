@@ -76,7 +76,7 @@ are all present and exercised.
 | 1.25 | Version endpoint | VERIFIED | reports the pinned Forge commit from one source |
 | 1.26 | System status | VERIFIED | test asserts no secret or connection string leaks |
 | 1.27 | Production static serving | VERIFIED | `/`, `/play`, `/assets/*` from the image |
-| 1.28 | Development frontend serving | WRITTEN | Vite proxy configured; hot-reload path never exercised |
+| 1.28 | Development frontend serving | VERIFIED | dev server run, `/api` proxied to Ktor, a live edit hot-updated the page |
 | 1.29 | WebSocket foundation | VERIFIED | real client, HELLO/PING/PONG |
 | 1.30 | Connection identity | VERIFIED | `connectionId` issued and logged |
 | 1.31 | Protocol boundary | DONE | infrastructure messages only |
@@ -117,7 +117,7 @@ are all present and exercised.
 | --- | --- | --- | --- |
 | 1.52 | Docker is mandatory | VERIFIED | stack built and run |
 | 1.53 | Compose services | PARTIAL | server + postgres + Forge runtime verified; only `cloudflared` remains unrun |
-| 1.54 | Development compose | WRITTEN | `docker-compose.dev.yml` never started |
+| 1.54 | Development compose | VERIFIED | started, and now isolated from production by project name |
 | 1.55 | Production compose | VERIFIED | |
 | 1.56 | Production frontend build | VERIFIED | Vite stage inside the image; no Node at runtime |
 | 1.57 | JVM multi-stage build | VERIFIED | JRE runtime holds neither toolchain |
@@ -173,9 +173,9 @@ a stopped jar need different responses.
 | 1.85 | Cloudflare Tunnel test | BLOCKED | |
 | 1.86 | Cloudflare security preservation | BLOCKED | |
 | 1.87 | Static analysis | VERIFIED | ESLint (type-aware) + Prettier + ktlint + detekt, all clean |
-| 1.88 | Dependency locking | PARTIAL | `package-lock.json` yes; no Gradle lockfile |
+| 1.88 | Dependency locking | VERIFIED | `package-lock.json` plus `server/gradle.lockfile` (228 entries); a version change is refused by the lock |
 | 1.89 | Gradle wrapper | DONE | 8.10.2 |
-| 1.90 | Node version | PARTIAL | pinned in the image; no `.nvmrc` |
+| 1.90 | Node version | DONE | `.nvmrc` (24.11.1), matching the image |
 | 1.91 | Java version | DONE | toolchain 17 |
 
 ## §1.92–§1.98 — Documentation

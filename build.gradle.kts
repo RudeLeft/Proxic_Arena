@@ -19,4 +19,17 @@ allprojects {
     repositories {
         mavenCentral()
     }
+
+    // PHASE_01 1.88 — dependency locking.
+    //
+    // gradle.properties pins the versions WE declare; a lockfile
+    // pins the transitive graph those versions resolve to. Without
+    // it, a transitive dependency can publish a new patch release
+    // and change the build between two runs of the same commit,
+    // which makes "it worked yesterday" unanswerable.
+    //
+    // Refresh with:  ./gradlew :server:dependencies --write-locks
+    dependencyLocking {
+        lockAllConfigurations()
+    }
 }
