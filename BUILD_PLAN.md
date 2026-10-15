@@ -37,7 +37,12 @@ during build live in `docs/decisions/`.
 | Logging, request ids, error shape | §1.42–§1.44 | done |
 | Configuration & secrets | §1.45–§1.47 | done (tested) |
 | Foundation UI | §1.68–§1.70 | done (run, screenshotted) |
-| Docker, Compose, Postgres, edge | §1.36–§1.41, §1.48–§1.67 | **blocked** — see `docs/decisions/0001-phase1-toolchain-conflict.md` |
+| Database, Flyway, HikariCP | §1.35–§1.40 | done (run against a real PostgreSQL 16.4) |
+| Structured logging | §1.41 | done (tested, rendered) |
+| Docker image & compose stack | §1.52–§1.59 | done (built, run, outage and recovery tested) |
+| Forge worker module | §1.60–§1.67 | not started — Phase 6 |
+| Cloudflare edge | §1.48–§1.51 | **written, NOT VERIFIED** — needs the real host |
 
-Nothing above claims Docker, PostgreSQL, the Forge worker or the
-Cloudflare edge works; none of it has been run (§1.71).
+§1.71 status: Docker, PostgreSQL and the WebSocket foundation have
+each been RUN and are claimed on that basis. The Forge worker and the
+Cloudflare Tunnel have not, and are not claimed.

@@ -1,10 +1,31 @@
 <configuration>
+    <!-- PHASE_01 §1.41 structured logging.
+
+         The ten fields §1.41 names, and where each comes from:
+
+           timestamp      %d
+           level          %-5level
+           service        the `service` property below
+           request_id     MDC, Ktor CallId      (§1.43)
+           connection_id  MDC, per WebSocket    (§1.30)
+           session_id     MDC, Phase 3
+           match_id       MDC, Phase 6
+           player_id      MDC, Phase 6
+           message        %msg
+           error_code     MDC, set when a failure is reported
+
+         The not-yet-used fields are in the pattern NOW. A field added
+         later is a field some code paths set and others do not, and
+         the gap only shows up the day a match misbehaves and the
+         lines that matter carry no match_id. `:-` renders an unset
+         field as empty rather than the literal string
+         "connection_id_IS_UNDEFINED". -->
+
+    <property name="service" value="arena-server"/>
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <!-- requestId comes from Ktor's CallId MDC (PHASE_01 §1.43),
-                 so a log line can be traced to a request and later to a
-                 connection, session, player and match. -->
-            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{requestId:-}] %logger{24} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level ${service} [req=%X{requestId:-} conn=%X{connectionId:-} sess=%X{sessionId:-} match=%X{matchId:-} player=%X{playerId:-} err=%X{errorCode:-}] %logger{24} - %msg%n</pattern>
         </encoder>
     </appender>
 

@@ -109,7 +109,9 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             val id = call.callId
-            call.application.log.error("unhandled error (requestId=$id)", cause)
+            LogContext.withFields(LogContext.ERROR_CODE to "INTERNAL_ERROR") {
+                call.application.log.error("unhandled error", cause)
+            }
             call.respond(
                 HttpStatusCode.InternalServerError,
                 ErrorResponse(
@@ -176,7 +178,14 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
         // §1.29 — infrastructure WebSocket. No Magic messages.
         webSocket("/ws/system") {
             val connectionId = "conn-${connectionSequence.incrementAndGet()}"
-            application.log.info("ws open connectionId=$connectionId")
+            // Wrapped around the LOG CALL, not the whole handler:
+            // MDC is thread-local and this body suspends, so a value
+            // set across a suspension point can resume on another
+            // thread and attach itself to an unrelated connection's
+            // lines (§1.41).
+            LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
+                application.log.info("ws open")
+            }
 
             send(
                 Frame.Text(
@@ -230,7 +239,9 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
                     }
                 }
             } finally {
-                application.log.info("ws close connectionId=$connectionId")
+                LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
+                    application.log.info("ws close")
+                }
             }
         }
 

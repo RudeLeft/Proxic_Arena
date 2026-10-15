@@ -1,6 +1,6 @@
 # ADR 0001 — Phase 1 cannot be fully verified on this machine
 
-**Status:** OPEN — needs an owner decision
+**Status:** ACCEPTED — option A, 2026-10-15
 **Date:** 2026-10-15
 **Raised under:** AGENTS PHASE-003 / `PHASE_00 §0.81` (CONFLICT procedure)
 
@@ -80,7 +80,39 @@ silently rather than loudly.
 Until it is answered, Phase 1 proceeds on the verifiable parts, and
 nothing unverified will be described as working.
 
-## Question for the owner
+## Decision
 
-Install Docker Desktop (A), install PostgreSQL only (B), proceed
-unverified (C), or amend the phase (D)?
+**A — install Docker Desktop.** Chosen by the owner on 2026-10-15 and
+done the same day: Docker Desktop 4.95.0, Engine 29.8.2, WSL2 backend.
+
+## Outcome
+
+It paid for itself immediately.
+
+| | |
+| --- | --- |
+| Database §1.35–§1.40 | **verified** — 4 Testcontainers tests against a real PostgreSQL 16.4 |
+| Docker §1.52–§1.59 | **verified** — image built, stack run, outage and recovery tested |
+| Cloudflare §1.48–§1.51 | still unverified; needs the real host, as predicted |
+
+Three defects were found that only a real run could have found, each
+of which would otherwise have shipped to Unraid:
+
+1. HikariCP fail-fasts by default, so the server would have died at
+   boot whenever PostgreSQL was slower to start — the normal ordering
+   in a compose stack.
+2. `${VAR:?}` on a service behind an INACTIVE profile still fails
+   interpolation, so `docker compose up` refused to start for anyone
+   not running the Cloudflare edge.
+3. docker-java negotiates API 1.32; Docker Engine 29 refuses anything
+   below 1.40 and answers 400 with an empty body, which Testcontainers
+   reports as "no Docker environment" on a machine where Docker is
+   running fine.
+
+(3) is the one that justifies the whole decision. Under option C the
+database tests would have been written, never run, and reported as
+"skipped — no Docker" forever.
+
+The one cost: the Windows named-pipe workaround in
+`server/build.gradle.kts` is development-machine specific. It is
+guarded so Linux and CI are untouched.
