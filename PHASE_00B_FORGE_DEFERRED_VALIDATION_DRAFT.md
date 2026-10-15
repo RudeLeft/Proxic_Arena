@@ -62,7 +62,10 @@ TRIGGER   Any of:
             - the server is exposed beyond the owner's known group
             - a match is observed to be slow with another running
 EVIDENCE  RUN + BENCHMARK, real OS measurements, no extrapolation
-STATUS    DEFERRED
+STATUS    **DONE** 2026-10-15. Trigger fired when the owner stated a
+          5-match ceiling. Measured 611 MB mean per worker, 3,055 MB
+          for five, all games completing; startup 2.8s alone vs 5.8s
+          at five. See docs/research/phase-00a/process-model-p0a10.md
 ```
 
 ## 0B.3 Worker crash isolation
@@ -75,7 +78,10 @@ WHY SAFE  Follows structurally from process-per-match, which 0A decides.
 TRIGGER   0A selects anything other than one-JVM-per-match
           OR before first use by anyone other than the owner
 EVIDENCE  RUN — kill one worker, others unaffected, parent detects exit
-STATUS    DEFERRED
+STATUS    **DONE** 2026-10-15. One worker killed mid-run; the other two
+          completed normally. The FIRST attempt proved nothing: a 20s
+          sleep meant all three games had already finished, so it killed
+          an idle process and still reported "survived 3/3".
 ```
 
 ## 0B.4 Memory, CPU and startup benchmarks
@@ -341,8 +347,8 @@ The live summary. Keep this table current; it is what a phase gate reads.
 
 | Item | Trigger | Status |
 | --- | --- | --- |
-| 0B.2 Three workers | >2 concurrent matches, or beyond owner's group | DEFERRED |
-| 0B.3 Crash isolation | 0A picks non-process-per-match, or non-owner use | DEFERRED |
+| 0B.2 Three workers | fired 2026-10-15 (5-match ceiling) | **DONE** |
+| 0B.3 Crash isolation | run alongside 0B.2 | **DONE** |
 | 0B.4 Benchmarks | Slow startup, memory pressure, or pre-warming proposed | DEFERRED |
 | 0B.5 Docker image | Before first deployment | DEFERRED |
 | 0B.6 Mindslaver runtime | Control-player deck importable, or protocol 1.0 | DEFERRED |
@@ -357,7 +363,7 @@ The live summary. Keep this table current; it is what a phase gate reads.
 | 0B.16 Forge network tests | 0A recommends Strategy B or C | DEFERRED |
 | 0B.17 Snapshot sizing | Observed slow or large | DEFERRED |
 | 0B.18 Printing fallback | Phase 2 import | DEFERRED |
-| 0B.19 Multi-match JVM | Process-per-match too expensive | DEFERRED |
+| 0B.19 Multi-match JVM | >8 concurrent, or <4 GB free for Proxic | DEFERRED (quantified) |
 | 0B.20 Semantic events | Before Phase 7 animates that event class | DEFERRED |
 
 ---
