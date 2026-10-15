@@ -1,0 +1,6 @@
+// Phase 0A H4 deck: forces face-down permanents onto the battlefield.
+// Morph is an ALTERNATIVE cost, so this also exercises the
+// getAllPossibleAbilities path that the old project found missing.
+24 Mountain
+24 Ainok Tracker
+12 Shock

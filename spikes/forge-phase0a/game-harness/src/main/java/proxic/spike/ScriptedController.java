@@ -98,6 +98,11 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         seen("chooseSpellAbilityToPlay");
+        // P0A-E: sample hidden information from BOTH seats while the
+        // game is live. Cheap next to a Forge decision, and it means
+        // the assertion is made against real mid-game state rather
+        // than a contrived snapshot.
+        VisibilityProbe.sample(getGame());
         int stackDepth = getGame().getStack().size();
         if (stackDepth > MAX_STACK) MAX_STACK = stackDepth;
         int mana = untappedManaSources();
@@ -138,6 +143,14 @@ public final class ScriptedController extends GeneratedControllerBase {
                     return List.of(sa);
                 }
             }
+        }
+
+        // Prefer a face-down (morph) cast when one is offered. H4 cannot
+        // be tested at all without a face-down permanent, and a filter
+        // that never fires is indistinguishable from one that works
+        // (AGENTS HID-004).
+        for (SpellAbility sa : spells) {
+            if (sa.isCastFaceDown()) return List.of(sa);
         }
 
         // Spell over land over pass, so the run exercises casting rather

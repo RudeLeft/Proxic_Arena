@@ -152,14 +152,16 @@ public final class GameRunner {
         System.out.println("    spells cast outside own turn       : " + ScriptedController.CAST_OFF_TURN);
         GeneratedControllerBase.printReachedStubs();
         GeneratedCostDecisionMaker.printUnsupported();
+        boolean hidOk = VisibilityProbe.report();
 
-        boolean ok = game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
+        boolean ok = hidOk && game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
         System.out.println();
         if (GeneratedControllerBase.SURVEY) {
             System.out.println("RESULT: SURVEY (not a pass — stubs returned defaults "
                     + "instead of answering; see the stub list above)");
         } else {
-            System.out.println("RESULT: " + (ok ? "PASS" : "FAIL — no outcome"));
+            System.out.println("RESULT: " + (ok ? "PASS"
+                    : (!hidOk ? "FAIL — hidden-information check" : "FAIL — no outcome")));
         }
         System.exit(ok ? 0 : 1);
     }
