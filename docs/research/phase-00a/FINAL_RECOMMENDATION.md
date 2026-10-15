@@ -41,13 +41,33 @@ java         Temurin 17.0.20.1          maven 3.9.16
 ```
 
 The latest *release* is **older** than the commit the old project ran
-(`83168c1d`, 2026-09-29, 11 commits ahead). `master` is 186 commits
-further on. A tagged release was chosen for repeatable updates;
-`master` HEAD remains an option.
+(`83168c1d`, 2026-09-29, 11 commits ahead). `master` is a further 197
+commits on from the tag.
 
-**`PlayerController` is byte-identical between the two pins** — 105
-distinct abstract methods, zero added, zero removed. The old project's
-evidence transfers almost completely.
+**`PlayerController` is byte-identical between the old pin and
+2.0.15** — 105 distinct abstract methods, zero added, zero removed —
+so the old project's evidence transfers almost completely.
+
+The 197 commits to `master` were reviewed in full (local diff, 976
+files; the compare API's 300-file cap hid two thirds). Summary, with
+detail in `forge-pin-delta-review.md`:
+
+```text
+[RUN] content changes to card scripts hitting our test corpus : 0
+      (343 of 506 cardsfolder changes are pure renames)
+[RUN] CardDb and ManaPool                                     : unchanged
+[RUN] canFaceDownBeShownTo                                    : identical
+[RUN] canBeShownTo       : one new zone case (StickerSheets); hand,
+                           battlefield and library behaviour unchanged
+[RUN] the AI-only priority guard (§4.1)                       : UNCHANGED
+                           -- not an upstream bug awaiting a fix
+[RUN] PlayerController at master : 113 abstract, vs 110 at the tag
+                           -- master ADDS three sticker methods
+[RUN] GameType at master : gains CommanderDraft, still no TwoHeadedGiant
+```
+
+No identifiable benefit is given up by pinning the release, and
+`master` would add a new mechanic's surface for no demonstrated gain.
 
 ---
 
@@ -243,8 +263,10 @@ replaced by §3 above, and these additions:
 
 ## 11. Questions requiring an owner decision
 
-1. **Accept `forge-2.0.15` as the pin**, or prefer `master` HEAD for
-   186 additional commits?
+1. **Accept `forge-2.0.15` as the pin.** The 197-commit delta to
+   `master` was reviewed in full and contains nothing we depend on;
+   see §2 and `forge-pin-delta-review.md`. This is now a
+   confirm-the-evidence question rather than an open judgement call.
 2. **Accept Strategy A and one-JVM-per-match** as the locked
    architecture?
 3. §7.51's six battlefield questions remain open and now block Phase 7
