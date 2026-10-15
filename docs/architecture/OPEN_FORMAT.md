@@ -11,7 +11,7 @@
 Proxic Arena supports **one play mode**: Open Format.
 
 ```text
-deck size        65 cards maximum  (minimum: see §4.4, assumed 60)
+deck size        60-65 cards (inclusive)
 copy limit       no more than 4 copies of a specific card
                  EXCEPT basic lands, which are unlimited
 card pool        unrestricted -- any real Magic card is allowed
@@ -73,6 +73,9 @@ starts. Phase 2 already treats structural validation as Proxic's job.
 
 ## 4. Rules as confirmed by the owner
 
+Card art and the deck package are covered separately in
+`DECK_PACKAGE_AND_ART.md`.
+
 ### 4.1 Basic lands are EXEMPT from the 4-copy limit — CONFIRMED
 
 ```text
@@ -124,18 +127,16 @@ Open Format allows any card, so one will eventually be imported.
 Default, pending a decision, is **no** — the literal reading of the
 rule as given.
 
-### 4.4 Minimum deck size — STILL OPEN
-
-"65 maximum" states a ceiling and no floor. Without one, a 1-card deck
-is legal and decks out immediately.
+### 4.4 Deck size is 60–65 inclusive — CONFIRMED
 
 ```text
-ASSUMED, pending confirmation: minimum 60, matching ordinary Magic
-and Forge's Constructed floor.
+[USER] 2026-10-15: "No less than 60, no more than 65"
 ```
 
-If a lower floor is wanted (40, or none), Proxic must enforce it
-itself rather than inheriting Forge's.
+A narrow band, and **neither end matches Forge**:
+`DeckFormat.Constructed` is min 60 with no maximum. The floor happens
+to agree; the ceiling is Proxic's alone. Both ends are enforced by
+Proxic at import and match setup (§3).
 
 ---
 

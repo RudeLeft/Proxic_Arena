@@ -59,6 +59,7 @@ you were asked to do, stop and say so.
 | `PHASE_01`–`PHASE_06` `_PROVISIONAL.md` | Production phases. Provisional because they were locked before Phase 0 ran; each carries a note on what 0A may change. |
 | `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
+| `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
 | `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
@@ -77,8 +78,9 @@ you were asked to do, stop and say so.
   is **max 65**. They are different rules, so the check cannot be
   delegated. Deck-construction legality is format policy; everything
   after the game starts is still Forge's. Open Format: max 65 cards,
-  max 4 copies of a card, **basic lands unlimited**, **no sideboard**.
-  _REVIEW._
+  60-65 cards inclusive, max 4 copies of a card, **basic lands
+  unlimited**, **no sideboard**. Neither size bound matches Forge's
+  Constructed (min 60, no maximum). _REVIEW._
 - **FMT-004 — MUST NOT:** Use `DeckFormat.canHaveAnyNumberOf()` as the
   copy-limit exemption test. It exempts basic lands *and* cards
   keyworded "A deck can have any number of cards named CARDNAME"
