@@ -13,7 +13,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 0 | Forge Architecture Validation | SUPERSEDED (split into 0A/0B) | `PHASE_00_FORGE_ARCHITECTURE_VALIDATION_SUPERSEDED.md` |
 | 0A | Forge Blocking Validation | **ACCEPTED** 2026-10-15 | `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md` |
 | 0B | Forge Deferred Validation | OPEN (trigger register) | `PHASE_00B_FORGE_DEFERRED_VALIDATION_DRAFT.md` |
-| 1 | Application Foundation | **ACTIVE** | `PHASE_01_APPLICATION_FOUNDATION_LOCKED.md` |
+| 1 | Application Foundation | **ACTIVE** — gate NOT PASSED, see `PHASE_01_EXIT_GATE.md` | `PHASE_01_APPLICATION_FOUNDATION_LOCKED.md` |
 | 2 | Deck Package Import | PROVISIONAL | `PHASE_02_DECK_PACKAGE_IMPORT_PROVISIONAL.md` |
 | 3 | Accounts & Authentication | PROVISIONAL | `PHASE_03_ACCOUNTS_AUTHENTICATION_PROVISIONAL.md` |
 | 4 | Deck Depot | PROVISIONAL | `PHASE_04_DECK_DEPOT_PROVISIONAL.md` |
