@@ -1,0 +1,74 @@
+/* Foundation UI styling — PHASE_01 1.68. Diagnostic, not the game. */
+
+:root {
+  color-scheme: dark;
+  --bg: #0d1014;
+  --panel: #161b22;
+  --line: #262d36;
+  --text: #e6e9ee;
+  --muted: #8a8f98;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.sub { margin: 4px 0 28px; color: var(--muted); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child { border-bottom: 0; }
+
+.state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.canvas-host {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.canvas-host canvas { max-width: 100%; border-radius: 6px; }
+
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+
+.verdict { margin-top: 26px; color: var(--muted); font-size: 13px; }

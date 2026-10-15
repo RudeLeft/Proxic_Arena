@@ -9,6 +9,7 @@ import io.ktor.server.plugins.callid.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -18,6 +19,9 @@ import org.slf4j.event.Level
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import java.time.Duration
+import java.io.File
+import io.ktor.server.http.content.*
+import kotlin.system.exitProcess
 
 /**
  * Arena Server — Phase 1 Application Foundation.
@@ -29,6 +33,17 @@ import java.time.Duration
  */
 fun main() {
     val config = ServerConfig.fromEnvironment()
+
+    // §1.46: a production run with a missing or placeholder secret
+    // must not start. Failing here is loud and cheap; starting with
+    // an insecure default is quiet and expensive.
+    val problems = config.startupProblems()
+    if (problems.isNotEmpty()) {
+        System.err.println("Refusing to start in ${config.appEnv}:")
+        problems.forEach { System.err.println("  - $it") }
+        exitProcess(78) // EX_CONFIG
+    }
+
     embeddedServer(Netty, port = config.port, host = config.host) {
         module(config)
     }.start(wait = true)
@@ -201,6 +216,59 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
                 application.log.info("ws close connectionId=$connectionId")
             }
         }
+
+        // §1.27 — production static serving. In development Vite
+        // serves the app and proxies here (§1.28), so this directory
+        // legitimately does not exist and must not break startup.
+        val staticDir = File(config.staticRoot)
+        val indexHtml = File(staticDir, "index.html")
+
+        // SPA fallback. React owns /play and /settings; there is no
+        // file at either path, and a 404 would be wrong.
+        //
+        // The guard is the point: Ktor picks this wildcard for an
+        // unmatched /api/* or /ws/* path too, and answering those with
+        // index.html would hand a client HTML where it expected JSON
+        // and turn a typo'd endpoint into a silent, confusing success.
+        get("{...}") {
+            val path = call.request.path()
+            if (path.startsWith("/api") || path.startsWith("/ws")) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("NOT_FOUND", "No such endpoint.", call.callId),
+                )
+                return@get
+            }
+            // A real built file (/assets/index-abc.js, /favicon.ico)
+            // is served as itself; everything else is a client-side
+            // route and gets the app.
+            val file = resolveStaticFile(staticDir, path)
+            if (file != null) {
+                call.respondFile(file)
+            } else if (path.startsWith("/assets/")) {
+                // A MISSING build asset must 404. Falling back to
+                // index.html here answers a script request with HTML,
+                // and the browser reports it as a syntax error in the
+                // bundle -- a stale cached page looks like a code bug.
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("NOT_FOUND", "No such asset.", call.callId),
+                )
+            } else if (indexHtml.isFile) {
+                call.respondFile(indexHtml)
+            } else {
+                // Honest about WHY, per §1.71: the frontend was never
+                // built, which is not the same as a missing route.
+                call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponse(
+                        "FRONTEND_NOT_BUILT",
+                        "No built frontend at ${config.staticRoot}.",
+                        call.callId,
+                    ),
+                )
+            }
+        }
     }
 }
 
@@ -221,4 +289,24 @@ private suspend fun DefaultWebSocketServerSession.sendEnvelope(
             )
         )
     )
+}
+
+/**
+ * Resolve a request path to a file INSIDE the static root, or null.
+ *
+ * Canonical paths are compared rather than the requested string: a
+ * request for `/../../etc/passwd` or an encoded equivalent must not
+ * escape the directory, and string prefix checks on the raw path miss
+ * that. Returning null for anything that escapes means a traversal
+ * attempt degrades to the SPA fallback rather than serving a file.
+ */
+internal fun resolveStaticFile(root: File, requestPath: String): File? {
+    if (!root.isDirectory) return null
+    val relative = requestPath.trimStart('/')
+    if (relative.isEmpty()) return null
+    val candidate = File(root, relative)
+    val canonicalRoot = root.canonicalFile
+    val canonical = runCatching { candidate.canonicalFile }.getOrNull() ?: return null
+    if (!canonical.toPath().startsWith(canonicalRoot.toPath())) return null
+    return if (canonical.isFile) canonical else null
 }
