@@ -1,0 +1,110 @@
+forge_method,returns,category,covered_by_old_bridge,needs_response
+getAbilityToPlay,SpellAbility,OTHER,YES,yes
+playSpellAbilityNoStack,void,CARD_SELECTION,YES,no
+orderSimultaneousSa,List<SpellAbility>,ORDERING,NO (stub),yes
+orderAndPlaySimultaneousSa,void,ORDERING,YES,no
+playTrigger,boolean,OTHER,NO (stub),yes
+playSaFromPlayEffect,boolean,CARD_SELECTION,NO (stub),yes
+sideboard,List<PaperCard>,PREGAME,NO (stub),yes
+chooseCardsYouWonToAddToDeck,List<PaperCard>,CARD_SELECTION,NO (stub),yes
+assignCombatDamage,"Map<Card, Integer>",COMBAT,YES,yes
+divideShield,"Map<GameEntity, Integer>",COMBAT,NO (stub),yes
+specifyManaCombo,"Map<Byte, Integer>",MANA,NO (stub),yes
+choosePermanentsToSacrifice,CardCollectionView,CARD_SELECTION,YES,yes
+choosePermanentsToDestroy,CardCollectionView,CARD_SELECTION,NO (stub),yes
+announceRequirements,Integer,NUMBER_SELECTION,NO (stub),yes
+chooseNewTargetsFor,TargetChoices,TARGET_SELECTION,NO (stub),yes
+chooseTargetsFor,boolean,TARGET_SELECTION,YES,yes
+chooseTarget,"Pair<SpellAbilityStackInstance, GameObject>",TARGET_SELECTION,NO (stub),yes
+helpPayForAssistSpell,boolean,PAYMENT,NO (stub),yes
+choosePlayerToAssistPayment,Player,PAYMENT,NO (stub),yes
+chooseCardsForEffect,CardCollectionView,CARD_SELECTION,NO (stub),yes
+chooseCardsForEffectMultiple,CardCollection,CARD_SELECTION,NO (stub),yes
+chooseSingleEntityForEffect,<T extends GameEntity> T,CARD_SELECTION,YES,yes
+chooseEntitiesForEffect,<T extends GameEntity> List<T>,CARD_SELECTION,NO (stub),yes
+chooseSpellAbilitiesForEffect,List<SpellAbility>,CARD_SELECTION,NO (stub),yes
+chooseSingleSpellForEffect,SpellAbility,CARD_SELECTION,NO (stub),yes
+confirmAction,boolean,CONFIRMATION,NO (stub),yes
+confirmBidAction,boolean,CONFIRMATION,NO (stub),yes
+confirmReplacementEffect,boolean,REPLACEMENT,NO (stub),yes
+confirmStaticApplication,boolean,CONFIRMATION,NO (stub),yes
+confirmTrigger,boolean,CONFIRMATION,NO (stub),yes
+exertAttackers,List<Card>,COMBAT,YES,yes
+enlistAttackers,List<Card>,COMBAT,YES,yes
+declareAttackers,void,COMBAT,YES,no
+declareBlockers,void,COMBAT,YES,no
+orderBlockers,CardCollection,COMBAT,YES,yes
+orderBlocker,CardCollection,COMBAT,YES,yes
+orderAttackers,CardCollection,COMBAT,YES,yes
+reveal,void,HIDDEN_INFORMATION,YES,no
+reveal,void,HIDDEN_INFORMATION,YES,no
+notifyOfValue,void,OTHER,YES,no
+arrangeForScry,"ImmutablePair<CardCollection, CardCollection>",ORDERING,NO (stub),yes
+arrangeForSurveil,"ImmutablePair<CardCollection, CardCollection>",ORDERING,NO (stub),yes
+willPutCardOnTop,boolean,CARD_SELECTION,YES,yes
+orderMoveToZoneList,CardCollectionView,ORDERING,YES,yes
+chooseCardsToDiscardFrom,CardCollectionView,CARD_SELECTION,NO (stub),yes
+chooseCardsToDiscardUnlessType,CardCollectionView,CARD_SELECTION,NO (stub),yes
+chooseCardsToDiscardToMaximumHandSize,CardCollectionView,CARD_SELECTION,YES,yes
+chooseCardsToDelve,CardCollectionView,PAYMENT,NO (stub),yes
+chooseCardsForConvokeOrImprovise,"Map<Card, ManaCostShard>",PAYMENT,NO (stub),yes
+chooseCardsForSplice,List<Card>,CARD_SELECTION,NO (stub),yes
+chooseCardsToRevealFromHand,CardCollectionView,HIDDEN_INFORMATION,NO (stub),yes
+chooseSaToActivateFromOpeningHand,List<SpellAbility>,PREGAME,NO (stub),yes
+chooseStartingPlayer,Player,PREGAME,YES,yes
+chooseStartingHand,PlayerZone,PREGAME,NO (stub),yes
+chooseManaFromPool,Mana,MANA,NO (stub),yes
+chooseSomeType,String,NAMING,NO (stub),yes
+chooseSector,String,OTHER,NO (stub),yes
+chooseContraptionsToCrank,List<Card>,OTHER,NO (stub),yes
+chooseSprocket,int,OTHER,NO (stub),yes
+choosePDRollToIgnore,PlanarDice,RANDOM_RESULT,NO (stub),yes
+chooseRollToIgnore,Integer,RANDOM_RESULT,NO (stub),yes
+chooseDiceToReroll,List<Integer>,RANDOM_RESULT,NO (stub),yes
+chooseRollToModify,Integer,RANDOM_RESULT,NO (stub),yes
+chooseRollToSwap,RollDiceEffect.DieRollResult,RANDOM_RESULT,NO (stub),yes
+chooseRollSwapValue,String,RANDOM_RESULT,NO (stub),yes
+vote,Object,VOTING,NO (stub),yes
+mulliganKeepHand,boolean,PREGAME,YES,yes
+tuckCardsViaMulligan,CardCollectionView,ORDERING,YES,yes
+chooseSpellAbilityToPlay,List<SpellAbility>,CARD_SELECTION,YES,yes
+playChosenSpellAbility,boolean,CARD_SELECTION,YES,yes
+chooseModeForAbility,List<AbilitySub>,MODE_SELECTION,YES,yes
+chooseNumberForCostReduction,int,PAYMENT,NO (stub),yes
+chooseNumberForKeywordCost,int,NAMING,NO (stub),yes
+chooseNumber,int,NUMBER_SELECTION,NO (stub),yes
+chooseNumber,int,NUMBER_SELECTION,NO (stub),yes
+chooseBinary,boolean,CONFIRMATION,NO (stub),yes
+chooseFlipResult,boolean,RANDOM_RESULT,NO (stub),yes
+chooseColor,byte,COLOR_SELECTION,NO (stub),yes
+chooseColorAllowColorless,byte,COLOR_SELECTION,NO (stub),yes
+chooseColors,ColorSet,COLOR_SELECTION,NO (stub),yes
+chooseSingleCardFace,ICardFace,CARD_SELECTION,NO (stub),yes
+chooseSingleCardFace,ICardFace,CARD_SELECTION,NO (stub),yes
+chooseSingleCardState,CardState,CARD_SELECTION,NO (stub),yes
+chooseCardsPile,boolean,CARD_SELECTION,NO (stub),yes
+chooseCounterType,CounterType,OTHER,YES,yes
+chooseKeywordForPump,String,NAMING,NO (stub),yes
+confirmPayment,boolean,PAYMENT,NO (stub),yes
+chooseSingleReplacementEffect,ReplacementEffect,REPLACEMENT,YES,yes
+chooseSingleStaticAbility,StaticAbility,OTHER,YES,yes
+chooseProtectionType,String,OTHER,NO (stub),yes
+revealAnte,void,HIDDEN_INFORMATION,YES,no
+revealAISkipCards,void,HIDDEN_INFORMATION,YES,no
+revealUnsupported,void,HIDDEN_INFORMATION,YES,no
+chooseOptionalCosts,List<OptionalCostValue>,PAYMENT,YES,yes
+orderCosts,List<CostPart>,PAYMENT,YES,yes
+payCostToPreventEffect,boolean,PAYMENT,NO (stub),yes
+payCostDuringRoll,boolean,RANDOM_RESULT,NO (stub),yes
+payCombatCost,boolean,PAYMENT,YES,yes
+payManaCost,boolean,MANA,YES,yes
+applyManaToCost,boolean,MANA,YES,yes
+chooseCardsForCost,CardCollectionView,PAYMENT,YES,yes
+getCostDecisionMaker,CostDecisionMakerBase,PAYMENT,YES,yes
+chooseCardName,String,NAMING,NO (stub),yes
+chooseCardName,String,NAMING,NO (stub),yes
+chooseSingleCardForZoneChange,Card,CARD_SELECTION,NO (stub),yes
+chooseCardsForZoneChange,List<Card>,CARD_SELECTION,NO (stub),yes
+autoPassCancel,void,OTHER,YES,no
+awaitNextInput,void,OTHER,YES,no
+cancelAwaitNextInput,void,OTHER,YES,no
