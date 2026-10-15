@@ -5,8 +5,15 @@
 # Node server (§1.56) — Ktor serves the compiled assets (§1.27).
 
 # --- Stage 1: frontend ------------------------------------------------
-# Pinned, not `node:latest` (§1.58). Matches the host toolchain.
-FROM node:24.11.1-alpine AS frontend
+# Pinned by DIGEST, not just by tag (§1.58). A tag is a moving
+# pointer: `node:24.11.1-alpine` can be republished, and the build
+# that worked yesterday is then not the build that runs today. The
+# digest is the image. The tag is kept alongside it because a bare
+# digest tells a reader nothing about what it is.
+#
+# These are manifest-LIST digests, so they still resolve per
+# architecture -- amd64 here and on the Unraid host.
+FROM node:24.11.1-alpine@sha256:682368d8253e0c3364b803956085c456a612d738bd635926d73fa24db3ce53d7 AS frontend
 WORKDIR /src
 # package files first, so a source-only change does not re-resolve
 # every dependency.
@@ -17,7 +24,7 @@ COPY protocol/ /protocol/
 RUN npm run build
 
 # --- Stage 2: server --------------------------------------------------
-FROM eclipse-temurin:17.0.13_11-jdk-alpine AS server
+FROM eclipse-temurin:17.0.13_11-jdk-alpine@sha256:d60e19d7da3a1bebbde66f740841d822c0e518aebf99a4403da16bb34f0373f8 AS server
 WORKDIR /src
 # Wrapper and build scripts first: dependency resolution is the slow
 # part and must not be invalidated by a source edit.
@@ -39,7 +46,7 @@ COPY protocol/ protocol/
 RUN ./gradlew --no-daemon :server:installDist -x test
 
 # --- Stage 3: runtime -------------------------------------------------
-FROM eclipse-temurin:17.0.13_11-jre-alpine AS runtime
+FROM eclipse-temurin:17.0.13_11-jre-alpine@sha256:8164ba7f332faf27462e055013c2aa518a2eba1ce6984e9ca60dadb899cab6bd AS runtime
 
 # Non-root (§1.59). The app writes only to /data, which is a volume.
 RUN addgroup -S proxic && adduser -S -G proxic proxic

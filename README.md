@@ -260,6 +260,30 @@ repository.
 > P1-U remain open until then. Nothing in this project describes
 > unrun configuration as working (§1.71).
 
+## Updating a base image
+
+Every image is pinned by **digest**, not only by tag, in `Dockerfile`,
+`docker-compose.yml` and `docker-compose.dev.yml`. A tag is a moving
+pointer — `postgres:16.4-alpine` can be republished — so a tag-only
+pin means the build that worked yesterday is not necessarily the one
+that runs today.
+
+To move to a new image, change the tag and refresh its digest:
+
+```bash
+docker buildx imagetools inspect postgres:16.5-alpine | head -2
+```
+
+Take the `Digest:` line and write `tag@sha256:...`. Keep the tag
+alongside the digest: a bare digest tells a reader nothing about what
+the image is.
+
+These are manifest-**list** digests, so they still resolve per
+architecture — amd64 here and on the Unraid host.
+
+> This does not apply to the Forge pin, which is a different kind of
+> decision entirely. See the Forge update warning above.
+
 ## Secrets
 
 `.env` is gitignored and must stay that way. `.env.example` holds

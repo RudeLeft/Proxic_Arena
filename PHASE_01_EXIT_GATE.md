@@ -121,7 +121,7 @@ are all present and exercised.
 | 1.55 | Production compose | VERIFIED | |
 | 1.56 | Production frontend build | VERIFIED | Vite stage inside the image; no Node at runtime |
 | 1.57 | JVM multi-stage build | VERIFIED | JRE runtime holds neither toolchain |
-| 1.58 | Image pinning | PARTIAL | exact tags, no `latest`; **not digest-pinned** |
+| 1.58 | Image pinning | VERIFIED | every image pinned by manifest-list digest; rebuilt and run |
 | 1.59 | Container permissions | VERIFIED | `uid=100(proxic)`; internal network |
 
 ## §1.60–§1.67 — Forge source and worker
@@ -272,7 +272,7 @@ table is the authority.
    `.editorconfig`.
 5. ~~Frontend gaps~~ — **DONE 2026-10-15.**
 6. ~~Clean-build verification~~ — **DONE 2026-10-15.**
-7. **Digest-pin the images (§1.58)**.
+7. ~~Digest-pin the images (§1.58)~~ — **DONE 2026-10-15.**
 8. **Cloudflare (§1.48–§1.51, P1-R–P1-U)** — on the Unraid host.
    Everything else should pass first.
 
@@ -315,8 +315,6 @@ prerequisite without saying how to satisfy it, which is the gap
 - The Windows named-pipe and `api.version` workarounds in
   `server/build.gradle.kts` are development-machine specific. Guarded,
   but they are a §1.77 smell.
-- Images are tag-pinned, not digest-pinned (§1.58 asks to avoid
-  floating tags; it does not explicitly require digests).
 - `docker-compose.dev.yml` has never been started.
 - Phase 1 verification has so far leaned on manual browser checks.
   Item 3 above is what converts that into evidence that survives
