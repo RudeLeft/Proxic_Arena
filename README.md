@@ -78,11 +78,45 @@ Every version is pinned exactly. Nothing floats.
 - **Java 17** (a JDK, for building outside Docker)
 - **Node 24** (for the frontend outside Docker)
 - **Maven 3.9** (for the Forge worker)
-- A local checkout of upstream Forge at the pinned commit, if you
-  want the worker to do anything (see **Forge version** below)
+- A local checkout of upstream Forge at the pinned commit, **if you
+  want the worker to do anything** (see below)
 
 Nothing else. If a build needs something not listed here, that is a
 bug in this README (§1.77).
+
+### Building the Forge worker
+
+The upstream Forge checkout is ~1 GB and belongs to upstream, so it
+is deliberately not in this repository (`.gitignore`). Without it the
+server, the frontend, the database and the Docker stack all build and
+run; only the five Forge-worker tests skip, saying why.
+
+To build it:
+
+```bash
+git clone https://github.com/Card-Forge/forge.git third_party/forge
+cd third_party/forge
+git checkout 4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676
+mvn install -DskipTests -pl forge-core,forge-game -am
+cd ../..
+cd forge-worker && mvn package
+```
+
+Then point the server at the jar and at Forge's data files:
+
+```bash
+export PROXIC_FORGE_WORKER_JAR=$PWD/forge-worker/target/forge-worker-0.1.0.jar
+export PROXIC_FORGE_RES=$PWD/third_party/forge/forge-gui/res
+```
+
+Readiness should then report `forgeWorker: "ok"`. Any other value is
+explained in `docs/troubleshooting/FOUNDATION.md`.
+
+> The Forge artifacts on this machine were installed during Phase 0A
+> and the worker has been built and run against them. The clone-and-
+> install sequence above is written from that work; a fully cold run
+> of it has not been repeated since, so treat the first execution on
+> a new machine as the verification.
 
 ## Development startup
 

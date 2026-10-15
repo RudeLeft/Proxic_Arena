@@ -161,8 +161,8 @@ a stopped jar need different responses.
 | 1.73 | Backend tests | VERIFIED | 28/28, 0 skipped |
 | 1.74 | Protocol conformance test | VERIFIED | both suites, same fixtures |
 | 1.75 | Database migration test | VERIFIED | real PostgreSQL |
-| 1.76 | Docker clean-build test | PARTIAL | built from this working tree, not from a pristine clone with no cache |
-| 1.77 | Clean-machine principle | NOT VERIFIED | the Windows named-pipe workaround is machine-specific (guarded) |
+| 1.76 | Docker clean-build test | VERIFIED | `git clone` + `docker build --no-cache`, 75 s, no host caches |
+| 1.77 | Clean-machine principle | VERIFIED (with one caveat) | the clone ran from `.env.example` alone; Forge is a documented external input, now with commands |
 | 1.78 | Browser end-to-end test | VERIFIED | 7 Playwright tests against the running Docker stack |
 | 1.79 | Browser console test | VERIFIED | console errors and unhandled rejections fail the test |
 | 1.80 | WebSocket disconnect test | VERIFIED | a dropped socket must leave "Ready" |
@@ -223,7 +223,7 @@ documentation rather than writing it.
 
 | Test | Result |
 | --- | --- |
-| P1-A Fresh checkout build | PARTIAL — `docker build` succeeds from this tree; not from a pristine clone |
+| P1-A Fresh checkout build | **PASS** — pristine clone, `--no-cache`, 75 s |
 | P1-B Full stack startup | PARTIAL — server + postgres healthy; no Forge runtime, `cloudflared` not started |
 | P1-C Local browser access | **PASS** — Playwright, against the production stack |
 | P1-D Ktor serves production frontend | **PASS** |
@@ -236,7 +236,7 @@ documentation rather than writing it.
 | P1-K Forge failure | **PASS** — five failure modes, server survives each |
 | P1-L Pixi renderer | **PASS** — away-and-back asserts one canvas and one live renderer |
 | P1-M Docker persistence | **PASS** |
-| P1-N Clean build independence | NOT VERIFIED |
+| P1-N Clean build independence | **PASS** — no host Maven cache, no node_modules, no Forge checkout, no `Proxic_Arena_OLD` |
 | P1-O Static analysis | **PASS** — 4 analysers clean, 36 server + 20 frontend tests |
 | P1-P Old project integrity | **PASS** — never written to |
 | P1-Q Upstream Forge integrity | N/A — no checkout in this repo yet |
@@ -263,11 +263,36 @@ all closed on 2026-10-15.**
 4. **Documentation (§1.92–§1.98)** plus `VERSION` and
    `.editorconfig`.
 5. ~~Frontend gaps~~ — **DONE 2026-10-15.**
-6. **Clean-build verification (§1.76, §1.77, P1-N)** — build from a
-   fresh clone with `--no-cache`.
+6. ~~Clean-build verification~~ — **DONE 2026-10-15.**
 7. **Digest-pin the images (§1.58)**.
 8. **Cloudflare (§1.48–§1.51, P1-R–P1-U)** — on the Unraid host.
    Everything else should pass first.
+
+## Clean-build result (§1.76, §1.77, P1-A, P1-N)
+
+Performed 2026-10-15 from a `git clone` of this repository into an
+empty directory:
+
+```text
+docker build --no-cache        75 s, succeeded
+docker compose up              both services healthy
+.env                           created from .env.example alone
+/api/health/ready              database "ok" -- migration ran in the
+                               clone's own fresh volume
+browser suite                  7/7 against the clone's stack
+server suite                   31 passed, 5 SKIPPED
+```
+
+The clone had no `node_modules`, no host Maven cache, no Forge
+checkout and no access to `Proxic_Arena_OLD`. Nothing from the
+development machine leaked into the build.
+
+The 5 skips are the Forge worker tests, which need an upstream Forge
+checkout. That is a documented external input (~1 GB, belongs to
+upstream, deliberately gitignored), and the README now carries the
+exact clone/checkout/install commands — previously it named the
+prerequisite without saying how to satisfy it, which is the gap
+§1.77 is about.
 
 ## Deviations and concerns
 
