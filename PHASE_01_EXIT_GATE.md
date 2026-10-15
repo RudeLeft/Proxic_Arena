@@ -245,9 +245,17 @@ documentation rather than writing it.
 | P1-T External production WebSocket | BLOCKED |
 | P1-U Public security preservation | BLOCKED |
 
-**17 of 21 pass, 4 blocked on the real host. No failures and no
-partials remain among the 17: P1-C, P1-J, P1-K, P1-L and P1-O were
-all closed on 2026-10-15.**
+**Counted exactly: 15 PASS, 1 PARTIAL, 1 N/A, 4 BLOCKED.**
+
+No test FAILS. The one partial is P1-B: the server and database
+start and are healthy, but the stack contains no Forge runtime
+(the worker is built outside the image) and `cloudflared` has never
+been started. P1-Q is N/A because no Forge checkout lives in this
+repository to verify.
+
+An earlier commit message in this session said "19 of 21 pass",
+which was a count made from memory rather than from this table. The
+table is the authority.
 
 ---
 
