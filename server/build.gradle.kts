@@ -10,6 +10,8 @@ plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
     application
+    id("org.jlleitschuh.gradle.ktlint")
+    id("io.gitlab.arturbosch.detekt")
 }
 
 val ktorVersion: String by project
@@ -74,6 +76,24 @@ tasks.named("processResources") { dependsOn(generateBuildInfo) }
 
 application {
     mainClass.set("net.barnflix.proxic.ApplicationKt")
+}
+
+ktlint {
+    // ktlint 1.x cannot PARSE this build script (it fails on
+    // `runKtlintFormatOverKotlinScripts`, not on a style rule), so
+    // linting .kts here would mean a permanently red task that says
+    // nothing about the code. Kotlin SOURCE is still fully checked,
+    // which is what 1.87 is for.
+    filter {
+        exclude { it.file.path.endsWith(".kts") }
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(rootProject.file("config/detekt.yml"))
+    // The generated build-info source set is not ours to style.
+    source.setFrom("src/main/kotlin", "src/test/kotlin")
 }
 
 tasks.test {

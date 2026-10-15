@@ -67,9 +67,19 @@ describe("renderer lifecycle (PHASE_01 1.17-1.18)", () => {
 
   it("leaves no duplicate when mounted, unmounted and mounted again", async () => {
     const before = liveRendererCount();
-    const a = await mountRenderer({ container: container(), width: 800, height: 450, app: fakePixi() });
+    const a = await mountRenderer({
+      container: container(),
+      width: 800,
+      height: 450,
+      app: fakePixi(),
+    });
     a.destroy();
-    const b = await mountRenderer({ container: container(), width: 800, height: 450, app: fakePixi() });
+    const b = await mountRenderer({
+      container: container(),
+      width: 800,
+      height: 450,
+      app: fakePixi(),
+    });
     expect(liveRendererCount()).toBe(before + 1);
     b.destroy();
     expect(liveRendererCount()).toBe(before);
@@ -78,7 +88,12 @@ describe("renderer lifecycle (PHASE_01 1.17-1.18)", () => {
   it("survives a double destroy without corrupting the count", async () => {
     // React Strict Mode and an error path can both call it.
     const before = liveRendererCount();
-    const h = await mountRenderer({ container: container(), width: 800, height: 450, app: fakePixi() });
+    const h = await mountRenderer({
+      container: container(),
+      width: 800,
+      height: 450,
+      app: fakePixi(),
+    });
     h.destroy();
     h.destroy();
     expect(liveRendererCount()).toBe(before);

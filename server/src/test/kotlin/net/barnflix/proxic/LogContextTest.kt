@@ -15,15 +15,15 @@ import kotlin.test.assertTrue
  * than a crash because it is believed.
  */
 class LogContextTest {
-
     @AfterTest
     fun clear() = MDC.clear()
 
     @Test
     fun `every field named by 1_41 is in the log pattern`() {
-        val pattern = javaClass.classLoader
-            .getResourceAsStream("logback.xml")!!
-            .bufferedReader().readText()
+        val pattern =
+            javaClass.classLoader
+                .getResourceAsStream("logback.xml")!!
+                .bufferedReader().readText()
 
         for (field in LogContext.ALL) {
             assertTrue(

@@ -62,7 +62,10 @@ function RendererPanel({ onState }: { onState: (s: ServiceState) => void }) {
     let disposed = false;
     let dispose: (() => void) | null = null;
 
-    (async () => {
+    // `void`: this mount is fire-and-forget by design, and the body
+    // handles its own failure by degrading the panel. An unmarked
+    // floating promise hides a rejection nobody ever sees.
+    void (async () => {
       const host = hostRef.current;
       if (!host) return;
       try {
@@ -121,7 +124,10 @@ export default function App() {
       if (!cancelled) setSnap((prev) => ({ ...prev, ...s }));
     };
     void poll();
-    const id = setInterval(poll, 5000);
+    // setInterval expects a void callback. Handing it an async
+    // function means a rejection becomes an unhandled rejection in
+    // the page, and the status panel silently stops updating.
+    const id = setInterval(() => void poll(), 5000);
     return () => {
       cancelled = true;
       clearInterval(id);

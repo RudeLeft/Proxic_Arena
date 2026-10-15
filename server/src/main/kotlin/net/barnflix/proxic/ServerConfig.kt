@@ -31,6 +31,7 @@ data class ServerConfig(
     val isProduction: Boolean get() = appEnv.equals("production", ignoreCase = true)
 
     fun sessionSecret(): String? = sessionSecretValue
+
     fun databasePassword(): String? = databasePasswordValue
 
     /** Not a secret on its own, but it belongs with the rest. */

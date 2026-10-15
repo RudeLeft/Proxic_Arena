@@ -19,7 +19,6 @@ class HealthChecks(
     private val database: Database? = null,
     private val worker: ForgeWorker? = null,
 ) {
-
     fun readiness(): Readiness {
         val checks = linkedMapOf<String, String>()
 
@@ -37,19 +36,21 @@ class HealthChecks(
         )
     }
 
-    fun systemStatus(): SystemStatus = SystemStatus(
-        server = "ok",
-        database = databaseState(),
-        forgeRuntime = forgeWorkerState(),
-    )
+    fun systemStatus(): SystemStatus =
+        SystemStatus(
+            server = "ok",
+            database = databaseState(),
+            forgeRuntime = forgeWorkerState(),
+        )
 
-    private fun ensureDataRoot(): Boolean = try {
-        val dir = File(config.dataRoot)
-        if (!dir.exists()) dir.mkdirs()
-        dir.isDirectory && dir.canWrite()
-    } catch (e: SecurityException) {
-        false
-    }
+    private fun ensureDataRoot(): Boolean =
+        try {
+            val dir = File(config.dataRoot)
+            if (!dir.exists()) dir.mkdirs()
+            dir.isDirectory && dir.canWrite()
+        } catch (e: SecurityException) {
+            false
+        }
 
     /**
      * Three distinct states, because they mean different things:
@@ -62,11 +63,12 @@ class HealthChecks(
      * said a setting exists, which is not the same as a database
      * that answers (1.69).
      */
-    private fun databaseState(): String = when {
-        config.databaseUrl.isNullOrBlank() -> "unconfigured"
-        database == null -> "unreachable"
-        else -> database.health()
-    }
+    private fun databaseState(): String =
+        when {
+            config.databaseUrl.isNullOrBlank() -> "unconfigured"
+            database == null -> "unreachable"
+            else -> database.health()
+        }
 
     /**
      * The worker's state as OBSERVED by a real handshake (§1.65),

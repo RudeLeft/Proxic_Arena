@@ -9,13 +9,18 @@
   --muted: #8a8f98;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+  font:
+    15px/1.5 "Segoe UI",
+    system-ui,
+    sans-serif;
 }
 
 main {
@@ -31,7 +36,10 @@ h1 {
   font-weight: 600;
 }
 
-.sub { margin: 4px 0 28px; color: var(--muted); }
+.sub {
+  margin: 4px 0 28px;
+  color: var(--muted);
+}
 
 .panel {
   background: var(--panel);
@@ -49,9 +57,16 @@ h1 {
   border-bottom: 1px solid var(--line);
 }
 
-.row:last-child { border-bottom: 0; }
+.row:last-child {
+  border-bottom: 0;
+}
 
-.state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
 
 .dot {
   width: 9px;
@@ -67,8 +82,19 @@ h1 {
   min-height: 80px;
 }
 
-.canvas-host canvas { max-width: 100%; border-radius: 6px; }
+.canvas-host canvas {
+  max-width: 100%;
+  border-radius: 6px;
+}
 
-.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
 
-.verdict { margin-top: 26px; color: var(--muted); font-size: 13px; }
+.verdict {
+  margin-top: 26px;
+  color: var(--muted);
+  font-size: 13px;
+}

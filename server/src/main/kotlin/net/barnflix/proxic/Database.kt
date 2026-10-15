@@ -24,7 +24,6 @@ import javax.sql.DataSource
 class Database private constructor(
     private val dataSource: HikariDataSource,
 ) : AutoCloseable {
-
     private val log = LoggerFactory.getLogger(Database::class.java)
 
     /**
@@ -35,16 +34,17 @@ class Database private constructor(
      * can change is a schema nobody can reason about.
      */
     fun migrate(): Int {
-        val result = Flyway.configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            // The database starts empty, so there is no legacy schema
-            // to adopt. Leaving baselineOnMigrate off means an
-            // UNEXPECTED pre-existing schema fails loudly instead of
-            // being silently adopted as version 1.
-            .baselineOnMigrate(false)
-            .load()
-            .migrate()
+        val result =
+            Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                // The database starts empty, so there is no legacy schema
+                // to adopt. Leaving baselineOnMigrate off means an
+                // UNEXPECTED pre-existing schema fails loudly instead of
+                // being silently adopted as version 1.
+                .baselineOnMigrate(false)
+                .load()
+                .migrate()
         log.info("flyway applied={} target={}", result.migrationsExecuted, result.targetSchemaVersion)
         return result.migrationsExecuted
     }
@@ -56,20 +56,21 @@ class Database private constructor(
      * healthy once and whose database has since gone away must not
      * keep reporting "ok".
      */
-    fun health(): String = try {
-        dataSource.connection.use { connection ->
-            connection.createStatement().use { statement ->
-                statement.executeQuery("SELECT 1").use { rows ->
-                    if (rows.next()) "ok" else "unreachable"
+    fun health(): String =
+        try {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery("SELECT 1").use { rows ->
+                        if (rows.next()) "ok" else "unreachable"
+                    }
                 }
             }
+        } catch (e: Exception) {
+            // The message can carry the host and, in some drivers, the
+            // credentials. It goes to the log, never to a client (§1.26).
+            log.warn("database health check failed: {}", e.javaClass.simpleName)
+            "unreachable"
         }
-    } catch (e: Exception) {
-        // The message can carry the host and, in some drivers, the
-        // credentials. It goes to the log, never to a client (§1.26).
-        log.warn("database health check failed: {}", e.javaClass.simpleName)
-        "unreachable"
-    }
 
     /** Exposed for later phases; Phase 1 itself stores nothing. */
     fun dataSource(): DataSource = dataSource
@@ -109,19 +110,20 @@ class Database private constructor(
             val url = config.databaseUrl
             if (url.isNullOrBlank()) return null
 
-            val hikari = HikariConfig().apply {
-                jdbcUrl = url
-                config.databaseUser()?.let { username = it }
-                config.databasePassword()?.let { password = it }
-                // Five concurrent matches, one server. A large pool
-                // would reserve connections nothing ever uses.
-                maximumPoolSize = 10
-                minimumIdle = 2
-                connectionTimeout = 10_000
-                poolName = "proxic-pool"
-                // Negative = never fail fast; see (1) above.
-                initializationFailTimeout = -1
-            }
+            val hikari =
+                HikariConfig().apply {
+                    jdbcUrl = url
+                    config.databaseUser()?.let { username = it }
+                    config.databasePassword()?.let { password = it }
+                    // Five concurrent matches, one server. A large pool
+                    // would reserve connections nothing ever uses.
+                    maximumPoolSize = 10
+                    minimumIdle = 2
+                    connectionTimeout = 10_000
+                    poolName = "proxic-pool"
+                    // Negative = never fail fast; see (1) above.
+                    initializationFailTimeout = -1
+                }
             return runCatching { Database(HikariDataSource(hikari)) }
                 .onFailure {
                     // The URL can embed a password, so only the

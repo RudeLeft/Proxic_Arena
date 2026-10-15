@@ -18,18 +18,19 @@ import java.util.Properties
  * rather than assumed equal.
  */
 object BuildInfo {
-    private val props: Properties = Properties().apply {
-        val stream = BuildInfo::class.java.classLoader
-            .getResourceAsStream("build-info.properties")
-        // A missing resource means the build is broken. Defaulting
-        // would produce a server that cheerfully reports a Forge
-        // commit nobody generated.
-            ?: error("build-info.properties is missing; the build did not generate it")
-        stream.use { load(it) }
-    }
+    private val props: Properties =
+        Properties().apply {
+            val stream =
+                BuildInfo::class.java.classLoader
+                    .getResourceAsStream("build-info.properties")
+                    // A missing resource means the build is broken. Defaulting
+                    // would produce a server that cheerfully reports a Forge
+                    // commit nobody generated.
+                    ?: error("build-info.properties is missing; the build did not generate it")
+            stream.use { load(it) }
+        }
 
-    private fun required(key: String): String =
-        props.getProperty(key) ?: error("build-info.properties has no '$key'")
+    private fun required(key: String): String = props.getProperty(key) ?: error("build-info.properties has no '$key'")
 
     val PROXIC_VERSION: String = required("proxic.version")
 

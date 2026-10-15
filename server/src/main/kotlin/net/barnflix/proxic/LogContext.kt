@@ -47,7 +47,10 @@ object LogContext {
      * inside a request, a match inside a connection), and clearing
      * would silently strip the outer context.
      */
-    inline fun <T> withFields(vararg fields: Pair<String, String?>, block: () -> T): T {
+    inline fun <T> withFields(
+        vararg fields: Pair<String, String?>,
+        block: () -> T,
+    ): T {
         val previous = fields.map { (key, _) -> key to MDC.get(key) }
         fields.forEach { (key, value) ->
             if (value == null) MDC.remove(key) else MDC.put(key, value)

@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
+import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.plugins.callloging.*
@@ -16,11 +17,10 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
+import java.io.File
+import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
-import java.time.Duration
-import java.io.File
-import io.ktor.server.http.content.*
 import kotlin.system.exitProcess
 
 /**
@@ -66,21 +66,43 @@ private val connectionSequence = AtomicLong(0)
  * agree with the FIXTURES, not that the running server emits
  * conformant frames.
  */
-private val wireJson = Json {
-    encodeDefaults = true
-    ignoreUnknownKeys = true
+private val wireJson =
+    Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
+
+/**
+ * Compose the application: plugins, dependencies, routes.
+ *
+ * Split into three because the combined function was 170
+ * lines and detekt was right about it: plugin configuration,
+ * dependency startup and route declaration change for
+ * different reasons and read better apart.
+ */
+fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
+    val dependencies = installPluginsAndDependencies(config)
+    installRoutes(config, dependencies)
 }
 
-fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
+/** What the routes need, built once at startup. */
+class Dependencies(
+    val health: HealthChecks,
+    val database: Database?,
+    val forgeWorker: ForgeWorker,
+)
 
+private fun Application.installPluginsAndDependencies(config: ServerConfig): Dependencies {
     install(ContentNegotiation) {
-        json(Json {
-            prettyPrint = false
-            encodeDefaults = true
-            // An unknown field from a newer client must not 500 the
-            // server; protocol version is what gates compatibility.
-            ignoreUnknownKeys = true
-        })
+        json(
+            Json {
+                prettyPrint = false
+                encodeDefaults = true
+                // An unknown field from a newer client must not 500 the
+                // server; protocol version is what gates compatibility.
+                ignoreUnknownKeys = true
+            },
+        )
     }
 
     // §1.43: every HTTP request carries an id, so a log line can be
@@ -154,9 +176,16 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
 
     val health = HealthChecks(config, database, forgeWorker)
 
+    return Dependencies(health, database, forgeWorker)
+}
+
+private fun Application.installRoutes(
+    config: ServerConfig,
+    dependencies: Dependencies,
+) {
+    val health = dependencies.health
     routing {
         route("/api") {
-
             // §1.23 — alive, regardless of dependencies.
             get("/health/live") {
                 call.respond(Liveness())
@@ -165,8 +194,12 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
             // §1.24 — can we actually do our job right now?
             get("/health/ready") {
                 val result = health.readiness()
-                val code = if (result.status == "ok") HttpStatusCode.OK
-                           else HttpStatusCode.ServiceUnavailable
+                val code =
+                    if (result.status == "ok") {
+                        HttpStatusCode.OK
+                    } else {
+                        HttpStatusCode.ServiceUnavailable
+                    }
                 call.respond(code, result)
             }
 
@@ -200,22 +233,24 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
                         Envelope(
                             type = "HELLO",
                             messageId = UUID.randomUUID().toString(),
-                            payload = mapOf(
-                                "serverVersion" to BuildInfo.PROXIC_VERSION,
-                                "connectionId" to connectionId,
-                            ),
+                            payload =
+                                mapOf(
+                                    "serverVersion" to BuildInfo.PROXIC_VERSION,
+                                    "connectionId" to connectionId,
+                                ),
                         ),
-                    )
-                )
+                    ),
+                ),
             )
 
             try {
                 for (frame in incoming) {
                     if (frame !is Frame.Text) continue
                     val text = frame.readText()
-                    val msg = runCatching {
-                        wireJson.decodeFromString(Envelope.serializer(), text)
-                    }.getOrNull()
+                    val msg =
+                        runCatching {
+                            wireJson.decodeFromString(Envelope.serializer(), text)
+                        }.getOrNull()
 
                     if (msg == null) {
                         sendEnvelope("ERROR", mapOf("errorCode" to "MALFORMED_MESSAGE"))
@@ -238,10 +273,11 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
 
                     when (msg.type) {
                         "PING" -> sendEnvelope("PONG", emptyMap(), msg.messageId)
-                        else -> sendEnvelope(
-                            "ERROR",
-                            mapOf("errorCode" to "UNKNOWN_TYPE", "type" to msg.type),
-                        )
+                        else ->
+                            sendEnvelope(
+                                "ERROR",
+                                mapOf("errorCode" to "UNKNOWN_TYPE", "type" to msg.type),
+                            )
                     }
                 }
             } finally {
@@ -320,8 +356,8 @@ private suspend fun DefaultWebSocketServerSession.sendEnvelope(
                     messageId = correlatesTo ?: UUID.randomUUID().toString(),
                     payload = payload,
                 ),
-            )
-        )
+            ),
+        ),
     )
 }
 
@@ -334,7 +370,10 @@ private suspend fun DefaultWebSocketServerSession.sendEnvelope(
  * that. Returning null for anything that escapes means a traversal
  * attempt degrades to the SPA fallback rather than serving a file.
  */
-internal fun resolveStaticFile(root: File, requestPath: String): File? {
+internal fun resolveStaticFile(
+    root: File,
+    requestPath: String,
+): File? {
     if (!root.isDirectory) return null
     val relative = requestPath.trimStart('/')
     if (relative.isEmpty()) return null

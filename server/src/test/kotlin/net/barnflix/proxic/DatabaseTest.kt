@@ -23,7 +23,6 @@ import kotlin.test.assertTrue
  * subsystems forward.
  */
 class DatabaseTest {
-
     private var container: PostgreSQLContainer<*>? = null
 
     private fun requireDocker() {
@@ -41,11 +40,12 @@ class DatabaseTest {
     fun start() {
         requireDocker()
         // Pinned tag, not `latest` (§1.5, §1.56).
-        container = PostgreSQLContainer("postgres:16.4-alpine")
-            .withDatabaseName("proxic_test")
-            .withUsername("proxic")
-            .withPassword("test-only-not-a-secret")
-            .also { it.start() }
+        container =
+            PostgreSQLContainer("postgres:16.4-alpine")
+                .withDatabaseName("proxic_test")
+                .withUsername("proxic")
+                .withPassword("test-only-not-a-secret")
+                .also { it.start() }
     }
 
     @AfterTest
@@ -53,15 +53,16 @@ class DatabaseTest {
         container?.stop()
     }
 
-    private fun configFor(c: PostgreSQLContainer<*>) = ServerConfig(
-        host = "0.0.0.0",
-        port = 0,
-        databaseUrl = c.jdbcUrl,
-        forgeWorkerJar = null,
-        dataRoot = "build/test-data",
-        databasePasswordValue = c.password,
-        databaseUserValue = c.username,
-    )
+    private fun configFor(c: PostgreSQLContainer<*>) =
+        ServerConfig(
+            host = "0.0.0.0",
+            port = 0,
+            databaseUrl = c.jdbcUrl,
+            forgeWorkerJar = null,
+            dataRoot = "build/test-data",
+            databasePasswordValue = c.password,
+            databaseUserValue = c.username,
+        )
 
     @Test
     fun `migration runs once, is recorded, and is idempotent`() {
@@ -75,7 +76,7 @@ class DatabaseTest {
             it.dataSource().connection.use { conn ->
                 conn.createStatement().use { st ->
                     st.executeQuery(
-                        "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank"
+                        "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank",
                     ).use { rows ->
                         assertTrue(rows.next(), "no migration was recorded")
                         assertEquals("001", rows.getString("version"))
@@ -102,7 +103,7 @@ class DatabaseTest {
                         """
                         SELECT table_name FROM information_schema.tables
                         WHERE table_schema = 'public' AND table_name <> 'flyway_schema_history'
-                        """.trimIndent()
+                        """.trimIndent(),
                     ).use { rows ->
                         val tables = buildList { while (rows.next()) add(rows.getString(1)) }
                         // users/decks/matches must not exist until the

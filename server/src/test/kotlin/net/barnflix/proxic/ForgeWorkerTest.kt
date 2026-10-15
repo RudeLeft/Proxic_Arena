@@ -25,11 +25,13 @@ import kotlin.test.assertTrue
  * passed.
  */
 class ForgeWorkerTest {
-
     private val workerJar = File("../forge-worker/target/forge-worker-0.1.0.jar")
     private val resRoot = File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
 
-    private fun config(jar: String?, res: String?) = ServerConfig(
+    private fun config(
+        jar: String?,
+        res: String?,
+    ) = ServerConfig(
         host = "0.0.0.0",
         port = 0,
         databaseUrl = null,
@@ -178,7 +180,7 @@ class ForgeWorkerTest {
                             protocol.version=$protocol
                             forge.commit=$commit
                             forge.release=${BuildInfo.FORGE_RELEASE}
-                            """.trimIndent().toByteArray()
+                            """.trimIndent().toByteArray(),
                         )
                     } else {
                         zip.getInputStream(entry).use { it.copyTo(out) }

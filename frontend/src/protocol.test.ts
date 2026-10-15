@@ -31,9 +31,7 @@ describe("protocol envelope", () => {
 
   it("refuses a message with no identity", () => {
     // messageId is what duplicate and stale rejection key on.
-    const r = parseEnvelope(
-      JSON.stringify({ protocolVersion: 1, type: "PING", payload: {} }),
-    );
+    const r = parseEnvelope(JSON.stringify({ protocolVersion: 1, type: "PING", payload: {} }));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errorCode).toBe("MALFORMED_MESSAGE");
   });

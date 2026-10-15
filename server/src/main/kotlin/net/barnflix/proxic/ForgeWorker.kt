@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit
  * [Result] here, not an exception that escapes.
  */
 class ForgeWorker(private val config: ServerConfig) {
-
     private val log = LoggerFactory.getLogger(ForgeWorker::class.java)
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -67,14 +66,15 @@ class ForgeWorker(private val config: ServerConfig) {
     fun lastResult(): Result = cached
 
     /** The state readiness reports (§1.69 vocabulary). */
-    fun state(): String = when (val result = cached) {
-        is Result.Unconfigured -> "unconfigured"
-        is Result.Ready -> "ok"
-        is Result.Missing -> "missing"
-        is Result.Unreachable -> "unreachable"
-        is Result.Incompatible -> "incompatible"
-        is Result.ResourcesMissing -> "resources-missing"
-    }
+    fun state(): String =
+        when (val result = cached) {
+            is Result.Unconfigured -> "unconfigured"
+            is Result.Ready -> "ok"
+            is Result.Missing -> "missing"
+            is Result.Unreachable -> "unreachable"
+            is Result.Incompatible -> "incompatible"
+            is Result.ResourcesMissing -> "resources-missing"
+        }
 
     /**
      * Start a worker, read its WORKER_READY, shut it down again.
@@ -83,8 +83,9 @@ class ForgeWorker(private val config: ServerConfig) {
      * it is not a diagnostic.
      */
     fun probe(timeoutSeconds: Long = 60): Result {
-        val result = runCatching { doProbe(timeoutSeconds) }
-            .getOrElse { Result.Unreachable(it.javaClass.simpleName) }
+        val result =
+            runCatching { doProbe(timeoutSeconds) }
+                .getOrElse { Result.Unreachable(it.javaClass.simpleName) }
         cached = result
         log.info("forge worker probe: {}", state())
         return result
@@ -96,34 +97,38 @@ class ForgeWorker(private val config: ServerConfig) {
         val jar = File(jarPath)
         if (!jar.isFile) return Result.Missing
 
-        val command = buildList {
-            add(javaExecutable())
-            add("-jar")
-            add(jar.absolutePath)
-            config.forgeResRoot?.let { add(it) }
-        }
+        val command =
+            buildList {
+                add(javaExecutable())
+                add("-jar")
+                add(jar.absolutePath)
+                config.forgeResRoot?.let { add(it) }
+            }
 
-        val process = ProcessBuilder(command)
-            // Forge logs to stderr in the worker (it redirects its
-            // own stdout away from the protocol stream). Discarding
-            // it here keeps a 33,980-script load out of our log;
-            // Phase 6 will want it captured per match.
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
+        val process =
+            ProcessBuilder(command)
+                // Forge logs to stderr in the worker (it redirects its
+                // own stdout away from the protocol stream). Discarding
+                // it here keeps a 33,980-script load out of our log;
+                // Phase 6 will want it captured per match.
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
 
         try {
             val reader = process.inputStream.bufferedReader()
             // A worker that starts and says nothing is the failure
             // mode a naive readLine() turns into a hung server.
-            val line = readLineWithTimeout(reader, process, timeoutSeconds)
-                ?: return if (process.isAlive) {
-                    Result.Unreachable("no WORKER_READY within ${timeoutSeconds}s")
-                } else {
-                    Result.Unreachable("worker exited (code ${process.exitValue()}) before handshake")
-                }
+            val line =
+                readLineWithTimeout(reader, process, timeoutSeconds)
+                    ?: return if (process.isAlive) {
+                        Result.Unreachable("no WORKER_READY within ${timeoutSeconds}s")
+                    } else {
+                        Result.Unreachable("worker exited (code ${process.exitValue()}) before handshake")
+                    }
 
-            val frame = runCatching { json.parseToJsonElement(line) as JsonObject }
-                .getOrNull() ?: return Result.Incompatible("first frame was not JSON")
+            val frame =
+                runCatching { json.parseToJsonElement(line) as JsonObject }
+                    .getOrNull() ?: return Result.Incompatible("first frame was not JSON")
 
             val type = frame["type"]?.jsonPrimitive?.content
             if (type != "WORKER_READY") {
@@ -133,7 +138,7 @@ class ForgeWorker(private val config: ServerConfig) {
             val workerProtocol = frame["protocolVersion"]?.jsonPrimitive?.int
             if (workerProtocol != BuildInfo.PROTOCOL_VERSION) {
                 return Result.Incompatible(
-                    "protocol ${workerProtocol ?: "absent"}, server speaks ${BuildInfo.PROTOCOL_VERSION}"
+                    "protocol ${workerProtocol ?: "absent"}, server speaks ${BuildInfo.PROTOCOL_VERSION}",
                 )
             }
 
@@ -144,14 +149,14 @@ class ForgeWorker(private val config: ServerConfig) {
                 // built months ago against another checkout is
                 // otherwise indistinguishable from a current one.
                 return Result.Incompatible(
-                    "forge commit ${commit?.take(10) ?: "absent"}, pinned ${BuildInfo.FORGE_COMMIT.take(10)}"
+                    "forge commit ${commit?.take(10) ?: "absent"}, pinned ${BuildInfo.FORGE_COMMIT.take(10)}",
                 )
             }
 
             val resourcesUsable = frame["resourcesUsable"]?.jsonPrimitive?.boolean ?: false
             if (!resourcesUsable) {
                 return Result.ResourcesMissing(
-                    frame["resourceProblems"]?.jsonPrimitive?.content ?: "unspecified"
+                    frame["resourceProblems"]?.jsonPrimitive?.content ?: "unspecified",
                 )
             }
 

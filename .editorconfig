@@ -1,0 +1,25 @@
+# PHASE_01 §1.109. Also read by ktlint, so the two deliberate
+# departures from its defaults are recorded here with their reasons.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}]
+indent_size = 2
+
+[*.{kt,kts}]
+# Ktor's own documentation and samples import with wildcards
+# (io.ktor.server.application.*), and its DSL is designed around it.
+# Expanding every one would be a large, permanent diff against the
+# ecosystem's idiom in exchange for nothing.
+ktlint_standard_no-wildcard-imports = disabled
+
+[*.md]
+trim_trailing_whitespace = false

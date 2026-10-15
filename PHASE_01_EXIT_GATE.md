@@ -171,7 +171,7 @@ a stopped jar need different responses.
 | 1.84 | Ktor static serving test | VERIFIED | automated, 5 tests |
 | 1.85 | Cloudflare Tunnel test | BLOCKED | |
 | 1.86 | Cloudflare security preservation | BLOCKED | |
-| 1.87 | Static analysis | MISSING | no ESLint, Prettier, ktlint or detekt |
+| 1.87 | Static analysis | VERIFIED | ESLint (type-aware) + Prettier + ktlint + detekt, all clean |
 | 1.88 | Dependency locking | PARTIAL | `package-lock.json` yes; no Gradle lockfile |
 | 1.89 | Gradle wrapper | DONE | 8.10.2 |
 | 1.90 | Node version | PARTIAL | pinned in the image; no `.nvmrc` |
@@ -183,7 +183,8 @@ All MISSING: README (§1.92), developer startup (§1.93), production
 startup (§1.94), shutdown (§1.95), database reset (§1.96), logging
 instructions (§1.97), troubleshooting (§1.98).
 
-Also missing from §1.109: `VERSION`, `.editorconfig`.
+Also missing from §1.109: `VERSION`. (`.editorconfig` added
+2026-10-15, and it carries ktlint's two documented exemptions.)
 
 ## §1.99–§1.108 — Security and boundaries
 
@@ -220,7 +221,7 @@ Also missing from §1.109: `VERSION`, `.editorconfig`.
 | P1-L Pixi renderer | PARTIAL — verified manually; "navigate away and back" not automated |
 | P1-M Docker persistence | **PASS** |
 | P1-N Clean build independence | NOT VERIFIED |
-| P1-O Static analysis | **FAIL** — none configured |
+| P1-O Static analysis | **PASS** — 4 analysers clean, 36 server + 20 frontend tests |
 | P1-P Old project integrity | **PASS** — never written to |
 | P1-Q Upstream Forge integrity | N/A — no checkout in this repo yet |
 | P1-R External production page | BLOCKED |
@@ -228,9 +229,10 @@ Also missing from §1.109: `VERSION`, `.editorconfig`.
 | P1-T External production WebSocket | BLOCKED |
 | P1-U Public security preservation | BLOCKED |
 
-**16 of 21 pass or partially pass (P1-J and P1-K closed 2026-10-15).
-One fails: P1-O, no static analysis configured. Four are blocked on
-the real host.**
+**17 of 21 pass or partially pass. No outright failures remain:
+P1-J, P1-K and P1-O all closed 2026-10-15. Four are blocked on the
+real host, and the rest are partials needing automation rather than
+new behaviour.**
 
 ---
 
@@ -240,8 +242,7 @@ the real host.**
    Remaining within it: move the Forge checkout to
    `third_party/forge/` (§1.60), and build the worker inside the
    Docker image so the deployed stack has one.
-2. **Static analysis (§1.87)** — ESLint, Prettier, ktlint, detekt.
-   Unblocks P1-O. Cheap, and cheaper now than after more code exists.
+2. ~~Static analysis (§1.87)~~ — **DONE 2026-10-15.** Unblocked P1-O.
 3. **Playwright E2E (§1.78–§1.80)** — the browser checks so far have
    been me looking at screenshots. §1.78 wants them automated and
    §1.79 wants console errors to fail the build.

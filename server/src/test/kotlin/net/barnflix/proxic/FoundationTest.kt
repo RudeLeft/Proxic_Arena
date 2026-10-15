@@ -21,18 +21,18 @@ import kotlin.test.assertTrue
  * mismatch that gets interpreted instead of refused (§1.32).
  */
 class FoundationTest {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     /** §1.23 — liveness must not depend on anything else. */
     @Test
-    fun `liveness is ok with no dependencies configured`() = testApplication {
-        application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
-        val body = client.get("/api/health/live").bodyAsText()
-        val live = json.decodeFromString(Liveness.serializer(), body)
-        assertEquals("ok", live.status)
-        assertEquals("arena-server", live.service)
-    }
+    fun `liveness is ok with no dependencies configured`() =
+        testApplication {
+            application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
+            val body = client.get("/api/health/live").bodyAsText()
+            val live = json.decodeFromString(Liveness.serializer(), body)
+            assertEquals("ok", live.status)
+            assertEquals("arena-server", live.service)
+        }
 
     /**
      * §1.69 — status must be REAL.
@@ -41,63 +41,68 @@ class FoundationTest {
      * A green light nobody earned is the failure mode this guards.
      */
     @Test
-    fun `readiness reports unconfigured dependencies honestly`() = testApplication {
-        application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
-        val body = client.get("/api/health/ready").bodyAsText()
-        val ready = json.decodeFromString(Readiness.serializer(), body)
+    fun `readiness reports unconfigured dependencies honestly`() =
+        testApplication {
+            application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
+            val body = client.get("/api/health/ready").bodyAsText()
+            val ready = json.decodeFromString(Readiness.serializer(), body)
 
-        assertEquals("unconfigured", ready.checks["database"])
-        assertEquals("unconfigured", ready.checks["forgeWorker"])
-        assertEquals("ok", ready.checks["dataRoot"])
-        // Unconfigured is expected in Phase 1 and must not look broken.
-        assertEquals("ok", ready.status)
-    }
+            assertEquals("unconfigured", ready.checks["database"])
+            assertEquals("unconfigured", ready.checks["forgeWorker"])
+            assertEquals("ok", ready.checks["dataRoot"])
+            // Unconfigured is expected in Phase 1 and must not look broken.
+            assertEquals("ok", ready.status)
+        }
 
     /** A configured-but-absent worker jar is a real failure, not "ok". */
     @Test
-    fun `readiness fails when a configured dependency is missing`() = testApplication {
-        application {
-            module(ServerConfig("0.0.0.0", 0, null, "/no/such/worker.jar", "build/test-data"))
+    fun `readiness fails when a configured dependency is missing`() =
+        testApplication {
+            application {
+                module(ServerConfig("0.0.0.0", 0, null, "/no/such/worker.jar", "build/test-data"))
+            }
+            val body = client.get("/api/health/ready").bodyAsText()
+            val ready = json.decodeFromString(Readiness.serializer(), body)
+            assertEquals("missing", ready.checks["forgeWorker"])
+            assertEquals("degraded", ready.status)
         }
-        val body = client.get("/api/health/ready").bodyAsText()
-        val ready = json.decodeFromString(Readiness.serializer(), body)
-        assertEquals("missing", ready.checks["forgeWorker"])
-        assertEquals("degraded", ready.status)
-    }
 
     /** §1.25 — and §0A's rule that the Forge pin lives in one place. */
     @Test
-    fun `version reports the accepted Forge pin`() = testApplication {
-        application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
-        val body = client.get("/api/version").bodyAsText()
-        val v = json.decodeFromString(VersionInfo.serializer(), body)
-        assertEquals(1, v.protocolVersion)
-        assertEquals("forge-2.0.15", v.forgeRelease)
-        assertEquals("4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676", v.forgeCommit)
-        assertTrue(v.javaVersion.isNotBlank())
-    }
+    fun `version reports the accepted Forge pin`() =
+        testApplication {
+            application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
+            val body = client.get("/api/version").bodyAsText()
+            val v = json.decodeFromString(VersionInfo.serializer(), body)
+            assertEquals(1, v.protocolVersion)
+            assertEquals("forge-2.0.15", v.forgeRelease)
+            assertEquals("4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676", v.forgeCommit)
+            assertTrue(v.javaVersion.isNotBlank())
+        }
 
     /** §1.26 — status must not leak internals. */
     @Test
-    fun `system status exposes no secrets or paths`() = testApplication {
-        application {
-            module(ServerConfig("0.0.0.0", 0, "postgres://user:hunter2@db/x", null, "build/test-data"))
+    fun `system status exposes no secrets or paths`() =
+        testApplication {
+            application {
+                module(ServerConfig("0.0.0.0", 0, "postgres://user:hunter2@db/x", null, "build/test-data"))
+            }
+            val body = client.get("/api/system/status").bodyAsText()
+            assertTrue("hunter2" !in body, "status leaked a credential: $body")
+            assertTrue("postgres://" !in body, "status leaked a connection string: $body")
         }
-        val body = client.get("/api/system/status").bodyAsText()
-        assertTrue("hunter2" !in body, "status leaked a credential: $body")
-        assertTrue("postgres://" !in body, "status leaked a connection string: $body")
-    }
 
     /** §1.44 — one error shape, and no stack traces. */
     @Test
-    fun `unknown endpoint returns the standard error shape`() = testApplication {
-        application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
-        val response = client.get("/api/does-not-exist")
-        assertEquals(HttpStatusCode.NotFound, response.status)
-        val err = json.decodeFromString(ErrorResponse.serializer(), response.bodyAsText())
-        assertEquals("NOT_FOUND", err.errorCode)
-        assertTrue("Exception" !in err.detail)
-    }
+    fun `unknown endpoint returns the standard error shape`() =
+        testApplication {
+            application { module(ServerConfig("0.0.0.0", 0, null, null, "build/test-data")) }
+            val response = client.get("/api/does-not-exist")
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            val err = json.decodeFromString(ErrorResponse.serializer(), response.bodyAsText())
+            assertEquals("NOT_FOUND", err.errorCode)
+            assertTrue("Exception" !in err.detail)
+        }
 
     /**
      * Regression: every REQUIRED field must survive serialization.
@@ -114,10 +119,11 @@ class FoundationTest {
     @Test
     fun `serialized envelope carries every required field`() {
         val wire = Json { encodeDefaults = true }
-        val text = wire.encodeToString(
-            Envelope.serializer(),
-            Envelope(type = "HELLO", messageId = "abc"),
-        )
+        val text =
+            wire.encodeToString(
+                Envelope.serializer(),
+                Envelope(type = "HELLO", messageId = "abc"),
+            )
         for (field in listOf("protocolVersion", "type", "messageId", "payload")) {
             assertTrue("\"$field\"" in text, "serialized envelope dropped '$field': $text")
         }
@@ -148,7 +154,8 @@ class FoundationTest {
         for (f in files) {
             val env = json.decodeFromString(Envelope.serializer(), f.readText())
             assertEquals(
-                BuildInfo.PROTOCOL_VERSION, env.protocolVersion,
+                BuildInfo.PROTOCOL_VERSION,
+                env.protocolVersion,
                 "${f.name}: fixture protocolVersion must match the server's",
             )
             assertTrue(env.type.isNotBlank(), "${f.name}: type must be set")

@@ -19,19 +19,18 @@ import kotlin.test.assertTrue
  * 404.
  */
 class ConfigAndStaticTest {
-
-    private fun env(vars: Map<String, String>): ServerConfig =
-        ServerConfig.fromEnvironment { vars[it] }
+    private fun env(vars: Map<String, String>): ServerConfig = ServerConfig.fromEnvironment { vars[it] }
 
     @Test
     fun `secrets never appear in the config's string form`() {
-        val config = env(
-            mapOf(
-                "PROXIC_SESSION_SECRET" to "s3cr3t-session-value",
-                "POSTGRES_PASSWORD" to "hunter2-the-password",
-                "PROXIC_DATABASE_URL" to "jdbc:postgresql://proxic:pgpw@db:5432/proxic",
+        val config =
+            env(
+                mapOf(
+                    "PROXIC_SESSION_SECRET" to "s3cr3t-session-value",
+                    "POSTGRES_PASSWORD" to "hunter2-the-password",
+                    "PROXIC_DATABASE_URL" to "jdbc:postgresql://proxic:pgpw@db:5432/proxic",
+                ),
             )
-        )
         val text = config.toString()
         // Logging a config object is routine; leaking it must not be.
         assertFalse(text.contains("s3cr3t-session-value"), text)
@@ -53,25 +52,27 @@ class ConfigAndStaticTest {
     fun `production refuses to start without a real session secret`() {
         assertTrue(
             env(mapOf("APP_ENV" to "production")).startupProblems()
-                .any { it.contains("SESSION_SECRET") }
+                .any { it.contains("SESSION_SECRET") },
         )
         // The placeholder from .env.example looks configured and is not.
-        val placeholder = env(
-            mapOf(
-                "APP_ENV" to "production",
-                "PROXIC_SESSION_SECRET" to "changeme",
-                "PROXIC_DATABASE_URL" to "jdbc:postgresql://db:5432/proxic",
+        val placeholder =
+            env(
+                mapOf(
+                    "APP_ENV" to "production",
+                    "PROXIC_SESSION_SECRET" to "changeme",
+                    "PROXIC_DATABASE_URL" to "jdbc:postgresql://db:5432/proxic",
+                ),
             )
-        )
         assertTrue(placeholder.startupProblems().any { it.contains("placeholder") })
 
-        val good = env(
-            mapOf(
-                "APP_ENV" to "production",
-                "PROXIC_SESSION_SECRET" to "a3f1c0de9b77412f8a21c6d4e0b5937a",
-                "PROXIC_DATABASE_URL" to "jdbc:postgresql://db:5432/proxic",
+        val good =
+            env(
+                mapOf(
+                    "APP_ENV" to "production",
+                    "PROXIC_SESSION_SECRET" to "a3f1c0de9b77412f8a21c6d4e0b5937a",
+                    "PROXIC_DATABASE_URL" to "jdbc:postgresql://db:5432/proxic",
+                ),
             )
-        )
         assertEquals(emptyList(), good.startupProblems())
     }
 
@@ -90,14 +91,15 @@ class ConfigAndStaticTest {
      */
     @Test
     fun `a configured but unreachable database is never ok`() {
-        val config = ServerConfig(
-            host = "0.0.0.0",
-            port = 0,
-            // Port 1 is reserved and nothing listens there.
-            databaseUrl = "jdbc:postgresql://127.0.0.1:1/proxic",
-            forgeWorkerJar = null,
-            dataRoot = "build/test-data",
-        )
+        val config =
+            ServerConfig(
+                host = "0.0.0.0",
+                port = 0,
+                // Port 1 is reserved and nothing listens there.
+                databaseUrl = "jdbc:postgresql://127.0.0.1:1/proxic",
+                forgeWorkerJar = null,
+                dataRoot = "build/test-data",
+            )
         val db = Database.connect(config)
         assertTrue(db != null, "a configured URL must produce a pool")
         db!!.use {
@@ -120,14 +122,15 @@ class ConfigAndStaticTest {
 
     // --- §1.27 static serving and SPA fallback ----------------------
 
-    private fun withStatic(dir: File): ServerConfig = ServerConfig(
-        host = "0.0.0.0",
-        port = 0,
-        databaseUrl = null,
-        forgeWorkerJar = null,
-        dataRoot = "build/test-data",
-        staticRoot = dir.path,
-    )
+    private fun withStatic(dir: File): ServerConfig =
+        ServerConfig(
+            host = "0.0.0.0",
+            port = 0,
+            databaseUrl = null,
+            forgeWorkerJar = null,
+            dataRoot = "build/test-data",
+            staticRoot = dir.path,
+        )
 
     private fun builtFrontend(): File {
         val dir = File("build/test-static")
@@ -139,24 +142,26 @@ class ConfigAndStaticTest {
     }
 
     @Test
-    fun `a client-side route resolves to the React app, not a 404`() = testApplication {
-        val dir = builtFrontend()
-        application { module(withStatic(dir)) }
-        for (route in listOf("/", "/play", "/settings", "/deep/nested/route")) {
-            val r = client.get(route)
-            assertEquals(HttpStatusCode.OK, r.status, "route $route")
-            assertTrue(r.bodyAsText().contains("id=root"), "route $route served the app")
+    fun `a client-side route resolves to the React app, not a 404`() =
+        testApplication {
+            val dir = builtFrontend()
+            application { module(withStatic(dir)) }
+            for (route in listOf("/", "/play", "/settings", "/deep/nested/route")) {
+                val r = client.get(route)
+                assertEquals(HttpStatusCode.OK, r.status, "route $route")
+                assertTrue(r.bodyAsText().contains("id=root"), "route $route served the app")
+            }
         }
-    }
 
     @Test
-    fun `built assets are served as files`() = testApplication {
-        val dir = builtFrontend()
-        application { module(withStatic(dir)) }
-        val r = client.get("/assets/app.js")
-        assertEquals(HttpStatusCode.OK, r.status)
-        assertTrue(r.bodyAsText().contains("export const x"))
-    }
+    fun `built assets are served as files`() =
+        testApplication {
+            val dir = builtFrontend()
+            application { module(withStatic(dir)) }
+            val r = client.get("/assets/app.js")
+            assertEquals(HttpStatusCode.OK, r.status)
+            assertTrue(r.bodyAsText().contains("export const x"))
+        }
 
     /**
      * The fallback must not swallow API or WebSocket paths (§1.27).
@@ -166,15 +171,16 @@ class ConfigAndStaticTest {
      * instead of a clean 404.
      */
     @Test
-    fun `SPA fallback does not swallow api or ws paths`() = testApplication {
-        val dir = builtFrontend()
-        application { module(withStatic(dir)) }
-        for (route in listOf("/api/nope", "/api/health/nope", "/ws/nope")) {
-            val r = client.get(route)
-            assertEquals(HttpStatusCode.NotFound, r.status, "route $route")
-            assertFalse(r.bodyAsText().contains("id=root"), "route $route leaked the app")
+    fun `SPA fallback does not swallow api or ws paths`() =
+        testApplication {
+            val dir = builtFrontend()
+            application { module(withStatic(dir)) }
+            for (route in listOf("/api/nope", "/api/health/nope", "/ws/nope")) {
+                val r = client.get(route)
+                assertEquals(HttpStatusCode.NotFound, r.status, "route $route")
+                assertFalse(r.bodyAsText().contains("id=root"), "route $route leaked the app")
+            }
         }
-    }
 
     /**
      * A traversal attempt must not escape the static root.
@@ -205,22 +211,24 @@ class ConfigAndStaticTest {
      * bug for as long as it takes to notice the content type.
      */
     @Test
-    fun `a missing build asset 404s instead of returning the app`() = testApplication {
-        val dir = builtFrontend()
-        application { module(withStatic(dir)) }
-        val missing = client.get("/assets/app-missing.js")
-        assertEquals(HttpStatusCode.NotFound, missing.status)
-        assertFalse(missing.bodyAsText().contains("id=root"))
-        // Negative control: the asset that DOES exist still serves.
-        assertEquals(HttpStatusCode.OK, client.get("/assets/app.js").status)
-    }
+    fun `a missing build asset 404s instead of returning the app`() =
+        testApplication {
+            val dir = builtFrontend()
+            application { module(withStatic(dir)) }
+            val missing = client.get("/assets/app-missing.js")
+            assertEquals(HttpStatusCode.NotFound, missing.status)
+            assertFalse(missing.bodyAsText().contains("id=root"))
+            // Negative control: the asset that DOES exist still serves.
+            assertEquals(HttpStatusCode.OK, client.get("/assets/app.js").status)
+        }
 
     /** An unbuilt frontend is its own state, not a missing route (§1.71). */
     @Test
-    fun `an unbuilt frontend says so instead of 404`() = testApplication {
-        application { module(withStatic(File("build/no-such-frontend"))) }
-        val r = client.get("/play")
-        assertEquals(HttpStatusCode.ServiceUnavailable, r.status)
-        assertTrue(r.bodyAsText().contains("FRONTEND_NOT_BUILT"))
-    }
+    fun `an unbuilt frontend says so instead of 404`() =
+        testApplication {
+            application { module(withStatic(File("build/no-such-frontend"))) }
+            val r = client.get("/play")
+            assertEquals(HttpStatusCode.ServiceUnavailable, r.status)
+            assertTrue(r.bodyAsText().contains("FRONTEND_NOT_BUILT"))
+        }
 }

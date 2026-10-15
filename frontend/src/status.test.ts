@@ -27,15 +27,20 @@ describe("service status (PHASE_01 1.69)", () => {
   });
 
   it("reads a 503 readiness body instead of treating it as unreachable", async () => {
-    const fake = vi.fn(async (url: string) => {
+    const fake = vi.fn((url: string) => {
       if (String(url).includes("version")) {
-        return new Response(JSON.stringify(GOOD), { status: 200 });
+        return Promise.resolve(new Response(JSON.stringify(GOOD), { status: 200 }));
       }
       // Degraded readiness answers 503 WITH a body. Ignoring it would
       // report "unavailable" for a server that is answering fine.
-      return new Response(
-        JSON.stringify({ status: "degraded", checks: { database: "ok", forgeWorker: "missing" } }),
-        { status: 503 },
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "degraded",
+            checks: { database: "ok", forgeWorker: "missing" },
+          }),
+          { status: 503 },
+        ),
       );
     }) as unknown as typeof fetch;
 
@@ -46,19 +51,21 @@ describe("service status (PHASE_01 1.69)", () => {
   });
 
   it("reports unavailable when the server cannot be reached", async () => {
-    const fake = vi.fn(async () => {
-      throw new Error("ECONNREFUSED");
-    }) as unknown as typeof fetch;
+    const fake = vi.fn(() => Promise.reject(new Error("ECONNREFUSED"))) as unknown as typeof fetch;
     const s = await fetchStatus(fake);
     expect(s.server).toBe("unavailable");
     expect(s.version).toBeNull();
   });
 
   it("a version mismatch overrides every other indicator", async () => {
-    const fake = vi.fn(async (url: string) =>
-      String(url).includes("version")
-        ? new Response(JSON.stringify({ ...GOOD, protocolVersion: 99 }), { status: 200 })
-        : new Response(JSON.stringify({ status: "ok", checks: { database: "ok" } }), { status: 200 }),
+    const fake = vi.fn((url: string) =>
+      Promise.resolve(
+        String(url).includes("version")
+          ? new Response(JSON.stringify({ ...GOOD, protocolVersion: 99 }), { status: 200 })
+          : new Response(JSON.stringify({ status: "ok", checks: { database: "ok" } }), {
+              status: 200,
+            }),
+      ),
     ) as unknown as typeof fetch;
     const s = await fetchStatus(fake);
     expect(s.server).toBe("version-mismatch");
@@ -103,7 +110,8 @@ describe("system socket", () => {
 
     expect(states).toContain("ready");
     expect(socket.sent.length).toBe(1);
-    expect(JSON.parse(socket.sent[0]!).type).toBe("PING");
+    const sent = JSON.parse(socket.sent[0]!) as { type: string };
+    expect(sent.type).toBe("PING");
     dispose();
   });
 
