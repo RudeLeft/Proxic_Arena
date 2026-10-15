@@ -180,7 +180,11 @@ The player's half is the exact mirror of the opponent's about the divider.
 Implement it as a mirror, not as twelve independent rectangles, so the two
 halves cannot drift apart.
 
-**Exception to resolve:** §7.12.
+**Scope, resolved 2026-10-15 (§7.51.5, option B):** the mirror applies
+*within a viewer*, not across viewers. Each player's board is laid out
+from what that player is entitled to see, so the two clients may
+legitimately differ. Implement the mirror as a mirror within one
+viewer's layout; do not assert that the two viewers' boards match.
 
 ---
 
@@ -206,6 +210,25 @@ Apply in order, stopping when contents fit:
 Steps 1–2 are arithmetic. Steps 3–5 carry design judgement and must be
 reviewed on a real board before locking.
 
+**Resolved constants (2026-10-15, §7.51):**
+
+```text
+step 3  OVERLAP     minimum exposed sliver = 33% of card width
+                    (~32px @ 1080) -- name and mana cost stay readable
+step 4  SCALE DOWN  readability floor = 75% of reference card size
+                    (~73px wide); below that, pile instead
+```
+
+**Front / rear rows (§7.51.6).** Presentation only — Magic has no such
+concept. Assignment is AUTOMATIC: the front row fills first in play
+order, and the rear row is used only when the front overflows. Nothing
+is player-arranged and nothing is persisted, which is what keeps
+§7.13's "no stored coordinates" rule intact.
+
+The two rows are part of a zone's capacity, so the ladder above
+applies to the zone as a whole: a zone is "full" only once both rows
+are full.
+
 `layout.mjs` in the PixiJS spike already implements most of this ladder
 (density gaps, pile clearance, scale-to-fit, stack-collision avoidance).
 It is currently marked inactive legacy while the fixed-coordinate renderer
@@ -215,7 +238,16 @@ is active. **Phase 7 reverses that.**
 
 ## 7.10 Zone Membership Model
 
-**Unresolved. Blocks implementation.**
+**RESOLVED 2026-10-15 (§7.51.3).** The `artifact` row becomes the
+**noncreature permanents** row and holds artifacts, enchantments,
+planeswalkers and battles. The three zone kinds stay `land`,
+`noncreature`, `creature`, so the 36 verified zone rects and the
+mirror geometry are unchanged.
+
+Any permanent whose type the model does not enumerate falls back to
+the noncreature row. A permanent must never vanish because its type
+was unrecognised, and a fallback that renders is always better than a
+gap nobody notices.
 
 The existing model has three zone kinds: `land`, `artifact`, `creature`.
 Across Phases 0–6, "planeswalker" appears 0 times and "enchantment" 0
@@ -248,9 +280,16 @@ wrong row. It looked correct only because the test deck's lands were all
 Mountains. Derive type from the Phase 6 snapshot's Forge-supplied current
 characteristics (§6.84) — never from name, never from printed text.
 
-Decide and document: does a permanent that changes type physically move
-rows mid-turn, or hold its row for the turn? Both are defensible; silence
-is not.
+**RESOLVED 2026-10-15 (§7.51.4): move immediately.**
+
+A permanent that changes type moves rows the moment the snapshot says
+so. This follows from Phase 7's final principle — the battlefield is a
+view of Forge's state, never a second model — and holding a stale row
+would mean the board knowingly disagrees with the authoritative state.
+
+Accepted cost: a card can jump rows mid-combat. If that proves
+disorienting on a real board, the fix is an animated transition, NOT a
+delayed one.
 
 ---
 
@@ -262,7 +301,20 @@ knows only that a face-down permanent exists.
 If zone assignment is type-derived, the two viewers may legitimately need
 it in **different rows** — which §7.8's mirror rule currently forbids.
 
-Three options, owner's choice:
+**RESOLVED 2026-10-15 (§7.51.5): option B, per-viewer layout.**
+
+Layout is a function of (snapshot, viewer). Each client's board is
+computed from what that viewer is entitled to see, and the mirror
+applies within a viewer rather than across viewers (§7.8 amended to
+match). Option C was rejected: it leaks "it is probably a creature".
+
+Testing obligation that comes with B: every layout test runs from
+BOTH seats. A per-viewer layout that is only ever tested from one seat
+is how the old project's `canBeShownTo` leak survived review — the
+guard existed, was believed correct, and was never exercised from the
+other side.
+
+The options as originally put:
 
 ```text
 A. Face-down permanents get a dedicated row, identical for both viewers.
@@ -751,17 +803,27 @@ hiding a legal action because the UI is crowded
 shipping a zone model with no fallback for unmapped types
 ```
 
-## 7.51 Open Owner Decisions
+## 7.51 Owner Decisions — RESOLVED 2026-10-15
 
-These block implementation and are carried from the layout contract §7:
+All six are answered. Phase 7 is no longer blocked on the owner.
 
-1. Minimum exposed sliver when cards overlap (§7.9 step 3).
-2. Card scale floor before piling (§7.9 step 4).
-3. Zone assignment for enchantments, planeswalkers, battles (§7.10).
-4. Type-change behaviour: move rows, or hold for the turn (§7.11).
-5. Face-down model: A, B or C (§7.12).
-6. Is `front` / `rear` player-arranged or automatic? Magic has no such
-   concept, so this is presentation-only and needs an owner.
+| # | Question | Decision |
+|---|---|---|
+| 1 | Minimum exposed sliver (§7.9 step 3) | **~33% of card width** (~32px @ 1080) — name and mana cost stay readable |
+| 2 | Scale floor before piling (§7.9 step 4) | **75% of reference** (~73px) — pile earlier rather than shrink past readability |
+| 3 | Enchantments, planeswalkers, battles (§7.10) | **One noncreature permanents row**, with a visible fallback for unenumerated types |
+| 4 | Type change (§7.11) | **Move rows immediately** |
+| 5 | Face-down model (§7.12) | **Option B — per-viewer layout** |
+| 6 | `front` / `rear` (layout contract zone table; see §7.9) | **Automatic, by overflow**; rear fills only when front is full, order follows play order |
+
+Consequences carried into the implementation:
+
+- §7.8's mirror rule is scoped to *within a viewer*.
+- Layout takes a viewer argument, and every layout test runs from both
+  seats (§7.12).
+- (6) stores nothing per player, which keeps §7.13's "no stored
+  coordinates" intact — a player-arranged front/rear would have
+  required persisted arrangement state and contradicted it.
 
 ---
 
