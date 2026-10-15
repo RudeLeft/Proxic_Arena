@@ -339,3 +339,5 @@ spikes/                    Phase 0A measurement harnesses
    start.
 5. `docs/security/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,
    checked rather than asserted.
+6. `docs/deployment/UNRAID_CHECKLIST.md` — deploying to the host.
+   Written from the specification and **not yet run**.
