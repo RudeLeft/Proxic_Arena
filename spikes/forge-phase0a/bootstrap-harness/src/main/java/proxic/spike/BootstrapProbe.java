@@ -205,6 +205,50 @@ public final class BootstrapProbe {
                     ? -1 : com.google.common.collect.Iterables.size(data.getEditions());
             step("editions loaded: " + editionCount);
 
+            // ---- §0A.9A: exact-printing resolution --------------
+            // Proves name + set + collector number resolves to a
+            // specific PaperCard, and that the result really is that
+            // printing rather than a silent fall-back to "some
+            // Lightning Bolt". The old bridge matched the [SET:NUM]
+            // tag in a NON-CAPTURING group and resolved by name alone,
+            // so this is a known gap being closed, not an open
+            // question.
+            System.out.println();
+            System.out.println("=== 0A.9A exact printing ===");
+            var db = data.getCommonCards();
+            String[][] probes = {
+                {"Lightning Bolt", "LEA", "161"},   // valid
+                {"Forest",         "KTK", "266"},   // valid
+                {"Shock",          "M21", "159"},   // valid
+                {"Forest",         "KTK", "261"},   // INVALID number for KTK
+                {"Lightning Bolt", "ZZZ", "999"},   // INVALID set entirely
+            };
+            int exact = 0, fellBack = 0;
+            for (String[] q : probes) {
+                PaperCard byName = db.getCard(q[0]);
+                PaperCard bySet  = db.getCard(q[0], q[1]);
+                PaperCard byNum  = db.getCard(q[0], q[1], q[2]);
+                String r = String.format("    %-16s name=%s  set=%s  set+num=%s",
+                        q[0],
+                        byName == null ? "MISS" : byName.getEdition(),
+                        bySet  == null ? "MISS" : bySet.getEdition(),
+                        byNum  == null ? "MISS" : byNum.getEdition() + "/" + byNum.getCollectorNumber());
+                System.out.println(r);
+                boolean asked = byNum != null
+                        && q[1].equals(byNum.getEdition())
+                        && q[2].equals(byNum.getCollectorNumber());
+                if (asked) exact++;
+                else if (byNum != null) {
+                    fellBack++;
+                    System.out.println("        ^^ SILENT FALLBACK: asked " + q[1] + "/" + q[2]
+                            + ", got " + byNum.getEdition() + "/" + byNum.getCollectorNumber());
+                }
+            }
+            System.out.println("    exact printing resolved: " + exact + "/" + probes.length
+                    + "   silently fell back: " + fellBack);
+            System.out.println("    -> Phase 2 MUST verify the returned PaperCard matches the");
+            System.out.println("       requested set and collector number. The lookup does not.");
+
             System.out.println();
             System.out.println("RESULT: PASS");
             System.exit(0);

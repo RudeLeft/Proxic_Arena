@@ -184,17 +184,31 @@ public final class GameRunner {
             DecisionGate.report();
             AdversarialClient.report();
         }
+        System.out.println();
+        System.out.println("=== P0A-K zone coverage ===");
+        System.out.println("    OFFERED from non-hand/battlefield zones: "
+                + (ScriptedController.ZONE_ACTIONS.isEmpty() ? "none" : ScriptedController.ZONE_ACTIONS.toString()));
+        System.out.println("    PLAYED  from non-hand/battlefield zones: "
+                + (ScriptedController.ZONE_PLAYED.isEmpty() ? "none" : ScriptedController.ZONE_PLAYED.toString()));
+        boolean zoneOk = !ScriptedController.ZONE_PLAYED.isEmpty();
+        if (!zoneOk) {
+            System.out.println("    NOT EXERCISED -- an enumerator that never offers one");
+            System.out.println("    and one that works look identical from outside.");
+        }
         boolean hidOk = VisibilityProbe.report();
         boolean idOk = IdentityProbe.report();
 
-        boolean ok = hidOk && idOk && game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
+        boolean ok = hidOk && idOk && zoneOk && game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
         System.out.println();
         if (GeneratedControllerBase.SURVEY) {
             System.out.println("RESULT: SURVEY (not a pass — stubs returned defaults "
                     + "instead of answering; see the stub list above)");
         } else {
             System.out.println("RESULT: " + (ok ? "PASS"
-                    : (!hidOk ? "FAIL — hidden-information check" : !idOk ? "FAIL — object identity check" : "FAIL — no outcome")));
+                    : (!hidOk ? "FAIL — hidden-information check"
+                       : !idOk ? "FAIL — object identity check"
+                       : !zoneOk ? "FAIL — zone coverage not exercised"
+                       : "FAIL — no outcome")));
         }
         System.exit(ok ? 0 : 1);
     }

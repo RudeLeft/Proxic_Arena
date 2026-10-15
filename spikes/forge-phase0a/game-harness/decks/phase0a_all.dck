@@ -1,0 +1,18 @@
+// Phase 0A acceptance deck -- exercises every runtime test in one game.
+//
+//   Mountain            mana, land play
+//   Ainok Tracker       morph -> alternative cost, face-down (P0A-E H4)
+//   Faithless Looting   flashback -> graveyard action (P0A-K)
+//   Goblin Instigator   token creation (P0A-F)
+//   Shock               targeting, instant-speed response (P0A-C)
+//
+// DELIBERATELY NOT OPEN-FORMAT LEGAL. Copy counts exceed 4 so rare
+// paths are reached deterministically rather than by lucky draw --
+// PHASE_00A 0A.11A endorses stacked decks for architecture validation,
+// and 0.62 says broad card coverage is not Phase 0's job. Deck-legality
+// enforcement is Phase 2's, and is tested separately.
+20 Mountain
+14 Ainok Tracker
+12 Faithless Looting
+10 Goblin Instigator
+8 Shock

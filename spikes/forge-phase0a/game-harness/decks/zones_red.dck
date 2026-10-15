@@ -1,0 +1,6 @@
+// Phase 0A P0A-K: proves an action is offered from a zone other than
+// hand or battlefield. Faithless Looting has Flashback {2}{R} and
+// discards, so copies reach the graveyard and become castable there.
+24 Mountain
+20 Faithless Looting
+16 Goblin Instigator

@@ -6,8 +6,10 @@ contract — project locations, phase discipline, evidence rules, Forge
 boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
-**Phase 0A has not been executed. No production feature work is
-authorized.** See `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md`.
+**Phase 0A is EXECUTED — all nine acceptance tests pass — and is
+awaiting the owner's acceptance at the gate.** Production feature work
+is not authorized until that gate passes. See
+`docs/research/phase-00a/FINAL_RECOMMENDATION.md`.
 
 **One play mode only: Open Format** — 60-65 card deck, max 4
 copies of a specific card, unrestricted card pool, 2 players. Commander

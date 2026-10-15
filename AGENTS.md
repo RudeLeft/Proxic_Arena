@@ -41,8 +41,10 @@ BUILD NEW
 
 ## Current phase
 
-**Phase 0A has not been executed.** No production feature work is
-authorized. See `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md`.
+**Phase 0A is EXECUTED** — nine of nine acceptance tests pass —
+**and awaits the owner's acceptance at the gate.** No production
+feature work is authorized until then.
+See `docs/research/phase-00a/FINAL_RECOMMENDATION.md`.
 
 Check this section before implementing anything. If it disagrees with what
 you were asked to do, stop and say so.

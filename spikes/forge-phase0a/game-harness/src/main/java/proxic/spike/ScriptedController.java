@@ -144,19 +144,28 @@ public final class ScriptedController extends GeneratedControllerBase {
                 }
             }
         }
-        // P0A-I: the COMMAND ZONE is a third source of playable actions.
-        // An adapter that walks only hand and battlefield will never
-        // offer the commander, and the game looks superficially fine --
-        // it just quietly never casts it. This is Phase 6 §6.56's
-        // zone-dependent actions, found by a Commander game rather than
-        // by reading the rule.
-        for (Card c : player.getCardsIn(ZoneType.Command)) {
-            for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
-                if (!sa.isSpell()) continue;
-                if (sa.getPayCosts().getTotalMana().getCMC() > mana) continue;
-                if (!canPayNonManaCosts(sa)) continue;
-                if (requiresTargetButHasNone(sa)) continue;
-                spells.add(sa);
+        // P0A-K / AGENTS FMT-003: actions are NOT confined to hand and
+        // battlefield. Forge offers flashback and escape from the
+        // GRAVEYARD, foretell and adventure from EXILE, a commander
+        // from the COMMAND zone, and a few cards act from the LIBRARY.
+        //
+        // An enumerator that walks only hand and battlefield misses all
+        // of that SILENTLY. The Commander spike proved it by never
+        // casting the commander, with no error of any kind -- the game
+        // merely played differently. Open Format allows any card, so no
+        // zone can be assumed irrelevant. This generalises the original
+        // command-zone-only fix into the rule Phase 6 §6.56 states.
+        for (ZoneType z : OTHER_ACTION_ZONES) {
+            for (Card c : player.getCardsIn(z)) {
+                for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
+                    if (!sa.isSpell() && !sa.isActivatedAbility()) continue;
+                    if (sa.isManaAbility()) continue;
+                    if (sa.getPayCosts().getTotalMana().getCMC() > mana) continue;
+                    if (!canPayNonManaCosts(sa)) continue;
+                    if (requiresTargetButHasNone(sa)) continue;
+                    ZONE_ACTIONS.merge(z.name(), 1, Integer::sum);
+                    spells.add(sa);
+                }
             }
         }
 
@@ -199,6 +208,16 @@ public final class ScriptedController extends GeneratedControllerBase {
         if (!lands.isEmpty()) return List.of(lands.get(0));
         return null; // pass priority
     }
+
+    /** Zones other than hand/battlefield that can offer actions. */
+    private static final ZoneType[] OTHER_ACTION_ZONES = {
+        ZoneType.Graveyard, ZoneType.Exile, ZoneType.Command, ZoneType.Library
+    };
+
+    /** P0A-K evidence: actions offered, counted by originating zone. */
+    public static final LinkedHashMap<String, Integer> ZONE_ACTIONS = new LinkedHashMap<>();
+    /** Actions actually PERFORMED from those zones. */
+    public static final LinkedHashMap<String, Integer> ZONE_PLAYED = new LinkedHashMap<>();
 
     private int untappedManaSources() {
         int n = 0;
@@ -279,6 +298,14 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public boolean playChosenSpellAbility(SpellAbility chosenSa) {
         seen("playChosenSpellAbility");
+        Card ph = chosenSa.getHostCard();
+        if (ph != null && ph.getZone() != null) {
+            ZoneType pz = ph.getZone().getZoneType();
+            if (pz == ZoneType.Graveyard || pz == ZoneType.Exile
+                    || pz == ZoneType.Command || pz == ZoneType.Library) {
+                ZONE_PLAYED.merge(pz.name(), 1, Integer::sum);
+            }
+        }
         // P0A-C evidence: did a real stack interaction ever happen, or
         // did every spell just resolve into an empty stack? "A targeted
         // spell was cast" is not the same claim as "the opponent
@@ -654,6 +681,33 @@ public final class ScriptedController extends GeneratedControllerBase {
     public CardCollectionView orderMoveToZoneList(CardCollectionView cards, ZoneType destinationZone, SpellAbility source) {
         seen("orderMoveToZoneList");
         return cards;
+    }
+
+    /**
+     * Discard N of the given cards. Reached by Faithless Looting, whose
+     * flashback is what P0A-K uses to prove a graveyard action.
+     *
+     * Deliberately discards the FIRST cards offered rather than
+     * anything clever: this is a scripted controller, and a policy that
+     * tried to be smart would make the test about the policy.
+     *
+     * NOTE the signature. PlayerController has a 5-arg CONVENIENCE
+     * overload that delegates to the 6-arg ABSTRACT one. Overriding the
+     * 5-arg version compiles cleanly, passes @Override, and does
+     * nothing -- Forge still calls the abstract 6-arg method and still
+     * hits the stub. Caught only because the stub is loud; a silent
+     * stub would have made this look implemented.
+     */
+    @Override
+    public CardCollectionView chooseCardsToDiscardFrom(Player p, SpellAbility sa,
+            forge.game.card.CardCollection validCards, int min, int max,
+            CardCollectionView visibleToChooser) {
+        seen("chooseCardsToDiscardFrom");
+        CardCollection out = new CardCollection();
+        for (int i = 0; i < min && i < validCards.size(); i++) {
+            out.add(validCards.get(i));
+        }
+        return out;
     }
 
     @Override
