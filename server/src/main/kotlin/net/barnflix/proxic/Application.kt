@@ -44,13 +44,32 @@ fun main() {
         exitProcess(78) // EX_CONFIG
     }
 
-    embeddedServer(Netty, port = config.port, host = config.host) {
+    embeddedServer(
+        Netty,
+        configure = {
+            // §1.100 — a connection that opens and then says nothing
+            // holds a thread and a socket. These bound both ends.
+            requestReadTimeoutSeconds = Limits.REQUEST_READ_TIMEOUT_SECONDS
+            responseWriteTimeoutSeconds = Limits.RESPONSE_WRITE_TIMEOUT_SECONDS
+        },
+        port = config.port,
+        host = config.host,
+    ) {
         module(config)
     }.start(wait = true)
 }
 
 /** Counts connections so logs can be correlated (§1.30). */
 private val connectionSequence = AtomicLong(0)
+
+/**
+ * Currently open /ws/system connections (§1.100).
+ *
+ * Separate from [connectionSequence], which only ever increases and
+ * exists to name connections. This one goes down again, and a leak
+ * here would quietly refuse every future connection.
+ */
+private val openConnections = java.util.concurrent.atomic.AtomicInteger(0)
 
 /**
  * The ONE serializer used for WebSocket frames.
@@ -120,10 +139,18 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
         // §1.42: no println. Logback owns output.
     }
 
+    // §1.99, §1.100 — bounded HTTP body, before the bytes are read.
+    install(BodySizeLimit)
+
     install(WebSockets) {
         // Ktor 2.x takes java.time.Duration here, not kotlin.time.
-        pingPeriod = Duration.ofSeconds(15)
-        timeout = Duration.ofSeconds(30)
+        pingPeriod = Duration.ofSeconds(Limits.WS_PING_SECONDS)
+        timeout = Duration.ofSeconds(Limits.WS_TIMEOUT_SECONDS)
+        // §1.100 — a hostile or broken client must not be able to
+        // make the server allocate without bound. Idle sockets are
+        // handled by the ping/timeout pair above: a peer that stops
+        // answering pings is closed rather than held open forever.
+        maxFrameSize = Limits.MAX_WS_FRAME_BYTES
     }
 
     // §1.44: one error shape, everywhere. A thrown exception must not
@@ -215,77 +242,9 @@ private fun Application.installRoutes(
         }
 
         // §1.29 — infrastructure WebSocket. No Magic messages.
-        webSocket("/ws/system") {
-            val connectionId = "conn-${connectionSequence.incrementAndGet()}"
-            // Wrapped around the LOG CALL, not the whole handler:
-            // MDC is thread-local and this body suspends, so a value
-            // set across a suspension point can resume on another
-            // thread and attach itself to an unrelated connection's
-            // lines (§1.41).
-            LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
-                application.log.info("ws open")
-            }
-
-            send(
-                Frame.Text(
-                    wireJson.encodeToString(
-                        Envelope.serializer(),
-                        Envelope(
-                            type = "HELLO",
-                            messageId = UUID.randomUUID().toString(),
-                            payload =
-                                mapOf(
-                                    "serverVersion" to BuildInfo.PROXIC_VERSION,
-                                    "connectionId" to connectionId,
-                                ),
-                        ),
-                    ),
-                ),
-            )
-
-            try {
-                for (frame in incoming) {
-                    if (frame !is Frame.Text) continue
-                    val text = frame.readText()
-                    val msg =
-                        runCatching {
-                            wireJson.decodeFromString(Envelope.serializer(), text)
-                        }.getOrNull()
-
-                    if (msg == null) {
-                        sendEnvelope("ERROR", mapOf("errorCode" to "MALFORMED_MESSAGE"))
-                        continue
-                    }
-                    // §1.32: a protocol mismatch fails clearly rather
-                    // than being guessed at.
-                    if (msg.protocolVersion != BuildInfo.PROTOCOL_VERSION) {
-                        sendEnvelope(
-                            "ERROR",
-                            mapOf(
-                                "errorCode" to "PROTOCOL_VERSION_MISMATCH",
-                                "expected" to BuildInfo.PROTOCOL_VERSION.toString(),
-                                "received" to msg.protocolVersion.toString(),
-                            ),
-                        )
-                        close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "protocol version"))
-                        return@webSocket
-                    }
-
-                    when (msg.type) {
-                        "PING" -> sendEnvelope("PONG", emptyMap(), msg.messageId)
-                        else ->
-                            sendEnvelope(
-                                "ERROR",
-                                mapOf("errorCode" to "UNKNOWN_TYPE", "type" to msg.type),
-                            )
-                    }
-                }
-            } finally {
-                LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
-                    application.log.info("ws close")
-                }
-            }
-        }
+        // §1.29 handler lives in its own function: detekt was
+        // right that installRoutes had grown past readable.
+        systemWebSocket(config)
 
         // §1.27 — production static serving. In development Vite
         // serves the app and proxies here (§1.28), so this directory
@@ -382,4 +341,96 @@ internal fun resolveStaticFile(
     val canonical = runCatching { candidate.canonicalFile }.getOrNull() ?: return null
     if (!canonical.toPath().startsWith(canonicalRoot.toPath())) return null
     return if (canonical.isFile) canonical else null
+}
+
+/**
+ * The infrastructure WebSocket (§1.29–§1.32, §1.100).
+ *
+ * Extracted from installRoutes because that function had grown
+ * past 120 lines. The connection lifecycle, the protocol guard and
+ * the ceiling belong together and read better on their own.
+ */
+private fun Route.systemWebSocket(config: ServerConfig) {
+    webSocket("/ws/system") {
+        // §1.100 — concurrent connection ceiling. Counted on
+        // entry and released in the finally below, so a client
+        // that disconnects rudely does not leak a slot.
+        if (openConnections.incrementAndGet() > config.maxSystemConnections) {
+            openConnections.decrementAndGet()
+            application.log.warn("refusing ws: at the connection ceiling")
+            close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "too many connections"))
+            return@webSocket
+        }
+
+        val connectionId = "conn-${connectionSequence.incrementAndGet()}"
+        // Wrapped around the LOG CALL, not the whole handler:
+        // MDC is thread-local and this body suspends, so a value
+        // set across a suspension point can resume on another
+        // thread and attach itself to an unrelated connection's
+        // lines (§1.41).
+        LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
+            application.log.info("ws open")
+        }
+
+        send(
+            Frame.Text(
+                wireJson.encodeToString(
+                    Envelope.serializer(),
+                    Envelope(
+                        type = "HELLO",
+                        messageId = UUID.randomUUID().toString(),
+                        payload =
+                            mapOf(
+                                "serverVersion" to BuildInfo.PROXIC_VERSION,
+                                "connectionId" to connectionId,
+                            ),
+                    ),
+                ),
+            ),
+        )
+
+        try {
+            for (frame in incoming) {
+                if (frame !is Frame.Text) continue
+                val text = frame.readText()
+                val msg =
+                    runCatching {
+                        wireJson.decodeFromString(Envelope.serializer(), text)
+                    }.getOrNull()
+
+                if (msg == null) {
+                    sendEnvelope("ERROR", mapOf("errorCode" to "MALFORMED_MESSAGE"))
+                    continue
+                }
+                // §1.32: a protocol mismatch fails clearly rather
+                // than being guessed at.
+                if (msg.protocolVersion != BuildInfo.PROTOCOL_VERSION) {
+                    sendEnvelope(
+                        "ERROR",
+                        mapOf(
+                            "errorCode" to "PROTOCOL_VERSION_MISMATCH",
+                            "expected" to BuildInfo.PROTOCOL_VERSION.toString(),
+                            "received" to msg.protocolVersion.toString(),
+                        ),
+                    )
+                    close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "protocol version"))
+                    return@webSocket
+                }
+
+                when (msg.type) {
+                    "PING" -> sendEnvelope("PONG", emptyMap(), msg.messageId)
+                    else ->
+                        sendEnvelope(
+                            "ERROR",
+                            mapOf("errorCode" to "UNKNOWN_TYPE", "type" to msg.type),
+                        )
+                }
+            }
+        } finally {
+            openConnections.decrementAndGet()
+            LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
+                application.log.info("ws close")
+            }
+        }
+    }
 }

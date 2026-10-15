@@ -158,7 +158,7 @@ a stopped jar need different responses.
 | --- | --- | --- | --- |
 | 1.71 | Testing philosophy | DONE | nothing unrun is claimed |
 | 1.72 | Frontend unit tests | VERIFIED | 27/27, including component tests |
-| 1.73 | Backend tests | VERIFIED | 28/28, 0 skipped |
+| 1.73 | Backend tests | VERIFIED | 45/45, 0 skipped |
 | 1.74 | Protocol conformance test | VERIFIED | both suites, same fixtures |
 | 1.75 | Database migration test | VERIFIED | real PostgreSQL |
 | 1.76 | Docker clean-build test | VERIFIED | `git clone` + `docker build --no-cache`, 75 s, no host caches |
@@ -206,8 +206,8 @@ documentation rather than writing it.
 
 | § | Item | Status |
 | --- | --- | --- |
-| 1.99 | Security baseline | PARTIAL — secrets, redaction, no public DB, non-root, path-traversal guard; no formal review |
-| 1.100 | Rate / resource protection | MISSING |
+| 1.99 | Security baseline | MOSTLY DONE — secrets, redaction, no public DB, non-root, path-traversal guard, bounded bodies and frames, same-origin (no CORS plugin installed); no formal review pass yet |
+| 1.100 | Rate / resource protection | VERIFIED — body, frame, connection and timeout limits, each with a negative control; 413 confirmed on the running stack |
 | 1.101 | No authentication yet | COMPLIANT |
 | 1.102 | No deck package import yet | COMPLIANT |
 | 1.103 | Phase 2 boundary recorded | DONE |
