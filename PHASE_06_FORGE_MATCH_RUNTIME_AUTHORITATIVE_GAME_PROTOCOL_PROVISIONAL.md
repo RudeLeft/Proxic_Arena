@@ -30,6 +30,18 @@
 > a command zone, teams or shared life, that content is **void**.
 > See `docs/architecture/OPEN_FORMAT.md`.
 
+**Phase 0A amendments to this phase (2026-10-15):**
+
+- §6.46 — ids must be **typed**; card and stack id spaces overlap.
+- §6.44 — both visibility questions, plus the empty-name trap.
+- §6.189 **added** — the worker needs its own loop guard, because
+  Forge's is AI-only.
+- §6.190 **added** — verify that what Forge returned is what was
+  asked for.
+- P6-BH — replaced by zone coverage (Commander is out of scope).
+
+See `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`.
+
 **Phase-0A-dependent decisions in this phase: most of them.**
 
 This is the phase 0A exists to inform.
@@ -1250,6 +1262,37 @@ other authorized viewer
 
 An unauthorized opponent must not receive the real identity or real front-face asset.
 
+**Phase 0A supplies the accepted solution, and both halves are
+required.**
+
+```text
+canBeShownTo          ZONE-level     -- returns TRUE unconditionally
+                                        for the battlefield
+canFaceDownBeShownTo  IDENTITY-level -- the one that governs a
+                                        face-down permanent
+```
+
+Ask **both**, per card, per viewer. Proven by deliberately breaking
+each:
+
+```text
+[RUN] zone-level check only      -> 5 distinct face-down creatures
+                                    leaked their identity
+[RUN] trusting Card.getName()    -> 650 nameless sightings; the card
+                                    was blanked for its OWN controller
+```
+
+A player may look at their own face-down permanents (CR 713.4a), so
+blanking everything is equally wrong.
+
+**`Card.getName()` returns the CURRENT state's name, which for a
+face-down card is the EMPTY STRING — not null.** Fall back to the
+original state, and require a *meaningful* name: "not null" is not
+"identifies the card". Three separate Phase 0A bugs trace to this.
+
+A guard that never fired is not a verified guard (AGENTS HID-004):
+test with a deck that actually produces face-down permanents.
+
 ---
 
 ## 6.45 Hidden-Information Regression
@@ -1272,13 +1315,47 @@ Use the Phase 0 H-series scenarios where defined.
 
 ---
 
-## 6.46 Stable Object Identity
+## 6.46 Stable Object Identity  *(amended 2026-10-15)*
 
 Every exposed live game object receives a stable match/game-instance object identifier.
 
 Do not use card name as game-object identity.
 
 Multiple copies of a card may exist.
+
+**Phase 0A supplies the identifier, and one hard constraint.**
+
+`Card.getId()` is stable for the lifetime of a match, including across
+zone changes:
+
+```text
+[RUN] distinct ids per game = cards + tokens, nothing more
+      none recycled, none duplicated
+      20-24 ids observed in more than one zone
+```
+
+But ids are **not unique across object kinds**:
+
+```text
+[RUN] card ids   [1..130]
+      stack ids  [1.. 18]   -- entirely inside the card range
+```
+
+`SpellAbilityStackInstance.getId()` counts from 1 independently of
+`Card.getId()`. One run caught a stack instance whose id equalled its
+own source card's.
+
+> **IDS MUST BE TYPED ON THE WIRE** — `card:51`, `stack:3`,
+> `ability:266`, or an equivalent explicit kind field. A bare integer
+> cannot identify a game object.
+
+This also makes §6.55's `object_id` vs `action_id` distinction
+explicit rather than conventional.
+
+**Known limitation:** CR 400.7 says an object changing zones becomes a
+*new* object. Forge does not reflect that in the id. If a rule ever
+depends on new-object-ness, represent it separately — it cannot be
+inferred from an id change, because there is none.
 
 ---
 
@@ -5344,3 +5421,100 @@ concurrent matches
 ```
 
 without rewriting the Magic rules in Proxic.
+
+---
+
+## 6.189 The worker needs its own loop guard  *(added 2026-10-15)*
+
+Forge's priority loop has **no safety valve for a human controller**.
+
+```text
+[SOURCE] PhaseHandler.mainLoopStep, end of the priority loop:
+
+         } while (loopCount < 999 || !pPlayerPriority.getController().isAI());
+```
+
+The 999-iteration guard applies **only when `isAI()` is true**. For a
+human-shaped controller the condition is permanently true, so any
+adapter failure makes Forge re-offer the identical action **forever**:
+full CPU, no exception, no log line, turn counter frozen.
+
+```text
+[RUN] observed FOUR times in Phase 0A, four different causes:
+        an unimplemented playChosenSpellAbility
+        a mana ability played through the wrong path
+        an unpayable CostSacrifice
+        an unimplemented discard
+
+      worst case 679,963 identical attempts, frozen on turn 2,
+      with targeting SUCCEEDING every time and zero stubs reached
+```
+
+Confirmed **unchanged at `master`** — this is how Forge works, not a
+bug awaiting an upstream fix.
+
+Two requirements follow:
+
+1. **The adapter must never offer an action it cannot perform, and
+   never fail to perform one it offered.** Screen enumeration by
+   payability; count what is declined rather than dropping it
+   silently.
+2. **The worker must carry its own loop guard.** A repeated identical
+   choice with no `state_version` change must abort the match with a
+   diagnosable error. Forge will never do it, and from outside the
+   failure is indistinguishable from a slow game.
+
+Note what was *not* visible in the measured cases: no error, no stub,
+no log. Only the **ratio between decision counts** localised it —
+`chooseTargetsFor` at 679,963 against `payManaCost` at 2. Worker
+instrumentation should expose per-decision-kind counters for exactly
+this reason.
+
+---
+
+## 6.190 Verify that Forge returned what was asked for  *(added 2026-10-15)*
+
+Three Phase 0A failures share one shape: **the obvious call succeeds
+and silently does something else.**
+
+```text
+[RUN] exact printing: asked KTK/261 -> got TRK/325, a different set
+                      asked ZZZ/999 -> got SLZ/63
+                      a bad set or number does NOT return null
+
+[SOURCE] chooseCardsToDiscardFrom has a 5-arg CONVENIENCE overload
+         delegating to the 6-arg ABSTRACT one. Overriding the 5-arg
+         version compiles, satisfies @Override, and NEVER RUNS.
+
+[RUN] an action enumerator that omits a zone offers nothing from it,
+      with no error -- the game merely plays differently
+```
+
+> **Do not trust a non-null result.** Check that the returned object
+> matches the request: the printing you asked for, the method Forge
+> actually calls, the zones Forge can actually offer from.
+
+This is why AGENTS STUB-002 requires unimplemented decisions to be
+*loud*. Each of the three was caught in one run because something
+announced itself; a silent stub would have made all three look
+implemented.
+
+---
+
+## 6.191 Decision volume  *(added 2026-10-15)*
+
+```text
+[RUN] a complete 12-turn game:
+        chooseSpellAbilityToPlay   ~240 calls
+        actions actually taken      ~23
+```
+
+Forge asks on **every** priority window — upkeep, end step, the
+opponent's whole turn. The ratio is roughly 10:1 and is not a defect.
+
+The protocol and the client must both be built for it: a naive
+implementation that round-trips every priority window to the browser
+will feel unusable. The old project auto-passed windows with no
+playable option, which is the behaviour Phase 7 should inherit — with
+the caveat recorded there that auto-pass must not hide a real
+instant-speed response opportunity.

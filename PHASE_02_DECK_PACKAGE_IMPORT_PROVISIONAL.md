@@ -26,6 +26,20 @@
 > a command zone, teams or shared life, that content is **void**.
 > See `docs/architecture/OPEN_FORMAT.md`.
 
+**Phase 0A amendments to this phase (2026-10-15):**
+
+- §2.45 **reversed** — Open Format deck legality is Proxic's, not
+  Forge's.
+- §2.44 — the deferral of legality to a later Forge stage is
+  superseded.
+- §2.49 — exact-printing lookup fails silently and must be verified.
+- §2.133–2.135 **added** — the deck package contract, read from the Deck
+  Builder exporter, plus the art-derivative and de-duplication
+  findings.
+
+See `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` and
+`docs/architecture/DECK_PACKAGE_AND_ART.md`.
+
 **Phase-0A-dependent decisions in this phase:**
 
 - §2.10 already states that Phase 0 Forge decisions remain authoritative.
@@ -983,27 +997,59 @@ Phase 2 primarily asks:
 
 > Can this package be parsed and its cards be resolved through Forge?
 
-It should not reject a structurally valid imported deck merely because a future match format may consider that deck illegal, unless the package explicitly declares a format and the accepted architecture requires validation at import.
-
-Final match-format legality belongs to Forge at the appropriate later match/setup stage.
+**AMENDED 2026-10-15 (Phase 0A accepted).** The second half of this
+section is superseded. Open Format is the only mode and its legality
+rules differ from anything Forge enforces, so import DOES validate
+them — see the amended §2.45. Structural validity and format legality
+remain different things; both are now checked here.
 
 ---
 
-## 2.45 No Arena Deck-Legality Engine
+## 2.45 Open Format deck legality is PROXIC's  *(amended)*
 
-Arena must not implement rules such as:
+**AMENDED 2026-10-15. This section previously said the opposite** —
+that Arena must not implement copy limits or deck-size rules and
+should use Forge instead. Phase 0A proved that is not possible.
 
 ```text
-maximum four copies
-Commander singleton
-color identity
-minimum deck size
-sideboard size
+[SOURCE] DeckFormat.Constructed = Range.of(60, Integer.MAX_VALUE),
+                                  sideboard 0-15, 4 copies max
+         Open Format            = 60-65 inclusive, no sideboard,
+                                  4 copies, basic lands unlimited
 ```
 
-itself.
+Forge has **no maximum deck size** and **permits a sideboard**.
+Neither bound can be delegated, so Proxic enforces Open Format itself,
+at import and again at match setup.
 
-When those rules must be evaluated, use Forge.
+This does not cross the Forge boundary. Deck *construction* legality
+is format policy; everything from the first untap step onward remains
+Forge's, exclusively.
+
+Rules Proxic enforces:
+
+```text
+main deck size        60-65 inclusive
+copies of a card      max 4
+basic lands           UNLIMITED
+sideboard             rejected outright, not silently dropped
+card pool             unrestricted
+```
+
+**Do NOT use `DeckFormat.canHaveAnyNumberOf()` for the exemption.**
+
+```text
+[SOURCE] it returns true for basic lands AND for any card keyworded
+         "A deck can have any number of cards named CARDNAME."
+```
+
+That second clause covers Relentless Rats, Shadowborn Apostle,
+Persistent Petitioners and Dragon's Approach — which the owner did
+**not** exempt. Test `card.getRules().getType().isBasicLand()`.
+See AGENTS FMT-002 and FMT-004.
+
+Commander singleton and colour identity are **out of scope** —
+Commander was removed on 2026-10-15.
 
 ---
 
@@ -1060,11 +1106,33 @@ collector number
 printing identifier
 ```
 
-Phase 2 must use the exact Phase 0 printing-resolution strategy.
+**AMENDED 2026-10-15.** Phase 0A supplies the strategy, and the
+finding is that the lookup **fails silently**:
 
-If it contains only a canonical card name, follow the Phase 0-approved fallback behavior.
+```text
+[RUN] CardDb, forge-2.0.15
 
-Do not invent printing semantics.
+      Lightning Bolt + LEA + 161  ->  LEA/161     correct
+      Forest         + KTK + 266  ->  KTK/266     correct
+      Shock          + M21 + 159  ->  M21/159     correct
+
+      Forest         + KTK + 261  ->  TRK/325     DIFFERENT SET
+      Lightning Bolt + ZZZ + 999  ->  SLZ/63      set does not exist
+```
+
+A bad set or collector number does **not** return null. Forge quietly
+returns some other printing of the same name.
+
+> **Phase 2 MUST verify that the returned `PaperCard` matches the
+> requested set and collector number**, and treat a mismatch as a real
+> import outcome reported to the player — never silently accepted.
+
+For gameplay the substitution is harmless; one Lightning Bolt plays
+like any other. For Proxic it is not: the printing is what the player
+chose and what their artwork is keyed to.
+
+Name-only entries resolve by name, which is well defined. Do not
+invent further printing semantics.
 
 ---
 
@@ -2955,3 +3023,94 @@ deck_id
 ```
 
 and trust that the imported package was already validated.
+
+---
+
+## 2.133 The deck package contract  *(added 2026-10-15)*
+
+Read from the exporter source, `Proxic_Deck_Builder/mtgdb/arena/export.py`
+(read-only sibling, AGENTS ISO-002) — not inferred.
+
+```text
+<DeckName>.txt
+real_cards/<Card Name> [SET].png
+```
+
+`ZIP_DEFLATED`. Four behaviours the importer must build around:
+
+### 2.133.1 One image per distinct NAME, not per copy
+
+```text
+[SOURCE] "Return one card per distinct name of the main deck...
+          Arena's art index is keyed by card name, so a second
+          printing of the same name could only overwrite the first."
+```
+
+A deck with 20 Mountains ships one Mountain image.
+
+**Consequence:** the package **cannot express two printings of the
+same card name**. Combined with §2.49, Proxic may hold the correct
+printing identity but only one piece of art for it. §2.52 must be read
+with this in mind, and the import report should say so rather than
+implying the art matches every printing.
+
+### 2.133.2 Sideboard cards are excluded at source
+
+```text
+[SOURCE] "Arena has no sideboard, so a card held only there is not
+          exported and gets no art."
+```
+
+Independently consistent with Open Format. §2.45 still requires an
+explicit **rejection** if one appears, rather than a silent drop.
+
+### 2.133.3 Filenames keep spaces and accents deliberately
+
+```text
+[SOURCE] _ILLEGAL_FILENAME_CHARACTERS = '<>:"/\|?*'
+         "Accents and spaces are deliberately NOT touched"
+```
+
+§2.36's Unicode handling must preserve them exactly; normalising an
+accent breaks the match against the decklist.
+
+### 2.133.4 The export is atomic
+
+Temp file, `fsync`, `os.replace`. §2.18 requires the import to be
+equally atomic from the user's perspective.
+
+---
+
+## 2.134 Artwork must be down-scaled at import  *(added 2026-10-15)*
+
+```text
+[BENCHMARK] source PNGs    745 x 1040   mean 1,078 KB
+            battlefield     97.5 x 136.5  (layout contract @ 1920x1080)
+
+            58x more pixels than displayed
+            15x more than needed even at 2x for high-DPI
+
+            per deck: ~16-27 MB typical, up to ~68 MB all-distinct
+```
+
+Serving originals to the browser means decoding ~50 MP of PNG to draw
+~0.9 MP of card faces. **Generate display-sized derivatives at import**
+and keep the original only for the inspect/zoom view.
+
+The old project's precedent is direct: rebuilding card faces per redraw
+cost 82 ms a frame and capped the client at 12 fps until cached, and
+the first guess at the cause was wrong. Measure.
+
+## 2.135 De-duplicate art by content hash  *(added 2026-10-15)*
+
+Every deck containing Lightning Bolt would otherwise store its own
+copy. At five players with several decks each that is tens of
+gigabytes of identical files.
+
+Store art once keyed by **content hash**; decks reference it. The
+package's `"<Card Name> [SET]"` is a reasonable natural key but is not
+collision-proof across printings (§2.133.1).
+
+De-duplication is storage only. **Access remains per match and per
+viewer** (Phase 6 §6.122); a player must never be able to enumerate
+art they have no right to see.
