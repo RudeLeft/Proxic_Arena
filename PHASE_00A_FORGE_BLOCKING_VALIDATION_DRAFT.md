@@ -2,9 +2,10 @@
 
 # Phase 0A — Blocking Forge Validation
 
-**Status:** EXECUTED 2026-10-15 — all nine acceptance tests pass.
-Awaiting project-owner acceptance at the gate.
-See `docs/research/phase-00a/FINAL_RECOMMENDATION.md`.
+**Status:** **ACCEPTED by the project owner, 2026-10-15.**
+All nine acceptance tests passed. Decisions are recorded in
+`docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`; evidence in
+`docs/research/phase-00a/`. Phase 1 is authorized.
 **Phase Type:** Research, proof-of-concept, architecture validation
 **Production Feature Work:** PROHIBITED
 **Next Phase:** Phase 1 — Application Foundation

@@ -2,20 +2,24 @@
 
 # Phase 1 — Application Foundation
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED — Phase 0A accepted 2026-10-15  
 **Phase Type:** Production foundation  
 **Implementation Authorization:** NOT AUTHORIZED until Phase 0 execution is complete and accepted  
 **Depends On:** Locked Phase 0 specification + accepted `docs/research/phase-00/FINAL_RECOMMENDATION.md`
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
-> specification downstream of it is a guess wearing a lock. Phase 0 has
-> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
-> triggers); this phase may be locked once 0A is accepted.
+> **LOCKED 2026-10-15.** Phase 0A has been executed and accepted, so
+> the condition this phase was held open for is satisfied.
 >
-> Content is unchanged. Only the status and the dependency notes below
-> were added.
+> §1.2's ingestion gate is met by `docs/research/phase-00a/` and
+> §1.3's decision import by
+> `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`, which **replaces
+> the Forge side of §1.6's placeholder diagram**.
+>
+> Four Phase 0A constraints bind this phase's protocol work:
+> typed object ids, a monotonic server-authoritative `state_version`,
+> reject-before-the-waiter, and a worker loop guard. See the accepted
+> decisions document.
 
 > **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
 > Proxic Arena supports **one play mode: Open Format** — 65-card deck

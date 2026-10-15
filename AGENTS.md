@@ -41,10 +41,13 @@ BUILD NEW
 
 ## Current phase
 
-**Phase 0A is EXECUTED** — nine of nine acceptance tests pass —
-**and awaits the owner's acceptance at the gate.** No production
-feature work is authorized until then.
-See `docs/research/phase-00a/FINAL_RECOMMENDATION.md`.
+**Phase 0A is ACCEPTED (2026-10-15). The active phase is Phase 1 —
+Application Foundation.** Production work is authorized within Phase 1
+only.
+
+Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
+carries the locked architectural facts (pin, adapter, process model,
+typed ids, visibility, bootstrap, resources).
 
 Check this section before implementing anything. If it disagrees with what
 you were asked to do, stop and say so.
@@ -60,6 +63,7 @@ you were asked to do, stop and say so.
 | `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
 | `PHASE_01`–`PHASE_06` `_PROVISIONAL.md` | Production phases. Provisional because they were locked before Phase 0 ran; each carries a note on what 0A may change. |
 | `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
+| `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` | **The locked architecture.** Read before any production code. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |

@@ -6,10 +6,10 @@ contract — project locations, phase discipline, evidence rules, Forge
 boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
-**Phase 0A is EXECUTED — all nine acceptance tests pass — and is
-awaiting the owner's acceptance at the gate.** Production feature work
-is not authorized until that gate passes. See
-`docs/research/phase-00a/FINAL_RECOMMENDATION.md`.
+**Phase 0A is ACCEPTED (2026-10-15). Phase 1 is the active phase.**
+Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
+production code — it carries the architectural facts Phase 0A
+established.
 
 **One play mode only: Open Format** — 60-65 card deck, max 4
 copies of a specific card, unrestricted card pool, 2 players. Commander
