@@ -76,7 +76,15 @@ you were asked to do, stop and say so.
   `DeckFormat.Constructed` is min 60 with **no maximum**; Open Format
   is **max 65**. They are different rules, so the check cannot be
   delegated. Deck-construction legality is format policy; everything
-  after the game starts is still Forge's. _REVIEW._
+  after the game starts is still Forge's. Open Format: max 65 cards,
+  max 4 copies of a card, **basic lands unlimited**, **no sideboard**.
+  _REVIEW._
+- **FMT-004 — MUST NOT:** Use `DeckFormat.canHaveAnyNumberOf()` as the
+  copy-limit exemption test. It exempts basic lands *and* cards
+  keyworded "A deck can have any number of cards named CARDNAME"
+  (Relentless Rats, Shadowborn Apostle, …). The owner exempted basic
+  lands only, so that helper would silently permit a deck nobody
+  authorised. Test `getType().isBasicLand()`. _REVIEW._
 - **FMT-003 — MUST:** Enumerate playable actions from **every zone
   Forge can offer them from**, not just hand and battlefield. A
   Commander in the command zone was never offered because the

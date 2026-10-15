@@ -11,9 +11,12 @@
 Proxic Arena supports **one play mode**: Open Format.
 
 ```text
-deck size        65 cards maximum
+deck size        65 cards maximum  (minimum: see §4.4, assumed 60)
 copy limit       no more than 4 copies of a specific card
+                 EXCEPT basic lands, which are unlimited
 card pool        unrestricted -- any real Magic card is allowed
+sideboard        not allowed
+players          2
 ```
 
 No Commander. No Two-Headed Giant. No other preset.
@@ -68,49 +71,71 @@ starts. Phase 2 already treats structural validation as Proxic's job.
 
 ---
 
-## 4. Two things the owner must still decide
+## 4. Rules as confirmed by the owner
 
-These are genuine ambiguities in the rule as stated, and getting either
-wrong breaks real decks. **Flagged rather than guessed.**
-
-### 4.1 Are basic lands exempt from the 4-copy limit?
-
-Magic exempts basic lands from the four-copy rule, and so does Forge:
+### 4.1 Basic lands are EXEMPT from the 4-copy limit — CONFIRMED
 
 ```text
-[SOURCE] DeckFormat.canHaveAnyNumberOf(card)
-             -> true for basic lands
+[USER] 2026-10-15: "the 4 card limit for a specific card would not
+       include basic land"
 ```
 
-Taken literally, "no more than 4 copies of a specific card" with no
-exemption means a 65-card deck could contain at most 4 Mountains. A
-normal deck runs 20–25 lands, so it would need six or more *distinct*
-land cards and would be close to unbuildable.
+Matches Magic and Forge. A deck may contain any number of basic lands.
+
+### 4.2 Sideboards are NOT allowed — CONFIRMED
 
 ```text
-ASSUMED, pending confirmation: basic lands are EXEMPT.
+[USER] 2026-10-15: "Sideboards are not allowed"
 ```
 
-This matches both Magic and Forge. If the owner intends the literal
-reading, say so and it will be enforced instead — but every existing
-test deck in this repository would become illegal.
+A deck is its 65-card maximum main deck and nothing else. Forge's
+`DeckFormat.Constructed` permits a 0–15 sideboard; Open Format does
+not, which is another reason deck legality cannot be delegated (§3).
 
-### 4.2 Is there a minimum deck size?
+Import (Phase 2) must **reject** a package carrying a sideboard
+section rather than silently dropping it — quietly discarding part of
+what a player built is the kind of divergence this project keeps
+finding.
+
+### 4.3 Do NOT use Forge's `canHaveAnyNumberOf()` as the exemption test
+
+A trap worth naming, because the helper looks exactly right:
+
+```text
+[SOURCE] DeckFormat.canHaveAnyNumberOf(card) returns true for
+             - basic lands                                   <- wanted
+             - any card keyworded
+               "A deck can have any number of cards named CARDNAME."
+```
+
+That second clause covers Relentless Rats, Shadowborn Apostle,
+Persistent Petitioners, Dragon's Approach and similar. The owner
+exempted **basic lands only**, so calling Forge's helper would silently
+permit 30 Relentless Rats — a rule nobody chose.
+
+```text
+Open Format exemption test: card.getRules().getType().isBasicLand()
+```
+
+Nothing of that kind appears in the Mechanics Lab corpus today, but
+Open Format allows any card, so one will eventually be imported.
+
+**Open question (small):** should those cards be exempt after all?
+Default, pending a decision, is **no** — the literal reading of the
+rule as given.
+
+### 4.4 Minimum deck size — STILL OPEN
 
 "65 maximum" states a ceiling and no floor. Without one, a 1-card deck
 is legal and decks out immediately.
 
 ```text
-ASSUMED, pending confirmation: minimum 60, matching Forge's
-Constructed floor and ordinary Magic.
+ASSUMED, pending confirmation: minimum 60, matching ordinary Magic
+and Forge's Constructed floor.
 ```
 
-If the owner wants a lower floor (40, say, or none), Proxic must
-enforce it itself rather than inheriting Forge's.
-
-A third, smaller question: **is a sideboard allowed?** Forge's
-Constructed permits 0–15. Open Format says nothing, so it is assumed
-to be **none** until stated.
+If a lower floor is wanted (40, or none), Proxic must enforce it
+itself rather than inheriting Forge's.
 
 ---
 
