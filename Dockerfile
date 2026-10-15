@@ -21,7 +21,13 @@ FROM eclipse-temurin:17.0.13_11-jdk-alpine AS server
 WORKDIR /src
 # Wrapper and build scripts first: dependency resolution is the slow
 # part and must not be invalidated by a source edit.
-COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties ./
+# forge-pin.properties is required AT CONFIGURATION TIME: the
+# Gradle build reads it to generate build-info.properties. Leaving
+# it out failed the image build outright, which is the right
+# failure -- a server that cannot state its Forge commit must not
+# build.
+COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties forge-pin.properties ./
+COPY config/ config/
 COPY gradle/ gradle/
 COPY server/build.gradle.kts server/
 RUN chmod +x gradlew && ./gradlew --no-daemon :server:dependencies --quiet || true

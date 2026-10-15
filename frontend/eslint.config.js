@@ -16,7 +16,10 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        project: ["./tsconfig.json"],
+        // e2e and the Playwright config are a separate project:
+        // they are not part of the shipped app and must not be in
+        // the build's tsconfig.
+        project: ["./tsconfig.json", "./tsconfig.e2e.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },

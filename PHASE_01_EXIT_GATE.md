@@ -162,9 +162,9 @@ a stopped jar need different responses.
 | 1.75 | Database migration test | VERIFIED | real PostgreSQL |
 | 1.76 | Docker clean-build test | PARTIAL | built from this working tree, not from a pristine clone with no cache |
 | 1.77 | Clean-machine principle | NOT VERIFIED | the Windows named-pipe workaround is machine-specific (guarded) |
-| 1.78 | Browser end-to-end test | MISSING | browser checks were manual; **no Playwright** |
-| 1.79 | Browser console test | PARTIAL | console checked manually and was clean; not automated |
-| 1.80 | WebSocket disconnect test | MISSING | |
+| 1.78 | Browser end-to-end test | VERIFIED | 6 Playwright tests against the running Docker stack |
+| 1.79 | Browser console test | VERIFIED | console errors and unhandled rejections fail the test |
+| 1.80 | WebSocket disconnect test | VERIFIED | a dropped socket must leave "Ready" |
 | 1.81 | Service dependency test | VERIFIED | DB stopped → 503 degraded → recovered, server stayed up |
 | 1.82 | Forge dependency test | MISSING | no worker to fail |
 | 1.83 | Persistence test | VERIFIED | manual, recorded |
@@ -209,7 +209,7 @@ Also missing from §1.109: `VERSION`. (`.editorconfig` added
 | --- | --- |
 | P1-A Fresh checkout build | PARTIAL — `docker build` succeeds from this tree; not from a pristine clone |
 | P1-B Full stack startup | PARTIAL — server + postgres healthy; no Forge runtime, `cloudflared` not started |
-| P1-C Local browser access | PASS (manual) — required evidence is a Playwright test, which does not exist |
+| P1-C Local browser access | **PASS** — Playwright, against the production stack |
 | P1-D Ktor serves production frontend | **PASS** |
 | P1-E React client-side route | **PASS** — `/play` serves the SPA, `/api/*` stays API |
 | P1-F API health | **PASS** — all four endpoints |
@@ -218,7 +218,7 @@ Also missing from §1.109: `VERSION`. (`.editorconfig` added
 | P1-I Protocol compatibility | **PASS** |
 | P1-J Forge runtime | **PASS** — real handshake; commit matches the pin |
 | P1-K Forge failure | **PASS** — five failure modes, server survives each |
-| P1-L Pixi renderer | PARTIAL — verified manually; "navigate away and back" not automated |
+| P1-L Pixi renderer | **PASS** — away-and-back asserts one canvas and one live renderer |
 | P1-M Docker persistence | **PASS** |
 | P1-N Clean build independence | NOT VERIFIED |
 | P1-O Static analysis | **PASS** — 4 analysers clean, 36 server + 20 frontend tests |
@@ -229,10 +229,9 @@ Also missing from §1.109: `VERSION`. (`.editorconfig` added
 | P1-T External production WebSocket | BLOCKED |
 | P1-U Public security preservation | BLOCKED |
 
-**17 of 21 pass or partially pass. No outright failures remain:
-P1-J, P1-K and P1-O all closed 2026-10-15. Four are blocked on the
-real host, and the rest are partials needing automation rather than
-new behaviour.**
+**17 of 21 pass, 4 blocked on the real host. No failures and no
+partials remain among the 17: P1-C, P1-J, P1-K, P1-L and P1-O were
+all closed on 2026-10-15.**
 
 ---
 
@@ -243,9 +242,8 @@ new behaviour.**
    `third_party/forge/` (§1.60), and build the worker inside the
    Docker image so the deployed stack has one.
 2. ~~Static analysis (§1.87)~~ — **DONE 2026-10-15.** Unblocked P1-O.
-3. **Playwright E2E (§1.78–§1.80)** — the browser checks so far have
-   been me looking at screenshots. §1.78 wants them automated and
-   §1.79 wants console errors to fail the build.
+3. ~~Playwright E2E (§1.78–§1.80)~~ — **DONE 2026-10-15.** Closed
+   P1-C and P1-L.
 4. **Documentation (§1.92–§1.98)** plus `VERSION` and
    `.editorconfig`.
 5. **Frontend gaps** — routing, error boundary, Testing Library.
@@ -256,6 +254,14 @@ new behaviour.**
    Everything else should pass first.
 
 ## Deviations and concerns
+
+- **Playwright cannot use its own Chromium on this machine.** The
+  bundled build needs the Microsoft Visual C++ runtime, which is
+  absent, and fails with a bare `spawn UNKNOWN` that names no cause.
+  The suite runs against the Edge that ships with Windows instead
+  (`channel: "msedge"`), overridable with `PROXIC_E2E_CHANNEL`. A
+  Linux CI runner can use the bundled browser. This is a §1.77
+  clean-machine smell, recorded rather than hidden.
 
 - The Windows named-pipe and `api.version` workarounds in
   `server/build.gradle.kts` are development-machine specific. Guarded,

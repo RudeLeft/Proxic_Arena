@@ -139,6 +139,19 @@ export function connectSystemSocket(
   let closedByUs = false;
   const ws = new WebSocketImpl(url);
 
+  // A handle for the end-to-end test that asserts a DROPPED socket
+  // stops showing "Ready" (§1.80). A browser gives a test no other
+  // way to reach a socket the page owns. Registration is harmless
+  // (it exposes no data and grants nothing a page script could not
+  // already do) and the array is cleaned up on dispose, so it
+  // cannot become a leak of closed sockets.
+  // `window` is absent in the unit-test environment, and the unit
+  // tests caught that immediately -- this module is deliberately
+  // UI-free and must stay runnable without a DOM.
+  const registry: { __proxicSockets?: WebSocket[] } =
+    typeof window === "undefined" ? {} : (window as unknown as { __proxicSockets?: WebSocket[] });
+  (registry.__proxicSockets ??= []).push(ws);
+
   ws.addEventListener("open", () => onState("ready"));
   ws.addEventListener("message", (ev: MessageEvent) => {
     const parsed = parseEnvelope(String(ev.data));
@@ -158,6 +171,9 @@ export function connectSystemSocket(
 
   return () => {
     closedByUs = true;
+    // `?? []` rather than a possibly-undefined assignment:
+    // exactOptionalPropertyTypes makes the difference explicit.
+    registry.__proxicSockets = (registry.__proxicSockets ?? []).filter((s) => s !== ws);
     try {
       ws.close();
     } catch {
