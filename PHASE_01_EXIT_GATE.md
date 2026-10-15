@@ -109,7 +109,7 @@ are all present and exercised.
 | 1.48 | Cloudflare production edge | BLOCKED | needs the real host |
 | 1.49 | Existing certificate/security config | BLOCKED | |
 | 1.50 | Tunnel origin | WRITTEN | `cloudflared` service defined, never run |
-| 1.51 | Production host port exposure | PARTIAL | server published to `127.0.0.1` only, with a comment to remove it behind the tunnel |
+| 1.51 | Production host port exposure | VERIFIED | the base compose publishes NOTHING; local use opts in via an override file |
 
 ## §1.52–§1.59 — Docker
 
@@ -122,7 +122,7 @@ are all present and exercised.
 | 1.56 | Production frontend build | VERIFIED | Vite stage inside the image; no Node at runtime |
 | 1.57 | JVM multi-stage build | VERIFIED | JRE runtime holds neither toolchain |
 | 1.58 | Image pinning | VERIFIED | every image pinned by manifest-list digest; rebuilt and run |
-| 1.59 | Container permissions | VERIFIED | `uid=100(proxic)`; internal network |
+| 1.59 | Container permissions | VERIFIED | non-root, all capabilities dropped, `no-new-privileges`, read-only root for the server |
 
 ## §1.60–§1.67 — Forge source and worker
 
@@ -206,7 +206,7 @@ documentation rather than writing it.
 
 | § | Item | Status |
 | --- | --- | --- |
-| 1.99 | Security baseline | MOSTLY DONE — secrets, redaction, no public DB, non-root, path-traversal guard, bounded bodies and frames, same-origin (no CORS plugin installed); no formal review pass yet |
+| 1.99 | Security baseline | VERIFIED — deliberate review of all twelve properties; 2 gaps found and fixed; see `docs/security/PHASE_01_BASELINE_REVIEW.md` |
 | 1.100 | Rate / resource protection | VERIFIED — body, frame, connection and timeout limits, each with a negative control; 413 confirmed on the running stack |
 | 1.101 | No authentication yet | COMPLIANT |
 | 1.102 | No deck package import yet | COMPLIANT |

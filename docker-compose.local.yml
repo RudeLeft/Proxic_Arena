@@ -1,0 +1,18 @@
+# Local override — publishes the server on the loopback interface so
+# the stack can be driven without a Cloudflare tunnel.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# It lives in its own file because the SAFE configuration should be
+# the default, and the exposed one should be the thing you ask for
+# (PHASE_01 1.51, 1.55, 1.99).
+#
+# Bound to 127.0.0.1 explicitly: "8080:8080" would expose the server
+# to the LAN.
+
+name: proxic-arena
+
+services:
+  arena-server:
+    ports:
+      - "127.0.0.1:8080:8080"

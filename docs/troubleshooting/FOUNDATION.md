@@ -195,6 +195,16 @@ bind keeps the unpublished mapping.
 docker compose up -d --force-recreate arena-server
 ```
 
+## Nothing is listening on 8080
+
+`docker compose up` publishes no host port by design (§1.51): in
+production the Cloudflare tunnel reaches the server over the
+internal network. To drive it locally, add the override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+```
+
 ## Port already in use
 
 ```bash

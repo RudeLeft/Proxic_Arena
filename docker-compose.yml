@@ -31,6 +31,21 @@ services:
       - internal
     # NO ports: section. §1.39 forbids a public PostgreSQL binding,
     # and the server reaches it over the internal network by name.
+    # §1.99 — minimal permissions. PostgreSQL needs its data volume
+    # and a writable run directory; it needs no Linux capabilities
+    # beyond the defaults it drops here, and nothing it runs should
+    # ever gain more privilege than it started with.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # The entrypoint drops from root to the postgres user.
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -58,12 +73,27 @@ services:
     networks:
       - internal
       - edge
-    # Published only so the stack can be driven without cloudflared.
-    # In the real deployment the tunnel reaches it over `edge` and
-    # this mapping should be removed (§1.55: avoid unnecessary host
-    # port exposure).
-    ports:
-      - "127.0.0.1:8080:8080"
+    # §1.99, §1.59 — minimal permissions. The JVM needs no Linux
+    # capabilities at all, and a read-only root filesystem means a
+    # compromised process cannot rewrite the application it is
+    # running. /tmp is a tmpfs because the JVM wants one.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    # NO ports: section, deliberately (§1.51, §1.55). In production
+    # the tunnel reaches this service over the `edge` network and no
+    # host port is published at all.
+    #
+    # For local use, add the override that publishes it:
+    #   docker compose -f docker-compose.yml -f docker-compose.local.yml up
+    #
+    # Publishing by default would mean the safe configuration is the
+    # one someone has to remember, and the exposed one is what runs
+    # if they forget.
 
   # NOT VERIFIED. Written from §1.48-§1.51 and never run: a tunnel
   # needs the real host and a real token, and this project does not

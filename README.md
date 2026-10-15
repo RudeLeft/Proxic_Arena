@@ -60,6 +60,10 @@ Three rules shape all of it:
 | Tests | Vitest, JUnit 5, Testcontainers 1.21.3, Playwright 1.47.0 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
 
+Containers run as non-root with all Linux capabilities dropped,
+`no-new-privileges`, and a read-only root filesystem for the server.
+See `docs/security/PHASE_01_BASELINE_REVIEW.md`.
+
 Every version is pinned exactly. Nothing floats.
 
 ## Project locations
@@ -137,13 +141,18 @@ on <http://localhost:5173> and proxies `/api` and `/ws` to Ktor on
 ## Production-style local startup
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
 Serves the whole stack on <http://127.0.0.1:8080>: Ktor serving the
 compiled React app, PostgreSQL on a private network with no published
-port, and named volumes for both. This is the same compose file the
-Unraid host runs.
+port, and named volumes for both.
+
+The override is what publishes the port. `docker compose up` on its
+own publishes **nothing** — in production the Cloudflare tunnel
+reaches the server over the internal network, and the safe
+configuration is the default rather than the one you have to
+remember (§1.51, §1.99).
 
 To include the Cloudflare edge (only useful on the real host):
 
@@ -328,3 +337,5 @@ spikes/                    Phase 0A measurement harnesses
 3. `PHASE_01_EXIT_GATE.md` — what is actually proven today.
 4. `docs/troubleshooting/FOUNDATION.md` — when something will not
    start.
+5. `docs/security/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,
+   checked rather than asserted.
