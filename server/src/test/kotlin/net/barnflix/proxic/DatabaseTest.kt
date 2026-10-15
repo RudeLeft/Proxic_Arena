@@ -27,8 +27,13 @@ class DatabaseTest {
     private var container: PostgreSQLContainer<*>? = null
 
     private fun requireDocker() {
-        val available = runCatching { DockerClientFactory.instance().isDockerAvailable }
-            .getOrDefault(false)
+        val probe = runCatching { DockerClientFactory.instance().isDockerAvailable }
+        // The REASON matters. A silent false here is how a skip
+        // becomes permanent: nobody ever learns why Docker was not
+        // found, and the tests quietly never run again.
+        probe.exceptionOrNull()?.let { println("DOCKER PROBE FAILED: $it") }
+        val available = probe.getOrDefault(false)
+        if (!available) println("DOCKER PROBE: isDockerAvailable=false DOCKER_HOST=" + System.getenv("DOCKER_HOST"))
         assumeTrue(available, "SKIPPED: Docker is not available on this machine (ADR 0001)")
     }
 

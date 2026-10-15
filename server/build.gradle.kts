@@ -59,4 +59,32 @@ application {
 tasks.test {
     useJUnitPlatform()
     testLogging { events("passed", "failed", "skipped") }
+
+    // Windows + Docker Desktop: Testcontainers probes the DEFAULT
+    // named pipe, which Docker Desktop answers with an empty 400 stub
+    // pointing at its CLI pipe. The probe therefore reports "no
+    // Docker" on a machine whose engine is running fine, and the
+    // database tests skip forever -- a permanent, silent skip, which
+    // is the failure mode those tests exist to prevent.
+    //
+    // The engine lives on the desktop-linux context pipe. Guarded, so
+    // Linux, CI, and anyone who sets DOCKER_HOST themselves are
+    // untouched.
+    // NOTE: do not add a File(...).exists() check on the pipe -- the
+    // JVM reports false for a Windows named pipe that exists and
+    // works, which silently disabled this whole block.
+    if (System.getProperty("os.name").startsWith("Windows") &&
+        System.getenv("DOCKER_HOST") == null
+    ) {
+        environment("DOCKER_HOST", "npipe:////./pipe/dockerDesktopLinuxEngine")
+    }
+
+    // docker-java negotiates API 1.32 by default. Docker Engine 29
+    // refuses anything below 1.40 and answers 400 with an EMPTY,
+    // Info-shaped body -- which Testcontainers reports as "could not
+    // find a valid Docker environment", i.e. it looks like Docker is
+    // missing when it is running and the CLI works fine.
+    //
+    // 1.44 is supported by every engine we target (Docker 25+).
+    systemProperty("api.version", "1.44")
 }
