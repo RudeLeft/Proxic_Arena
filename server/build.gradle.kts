@@ -13,6 +13,10 @@ plugins {
 val ktorVersion: String by project
 val logbackVersion: String by project
 val junitVersion: String by project
+val hikariVersion: String by project
+val postgresVersion: String by project
+val flywayVersion: String by project
+val testcontainersVersion: String by project
 
 dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
@@ -26,10 +30,22 @@ dependencies {
     implementation("io.ktor:ktor-server-cors-jvm:$ktorVersion")
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
+    // Database (PHASE_01 1.36-1.38). The driver and Flyway are
+    // present even when no database is configured: an unconfigured
+    // server must report "unconfigured", not fail to start.
+    implementation("com.zaxxer:HikariCP:$hikariVersion")
+    implementation("org.postgresql:postgresql:$postgresVersion")
+    implementation("org.flywaydb:flyway-core:$flywayVersion")
+    implementation("org.flywaydb:flyway-database-postgresql:$flywayVersion")
+
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("io.ktor:ktor-client-content-negotiation-jvm:$ktorVersion")
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    // A throwaway PostgreSQL per run, so migrations are proven
+    // against a clean database and never against dev data.
+    testImplementation("org.testcontainers:postgresql:$testcontainersVersion")
+    testImplementation("org.testcontainers:junit-jupiter:$testcontainersVersion")
 }
 
 kotlin {

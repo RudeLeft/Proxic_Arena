@@ -1,0 +1,25 @@
+-- V001 — Application Foundation (PHASE_01 §1.36, §1.37).
+--
+-- This migration deliberately creates NO tables.
+--
+-- §1.36 forbids speculative schema for users, decks, cards, matches,
+-- friends or rankings until the phase that defines them. §1.37 adds
+-- that a metadata table should exist only if genuinely required, and
+-- that Flyway history plus a connectivity check is otherwise enough.
+--
+-- Nothing in Phase 1 stores anything. Inventing a table here to make
+-- the migration "look real" would create schema that no code reads,
+-- that every later migration has to carry, and that implies a design
+-- decision nobody made.
+--
+-- What this migration DOES prove, by existing and running: that the
+-- pool connects, that Flyway owns the schema, and that a row lands in
+-- flyway_schema_history. That row is the observable evidence, and it
+-- is what the Phase 1 test asserts.
+--
+-- Phase 2 adds V002 (imported decks), Phase 3 V003 (accounts),
+-- Phase 4 V004 (deck depot).
+
+-- A no-op statement, so the migration is valid SQL on every version
+-- rather than relying on Flyway's handling of a comment-only file.
+SELECT 1;

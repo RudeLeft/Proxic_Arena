@@ -80,6 +80,44 @@ class ConfigAndStaticTest {
         assertEquals(emptyList(), env(emptyMap()).startupProblems())
     }
 
+    /**
+     * A configured database that does not answer must not read as ok.
+     *
+     * No Docker needed: the URL points at a closed port. This is the
+     * half of the database contract that is verifiable on any
+     * machine, and it is the half most likely to be got wrong --
+     * "a setting exists" silently becoming "it works".
+     */
+    @Test
+    fun `a configured but unreachable database is never ok`() {
+        val config = ServerConfig(
+            host = "0.0.0.0",
+            port = 0,
+            // Port 1 is reserved and nothing listens there.
+            databaseUrl = "jdbc:postgresql://127.0.0.1:1/proxic",
+            forgeWorkerJar = null,
+            dataRoot = "build/test-data",
+        )
+        val db = Database.connect(config)
+        assertTrue(db != null, "a configured URL must produce a pool")
+        db!!.use {
+            assertEquals("unreachable", it.health())
+            val ready = HealthChecks(config, it).readiness()
+            assertEquals("unreachable", ready.checks["database"])
+            // Degraded, not ok: this one IS a real failure, unlike
+            // "unconfigured".
+            assertEquals("degraded", ready.status)
+        }
+    }
+
+    /** No URL means no pool, and no pool is not an error (§1.69). */
+    @Test
+    fun `an unconfigured database produces no pool and no failure`() {
+        val config = ServerConfig("0.0.0.0", 0, null, null, "build/test-data")
+        assertEquals(null, Database.connect(config))
+        assertEquals("unconfigured", HealthChecks(config, null).readiness().checks["database"])
+    }
+
     // --- §1.27 static serving and SPA fallback ----------------------
 
     private fun withStatic(dir: File): ServerConfig = ServerConfig(

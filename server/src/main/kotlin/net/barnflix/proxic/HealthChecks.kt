@@ -14,7 +14,7 @@ import java.io.File
  * checks are honest placeholders that say so. They become real in
  * their own phases, and the shape does not change when they do.
  */
-class HealthChecks(private val config: ServerConfig) {
+class HealthChecks(private val config: ServerConfig, private val database: Database? = null) {
 
     fun readiness(): Readiness {
         val checks = linkedMapOf<String, String>()
@@ -48,12 +48,21 @@ class HealthChecks(private val config: ServerConfig) {
     }
 
     /**
-     * Not yet connected. Reported as unconfigured rather than ok,
-     * because Phase 1 has no driver and claiming otherwise would be
-     * exactly the false-green 1.69 prohibits.
+     * Three distinct states, because they mean different things:
+     *
+     *   unconfigured  no database URL -- expected during Phase 1
+     *   ok            a SELECT 1 round trip just succeeded
+     *   unreachable   configured, and it did NOT answer
+     *
+     * "configured" used to be reported here and was a half-truth: it
+     * said a setting exists, which is not the same as a database
+     * that answers (1.69).
      */
-    private fun databaseState(): String =
-        if (config.databaseUrl.isNullOrBlank()) "unconfigured" else "configured"
+    private fun databaseState(): String = when {
+        config.databaseUrl.isNullOrBlank() -> "unconfigured"
+        database == null -> "unreachable"
+        else -> database.health()
+    }
 
     /**
      * The worker jar is built by a separate Maven build. Existence is

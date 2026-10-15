@@ -24,11 +24,15 @@ data class ServerConfig(
     val staticRoot: String = "frontend/dist",
     private val sessionSecretValue: String? = null,
     private val databasePasswordValue: String? = null,
+    val databaseUserValue: String? = null,
 ) {
     val isProduction: Boolean get() = appEnv.equals("production", ignoreCase = true)
 
     fun sessionSecret(): String? = sessionSecretValue
     fun databasePassword(): String? = databasePasswordValue
+
+    /** Not a secret on its own, but it belongs with the rest. */
+    fun databaseUser(): String? = databaseUserValue
 
     /**
      * Problems that must stop startup, as a list rather than a throw,
@@ -81,6 +85,7 @@ data class ServerConfig(
                 staticRoot = getenv("PROXIC_STATIC_ROOT") ?: "frontend/dist",
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
+                databaseUserValue = getenv("POSTGRES_USER"),
             )
 
         private fun mask(value: String?): String = if (value.isNullOrBlank()) "<unset>" else "<set>"

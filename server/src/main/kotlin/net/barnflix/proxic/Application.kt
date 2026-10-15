@@ -127,7 +127,24 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
         }
     }
 
-    val health = HealthChecks(config)
+    // §1.36-§1.38. Null when no database is configured, which is a
+    // supported Phase 1 state, not a failure.
+    val database = Database.connect(config)
+
+    if (database != null) {
+        // A configured-but-unreachable database does NOT stop the
+        // server: readiness answers 503 and the foundation UI shows
+        // it as down, which is more useful than a process that will
+        // not start. Nothing in Phase 1 reads or writes rows, so
+        // there is no risk of running against unmigrated schema --
+        // the phase that adds the first table must revisit this.
+        runCatching { database.migrate() }
+            .onFailure { log.error("database migration failed; continuing degraded", it) }
+    }
+
+    environment.monitor.subscribe(ApplicationStopped) { database?.close() }
+
+    val health = HealthChecks(config, database)
 
     routing {
         route("/api") {
