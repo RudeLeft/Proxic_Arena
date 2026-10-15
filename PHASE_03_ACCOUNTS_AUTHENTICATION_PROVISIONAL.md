@@ -2,13 +2,31 @@
 
 # Phase 3 — Accounts & Authentication
 
-**Status:** LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Production feature / security foundation  
 **Depends On:** Completed and accepted Phase 2  
 **Primary Goal:** Establish secure authenticated user identity for Proxic Arena  
 **Deck Ownership:** NOT IMPLEMENTED IN THIS PHASE  
 **Deck Sharing:** NOT IMPLEMENTED IN THIS PHASE  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A dependency: effectively none.**
+
+Accounts, password hashing, sessions and cookies do not touch Forge. This
+phase is PROVISIONAL only because it sits downstream of Phase 1 in the
+gate order, not because 0A can change its content.
+
+Treat its security decisions as settled.
 
 ---
 

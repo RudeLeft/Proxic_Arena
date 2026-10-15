@@ -2,13 +2,37 @@
 
 # Phase 5 — Lobby, Game Rooms & Match Setup
 
-**Status:** LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Production feature  
 **Depends On:** Completed, tested, and accepted Phase 4  
 **Primary Goal:** Authenticated host/join rooms, deck selection, readiness, and validated match setup  
 **Forge Match Execution:** NOT IMPLEMENTED IN THIS PHASE  
 **Battlefield:** NOT IMPLEMENTED IN THIS PHASE  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A-dependent decisions in this phase:**
+
+- §5.28–5.31 — the match preset catalog depends on 0A.9's format
+  classification. A preset may not be offered for a format 0A has not
+  shown Forge can run.
+- §5.30, §5.39 — Two-Headed Giant. The project owner has **closed** this:
+  2HG is out of initial scope. 0A.9 records the classification; the
+  lobby must not offer the preset.
+- §5.38 — team assignment follows 2HG and is therefore out of scope for
+  the initial release.
+
+Room identity, join codes, membership, deck selection, `canUseDeck`,
+sanitized room views and readiness are independent of 0A.
 
 ---
 

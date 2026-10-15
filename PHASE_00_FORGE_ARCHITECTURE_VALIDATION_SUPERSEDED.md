@@ -2,10 +2,29 @@
 
 # Phase 0 — Forge Architecture Validation
 
-**Status:** LOCKED  
+**Status:** SUPERSEDED BY PHASE 0A + 0B  
 **Phase Type:** Research, proof-of-concept, architecture validation  
 **Production Feature Work:** PROHIBITED  
 **Next Phase:** Phase 1 — Application Foundation, only after Phase 0 is completed, reviewed, and accepted by the project owner
+
+
+> **SUPERSEDED — but still in force.**
+>
+> This document's *rules* remain binding and are inherited verbatim by
+> `PHASE_00A` §0A.1: the evidence classification, the no-false-verification
+> rule, READ OLD / BUILD NEW, Forge preservation, the escalation rule and
+> the prohibited shortcuts.
+>
+> Its *scope* is superseded. The work is split into:
+>
+> - `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md` — the questions whose
+>   wrong answer would force an architecture rewrite. Ten questions, ten
+>   acceptance tests.
+> - `PHASE_00B_FORGE_DEFERRED_VALIDATION_DRAFT.md` — everything else, each
+>   entry carrying the trigger that makes it blocking again.
+>
+> Every one of this document's 86 numbered sections is dispositioned in
+> `PHASE_00A` §0A.3A. Nothing was dropped; execute 0A, not this.
 
 ---
 

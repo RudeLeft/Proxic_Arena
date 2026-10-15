@@ -2,12 +2,28 @@
 
 # Phase 4 — Deck Depot
 
-**Status:** LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Production feature  
 **Depends On:** Completed, tested, and accepted Phase 3  
 **Primary Goal:** Authenticated deck ownership, private deck libraries, and controlled deck sharing  
 **Deck Editing:** NOT IMPLEMENTED IN THIS PHASE  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A dependency: minimal.**
+
+Deck ownership and sharing do not touch Forge. The one coupling is
+artwork authorization, which must stay consistent with Phase 6 §6.122
+(match-scoped asset access) and Phase 7 §7.17.
 
 ---
 

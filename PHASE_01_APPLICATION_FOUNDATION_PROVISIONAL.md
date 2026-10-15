@@ -2,10 +2,36 @@
 
 # Phase 1 — Application Foundation
 
-**Status:** LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Production foundation  
 **Implementation Authorization:** NOT AUTHORIZED until Phase 0 execution is complete and accepted  
 **Depends On:** Locked Phase 0 specification + accepted `docs/research/phase-00/FINAL_RECOMMENDATION.md`
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A-dependent decisions in this phase:**
+
+- §1.5 — the technology stack is approved "unless Phase 0 reveals an
+  actual incompatibility". Still conditional.
+- §1.6 — the Forge side of the architecture diagram is explicitly a
+  placeholder; it must be replaced with the accepted 0A architecture.
+- §1.32 — `PROTOCOL_VERSION` is provisional "unless Phase 0 establishes
+  another value".
+- §1.60–1.67 — Forge source integration, patch directory, worker module
+  and worker handshake all depend on 0A.6 (adapter) and 0A.10 (packaging
+  and process model).
+
+Everything else in Phase 1 — repository layout, Docker, Cloudflare,
+PostgreSQL, logging, configuration, the React/Vite skeleton — is
+independent of 0A and can be treated as settled.
 
 ---
 

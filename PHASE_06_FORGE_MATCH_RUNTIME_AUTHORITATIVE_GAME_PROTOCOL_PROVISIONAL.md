@@ -2,7 +2,7 @@
 
 # Phase 6 — Forge Match Runtime & Authoritative Game Protocol
 
-**Status:** PHASE 6 — LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Core game-runtime implementation  
 **Depends On:** Completed, tested, and accepted Phase 5  
 **Primary Goal:** Launch, supervise, connect to, and complete real Forge-controlled matches through a stable Proxic browser protocol  
@@ -11,6 +11,35 @@
 **Match-Time Asset Plumbing:** REQUIRED  
 **Final Graphical Battlefield:** NOT IMPLEMENTED IN THIS PHASE  
 **Full Mechanics/UI Coverage:** NOT CLAIMED IN THIS PHASE  
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A-dependent decisions in this phase: most of them.**
+
+This is the phase 0A exists to inform.
+
+- §6.20 — explicitly requires the accepted Forge architecture.
+- §6.25–6.29 — the internal worker protocol, handshake and bootstrap come
+  from 0A.5 and 0A.6.
+- §6.39–6.45 — state ownership, viewer snapshots and hidden information
+  come from 0A.7. Note 0A.7's warning that `canBeShownTo` is zone-level
+  and `canFaceDownBeShownTo` governs identity — re-verify at the new pin.
+- §6.46–6.47 — object identity comes from 0A.12 P0A-F.
+- §6.33–6.36 — exact printing and identity mapping come from 0A.9A.
+- §6.37 — control-another-player: 0A.8 requires the protocol to carry
+  "acted for" separately from "authorized to answer"; the runtime test is
+  0B.6.
+
+Presentation deferred by this phase now has a home: Phase 7, which lists
+every such deferral in its §7.4.
 
 ---
 

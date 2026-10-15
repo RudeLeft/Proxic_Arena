@@ -1,0 +1,366 @@
+# AGENTS.md — Proxic Arena operating contract
+
+**Read this file before your first change in any session**, before
+inspecting, planning, editing, testing, building or playing.
+
+When the project owner's explicit instruction changes a boundary or
+decision below, update the affected rule **in the same change**. This file
+is only useful if it describes current reality rather than a snapshot of
+it.
+
+Each rule carries an enforcement marker:
+
+```text
+_AUTO._     a test or tool can catch a violation
+_REVIEW._   caught by a human or agent reading the diff
+_USER._     only the project owner may change this
+_MANUAL._   only a human can judge it
+```
+
+---
+
+## Project locations
+
+```text
+CURRENT PROJECT  (build here)
+C:\Users\Eric\Desktop\Claude Working Folder\Proxic_Arena
+
+OLD REFERENCE PROJECT  (read only)
+C:\Users\Eric\Desktop\Claude Working Folder\Proxic_Arena_OLD
+
+SIBLING PROJECT  (read only, permanently separate)
+C:\Users\Eric\Desktop\Claude Working Folder\Proxic_Deck_Builder
+```
+
+```text
+READ OLD
+BUILD NEW
+```
+
+---
+
+## Current phase
+
+**Phase 0A has not been executed.** No production feature work is
+authorized. See `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md`.
+
+Check this section before implementing anything. If it disagrees with what
+you were asked to do, stop and say so.
+
+---
+
+## Document map
+
+| Document | What it is |
+| --- | --- |
+| `PHASE_00A_..._DRAFT.md` | Blocking Forge validation. Ten questions, ten tests. **The active phase.** |
+| `PHASE_00B_..._DRAFT.md` | Deferred validation. A standing register; each entry has a trigger that makes it blocking again. |
+| `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
+| `PHASE_01`–`PHASE_06` `_PROVISIONAL.md` | Production phases. Provisional because they were locked before Phase 0 ran; each carries a note on what 0A may change. |
+| `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
+| `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
+| `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
+| `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
+
+---
+
+## ISO — Isolation boundaries
+
+- **ISO-001 — MUST NOT:** Modify, rename, delete or build inside
+  `Proxic_Arena_OLD`. Read, inspect, compare and copy from it freely.
+  _REVIEW._
+- **ISO-002 — MUST NOT:** Write into `Proxic_Deck_Builder`. It is a
+  permanently separate project handled in its own session; no merge is
+  planned or expected. Read and copy freely. _REVIEW._
+- **ISO-003 — MUST NOT:** Treat copied code as correct because it worked
+  before. Ask whether it still matches current Forge, still matches the
+  new architecture, carries a workaround no longer needed, or carries a
+  proven safety mechanism worth keeping. _REVIEW._
+
+---
+
+## PHASE — Phase discipline
+
+- **PHASE-001 — MUST:** Check the **Current phase** section above before
+  implementing. Do not start a later phase because the current one is
+  blocked or boring. _REVIEW._
+- **PHASE-002 — MUST NOT:** Silently change a `PROVISIONAL` or `LOCKED`
+  phase document. Amendments are explicit, dated and owner-approved (see
+  `PHASE_00 §0.85`). _USER._
+- **PHASE-003 — MUST:** Escalate when reality contradicts a phase
+  document, using `PHASE_00 §0.81`'s CONFLICT format: requirement,
+  observed reality, evidence, impact, options, recommendation, question.
+  Do not silently follow the document, and do not silently depart from
+  it. _REVIEW._
+- **PHASE-004 — MUST:** Give every deferred item a **trigger** — the
+  condition that makes it blocking again — and record it in Phase 0B's
+  register. A deferred question with a trigger is engineering; without
+  one it is a bug with a long fuse. _REVIEW._
+
+---
+
+## EVID — Evidence discipline
+
+Inherited from `PHASE_00 §0.3–0.5`, and binding on every phase.
+
+- **EVID-001 — MUST:** Distinguish what we know, what we think, and what
+  we have actually run. Label material findings
+  `UPSTREAM-DOC` / `SOURCE` / `RUN` / `BENCHMARK` / `INFERENCE` / `USER`.
+  _REVIEW._
+- **EVID-002 — MUST NOT:** Write "Forge supports X" when the evidence is
+  "a class related to X exists". An `INFERENCE` may never satisfy a gate
+  requiring `RUN`. _REVIEW._
+- **EVID-003 — MUST NOT:** Claim a test exercised a branch without
+  showing that it did. "The test completed" is not "the test tested it".
+  _REVIEW._
+- **EVID-004 — MUST NOT:** Carry a prior `RUN` result forward as current
+  evidence. Old results set the expectation; current Forge sets the
+  answer. Say plainly which results were re-confirmed, which changed, and
+  which were accepted without re-running. _REVIEW._
+- **EVID-005 — MUST NOT:** Estimate a benchmark. Measure it. _AUTO._
+
+---
+
+## VEND — Forge as upstream
+
+- **VEND-001 — MUST NOT:** Edit vendored Forge source. Proxic behaviour
+  belongs in the Proxic-owned adapter, outside the Forge tree. _REVIEW._
+- **VEND-002 — MUST:** Stop and ask the owner before applying any Forge
+  patch. If approved it must be minimal, isolated, documented in
+  `forge_patches/`, and covered by a regression test. _USER._
+- **VEND-003 — MUST NOT:** Solve an integration problem by copying a
+  Forge class into Proxic and modifying it. Prefer subclassing,
+  composition, adapters and published interfaces. _REVIEW._
+- **VEND-004 — MUST:** Document every reflective dependency on Forge
+  internals: class, member, why, failure behaviour if Forge changes, and
+  the test that covers it. Reflection breaks silently across updates.
+  _REVIEW._
+- **VEND-005 — MUST NOT:** Update the pinned Forge commit silently or as
+  a side effect of other work. A Forge update is a deliberate operation
+  with a before/after report. Compiling is not compatibility. _USER._
+- **VEND-006 — MUST NOT:** Relicense away from GPL-3.0 while the project
+  depends on Forge. _USER._
+
+---
+
+## ARCH — Architecture invariants
+
+- **ARCH-001 — MUST NOT:** Call, import or run Forge code from the
+  frontend or the Arena Server. Forge lives behind the worker boundary.
+  _AUTO._
+- **ARCH-002 — MUST NOT:** Implement Magic rules anywhere except Forge.
+  No legality, cost, timing, targeting or combat logic in TypeScript,
+  Kotlin or Python — including to make a test pass, and including to work
+  around an engine defect. _REVIEW._
+- **ARCH-003 — MUST NOT:** Create a second source of truth for game
+  state. Forge's state is authoritative; everything else is a view.
+  _REVIEW._
+- **ARCH-004 — MUST NOT:** Let the browser speak Forge's protocol or
+  depend on Forge class names, packet shapes or Java object ids.
+  _REVIEW._
+- **ARCH-005 — MUST NOT:** Put Magic knowledge in the transport layer. It
+  may know connections, sessions, seats, decision owners, message ids and
+  state versions. It may not know whether a target is legal. _REVIEW._
+- **ARCH-006 — MUST NOT:** Parse Scryfall Oracle text into gameplay
+  behaviour. Scryfall supplies identity and artwork; Forge supplies rules.
+  _REVIEW._
+
+---
+
+## STUB — Forge integration
+
+Bought with real bugs in the old project. Do not re-derive them.
+
+- **STUB-001 — SHOULD:** Implement a controller/adapter method when a real
+  run reaches it, not speculatively. An unreached stub is not a bug.
+  _REVIEW._
+- **STUB-002 — MUST:** Make an unimplemented decision **loud**. Forge
+  catches exceptions in places this project does not control:
+  `CountersPutEffect.resolve` wraps its `chooseCounterType` call in
+  `try/catch`, so one stub silently disabled every counter in the game —
+  planeswalkers died on arrival, creatures entered undersized — while
+  printing a single line to stderr 48 times. _REVIEW._
+- **STUB-003 — MUST:** When something in a real game silently does not
+  happen, grep the run's stderr for **Forge's own** diagnostics before
+  theorising about engine internals. Two rounds of investigation once
+  theorised past a message already in the log. _REVIEW._
+- **STUB-004 — MUST:** Confirm a Forge method answers the question you
+  are asking, not one with a similar name. `CardView.canBeShownTo` is
+  zone-level and returns true unconditionally for the battlefield;
+  `canFaceDownBeShownTo` governs whether a viewer may know *what a
+  face-down permanent is*. Asking only the first leaked every face-down
+  creature's name and power/toughness. Read the method body — a plausible
+  name is not evidence. _REVIEW._
+- **STUB-005 — SHOULD:** Prefer the simplest correct behaviour over a
+  clever one until a real card needs otherwise, and comment the known
+  limit when you simplify. _REVIEW._
+- **STUB-006 — MUST:** Force rare paths with stacked decks rather than
+  hoping for a draw. The old project reached the legend rule with 24×
+  Krenko, ETB triggers with 20× Acidic Slime, and morph with 24× Ainok
+  Tracker. A singleton corpus reaches none of them reliably. _REVIEW._
+
+---
+
+## HID — Hidden information
+
+Release-blocking. Treat every rule here as security, not presentation.
+
+- **HID-001 — MUST NOT:** Send a viewer information they are not entitled
+  to and filter it in the UI. Filtering after transmission is a leak.
+  _REVIEW._
+- **HID-002 — MUST:** Ask Forge, per viewer, rather than hand-implementing
+  visibility rules. Ask **both** visibility questions (STUB-004).
+  _REVIEW._
+- **HID-003 — MUST:** Assert hidden-information tests from **both** seats.
+  A guard that blanks the card for everyone passes a leak-only check and
+  is also wrong: a player may look at their own face-down permanents
+  (CR 713.4a). Both halves of the asymmetry are requirements. _AUTO._
+- **HID-004 — MUST NOT:** Call a hidden-information guard verified by a
+  run in which it never fired. A filter that blanks nothing and a filter
+  never reached look identical from outside. _REVIEW._
+- **HID-005 — MUST:** Consider presentation a leak surface. Zone
+  placement, animation timing and card-back choice can disclose what the
+  protocol correctly withheld — see Phase 7 §7.12. _REVIEW._
+
+---
+
+## PROTO — Protocol invariants
+
+- **PROTO-001 — MUST:** Give a decision candidate the same id the
+  snapshot uses for the same object. The client must never match by name.
+  _AUTO._
+- **PROTO-002 — MUST:** Send sufficient viewer state **before** an
+  interaction that references a newly relevant object. _AUTO._
+- **PROTO-003 — MUST:** Keep `object_id` and `action_id` distinct. One
+  object may expose several actions; keying options by object id silently
+  dropped a card's second ability for months, then became the normal case
+  the moment alternative costs landed. _AUTO._
+- **PROTO-004 — MUST:** Carry "the player being acted for" separately
+  from "the player authorized to answer". Forge's
+  `Player.getController()` already routes a controlled player's decisions
+  to someone else's controller. _REVIEW._
+- **PROTO-005 — MUST:** Reject wrong-player, duplicate and stale
+  responses before they reach a synchronous Forge decision. _AUTO._
+- **PROTO-006 — MUST NOT:** Make client behaviour depend on parsing
+  English prompt text. Prompts are for humans. _REVIEW._
+- **PROTO-007 — MUST:** Treat events as presentation hints. The snapshot
+  is authoritative; a dropped event costs an animation, never
+  correctness, and reconnect rebuilds from snapshot alone. _REVIEW._
+
+---
+
+## UI — Presentation
+
+- **UI-001 — MUST NOT:** Infer a legal action in the browser from card
+  type, rules text, zone, mana cost, name or position. Actions come from
+  the server. The shortcut `if type == CREATURE: click = attack` is
+  prohibited in every form. _REVIEW._
+- **UI-002 — MUST:** Keep every action Forge exposes reachable. Never
+  silently pick one and hide the rest behind a default. _REVIEW._
+- **UI-003 — MUST NOT:** Store generated layout coordinates as a source
+  artifact. Layout is a pure function of state and viewport; the owner's
+  design intent lives in the constants in the layout contract. _AUTO._
+- **UI-004 — MUST:** Render a usable generic fallback for any decision or
+  action kind without bespoke UI. Never a dead end. _REVIEW._
+- **UI-005 — MUST:** Derive card characteristics from the Forge-supplied
+  current values, never printed ones and never a hardcoded list. The old
+  client guessed land-ness from basic-land names and put every nonbasic
+  land in the wrong row. _REVIEW._
+
+---
+
+## TEST — Verification
+
+- **TEST-001 — MUST NOT:** Claim something works based on a test that
+  never exercises it. Check what the scripted driver answers for each
+  decision kind, not merely that the run finished. _REVIEW._
+- **TEST-002 — SHOULD:** Prefer real end-to-end verification — real
+  processes, real sockets, real UI events — over mocks. _REVIEW._
+- **TEST-003 — MUST:** Drive the real event path. Calling a handler
+  directly is not a click; the old project's headless tests passed while
+  real clicks were being swallowed by an overlay. _AUTO._
+- **TEST-004 — MUST:** Prove a regression test fails against the
+  un-fixed code before trusting it. _REVIEW._
+- **TEST-005 — MUST:** Automate UI verification. **This supersedes the old
+  project's rule that UI checking was manual-only** — that rule existed
+  because nothing here could drive a native Tk window. A browser can be
+  driven and screenshotted, and Playwright is in the stack. Layout
+  properties, interaction, and hidden-information asymmetry are all
+  machine-checkable. _AUTO._
+- **TEST-006 — MUST:** Still get the owner's eyes on anything that changes
+  what the board looks like. Automation covers correctness, not whether it
+  looks right. _MANUAL._
+- **TEST-007 — MUST:** Prove a viewport test actually changed the
+  geometry. A layout test once looped over three window sizes while
+  silently rendering the same one; it passed, and a human screenshot
+  caught it. _AUTO._
+- **TEST-008 — MUST:** Test across card **counts**, not just viewports —
+  0, 1, 8, 9, 23, 60 permanents in a zone. The old battlefield fixture
+  filled every zone to exactly its capacity and broke on the ninth land.
+  _AUTO._
+- **TEST-009 — MUST NOT:** Assert that a snapshot arrived when the claim
+  is that the game continued. The relay replays the last snapshot on
+  resume whether or not the match is alive. _REVIEW._
+
+---
+
+## ENV — Environment and build
+
+- **ENV-001 — MUST:** Set toolchain environment variables explicitly in
+  the same shell invocation that uses them. A fresh tool call does not
+  inherit a variable set earlier in the session. _AUTO._
+- **ENV-002 — MUST NOT:** Hardcode one machine's absolute paths, or
+  assume Windows path separators, in anything that ships. _REVIEW._
+- **ENV-003 — MUST:** Pin dependency versions. No floating `latest` in
+  production dependencies or base images. _REVIEW._
+- **ENV-004 — MUST NOT:** Write code containing backslash escapes through
+  a shell heredoc; heredocs eat them. Use the file-writing tools.
+  _REVIEW._
+
+---
+
+## GIT — Repository
+
+- **GIT-001 — MUST NOT:** Commit card artwork. The Mechanics Lab corpus is
+  defined by its TXT and CSV, which are versioned; the 275 images
+  (~291 MB) are Wizards artwork delivered at runtime and git keeps every
+  byte forever. _AUTO._
+- **GIT-002 — MUST:** Commit or push only when the owner asks. _USER._
+- **GIT-003 — MUST:** Write commit messages that explain *why*, including
+  what was tried and rejected. The old project's history is usable as a
+  bug archive because of this. _REVIEW._
+- **GIT-004 — MUST NOT:** Report a result more favourably than the
+  evidence supports. If tests fail, say so with the output; if a step was
+  skipped, say so. _REVIEW._
+
+---
+
+## Escalation
+
+Stop and ask the project owner before:
+
+```text
+editing upstream Forge
+implementing Magic rules outside Forge
+adding a second source of game legality
+coupling the browser directly to Forge
+dropping or adding a supported format
+changing the Scryfall / Forge responsibility boundary
+discarding a proven safety mechanism from the old project
+modifying anything in Proxic_Arena_OLD
+changing a PROVISIONAL or LOCKED phase document
+abandoning process-per-match isolation without evidence
+locking geometry that has not been observed rendering
+any major architecture decision not covered by the active phase
+```
+
+---
+
+## The one-line version
+
+```text
+Forge decides the game.
+The server decides who may act.
+The browser decides nothing.
+Evidence decides what we claim.
+```

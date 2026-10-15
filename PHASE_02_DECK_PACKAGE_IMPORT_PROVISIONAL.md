@@ -2,11 +2,30 @@
 
 # Phase 2 — Deck Package Import
 
-**Status:** LOCKED  
+**Status:** PROVISIONAL  
 **Phase Type:** Production feature  
 **Depends On:** Completed and accepted Phase 1  
 **Primary Input:** Existing Proxic Deck Builder ZIP export  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
+
+
+> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
+> executed. Phase 0 exists to decide the architecture, so a locked
+> specification downstream of it is a guess wearing a lock. Phase 0 has
+> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
+> triggers); this phase may be locked once 0A is accepted.
+>
+> Content is unchanged. Only the status and the dependency notes below
+> were added.
+
+**Phase-0A-dependent decisions in this phase:**
+
+- §2.10 already states that Phase 0 Forge decisions remain authoritative.
+- Deck → Forge construction depends on 0A.6 (adapter) and 0A.9A (the
+  exact-printing lookup API at the new pin).
+
+The ZIP handling, validation, path-traversal and resource-limit rules are
+independent of 0A and can be treated as settled.
 
 ---
 
