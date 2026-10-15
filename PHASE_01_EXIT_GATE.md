@@ -179,12 +179,27 @@ a stopped jar need different responses.
 
 ## §1.92–§1.98 — Documentation
 
-All MISSING: README (§1.92), developer startup (§1.93), production
-startup (§1.94), shutdown (§1.95), database reset (§1.96), logging
-instructions (§1.97), troubleshooting (§1.98).
+Written 2026-10-15, and the commands in them were RUN rather than
+assumed.
 
-Also missing from §1.109: `VERSION`. (`.editorconfig` added
-2026-10-15, and it carries ktlint's two documented exemptions.)
+| § | Item | Status |
+| --- | --- | --- |
+| 1.92 | README | DONE — all seventeen required topics |
+| 1.93 | Developer startup | VERIFIED — the documented commands were executed |
+| 1.94 | Production startup | VERIFIED |
+| 1.95 | Shutdown | DONE — including what `-v` destroys |
+| 1.96 | Database reset | DONE — development only, separated from production |
+| 1.97 | Logging instructions | DONE |
+| 1.98 | Troubleshooting | DONE — `docs/troubleshooting/FOUNDATION.md` |
+
+`VERSION` and `.editorconfig` added (§1.109).
+
+Running the documented development startup immediately found a real
+defect: both compose files shared a Compose project name, so starting
+the dev stack REPLACED the production `postgres` container and the
+production server reported `database: unreachable`. Each file now
+declares its own `name:`. This is the argument for executing
+documentation rather than writing it.
 
 ## §1.99–§1.108 — Security and boundaries
 

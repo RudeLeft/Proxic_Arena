@@ -9,6 +9,14 @@
 # Phase 0A selected PER-MATCH CHILD JVM PROCESSES for Forge, so there
 # is deliberately no always-running forge container here (§1.53).
 
+# An explicit project name, because the default is the DIRECTORY
+# name and both compose files would then share it. They did: starting
+# the development stack REPLACED this stack's postgres container with
+# the development one, and the production server immediately reported
+# `database: unreachable`. The volumes were always distinct, so no
+# data was lost, but the containers fought over one name.
+name: proxic-arena
+
 services:
   postgres:
     image: postgres:16.4-alpine

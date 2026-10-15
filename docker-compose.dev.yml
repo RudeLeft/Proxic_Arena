@@ -7,6 +7,11 @@
 # cloudflared is deliberately absent: §1.54 says it is not required
 # for ordinary local development.
 
+# Its own project name, so `docker compose -f docker-compose.dev.yml`
+# can never touch the production stack's containers -- see the note in
+# docker-compose.yml for the failure this prevents.
+name: proxic-arena-dev
+
 services:
   postgres:
     image: postgres:16.4-alpine
