@@ -14,7 +14,11 @@ import java.io.File
  * checks are honest placeholders that say so. They become real in
  * their own phases, and the shape does not change when they do.
  */
-class HealthChecks(private val config: ServerConfig, private val database: Database? = null) {
+class HealthChecks(
+    private val config: ServerConfig,
+    private val database: Database? = null,
+    private val worker: ForgeWorker? = null,
+) {
 
     fun readiness(): Readiness {
         val checks = linkedMapOf<String, String>()
@@ -65,14 +69,20 @@ class HealthChecks(private val config: ServerConfig, private val database: Datab
     }
 
     /**
-     * The worker jar is built by a separate Maven build. Existence is
-     * checkable now; whether it RUNS is Phase 6's problem.
+     * The worker's state as OBSERVED by a real handshake (§1.65),
+     * not inferred from a file existing.
+     *
+     * An earlier version reported "ok" when the jar was present,
+     * which was a false green of exactly the kind §1.69 forbids: a
+     * jar can exist, start, and report an incompatible Forge commit
+     * or missing card data. Those are now distinct states.
      */
     private fun forgeWorkerState(): String {
+        if (worker != null) return worker.state()
         val jar = config.forgeWorkerJar
         return when {
             jar.isNullOrBlank() -> "unconfigured"
-            File(jar).isFile -> "ok"
+            File(jar).isFile -> "unprobed"
             else -> "missing"
         }
     }

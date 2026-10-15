@@ -1,6 +1,6 @@
 # Phase 1 Exit Gate
 
-**Status: NOT PASSED — 2026-10-15**
+**Status: NOT PASSED — 2026-10-15** (updated after the Forge worker landed)
 
 Phase 1 is substantially built and the parts that exist are genuinely
 verified, but §1.112's exit conditions are not all met. This document
@@ -125,22 +125,23 @@ Prettier, Testing Library, Playwright (§1.109 "Frontend" checklist).
 
 ## §1.60–§1.67 — Forge source and worker
 
-**This whole group is MISSING, and it is Phase 1 scope, not Phase 6.**
+**Built and run 2026-10-15.**
 
-| § | Item | Status |
-| --- | --- | --- |
-| 1.60 | Forge source integration (`third_party/forge/`) | MISSING |
-| 1.61 | Forge commit verification | PARTIAL — `BuildInfo` exposes the pin; nothing verifies a checkout against it |
-| 1.62 | `forge_patches/README.md` | MISSING |
-| 1.63 | Permanent `forge-worker` module | MISSING |
-| 1.64 | Worker Phase 1 scope | MISSING |
-| 1.65 | Worker handshake | MISSING |
-| 1.66 | Worker failure handling | MISSING |
-| 1.67 | Do not auto-restart a game yet | N/A until the worker exists |
+| § | Item | Status | Evidence |
+| --- | --- | --- | --- |
+| 1.60 | Forge source integration | PARTIAL | the pinned checkout is used from the Phase 0A spike path; `third_party/forge/` is not yet the canonical location |
+| 1.61 | Forge commit verification | VERIFIED | the worker reports its own commit and the server COMPARES it; a one-character difference is refused |
+| 1.62 | `forge_patches/README.md` | DONE | states explicitly that no patches are approved |
+| 1.63 | Permanent `forge-worker` module | VERIFIED | Maven module, not the spike renamed; `forge-core` + `forge-game` only |
+| 1.64 | Worker Phase 1 scope | VERIFIED | bootstrap/version/resources/handshake/shutdown, no gameplay |
+| 1.65 | Worker handshake | VERIFIED | server spawns the worker, reads WORKER_READY, reports `forgeWorker: "ok"` |
+| 1.66 | Worker failure handling | VERIFIED | all five failures are distinct states; 8 tests |
+| 1.67 | Do not auto-restart a game yet | N/A | no match state exists to recover |
 
-The Phase 0A spike proved this is buildable — a Maven worker on
-forge-core + forge-game ran real games. None of that has been
-promoted into a permanent module here.
+The five §1.66 failures map to distinct, operator-actionable states
+rather than one "worker unhappy": `missing`, `unreachable`,
+`incompatible`, `resources-missing`, `unconfigured`. A wrong jar and
+a stopped jar need different responses.
 
 ## §1.68–§1.70 — Foundation UI
 
@@ -214,8 +215,8 @@ Also missing from §1.109: `VERSION`, `.editorconfig`.
 | P1-G Database | **PASS** — private connection, stop degrades, restart recovers |
 | P1-H WebSocket | **PASS** — HELLO/PING/PONG |
 | P1-I Protocol compatibility | **PASS** |
-| P1-J Forge runtime | **FAIL** — no worker exists |
-| P1-K Forge failure | **FAIL** — nothing to fail |
+| P1-J Forge runtime | **PASS** — real handshake; commit matches the pin |
+| P1-K Forge failure | **PASS** — five failure modes, server survives each |
 | P1-L Pixi renderer | PARTIAL — verified manually; "navigate away and back" not automated |
 | P1-M Docker persistence | **PASS** |
 | P1-N Clean build independence | NOT VERIFIED |
@@ -227,18 +228,18 @@ Also missing from §1.109: `VERSION`, `.editorconfig`.
 | P1-T External production WebSocket | BLOCKED |
 | P1-U Public security preservation | BLOCKED |
 
-**14 of 21 pass or partially pass. Two fail outright (P1-J, P1-K) for
-the same reason: there is no Forge worker. One fails for missing
-tooling (P1-O). Four are blocked on the real host.**
+**16 of 21 pass or partially pass (P1-J and P1-K closed 2026-10-15).
+One fails: P1-O, no static analysis configured. Four are blocked on
+the real host.**
 
 ---
 
 ## What remains, in recommended order
 
-1. **Forge worker module (§1.60–§1.67)** — the largest gap and the
-   only one that fails acceptance tests outright. Phase 0A proved the
-   approach; this promotes it to a permanent module with a handshake,
-   version reporting and clean shutdown. Unblocks P1-J and P1-K.
+1. ~~Forge worker module (§1.60–§1.67)~~ — **DONE 2026-10-15.**
+   Remaining within it: move the Forge checkout to
+   `third_party/forge/` (§1.60), and build the worker inside the
+   Docker image so the deployed stack has one.
 2. **Static analysis (§1.87)** — ESLint, Prettier, ktlint, detekt.
    Unblocks P1-O. Cheap, and cheaper now than after more code exists.
 3. **Playwright E2E (§1.78–§1.80)** — the browser checks so far have

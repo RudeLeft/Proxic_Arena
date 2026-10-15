@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>net.barnflix.proxic</groupId>
+  <artifactId>forge-worker</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <!--
+    PHASE_01 §1.63-§1.67 — the PERMANENT Forge worker.
+
+    Not the Phase 0A spike renamed (§1.63 forbids exactly that). The
+    spike was a measuring instrument: 109 generated overrides, loud
+    failure on every unimplemented path, adversarial probes. This is
+    the production skeleton, and its Phase 1 scope is deliberately
+    tiny (§1.64): bootstrap, version reporting, resource checks,
+    handshake, clean shutdown. No gameplay.
+
+    Forge is Maven and the server is Gradle on purpose. The server
+    must not depend on Forge (AGENTS ARCH-001), and a process
+    boundary is the one dependency boundary that cannot be violated
+    by accident.
+
+    Strategy A (PHASE_00_ACCEPTED_DECISIONS): forge-core + forge-game
+    only. forge-gui is Swing-coupled and a browser cannot speak it.
+  -->
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- The one value that CANNOT come from ../forge-pin.properties.
+         Maven resolves dependency coordinates while reading the POM,
+         before any plugin (including properties-maven-plugin at
+         `initialize`) has run, so a ${..} here is a hard parse error.
+
+         The pin that matters, the COMMIT, is still filtered in
+         from that file and is never written here. This is only the
+         artifact version. A server test asserts the two agree, so
+         they cannot drift apart unnoticed. -->
+    <forge.maven.version>2.0.15</forge.maven.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>forge</groupId>
+      <artifactId>forge-game</artifactId>
+      <version>${forge.maven.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>forge</groupId>
+      <artifactId>forge-core</artifactId>
+      <version>${forge.maven.version}</version>
+    </dependency>
+    <!-- Explicit rather than inherited from Forge: a transitive
+         version can change when the pin moves, and the protocol
+         codec is not something to discover a change in at runtime. -->
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.11.0</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- The pin is filtered in from the SAME file the Gradle build
+         reads, so the worker cannot claim a different commit than
+         the server (§1.25). -->
+    <filters>
+      <filter>${project.basedir}/../forge-pin.properties</filter>
+    </filters>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>properties-maven-plugin</artifactId>
+        <version>1.2.1</version>
+        <executions>
+          <execution>
+            <phase>initialize</phase>
+            <goals><goal>read-project-properties</goal></goals>
+            <configuration>
+              <files>
+                <file>${project.basedir}/../forge-pin.properties</file>
+              </files>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.3</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>net.barnflix.proxic.worker.WorkerMain</mainClass>
+                </transformer>
+              </transformers>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

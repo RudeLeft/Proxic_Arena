@@ -1,3 +1,5 @@
+import java.util.Properties
+
 // Arena Server — Kotlin / Ktor.
 //
 // PHASE_00_ACCEPTED_DECISIONS: the server owns HTTP, WebSocket,
@@ -51,6 +53,24 @@ dependencies {
 kotlin {
     jvmToolchain(17)
 }
+
+// The Forge pin comes from ONE file, shared with the Maven worker
+// build (§1.25). Generating a resource rather than hardcoding a
+// constant means the server and the worker cannot claim different
+// commits because someone edited one of them.
+val forgePin = Properties().apply {
+    rootProject.file("forge-pin.properties").inputStream().use { load(it) }
+}
+
+val generateBuildInfo by tasks.registering(WriteProperties::class) {
+    destinationFile.set(layout.buildDirectory.file("generated/resources/build-info.properties"))
+    forgePin.forEach { k, v -> property(k.toString(), v.toString()) }
+}
+
+sourceSets.main {
+    resources.srcDir(layout.buildDirectory.dir("generated/resources"))
+}
+tasks.named("processResources") { dependsOn(generateBuildInfo) }
 
 application {
     mainClass.set("net.barnflix.proxic.ApplicationKt")

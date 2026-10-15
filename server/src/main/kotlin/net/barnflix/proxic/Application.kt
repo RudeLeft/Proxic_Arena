@@ -146,7 +146,13 @@ fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
 
     environment.monitor.subscribe(ApplicationStopped) { database?.close() }
 
-    val health = HealthChecks(config, database)
+    // §1.65 — one handshake at startup. A worker costs ~611 MB and
+    // ~2.8 s, so probing per readiness request would be a
+    // self-inflicted load generator; Phase 6 owns per-match spawning.
+    val forgeWorker = ForgeWorker(config)
+    forgeWorker.probe()
+
+    val health = HealthChecks(config, database, forgeWorker)
 
     routing {
         route("/api") {

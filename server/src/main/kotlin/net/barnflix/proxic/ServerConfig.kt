@@ -22,6 +22,8 @@ data class ServerConfig(
     val appEnv: String = "development",
     /** Directory holding the built Vite output (§1.27). */
     val staticRoot: String = "frontend/dist",
+    /** Forge's own data files; absent rather than guessed (§1.64). */
+    val forgeResRoot: String? = null,
     private val sessionSecretValue: String? = null,
     private val databasePasswordValue: String? = null,
     val databaseUserValue: String? = null,
@@ -83,6 +85,7 @@ data class ServerConfig(
                 dataRoot = getenv("PROXIC_DATA_ROOT") ?: "data",
                 appEnv = getenv("APP_ENV") ?: "development",
                 staticRoot = getenv("PROXIC_STATIC_ROOT") ?: "frontend/dist",
+                forgeResRoot = getenv("PROXIC_FORGE_RES"),
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),

@@ -1,27 +1,43 @@
 package net.barnflix.proxic
 
+import java.util.Properties
+
 /**
  * Build and version facts, in ONE place.
  *
  * `PHASE_01` §1.25: "Do not manually duplicate the Forge hash in
- * unrelated source files." Every endpoint, log line and diagnostic
- * reads it from here.
+ * unrelated source files." These values are generated at build time
+ * from `forge-pin.properties` at the repository root — the same file
+ * the Maven `forge-worker` build reads. Neither side hardcodes the
+ * commit, so the server's claim and the worker's claim cannot drift
+ * apart because somebody edited one of them.
  *
- * The Forge commit is the pin accepted at the Phase 0A gate
- * (`docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`). If it ever
- * disagrees with what the worker actually runs, that is a bug worth
- * failing readiness over, not a cosmetic mismatch — so the worker
- * reports its own and the two are compared rather than assumed equal.
+ * If the running worker ever reports a different commit, that is a
+ * bug worth failing readiness over, not a cosmetic mismatch (§1.61).
+ * The worker therefore reports its own and the two are COMPARED
+ * rather than assumed equal.
  */
 object BuildInfo {
-    const val PROXIC_VERSION = "0.1.0"
+    private val props: Properties = Properties().apply {
+        val stream = BuildInfo::class.java.classLoader
+            .getResourceAsStream("build-info.properties")
+        // A missing resource means the build is broken. Defaulting
+        // would produce a server that cheerfully reports a Forge
+        // commit nobody generated.
+            ?: error("build-info.properties is missing; the build did not generate it")
+        stream.use { load(it) }
+    }
+
+    private fun required(key: String): String =
+        props.getProperty(key) ?: error("build-info.properties has no '$key'")
+
+    val PROXIC_VERSION: String = required("proxic.version")
 
     /** `PHASE_01` §1.32. */
-    const val PROTOCOL_VERSION = 1
+    val PROTOCOL_VERSION: Int = required("protocol.version").toInt()
 
-    /** forge-2.0.15, accepted 2026-10-15. */
-    const val FORGE_COMMIT = "4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676"
-    const val FORGE_RELEASE = "forge-2.0.15"
+    val FORGE_COMMIT: String = required("forge.commit")
+    val FORGE_RELEASE: String = required("forge.release")
 
     val javaVersion: String get() = System.getProperty("java.version") ?: "unknown"
 
