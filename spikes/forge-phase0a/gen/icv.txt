@@ -1,0 +1,43 @@
+Compiled from "ICostVisitor.java"
+public interface forge.game.cost.ICostVisitor<T> {
+  public abstract T visit(forge.game.cost.CostBehold);
+  public abstract T visit(forge.game.cost.CostBeholdExile);
+  public abstract T visit(forge.game.cost.CostGainControl);
+  public abstract T visit(forge.game.cost.CostChooseColor);
+  public abstract T visit(forge.game.cost.CostChooseCreatureType);
+  public abstract T visit(forge.game.cost.CostCollectEvidence);
+  public abstract T visit(forge.game.cost.CostDiscard);
+  public abstract T visit(forge.game.cost.CostDamage);
+  public abstract T visit(forge.game.cost.CostDraw);
+  public abstract T visit(forge.game.cost.CostExile);
+  public abstract T visit(forge.game.cost.CostExileFromStack);
+  public abstract T visit(forge.game.cost.CostExiledMoveToGrave);
+  public abstract T visit(forge.game.cost.CostExert);
+  public abstract T visit(forge.game.cost.CostEnlist);
+  public abstract T visit(forge.game.cost.CostFlipCoin);
+  public abstract T visit(forge.game.cost.CostForage);
+  public abstract T visit(forge.game.cost.CostRollDice);
+  public abstract T visit(forge.game.cost.CostMill);
+  public abstract T visit(forge.game.cost.CostAddMana);
+  public abstract T visit(forge.game.cost.CostPayLife);
+  public abstract T visit(forge.game.cost.CostPayEnergy);
+  public abstract T visit(forge.game.cost.CostGainLife);
+  public abstract T visit(forge.game.cost.CostPartMana);
+  public abstract T visit(forge.game.cost.CostPromiseGift);
+  public abstract T visit(forge.game.cost.CostPutCardToLib);
+  public abstract T visit(forge.game.cost.CostTap);
+  public abstract T visit(forge.game.cost.CostSacrifice);
+  public abstract T visit(forge.game.cost.CostReturn);
+  public abstract T visit(forge.game.cost.CostReveal);
+  public abstract T visit(forge.game.cost.CostRevealChosen);
+  public abstract T visit(forge.game.cost.CostRemoveAnyCounter);
+  public abstract T visit(forge.game.cost.CostRemoveCounter);
+  public abstract T visit(forge.game.cost.CostPutCounter);
+  public abstract T visit(forge.game.cost.CostPutCounterYou);
+  public abstract T visit(forge.game.cost.CostUntapType);
+  public abstract T visit(forge.game.cost.CostUntap);
+  public abstract T visit(forge.game.cost.CostUnattach);
+  public abstract T visit(forge.game.cost.CostTapType);
+  public abstract T visit(forge.game.cost.CostPayShards);
+  public abstract T visit(forge.game.cost.CostBlight);
+}

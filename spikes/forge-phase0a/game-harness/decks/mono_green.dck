@@ -1,0 +1,8 @@
+// Phase 0A architecture test deck -- NOT the Mechanics Lab corpus.
+// Per PHASE_00A 0A.11A: a small deterministic set that exercises
+// plumbing (land, mana, vanilla creature, targeted removal, ETB
+// trigger), not broad mechanics coverage.
+24 Forest
+16 Grizzly Bears
+12 Giant Growth
+8 Elvish Visionary
