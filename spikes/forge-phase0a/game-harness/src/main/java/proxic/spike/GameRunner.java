@@ -133,7 +133,9 @@ public final class GameRunner {
             System.out.println("outcome      : winner "
                     + game.getOutcome().getWinningLobbyPlayer().getName());
         }
-        for (Player p : game.getPlayers()) {
+        // getPlayers() drops a player who has left; registered players
+        // is the full seat list, so a loser is still reported.
+        for (Player p : game.getRegisteredPlayers()) {
             System.out.printf("  %-6s life=%-4d hand=%-3d battlefield=%-3d graveyard=%d%n",
                     p.getName(), p.getLife(),
                     p.getCardsIn(forge.game.zone.ZoneType.Hand).size(),
@@ -143,6 +145,11 @@ public final class GameRunner {
 
         watchdog.interrupt();
         ScriptedController.printAnswered();
+        System.out.println();
+        System.out.println("=== stack interaction (P0A-C evidence) ===");
+        System.out.println("    max stack depth observed : " + ScriptedController.MAX_STACK);
+        System.out.println("    spells cast onto a non-empty stack : " + ScriptedController.CAST_ONTO_NONEMPTY_STACK);
+        System.out.println("    spells cast outside own turn       : " + ScriptedController.CAST_OFF_TURN);
         GeneratedControllerBase.printReachedStubs();
         GeneratedCostDecisionMaker.printUnsupported();
 

@@ -59,6 +59,9 @@ public final class ScriptedController extends GeneratedControllerBase {
         this.tag = tag;
     }
 
+    private static final java.util.concurrent.atomic.AtomicInteger DIAG =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private static void seen(String what) {
         ANSWERED.merge(what, 1, Integer::sum);
     }
@@ -95,6 +98,8 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         seen("chooseSpellAbilityToPlay");
+        int stackDepth = getGame().getStack().size();
+        if (stackDepth > MAX_STACK) MAX_STACK = stackDepth;
         int mana = untappedManaSources();
 
         List<SpellAbility> lands = new ArrayList<>();
@@ -117,6 +122,21 @@ public final class ScriptedController extends GeneratedControllerBase {
                 if (sa.getPayCosts().getTotalMana().getCMC() > mana) continue;
                 if (requiresTargetButHasNone(sa)) continue;
                 spells.add(sa);
+            }
+        }
+
+        // P0A-C needs a REAL stack interaction, not just "a targeted
+        // spell was cast". So when something is already on the stack and
+        // we hold an instant-speed answer, respond to it. That is a
+        // deliberate scripted policy to reach the branch, not an
+        // optimisation -- without it both players simply cast into an
+        // empty stack all game and the stack never exceeds depth 1.
+        if (stackDepth > 0) {
+            for (SpellAbility sa : spells) {
+                if (sa.isSpell() && sa.getHostCard() != null
+                        && sa.getHostCard().isInstant()) {
+                    return List.of(sa);
+                }
             }
         }
 
@@ -164,9 +184,24 @@ public final class ScriptedController extends GeneratedControllerBase {
      * recorded the same hazard from the other direction: never offer an
      * action that cannot be performed.
      */
+    /** Max stack depth observed, and whether anyone ever responded. */
+    public static int MAX_STACK = 0;
+    public static int CAST_OFF_TURN = 0;
+    public static int CAST_ONTO_NONEMPTY_STACK = 0;
+
     @Override
     public boolean playChosenSpellAbility(SpellAbility chosenSa) {
         seen("playChosenSpellAbility");
+        // P0A-C evidence: did a real stack interaction ever happen, or
+        // did every spell just resolve into an empty stack? "A targeted
+        // spell was cast" is not the same claim as "the opponent
+        // responded and the stack resolved in order".
+        int depth = getGame().getStack().size();
+        if (depth > MAX_STACK) MAX_STACK = depth;
+        if (depth > 0 && chosenSa.isSpell()) CAST_ONTO_NONEMPTY_STACK++;
+        if (getGame().getPhaseHandler().getPlayerTurn() != player && chosenSa.isSpell()) {
+            CAST_OFF_TURN++;
+        }
         return PlaySpellAbility.playSpellAbility(this, player, chosenSa);
     }
 
@@ -320,6 +355,32 @@ public final class ScriptedController extends GeneratedControllerBase {
      * rejected the mana with "addMana() error, mana not needed". The
      * colour check is the fix, and it is why this is not a one-liner.
      */
+    /**
+     * Tap lands whose mana the remaining cost can actually use.
+     *
+     * Ported from the old project and RE-VALIDATED here (AGENTS
+     * ISO-003), because the obvious implementation does not work and
+     * fails in a way that is extremely expensive to diagnose.
+     *
+     * Two things had to be right:
+     *
+     * 1. A mana ability must NOT be played through
+     *    PlaySpellAbility.playSpellAbility. From inside a payment that
+     *    returns false, the cast then fails, and Forge's priority loop
+     *    re-offers the identical cast forever (see
+     *    playChosenSpellAbility's note on the missing AI-only safety
+     *    valve). Measured: 340,251 identical attempts, stuck on turn 3,
+     *    zero stubs reached, no error of any kind. Tap and produce
+     *    directly instead.
+     *
+     * 2. Colour must be checked before tapping. The old project tapped
+     *    the first untapped land, which was invisible while every deck
+     *    was mono-coloured, then killed the bridge the moment a
+     *    two-colour deck existed: Forge threw "ManaCost : addMana()
+     *    error, mana not needed - R". An unpayable cost must fail
+     *    cleanly and let Forge roll the cast back, never tap a land
+     *    whose mana is unwanted.
+     */
     @Override
     public boolean applyManaToCost(ManaCostBeingPaid toPay, SpellAbility sa, String prompt,
             ManaConversionMatrix matrix, boolean effect) {
@@ -328,29 +389,74 @@ public final class ScriptedController extends GeneratedControllerBase {
             Card land = null;
             SpellAbility manaAbility = null;
             for (Card c : player.getCardsIn(ZoneType.Battlefield)) {
-                if (c.isTapped()) continue;
-                for (SpellAbility ma : c.getManaAbilities()) {
-                    ma.setActivatingPlayer(player);
-                    if (!ma.canPlay()) continue;
+                if (!c.isLand() || c.isTapped()) {
+                    continue;
+                }
+                SpellAbility found = findManaAbility(c);
+                if (found == null) {
+                    continue;
+                }
+                if (toPay.isAnyPartPayableWith(producedColorMask(found), player.getManaPool())) {
                     land = c;
-                    manaAbility = ma;
+                    manaAbility = found;
                     break;
                 }
-                if (land != null) break;
             }
-            if (land == null) return false;
-            if (!PlaySpellAbility.playSpellAbility(this, player, manaAbility)) return false;
-
-            boolean used = false;
-            for (Mana m : com.google.common.collect.Lists.newArrayList(player.getManaPool())) {
+            if (land == null) {
+                return false; // fail cleanly; do NOT tap something unusable
+            }
+            manaAbility.setActivatingPlayer(player);
+            land.tap(false, manaAbility, player);
+            manaAbility.getManaPart().produceMana(manaAbility);
+            for (Mana m : manaAbility.getManaPart().getLastManaProduced()) {
+                if (toPay.isPaid()) {
+                    break;
+                }
+                // Per mana, not per land: a source producing two mana can
+                // have its second one unwanted. Unneeded mana stays
+                // floating, which is what the rules say happens.
                 if (toPay.isNeeded(m, player.getManaPool())) {
                     toPay.payMana(m, player.getManaPool());
-                    used = true;
                 }
             }
-            if (!used) return false;
         }
         return true;
+    }
+
+    /** A land's plain unconditional mana ability, or null. */
+    private static SpellAbility findManaAbility(Card land) {
+        for (forge.card.MagicColor.Color c : forge.card.MagicColor.Color.values()) {
+            String basicType = c.getBasicLandType();
+            if (basicType != null && land.getType().hasSubtype(basicType)) {
+                return land.getCurrentState().getLandManaForColor(c);
+            }
+        }
+        for (SpellAbility sa : land.getManaAbilities()) {
+            return sa;
+        }
+        return null;
+    }
+
+    /** Which colours a mana ability can produce, as a MagicColor mask. */
+    private static byte producedColorMask(SpellAbility manaAbility) {
+        String produced = manaAbility.getManaPart() == null
+                ? null : manaAbility.getManaPart().getOrigProduced();
+        if (produced == null || produced.isEmpty()) {
+            return forge.card.MagicColor.ALL_COLORS;
+        }
+        byte mask = 0;
+        for (char c : produced.toCharArray()) {
+            switch (c) {
+                case 'W': case 'U': case 'B': case 'R': case 'G':
+                    mask |= forge.card.MagicColor.fromName(c);
+                    break;
+                case 'C': case '1': case ' ':
+                    break; // colourless/generic contributes no colour
+                default:
+                    return forge.card.MagicColor.ALL_COLORS; // Any/Combo/unparsed
+            }
+        }
+        return mask;
     }
 
     @Override
