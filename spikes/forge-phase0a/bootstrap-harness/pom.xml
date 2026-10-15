@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>proxic.spike</groupId>
+  <artifactId>bootstrap-harness</artifactId>
+  <version>0.0.1</version>
+  <packaging>jar</packaging>
+
+  <!--
+    Phase 0A section 0A.5 bootstrap harness. Depends on Forge artifacts
+    built from the UNMODIFIED upstream checkout and installed to the local
+    repository; nothing here patches Forge.
+  -->
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <forge.version>2.0.15</forge.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>forge</groupId>
+      <artifactId>forge-game</artifactId>
+      <version>${forge.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>forge</groupId>
+      <artifactId>forge-core</artifactId>
+      <version>${forge.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.3</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>proxic.spike.BootstrapProbe</mainClass>
+                </transformer>
+              </transformers>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
