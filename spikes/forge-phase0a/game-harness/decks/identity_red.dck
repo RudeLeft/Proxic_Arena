@@ -1,0 +1,10 @@
+// Phase 0A P0A-F deck: exercises every identity requirement in 0.64.
+//   duplicates   -- 20 Mountain, 12 of each spell
+//   tokens       -- Goblin Instigator makes a 1/1 Goblin token
+//   zone change  -- Shock and creatures die to graveyard
+//   face-down    -- Ainok Tracker morph (also keeps H4 alive)
+20 Mountain
+12 Goblin Instigator
+12 Ainok Tracker
+8 Shock
+8 Mogg Fanatic

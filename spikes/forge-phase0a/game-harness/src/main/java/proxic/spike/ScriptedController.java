@@ -59,6 +59,8 @@ public final class ScriptedController extends GeneratedControllerBase {
         this.tag = tag;
     }
 
+    private static final java.util.concurrent.atomic.AtomicInteger TDIAG =
+            new java.util.concurrent.atomic.AtomicInteger();
     private static final java.util.concurrent.atomic.AtomicInteger DIAG =
             new java.util.concurrent.atomic.AtomicInteger();
 
@@ -103,6 +105,7 @@ public final class ScriptedController extends GeneratedControllerBase {
         // the assertion is made against real mid-game state rather
         // than a contrived snapshot.
         VisibilityProbe.sample(getGame());
+        IdentityProbe.sample(getGame());
         int stackDepth = getGame().getStack().size();
         if (stackDepth > MAX_STACK) MAX_STACK = stackDepth;
         int mana = untappedManaSources();
@@ -116,6 +119,7 @@ public final class ScriptedController extends GeneratedControllerBase {
                     lands.add(sa);
                 } else if (sa.isSpell()
                         && sa.getPayCosts().getTotalMana().getCMC() <= mana
+                        && canPayNonManaCosts(sa)
                         && !requiresTargetButHasNone(sa)) {
                     spells.add(sa);
                 }
@@ -125,6 +129,7 @@ public final class ScriptedController extends GeneratedControllerBase {
             for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
                 if (sa.isManaAbility() || !sa.isActivatedAbility()) continue;
                 if (sa.getPayCosts().getTotalMana().getCMC() > mana) continue;
+                if (!canPayNonManaCosts(sa)) continue;
                 if (requiresTargetButHasNone(sa)) continue;
                 spells.add(sa);
             }
@@ -174,6 +179,40 @@ public final class ScriptedController extends GeneratedControllerBase {
      * loop forever: the cast fails, priority returns, the same option is
      * offered again.
      */
+    /**
+     * Refuse to offer an action whose cost this adapter cannot pay.
+     *
+     * This is not tidiness, it is the direct consequence of Forge's
+     * missing safety valve (see playChosenSpellAbility). The payment
+     * visitor answers CostPartMana and returns null for every other
+     * cost kind, meaning "I cannot decide this" -- which fails the
+     * payment, fails the cast, and makes Forge re-offer the identical
+     * action forever.
+     *
+     * Observed: Mogg Fanatic's "Sacrifice Mogg Fanatic" cost produced
+     * 679,963 identical attempts frozen on turn 2, with targeting
+     * SUCCEEDING every time and payManaCost reached only twice. The
+     * loop is invisible from the decision counts unless you compare
+     * them against each other.
+     *
+     * A real Phase 6 adapter will implement more cost kinds; the rule
+     * survives regardless -- whatever it cannot pay, it must not offer.
+     */
+    private boolean canPayNonManaCosts(SpellAbility sa) {
+        forge.game.cost.Cost cost = sa.getPayCosts();
+        if (cost == null) return true;
+        for (forge.game.cost.CostPart part : cost.getCostParts()) {
+            if (part instanceof forge.game.cost.CostPartMana) continue;
+            if (part instanceof forge.game.cost.CostTap) continue;
+            UNPAYABLE_SKIPPED.merge(part.getClass().getSimpleName(), 1, Integer::sum);
+            return false;
+        }
+        return true;
+    }
+
+    /** Cost kinds we declined to offer because we cannot pay them. */
+    public static final LinkedHashMap<String, Integer> UNPAYABLE_SKIPPED = new LinkedHashMap<>();
+
     private boolean requiresTargetButHasNone(SpellAbility sa) {
         if (!sa.usesTargeting()) return false;
         sa.setActivatingPlayer(player);
@@ -272,11 +311,19 @@ public final class ScriptedController extends GeneratedControllerBase {
     @Override
     public boolean chooseTargetsFor(SpellAbility currentAbility) {
         seen("chooseTargetsFor");
+        int tdiag = TDIAG.getAndIncrement();
+        boolean tlog = tdiag < 4;
         // Simplest correct behaviour: let Forge's own default targeting
         // choose, by accepting the first legal candidate set.
         forge.game.spellability.TargetRestrictions tgt = currentAbility.getTargetRestrictions();
         if (tgt == null) return true;
         List<GameEntity> candidates = new ArrayList<>(tgt.getAllCandidates(currentAbility));
+        if (tlog) {
+            System.out.println("[tdiag] " + currentAbility + "  candidates=" + candidates.size()
+                    + " min=" + tgt.getMinTargets(currentAbility.getHostCard(), currentAbility)
+                    + " max=" + tgt.getMaxTargets(currentAbility.getHostCard(), currentAbility)
+                    + "  -> " + candidates);
+        }
         if (candidates.isEmpty()) return false;
         currentAbility.resetTargets();
         int want = Math.max(1, tgt.getMinTargets(currentAbility.getHostCard(), currentAbility));
@@ -284,7 +331,12 @@ public final class ScriptedController extends GeneratedControllerBase {
             if (currentAbility.getTargets().size() >= want) break;
             if (currentAbility.canTarget(e)) currentAbility.getTargets().add(e);
         }
-        return currentAbility.getTargets().size() >= want;
+        boolean okT = currentAbility.getTargets().size() >= want;
+        if (tlog) {
+            System.out.println("[tdiag]   want=" + want + " got=" + currentAbility.getTargets().size()
+                    + " ok=" + okT);
+        }
+        return okT;
     }
 
     @Override

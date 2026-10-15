@@ -102,6 +102,7 @@ public final class GameRunner {
                     + " (turn " + game.getPhaseHandler().getTurn() + ")");
             ScriptedController.printAnswered();
             GeneratedControllerBase.printReachedStubs();
+            GeneratedCostDecisionMaker.printUnsupported();
             System.out.flush();
             System.err.flush();
             Runtime.getRuntime().halt(2);
@@ -152,16 +153,23 @@ public final class GameRunner {
         System.out.println("    spells cast outside own turn       : " + ScriptedController.CAST_OFF_TURN);
         GeneratedControllerBase.printReachedStubs();
         GeneratedCostDecisionMaker.printUnsupported();
+        if (!ScriptedController.UNPAYABLE_SKIPPED.isEmpty()) {
+            System.out.println();
+            System.out.println("=== actions declined: cost kind not payable by this adapter ===");
+            ScriptedController.UNPAYABLE_SKIPPED.forEach(
+                    (k, v) -> System.out.printf("    %6dx  %s%n", v, k));
+        }
         boolean hidOk = VisibilityProbe.report();
+        boolean idOk = IdentityProbe.report();
 
-        boolean ok = hidOk && game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
+        boolean ok = hidOk && idOk && game.getOutcome() != null && !GeneratedControllerBase.SURVEY;
         System.out.println();
         if (GeneratedControllerBase.SURVEY) {
             System.out.println("RESULT: SURVEY (not a pass — stubs returned defaults "
                     + "instead of answering; see the stub list above)");
         } else {
             System.out.println("RESULT: " + (ok ? "PASS"
-                    : (!hidOk ? "FAIL — hidden-information check" : "FAIL — no outcome")));
+                    : (!hidOk ? "FAIL — hidden-information check" : !idOk ? "FAIL — object identity check" : "FAIL — no outcome")));
         }
         System.exit(ok ? 0 : 1);
     }
