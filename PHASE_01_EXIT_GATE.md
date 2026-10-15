@@ -40,9 +40,9 @@ A `WRITTEN` artifact is never described as working (§1.71).
 | 1.3 | Phase 0 decision import | DONE | `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` |
 | 1.4 | Unresolved-decision gate | DONE | 0B trigger register; §7.51's six resolved 2026-10-15 |
 | 1.5 | Approved technology stack | DONE | `gradle.properties`, `package.json`, all exact-pinned |
-| 1.6 | Architecture at end of Phase 1 | PARTIAL | server, frontend, database and Docker exist; **no Forge worker** |
+| 1.6 | Architecture at end of Phase 1 | VERIFIED | server, frontend, database, Docker and the Forge worker all run |
 | 1.7 | Architectural ownership | DONE | server owns HTTP/WS/sessions; depends on no Forge code |
-| 1.8 | Repository structure | PARTIAL | missing `forge-worker/`, `third_party/forge/`, `forge_patches/` |
+| 1.8 | Repository structure | DONE | `forge-worker/` and `forge_patches/` exist; upstream Forge is cloned by the image build rather than vendored (~1 GB) |
 | 1.9 | Root `AGENTS.md` | DONE | |
 | 1.10 | `BUILD_PLAN.md` | DONE | |
 | 1.11 | Architecture Decision Records | DONE | ADR 0001, ACCEPTED |
@@ -116,7 +116,7 @@ are all present and exercised.
 | § | Item | Status | Evidence |
 | --- | --- | --- | --- |
 | 1.52 | Docker is mandatory | VERIFIED | stack built and run |
-| 1.53 | Compose services | PARTIAL | server + postgres verified; `cloudflared` written; Forge runtime absent because the worker does not exist |
+| 1.53 | Compose services | PARTIAL | server + postgres + Forge runtime verified; only `cloudflared` remains unrun |
 | 1.54 | Development compose | WRITTEN | `docker-compose.dev.yml` never started |
 | 1.55 | Production compose | VERIFIED | |
 | 1.56 | Production frontend build | VERIFIED | Vite stage inside the image; no Node at runtime |
@@ -130,7 +130,7 @@ are all present and exercised.
 
 | § | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| 1.60 | Forge source integration | PARTIAL | the pinned checkout is used from the Phase 0A spike path; `third_party/forge/` is not yet the canonical location |
+| 1.60 | Forge source integration | VERIFIED | the image clones upstream at the pinned tag and fails the build unless the commit matches |
 | 1.61 | Forge commit verification | VERIFIED | the worker reports its own commit and the server COMPARES it; a one-character difference is refused |
 | 1.62 | `forge_patches/README.md` | DONE | states explicitly that no patches are approved |
 | 1.63 | Permanent `forge-worker` module | VERIFIED | Maven module, not the spike renamed; `forge-core` + `forge-game` only |
@@ -224,7 +224,7 @@ documentation rather than writing it.
 | Test | Result |
 | --- | --- |
 | P1-A Fresh checkout build | **PASS** — pristine clone, `--no-cache`, 75 s |
-| P1-B Full stack startup | PARTIAL — server + postgres healthy; no Forge runtime, `cloudflared` not started |
+| P1-B Full stack startup | PARTIAL — server, postgres and the Forge runtime all verified; only `cloudflared` is unstarted (blocked on the host) |
 | P1-C Local browser access | **PASS** — Playwright, against the production stack |
 | P1-D Ktor serves production frontend | **PASS** |
 | P1-E React client-side route | **PASS** — `/play` serves the SPA, `/api/*` stays API |
@@ -247,11 +247,11 @@ documentation rather than writing it.
 
 **Counted exactly: 15 PASS, 1 PARTIAL, 1 N/A, 4 BLOCKED.**
 
-No test FAILS. The one partial is P1-B: the server and database
-start and are healthy, but the stack contains no Forge runtime
-(the worker is built outside the image) and `cloudflared` has never
-been started. P1-Q is N/A because no Forge checkout lives in this
-repository to verify.
+No test FAILS. The one partial is P1-B, and its only remaining gap
+is `cloudflared`, which cannot run here. P1-Q is N/A because no
+Forge checkout is vendored in this repository — the image clones it
+at the pinned commit instead, and refuses to build on a mismatch,
+which is stronger than verifying a vendored copy.
 
 An earlier commit message in this session said "19 of 21 pass",
 which was a count made from memory rather than from this table. The

@@ -48,6 +48,10 @@ describe("service status (PHASE_01 1.69)", () => {
     expect(s.server).toBe("ready");
     expect(s.database).toBe("ready");
     expect(s.forgeRuntime).toBe("degraded");
+    // The RAW value must survive to the UI. Collapsing every non-ok
+    // state to one label told an operator "Not configured" for a
+    // worker that was configured and unreachable.
+    expect(s.checks["forgeWorker"]).toBe("missing");
   });
 
   it("reports unavailable when the server cannot be reached", async () => {

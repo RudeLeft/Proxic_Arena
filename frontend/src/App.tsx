@@ -37,13 +37,45 @@ const COLOUR: Record<ServiceState, string> = {
   "version-mismatch": "#b454d0",
 };
 
-function Indicator({ name, state }: { name: string; state: ServiceState }) {
+/**
+ * Labels for the raw backend check values (§1.69, §1.70).
+ *
+ * The backend distinguishes five Forge-worker states because the
+ * operator action differs for each. Collapsing them all to the
+ * generic "Not configured" told someone to set a variable that was
+ * already set.
+ */
+const DETAIL_LABEL: Record<string, string> = {
+  ok: "Ready",
+  unconfigured: "Not configured",
+  missing: "Not found",
+  unreachable: "Unreachable",
+  incompatible: "Version mismatch",
+  "resources-missing": "Data files missing",
+  unprobed: "Not checked",
+  unwritable: "Not writable",
+  configured: "Not checked",
+};
+
+function Indicator({
+  name,
+  state,
+  detail,
+}: {
+  name: string;
+  state: ServiceState;
+  detail?: string | undefined;
+}) {
+  // Prefer what the server actually said; fall back to the coarse
+  // state when there is no raw value (the WebSocket and the renderer
+  // have none — they are observed in the browser, not reported).
+  const text = (detail !== undefined ? DETAIL_LABEL[detail] : undefined) ?? LABEL[state];
   return (
     <div className="row">
       <span className="name">{name}</span>
       <span className="state">
         <span className="dot" style={{ background: COLOUR[state] }} aria-hidden="true" />
-        {LABEL[state]}
+        {text}
       </span>
     </div>
   );
@@ -156,9 +188,13 @@ export default function App() {
 
       <section className="panel">
         <Indicator name="Application Server" state={snap.server} />
-        <Indicator name="Database" state={snap.database} />
+        <Indicator name="Database" state={snap.database} detail={snap.checks["database"]} />
         <Indicator name="WebSocket" state={snap.websocket} />
-        <Indicator name="Forge Runtime" state={snap.forgeRuntime} />
+        <Indicator
+          name="Forge Runtime"
+          state={snap.forgeRuntime}
+          detail={snap.checks["forgeWorker"]}
+        />
         <Indicator name="Pixi Renderer" state={renderer} />
       </section>
 

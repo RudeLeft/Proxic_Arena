@@ -49,11 +49,26 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
   await expect(indicator(page, "Pixi Renderer")).toContainText("Ready");
 
   // §1.78 says the Forge runtime status must reflect the ACTUAL
-  // state, which is not the same as "Ready". The deployed stack has
-  // no worker jar, so "Not configured" is the correct answer and a
-  // green light here would be the bug.
-  const forge = await indicator(page, "Forge Runtime").textContent();
-  expect(forge).toMatch(/Ready|Not configured|Unavailable/);
+  // state, which is not the same as "Ready". So the UI is compared
+  // against what the API reports, rather than against a list of
+  // acceptable words — an earlier version of this test accepted
+  // "Ready" OR "Not configured", which would have passed whatever
+  // the page said and proved nothing.
+  const ready = (await (await page.request.get("/api/health/ready")).json()) as {
+    checks: Record<string, string>;
+  };
+  const expected: Record<string, RegExp> = {
+    ok: /Ready/,
+    unconfigured: /Not configured/,
+    missing: /Not configured/,
+    unreachable: /Unavailable/,
+    incompatible: /Unavailable/,
+    "resources-missing": /Not configured/,
+  };
+  const forgeState = ready.checks["forgeWorker"] ?? "unconfigured";
+  await expect(indicator(page, "Forge Runtime")).toContainText(
+    expected[forgeState] ?? /Not configured/,
+  );
 
   assertClean();
 });

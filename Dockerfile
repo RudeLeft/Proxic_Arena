@@ -45,7 +45,46 @@ COPY protocol/ protocol/
 # project keeps rejecting. CI runs them on the host.
 RUN ./gradlew --no-daemon :server:installDist -x test
 
-# --- Stage 3: runtime -------------------------------------------------
+# --- Stage 3: Forge worker --------------------------------------------
+# PHASE_01 §1.52 ("all production services run through Docker") and
+# §1.53. Phase 0A chose ONE JVM PER MATCH, spawned by the server, so
+# the worker is not a separate container — it is a jar the server
+# executes, and it therefore has to live in this image alongside
+# Forge's own data files.
+#
+# Forge is built from source here because no published artifact
+# exists for forge-core/forge-game at this pin.
+FROM maven:3.9.9-eclipse-temurin-17@sha256:f58d59b6273e785ac0a4477f6e9b5ba1d7731c75b906c0f7b34076f1851318cc AS worker
+
+# The pin, from the same file the other two builds read (§1.25).
+COPY forge-pin.properties /pin.properties
+
+# Shallow clone of the release tag, then an EXPLICIT check that the
+# commit is the pinned one. A tag can be moved; a commit cannot.
+# §1.61 says a mismatched Forge revision must not silently become the
+# production build — checking here means the image cannot be built
+# from the wrong source at all.
+RUN set -eu; \
+    FORGE_COMMIT="$(grep '^forge.commit=' /pin.properties | cut -d= -f2)"; \
+    FORGE_RELEASE="$(grep '^forge.release=' /pin.properties | cut -d= -f2)"; \
+    git clone --depth 1 --branch "$FORGE_RELEASE" \
+        https://github.com/Card-Forge/forge.git /forge; \
+    cd /forge; \
+    ACTUAL="$(git rev-parse HEAD)"; \
+    if [ "$ACTUAL" != "$FORGE_COMMIT" ]; then \
+        echo "Forge mismatch: tag $FORGE_RELEASE is $ACTUAL, pin says $FORGE_COMMIT" >&2; \
+        exit 1; \
+    fi
+
+# forge-core and forge-game only (Strategy A). forge-gui is
+# Swing-coupled and a browser cannot speak it.
+RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game -am
+
+COPY forge-worker/ /build/forge-worker/
+COPY forge-pin.properties /build/forge-pin.properties
+RUN cd /build/forge-worker && mvn -q -B package
+
+# --- Stage 4: runtime -------------------------------------------------
 FROM eclipse-temurin:17.0.13_11-jre-alpine@sha256:8164ba7f332faf27462e055013c2aa518a2eba1ce6984e9ca60dadb899cab6bd AS runtime
 
 # Non-root (§1.59). The app writes only to /data, which is a volume.
@@ -55,12 +94,20 @@ WORKDIR /app
 COPY --from=server  /src/server/build/install/server/ /app/
 COPY --from=frontend /src/dist/ /app/frontend/dist/
 
+# The worker jar and Forge's own data files (~430 MB of card
+# scripts, editions and token definitions — no artwork). Forge is
+# GPL; this image is private to the deployment and not published.
+COPY --from=worker /build/forge-worker/target/forge-worker-0.1.0.jar /app/forge/forge-worker.jar
+COPY --from=worker /forge/forge-gui/res/ /app/forge/res/
+
 # Owned by root, readable by proxic: the application cannot rewrite
 # its own binaries.
 RUN mkdir -p /data && chown proxic:proxic /data
 
 ENV PROXIC_STATIC_ROOT=/app/frontend/dist \
     PROXIC_DATA_ROOT=/data \
+    PROXIC_FORGE_WORKER_JAR=/app/forge/forge-worker.jar \
+    PROXIC_FORGE_RES=/app/forge/res \
     PROXIC_HOST=0.0.0.0 \
     PROXIC_PORT=8080 \
     APP_ENV=production

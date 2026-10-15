@@ -72,6 +72,18 @@ export interface Snapshot {
   forgeRuntime: ServiceState;
   websocket: ServiceState;
   version: VersionInfo | null;
+  /**
+   * The raw backend check values, kept so the UI can say what the
+   * server actually said.
+   *
+   * Without this every non-ok state collapsed to one label: an
+   * UNREACHABLE or INCOMPATIBLE Forge worker displayed as "Not
+   * configured", which sends an operator to set a variable that is
+   * already set. The backend distinguishes five worker states for a
+   * reason; throwing four of them away at the display layer is the
+   * same class of dishonesty as a false green.
+   */
+  checks: Record<string, string>;
 }
 
 export const INITIAL_SNAPSHOT: Snapshot = {
@@ -80,6 +92,7 @@ export const INITIAL_SNAPSHOT: Snapshot = {
   forgeRuntime: "loading",
   websocket: "loading",
   version: null,
+  checks: {},
 };
 
 /** Fetch readiness + version. Never throws; failure is a state. */
@@ -111,16 +124,24 @@ export async function fetchStatus(
       database: "version-mismatch",
       forgeRuntime: "version-mismatch",
       version,
+      checks: readiness?.checks ?? {},
     };
   }
   if (readiness === null) {
-    return { server: "unavailable", database: "unavailable", forgeRuntime: "unavailable", version };
+    return {
+      server: "unavailable",
+      database: "unavailable",
+      forgeRuntime: "unavailable",
+      version,
+      checks: {},
+    };
   }
   return {
     server: "ready",
     database: checkState(readiness.checks["database"]),
     forgeRuntime: checkState(readiness.checks["forgeWorker"]),
     version,
+    checks: readiness.checks,
   };
 }
 
