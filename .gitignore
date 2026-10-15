@@ -36,3 +36,11 @@ third_party/forge/
 
 # Spike run logs
 spikes/**/*.log
+
+# --- Phase 1 build output ---------------------------------------------
+node_modules/
+frontend/dist/
+.gradle/
+build/
+*/build/
+data/
