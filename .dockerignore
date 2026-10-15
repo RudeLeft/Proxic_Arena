@@ -1,0 +1,17 @@
+# Build output and caches — the image builds these itself.
+**/build/
+**/node_modules/
+.gradle/
+frontend/dist/
+
+# Never ship these into an image (GIT-001, §1.46).
+.env
+.env.local
+Test Deck/real_cards/
+spikes/
+third_party/forge/
+**/*.log
+
+.git/
+.idea/
+.vscode/

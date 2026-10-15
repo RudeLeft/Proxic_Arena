@@ -1,0 +1,92 @@
+# Production stack — PHASE_01 §1.53, §1.55, §1.58, §1.59.
+#
+# Two services run and are verified here: arena-server and postgres.
+# cloudflared is defined but CANNOT be verified on a development
+# machine (§1.48-§1.51 need the real host and a real tunnel token), so
+# it sits behind a profile and is off by default. See the comment on
+# that service.
+#
+# Phase 0A selected PER-MATCH CHILD JVM PROCESSES for Forge, so there
+# is deliberately no always-running forge container here (§1.53).
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    # NO ports: section. §1.39 forbids a public PostgreSQL binding,
+    # and the server reaches it over the internal network by name.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  arena-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      PROXIC_DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PROXIC_SESSION_SECRET: ${PROXIC_SESSION_SECRET:?set PROXIC_SESSION_SECRET in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - app-data:/data
+    networks:
+      - internal
+      - edge
+    # Published only so the stack can be driven without cloudflared.
+    # In the real deployment the tunnel reaches it over `edge` and
+    # this mapping should be removed (§1.55: avoid unnecessary host
+    # port exposure).
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  # NOT VERIFIED. Written from §1.48-§1.51 and never run: a tunnel
+  # needs the real host and a real token, and this project does not
+  # ship configuration it has only imagined working. Start it with
+  #   docker compose --profile edge up
+  # on the Unraid host, and treat its first run as the verification.
+  cloudflared:
+    image: cloudflare/cloudflared:2024.8.3
+    restart: unless-stopped
+    profiles: ["edge"]
+    command: tunnel --no-autoupdate run
+    environment:
+      # `:?` here would be wrong, and this was found by running it:
+      # Compose interpolates EVERY service, including ones behind an
+      # inactive profile, so a required-variable marker on this line
+      # makes `docker compose up` fail for anyone who is not running
+      # the edge -- which is everyone outside the Unraid host.
+      # An empty token instead fails inside cloudflared, visibly, at
+      # the moment someone actually asks for the edge.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - arena-server
+    networks:
+      - edge
+
+volumes:
+  postgres-data:
+  app-data:
+
+networks:
+  # No external access. PostgreSQL lives only here.
+  internal:
+    internal: true
+  edge:

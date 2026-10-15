@@ -1,0 +1,32 @@
+# Development stack — PHASE_01 §1.54.
+#
+# PostgreSQL only. The server and Vite run on the host, where a
+# rebuild is seconds rather than an image build, and the Vite dev
+# server proxies /api and /ws to the host Ktor (§1.28).
+#
+# cloudflared is deliberately absent: §1.54 says it is not required
+# for ordinary local development.
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-proxic}
+      POSTGRES_USER: ${POSTGRES_USER:-proxic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    # Localhost-only mapping, which §1.39 permits in development.
+    # Bound to 127.0.0.1 explicitly: "5432:5432" would expose the
+    # database to the LAN.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-proxic}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-dev-data:
