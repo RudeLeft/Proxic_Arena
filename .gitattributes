@@ -1,0 +1,10 @@
+# Normalize line endings. The old project hit silent CRLF/LF churn; settle it
+# at the repository level rather than per-tool.
+* text=auto eol=lf
+
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.zip  binary

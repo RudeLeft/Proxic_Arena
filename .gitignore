@@ -1,0 +1,28 @@
+# --- Card artwork: copyrighted, large, and regenerable -------------------
+# The Mechanics Lab corpus is defined by its TXT + CSV, which ARE versioned.
+# The 275 card images (~291 MB) are Wizards of the Coast artwork delivered by
+# a Deck Builder export at runtime; git would keep every byte forever.
+Test Deck/real_cards/
+
+# Spike archive (~13 MB, mostly bundled card PNGs). The spike's source is
+# small and can be committed separately if we decide to keep it in-tree.
+*.zip
+
+# --- Build output --------------------------------------------------------
+node_modules/
+dist/
+build/
+target/
+.gradle/
+*.class
+__pycache__/
+*.pyc
+
+# --- Local environment ---------------------------------------------------
+.env
+.env.local
+*.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
