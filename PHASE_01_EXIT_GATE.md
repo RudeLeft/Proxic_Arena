@@ -1,6 +1,10 @@
 # Phase 1 Exit Gate
 
-**Status: NOT PASSED — 2026-10-15** (updated after the Forge worker landed)
+**Status: NOT PASSED — 2026-10-15** (updated as items closed)
+
+Everything verifiable on this machine is now verified. The gate
+remains open on the Cloudflare edge alone, which needs the Unraid
+host. The §1.111 deliverables are in `PHASE_01_DELIVERABLES.md`.
 
 Phase 1 is substantially built and the parts that exist are genuinely
 verified, but §1.112's exit conditions are not all met. This document
