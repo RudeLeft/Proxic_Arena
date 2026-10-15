@@ -158,6 +158,14 @@ public final class GameRunner {
         }
 
         watchdog.interrupt();
+        // --hold=N keeps the JVM alive after the game so several workers
+        // can be measured while genuinely concurrent (§0A.10 / 0B.2).
+        int hold = Integer.parseInt(arg(args, "hold", "0"));
+        if (hold > 0) {
+            System.out.println("[hold] staying alive " + hold + "s for measurement");
+            System.out.flush();
+            try { Thread.sleep(hold * 1000L); } catch (InterruptedException ignored) { }
+        }
         ScriptedController.printAnswered();
         System.out.println();
         System.out.println("=== stack interaction (P0A-C evidence) ===");
