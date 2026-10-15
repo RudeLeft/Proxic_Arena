@@ -117,6 +117,22 @@ test("P1-E: a client-side route serves the app, and /api stays API", async ({ pa
 });
 
 /**
+ * The server and the client halves of §1.27 must agree.
+ *
+ * Ktor serves index.html for every unmatched path, so the server
+ * cannot tell an unknown React route from a known one. If React then
+ * rendered the foundation page for it, a typo'd URL would look like
+ * a working page -- served with a 200, which is the server being
+ * right and the app being wrong.
+ */
+test("an unknown route is served by Ktor and answered honestly by React", async ({ page }) => {
+  const response = await page.goto("/no/such/page");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByText("Not found")).toBeVisible();
+  await expect(page.getByText(/Foundation Build/)).toBeHidden();
+});
+
+/**
  * §1.80 — WebSocket disconnect.
  *
  * The UI must distinguish a dropped connection from a healthy one.

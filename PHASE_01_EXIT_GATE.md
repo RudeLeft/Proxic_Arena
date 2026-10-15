@@ -60,8 +60,9 @@ A `WRITTEN` artifact is never described as working (§1.71).
 | 1.18 | PixiJS lifecycle test | VERIFIED | 3 tests + browser check: 1 canvas after StrictMode double-mount |
 | 1.19 | Responsive foundation | VERIFIED | 3 tests + observed resize in-browser |
 
-**Not done in this group:** React routing, error boundary, ESLint,
-Prettier, Testing Library, Playwright (§1.109 "Frontend" checklist).
+§1.109's "Frontend" checklist is now complete: routing, error
+boundary, ESLint, Prettier, Testing Library, Vitest and Playwright
+are all present and exercised.
 
 ## §1.20–§1.34 — Server, endpoints, protocol
 
@@ -156,13 +157,13 @@ a stopped jar need different responses.
 | § | Item | Status | Evidence |
 | --- | --- | --- | --- |
 | 1.71 | Testing philosophy | DONE | nothing unrun is claimed |
-| 1.72 | Frontend unit tests | VERIFIED | 20/20 |
+| 1.72 | Frontend unit tests | VERIFIED | 27/27, including component tests |
 | 1.73 | Backend tests | VERIFIED | 28/28, 0 skipped |
 | 1.74 | Protocol conformance test | VERIFIED | both suites, same fixtures |
 | 1.75 | Database migration test | VERIFIED | real PostgreSQL |
 | 1.76 | Docker clean-build test | PARTIAL | built from this working tree, not from a pristine clone with no cache |
 | 1.77 | Clean-machine principle | NOT VERIFIED | the Windows named-pipe workaround is machine-specific (guarded) |
-| 1.78 | Browser end-to-end test | VERIFIED | 6 Playwright tests against the running Docker stack |
+| 1.78 | Browser end-to-end test | VERIFIED | 7 Playwright tests against the running Docker stack |
 | 1.79 | Browser console test | VERIFIED | console errors and unhandled rejections fail the test |
 | 1.80 | WebSocket disconnect test | VERIFIED | a dropped socket must leave "Ready" |
 | 1.81 | Service dependency test | VERIFIED | DB stopped → 503 degraded → recovered, server stayed up |
@@ -261,7 +262,7 @@ all closed on 2026-10-15.**
    P1-C and P1-L.
 4. **Documentation (§1.92–§1.98)** plus `VERSION` and
    `.editorconfig`.
-5. **Frontend gaps** — routing, error boundary, Testing Library.
+5. ~~Frontend gaps~~ — **DONE 2026-10-15.**
 6. **Clean-build verification (§1.76, §1.77, P1-N)** — build from a
    fresh clone with `--no-cache`.
 7. **Digest-pin the images (§1.58)**.

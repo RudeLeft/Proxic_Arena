@@ -15,5 +15,12 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist", sourcemap: true },
-  test: { environment: "node", include: ["src/**/*.test.ts"] },
+  test: {
+    // Node by default: the logic modules are deliberately DOM-free
+    // and must stay runnable without one. Component tests opt into
+    // jsdom with a `@vitest-environment jsdom` docblock.
+    environment: "node",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["src/test-setup.ts"],
+  },
 });
