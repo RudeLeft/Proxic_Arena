@@ -26,3 +26,10 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# --- Phase 0A spike ------------------------------------------------------
+# Upstream Forge checkouts are ~1 GB and belong to upstream, not to us.
+# The PIN (commit hash) is recorded in docs/research/phase-00a/, which IS
+# versioned. The checkout itself is reproducible from that hash.
+spikes/*/forge-upstream/
+third_party/forge/
