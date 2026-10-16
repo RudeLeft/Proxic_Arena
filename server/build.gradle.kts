@@ -87,6 +87,30 @@ application {
     mainClass.set("net.barnflix.proxic.ApplicationKt")
 }
 
+// PHASE_03 3.56, 3.150 -- the account administration tool, shipped
+// beside the server so it can be run in the deployed container:
+//
+//   docker compose exec arena-server /app/bin/arena-admin user list
+//
+// Its own start script rather than a flag on the server, so running
+// it cannot accidentally start an HTTP listener.
+val arenaAdmin by tasks.registering(CreateStartScripts::class) {
+    mainClass.set("net.barnflix.proxic.auth.AdminToolKt")
+    applicationName = "arena-admin"
+    outputDir = layout.buildDirectory.dir("scripts").get().asFile
+    classpath = tasks.named<Jar>("jar").get().outputs.files + configurations.runtimeClasspath.get()
+}
+
+tasks.named<Sync>("installDist") {
+    into("bin") {
+        from(arenaAdmin)
+        fileMode = 493 // rwxr-xr-x: the script must be executable
+    }
+    // The scripts are regenerated on every build, so a re-run finds
+    // the previous copy already in place.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
 ktlint {
     // ktlint 1.x cannot PARSE this build script (it fails on
     // `runKtlintFormatOverKotlinScripts`, not on a style rule), so
