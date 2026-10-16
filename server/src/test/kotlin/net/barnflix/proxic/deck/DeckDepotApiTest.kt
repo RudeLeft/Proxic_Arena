@@ -15,6 +15,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.barnflix.proxic.Database
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.auth.AccountStatus
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.CSRF_COOKIE
 import net.barnflix.proxic.auth.CSRF_HEADER
@@ -86,6 +87,9 @@ class DeckDepotApiTest {
             accounts.createUser("RudeLeft", password, Role.ADMIN)
             accounts.createUser("Pat", password, Role.PLAYER)
             accounts.createUser("Sam", password, Role.PLAYER)
+            // A fourth account that is party to nothing, so the
+            // stranger cases are genuinely strangers.
+            accounts.createUser("Casey", password, Role.PLAYER)
         }
     }
 
@@ -384,5 +388,227 @@ class DeckDepotApiTest {
             val cacheControl = response.headers[HttpHeaders.CacheControl].orEmpty()
             assertTrue(cacheControl.contains("private"), "cache-control was: $cacheControl")
             assertFalse(cacheControl.contains("public"), cacheControl)
+        }
+
+    private suspend fun ApplicationTestBuilder.postAs(
+        session: Session,
+        path: String,
+        json: String,
+    ): HttpResponse =
+        client.post(path) {
+            header(HttpHeaders.Cookie, "$SESSION_COOKIE=${session.token}; $CSRF_COOKIE=${session.csrf}")
+            header(CSRF_HEADER, session.csrf)
+            contentType(ContentType.Application.Json)
+            setBody(json)
+        }
+
+    private suspend fun ApplicationTestBuilder.shareWith(
+        session: Session,
+        deckId: java.util.UUID,
+        username: String,
+    ): HttpResponse = postAs(session, "/api/decks/$deckId/shares", """{"username":"$username"}""")
+
+    // --- sharing (§4.29-§4.35, §4.99) --------------------------------
+
+    @Test
+    fun `the owner can share by username, and the recipient gains access`() =
+        testApplication {
+            val deck = insertDeck("To_Share", "RudeLeft")
+            application { module(config()) }
+
+            val created = shareWith(signIn("RudeLeft"), deck, "Pat")
+            assertEquals(HttpStatusCode.Created, created.status, created.bodyAsText())
+            assertTrue(created.bodyAsText().contains("\"username\":\"Pat\""))
+
+            // Pat can now open it, and sees the relationship named.
+            val detail = getAs(signIn("Pat"), "/api/decks/$deck")
+            assertEquals(HttpStatusCode.OK, detail.status)
+            assertTrue(detail.bodyAsText().contains("\"access\":\"SHARED\""))
+        }
+
+    /** §4.29 — usernames are matched the way accounts are. */
+    @Test
+    fun `sharing matches the username case-insensitively`() =
+        testApplication {
+            val deck = insertDeck("Case", "RudeLeft")
+            application { module(config()) }
+
+            assertEquals(HttpStatusCode.Created, shareWith(signIn("RudeLeft"), deck, "pAt").status)
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Pat"), "/api/decks/$deck").status)
+        }
+
+    /** §4.33 — asking twice changes nothing and is not an error. */
+    @Test
+    fun `sharing twice is idempotent`() =
+        testApplication {
+            val deck = insertDeck("Twice", "RudeLeft")
+            application { module(config()) }
+            val owner = signIn("RudeLeft")
+
+            assertEquals(HttpStatusCode.Created, shareWith(owner, deck, "Pat").status)
+            assertEquals(HttpStatusCode.OK, shareWith(owner, deck, "Pat").status)
+
+            val shares = getAs(owner, "/api/decks/$deck/shares").bodyAsText()
+            assertTrue(shares.contains("\"shareCount\":1"), shares)
+        }
+
+    /** §4.27 — the owner already has it. */
+    @Test
+    fun `the owner cannot share a deck with themselves`() =
+        testApplication {
+            val deck = insertDeck("Mine", "RudeLeft")
+            application { module(config()) }
+
+            val response = shareWith(signIn("RudeLeft"), deck, "RudeLeft")
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+            assertTrue(response.bodyAsText().contains("CANNOT_SHARE_WITH_OWNER"), response.bodyAsText())
+        }
+
+    @Test
+    fun `sharing with an unknown username says so without inventing a user`() =
+        testApplication {
+            val deck = insertDeck("Mine", "RudeLeft")
+            application { module(config()) }
+
+            val response = shareWith(signIn("RudeLeft"), deck, "NoSuchPerson")
+            assertEquals(HttpStatusCode.NotFound, response.status)
+
+            assertTrue(
+                getAs(signIn("RudeLeft"), "/api/decks/$deck/shares").bodyAsText()
+                    .contains("\"shareCount\":0"),
+            )
+        }
+
+    /** §4.28 — no NEW share to a disabled account. */
+    @Test
+    fun `sharing with a disabled account is refused`() =
+        testApplication {
+            val deck = insertDeck("Mine", "RudeLeft")
+            database().use { db ->
+                val accounts = Accounts(db.dataSource())
+                accounts.setStatus(accounts.findByUsername("Sam")!!.userId, AccountStatus.DISABLED)
+            }
+            application { module(config()) }
+
+            val response = shareWith(signIn("RudeLeft"), deck, "Sam")
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+            assertTrue(response.bodyAsText().contains("SHARE_USER_DISABLED"), response.bodyAsText())
+        }
+
+    /** §4.24, §4.67 — a recipient must not be able to re-share. */
+    @Test
+    fun `a recipient cannot share the deck onward`() =
+        testApplication {
+            val deck = insertDeck("Pats_Deck", "Pat")
+            share(deck, with = "RudeLeft", by = "Pat")
+            application { module(config()) }
+
+            val response = shareWith(signIn("RudeLeft"), deck, "Sam")
+            assertEquals(HttpStatusCode.Forbidden, response.status)
+            assertTrue(response.bodyAsText().contains("DECK_OWNER_REQUIRED"), response.bodyAsText())
+
+            // ...and Sam really did not get it.
+            assertEquals(HttpStatusCode.NotFound, getAs(signIn("Sam"), "/api/decks/$deck").status)
+        }
+
+    /** §4.67 — a stranger cannot share somebody else's deck, and
+     * cannot learn that it exists by trying. */
+    @Test
+    fun `a stranger sharing another user's deck gets the same 404 as a missing one`() =
+        testApplication {
+            val deck = insertDeck("Pats_Private", "Pat")
+            application { module(config()) }
+
+            val response = shareWith(signIn("Sam"), deck, "Sam")
+            assertEquals(HttpStatusCode.NotFound, response.status)
+        }
+
+    /** §4.99 — the sharing graph belongs to the owner. */
+    @Test
+    fun `only the owner may list who a deck is shared with`() =
+        testApplication {
+            val deck = insertDeck("Pats_Deck", "Pat")
+            share(deck, with = "RudeLeft", by = "Pat")
+            share(deck, with = "Sam", by = "Pat")
+            application { module(config()) }
+
+            val asOwner = getAs(signIn("Pat"), "/api/decks/$deck/shares")
+            assertEquals(HttpStatusCode.OK, asOwner.status)
+            assertTrue(asOwner.bodyAsText().contains("\"shareCount\":2"))
+
+            // A recipient may see the deck but not the other
+            // recipients -- 403, because 404 would be a lie they can
+            // disprove (§4.71).
+            val asRecipient = getAs(signIn("RudeLeft"), "/api/decks/$deck/shares")
+            assertEquals(HttpStatusCode.Forbidden, asRecipient.status)
+            assertFalse(asRecipient.bodyAsText().contains("Sam"), "the other recipient leaked")
+
+            assertEquals(
+                HttpStatusCode.NotFound,
+                getAs(signIn("Casey"), "/api/decks/$deck/shares").status,
+            )
+        }
+
+    /** §4.35, §4.144 — revocation is immediate and total. */
+    @Test
+    fun `revoking a share ends deck and artwork access at once`() =
+        testApplication {
+            val deck = insertDeck("Revoked", "RudeLeft", withArt = true)
+            application { module(config()) }
+            val owner = signIn("RudeLeft")
+            assertEquals(HttpStatusCode.Created, shareWith(owner, deck, "Pat").status)
+
+            val pat = signIn("Pat")
+            assertEquals(HttpStatusCode.OK, getAs(pat, "/api/decks/$deck").status)
+            assertEquals(HttpStatusCode.OK, getAs(pat, "/api/decks/$deck/assets/$sha").status)
+
+            val patId = userId("Pat")
+            assertEquals(
+                HttpStatusCode.NoContent,
+                deleteAs(owner, "/api/decks/$deck/shares/$patId").status,
+            )
+
+            // §4.35 — detail, listing and artwork all stop together.
+            assertEquals(HttpStatusCode.NotFound, getAs(pat, "/api/decks/$deck").status)
+            assertEquals(HttpStatusCode.NotFound, getAs(pat, "/api/decks/$deck/assets/$sha").status)
+            assertFalse(getAs(pat, "/api/decks").bodyAsText().contains(deck.toString()))
+
+            // §4.145 — and the owner still has their deck.
+            assertEquals(HttpStatusCode.OK, getAs(owner, "/api/decks/$deck").status)
+        }
+
+    /** §4.80 — a recipient cannot revoke anybody, including themselves. */
+    @Test
+    fun `a recipient cannot revoke shares`() =
+        testApplication {
+            val deck = insertDeck("Pats_Deck", "Pat")
+            share(deck, with = "RudeLeft", by = "Pat")
+            share(deck, with = "Sam", by = "Pat")
+            application { module(config()) }
+
+            val samId = userId("Sam")
+            val response = deleteAs(signIn("RudeLeft"), "/api/decks/$deck/shares/$samId")
+            assertEquals(HttpStatusCode.Forbidden, response.status)
+
+            // Sam still has it.
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Sam"), "/api/decks/$deck").status)
+        }
+
+    /** §4.102 — sharing is a mutation, so CSRF applies. */
+    @Test
+    fun `sharing without a CSRF token is refused`() =
+        testApplication {
+            val deck = insertDeck("Mine", "RudeLeft")
+            application { module(config()) }
+            val owner = signIn("RudeLeft")
+
+            val response =
+                client.post("/api/decks/$deck/shares") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=${owner.token}; $CSRF_COOKIE=${owner.csrf}")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"username":"Pat"}""")
+                }
+            assertEquals(HttpStatusCode.Forbidden, response.status)
+            assertTrue(getAs(owner, "/api/decks/$deck/shares").bodyAsText().contains("\"shareCount\":0"))
         }
 }

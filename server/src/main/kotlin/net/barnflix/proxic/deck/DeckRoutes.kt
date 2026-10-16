@@ -65,6 +65,24 @@ data class DeckSummary(
     val ownerDisplayName: String,
 )
 
+@Serializable
+data class ShareRecipientView(
+    val userId: String,
+    val username: String,
+    val displayName: String,
+    val sharedAt: String,
+)
+
+/** §4.99, §4.100 — the owner's view of who holds this deck. */
+@Serializable
+data class ShareListResponse(
+    val shares: List<ShareRecipientView>,
+    val shareCount: Int,
+)
+
+@Serializable
+data class ShareRequest(val username: String = "")
+
 /**
  * The Deck Depot library — PHASE_04 §4.58, §4.59, §4.61.
  *
@@ -121,6 +139,7 @@ fun Route.deckRoutes(
 ) {
     val artStore = ArtStore(File(config.dataRoot))
     val authorization = DeckAuthorization(dataSource)
+    val sharing = DeckSharing(dataSource, authorization)
 
     route("/decks") {
         post("/import") { handleImport(config, importer, importEnabled) }
@@ -235,6 +254,13 @@ fun Route.deckRoutes(
             call.respondFile(file)
         }
 
+        // §4.29-§4.35, §4.99 — sharing lives in its own file.
+        // Split out when detekt found this function past both its
+        // length and complexity limits: a route table that has
+        // outgrown one function wants a second function, not a
+        // raised threshold.
+        shareRoutes(authorization, sharing)
+
         // §2.79
         delete("/{deckId}") {
             val deckId =
@@ -285,6 +311,18 @@ fun Route.deckRoutes(
     }
 }
 
+/** The deck id in the path, or null when it is not a uuid. */
+internal fun PipelineContext<Unit, ApplicationCall>.deckIdOrNull(): UUID? =
+    call.parameters["deckId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+internal fun ShareRecipient.view(): ShareRecipientView =
+    ShareRecipientView(
+        userId = userId.toString(),
+        username = username,
+        displayName = displayName,
+        sharedAt = sharedAt,
+    )
+
 /**
  * The caller, from the session the Phase 3 intercept resolved.
  *
@@ -293,7 +331,7 @@ fun Route.deckRoutes(
  * attribute rather than taking a user id from anywhere a client can
  * influence (§4.6).
  */
-private fun PipelineContext<Unit, ApplicationCall>.callerId(): UUID = call.attributes[PRINCIPAL_KEY].user.userId
+internal fun PipelineContext<Unit, ApplicationCall>.callerId(): UUID = call.attributes[PRINCIPAL_KEY].user.userId
 
 /**
  * My Decks and Shared With Me — §4.58, §4.59, §4.133, §4.134.
