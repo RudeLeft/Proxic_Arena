@@ -68,7 +68,9 @@ you were asked to do, stop and say so.
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
 | `docs/architecture/AUTHENTICATION.md` | How identity works: hashing, sessions, cookies, CSRF, the admin tool. Read before touching anything in `auth/`. |
-| `docs/architecture/AUTHORIZATION.md` | What an identity may do. Decks are UNOWNED; the server never reads a role back from a client. |
+| `docs/architecture/AUTHORIZATION.md` | What an identity may do at the HTTP level. |
+| `docs/architecture/DECK_DEPOT.md` | Deck ownership, private libraries and sharing. |
+| `docs/architecture/DECK_AUTHORIZATION.md` | **The deck access rules.** The reference the lobby and match phases are told to use — `canUseDeck`, not a client's claim. |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
 | `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
 

@@ -15,12 +15,16 @@ gameplay yet**: the phases so far build the server, the page, the
 database, the Docker stack, the Forge worker handshake, deck import,
 and now accounts, and deliberately stop there.
 
-**Everything except health, version and the status page now requires
-a session.** Accounts are created by an administrator with
+**Everything except health, version and the status page requires a
+session.** Accounts are created by an administrator with
 `arena-admin`; there is no self-registration. See
 `docs/architecture/AUTHENTICATION.md`, and
-`docs/troubleshooting/AUTHENTICATION.md` when a login will not
-work.
+`docs/troubleshooting/AUTHENTICATION.md` when a login will not work.
+
+**Decks are private.** Each belongs to the account that uploaded it,
+and is visible to nobody else until its owner shares it by username.
+An administrator has no privileged access. See
+`docs/architecture/DECK_DEPOT.md` and `DECK_AUTHORIZATION.md`.
 
 **One play mode: Open Format** — 60–65 cards, at most 4 copies of any
 one card (basic lands unlimited), no sideboard, 2 players. Commander
@@ -335,7 +339,7 @@ docs/
   decisions/               ADRs
   research/                phase evidence
   troubleshooting/         FOUNDATION.md, DECK_IMPORT.md,
-                           AUTHENTICATION.md
+                           AUTHENTICATION.md, DECK_DEPOT.md
 forge_patches/             empty on purpose; see its README
 spikes/                    Phase 0A measurement harnesses
 ```
