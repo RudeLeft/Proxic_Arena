@@ -45,26 +45,12 @@ In the Unraid terminal:
 ```bash
 mkdir -p /mnt/user/appdata/proxic_arena
 cd /mnt/user/appdata
-git clone https://github.com/RudeLeft/Proxic_Arena_V2.git src
+git clone https://github.com/RudeLeft/Proxic_Arena.git src
 cd proxic-arena-src
 git log --oneline -1
 ```
 
-The repository is **private**, so git asks for credentials:
-username `RudeLeft`, password a **fine-grained personal access
-token** with `Contents: Read-only` on this repository only
-(<https://github.com/settings/personal-access-tokens/new>). Not your
-GitHub password — that will not work.
-
-To avoid retyping it on every `git pull`:
-
-```bash
-git config --global credential.helper store
-```
-
-That writes the token in plaintext to `~/.git-credentials` on the
-server. Acceptable for a private home server; worth knowing rather
-than discovering.
+The repository is **public**, so no credentials are needed.
 
 If `git` is missing, install **NerdTools** from Community
 Applications and enable git, or copy the folder over SMB instead —
