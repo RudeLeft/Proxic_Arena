@@ -2,7 +2,7 @@
 
 # Phase 3 — Accounts & Authentication
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED 2026-10-16 (reviewed against Phases 0A, 1 and 2)  
 **Phase Type:** Production feature / security foundation  
 **Depends On:** Completed and accepted Phase 2  
 **Primary Goal:** Establish secure authenticated user identity for Proxic Arena  
@@ -11,14 +11,152 @@
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
-> specification downstream of it is a guess wearing a lock. Phase 0 has
-> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
-> triggers); this phase may be locked once 0A is accepted.
+> **LOCKED 2026-10-16.** Phase 0A is accepted, and Phases 1 and 2
+> have both passed their gates, so the ground this phase stands on is
+> built rather than assumed.
 >
-> Content is unchanged. Only the status and the dependency notes below
-> were added.
+> The original 162 sections are unchanged. **Everything added by this
+> review is in the two sections below** — nothing was edited
+> silently.
+
+---
+
+## Carry-forward from Phases 1 and 2
+
+Six things already built that change how a section here must be
+done. Each names the section it binds.
+
+### C1 — `V003` lives in the server's resources (§3.87)
+
+`server/src/main/resources/db/migration/V003__accounts.sql`.
+
+**Not** in `database/`, which exists, is empty, and is a trap:
+Flyway loads from `classpath:db/migration`, so a migration placed
+there never runs and nothing reports an error.
+
+The schema test asserts the EXACT set of tables, so adding `users`
+and `sessions` means updating that assertion in the same commit —
+which is how §1.36's no-speculative-schema guard stays alive.
+
+### C2 — Argon2id needs a pinned dependency and a refreshed lockfile (§3.12)
+
+The JVM has no Argon2id in its standard library. Adding one means a
+version in `gradle.properties` and
+`./gradlew :server:dependencies --write-locks`, or the build fails
+with a lock mismatch — which is the lockfile working.
+
+§3.12 forbids implementing the primitive by hand, and that is not a
+style preference: a hand-rolled KDF is the single worst thing in
+this specification to get subtly wrong.
+
+### C3 — The secret machinery already exists (§3.92, §3.93)
+
+`ServerConfig` already reads `PROXIC_SESSION_SECRET`, redacts
+secrets in `toString`, and refuses to start in production on a
+missing or placeholder value (exit 78). The CSRF secret joins that
+same path rather than inventing a second one.
+
+`ServerConfig.toString()` is overridden precisely so logging the
+config cannot leak a secret. Any new secret field must be `private`
+with an accessor, like the existing two.
+
+### C4 — Login throttling belongs beside the existing limits (§3.45, §3.46)
+
+`Limits.kt` already holds the body, frame, connection and timeout
+ceilings with the reasoning beside each number. The login limiter
+goes there, in-process, no Redis (§3.45 says so explicitly).
+
+Every limit in that file is tested with a **negative control** — a
+limit that refuses everything passes a "too many" test perfectly
+while breaking the application. The login limiter needs the same: a
+test that a legitimate user can still log in after someone else
+failed.
+
+### C5 — The CSP must not break what already works (§3.100)
+
+The deployed page already runs React, PixiJS and a same-origin
+WebSocket, and serves card art from `/api/decks/{id}/assets/{hash}`.
+
+A CSP is only verified by loading the real page and reading the
+console — and the browser suite already fails on console errors
+(§1.79), so a CSP that breaks Pixi fails the existing tests rather
+than reaching the host.
+
+### C6 — `Secure` cookies and the published LAN port interact (§3.22, §3.23)
+
+PHASE 2 AMENDMENT 2 publishes the server on host port 8765 so the
+LAN can reach it directly, over **plain HTTP**.
+
+A `Secure` cookie is not sent over HTTP. So once authentication
+exists, **logging in over `http://<unraid-ip>:8765` cannot work** —
+the cookie is set and never returned. Through
+`https://proxic.barnflix.net` it works normally.
+
+§3.23 is explicit that `Secure` must not be dropped because the
+tunnel origin is HTTP, so the cookie is not the thing to change.
+See decision D2.
+
+---
+
+## Open owner decisions
+
+Three, and the first is the reason this phase matters.
+
+### D1 — Do the deck APIs require authentication once login exists? (§3.85, §3.86)
+
+§3.85 says deck APIs stay restricted "according to the Phase 2
+production safety boundary" until Phase 4. **That boundary no longer
+exists**: PHASE 2 AMENDMENT 1 enabled anonymous import in
+production by owner decision, on the understanding that nothing was
+behind it.
+
+Phase 3 is where that becomes a choice again:
+
+- **(a) Require authentication for every deck endpoint.** Import,
+  list, detail, delete and artwork all need a session. This closes
+  the exposure Amendment 1 opened, and is what Phase 3 is for.
+  Decks stay unowned (§3.86) — any logged-in user sees them all,
+  which is fine for two players and is Phase 4's problem to refine.
+- **(b) Require authentication for mutation only.** Import and
+  delete need a session; listing and artwork stay public. Simpler,
+  and leaves card art world-readable.
+- **(c) Leave the deck APIs anonymous.** Keeps Amendment 1 exactly
+  as it is. Then Phase 3 protects nothing that currently exists and
+  the exposure continues into Phase 4.
+
+**(a) is the recommendation**, and it should come with removing
+`DECK_IMPORT_ENABLED`'s security role — a switch that exists
+because there is no authentication stops being the answer once
+there is.
+
+### D2 — How is the LAN port treated once cookies are `Secure`? (Amendment 2)
+
+Following from C6: `http://<unraid-ip>:8765` cannot support login.
+
+- **(a) Stop publishing 8765 and use the tunnel only.** The
+  preferred §1.51 shape, and what the base compose file already
+  does — the host port exists solely because the existing
+  `cloudflared` runs outside the stack. Attaching it to the stack's
+  `edge` network removes the need entirely.
+- **(b) Keep 8765 for diagnostics, accept that login does not work
+  there.** Health and version stay reachable on the LAN; anything
+  needing a session is tunnel-only.
+- **(c) Put the LAN behind HTTPS too.** Most work, least benefit for
+  one household.
+
+### D3 — Who is the first administrator? (§3.57, §3.58)
+
+Not a design question but an action the owner must take: §3.57
+forbids shipping or auto-creating default credentials, and §3.58
+requires the password to be typed rather than passed as a CLI
+argument (§3.139 tests exactly that).
+
+So Phase 3 delivers an admin tool, and the first account exists only
+once the owner runs it. A username is needed; the password is never
+seen by me and never appears in this repository or this
+conversation.
+
+---
 
 **Phase-0A dependency: effectively none.**
 
