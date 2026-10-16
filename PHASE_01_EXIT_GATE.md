@@ -9,6 +9,13 @@ answered: **20 PASS, 1 N/A, 0 FAIL, 0 BLOCKED.**
 The §1.111 deliverables are in `PHASE_01_DELIVERABLES.md`; the two
 owner amendments are in `PHASE_01_AMENDMENTS.md`.
 
+**Unattended restart verified.** The Unraid host was rebooted
+deliberately while the database was still empty. Docker started
+after the array mounted, the stack came back on its own, and
+readiness through the tunnel reported `database: ok`,
+`forgeWorker: ok`. The bind-mount ordering risk named in the install
+guide does not apply on this host.
+
 Phase 1 is substantially built and the parts that exist are genuinely
 verified, but §1.112's exit conditions are not all met. This document
 disposes of all 117 sections and all 21 mandatory acceptance tests,

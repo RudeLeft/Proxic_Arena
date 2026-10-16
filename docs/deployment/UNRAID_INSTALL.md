@@ -218,6 +218,10 @@ nothing. Then re-run step 7. If the stack comes back unhealthy,
 that is much better learned today than after Phase 2 has stored
 decks.
 
+**Verified on this host, 2026-10-15:** Docker started after the
+array mounted, the stack came back unattended, and readiness
+reported `database: ok`, `forgeWorker: ok` through the tunnel.
+
 ---
 
 ## Where things are afterwards
