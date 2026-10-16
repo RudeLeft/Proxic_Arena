@@ -164,6 +164,32 @@ startup, it fails much later inside Forge with a
 
 A directory that exists but is empty reports `empty`, not `ok`.
 
+## PostgreSQL restart-loops: "directory exists but is not empty"
+
+```text
+initdb: error: directory "/var/lib/postgresql/data" exists but is
+not empty
+```
+
+`initdb` will not touch a non-empty data directory — correctly, since
+the alternative is destroying a database it does not recognise.
+
+On Unraid this happens with a directory you believe is empty.
+Something in the compose tooling writes `name` and `project_name`
+files into appdata subdirectories, and two 8-byte files are enough.
+
+**Look before deleting.** If the directory holds `PG_VERSION`,
+`base/`, `global/` or `pg_wal/`, that is a real database — possibly
+another deployment's — and clearing it is unrecoverable.
+
+```bash
+ls -la /mnt/user/appdata/proxic_arena/v2/postgres
+```
+
+If it holds only those two metadata files, use a dedicated
+subdirectory rather than clearing them, because whatever wrote them
+will write them again.
+
 ## Starting the dev stack broke the production stack
 
 Symptom: `docker compose -f docker-compose.dev.yml up` succeeds, and

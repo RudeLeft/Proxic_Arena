@@ -10,11 +10,18 @@
 #
 # Easier to decide now than after there is a deck in it.
 #
-# Paths match the owner's existing appdata folder: proxic_arena,
-# with an underscore. If the previous deployment also lives there,
-# these two subdirectories keep the new stack's data distinct --
-# but deleting the old deployment later means deleting its files,
-# not the folder.
+# Paths sit under proxic_arena/v2/ rather than directly in
+# proxic_arena/.
+#
+# Found by deploying: something in Unraid's compose tooling writes
+# `name` and `project_name` files into appdata subdirectories, and
+# PostgreSQL's initdb REFUSES a data directory that is not empty --
+# so the container restart-looped with "directory exists but is not
+# empty". Two 8-byte files, each containing the word "postgres",
+# were enough to stop the database starting.
+#
+# A dedicated subdirectory keeps the data away from whatever writes
+# those, and away from the previous deployment's files.
 #
 # NOT YET RUN on a real Unraid host.
 
@@ -23,11 +30,11 @@ name: proxic-arena
 services:
   postgres:
     volumes:
-      - /mnt/user/appdata/proxic_arena/postgres:/var/lib/postgresql/data
+      - /mnt/user/appdata/proxic_arena/v2/postgres:/var/lib/postgresql/data
 
   arena-server:
     volumes:
-      - /mnt/user/appdata/proxic_arena/data:/data
+      - /mnt/user/appdata/proxic_arena/v2/data:/data
     # PHASE 1 AMENDMENT 2. Port 8080 is taken on this host and the
     # existing cloudflared -- which runs OUTSIDE this stack -- is
     # already configured to reach the origin on 8765.

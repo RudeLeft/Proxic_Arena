@@ -67,12 +67,19 @@ inside the build are temporary but real.
 ## Step 3 — Create the data directories
 
 ```bash
-mkdir -p /mnt/user/appdata/proxic_arena/postgres
-mkdir -p /mnt/user/appdata/proxic_arena/data
+mkdir -p /mnt/user/appdata/proxic_arena/v2/postgres
+mkdir -p /mnt/user/appdata/proxic_arena/v2/data
 ```
 
-These are where the database and the application's files live. They
-sit under `appdata` on purpose: that is where Unraid's backup
+The `v2/` level is not decoration. Unraid's compose tooling writes
+`name` and `project_name` files into appdata subdirectories, and
+PostgreSQL's `initdb` refuses a data directory that is not empty —
+two 8-byte files were enough to make the container restart-loop with
+"directory exists but is not empty". A dedicated subdirectory keeps
+the database away from that, and away from the previous
+deployment's files.
+
+They sit under `appdata` on purpose: that is where Unraid's backup
 routines and the Appdata Backup plugin look. Named volumes inside
 Docker's own storage would work and would be invisible to all of it.
 
@@ -217,8 +224,8 @@ decks.
 
 ```text
 /mnt/user/appdata/proxic_arena/src/       the repository and compose files
-/mnt/user/appdata/proxic_arena/postgres   database
-/mnt/user/appdata/proxic_arena/data       application data (/data)
+/mnt/user/appdata/proxic_arena/v2/postgres   database
+/mnt/user/appdata/proxic_arena/v2/data       application data (/data)
 ```
 
 ## Everyday commands
