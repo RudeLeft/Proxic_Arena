@@ -380,6 +380,28 @@ class AuthApiTest {
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         }
 
+    /**
+     * §3.99-§3.102 on an authentication failure.
+     *
+     * The 401 is the error most likely to be read by an attacker's
+     * own page, and SecurityHeadersTest cannot reach it: those
+     * routes only exist when a database does.
+     */
+    @Test
+    fun `a 401 carries the security headers too`() =
+        testApplication {
+            seedUser()
+            application { module(config()) }
+
+            val response = client.get("/api/decks")
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals("nosniff", response.headers["X-Content-Type-Options"])
+            assertEquals("DENY", response.headers["X-Frame-Options"])
+            assertTrue(
+                response.headers["Content-Security-Policy"]?.contains("default-src 'self'") == true,
+            )
+        }
+
     @Test
     fun `health and version stay public`() =
         testApplication {

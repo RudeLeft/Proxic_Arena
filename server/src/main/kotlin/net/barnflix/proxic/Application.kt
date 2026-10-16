@@ -21,6 +21,7 @@ import net.barnflix.proxic.auth.Principal
 import net.barnflix.proxic.auth.authRoutes
 import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAuth
+import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.deckRoutes
 import org.slf4j.event.Level
 import java.io.File
@@ -161,6 +162,10 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
     // and a monitor that cries wolf is worse than no monitor.
     install(AutoHeadResponse)
 
+    // §3.99-§3.101 -- nosniff, clickjacking, referrer and CSP on
+    // every response, including error responses and static assets.
+    install(SecurityHeaders)
+
     install(WebSockets) {
         // Ktor 2.x takes java.time.Duration here, not kotlin.time.
         pingPeriod = Duration.ofSeconds(Limits.WS_PING_SECONDS)
@@ -278,6 +283,11 @@ private fun Application.installRoutes(
             route("/api") {
                 authRoutes(config, accounts, sessions, throttle)
             }
+
+            // §3.77-§3.82 — the authenticated WebSocket. Outside
+            // /api, beside /ws/system, which stays anonymous
+            // infrastructure (§3.83).
+            userSocket(sessions)
 
             route("/api") {
                 // PHASE 3 AMENDMENT 1 (owner decision D1): every

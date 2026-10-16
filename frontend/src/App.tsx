@@ -104,6 +104,18 @@ function RendererPanel({ onState }: { onState: (s: ServiceState) => void }) {
         // Imported lazily so a Pixi/WebGL failure degrades this panel
         // rather than blanking the whole page.
         const { Application } = await import("pixi.js");
+        // PHASE_03 §3.100, §3.103 -- PixiJS compiles its shader and
+        // uniform sync functions with `new Function()`, which the
+        // Content-Security-Policy forbids, and without this the
+        // renderer reports "Current environment does not allow
+        // unsafe-eval". The answer is NOT 'unsafe-eval' in the
+        // policy -- that would re-enable string-to-code evaluation
+        // for every script on the page to spare one dependency.
+        // Pixi ships this polyfill for exactly this case: it
+        // replaces the generated functions with interpreted
+        // equivalents. Side-effect import, so it must run before
+        // the renderer is constructed.
+        await import("pixi.js/unsafe-eval");
         const size = fitCanvas(host.clientWidth || 640, (host.clientWidth || 640) / (16 / 9));
         const handle = await mountRenderer({
           container: host,
