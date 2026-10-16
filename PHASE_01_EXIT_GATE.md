@@ -1,10 +1,13 @@
 # Phase 1 Exit Gate
 
-**Status: NOT PASSED — 2026-10-15** (updated as items closed)
+**Status: PASSED — 2026-10-15**
 
-Everything verifiable on this machine is now verified. The gate
-remains open on the Cloudflare edge alone, which needs the Unraid
-host. The §1.111 deliverables are in `PHASE_01_DELIVERABLES.md`.
+Deployed to the Unraid host and verified through Cloudflare at
+`https://proxic.barnflix.net`. All twenty-one acceptance tests are
+answered: **20 PASS, 1 N/A, 0 FAIL, 0 BLOCKED.**
+
+The §1.111 deliverables are in `PHASE_01_DELIVERABLES.md`; the two
+owner amendments are in `PHASE_01_AMENDMENTS.md`.
 
 Phase 1 is substantially built and the parts that exist are genuinely
 verified, but §1.112's exit conditions are not all met. This document
@@ -110,10 +113,10 @@ are all present and exercised.
 
 | § | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| 1.48 | Cloudflare production edge | BLOCKED | needs the real host |
-| 1.49 | Existing certificate/security config | BLOCKED | |
-| 1.50 | Tunnel origin | WRITTEN | `cloudflared` service defined, never run |
-| 1.51 | Production host port exposure | VERIFIED | the base compose publishes NOTHING; local use opts in via an override file |
+| 1.48 | Cloudflare production edge | VERIFIED | `https://proxic.barnflix.net` (Amendment 1) |
+| 1.49 | Existing certificate/security config | VERIFIED | HSTS preserved through the route change |
+| 1.50 | Tunnel origin | VERIFIED | the owner's existing `cloudflared` reaches the server on host port 8765 (Amendment 2) |
+| 1.51 | Production host port exposure | AMENDED | base publishes nothing; the Unraid override publishes 8765 because the existing tunnel requires it (Amendment 2) |
 
 ## §1.52–§1.59 — Docker
 
@@ -174,8 +177,8 @@ a stopped jar need different responses.
 | 1.82 | Forge dependency test | MISSING | no worker to fail |
 | 1.83 | Persistence test | VERIFIED | manual, recorded |
 | 1.84 | Ktor static serving test | VERIFIED | automated, 5 tests |
-| 1.85 | Cloudflare Tunnel test | BLOCKED | |
-| 1.86 | Cloudflare security preservation | BLOCKED | |
+| 1.85 | Cloudflare Tunnel test | VERIFIED | 7/7 browser tests against production |
+| 1.86 | Cloudflare security preservation | VERIFIED | HSTS header checked after the cutover |
 | 1.87 | Static analysis | VERIFIED | ESLint (type-aware) + Prettier + ktlint + detekt, all clean |
 | 1.88 | Dependency locking | VERIFIED | `package-lock.json` plus `server/gradle.lockfile` (228 entries); a version change is refused by the lock |
 | 1.89 | Gradle wrapper | DONE | 8.10.2 |
@@ -228,7 +231,7 @@ documentation rather than writing it.
 | Test | Result |
 | --- | --- |
 | P1-A Fresh checkout build | **PASS** — pristine clone, `--no-cache`, 75 s |
-| P1-B Full stack startup | PARTIAL — server, postgres and the Forge runtime all verified; only `cloudflared` is unstarted (blocked on the host) |
+| P1-B Full stack startup | **PASS** — server, postgres and the Forge runtime verified on the host; `cloudflared` runs outside the stack per Amendment 2 |
 | P1-C Local browser access | **PASS** — Playwright, against the production stack |
 | P1-D Ktor serves production frontend | **PASS** |
 | P1-E React client-side route | **PASS** — `/play` serves the SPA, `/api/*` stays API |
@@ -244,22 +247,21 @@ documentation rather than writing it.
 | P1-O Static analysis | **PASS** — 4 analysers clean, 36 server + 20 frontend tests |
 | P1-P Old project integrity | **PASS** — never written to |
 | P1-Q Upstream Forge integrity | N/A — no checkout in this repo yet |
-| P1-R External production page | BLOCKED |
-| P1-S External production API | BLOCKED |
-| P1-T External production WebSocket | BLOCKED |
-| P1-U Public security preservation | BLOCKED |
+| P1-R External production page | **PASS** — page loads at `https://proxic.barnflix.net`, five indicators green |
+| P1-S External production API | **PASS** — `/api/health/ready` returns `database: ok`, `forgeWorker: ok` through the tunnel |
+| P1-T External production WebSocket | **PASS** — the WebSocket indicator reaches Ready through Cloudflare; the tunnel passes `Upgrade` |
+| P1-U Public security preservation | **PASS** — `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` intact |
 
-**Counted exactly: 15 PASS, 1 PARTIAL, 1 N/A, 4 BLOCKED.**
+**Counted exactly: 20 PASS, 1 N/A, 0 FAIL, 0 BLOCKED.**
 
-No test FAILS. The one partial is P1-B, and its only remaining gap
-is `cloudflared`, which cannot run here. P1-Q is N/A because no
-Forge checkout is vendored in this repository — the image clones it
-at the pinned commit instead, and refuses to build on a mismatch,
-which is stronger than verifying a vendored copy.
+P1-Q is N/A because no Forge checkout is vendored in this
+repository — the image clones it at the pinned commit and refuses to
+build on a mismatch, which is stronger than verifying a vendored
+copy.
 
-An earlier commit message in this session said "19 of 21 pass",
-which was a count made from memory rather than from this table. The
-table is the authority.
+The full browser suite was also run against production
+(`PROXIC_E2E_URL=https://proxic.barnflix.net`): **7/7**, the same
+assertions that pass locally.
 
 ---
 

@@ -3,9 +3,12 @@
 **PHASE_01 §1.111. Prepared 2026-10-15.**
 
 The twenty-five items §1.111 requires at completion. Phase 1 is
-**not complete** — four acceptance tests need the Unraid host — so
-this is the deliverable as it stands, with the open items named
-rather than omitted.
+**complete**: deployed to the Unraid host and verified through
+Cloudflare at `https://proxic.barnflix.net` on 2026-10-15.
+
+Two owner amendments apply (`PHASE_01_AMENDMENTS.md`): the hostname
+is `proxic.barnflix.net`, and the Unraid deployment publishes host
+port 8765 because the existing tunnel requires it.
 
 `PHASE_01_EXIT_GATE.md` is the authority on what is proven; this
 document is the summary §1.111 asks for.
@@ -229,16 +232,16 @@ http://localhost:5173/              Vite dev server
 
 ## 15. Production URL
 
-`https://arena.barnflix.net` — not yet reached by this build.
+`https://proxic.barnflix.net` — **live**, serving this build through
+Cloudflare (Amendment 1).
 
 ## 16. Acceptance-test results
 
-**15 PASS · 1 PARTIAL · 1 N/A · 4 BLOCKED · 0 FAIL.**
+**20 PASS · 1 N/A · 0 FAIL · 0 BLOCKED.**
 
-Per-test detail is in `PHASE_01_EXIT_GATE.md`. The partial is P1-B
-(`cloudflared` never started); the N/A is P1-Q (no Forge checkout is
-vendored — the image clones and verifies instead); the four blocked
-are P1-R–P1-U, the Cloudflare edge.
+Per-test detail is in `PHASE_01_EXIT_GATE.md`. The N/A is P1-Q: no
+Forge checkout is vendored — the image clones at the pin and
+refuses to build on a mismatch, which is stronger.
 
 ## 17. Static-analysis results
 
@@ -266,7 +269,16 @@ rejections fail the suite.
 
 ## 20. Public Cloudflare Tunnel test result
 
-**Not run.** P1-R–P1-U remain open.
+**Passed 2026-10-15.** Page, API, WebSocket and HSTS all verified
+through the tunnel, and the full browser suite run against
+production with `PROXIC_E2E_URL=https://proxic.barnflix.net`: 7/7.
+
+One defect was found by the deployment and fixed: `GET /` returned
+200 while `HEAD /` returned 404, because Ktor routes HEAD
+separately. Uptime monitors default to HEAD, so the site would have
+been reported down while serving perfectly. Found incidentally by a
+`curl -I` that was only meant to read the HSTS header — no test, no
+local deployment and no browser had ever sent a HEAD request.
 
 ## 21. Database migration result
 
@@ -310,8 +322,7 @@ server.
 
 ## 24. Unresolved concerns
 
-1. **Cloudflare is entirely unverified.** Four acceptance tests and
-   two security properties depend on the first deployment.
+1. ~~Cloudflare is entirely unverified.~~ **Closed 2026-10-15.**
 2. **No authentication until Phase 3.** Anyone who can reach the
    server can use it. Acceptable while nothing is behind it; not
    acceptable once Phase 2 stores a deck. This should gate exposing
