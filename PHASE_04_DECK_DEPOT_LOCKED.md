@@ -2,36 +2,249 @@
 
 # Phase 4 — Deck Depot
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED 2026-10-16 (reviewed against Phases 0A, 1, 2 and 3)  
 **Phase Type:** Production feature  
-**Depends On:** Completed, tested, and accepted Phase 3  
+**Depends On:** Completed, tested and accepted Phase 3  
 **Primary Goal:** Authenticated deck ownership, private deck libraries, and controlled deck sharing  
 **Deck Editing:** NOT IMPLEMENTED IN THIS PHASE  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
-> specification downstream of it is a guess wearing a lock. Phase 0 has
-> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
-> triggers); this phase may be locked once 0A is accepted.
+> **LOCKED 2026-10-16.** Phase 0A is accepted and Phases 1, 2 and 3
+> have all passed their gates, so the ground this phase stands on is
+> built rather than assumed.
 >
-> Content is unchanged. Only the status and the dependency notes below
-> were added.
+> The original 177 sections are unchanged. **Everything added by this
+> review is in the sections below** — nothing was edited silently.
 
 > **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
-> Proxic Arena supports **one play mode: Open Format** — 65-card deck
-> maximum, no more than 4 copies of a specific card, unrestricted card
-> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
+> Proxic Arena supports **one play mode: Open Format** — 60–65 cards,
+> no more than 4 copies of a specific card, unrestricted card pool,
+> 2 players. **Commander and Two-Headed Giant are out of scope.**
 > Wherever this document describes a format choice, a preset catalog,
 > a command zone, teams or shared life, that content is **void**.
 > See `docs/architecture/OPEN_FORMAT.md`.
 
-**Phase-0A dependency: minimal.**
+**Phase-0A dependency: minimal.** Deck ownership and sharing do not
+touch Forge. The one coupling is artwork authorization, which must
+stay consistent with Phase 6 §6.122 (match-scoped asset access) and
+Phase 7 §7.17.
 
-Deck ownership and sharing do not touch Forge. The one coupling is
-artwork authorization, which must stay consistent with Phase 6 §6.122
-(match-scoped asset access) and Phase 7 §7.17.
+---
+
+## §4.1 execution gate — the conflicts it caught
+
+§4.1 requires a stop-and-report if a capability from an earlier phase
+is "absent, incomplete, or materially inconsistent" with what this
+document assumes. The review found three. None is a defect in Phases
+2 or 3; all three are this document describing a system that was
+built differently.
+
+### A — storage is content-addressed, not deck-directoried
+
+§4.1, §4.8, §4.9 and test §4.163 assume Phase 2 stores files at
+`/data/decks/<deck-id>/`. It does not. Phase 2 built:
+
+```text
+/data/art/original/<aa>/<sha256>.png
+/data/art/display/<aa>/<sha256>.png
+/data/temp/uploads/, /data/temp/deck-imports/
+```
+
+The asset id **is** the SHA-256 of the image, and one file is shared
+by every deck that uses that printing — which is why Phase 2 can
+delete a deck without touching artwork another deck still references.
+
+The *intent* of §4.8 and §4.9 is satisfied more strongly than asked:
+files are not organised per user, and not per deck either, so sharing
+a deck with three people duplicates nothing. Only the literal path
+and the test need restating. **See AMENDMENT 1.**
+
+### B — the deck id in artwork URLs is currently decorative
+
+Measured, not inferred:
+
+```text
+GET /api/decks/{real-deck-id}/assets/{sha}      -> 200, 377379 bytes
+GET /api/decks/11111111-...-111111/assets/{sha} -> 200, 377379 bytes
+```
+
+The second deck does not exist. `DeckRoutes` validates the SHAPE of
+the asset id (64 hex, which is what stops traversal) and then serves
+from the store, never consulting the deck.
+
+That was harmless under Phase 3: decks are unowned, so every
+authenticated user may see every asset anyway. Under Phase 4 it is a
+hole of exactly the kind §4.67 names. **See AMENDMENT 2.**
+
+### C — artwork is cached without `private`
+
+The route sends `Cache-Control: max-age=31536000` and nothing else.
+§4.37 asks for `private` and forbids configuring protected artwork
+for public Cloudflare caching. Arena is behind Cloudflare.
+**See AMENDMENT 3.**
+
+---
+
+## Owner decisions — RESOLVED 2026-10-16
+
+### D1 — **Both legacy decks are assigned to `RudeLeft`**
+
+§4.15 escalation, answered. Two decks exist with no owner:
+
+```text
+local dev stack   Basic_Mono_Red_65_Card_Deck   65 cards   2026-10-16
+production host   one deck, imported by the owner on 2026-10-16
+```
+
+Ownership is not being guessed (§4.14): the owner imported both and
+says so. The `V004` migration assigns them **explicitly**, by
+username, and the assignment is part of the migration record rather
+than a quiet backfill. Neither deck is deleted.
+
+### D2 — **`Cache-Control: private`, long max-age**
+
+Shared caches, Cloudflare included, must not store deck artwork. The
+viewer's own browser may, and should: an asset id is a content hash,
+so the bytes for a URL can never change.
+
+The accepted consequence is §4.36's: a user whose access is revoked
+may still hold a usable copy in their own browser cache until it
+expires. Revocation governs the server, not pixels already delivered.
+`no-store` was considered and rejected — it would re-download every
+card image on every view, and would not prevent a screenshot anyway.
+
+### D3 — **Recipient share-removal (§4.38) is OUT of Phase 4**
+
+Optional by its own text. On a two-player server the owner can
+revoke, and leaving it out keeps the first version of sharing
+smaller. It needs no schema change to add later.
+
+---
+
+## PHASE 4 AMENDMENT 1
+
+**Reason:** §4.1, §4.8, §4.9 and §4.163 describe a
+`/data/decks/<deck-id>/` layout that Phase 2 did not build.
+
+**Affected requirements:** §4.1 (dependency list), §4.8, §4.9, §4.163.
+
+**Old decision:** Physical files live under `/data/decks/<deck-id>/`
+and must not be reorganised into user directories.
+
+**New decision:** Physical files live in the content-addressed store
+`/data/art/{original,display}/<aa>/<sha256>.png`, shared across every
+deck that references them. Ownership and sharing remain purely
+database concepts and **must not** reorganise storage — by user, by
+deck, or at all. §4.163's test becomes: after uploads by several
+users, verify the store is still content-addressed and that no
+per-user or per-deck directory has appeared.
+
+§4.164 ("only one physical artwork set exists") already holds by
+construction, and is now a regression test rather than a new
+requirement.
+
+---
+
+## PHASE 4 AMENDMENT 2
+
+**Reason:** §4.68 says artwork "must enforce the same deck access
+policy" and offers `/api/decks/{deckId}/assets/{assetId}` as the
+shape. That URL shape implies the check; the implementation does not
+perform it, and the content-addressed store makes the required check
+different from the obvious one.
+
+**Affected requirements:** §4.67, §4.68, §4.153, §4.154.
+
+**Old decision:** Serve artwork from an authenticated deck-scoped URL.
+
+**New decision:** Serving artwork requires BOTH:
+
+```text
+1. the caller may access {deckId}        (owner, or shared-with)
+2. {assetId} is referenced by {deckId}   (a row in that deck's entries)
+```
+
+The second condition is what the URL shape only pretends to do today.
+Because an asset id is a content hash shared between decks, "does
+this asset belong to you" is not a meaningful question — "is this
+asset part of a deck you may see" is. A request failing either
+condition answers **404**, not 403: a user with no access to a deck
+should not learn that the deck or the asset exists (§4.65, §4.66).
+
+A test must assert the measured hole is closed: a valid asset id
+requested under a deck the caller cannot access, and under a deck id
+that does not exist, both answer 404.
+
+---
+
+## PHASE 4 AMENDMENT 3
+
+**Reason:** Phase 2 set `Cache-Control: max-age=31536000` on artwork,
+correct for public content-addressed images and wrong for private
+ones. §4.37 requires otherwise.
+
+**Affected requirements:** §4.36, §4.37, and Phase 2's artwork route.
+
+**Old decision (Phase 2):** `max-age=31536000`, nothing else.
+
+**New decision:** `Cache-Control: private, max-age=31536000,
+immutable`. Shared caches must not store deck artwork; the viewer's
+own browser may, because a content hash cannot change meaning.
+
+This is a change to a Phase 2 route made under Phase 4's authority
+and recorded here rather than edited quietly into Phase 2.
+
+---
+
+## Carry-forward from Phases 1, 2 and 3
+
+Things already built that change how a section here must be done.
+
+### C1 — `V004` lives in the server's resources
+
+`server/src/main/resources/db/migration/V004__deck_ownership.sql`.
+**Not** in `database/`, which exists, is empty, and is a trap: Flyway
+loads from `classpath:db/migration`, so a migration placed there
+never runs and nothing reports an error.
+
+The schema test asserts the EXACT set of tables, so adding a share
+table means updating that assertion in the same commit.
+
+### C2 — the deck gate is an intercept, not per-route code
+
+Phase 3 protects `/api/decks` with a single `intercept` that runs
+`requireAuth` then `csrfOk` and stashes the principal. Per-deck
+authorization belongs **inside** the routes, after that gate, not as
+a second intercept — and `PRINCIPAL_KEY` already carries the identity
+the new checks need.
+
+### C3 — decks are currently visible to every authenticated user
+
+PHASE 3 AMENDMENT 1 made every deck endpoint require a session and
+left decks unowned. Phase 4 narrows that to owner-plus-shared, which
+means `GET /api/decks` changes meaning for an existing, deployed
+endpoint. §4.62 (no global listing) is therefore a **behaviour change
+on a live system**, not a new feature.
+
+### C4 — `requireAdmin` exists and must stay unused here
+
+Phase 3 built and tested it but no route uses it. §4.49 and §4.50 say
+ADMIN neither owns nor bypasses privacy, so Phase 4 must not become
+its first caller by accident.
+
+### C5 — deleting a deck already preserves shared artwork
+
+Phase 2 §2.135 refcounts art rather than deleting files on deck
+delete. §4.78's cascade applies to database rows and shares; it must
+not be read as licence to delete files another deck references.
+
+### C6 — authentication event logging is still absent
+
+Deferred by the owner at the Phase 3 gate, and carried here: §4.129
+and §4.130 require audit logging for deck operations, which touches
+the same request paths. Deck audit logging is in scope for Phase 4;
+login-event logging remains deferred unless the owner asks.
 
 ---
 
