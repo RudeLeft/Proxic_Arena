@@ -6,10 +6,11 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Current phase: 3 — Accounts and Authentication.** Phase 1
-(application foundation) and Phase 2 (deck package import) have both
-passed their gates — `PHASE_01_EXIT_GATE.md` and
-`PHASE_02_EXIT_GATE.md` list exactly what is proven. There is **no
+**Phases 1–3 are complete.** Application foundation, deck package
+import, and accounts and authentication have all passed their gates —
+`PHASE_01_EXIT_GATE.md`, `PHASE_02_EXIT_GATE.md` and
+`PHASE_03_EXIT_GATE.md` list exactly what is proven. Phase 4 (Deck
+Depot) has not started. There is **no
 gameplay yet**: the phases so far build the server, the page, the
 database, the Docker stack, the Forge worker handshake, deck import,
 and now accounts, and deliberately stop there.

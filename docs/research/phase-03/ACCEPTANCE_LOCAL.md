@@ -12,8 +12,9 @@ docker compose -p proxic-arena-accept \
 A separate compose project gets its own volumes, so this pass could
 not borrow state from the development stack and could not damage it.
 
-**21 of 26 pass. 1 is a recorded deviation. 4 are blocked on the
-production deployment and are not claimed here.**
+**21 of 26 passed here. 1 is a recorded deviation, 1 is partial, and
+the remaining 4 were closed on the real host — recorded at the end of
+this document under PRODUCTION.**
 
 Two accounts were used: `RudeLeft` (ADMIN, created by the documented
 command) and `Pat` (PLAYER, created so that the last-admin guard did
@@ -30,7 +31,7 @@ document.
 | P3-B Password storage | **PASS** |
 | P3-C Login | **PASS** |
 | P3-D Invalid credentials | **PASS** |
-| P3-E Secure cookie through the tunnel | **BLOCKED** — production only |
+| P3-E Secure cookie through the tunnel | **PASS** — on the host, see PRODUCTION below |
 | P3-F Database-backed session | **PASS** |
 | P3-G Raw token not stored | **PASS** |
 | P3-H Logout | **PASS** |
@@ -49,7 +50,7 @@ document.
 | P3-U Authenticated WebSocket | **PASS** |
 | P3-V WebSocket impersonation protection | **PASS** |
 | P3-W WebSocket session revocation | **PASS** |
-| P3-X Public anonymous protection | **BLOCKED** — production only |
+| P3-X Public anonymous protection | **PASS** — on the host, see PRODUCTION below |
 | P3-Y Phase 2 deck isolation | **DEVIATION** — see below |
 | P3-Z Existing project integrity | **PARTIAL** — Forge clean; one pre-existing deletion in `Proxic_Arena_OLD` |
 
@@ -330,3 +331,87 @@ These four name the production hostname and cannot be faked locally:
 - Production login through `proxic.barnflix.net` (§3.155 deployment).
 - Authentication surviving a container restart **on the host**
   (proven locally in P3-F; not yet on Unraid).
+
+
+---
+
+# PRODUCTION — the four that needed the real host
+
+Run 2026-10-16 against `https://proxic.barnflix.net`, after a clean
+install on Unraid (every container deleted and appdata emptied
+beforehand, so this was a first install rather than an upgrade).
+
+## P3-E — the session cookie through the tunnel
+
+```text
+set-cookie: proxicarena_session=REDACTED; Max-Age=2592000; Path=/; Secure; HttpOnly; SameSite=Lax
+set-cookie: proxicarena_csrf=REDACTED;    Max-Age=2592000; Path=/; Secure;           SameSite=Lax
+```
+
+Every attribute §3.22–§3.24 asks for. The asymmetry is the mechanism:
+the session token is unreadable by script, the CSRF token must be
+readable so the page can echo it in a header.
+
+`Secure` being present also confirms the stack was started **without**
+`docker-compose.local.yml` — the only file that would switch it off.
+
+The values were masked by the command that produced them; a session
+token is a live credential and does not belong in a document.
+
+## P3-X — anonymous access through the production hostname
+
+```text
+/api/health/live     200     /api/decks                     401
+/api/health/ready    200     /api/decks/{id}                401
+/api/version         200     POST /api/decks/import         401
+/api/auth/me         200 ("nobody")
+```
+
+## Production login, and Phase 2 in production
+
+Signed in at `https://proxic.barnflix.net` as `RudeLeft` (created on
+the host with `arena-admin`, password never seen by me and never
+stored in this repository), then imported a real Deck Builder package
+through the browser. First run of Phase 2 on the host, and the first
+write of card art to `/data` there.
+
+## Authentication survives a container restart
+
+```bash
+docker restart proxic-arena-arena-server-1
+```
+
+After the restart the browser was **still signed in** and the deck was
+**still listed**. One observation covering two guarantees: sessions
+live in the database rather than in server memory, and the imported
+deck and its artwork survived on disk.
+
+## Transport, verified from outside the network
+
+```text
+http://  -> 301 -> https://proxic.barnflix.net/
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+TLS certificate: valid
+Server: cloudflare                 (the origin's identity is not leaked)
+content-security-policy, x-content-type-options,
+x-frame-options, referrer-policy   all present through the tunnel
+```
+
+HSTS is Cloudflare's, as designed — §3.99 keeps Arena out of it. This
+run is also what closed the one item the security review had left
+unverified, because it lives in a dashboard rather than in the code.
+
+## What the deployment found that no test had
+
+- **Card art would have failed on first import.** Docker creates a
+  missing bind-mount source as `root`; the server runs as uid 100.
+  Phase 1 never wrote to `/data`, so nothing had exercised it. Now
+  fixed by an `init-data` service rather than a remembered command.
+- **The home page had no way to sign in** (§3.69). Five green
+  indicators and no mention of authentication. Every browser test
+  passed because every one of them navigates straight to `/login` or
+  `/decks` — the suite knew where the door was. Found by the owner
+  looking at the deployed site.
+- **A rebuild could be skipped silently.** `up` reuses an image with
+  the right *name*, so new code plus a green stack can mean nothing
+  changed. Now `pull_policy: build`.
