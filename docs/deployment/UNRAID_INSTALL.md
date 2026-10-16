@@ -43,16 +43,19 @@ temporary but real.
 
 ## Step 1 — Get the code
 
-Pick any folder **outside** `/mnt/user/appdata/proxic_arena/` — the
-Compose Manager writes its own bookkeeping files into project
-folders, and the application's data should not share a directory with
-them.
+Everything lives under one folder, `/mnt/user/appdata/proxic_arena/`:
+the repository in `src/`, the data in `v2/`.
 
 ```bash
-mkdir -p /mnt/user/compose && cd /mnt/user/compose
-git clone https://github.com/RudeLeft/Proxic_Arena.git proxic-arena
-cd proxic-arena && git log --oneline -1
+mkdir -p /mnt/user/appdata/proxic_arena && cd /mnt/user/appdata/proxic_arena
+git clone https://github.com/RudeLeft/Proxic_Arena.git src
+cd src && git log --oneline -1
 ```
+
+The repository goes in `src/` rather than directly in
+`proxic_arena/`, so the Compose Manager's own bookkeeping files land
+beside the code and nowhere near the database. That separation is the
+whole requirement — not which parent folder they sit under.
 
 The repository is **public**; no credentials needed. If `git` is
 missing, install **NerdTools** from Community Applications, or copy
@@ -86,7 +89,7 @@ It prints what it did, never a secret value.
 | --- | --- |
 | Stack Name | `proxic-arena` — exactly |
 | Compose Source | **External folder** |
-| folder | the path from Step 1 |
+| folder | `/mnt/user/appdata/proxic_arena/src` |
 | External ENV File Path | leave blank |
 | Compose File Discovery | leave as default |
 
@@ -209,7 +212,7 @@ mounted, the stack came back unattended, and readiness reported
 ## Where things are afterwards
 
 ```text
-/mnt/user/compose/proxic-arena/              repository, compose files, .env
+/mnt/user/appdata/proxic_arena/src/          repository, compose files, .env
 /mnt/user/appdata/proxic_arena/v2/postgres   database
 /mnt/user/appdata/proxic_arena/v2/data       card art and uploads (/data)
 ```
