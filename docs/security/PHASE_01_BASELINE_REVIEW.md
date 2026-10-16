@@ -159,12 +159,21 @@ worker still spawns a child JVM under the read-only root.
   Access as a stopgap, the owner chose to leave the hostname open:
   it is not published anywhere, and the data is their own.
 
-  Recorded as an accepted risk rather than an open gap. What it
-  means concretely once Phase 2 ships: anyone who learns the
-  hostname can upload deck packages, which consumes disk and
-  creates rows nobody asked for. It is not a path to the host or to
-  the database, both of which stay private. Worth revisiting if the
-  hostname is ever shared, linked or indexed.
+  Recorded as an accepted risk rather than an open gap.
+
+  **Correction, same day.** That decision was put to the owner as
+  "anyone could create deck imports once Phase 2 ships". That
+  overstated it: PHASE_02 §2.20 forbids exposing deck mutation
+  endpoints publicly before authentication exists, and §2.21
+  provides `DECK_IMPORT_ENABLED=false` for production. The accepted
+  risk is therefore that a stranger who learns the hostname can
+  **view the foundation page**, not upload anything.
+
+  Whether import is enabled in production despite §2.20 is now an
+  open decision, recorded as D1 in the Phase 2 specification.
+
+  Worth revisiting if the hostname is ever shared, linked or
+  indexed.
 - **No audit logging** — no phase has asked for it yet.
 - **Postgres root filesystem is writable** — the image needs it;
   revisit if a hardened variant is adopted.

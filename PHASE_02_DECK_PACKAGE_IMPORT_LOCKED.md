@@ -2,21 +2,147 @@
 
 # Phase 2 — Deck Package Import
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED 2026-10-15 (reviewed against Phase 0A and Phase 1)  
 **Phase Type:** Production feature  
 **Depends On:** Completed and accepted Phase 1  
 **Primary Input:** Existing Proxic Deck Builder ZIP export  
 **Gameplay:** NOT IMPLEMENTED IN THIS PHASE
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
-> specification downstream of it is a guess wearing a lock. Phase 0 has
-> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
-> triggers); this phase may be locked once 0A is accepted.
+> **LOCKED 2026-10-15.** Phase 0A is accepted and Phase 1's gate has
+> passed, so the architecture this phase sits on is no longer a guess.
+> Reviewed section by section against both.
 >
-> Content is unchanged. Only the status and the dependency notes below
-> were added.
+> The original 136 sections are unchanged apart from §2.45, §2.49 and
+> §2.133–§2.135, which were amended earlier with the Phase 0A
+> findings. **Everything new in this review is in the carry-forward
+> section below** — nothing was edited silently.
+
+---
+
+## Phase 1 carry-forward
+
+Seven things Phase 1 established that change how a section here must
+be built. Each names the section it binds.
+
+### C1 — Raise the upload limit for the import route ONLY (§2.19, §2.30)
+
+The server rejects any HTTP body over **1 MB** before reading it
+(`Limits.MAX_HTTP_BODY_BYTES`). A deck package is far larger, so
+`POST /api/decks/import` must carry its own limit.
+
+Raising the global limit instead would let **every** endpoint accept
+a deck-sized body, which is the opposite of what §2.30 asks for.
+
+### C2 — Extract to `/data/temp`, never `/tmp` (§2.37)
+
+The production container runs with a **read-only root filesystem**
+and `/tmp` on a **tmpfs**, which is RAM. Extracting a package there
+would consume memory rather than disk and could take the host down
+on a large or hostile archive.
+
+`/data` is the only writable path, it is a real bind mount on the
+array, and §2.37 already specifies `/data/temp/deck-imports/<id>/`.
+Recorded because "just use /tmp" is the obvious-looking change that
+would break it.
+
+### C3 — `V002` lives in the server's resources (§2.113)
+
+`server/src/main/resources/db/migration/V002__deck_package_import.sql`.
+
+**Not** in `database/`, which exists, is empty, and is a trap: Flyway
+loads from `classpath:db/migration`, so a migration placed there is
+never executed and nothing reports an error. That directory's README
+says so.
+
+### C4 — Use the existing error shape and log fields (§2.75, §2.76, §2.109)
+
+`ErrorResponse(errorCode, detail, requestId)` is already the one
+error shape, enforced by `StatusPages`. Import validation failures
+use it rather than inventing a second.
+
+`LogContext` already declares `requestId`, `connectionId`,
+`sessionId`, `matchId`, `playerId` and `errorCode`, and logback
+renders all of them. An import should attach `requestId` and
+`errorCode`; it must not invent new field names.
+
+### C5 — The data root is a real bind mount (§2.54, §2.121, §2.122)
+
+`/data` inside the container is
+`/mnt/user/appdata/proxic_arena/v2/data` on the Unraid host, and it
+survived a deliberate reboot and container recreation. §2.122's
+requirement is already met by the deployed configuration; the tests
+in §2.105 and §2.106 should assert it rather than assume it.
+
+### C6 — Open Format's copy rule is now a decision, not an inference (§2.44, §2.45)
+
+Confirmed by the owner 2026-10-15: **4 copies maximum, no exceptions
+beyond basic lands.** "Any number" cards — Relentless Rats, Dragon's
+Approach, Persistent Petitioners — are **not** exempt.
+
+Do not call `DeckFormat.canHaveAnyNumberOf()`; it returns true for
+those cards and would silently permit a deck nobody chose. The test
+is `card.getRules().getType().isBasicLand()`.
+
+An over-limit deck is **rejected with a reason**, never silently
+trimmed. A player receiving a quietly-corrected deck is the exact
+divergence this project keeps finding.
+
+### C7 — Deck size is 60–65 (§2.44)
+
+Owner decision: no fewer than 60, no more than 65, no sideboard.
+
+---
+
+## Open owner decisions
+
+These block implementation of the sections named. Everything else in
+this phase is decided.
+
+### D1 — Is deck import enabled in production? (§2.20, §2.21, §2.108)
+
+**This is a genuine conflict and needs your answer.**
+
+§2.20 states that deck mutation endpoints must not be publicly
+exposed before authentication exists, and §2.21 offers
+`DECK_IMPORT_ENABLED=false` for production. §2.108 requires a test
+proving public mutation is unavailable.
+
+On 2026-10-15 the owner accepted leaving `proxic.barnflix.net`
+public without authentication. That decision was made on the
+understanding that the exposure included deck import — it does not,
+because §2.20 forbids it. The accepted risk is therefore smaller
+than described: a stranger who finds the hostname can view the
+foundation page, not upload.
+
+The question that remains:
+
+- **(a) Honour §2.20.** Import is disabled in production until Phase
+  3 adds authentication. Decks are imported against a local
+  development stack. Safest, and what the specification says.
+- **(b) Amend §2.20.** Import is enabled in production because this
+  is a single-user deployment on an unpublished hostname. Requires a
+  PHASE 2 AMENDMENT recording the decision, and §2.108's test
+  changes meaning.
+- **(c) Enable it behind Cloudflare Access.** Import works in
+  production, and the edge requires the owner's email first. Keeps
+  §2.20's intent without waiting for Phase 3.
+
+### D2 — What happens to an unresolvable card? (§2.47)
+
+§2.47 requires failed card resolution to be reported, but a deck
+with one unresolvable card out of sixty is a judgement call: reject
+the whole import, or import it flagged as unplayable? Phase 0A's
+measurement says ~26 cards in the Mechanics Lab corpus are
+unsupported, so this will happen.
+
+### D3 — Are duplicate imports rejected or versioned? (§2.72, §2.73)
+
+§2.72 requires a package checksum and §2.73 names duplicate imports,
+but not the behaviour: refuse the second import, create a second
+deck, or return the first one's id.
+
+---
 
 > **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
 > Proxic Arena supports **one play mode: Open Format** — 65-card deck

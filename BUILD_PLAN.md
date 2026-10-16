@@ -14,7 +14,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 0A | Forge Blocking Validation | **ACCEPTED** 2026-10-15 | `PHASE_00A_FORGE_BLOCKING_VALIDATION_DRAFT.md` |
 | 0B | Forge Deferred Validation | OPEN (trigger register) | `PHASE_00B_FORGE_DEFERRED_VALIDATION_DRAFT.md` |
 | 1 | Application Foundation | **COMPLETE** 2026-10-15 — gate PASSED, deployed and verified at `https://proxic.barnflix.net` | `PHASE_01_APPLICATION_FOUNDATION_LOCKED.md` |
-| 2 | Deck Package Import | **NEXT** — not started; owner authorisation required (§1.111) | `PHASE_02_DECK_PACKAGE_IMPORT_PROVISIONAL.md` |
+| 2 | Deck Package Import | **LOCKED** 2026-10-15 — not started; 3 open owner decisions | `PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` |
 | 3 | Accounts & Authentication | PROVISIONAL | `PHASE_03_ACCOUNTS_AUTHENTICATION_PROVISIONAL.md` |
 | 4 | Deck Depot | PROVISIONAL | `PHASE_04_DECK_DEPOT_PROVISIONAL.md` |
 | 5 | Lobby, Game Rooms, Match Setup | PROVISIONAL | `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_PROVISIONAL.md` |
