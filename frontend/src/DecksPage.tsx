@@ -11,7 +11,9 @@ import {
   headingFor,
   importDeck,
   listDecks,
+  EMPTY_LIBRARY,
   type DeckDetail,
+  type DeckLibrary,
   type DeckSummary,
   type ImportFailure,
   type ImportState,
@@ -92,15 +94,67 @@ function DeckCards({ detail }: { detail: DeckDetail }) {
   );
 }
 
+/**
+ * One titled list of decks — PHASE_04 §4.58–§4.60, §4.112, §4.113.
+ *
+ * `owned` decides whether a delete control exists at all. The server
+ * refuses either way (§4.80), so this is about not offering an
+ * action that will be refused — hiding it is a courtesy, never the
+ * protection.
+ */
+function DeckList({
+  title,
+  decks,
+  empty,
+  owned,
+  onView,
+  onDelete,
+}: {
+  title: string;
+  decks: DeckSummary[];
+  empty: string;
+  owned: boolean;
+  onView: (deckId: string) => void;
+  onDelete?: (deckId: string) => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>{title}</h2>
+      {decks.length === 0 && <p className="hint">{empty}</p>}
+      {decks.map((deck) => (
+        <div className="row" key={deck.deckId}>
+          <span className="name">
+            {deck.displayName}
+            {/* §4.59 — "shared by Pat". Only where it tells you
+                something you did not already know. */}
+            {!owned && <span className="hint"> · shared by {deck.ownerDisplayName}</span>}
+          </span>
+          <span className="state">
+            {deck.totalCards} cards
+            <button type="button" onClick={() => onView(deck.deckId)}>
+              view
+            </button>
+            {owned && onDelete && (
+              <button type="button" onClick={() => onDelete(deck.deckId)}>
+                delete
+              </button>
+            )}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function DecksPage() {
   const [state, setState] = useState<ImportState>("idle");
   const [imported, setImported] = useState<ImportedDeck | null>(null);
   const [failure, setFailure] = useState<ImportFailure | null>(null);
-  const [decks, setDecks] = useState<DeckSummary[]>([]);
+  const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [open, setOpen] = useState<DeckDetail | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const refresh = useCallback(async () => setDecks(await listDecks()), []);
+  const refresh = useCallback(async () => setLibrary(await listDecks()), []);
 
   useEffect(() => {
     void refresh();
@@ -168,37 +222,30 @@ export default function DecksPage() {
       {imported && <ImportResult deck={imported} />}
       {failure && <ImportError failure={failure} />}
 
-      <section className="panel">
-        <h2>Imported decks</h2>
-        {decks.length === 0 && <p className="hint">Nothing imported yet.</p>}
-        {decks.map((deck) => (
-          <div className="row" key={deck.deckId}>
-            <span className="name">{deck.displayName}</span>
-            <span className="state">
-              {deck.totalCards} cards
-              <button
-                type="button"
-                onClick={() => {
-                  void getDeck(deck.deckId).then(setOpen);
-                }}
-              >
-                view
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void deleteDeck(deck.deckId).then(() => {
-                    setOpen((current) => (current?.deckId === deck.deckId ? null : current));
-                    return refresh();
-                  });
-                }}
-              >
-                delete
-              </button>
-            </span>
-          </div>
-        ))}
-      </section>
+      <DeckList
+        title="My decks"
+        decks={library.mine}
+        empty="Nothing imported yet."
+        owned
+        onView={(deckId) => void getDeck(deckId).then(setOpen)}
+        onDelete={(deckId) =>
+          void deleteDeck(deckId).then(() => {
+            setOpen((current) => (current?.deckId === deckId ? null : current));
+            return refresh();
+          })
+        }
+      />
+
+      {/* §4.59, §4.60 — a separate list, never merged with the one
+          above: a deck someone shared with you is not yours to
+          delete, and the page should not invite you to try. */}
+      <DeckList
+        title="Shared with me"
+        decks={library.sharedWithMe}
+        empty="Nobody has shared a deck with you."
+        owned={false}
+        onView={(deckId) => void getDeck(deckId).then(setOpen)}
+      />
 
       {open && <DeckCards detail={open} />}
 

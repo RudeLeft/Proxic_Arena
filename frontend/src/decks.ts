@@ -33,7 +33,24 @@ export interface DeckSummary {
   totalCards: number;
   distinctCards: number;
   importedAt: string;
+  /** PHASE_04 §4.73 — who owns it. "Shared by Pat" needs a name. */
+  ownerDisplayName: string;
 }
+
+/**
+ * The Deck Depot library — §4.58, §4.59.
+ *
+ * Two named lists rather than one array with a flag, because §4.60
+ * asks that nobody assume they may manage a deck merely shared with
+ * them. A shape that cannot express "mixed" enforces that better
+ * than a field the page has to remember to read.
+ */
+export interface DeckLibrary {
+  mine: DeckSummary[];
+  sharedWithMe: DeckSummary[];
+}
+
+export const EMPTY_LIBRARY: DeckLibrary = { mine: [], sharedWithMe: [] };
 
 export interface DeckEntryView {
   lineNumber: number;
@@ -46,6 +63,9 @@ export interface DeckEntryView {
 }
 
 export interface DeckDetail {
+  /** §4.41 — OWNER or SHARED, decided by the server. */
+  access?: "OWNER" | "SHARED";
+  ownerDisplayName?: string;
   deckId: string;
   displayName: string;
   totalCards: number;
@@ -159,13 +179,13 @@ export async function importDeck(
   return { ok: false, failure };
 }
 
-export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckSummary[]> {
+export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckLibrary> {
   try {
     const response = await fetchFn("/api/decks", { credentials: "same-origin" });
-    if (!response.ok) return [];
-    return (await response.json()) as DeckSummary[];
+    if (!response.ok) return EMPTY_LIBRARY;
+    return (await response.json()) as DeckLibrary;
   } catch {
-    return [];
+    return EMPTY_LIBRARY;
   }
 }
 

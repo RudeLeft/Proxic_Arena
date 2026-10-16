@@ -120,7 +120,9 @@ describe("error headings (§2.86)", () => {
 describe("deck queries", () => {
   it("returns an empty list rather than throwing when the server is down", async () => {
     const dead = vi.fn(() => Promise.reject(new Error("down"))) as unknown as typeof fetch;
-    expect(await listDecks(dead)).toEqual([]);
+    // PHASE_04 §4.58/§4.59 — the library is two named lists now, so
+    // "nothing" is an empty library rather than an empty array.
+    expect(await listDecks(dead)).toEqual({ mine: [], sharedWithMe: [] });
     expect(await getDeck("abc", dead)).toBeNull();
     expect(await deleteDeck("abc", dead)).toBe(false);
   });

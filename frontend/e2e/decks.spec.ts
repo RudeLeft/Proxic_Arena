@@ -23,8 +23,13 @@ async function clearDecks(page: Page) {
   const cookies = await page.context().cookies();
   const csrf = cookies.find((cookie) => cookie.name === "proxicarena_csrf")?.value ?? "";
 
-  const decks = (await (await page.request.get("/api/decks")).json()) as { deckId: string }[];
-  for (const deck of decks) {
+  // PHASE_04 §4.58/§4.59 — the library is two named lists now.
+  // Only `mine` is deletable; a deck shared with you is not yours to
+  // clear (§4.80), and the server would refuse anyway.
+  const library = (await (await page.request.get("/api/decks")).json()) as {
+    mine: { deckId: string }[];
+  };
+  for (const deck of library.mine) {
     const response = await page.request.delete(`/api/decks/${deck.deckId}`, {
       headers: { "X-CSRF-Token": csrf },
     });

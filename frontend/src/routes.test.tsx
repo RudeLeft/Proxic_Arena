@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AppRoutes } from "./routes";
+import { AuthProvider } from "./AuthContext";
 
 /**
  * Client-side routing — PHASE_01 §1.109, and the client half of
@@ -31,10 +32,16 @@ describe("routes", () => {
   });
 
   function at(path: string) {
+    // AuthProvider, because the foundation page now reports who you
+    // are (§3.69) and every route may ask. main.tsx wraps the app
+    // the same way; rendering routes without it was only ever
+    // possible while no page cared about identity.
     return render(
-      <MemoryRouter initialEntries={[path]}>
-        <AppRoutes />
-      </MemoryRouter>,
+      <AuthProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </AuthProvider>,
     );
   }
 

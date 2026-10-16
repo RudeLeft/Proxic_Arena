@@ -1,15 +1,15 @@
 package net.barnflix.proxic.deck
 
-import io.ktor.http.CacheControl
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.http.content.streamProvider
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.request.receiveMultipart
-import io.ktor.server.response.cacheControl
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
@@ -17,8 +17,10 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import io.ktor.util.pipeline.PipelineContext
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.PRINCIPAL_KEY
 import net.barnflix.proxic.ServerConfig
 import java.io.File
 import java.util.UUID
@@ -57,6 +59,25 @@ data class DeckSummary(
     val totalCards: Int,
     val distinctCards: Int,
     val importedAt: String,
+    // PHASE_04 §4.73, §4.98 — who owns it. Present on both lists so
+    // a shared deck can say "shared by Alice" (§4.59) without a
+    // second request, and so the client never has to infer it.
+    val ownerDisplayName: String,
+)
+
+/**
+ * The Deck Depot library — PHASE_04 §4.58, §4.59, §4.61.
+ *
+ * Two named lists rather than one flat array with a flag: §4.60 asks
+ * that the UI never let someone assume they may manage a deck that
+ * is merely shared with them, and a shape that cannot express
+ * "mixed" is a better guarantee of that than a field the page has to
+ * remember to read.
+ */
+@Serializable
+data class DeckLibrary(
+    val mine: List<DeckSummary>,
+    val sharedWithMe: List<DeckSummary>,
 )
 
 @Serializable
@@ -79,6 +100,9 @@ data class DeckDetail(
     val distinctCards: Int,
     val importedAt: String,
     val entries: List<DeckEntryView>,
+    val ownerDisplayName: String,
+    /** OWNER or SHARED (§4.41). The server's answer, not a claim. */
+    val access: String,
 )
 
 /**
@@ -96,13 +120,19 @@ fun Route.deckRoutes(
     importEnabled: Boolean,
 ) {
     val artStore = ArtStore(File(config.dataRoot))
+    val authorization = DeckAuthorization(dataSource)
 
     route("/decks") {
         post("/import") { handleImport(config, importer, importEnabled) }
 
-        // §2.77
+        // §2.77, narrowed by §4.58/§4.59/§4.62.
+        //
+        // This endpoint used to return every deck in the database.
+        // It is a live, deployed endpoint whose MEANING changes here
+        // (Phase 4 carry-forward C3), not a new feature: a user must
+        // not be able to enumerate decks they cannot open.
         get {
-            call.respond(listDecks(dataSource))
+            call.respond(deckLibrary(dataSource, callerId()))
         }
 
         // §2.78
@@ -114,8 +144,20 @@ fun Route.deckRoutes(
                         ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
                     )
 
+            // §4.63-§4.65. A deck you may not see and a deck that
+            // does not exist answer identically, so a stranger
+            // cannot use 403-vs-404 to discover that a private deck
+            // exists.
+            val access = authorization.accessFor(callerId(), deckId)
+            if (!access.mayView()) {
+                return@get call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("DECK_NOT_FOUND", "No such deck.", null),
+                )
+            }
+
             val detail =
-                deckDetail(dataSource, deckId)
+                deckDetail(dataSource, deckId, access)
                     ?: return@get call.respond(
                         HttpStatusCode.NotFound,
                         ErrorResponse("DECK_NOT_FOUND", "No such deck.", null),
@@ -136,6 +178,31 @@ fun Route.deckRoutes(
                 )
             }
 
+            val deckId =
+                call.parameters["deckId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    ?: return@get call.respond(
+                        HttpStatusCode.BadRequest,
+                        ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                    )
+
+            // PHASE 4 AMENDMENT 2 — deck access AND the asset being
+            // part of THAT deck.
+            //
+            // The second half is what this URL only pretended to do:
+            // before Phase 4 the deck id was never consulted, so a
+            // valid asset id under a deck id that did not exist
+            // returned 200 and the whole image. Art is
+            // content-addressed and shared between decks, so "is
+            // this asset yours" is not a meaningful question.
+            //
+            // 404, not 403: §4.65 again.
+            if (!authorization.mayViewAsset(callerId(), deckId, assetId)) {
+                return@get call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                )
+            }
+
             // Prefer the display derivative; fall back to the
             // original, which is what exists when the derivative was
             // no smaller (see ArtStore).
@@ -147,9 +214,23 @@ fun Route.deckRoutes(
                         ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
                     )
 
-            // Content-addressed, so the bytes for an id can never
-            // change: cache them for a year.
-            call.response.cacheControl(CacheControl.MaxAge(maxAgeSeconds = 31_536_000))
+            // PHASE 4 AMENDMENT 3, owner decision D2.
+            //
+            // `private` keeps deck artwork out of shared caches --
+            // Cloudflare sits in front of this server, and a cached
+            // private image served to the wrong viewer would defeat
+            // the authorization above. The viewer's OWN browser may
+            // still cache it for a year, because an asset id is a
+            // content hash: those bytes cannot change meaning.
+            //
+            // §4.36's limit is accepted: a user whose access is
+            // revoked may keep a usable copy until their cache
+            // expires. Revocation governs the server, not pixels
+            // already delivered.
+            call.response.header(
+                HttpHeaders.CacheControl,
+                "private, max-age=31536000, immutable",
+            )
             call.response.headers.append(HttpHeaders.ContentType, ContentType.Image.PNG.toString())
             call.respondFile(file)
         }
@@ -162,6 +243,34 @@ fun Route.deckRoutes(
                         HttpStatusCode.BadRequest,
                         ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
                     )
+
+            // §4.76, §4.80. Three outcomes, and the difference
+            // between the last two is deliberate:
+            //
+            //   owner      -> delete it
+            //   recipient  -> 403, because they CAN see the deck and
+            //                 telling them "no such deck" would be a
+            //                 lie they can disprove (§4.66)
+            //   stranger   -> 404, because they cannot (§4.65)
+            when (authorization.accessFor(callerId(), deckId)) {
+                DeckAccess.NO_ACCESS ->
+                    return@delete call.respond(
+                        HttpStatusCode.NotFound,
+                        ErrorResponse("DECK_NOT_FOUND", "No such deck.", null),
+                    )
+
+                DeckAccess.SHARED ->
+                    return@delete call.respond(
+                        HttpStatusCode.Forbidden,
+                        ErrorResponse(
+                            "DECK_OWNER_REQUIRED",
+                            "Only the owner can delete this deck.",
+                            null,
+                        ),
+                    )
+
+                DeckAccess.OWNER -> Unit
+            }
 
             val removed = deleteDeck(dataSource, deckId)
             if (removed) {
@@ -176,14 +285,67 @@ fun Route.deckRoutes(
     }
 }
 
-private fun listDecks(dataSource: DataSource): List<DeckSummary> =
-    dataSource.connection.use { connection ->
-        connection.prepareStatement(
+/**
+ * The caller, from the session the Phase 3 intercept resolved.
+ *
+ * `/api/decks` is behind that intercept, so a request without a
+ * principal cannot reach any of these routes — but this reads the
+ * attribute rather than taking a user id from anywhere a client can
+ * influence (§4.6).
+ */
+private fun PipelineContext<Unit, ApplicationCall>.callerId(): UUID = call.attributes[PRINCIPAL_KEY].user.userId
+
+/**
+ * My Decks and Shared With Me — §4.58, §4.59, §4.133, §4.134.
+ *
+ * Two queries rather than one with a UNION: they sort differently
+ * (yours by import date, theirs by when they were shared with you)
+ * and a UNION that happened to work would hide that.
+ */
+private fun deckLibrary(
+    dataSource: DataSource,
+    userId: UUID,
+): DeckLibrary {
+    val mine =
+        summaries(
+            dataSource,
             """
-            SELECT deck_id, display_name, total_cards, distinct_cards, imported_at
-            FROM imported_deck ORDER BY imported_at DESC
+            SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
+                   d.imported_at, u.display_name
+              FROM imported_deck d
+              JOIN app_user u ON u.user_id = d.owner_user_id
+             WHERE d.owner_user_id = ?
+             ORDER BY d.imported_at DESC
             """.trimIndent(),
-        ).use { statement ->
+            userId,
+        )
+
+    val shared =
+        summaries(
+            dataSource,
+            """
+            SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
+                   d.imported_at, u.display_name
+              FROM imported_deck d
+              JOIN deck_share s ON s.deck_id = d.deck_id
+              JOIN app_user u ON u.user_id = d.owner_user_id
+             WHERE s.shared_with_user_id = ?
+             ORDER BY s.created_at DESC
+            """.trimIndent(),
+            userId,
+        )
+
+    return DeckLibrary(mine = mine, sharedWithMe = shared)
+}
+
+private fun summaries(
+    dataSource: DataSource,
+    sql: String,
+    userId: UUID,
+): List<DeckSummary> =
+    dataSource.connection.use { connection ->
+        connection.prepareStatement(sql).use { statement ->
+            statement.setObject(1, userId)
             statement.executeQuery().use { rows ->
                 buildList {
                     while (rows.next()) {
@@ -194,6 +356,7 @@ private fun listDecks(dataSource: DataSource): List<DeckSummary> =
                                 totalCards = rows.getInt(3),
                                 distinctCards = rows.getInt(4),
                                 importedAt = rows.getTimestamp(5).toInstant().toString(),
+                                ownerDisplayName = rows.getString(6),
                             ),
                         )
                     }
@@ -205,13 +368,17 @@ private fun listDecks(dataSource: DataSource): List<DeckSummary> =
 private fun deckDetail(
     dataSource: DataSource,
     deckId: UUID,
+    access: DeckAccess,
 ): DeckDetail? =
     dataSource.connection.use { connection ->
         val summary =
             connection.prepareStatement(
                 """
-                SELECT display_name, total_cards, distinct_cards, imported_at
-                FROM imported_deck WHERE deck_id = ?
+                SELECT d.display_name, d.total_cards, d.distinct_cards, d.imported_at,
+                       u.display_name
+                  FROM imported_deck d
+                  JOIN app_user u ON u.user_id = d.owner_user_id
+                 WHERE d.deck_id = ?
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, deckId)
@@ -222,6 +389,7 @@ private fun deckDetail(
                         rows.getInt(2),
                         rows.getInt(3),
                         rows.getTimestamp(4).toInstant().toString(),
+                        rows.getString(5),
                     )
                 }
             } ?: return@use null
@@ -262,6 +430,10 @@ private fun deckDetail(
             distinctCards = summary[2] as Int,
             importedAt = summary[3] as String,
             entries = entries,
+            ownerDisplayName = summary[4] as String,
+            // §4.41 — the server states the relationship; the client
+            // uses it to decide what to SHOW, never what to allow.
+            access = access.name,
         )
     }
 
