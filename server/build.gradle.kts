@@ -21,6 +21,7 @@ val hikariVersion: String by project
 val postgresVersion: String by project
 val flywayVersion: String by project
 val testcontainersVersion: String by project
+val bouncycastleVersion: String by project
 
 dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
@@ -42,6 +43,13 @@ dependencies {
     implementation("org.postgresql:postgresql:$postgresVersion")
     implementation("org.flywaydb:flyway-core:$flywayVersion")
     implementation("org.flywaydb:flyway-database-postgresql:$flywayVersion")
+
+    // Argon2id (PHASE_03 3.12). BouncyCastle is pure JVM, so there
+    // is no native library to ship in the image or to go missing on
+    // a different architecture. 3.12 forbids implementing the
+    // primitive by hand, and a hand-rolled KDF is the single worst
+    // thing in that specification to get subtly wrong.
+    implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
 
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("io.ktor:ktor-client-content-negotiation-jvm:$ktorVersion")

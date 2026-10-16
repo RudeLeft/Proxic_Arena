@@ -126,10 +126,18 @@ class DatabaseTest {
                     ).use { rows ->
                         val tables = buildList { while (rows.next()) add(rows.getString(1)) }
                         // Phase 2: imported_deck, deck_entry, art_asset.
+                        // Phase 3: app_user, user_session.
                         // Still forbidden until their own phases:
-                        // users, sessions, matches, friends, ratings.
+                        // deck ownership, sharing, matches, friends,
+                        // ratings.
                         assertEquals(
-                            listOf("art_asset", "deck_entry", "imported_deck"),
+                            listOf(
+                                "app_user",
+                                "art_asset",
+                                "deck_entry",
+                                "imported_deck",
+                                "user_session",
+                            ),
                             tables.sorted(),
                             "unexpected schema: $tables",
                         )

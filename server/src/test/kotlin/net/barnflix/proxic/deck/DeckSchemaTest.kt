@@ -114,7 +114,10 @@ class DeckSchemaTest {
             // §2.68 forbids user ownership, sharing, ratings, folders,
             // tags and match history in this phase. Asserting the exact
             // set catches a speculative table as soon as it appears.
-            assertEquals(listOf("art_asset", "deck_entry", "imported_deck"), tables)
+            assertEquals(
+                listOf("app_user", "art_asset", "deck_entry", "imported_deck", "user_session"),
+                tables,
+            )
         }
 
     /**

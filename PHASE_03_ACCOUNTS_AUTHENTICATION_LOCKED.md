@@ -98,65 +98,80 @@ See decision D2.
 
 ---
 
-## Open owner decisions
+## Owner decisions — RESOLVED 2026-10-16
 
-Three, and the first is the reason this phase matters.
+### D1 — **Every deck endpoint requires authentication**
 
-### D1 — Do the deck APIs require authentication once login exists? (§3.85, §3.86)
+Import, list, detail, delete and artwork all require a session.
+This closes the exposure PHASE 2 AMENDMENT 1 opened, and is
+recorded as **PHASE 3 AMENDMENT 1** below, because §3.85 described
+a Phase 2 boundary that no longer exists.
 
-§3.85 says deck APIs stay restricted "according to the Phase 2
-production safety boundary" until Phase 4. **That boundary no longer
-exists**: PHASE 2 AMENDMENT 1 enabled anonymous import in
-production by owner decision, on the understanding that nothing was
-behind it.
+Decks remain **unowned** (§3.86). Any authenticated user sees every
+deck, and none are assigned to anybody — not the first admin, not
+the first user to log in. Phase 4 defines ownership.
 
-Phase 3 is where that becomes a choice again:
+`DECK_IMPORT_ENABLED` loses its security role. It stays as an
+operational switch, but the thing protecting import is now a
+session.
 
-- **(a) Require authentication for every deck endpoint.** Import,
-  list, detail, delete and artwork all need a session. This closes
-  the exposure Amendment 1 opened, and is what Phase 3 is for.
-  Decks stay unowned (§3.86) — any logged-in user sees them all,
-  which is fine for two players and is Phase 4's problem to refine.
-- **(b) Require authentication for mutation only.** Import and
-  delete need a session; listing and artwork stay public. Simpler,
-  and leaves card art world-readable.
-- **(c) Leave the deck APIs anonymous.** Keeps Amendment 1 exactly
-  as it is. Then Phase 3 protects nothing that currently exists and
-  the exposure continues into Phase 4.
+### D2 — **Port 8765 stays, for diagnostics only**
 
-**(a) is the recommendation**, and it should come with removing
-`DECK_IMPORT_ENABLED`'s security role — a switch that exists
-because there is no authentication stops being the answer once
-there is.
+Health, version and status remain reachable on the LAN for
+troubleshooting. Anything requiring a session works only through
+`https://proxic.barnflix.net`, because a `Secure` cookie is not
+sent over plain HTTP.
 
-### D2 — How is the LAN port treated once cookies are `Secure`? (Amendment 2)
+This is a documented limitation rather than a bug, and the
+authentication troubleshooting document (§3.154) must say so
+plainly — "login does nothing on the LAN address" is otherwise an
+afternoon lost.
 
-Following from C6: `http://<unraid-ip>:8765` cannot support login.
+### D3 — **The first administrator is `RudeLeft`**
 
-- **(a) Stop publishing 8765 and use the tunnel only.** The
-  preferred §1.51 shape, and what the base compose file already
-  does — the host port exists solely because the existing
-  `cloudflared` runs outside the stack. Attaching it to the stack's
-  `edge` network removes the need entirely.
-- **(b) Keep 8765 for diagnostics, accept that login does not work
-  there.** Health and version stay reachable on the LAN; anything
-  needing a session is tunnel-only.
-- **(c) Put the LAN behind HTTPS too.** Most work, least benefit for
-  one household.
+Created by the owner running the admin tool. §3.57 forbids shipping
+or auto-creating credentials; §3.58 requires the password to be
+typed rather than passed as an argument, and §3.139 tests that a
+password given on the command line is refused.
 
-### D3 — Who is the first administrator? (§3.57, §3.58)
-
-Not a design question but an action the owner must take: §3.57
-forbids shipping or auto-creating default credentials, and §3.58
-requires the password to be typed rather than passed as a CLI
-argument (§3.139 tests exactly that).
-
-So Phase 3 delivers an admin tool, and the first account exists only
-once the owner runs it. A username is needed; the password is never
-seen by me and never appears in this repository or this
-conversation.
+The password is never seen by me, never stored in this repository,
+and never appears in conversation.
 
 ---
+
+## PHASE 3 AMENDMENT 1
+
+**Reason:**
+§3.85 defers deck-API protection to "the Phase 2 production safety
+boundary". PHASE 2 AMENDMENT 1 removed that boundary by enabling
+anonymous import in production, so §3.85 now refers to something
+that does not exist.
+
+**Affected requirement:** §3.85, and PHASE 2 AMENDMENT 1.
+
+**Old decision:**
+Deck upload, listing, detail, artwork access and deletion remain
+restricted by the Phase 2 boundary until Phase 4.
+
+**New decision:**
+Every deck endpoint requires an authenticated session from Phase 3
+onward. PHASE 2 AMENDMENT 1's anonymous access ends when
+authentication ships. Decks remain unowned until Phase 4.
+
+**Evidence:**
+Owner decision 2026-10-16, taken with the alternatives stated: auth
+for everything, auth for mutation only, or leaving it anonymous.
+
+**Affected later phases:**
+Phase 4 adds ownership on top of this, rather than introducing
+protection for the first time.
+
+**Approved by project owner:** yes, 2026-10-16
+**Date:** 2026-10-16
+
+---
+
+
 
 **Phase-0A dependency: effectively none.**
 
