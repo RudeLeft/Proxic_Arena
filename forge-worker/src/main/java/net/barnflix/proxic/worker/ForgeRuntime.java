@@ -114,6 +114,79 @@ public final class ForgeRuntime {
                 || requested.equalsIgnoreCase(edition.getScryfallCode());
     }
 
+    /**
+     * Build a Forge deck and report what Forge actually sees.
+     *
+     * PHASE_02 §2.92-§2.94. The proof is deliberately taken from
+     * FORGE's side of the boundary: the counts come from
+     * `deck.getMain().toFlatList()`, which is the list Forge would
+     * shuffle, rather than from the numbers Arena sent. Comparing
+     * Arena's numbers to Arena's numbers would prove nothing.
+     *
+     * A card that cannot be resolved is NOT substituted and NOT
+     * skipped silently (§2.94): it is returned in `unresolved`, and
+     * the caller decides.
+     */
+    public DeckBuild buildDeck(java.util.List<DeckRequest> requested) {
+        ensureLoaded();
+        forge.deck.Deck deck = new forge.deck.Deck("Proxic import");
+        forge.deck.CardPool main = deck.getMain();
+
+        java.util.List<String> unresolved = new java.util.ArrayList<>();
+        for (DeckRequest entry : requested) {
+            Resolution resolution = resolve(entry.name, entry.setCode, entry.collectorNumber);
+            if (!"RESOLVED".equals(resolution.status)) {
+                unresolved.add(entry.name + " (" + resolution.status + ")");
+                continue;
+            }
+            String lookupName = entry.name.contains(" // ")
+                    ? entry.name.substring(0, entry.name.indexOf(" // ")).trim()
+                    : entry.name;
+            PaperCard card = StaticData.instance().getCommonCards()
+                    .getCard(lookupName, resolution.actualSet, resolution.actualNumber);
+            if (card == null) {
+                unresolved.add(entry.name + " (LOOKUP_FAILED)");
+                continue;
+            }
+            main.add(card, entry.quantity);
+        }
+
+        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+        for (PaperCard card : main.toFlatList()) {
+            counts.merge(card.getName(), 1, Integer::sum);
+        }
+        return new DeckBuild(main.toFlatList().size(), counts, unresolved);
+    }
+
+    /** One requested deck line. */
+    public static final class DeckRequest {
+        public final String name;
+        public final String setCode;
+        public final String collectorNumber;
+        public final int quantity;
+
+        public DeckRequest(String name, String setCode, String collectorNumber, int quantity) {
+            this.name = name;
+            this.setCode = setCode;
+            this.collectorNumber = collectorNumber;
+            this.quantity = quantity;
+        }
+    }
+
+    /** What Forge's own deck contains. */
+    public static final class DeckBuild {
+        public final int totalCards;
+        public final java.util.Map<String, Integer> countsByName;
+        public final java.util.List<String> unresolved;
+
+        DeckBuild(int totalCards, java.util.Map<String, Integer> countsByName,
+                java.util.List<String> unresolved) {
+            this.totalCards = totalCards;
+            this.countsByName = countsByName;
+            this.unresolved = unresolved;
+        }
+    }
+
     /** What happened to one requested card. */
     public static final class Resolution {
         public final String status;

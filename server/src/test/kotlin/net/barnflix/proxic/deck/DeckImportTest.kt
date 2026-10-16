@@ -202,6 +202,79 @@ class DeckImportTest {
         assertEquals(0, rowCount("imported_deck"))
     }
 
+    /**
+     * §2.92–§2.94 — the Forge round trip.
+     *
+     * ZIP -> importer -> database -> Forge deck, with the counts
+     * read from FORGE's own card pool rather than from the numbers
+     * Arena sent. Comparing Arena's numbers to Arena's numbers would
+     * prove nothing at all.
+     */
+    @Test
+    fun `an imported deck becomes a Forge deck with the same cards`() {
+        val result = importer.import(realExport, realExport.name)
+        assertTrue(result is ImportResult.Imported, "got $result")
+
+        // Read the entries back OUT of the database, so this tests
+        // what was stored rather than what was parsed.
+        val sql =
+            "SELECT line_number, quantity, card_name, set_code, collector_number " +
+                "FROM deck_entry ORDER BY line_number"
+        val stored =
+            database!!.dataSource().connection.use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.executeQuery().use { rows ->
+                        buildList {
+                            while (rows.next()) {
+                                add(
+                                    DeckEntry(
+                                        quantity = rows.getInt(2),
+                                        name = rows.getString(3),
+                                        setCode = rows.getString(4),
+                                        collectorNumber = rows.getString(5),
+                                        sourceText = "",
+                                        lineNumber = rows.getInt(1),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        assertEquals(11, stored.size)
+
+        val config =
+            ServerConfig(
+                host = "0.0.0.0",
+                port = 0,
+                databaseUrl = container!!.jdbcUrl,
+                forgeWorkerJar = workerJar.path,
+                dataRoot = dataRoot.path,
+                forgeResRoot = resRoot.path,
+            )
+        val built = CardResolver(config).buildDeck(stored)
+
+        // Forge's own pool holds every card the player wrote.
+        assertEquals(emptyList(), built.unresolved, "Forge refused cards")
+        assertEquals(65, built.totalCards, "Forge's deck should hold 65 cards")
+
+        // And the right ones, in the right numbers. Forge files a
+        // double-faced card under its FRONT face.
+        assertEquals(25, built.countsByName["Mountain"])
+        assertEquals(4, built.countsByName["Fiery Temper"])
+        assertEquals(4, built.countsByName["Reckless Stormseeker"])
+        assertEquals(11, built.countsByName.size, "11 distinct names")
+
+        // §2.94 — every stored quantity survives the round trip.
+        for (entry in stored) {
+            assertEquals(
+                entry.quantity,
+                built.countsByName[entry.frontFaceName],
+                "quantity drifted for ${entry.frontFaceName}",
+            )
+        }
+    }
+
     /** §2.38 — staging is cleaned up whatever happened. */
     @Test
     fun `no staging directory survives an import`() {

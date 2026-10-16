@@ -33,6 +33,13 @@ data class CardResolution(
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
 
+/** What Forge's own deck contains (PHASE_02 §2.92–§2.94). */
+data class ForgeDeckBuild(
+    val totalCards: Int,
+    val countsByName: Map<String, Int>,
+    val unresolved: List<String>,
+)
+
 class CardResolver(private val config: ServerConfig) {
     private val log = LoggerFactory.getLogger(CardResolver::class.java)
     private val json = Json { ignoreUnknownKeys = true }
@@ -71,6 +78,98 @@ class CardResolver(private val config: ServerConfig) {
         entries: List<DeckEntry>,
         why: String,
     ) = entries.map { CardResolution(it.name, CardResolution.Status.UNAVAILABLE, why) }
+
+    /**
+     * Build the deck in Forge and report what FORGE sees.
+     *
+     * PHASE_02 §2.92-§2.94. The counts come from Forge's own card
+     * pool, not from the numbers Arena sent: comparing Arena's
+     * numbers to Arena's numbers would prove nothing.
+     */
+    fun buildDeck(
+        entries: List<DeckEntry>,
+        timeoutSeconds: Long = 120,
+    ): ForgeDeckBuild {
+        val jar = config.forgeWorkerJar
+        if (jar.isNullOrBlank() || !File(jar).isFile) {
+            return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker is not configured"))
+        }
+        val request =
+            buildJsonObject {
+                put("protocolVersion", net.barnflix.proxic.BuildInfo.PROTOCOL_VERSION)
+                put("type", "BUILD_DECK")
+                put("messageId", UUID.randomUUID().toString())
+                put(
+                    "cards",
+                    buildJsonArray {
+                        entries.forEach { entry ->
+                            add(
+                                buildJsonObject {
+                                    put("name", entry.name)
+                                    entry.setCode?.let { put("set", it) }
+                                    entry.collectorNumber?.let { put("number", it) }
+                                    put("quantity", entry.quantity)
+                                },
+                            )
+                        }
+                    },
+                )
+            }
+
+        val reply =
+            runCatching { exchange(request, File(jar), timeoutSeconds) }.getOrNull()
+                ?: return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker could not be reached"))
+
+        if (reply["type"]?.jsonPrimitive?.content != "DECK_BUILT") {
+            return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker could not build the deck"))
+        }
+        return ForgeDeckBuild(
+            totalCards = reply["totalCards"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            countsByName =
+                reply["countsByName"]?.jsonObject?.mapValues {
+                    it.value.jsonPrimitive.content.toIntOrNull() ?: 0
+                }.orEmpty(),
+            unresolved = reply["unresolved"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(),
+        )
+    }
+
+    /**
+     * Send one request to a fresh worker and return its reply frame.
+     *
+     * One process per exchange. Forge costs ~2.8 s and ~611 MB to
+     * load, so the caller asks for a whole deck at once rather than
+     * a card at a time.
+     */
+    private fun exchange(
+        request: JsonObject,
+        jar: File,
+        timeoutSeconds: Long,
+    ): JsonObject? {
+        val command =
+            buildList {
+                add(javaExecutable())
+                add("-jar")
+                add(jar.absolutePath)
+                config.forgeResRoot?.let { add(it) }
+            }
+        val process =
+            ProcessBuilder(command)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+        try {
+            val reader = process.inputStream.bufferedReader()
+            val writer = process.outputStream.bufferedWriter()
+            // The worker announces WORKER_READY unprompted.
+            readLine(reader, process, timeoutSeconds) ?: return null
+            writer.write(json.encodeToString(JsonObject.serializer(), request))
+            writer.write("\n")
+            writer.flush()
+            val reply = readLine(reader, process, timeoutSeconds) ?: return null
+            return runCatching { json.parseToJsonElement(reply).jsonObject }.getOrNull()
+        } finally {
+            shutdown(process)
+        }
+    }
 
     private fun ask(
         entries: List<DeckEntry>,

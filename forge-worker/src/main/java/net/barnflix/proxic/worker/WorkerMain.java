@@ -150,6 +150,37 @@ public final class WorkerMain {
                     send(error("RESOLVE_FAILED", e.getClass().getSimpleName()));
                 }
             }
+            case "BUILD_DECK" -> {
+                // PHASE_02 2.92-2.94: prove an imported deck becomes
+                // a Forge deck, and report what FORGE sees.
+                try {
+                    JsonArray requested = request.getAsJsonArray("cards");
+                    java.util.List<ForgeRuntime.DeckRequest> entries = new java.util.ArrayList<>();
+                    for (int i = 0; i < requested.size(); i++) {
+                        JsonObject one = requested.get(i).getAsJsonObject();
+                        entries.add(new ForgeRuntime.DeckRequest(
+                                one.get("name").getAsString(),
+                                one.has("set") && !one.get("set").isJsonNull()
+                                        ? one.get("set").getAsString() : null,
+                                one.has("number") && !one.get("number").isJsonNull()
+                                        ? one.get("number").getAsString() : null,
+                                one.get("quantity").getAsInt()));
+                    }
+
+                    ForgeRuntime.DeckBuild built = runtime.buildDeck(entries);
+                    JsonObject response = frame("DECK_BUILT", messageId);
+                    response.addProperty("totalCards", built.totalCards);
+                    JsonObject counts = new JsonObject();
+                    built.countsByName.forEach(counts::addProperty);
+                    response.add("countsByName", counts);
+                    JsonArray unresolved = new JsonArray();
+                    built.unresolved.forEach(unresolved::add);
+                    response.add("unresolved", unresolved);
+                    send(response);
+                } catch (RuntimeException e) {
+                    send(error("BUILD_FAILED", e.getClass().getSimpleName()));
+                }
+            }
             case "SHUTDOWN" -> {
                 send(frame("SHUTTING_DOWN", messageId));
                 return false;
