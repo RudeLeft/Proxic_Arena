@@ -28,3 +28,20 @@ services:
   arena-server:
     volumes:
       - /mnt/user/appdata/proxic_arena/data:/data
+    # PHASE 1 AMENDMENT 2. Port 8080 is taken on this host and the
+    # existing cloudflared -- which runs OUTSIDE this stack -- is
+    # already configured to reach the origin on 8765.
+    #
+    # §1.51 permits a host port when the actual tunnel configuration
+    # requires one, which it does here. The better shape is still
+    # available: attach cloudflared to this stack's `edge` network
+    #
+    #   docker network connect proxic-arena_edge <cloudflared>
+    #
+    # point it at http://arena-server:8080, and delete this block.
+    # Then nothing is reachable from the LAN at all.
+    #
+    # Override the port with PROXIC_HOST_PORT in .env if 8765 is
+    # ever taken too.
+    ports:
+      - "${PROXIC_HOST_PORT:-8765}:8080"

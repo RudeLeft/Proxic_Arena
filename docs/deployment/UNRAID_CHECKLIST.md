@@ -28,7 +28,7 @@ reachable on the LAN. This document is only the public step.
       you know where it pointed.
 - [ ] **Decide whether the public hostname should be live at all
       yet.** There is **no authentication until Phase 3**. Anyone who
-      reaches `arena.barnflix.net` can use the server. Nothing is
+      reaches `proxic.barnflix.net` can use the server. Nothing is
       behind it yet, so the risk today is small — but if you would
       rather keep it private, verify through the tunnel with
       Cloudflare Access in front, or test and then take the route
@@ -123,7 +123,7 @@ This is the step most likely to need adjusting to your existing
 Cloudflare setup, and the one I cannot predict.
 
 - [ ] In the Cloudflare dashboard, find the tunnel currently serving
-      `arena.barnflix.net` and **note its current origin** before
+      `proxic.barnflix.net` and **note its current origin** before
       changing it. This is your rollback.
 - [ ] The new origin is `http://arena-server:8080` — reachable only
       if `cloudflared` runs **inside this compose stack**, on the
@@ -146,11 +146,11 @@ Cloudflare setup, and the one I cannot predict.
 
 ## 7. The four acceptance tests
 
-- [ ] **P1-R — public page.** Open `https://arena.barnflix.net`. The
+- [ ] **P1-R — public page.** Open `https://proxic.barnflix.net`. The
       foundation page loads, all five indicators green.
 - [ ] **P1-S — public API.**
       ```bash
-      curl -s https://arena.barnflix.net/api/health/ready
+      curl -s https://proxic.barnflix.net/api/health/ready
       ```
 - [ ] **P1-T — public WebSocket.** The page's WebSocket indicator
       says **Ready**. If the page loads but that indicator does not,
@@ -159,7 +159,7 @@ Cloudflare setup, and the one I cannot predict.
       should show a **101** for `/ws/system`.
 - [ ] **P1-U — security preserved.**
       ```bash
-      curl -sI https://arena.barnflix.net | grep -i strict-transport-security
+      curl -sI https://proxic.barnflix.net | grep -i strict-transport-security
       ```
       HSTS must still be present (§1.49). If it vanished, the route
       change dropped it — that is a finding, not a detail.
@@ -169,7 +169,7 @@ development machine:
 
 ```bash
 cd frontend
-PROXIC_E2E_URL=https://arena.barnflix.net npx playwright test
+PROXIC_E2E_URL=https://proxic.barnflix.net npx playwright test
 ```
 
 All 7 should pass unchanged. That is the strongest single check in
@@ -183,7 +183,7 @@ deployment that pass locally.
 - [ ] From another machine on the LAN, `curl http://<unraid-ip>:8080`
       should **fail**. If it answers, a host port is published that
       should not be.
-- [ ] `https://arena.barnflix.net:5432` and any direct database
+- [ ] `https://proxic.barnflix.net:5432` and any direct database
       exposure: nothing.
 
 ## 9. Tell me the results

@@ -158,7 +158,7 @@ Postgres becomes healthy first, then arena-server — allow about
 ## Step 7 — Verify
 
 ```bash
-curl -s http://127.0.0.1:8080/api/health/ready
+curl -s http://127.0.0.1:8765/api/health/ready
 ```
 
 Expected, exactly:
@@ -167,7 +167,7 @@ Expected, exactly:
 {"status":"ok","checks":{"dataRoot":"ok","database":"ok","forgeWorker":"ok"}}
 ```
 
-Then open `http://<unraid-ip>:8080` in a browser. You should see the
+Then open `http://<unraid-ip>:8765` in a browser. You should see the
 foundation page with five indicators, all **Ready**.
 
 If any is not:
@@ -194,7 +194,9 @@ another machine:
 curl http://<unraid-ip>:5432
 ```
 
-must fail. If it answers, something published the database and that
+must fail. (Port 8765 **will** answer — that is the amendment, and
+it means anything on your LAN can reach the server directly. There
+is no authentication until Phase 3.) If it answers, something published the database and that
 needs fixing before anything else.
 
 ## Step 9 — Survive a reboot (do this now, while it is empty)
