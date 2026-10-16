@@ -112,6 +112,21 @@ ENV PROXIC_STATIC_ROOT=/app/frontend/dist \
     PROXIC_PORT=8080 \
     APP_ENV=production
 
+# Ktor's call-logging pulls in jansi, which unpacks a .so into /tmp
+# and runs it to colourise console output. /tmp here is a tmpfs
+# mounted NOEXEC on purpose, so the load fails and prints an
+# UnsatisfiedLinkError stack trace at every startup.
+#
+# Nothing breaks -- logging continues without colour, which is what a
+# container log wants anyway -- but an alarming trace in the first
+# ten lines of a deployment has a real cost: it teaches whoever reads
+# it to skim past errors.
+#
+# Disabled rather than given a writable exec directory: the noexec
+# mount is deliberate hardening, and colour in a log nobody reads on
+# a terminal is not worth relaxing it for.
+ENV JAVA_OPTS=-Djansi.disable=true
+
 USER proxic
 EXPOSE 8080
 
