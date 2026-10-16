@@ -11,6 +11,9 @@
 Work top to bottom. Stop at the first step whose result you did not
 expect, and send me what it said.
 
+**Install the stack first.** `UNRAID_INSTALL.md` gets it running and
+reachable on the LAN. This document is only the public step.
+
 ---
 
 ## Before you touch anything
