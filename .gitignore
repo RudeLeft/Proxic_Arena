@@ -2,7 +2,12 @@
 # The Mechanics Lab corpus is defined by its TXT + CSV, which ARE versioned.
 # The 275 card images (~291 MB) are Wizards of the Coast artwork delivered by
 # a Deck Builder export at runtime; git would keep every byte forever.
-Test Deck/real_cards/
+# Any real_cards folder, at any depth. The earlier rule was anchored
+# to one path, and a second test deck arrived as
+# "Test Deck/Testing Deck/real_cards/" -- 390 images the rule did not
+# match. Artwork must never be committed (GIT-001), so the rule is
+# now about the NAME rather than one location.
+**/real_cards/
 
 # Spike archive (~13 MB, mostly bundled card PNGs). The spike's source is
 # small and can be committed separately if we decide to keep it in-tree.
