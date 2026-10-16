@@ -275,6 +275,49 @@ class DeckImportTest {
         }
     }
 
+    /**
+     * P2-M — missing artwork is NOT a failure.
+     *
+     * Deck Builder omits art it could not fetch and still exports,
+     * deliberately and with a comment saying so. A package with
+     * fewer images than cards is therefore valid, and §2.62's
+     * "missing required PNG" must mean "render the fallback", never
+     * "reject the import".
+     *
+     * Asserted here because every other test in this file uses a
+     * package where every card has art, so the path was reasoned
+     * about rather than exercised.
+     */
+    @Test
+    fun `a package with missing artwork still imports`() {
+        val partial = File("build/partial-art.zip")
+        var kept = 0
+        java.util.zip.ZipFile(realExport).use { source ->
+            ZipOutputStream(partial.outputStream()).use { out ->
+                for (entry in source.entries()) {
+                    // Keep the decklist and only three of the images.
+                    if (entry.name.endsWith(".png")) {
+                        if (kept >= 3) continue
+                        kept++
+                    }
+                    out.putNextEntry(ZipEntry(entry.name))
+                    source.getInputStream(entry).use { it.copyTo(out) }
+                    out.closeEntry()
+                }
+            }
+        }
+
+        val result = importer.import(partial, partial.name)
+        assertTrue(result is ImportResult.Imported, "missing art should not fail an import: $result")
+        result as ImportResult.Imported
+
+        assertEquals(65, result.totalCards, "the deck is still complete")
+        assertEquals(3, result.artStored)
+        // The count is reported so the page can say so plainly.
+        assertEquals(8, result.entriesWithoutArt)
+        assertEquals(3, rowCount("art_asset"))
+    }
+
     /** §2.38 — staging is cleaned up whatever happened. */
     @Test
     fun `no staging directory survives an import`() {
