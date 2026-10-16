@@ -286,6 +286,10 @@ was assigned to anyone. See P3-Y in the gate.
   produces a generic request line with no username and no source IP.
   You could count 401s after an attack and learn nothing else. The
   smallest worthwhile improvement in the system.
+
+  **Owner decision, 2026-10-16: deferred.** Not done now, and not
+  forgotten -- it is carried into the Phase 4 proposals below, where
+  the same request paths are touched anyway.
 - **No alerting, no breached-password screening, no dependency
   scanning.** Each is a deliberate scale decision, not an oversight.
 - **No `Cache-Control` on authentication responses.** Low risk behind

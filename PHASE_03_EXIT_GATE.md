@@ -111,7 +111,11 @@ modified, and `forge_patches/` holds only its README.
 touched during Phase 3 (`find -newermt 2026-10-15` returns nothing),
 and the file is recoverable from commit `6247e977` (75,236 bytes).
 Restoring it means writing to a folder AGENTS.md ISO-001 makes
-read-only, so it is reported here and left to the owner.
+read-only, so it was reported rather than fixed.
+
+**Owner decision, 2026-10-16: leave the old project alone.** The file
+stays deleted in the working tree and recoverable from git. This is
+settled, not outstanding.
 
 ---
 
