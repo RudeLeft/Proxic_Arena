@@ -1,0 +1,227 @@
+package net.barnflix.proxic.worker;
+
+import forge.CardStorageReader;
+import forge.ImageKeys;
+import forge.StaticData;
+import forge.card.CardType;
+import forge.item.PaperCard;
+import forge.util.FileSection;
+import forge.util.FileUtil;
+import forge.util.Lang;
+import forge.util.Localizer;
+
+import java.io.File;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Forge's card database, loaded once per worker process.
+ *
+ * The bootstrap order is not negotiable and was established by
+ * measurement in Phase 0A, not by reading documentation. Two of
+ * these steps fail LATE and confusingly when skipped:
+ * {@code ImageKeys.initializeDirs} makes {@code CardDb.hasImage()}
+ * throw a NullPointerException, and a missing {@code tokenscripts}
+ * reader makes {@code getAllTokens()} do the same. Both look like
+ * Forge bugs rather than missing setup.
+ *
+ * Loading costs ~2.8 seconds and ~611 MB for 96,916 cards, so it
+ * happens ONCE, lazily, on the first request that needs it. A
+ * worker that is only asked for its version never pays it.
+ */
+public final class ForgeRuntime {
+
+    private final File res;
+    private boolean loaded;
+
+    public ForgeRuntime(File res) {
+        this.res = res;
+    }
+
+    /** Load the card database if it is not loaded. Idempotent. */
+    public synchronized void ensureLoaded() {
+        if (loaded) {
+            return;
+        }
+        String root = res.getAbsolutePath();
+
+        Localizer.getInstance().initialize("en-US", root + "/languages");
+        Lang.createInstance("en-US");
+
+        // Nine empty strings, not null: Phase 0A found that passing
+        // null here is what makes hasImage() fail later.
+        ImageKeys.initializeDirs("", Collections.emptyMap(), "", "", "", "", "", "", "");
+
+        // Without the type lists, "Forest" parses with no land subtype
+        // meaning and its mana ability never exists.
+        Map<String, List<String>> typeLists = FileSection.parseSections(
+                FileUtil.readFile(new File(root + "/lists/TypeLists.txt")));
+        for (Map.Entry<String, List<String>> section : typeLists.entrySet()) {
+            if (section.getKey().endsWith("Types")) {
+                CardType.Helper.parseTypes(section.getKey(), section.getValue());
+            }
+        }
+
+        CardStorageReader cards = new CardStorageReader(root + "/cardsfolder", null, false);
+        CardStorageReader tokens = new CardStorageReader(root + "/tokenscripts", null, false);
+        new StaticData(
+                cards, tokens, null, null,
+                root + "/editions", root + "/editions",
+                root + "/blockdata", root + "/setlookup",
+                "Latest", false, false, false, false);
+
+        loaded = true;
+    }
+
+    public int cardCount() {
+        ensureLoaded();
+        return StaticData.instance().getCommonCards().getAllCards().size();
+    }
+
+    /**
+     * Does a requested set code name the edition Forge returned?
+     *
+     * Deck Builder writes SCRYFALL set codes; Forge uses its own.
+     * They differ more often than one would hope — measured
+     * 2026-10-15 on a real export:
+     *
+     * <pre>
+     *   Hellspark Elemental  requested CON/65  Forge returned CFX/65
+     * </pre>
+     *
+     * Both are Conflux. Comparing the raw strings reported a
+     * PRINTING_MISMATCH for a card that resolved perfectly, which
+     * would have rejected an entirely valid deck.
+     *
+     * Forge already knows its own aliases, so this asks rather than
+     * carrying a mapping table that would rot with every set: an
+     * edition has a code, a secondary code, an optional alias and a
+     * Scryfall code, and any of them naming the same edition is a
+     * match.
+     */
+    private boolean editionMatches(String requested, String actualCode) {
+        if (requested.equalsIgnoreCase(actualCode)) {
+            return true;
+        }
+        forge.card.CardEdition edition = StaticData.instance().getEditions().get(actualCode);
+        if (edition == null) {
+            return false;
+        }
+        return requested.equalsIgnoreCase(edition.getCode())
+                || requested.equalsIgnoreCase(edition.getCode2())
+                || requested.equalsIgnoreCase(edition.getAlias())
+                || requested.equalsIgnoreCase(edition.getScryfallCode());
+    }
+
+    /** What happened to one requested card. */
+    public static final class Resolution {
+        public final String status;
+        public final String detail;
+        public final String actualSet;
+        public final String actualNumber;
+
+        private Resolution(String status, String detail, String actualSet, String actualNumber) {
+            this.status = status;
+            this.detail = detail;
+            this.actualSet = actualSet;
+            this.actualNumber = actualNumber;
+        }
+
+        static Resolution resolved(PaperCard card) {
+            return new Resolution("RESOLVED", null, card.getEdition(),
+                    card.getCollectorNumber());
+        }
+
+        static Resolution notFound(String name) {
+            return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
+                    null, null);
+        }
+
+        static Resolution printingMismatch(String requested, PaperCard got) {
+            return new Resolution(
+                    "PRINTING_MISMATCH",
+                    "Requested " + requested + ", Forge returned "
+                            + got.getEdition() + "/" + got.getCollectorNumber() + ".",
+                    got.getEdition(), got.getCollectorNumber());
+        }
+    }
+
+    /**
+     * Resolve one deck entry.
+     *
+     * <p><b>The printing check is the point of this method.</b> Phase
+     * 0A measured that Forge's lookup does NOT return null for a bad
+     * set or collector number — it quietly returns some other
+     * printing of the same name:
+     *
+     * <pre>
+     *   Forest + KTK + 261  ->  TRK/325   different set
+     *   Lightning Bolt + ZZZ + 999  ->  SLZ/63   set does not exist
+     * </pre>
+     *
+     * For gameplay that substitution is harmless; one Lightning Bolt
+     * plays like another. For Proxic it is not: the printing is what
+     * the player chose and what their artwork is keyed to. So the
+     * returned card is CHECKED against what was asked for, and a
+     * mismatch is an import outcome rather than a silent success
+     * (§2.49).
+     */
+    public Resolution resolve(String requestedName, String setCode, String collectorNumber) {
+        ensureLoaded();
+        StaticData data = StaticData.instance();
+
+        // A double-faced card is written by Deck Builder with BOTH
+        // faces -- "Reckless Stormseeker // Storm-Charged Slasher" --
+        // and Forge does not know that string at all. It knows the
+        // front face.
+        //
+        // Measured 2026-10-15, because the first version of this
+        // method reported NOT_FOUND and would have rejected every
+        // deck containing a transforming card:
+        //
+        //   "Reckless Stormseeker // Storm-Charged Slasher"  NOT_FOUND
+        //   "Reckless Stormseeker"                           RESOLVED
+        //   "Storm-Charged Slasher"                          RESOLVED
+        //
+        // Both faces resolve separately, but the FRONT is the deck
+        // entry's identity -- it is the card you put in the deck and
+        // the name the artwork is filed under.
+        String name = requestedName.contains(" // ")
+                ? requestedName.substring(0, requestedName.indexOf(" // ")).trim()
+                : requestedName;
+
+        // A name-only entry resolves by name, which is well defined.
+        if (setCode == null || setCode.isBlank()) {
+            PaperCard byName = data.getCommonCards().getCard(name);
+            return byName == null ? Resolution.notFound(name) : Resolution.resolved(byName);
+        }
+
+        PaperCard card = (collectorNumber == null || collectorNumber.isBlank())
+                ? data.getCommonCards().getCard(name, setCode)
+                : data.getCommonCards().getCard(name, setCode, collectorNumber);
+
+        if (card == null) {
+            // Fall back to name alone, so a card Forge knows under a
+            // printing we cannot match is NOT_FOUND only when the
+            // name itself is unknown.
+            PaperCard byName = data.getCommonCards().getCard(name);
+            if (byName == null) {
+                return Resolution.notFound(name);
+            }
+            return Resolution.printingMismatch(
+                    setCode + "/" + (collectorNumber == null ? "?" : collectorNumber), byName);
+        }
+
+        boolean setMatches = editionMatches(setCode, card.getEdition());
+        boolean numberMatches = collectorNumber == null
+                || collectorNumber.isBlank()
+                || collectorNumber.equalsIgnoreCase(card.getCollectorNumber());
+
+        if (!setMatches || !numberMatches) {
+            return Resolution.printingMismatch(
+                    setCode + "/" + (collectorNumber == null ? "?" : collectorNumber), card);
+        }
+        return Resolution.resolved(card);
+    }
+}

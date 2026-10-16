@@ -186,3 +186,49 @@ Arena must locate the decklist **by extension** — the single
 `.txt` at the archive root — and must not assume it matches the ZIP
 filename. §2.34's duplicate-path handling and the "exactly one
 `.txt`" rule cover the rest.
+
+
+---
+
+## FINDING 5 — Deck Builder writes Scryfall set codes, Forge uses its own
+
+Added 2026-10-15, found by resolving the real export against Forge
+rather than by reading either program.
+
+```text
+Hellspark Elemental   deck line says CON/65
+                      Forge returns   CFX/65
+```
+
+Both are Conflux. Scryfall's code is `CON`; Forge's is `CFX`.
+
+Comparing the two strings directly reported a `PRINTING_MISMATCH`
+for a card that had resolved perfectly, which would have **rejected
+an entirely valid deck** — and would have done so only for decks
+containing cards from the sets where the two vocabularies differ,
+which is the kind of bug that survives every test you think to
+write.
+
+Arena does not carry a mapping table: one would rot with every new
+set. Forge already records, per edition, a code, a secondary code,
+an optional alias and a Scryfall code, so the resolver asks Forge
+whether the requested code names the edition it returned.
+
+The §2.49 guard is unweakened by this — `KTK/261 → TRK/325` and
+`ZZZ/999 → SLZ/63` are still caught, and both have regression tests.
+
+## FINDING 6 — Forge does not know a `A // B` card name
+
+```text
+"Reckless Stormseeker // Storm-Charged Slasher"   NOT_FOUND
+"Reckless Stormseeker"                            RESOLVED
+"Storm-Charged Slasher"                           RESOLVED
+```
+
+Deck Builder writes both faces; Forge knows each face separately and
+the combined string not at all. The first version of the resolver
+reported `NOT_FOUND` and would have rejected **every deck containing
+a transforming card**.
+
+The front face is the deck entry's identity: it is the card that
+goes in the deck, and the name the artwork is filed under.

@@ -1,6 +1,7 @@
 package net.barnflix.proxic.worker;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -46,6 +47,9 @@ public final class WorkerMain {
     /** The real stdout, reserved for protocol frames. */
     private static PrintStream protocol;
 
+    /** Forge's card database, loaded lazily on first use. */
+    private static ForgeRuntime runtime;
+
     public static void main(String[] args) throws Exception {
         protocol = new PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out),
                 false, StandardCharsets.UTF_8);
@@ -54,6 +58,7 @@ public final class WorkerMain {
                 true, StandardCharsets.UTF_8));
 
         File resRoot = resolveResRoot(args);
+        runtime = new ForgeRuntime(resRoot);
 
         // Announced unprompted, so a parent that spawns the worker
         // learns what it got without having to ask first (§1.65).
@@ -106,6 +111,44 @@ public final class WorkerMain {
                 response.add("checks", checks);
                 response.addProperty("usable", new ForgeResources(resRoot).usable());
                 send(response);
+            }
+            case "RESOLVE_CARDS" -> {
+                // PHASE_02 2.46-2.49. The first request that needs
+                // the card database pays the ~2.8 s load; a worker
+                // only asked for its version never does.
+                JsonObject response = frame("CARDS_RESOLVED", messageId);
+                JsonArray out = new JsonArray();
+                try {
+                    JsonArray requested = request.getAsJsonArray("cards");
+                    for (int i = 0; i < requested.size(); i++) {
+                        JsonObject one = requested.get(i).getAsJsonObject();
+                        String name = one.get("name").getAsString();
+                        String set = one.has("set") && !one.get("set").isJsonNull()
+                                ? one.get("set").getAsString() : null;
+                        String number = one.has("number") && !one.get("number").isJsonNull()
+                                ? one.get("number").getAsString() : null;
+
+                        ForgeRuntime.Resolution resolution = runtime.resolve(name, set, number);
+                        JsonObject item = new JsonObject();
+                        item.addProperty("name", name);
+                        item.addProperty("status", resolution.status);
+                        if (resolution.detail != null) {
+                            item.addProperty("detail", resolution.detail);
+                        }
+                        if (resolution.actualSet != null) {
+                            item.addProperty("actualSet", resolution.actualSet);
+                            item.addProperty("actualNumber", resolution.actualNumber);
+                        }
+                        out.add(item);
+                    }
+                    response.add("cards", out);
+                    send(response);
+                } catch (RuntimeException e) {
+                    // A malformed request, or Forge failing to load,
+                    // must not kill the worker: the parent is waiting
+                    // on a line and would hang (1.66).
+                    send(error("RESOLVE_FAILED", e.getClass().getSimpleName()));
+                }
             }
             case "SHUTDOWN" -> {
                 send(frame("SHUTTING_DOWN", messageId));
