@@ -177,3 +177,37 @@ input[type="file"] {
 .card {
   margin: 0;
 }
+
+/* Authentication — PHASE_03 §3.65. */
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+form label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+form input {
+  background: #0f141a;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 7px 9px;
+  font-size: 14px;
+}
+
+form button {
+  align-self: flex-start;
+  margin: 10px 0 0;
+}
+
+.error-text {
+  color: #e07b76;
+  font-size: 13px;
+  margin: 10px 0 0;
+}

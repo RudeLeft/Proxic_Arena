@@ -64,7 +64,11 @@ class AdminTool(
         // REFUSED, not used and warned about. Warning would leave it
         // in shell history and in whatever logged the command line,
         // and the account would exist with a compromised password.
-        args.firstOrNull { it.startsWith("--password") }?.let {
+        // Exactly `--password` or `--password=...`, NOT a prefix
+        // match: `--password-stdin` also starts with "--password",
+        // and the first version of this guard refused the very
+        // automation path it was meant to leave open.
+        args.firstOrNull { it == "--password" || it.startsWith("--password=") }?.let {
             return AdminResult.failure(
                 "Refusing: a password must not be passed on the command line.\n" +
                     "It would be kept in shell history and in process listings.\n" +
@@ -98,7 +102,14 @@ class AdminTool(
             return AdminResult.failure("A user named \"$username\" already exists.")
         }
 
-        val password = readNewPassword() ?: return AdminResult.failure(NO_TERMINAL)
+        val password =
+            (
+                if (args.contains("--password-stdin")) {
+                    readPasswordFromStdin()
+                } else {
+                    readNewPassword()
+                }
+            ) ?: return AdminResult.failure(NO_TERMINAL)
         PasswordHasher.rejectionReason(password)?.let { return AdminResult.failure(it) }
 
         val user = accounts.createUser(username, password, role, displayName ?: username)
@@ -167,7 +178,14 @@ class AdminTool(
             accounts.findByUsername(username)
                 ?: return AdminResult.failure("No user named \"$username\".")
 
-        val password = readNewPassword() ?: return AdminResult.failure(NO_TERMINAL)
+        val password =
+            (
+                if (args.contains("--password-stdin")) {
+                    readPasswordFromStdin()
+                } else {
+                    readNewPassword()
+                }
+            ) ?: return AdminResult.failure(NO_TERMINAL)
         PasswordHasher.rejectionReason(password)?.let { return AdminResult.failure(it) }
 
         accounts.changePassword(user.userId, password)
@@ -187,6 +205,30 @@ class AdminTool(
         val revoked = sessions.revokeAllForUser(user.userId)
         return AdminResult.ok("Revoked $revoked session(s) for ${user.username}.")
     }
+
+    /**
+     * Read a password from stdin, for automation (`--password-stdin`).
+     *
+     * §3.58 forbids a password in command-line ARGUMENTS, shell
+     * history, Compose YAML and Git, and PREFERS interactive input.
+     * It does not forbid stdin, and stdin is the established secure
+     * automation channel — `docker login --password-stdin` exists
+     * for exactly this reason.
+     *
+     * The difference matters: an argument is visible in `ps`, in
+     * shell history and in any process-listing log. A pipe is
+     * visible to nothing but the two processes.
+     *
+     * This exists because the browser end-to-end tests (§3.140)
+     * need an account, and the alternative was a test-only
+     * bootstrap credential — which §3.57 forbids outright, and
+     * rightly.
+     */
+    private fun readPasswordFromStdin(): String? =
+        generateSequence(::readlnOrNull)
+            .firstOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 
     /** Ask twice; a typo in a password nobody can see is a lockout. */
     private fun readNewPassword(): String? {
@@ -228,8 +270,12 @@ class AdminTool(
               set-password <username>
               revoke-sessions <username>
 
-            Passwords are always typed when asked for. They are never
+            Passwords are typed when asked for, and are never
             accepted as arguments (PHASE_03 §3.58).
+
+            For automation, `--password-stdin` reads the password
+            from a pipe. An argument is visible in `ps` and in shell
+            history; a pipe is not.
             """.trimIndent()
     }
 }

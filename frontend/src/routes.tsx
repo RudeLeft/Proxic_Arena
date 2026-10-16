@@ -13,6 +13,8 @@
 import { Route, Routes } from "react-router-dom";
 import App from "./App";
 import DecksPage from "./DecksPage";
+import { AccountPage, LoginPage } from "./LoginPage";
+import { RequireAuth } from "./AuthContext";
 
 function Placeholder({ title, phase }: { title: string; phase: string }) {
   return (
@@ -38,7 +40,27 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<App />} />
       <Route path="/play" element={<Placeholder title="Play" phase="Phases 5–7" />} />
-      <Route path="/decks" element={<DecksPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      {/* PHASE_03 §3.67 — protected. The deck API requires a
+          session (PHASE 3 AMENDMENT 1), so an unauthenticated
+          visitor would otherwise see a page of 401s rather than a
+          login form. */}
+      <Route
+        path="/decks"
+        element={
+          <RequireAuth>
+            <DecksPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/account"
+        element={
+          <RequireAuth>
+            <AccountPage />
+          </RequireAuth>
+        }
+      />
       {/* A client-side 404. The SERVER cannot distinguish an unknown
           React route from a known one -- it serves index.html for
           both -- so the only place this can be answered honestly is

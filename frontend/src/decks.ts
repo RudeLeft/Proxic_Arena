@@ -4,6 +4,8 @@
 // the error shaping are where mistakes would be, and both should be
 // testable without a browser.
 
+import { apiFetch } from "./auth";
+
 /** §2.84 — the simple state model. No fake fine-grained progress. */
 export type ImportState = "idle" | "selected" | "uploading" | "validating" | "imported" | "failed";
 
@@ -103,7 +105,11 @@ export async function importDeck(
 
   let response: Response;
   try {
-    response = await fetchFn("/api/decks/import", { method: "POST", body });
+    // apiFetch, not fetch: every deck endpoint now requires a
+    // session (PHASE 3 AMENDMENT 1) and every mutation requires the
+    // CSRF header (§3.52). A plain fetch here produced a 403 that
+    // looked like a permissions bug and was a missing header.
+    response = await apiFetch("/api/decks/import", { method: "POST", body }, fetchFn);
   } catch {
     return {
       ok: false,
@@ -155,7 +161,7 @@ export async function importDeck(
 
 export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckSummary[]> {
   try {
-    const response = await fetchFn("/api/decks");
+    const response = await fetchFn("/api/decks", { credentials: "same-origin" });
     if (!response.ok) return [];
     return (await response.json()) as DeckSummary[];
   } catch {
@@ -168,7 +174,7 @@ export async function getDeck(
   fetchFn: typeof fetch = fetch,
 ): Promise<DeckDetail | null> {
   try {
-    const response = await fetchFn(`/api/decks/${deckId}`);
+    const response = await fetchFn(`/api/decks/${deckId}`, { credentials: "same-origin" });
     if (!response.ok) return null;
     return (await response.json()) as DeckDetail;
   } catch {
@@ -178,7 +184,7 @@ export async function getDeck(
 
 export async function deleteDeck(deckId: string, fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
-    const response = await fetchFn(`/api/decks/${deckId}`, { method: "DELETE" });
+    const response = await apiFetch(`/api/decks/${deckId}`, { method: "DELETE" }, fetchFn);
     return response.status === 204;
   } catch {
     return false;

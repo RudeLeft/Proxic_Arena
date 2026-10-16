@@ -6,6 +6,7 @@
 // stack.
 
 import { test, expect, type Page } from "@playwright/test";
+import { signIn } from "./helpers";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,13 +15,29 @@ const realExport = join(process.cwd(), "..", "Test Deck", "Basic_Mono_Red_65_Car
 
 /** Remove every deck, so a run does not depend on what came before. */
 async function clearDecks(page: Page) {
+  // The CSRF header is required on DELETE (§3.52). Without it every
+  // delete returned 403 and this helper silently did nothing, so a
+  // second run met "that deck has already been imported" instead of
+  // a clean slate — a test-harness failure that looked exactly like
+  // a product bug.
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((cookie) => cookie.name === "proxicarena_csrf")?.value ?? "";
+
   const decks = (await (await page.request.get("/api/decks")).json()) as { deckId: string }[];
   for (const deck of decks) {
-    await page.request.delete(`/api/decks/${deck.deckId}`);
+    const response = await page.request.delete(`/api/decks/${deck.deckId}`, {
+      headers: { "X-CSRF-Token": csrf },
+    });
+    expect(response.status(), "a deck could not be removed").toBe(204);
   }
 }
 
 test.beforeEach(async ({ page }) => {
+  // PHASE 3 AMENDMENT 1 — every deck endpoint needs a session now.
+  // These tests predate authentication and failed when it landed,
+  // which is the rule working. They sign in rather than being
+  // exempted.
+  await signIn(page);
   await clearDecks(page);
 });
 

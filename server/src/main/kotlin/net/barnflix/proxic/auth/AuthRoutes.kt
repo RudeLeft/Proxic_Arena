@@ -1,6 +1,5 @@
 package net.barnflix.proxic.auth
 
-import io.ktor.http.CookieEncoding
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -93,10 +92,8 @@ suspend fun ApplicationCall.requireAuth(sessions: Sessions): Principal? {
 suspend fun ApplicationCall.csrfOk(config: ServerConfig): Boolean {
     if (request.local.method !in MUTATING_METHODS) return true
 
-    // §3.53 — the configured origin, not a hostname scattered
-    // through the code.
-    val origin = request.header(HttpHeaders.Origin)
-    if (origin != null && origin != config.publicOrigin) {
+    // §3.53 — the configured origin, or this request's own.
+    if (!originAcceptable(config)) {
         respond(
             HttpStatusCode.Forbidden,
             ErrorResponse("BAD_ORIGIN", "That request came from an unexpected origin.", null),
@@ -126,6 +123,35 @@ private val MUTATING_METHODS =
         HttpMethod.Delete,
     )
 
+/**
+ * Is this request's `Origin` acceptable? (§3.53)
+ *
+ * Accepted when there is no Origin at all (a non-browser client,
+ * which CSRF does not apply to), when it matches the configured
+ * public origin, or when it matches THE ORIGIN THIS REQUEST WAS
+ * SENT TO — which is the definition of same-origin.
+ *
+ * The last case is not a loosening. The first version compared only
+ * against the configured origin, so the page served from
+ * http://127.0.0.1:8080 could not log in to the server at
+ * http://127.0.0.1:8080: every request from the application itself
+ * was refused as foreign. It failed identically on the LAN port and
+ * would fail on any future host.
+ *
+ * Found by a browser test, after the server suite passed: the test
+ * engine sends no Origin header, so nothing below the browser could
+ * have caught it.
+ */
+private fun ApplicationCall.originAcceptable(config: ServerConfig): Boolean {
+    val origin = request.header(HttpHeaders.Origin) ?: return true
+    if (origin == config.publicOrigin) return true
+
+    val host = request.header(HttpHeaders.Host) ?: return false
+    // A browser's Origin carries no port when it is the default for
+    // the scheme, so both forms are compared.
+    return origin == "http://$host" || origin == "https://$host"
+}
+
 fun Route.authRoutes(
     config: ServerConfig,
     accounts: Accounts,
@@ -139,8 +165,7 @@ fun Route.authRoutes(
             // is issued BY this endpoint. The origin check still
             // applies, and the throttle below is what makes forged
             // logins pointless.
-            val origin = call.request.header(HttpHeaders.Origin)
-            if (origin != null && origin != config.publicOrigin) {
+            if (!call.originAcceptable(config)) {
                 call.respond(
                     HttpStatusCode.Forbidden,
                     ErrorResponse("BAD_ORIGIN", "That request came from an unexpected origin.", null),
@@ -322,7 +347,6 @@ private fun ApplicationCall.clearSession(config: ServerConfig) {
             path = "/",
             secure = config.secureCookies,
             httpOnly = name == SESSION_COOKIE,
-            encoding = CookieEncoding.RAW,
         )
     }
 }
@@ -345,6 +369,11 @@ private fun ApplicationCall.setSessionCookie(
         secure = config.secureCookies,
         httpOnly = httpOnly,
         extensions = mapOf("SameSite" to "Lax"),
-        encoding = CookieEncoding.RAW,
+        // The DEFAULT encoding, not RAW. Ktor appends a `$x-enc=RAW`
+        // marker to a raw cookie so it can decode it later, and that
+        // marker ends up in the Set-Cookie header as an attribute no
+        // browser asked for. Session and CSRF tokens are base64url,
+        // which URI encoding leaves untouched, so the default costs
+        // nothing and emits a clean header.
     )
 }

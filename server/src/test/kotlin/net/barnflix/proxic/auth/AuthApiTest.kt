@@ -322,6 +322,33 @@ class AuthApiTest {
             assertTrue(response.bodyAsText().contains("BAD_ORIGIN"))
         }
 
+    @Test
+    fun `a request from the page's own origin is accepted`() {
+        // The negative control for the test above, and the case the
+        // first version got wrong: the page served from
+        // http://127.0.0.1:8080 could not log in to the server at
+        // http://127.0.0.1:8080, because only the CONFIGURED origin
+        // was accepted. Every request from the application itself
+        // was refused as foreign.
+        //
+        // The server suite could not catch it -- the test engine
+        // sends no Origin header -- so this asserts the header
+        // explicitly.
+        testApplication {
+            seedUser()
+            application { module(config().copy(publicOrigin = "https://proxic.barnflix.net")) }
+
+            val response =
+                client.post("/api/auth/login") {
+                    header(HttpHeaders.Origin, "http://localhost")
+                    header(HttpHeaders.Host, "localhost")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"username":"RudeLeft","password":"$password"}""")
+                }
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        }
+    }
+
     // --- the deck API is now protected (PHASE 3 AMENDMENT 1) --------
 
     @Test

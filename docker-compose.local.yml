@@ -16,3 +16,21 @@ services:
   arena-server:
     ports:
       - "127.0.0.1:8080:8080"
+    environment:
+      # PHASE_03 §3.22, §3.23 and owner decision D2.
+      #
+      # A browser will not STORE a Secure cookie delivered over
+      # plain HTTP, and this override serves plain HTTP. So login
+      # through it silently does nothing: the server sets the
+      # cookie, the browser discards it, and the page bounces back
+      # to /login with no error anywhere.
+      #
+      # Found by a browser test that failed while every server test
+      # passed -- which is the difference between a cookie being
+      # SENT and a cookie being KEPT.
+      #
+      # Production keeps Secure on (§3.23 forbids dropping it
+      # because the tunnel's origin leg is HTTP), so this belongs
+      # here, in the override that exists only for local use, and
+      # nowhere else.
+      PROXIC_SECURE_COOKIES: "false"

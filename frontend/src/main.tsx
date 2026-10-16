@@ -3,6 +3,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./AuthContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AppRoutes } from "./routes";
 import "./styles.css";
@@ -24,7 +25,11 @@ createRoot(host).render(
   <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <AppRoutes />
+        {/* Inside the router, because RequireAuth needs useLocation
+            to remember where someone was going (§3.67). */}
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>,

@@ -114,6 +114,19 @@ class AdminToolTest {
     }
 
     @Test
+    fun `--password-stdin still refuses a password in an argument`() {
+        // The automation path must not become a loophole. These are
+        // the shapes someone would reach for first.
+        for (args in listOf(
+            listOf("create", "RudeLeft", "--password-stdin", "--password", "hunter2"),
+            listOf("create", "RudeLeft", "--password=hunter2", "--password-stdin"),
+        )) {
+            assertEquals(1, tool.run(args).exitCode, "accepted: $args")
+            assertNull(accounts.findByUsername("RudeLeft"))
+        }
+    }
+
+    @Test
     fun `without a terminal the tool refuses rather than reading a pipe`() {
         // A prompt that cannot reach a terminal returns null. Piping
         // a password in is exactly the case §3.58 excludes, because
