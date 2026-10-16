@@ -202,6 +202,96 @@ export async function getDeck(
   }
 }
 
+export interface ShareRecipient {
+  userId: string;
+  username: string;
+  displayName: string;
+  sharedAt: string;
+}
+
+/**
+ * The share list — PHASE_04 §4.99.
+ *
+ * Only the owner may read this; a recipient gets 403 and the page
+ * simply does not show the panel. `null` means "not yours to see",
+ * which is a different thing from an empty list.
+ */
+export async function listShares(
+  deckId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<ShareRecipient[] | null> {
+  try {
+    const response = await fetchFn(`/api/decks/${deckId}/shares`, { credentials: "same-origin" });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { shares: ShareRecipient[] };
+    return body.shares;
+  } catch {
+    return null;
+  }
+}
+
+/** §4.72 — every outcome the owner needs to be told about. */
+export type ShareOutcome =
+  | { ok: true; created: boolean; recipient: ShareRecipient }
+  | { ok: false; message: string };
+
+/**
+ * Share a deck with a username — §4.32, §4.72.
+ *
+ * The server decides; this turns its answer into something a person
+ * can read, and never guesses when the server said nothing useful.
+ */
+export async function shareDeck(
+  deckId: string,
+  username: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<ShareOutcome> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      `/api/decks/${deckId}/shares`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "That share could not be sent. Try again." };
+  }
+
+  if (response.ok) {
+    const recipient = (await response.json()) as ShareRecipient;
+    // 201 created it; 200 means it was already shared (§4.33).
+    return { ok: true, created: response.status === 201, recipient };
+  }
+
+  const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+  // The server's own wording, because it knows which of the §4.72
+  // cases happened. A message invented here would eventually
+  // contradict it.
+  return { ok: false, message: body?.detail ?? "That share could not be created." };
+}
+
+/** §4.34 — revoke by recipient. Idempotent server-side. */
+export async function revokeShare(
+  deckId: string,
+  userId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<boolean> {
+  try {
+    const response = await apiFetch(
+      `/api/decks/${deckId}/shares/${userId}`,
+      { method: "DELETE" },
+      fetchFn,
+    );
+    return response.status === 204;
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteDeck(deckId: string, fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
     const response = await apiFetch(`/api/decks/${deckId}`, { method: "DELETE" }, fetchFn);

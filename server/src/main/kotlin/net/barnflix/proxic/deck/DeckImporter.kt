@@ -123,7 +123,7 @@ class DeckImporter(
 
         // §2.72 — the checksum, and the owner's D3 duplicate rule.
         val checksum = ArtStore.sha256Of(upload)
-        existingDeck(checksum)?.let { return it }
+        existingDeck(checksum, ownerUserId)?.let { return it }
 
         // 4-6. Extract and parse.
         val deckText =
@@ -318,10 +318,14 @@ class DeckImporter(
             } catch (e: Exception) {
                 connection.rollback()
                 // A unique violation here is the duplicate rule
-                // winning a race: two uploads of one package, both
-                // past the earlier check.
-                if (e.toString().contains("package_sha256", ignoreCase = true)) {
-                    return existingDeck(checksum)
+                // winning a race: two uploads of one package by the
+                // SAME owner, both past the earlier check. The
+                // constraint is (owner, checksum) since PHASE 4
+                // AMENDMENT 4, so its name changed with it.
+                if (e.toString().contains("package_sha256", ignoreCase = true) ||
+                    e.toString().contains("owner_package_unique", ignoreCase = true)
+                ) {
+                    return existingDeck(checksum, prepared.ownerUserId)
                         ?: ImportResult.Rejected("DUPLICATE", "This package was already imported.", emptyList())
                 }
                 log.error("persisting deck {} failed", deckId, e)
@@ -343,13 +347,30 @@ class DeckImporter(
         )
     }
 
-    /** The existing deck for a checksum, if this package is a duplicate. */
-    private fun existingDeck(checksum: String): ImportResult.Duplicate? {
+    /**
+     * Has THIS owner already imported this package?
+     *
+     * PHASE 4 AMENDMENT 4. Scoped to the owner, for two reasons
+     * measured on the running server: a global lookup told a second
+     * user the name and id of a private deck they had no access to
+     * (§4.65), and it meant whoever imported a file first owned it
+     * forever.
+     *
+     * The answer still names the deck, because for the owner it IS
+     * their deck -- being told "you already have this, here it is"
+     * is the whole value of the check (§2.72, owner decision D3).
+     */
+    private fun existingDeck(
+        checksum: String,
+        ownerUserId: UUID,
+    ): ImportResult.Duplicate? {
         dataSource.connection.use { connection ->
             connection.prepareStatement(
-                "SELECT deck_id, display_name FROM imported_deck WHERE package_sha256 = ?",
+                "SELECT deck_id, display_name FROM imported_deck " +
+                    "WHERE package_sha256 = ? AND owner_user_id = ?",
             ).use { statement ->
                 statement.setString(1, checksum)
+                statement.setObject(2, ownerUserId)
                 statement.executeQuery().use { rows ->
                     if (rows.next()) {
                         return ImportResult.Duplicate(

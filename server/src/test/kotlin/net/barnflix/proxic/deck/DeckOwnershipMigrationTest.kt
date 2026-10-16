@@ -322,4 +322,88 @@ class DeckOwnershipMigrationTest {
             }.isFailure
         assertTrue(failed, "a share referencing nothing was accepted")
     }
+
+    // --- PHASE 4 AMENDMENT 4: per-owner package uniqueness ----------
+
+    /** Insert a deck with an explicit checksum, for the two tests below. */
+    private fun insertWithChecksum(
+        dataSource: DataSource,
+        name: String,
+        owner: UUID,
+        checksum: String,
+    ) {
+        withConnection(dataSource) { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO imported_deck
+                    (deck_id, display_name, source_filename, package_sha256, total_cards,
+                     distinct_cards, import_schema_version, owner_user_id)
+                VALUES (?, ?, ?, ?, 65, 11, 1, ?)
+                """.trimIndent(),
+            ).use {
+                it.setObject(1, UUID.randomUUID())
+                it.setString(2, name)
+                it.setString(3, "$name.zip")
+                it.setString(4, checksum)
+                it.setObject(5, owner)
+                it.executeUpdate()
+            }
+        }
+    }
+
+    /**
+     * The fault this amendment exists for.
+     *
+     * Globally unique checksums meant whoever imported a file first
+     * owned it forever, and the refusal told the second user the
+     * name and id of a deck they had no access to.
+     */
+    @Test
+    fun `two owners may each import the same package`() {
+        val dataSource = dataSource()
+        migrateAll(dataSource)
+        val accounts = Accounts(dataSource)
+        accounts.createUser("RudeLeft", "a perfectly fine passphrase", Role.ADMIN)
+        accounts.createUser("Pat", "a perfectly fine passphrase", Role.PLAYER)
+        val checksum = "d".repeat(64)
+
+        insertWithChecksum(dataSource, "Mine", accounts.findByUsername("RudeLeft")!!.userId, checksum)
+        insertWithChecksum(dataSource, "Also_Mine", accounts.findByUsername("Pat")!!.userId, checksum)
+
+        var decks = 0
+        withConnection(dataSource) { connection ->
+            connection.prepareStatement(
+                "SELECT count(*) FROM imported_deck WHERE package_sha256 = ?",
+            ).use { statement ->
+                statement.setString(1, checksum)
+                statement.executeQuery().use { rows ->
+                    rows.next()
+                    decks = rows.getInt(1)
+                }
+            }
+        }
+        assertEquals(2, decks, "each owner should hold their own copy")
+    }
+
+    /**
+     * The negative control. Per-owner does not mean "no rule": the
+     * same owner importing the same package twice is still refused,
+     * which is owner decision D3 from Phase 2 and the reason the
+     * check exists at all.
+     */
+    @Test
+    fun `one owner still cannot import the same package twice`() {
+        val dataSource = dataSource()
+        migrateAll(dataSource)
+        val accounts = Accounts(dataSource)
+        accounts.createUser("RudeLeft", "a perfectly fine passphrase", Role.ADMIN)
+        val owner = accounts.findByUsername("RudeLeft")!!.userId
+        val checksum = "e".repeat(64)
+
+        insertWithChecksum(dataSource, "First", owner, checksum)
+        assertTrue(
+            runCatching { insertWithChecksum(dataSource, "Second", owner, checksum) }.isFailure,
+            "the same owner imported one package twice",
+        )
+    }
 }

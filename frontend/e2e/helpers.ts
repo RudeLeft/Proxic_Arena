@@ -12,6 +12,25 @@ import { expect, type Page } from "@playwright/test";
 export const testUser = process.env.PROXIC_E2E_USER ?? "RudeLeft";
 export const testPassword = process.env.PROXIC_E2E_PASSWORD ?? "a perfectly fine local passphrase";
 
+/**
+ * The second account, for the two-user sharing tests (§4.157).
+ *
+ * Created the same way as the first:
+ *
+ *   docker compose exec arena-server /app/bin/arena-admin create Pat
+ */
+export const secondUser = process.env.PROXIC_E2E_USER_2 ?? "Pat";
+export const secondPassword =
+  process.env.PROXIC_E2E_PASSWORD_2 ?? "a perfectly ordinary player password";
+
+export async function signInAs(page: Page, username: string, password: string): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).not.toHaveURL(/\/login/);
+}
+
 export async function signIn(page: Page): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Username").fill(testUser);

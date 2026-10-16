@@ -197,6 +197,46 @@ and recorded here rather than edited quietly into Phase 2.
 
 ---
 
+## PHASE 4 AMENDMENT 4
+
+**Reason:** Phase 2 made `package_sha256` globally UNIQUE, which was
+right when every deck belonged to everybody. Combined with Phase 4
+ownership it produced two faults, both measured against the running
+server rather than reasoned about:
+
+```text
+Pat imports a package RudeLeft owns ->
+  409 {"errorCode":"DUPLICATE_PACKAGE",
+       "detail":"This package has already been imported as
+                 \"Basic_Mono_Red_65_Card_Deck\".",
+       "problems":["6975e74a-ab1f-4f86-b28b-f406ec12df8c"]}
+```
+
+1. An account with no access to a private deck learned that it
+   exists, what it is called and its id — §4.65 broken through a
+   route Phase 4 never touched.
+2. That user could never own their own copy. "Whoever imports a file
+   first owns it forever" is not a rule anybody chose.
+
+**Affected requirements:** §4.83, and Phase 2's §2.72 / owner
+decision D3.
+
+**Old decision:** One deck per package checksum, server-wide; a
+duplicate import is refused and names the existing deck.
+
+**New decision (owner, 2026-10-16):** Uniqueness is **per owner**.
+`UNIQUE (owner_user_id, package_sha256)` in `V005`. Each account may
+import any package once; a re-import by the SAME owner is still
+refused and still names the deck, because that deck is theirs to be
+told about. A different owner imports their own copy and is told
+nothing about anyone else's.
+
+Storage cost measured after two owners imported the same package:
+22 files, 17 MB — unchanged. Artwork is content-addressed, so the
+second copy adds rows and no image bytes.
+
+---
+
 ## Carry-forward from Phases 1, 2 and 3
 
 Things already built that change how a section here must be done.

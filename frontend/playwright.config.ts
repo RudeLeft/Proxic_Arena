@@ -18,6 +18,13 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   // A flaky E2E that is retried until green is not evidence.
   retries: 0,
+  // One worker, because every spec drives ONE server with ONE deck
+  // database. Run in parallel, decks.spec and sharing.spec clear and
+  // re-import the same account's decks at the same time, and the
+  // loser fails for reasons that have nothing to do with the code --
+  // which is worse than a slower suite: it teaches you to re-run
+  // failures instead of reading them.
+  workers: 1,
   reporter: [["list"]],
   use: {
     baseURL: process.env.PROXIC_E2E_URL ?? "http://127.0.0.1:8080",

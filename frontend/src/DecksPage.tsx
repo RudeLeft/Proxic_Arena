@@ -4,17 +4,21 @@
 // builder (§2.87). Its job is to prove the pipeline works from a
 // browser and to show a player what went wrong when it does not.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   deleteDeck,
   getDeck,
   headingFor,
   importDeck,
   listDecks,
+  listShares,
+  revokeShare,
+  shareDeck,
   EMPTY_LIBRARY,
   type DeckDetail,
   type DeckLibrary,
   type DeckSummary,
+  type ShareRecipient,
   type ImportFailure,
   type ImportState,
   type ImportedDeck,
@@ -90,6 +94,108 @@ function DeckCards({ detail }: { detail: DeckDetail }) {
           </figure>
         ))}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Share management — PHASE_04 §4.70, §4.71, §4.72.
+ *
+ * Rendered only for a deck the viewer owns. §4.71 asks that a
+ * recipient not receive owner controls, and the server refuses them
+ * regardless (§4.80); hiding the panel is the courtesy, the refusal
+ * is the protection.
+ *
+ * The share list itself is fetched, not inferred: `null` back from
+ * the server means "not yours to see", which is different from an
+ * empty list, and the panel disappears rather than showing an empty
+ * one.
+ */
+function SharePanel({ detail }: { detail: DeckDetail }) {
+  const [shares, setShares] = useState<ShareRecipient[] | null>(null);
+  const [username, setUsername] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setShares(await listShares(detail.deckId));
+  }, [detail.deckId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // §4.71 — not the owner, no panel. The server already said so by
+  // answering 403 to the share list, and `access` says it directly.
+  if (detail.access === "SHARED") return null;
+  if (shares === null) return null;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    const outcome = await shareDeck(detail.deckId, username);
+    setBusy(false);
+    if (!outcome.ok) {
+      // §4.72 — the server's wording, because it knows which case
+      // this was: unknown user, disabled account, or yourself.
+      setMessage(outcome.message);
+      return;
+    }
+    setMessage(
+      outcome.created
+        ? `Shared with ${outcome.recipient.displayName}.`
+        : `${outcome.recipient.displayName} already had this deck.`,
+    );
+    setUsername("");
+    await refresh();
+  };
+
+  return (
+    <section className="panel">
+      <h2>Share this deck</h2>
+
+      <form onSubmit={(event) => void submit(event)}>
+        <label htmlFor="share-username">Username</label>
+        <input
+          id="share-username"
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+          autoComplete="off"
+          required
+        />
+        <button type="submit" disabled={busy}>
+          {busy ? "Sharing…" : "Share"}
+        </button>
+      </form>
+
+      {message && <p className="verdict">{message}</p>}
+
+      <h3>Currently shared with</h3>
+      {shares.length === 0 && <p className="hint">Nobody yet.</p>}
+      {shares.map((recipient) => (
+        <div className="row" key={recipient.userId}>
+          <span className="name">
+            {recipient.displayName} <span className="hint">@{recipient.username}</span>
+          </span>
+          <span className="state">
+            <button
+              type="button"
+              onClick={() => {
+                void revokeShare(detail.deckId, recipient.userId).then((done) => {
+                  setMessage(
+                    done
+                      ? `${recipient.displayName} can no longer see this deck.`
+                      : "That share could not be revoked.",
+                  );
+                  return refresh();
+                });
+              }}
+            >
+              revoke
+            </button>
+          </span>
+        </div>
+      ))}
     </section>
   );
 }
@@ -247,6 +353,7 @@ export default function DecksPage() {
         onView={(deckId) => void getDeck(deckId).then(setOpen)}
       />
 
+      {open && <SharePanel detail={open} />}
       {open && <DeckCards detail={open} />}
 
       <p className="verdict">
