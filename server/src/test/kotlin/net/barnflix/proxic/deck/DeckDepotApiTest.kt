@@ -611,4 +611,129 @@ class DeckDepotApiTest {
             assertEquals(HttpStatusCode.Forbidden, response.status)
             assertTrue(getAs(owner, "/api/decks/$deck/shares").bodyAsText().contains("\"shareCount\":0"))
         }
+
+    // --- gaps the §4.171 checklist found ----------------------------
+
+    /**
+     * §4.49, §4.50 — ADMIN is not a master key.
+     *
+     * RudeLeft is an administrator. Pat is not. The admin must not
+     * see, open, delete or share Pat's private deck, and must not
+     * learn it exists.
+     *
+     * Nothing in the authorization service consults the role, which
+     * is why this passes — but "it does not do X" is only worth
+     * believing when somebody has tried X.
+     */
+    @Test
+    fun `an administrator gets no privileged access to another user's deck`() =
+        testApplication {
+            val pats = insertDeck("Pats_Private", "Pat", withArt = true)
+            application { module(config()) }
+            val admin = signIn("RudeLeft")
+
+            assertEquals(HttpStatusCode.NotFound, getAs(admin, "/api/decks/$pats").status)
+            assertEquals(HttpStatusCode.NotFound, getAs(admin, "/api/decks/$pats/assets/$sha").status)
+            assertEquals(HttpStatusCode.NotFound, getAs(admin, "/api/decks/$pats/shares").status)
+            assertEquals(HttpStatusCode.NotFound, deleteAs(admin, "/api/decks/$pats").status)
+            assertEquals(HttpStatusCode.NotFound, shareWith(admin, pats, "Casey").status)
+
+            // Not in the library either, under any heading.
+            val library = getAs(admin, "/api/decks").bodyAsText()
+            assertFalse(library.contains(pats.toString()), library)
+
+            // ...and Pat still has it, untouched by all that.
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Pat"), "/api/decks/$pats").status)
+        }
+
+    /**
+     * §4.140, §4.6 — a client cannot name the owner.
+     *
+     * The import route reads the owner from the session and never
+     * from the request, so these fields are ignored rather than
+     * rejected. Either satisfies §4.140; what must NOT happen is a
+     * deck landing in Pat's library because the uploader said so.
+     */
+    @Test
+    fun `a client cannot choose the owner of a deck it uploads`() =
+        testApplication {
+            application { module(config()) }
+            val owner = signIn("RudeLeft")
+            val patId = userId("Pat")
+
+            val response =
+                client.post("/api/decks/import") {
+                    header(
+                        HttpHeaders.Cookie,
+                        "$SESSION_COOKIE=${owner.token}; $CSRF_COOKIE=${owner.csrf}",
+                    )
+                    header(CSRF_HEADER, owner.csrf)
+                    setBody(
+                        io.ktor.client.request.forms.MultiPartFormDataContent(
+                            io.ktor.client.request.forms.formData {
+                                append("owner_user_id", patId.toString())
+                                append("ownerUserId", patId.toString())
+                                append(
+                                    "package",
+                                    ByteArray(16),
+                                    io.ktor.http.Headers.build {
+                                        append(
+                                            HttpHeaders.ContentDisposition,
+                                            "filename=\"not-a-real.zip\"",
+                                        )
+                                    },
+                                )
+                            },
+                        ),
+                    )
+                }
+
+            // The upload itself is refused (it is not a real package),
+            // which is fine: the point is that nothing was created
+            // for Pat.
+            assertTrue(response.status.value >= 400, response.status.toString())
+            assertFalse(
+                getAs(signIn("Pat"), "/api/decks").bodyAsText().contains("not-a-real"),
+                "a deck was planted in another user's library",
+            )
+        }
+
+    /** §4.146 — several recipients, each independent of the others. */
+    @Test
+    fun `a deck can be shared with several users, and revoked from one`() =
+        testApplication {
+            val deck = insertDeck("Group_Deck", "RudeLeft")
+            application { module(config()) }
+            val owner = signIn("RudeLeft")
+
+            assertEquals(HttpStatusCode.Created, shareWith(owner, deck, "Pat").status)
+            assertEquals(HttpStatusCode.Created, shareWith(owner, deck, "Sam").status)
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Pat"), "/api/decks/$deck").status)
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Sam"), "/api/decks/$deck").status)
+
+            assertEquals(
+                HttpStatusCode.NoContent,
+                deleteAs(owner, "/api/decks/$deck/shares/${userId("Pat")}").status,
+            )
+
+            // Revoking one leaves the other alone -- a revoke that
+            // took everybody with it would pass a one-recipient test.
+            assertEquals(HttpStatusCode.NotFound, getAs(signIn("Pat"), "/api/decks/$deck").status)
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Sam"), "/api/decks/$deck").status)
+        }
+
+    /** §4.46 — the answer Phase 5 and 6 are told to rely on. */
+    @Test
+    fun `canUseDeck answers for owner, recipient and stranger`() =
+        testApplication {
+            val deck = insertDeck("Playable", "Pat")
+            share(deck, with = "RudeLeft", by = "Pat")
+            application { module(config()) }
+
+            val authorization = DeckAuthorization(database().dataSource())
+            assertTrue(authorization.canUseDeck(userId("Pat"), deck))
+            assertTrue(authorization.canUseDeck(userId("RudeLeft"), deck))
+            assertFalse(authorization.canUseDeck(userId("Casey"), deck))
+            assertFalse(authorization.canUseDeck(userId("Pat"), java.util.UUID.randomUUID()))
+        }
 }

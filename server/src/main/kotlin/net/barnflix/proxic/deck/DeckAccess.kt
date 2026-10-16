@@ -128,6 +128,23 @@ class DeckAuthorization(private val dataSource: DataSource) {
         }
     }
 
+    /**
+     * May this user put this deck on a table? — §4.46, §4.47.
+     *
+     * Exposed by name because later phases are told to rely on it:
+     * the lobby and the match runtime must ask the server whether a
+     * deck may be used, and a browser saying it may is not an
+     * answer. It is deliberately a thin wrapper over [accessFor] so
+     * there is one rule, not two that drift.
+     *
+     * It does NOT consider format legality (§4.48). A deck you may
+     * use can still be an illegal deck.
+     */
+    fun canUseDeck(
+        userId: UUID,
+        deckId: UUID,
+    ): Boolean = accessFor(userId, deckId).mayUse()
+
     /** The decks this user owns (§4.58). */
     fun ownedBy(userId: UUID): List<UUID> =
         idsFrom(

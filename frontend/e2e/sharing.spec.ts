@@ -16,7 +16,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs, testPassword, testUser } from "./helpers";
+import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 
 // Importing a real package resolves every card through Forge, which
 // takes most of a minute. The file-level default of 45s is right for

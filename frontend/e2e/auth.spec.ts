@@ -32,7 +32,7 @@ test("the home page offers a way in, and says who you are", async ({ page }) => 
   // Identity, role and the way onward (§3.69).
   await expect(page.getByText(/Signed in as/)).toBeVisible();
   await expect(page.getByText("ADMIN")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Decks" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Deck Depot" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
 
   // ...and out again, from the same page.

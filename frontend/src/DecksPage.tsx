@@ -292,9 +292,13 @@ export default function DecksPage() {
   return (
     <main>
       <h1>PROXIC ARENA</h1>
-      {/* §2.82 — this is not a generic deck-file importer. */}
+      {/* PHASE_04 §4.109, §4.110 — the feature is called Deck Depot
+          and lives at the Phase 2 route, so no link anywhere breaks.
+          §2.82 still holds: this is not a generic deck-file
+          importer. */}
       <p className="sub">
-        Import a deck package exported by <strong>Proxic Deck Builder</strong>
+        Deck Depot — import a deck package exported by{" "}
+        <strong>Proxic Deck Builder</strong>
       </p>
 
       <section className="panel">

@@ -207,7 +207,7 @@ function HomeIdentity() {
       </div>
       <div className="row">
         <span className="name">
-          <Link to="/decks">Decks</Link> · <Link to="/account">Account</Link>
+          <Link to="/decks">Deck Depot</Link> · <Link to="/account">Account</Link>
         </span>
         <span className="state">
           <button type="button" onClick={() => void signOut()}>
