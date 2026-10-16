@@ -1,9 +1,11 @@
 package net.barnflix.proxic.deck
 
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -11,6 +13,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import net.barnflix.proxic.ServerConfig
@@ -80,6 +83,52 @@ class DeckApiTest {
             databaseUserValue = container!!.username,
         )
 
+    /**
+     * PHASE 3 AMENDMENT 1 — every deck endpoint needs a session now.
+     *
+     * These tests predate authentication and failed when it landed,
+     * which is the rule working. They sign in rather than being
+     * exempted: a test that bypasses the auth layer would stop
+     * proving that the deck API is reachable by a real browser.
+     */
+    private fun seedUser() {
+        net.barnflix.proxic.Database.connect(config())!!.use { database ->
+            database.migrate()
+            net.barnflix.proxic.auth.Accounts(database.dataSource())
+                .createUser("RudeLeft", testPassword, net.barnflix.proxic.auth.Role.ADMIN)
+        }
+    }
+
+    private val testPassword = "a perfectly fine passphrase"
+    private var sessionCookie: String? = null
+    private var csrfToken: String? = null
+
+    private suspend fun io.ktor.server.testing.ApplicationTestBuilder.signIn() {
+        val response =
+            client.post("/api/auth/login") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"username":"RudeLeft","password":"$testPassword"}""")
+            }
+
+        fun cookie(name: String) =
+            response.headers
+                .getAll(HttpHeaders.SetCookie)
+                ?.firstOrNull { it.startsWith("$name=") }
+                ?.substringAfter("=")?.substringBefore(";")
+        sessionCookie = cookie(net.barnflix.proxic.auth.SESSION_COOKIE)
+        csrfToken = cookie(net.barnflix.proxic.auth.CSRF_COOKIE)
+    }
+
+    /** Attach the session and CSRF token to a request. */
+    private fun HttpRequestBuilder.authed() {
+        header(
+            HttpHeaders.Cookie,
+            "${net.barnflix.proxic.auth.SESSION_COOKIE}=$sessionCookie; " +
+                "${net.barnflix.proxic.auth.CSRF_COOKIE}=$csrfToken",
+        )
+        header(net.barnflix.proxic.auth.CSRF_HEADER, csrfToken ?: "")
+    }
+
     private fun uploadBody(file: File = realExport) =
         MultiPartFormDataContent(
             formData {
@@ -98,8 +147,14 @@ class DeckApiTest {
     fun `a real package imports over HTTP and is then discoverable`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
 
-            val imported = client.post("/api/decks/import") { setBody(uploadBody()) }
+            val imported =
+                client.post("/api/decks/import") {
+                    authed()
+                    setBody(uploadBody())
+                }
             assertEquals(HttpStatusCode.Created, imported.status, imported.bodyAsText())
             val accepted =
                 json.decodeFromString(
@@ -110,14 +165,14 @@ class DeckApiTest {
             assertEquals(11, accepted.distinctCards)
 
             // §2.77 — the deck is listed.
-            val list = client.get("/api/decks").bodyAsText()
+            val list = client.get("/api/decks") { authed() }.bodyAsText()
             assertTrue(list.contains(accepted.deckId), list)
 
             // §2.78 — detail carries entries and ART URLS, never paths.
             val detail =
                 json.decodeFromString(
                     DeckDetail.serializer(),
-                    client.get("/api/decks/${accepted.deckId}").bodyAsText(),
+                    client.get("/api/decks/${accepted.deckId}") { authed() }.bodyAsText(),
                 )
             assertEquals(11, detail.entries.size)
             val withArt = detail.entries.filter { it.artUrl != null }
@@ -128,7 +183,7 @@ class DeckApiTest {
             )
 
             // §2.61 — the asset serves as a PNG, cacheable.
-            val asset = client.get(withArt.first().artUrl!!)
+            val asset = client.get(withArt.first().artUrl!!) { authed() }
             assertEquals(HttpStatusCode.OK, asset.status)
             assertEquals(
                 ContentType.Image.PNG.toString(),
@@ -145,15 +200,25 @@ class DeckApiTest {
     fun `a duplicate package is refused with 409 and names the existing deck`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
 
-            val first = client.post("/api/decks/import") { setBody(uploadBody()) }
+            val first =
+                client.post("/api/decks/import") {
+                    authed()
+                    setBody(uploadBody())
+                }
             val deckId =
                 json.decodeFromString(
                     ImportAcceptedResponse.serializer(),
                     first.bodyAsText(),
                 ).deckId
 
-            val second = client.post("/api/decks/import") { setBody(uploadBody()) }
+            val second =
+                client.post("/api/decks/import") {
+                    authed()
+                    setBody(uploadBody())
+                }
             assertEquals(HttpStatusCode.Conflict, second.status)
             val rejected =
                 json.decodeFromString(
@@ -169,9 +234,15 @@ class DeckApiTest {
     fun `an invalid package returns structured problems`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
 
             val notAZip = File("build/not-a-package.zip").apply { writeText("not a zip at all") }
-            val response = client.post("/api/decks/import") { setBody(uploadBody(notAZip)) }
+            val response =
+                client.post("/api/decks/import") {
+                    authed()
+                    setBody(uploadBody(notAZip))
+                }
 
             assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
             val rejected =
@@ -190,13 +261,19 @@ class DeckApiTest {
     fun `import can be disabled`() =
         testApplication {
             application { module(config(importEnabled = false)) }
+            seedUser()
+            signIn()
 
-            val response = client.post("/api/decks/import") { setBody(uploadBody()) }
+            val response =
+                client.post("/api/decks/import") {
+                    authed()
+                    setBody(uploadBody())
+                }
             assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
             assertTrue(response.bodyAsText().contains("IMPORT_DISABLED"))
 
             // Reading stays available: disabling MUTATION is the point.
-            assertEquals(HttpStatusCode.OK, client.get("/api/decks").status)
+            assertEquals(HttpStatusCode.OK, client.get("/api/decks") { authed() }.status)
         }
 
     /**
@@ -209,6 +286,8 @@ class DeckApiTest {
     fun `an asset id cannot be used to escape the art directory`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
 
             for (id in listOf(
                 "../../../etc/passwd",
@@ -217,7 +296,7 @@ class DeckApiTest {
                 "a".repeat(63),
                 "A".repeat(64),
             )) {
-                val response = client.get("/api/decks/${java.util.UUID.randomUUID()}/assets/$id")
+                val response = client.get("/api/decks/${java.util.UUID.randomUUID()}/assets/$id") { authed() }
                 assertTrue(
                     response.status == HttpStatusCode.BadRequest ||
                         response.status == HttpStatusCode.NotFound,
@@ -235,17 +314,22 @@ class DeckApiTest {
     fun `deleting a deck removes it without touching shared art`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
 
             val deckId =
                 json.decodeFromString(
                     ImportAcceptedResponse.serializer(),
-                    client.post("/api/decks/import") { setBody(uploadBody()) }.bodyAsText(),
+                    client.post("/api/decks/import") {
+                        authed()
+                        setBody(uploadBody())
+                    }.bodyAsText(),
                 ).deckId
 
-            assertEquals(HttpStatusCode.NoContent, client.delete("/api/decks/$deckId").status)
-            assertEquals(HttpStatusCode.NotFound, client.get("/api/decks/$deckId").status)
+            assertEquals(HttpStatusCode.NoContent, client.delete("/api/decks/$deckId") { authed() }.status)
+            assertEquals(HttpStatusCode.NotFound, client.get("/api/decks/$deckId") { authed() }.status)
             // Deleting twice is a 404, not a 500.
-            assertEquals(HttpStatusCode.NotFound, client.delete("/api/decks/$deckId").status)
+            assertEquals(HttpStatusCode.NotFound, client.delete("/api/decks/$deckId") { authed() }.status)
 
             // The art survives: it is content-addressed and another deck
             // may be using it (§2.135, §2.60).
@@ -259,10 +343,12 @@ class DeckApiTest {
     fun `an unknown deck id is a 404 and a malformed one is a 400`() =
         testApplication {
             application { module(config()) }
+            seedUser()
+            signIn()
             assertEquals(
                 HttpStatusCode.NotFound,
-                client.get("/api/decks/${java.util.UUID.randomUUID()}").status,
+                client.get("/api/decks/${java.util.UUID.randomUUID()}") { authed() }.status,
             )
-            assertEquals(HttpStatusCode.BadRequest, client.get("/api/decks/not-a-uuid").status)
+            assertEquals(HttpStatusCode.BadRequest, client.get("/api/decks/not-a-uuid") { authed() }.status)
         }
 }

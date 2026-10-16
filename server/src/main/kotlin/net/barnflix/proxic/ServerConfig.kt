@@ -41,6 +41,32 @@ data class ServerConfig(
      * require deploying a different build.
      */
     val deckImportEnabled: Boolean = true,
+    /**
+     * The public origin, for the CSRF origin check (PHASE_03 §3.53).
+     *
+     * Configured rather than scattered through the code, because
+     * the hostname changed once already: the specification said
+     * arena.barnflix.net and the deployment is proxic.barnflix.net
+     * (PHASE 2 AMENDMENT 1... actually AMENDMENT 1 of Phase 1's
+     * sibling set — see PHASE_01_AMENDMENTS.md).
+     */
+    val publicOrigin: String = "https://proxic.barnflix.net",
+    /**
+     * Whether auth cookies carry `Secure` (§3.22, §3.23).
+     *
+     * True everywhere by default, INCLUDING behind the tunnel whose
+     * origin leg is plain HTTP — §3.23 is explicit that the
+     * attribute must not be dropped for that reason.
+     *
+     * The consequence, decided by the owner as D2: logging in over
+     * `http://<unraid-ip>:8765` cannot work, because a Secure
+     * cookie is not sent over HTTP. That LAN port stays for
+     * diagnostics; sessions are tunnel-only.
+     *
+     * Tests set this false, because the Ktor test engine is not
+     * HTTPS and would otherwise drop every cookie.
+     */
+    val secureCookies: Boolean = true,
     private val sessionSecretValue: String? = null,
     private val databasePasswordValue: String? = null,
     val databaseUserValue: String? = null,
@@ -109,6 +135,9 @@ data class ServerConfig(
                         ?: Limits.MAX_SYSTEM_CONNECTIONS,
                 deckImportEnabled =
                     getenv("DECK_IMPORT_ENABLED")?.toBooleanStrictOrNull() ?: true,
+                publicOrigin = getenv("PUBLIC_BASE_URL") ?: "https://proxic.barnflix.net",
+                secureCookies =
+                    getenv("PROXIC_SECURE_COOKIES")?.toBooleanStrictOrNull() ?: true,
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),

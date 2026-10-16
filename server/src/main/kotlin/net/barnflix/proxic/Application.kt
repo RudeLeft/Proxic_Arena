@@ -17,6 +17,10 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
+import net.barnflix.proxic.auth.Principal
+import net.barnflix.proxic.auth.authRoutes
+import net.barnflix.proxic.auth.csrfOk
+import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.deck.deckRoutes
 import org.slf4j.event.Level
 import java.io.File
@@ -60,6 +64,10 @@ fun main() {
         module(config)
     }.start(wait = true)
 }
+
+/** The authenticated caller, once a route has established one. */
+val PRINCIPAL_KEY: io.ktor.util.AttributeKey<Principal> =
+    io.ktor.util.AttributeKey("proxic.principal")
 
 /** Counts connections so logs can be correlated (§1.30). */
 private val connectionSequence = AtomicLong(0)
@@ -263,7 +271,31 @@ private fun Application.installRoutes(
         // never configured to store decks.
         val database = dependencies.database
         if (database != null) {
+            val sessions = net.barnflix.proxic.auth.Sessions(database.dataSource())
+            val accounts = net.barnflix.proxic.auth.Accounts(database.dataSource(), sessions)
+            val throttle = net.barnflix.proxic.auth.LoginThrottle()
+
             route("/api") {
+                authRoutes(config, accounts, sessions, throttle)
+            }
+
+            route("/api") {
+                // PHASE 3 AMENDMENT 1 (owner decision D1): every
+                // deck endpoint requires a session. This ends the
+                // anonymous access PHASE 2 AMENDMENT 1 allowed,
+                // which existed only because there was no
+                // authentication to require.
+                //
+                // Decks remain UNOWNED (§3.86): any signed-in user
+                // sees all of them, and none belong to anybody
+                // until Phase 4.
+                intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
+                    if (!call.request.path().startsWith("/api/decks")) return@intercept
+                    val principal = call.requireAuth(sessions) ?: return@intercept finish()
+                    if (!call.csrfOk(config)) return@intercept finish()
+                    call.attributes.put(PRINCIPAL_KEY, principal)
+                }
+
                 deckRoutes(
                     config = config,
                     dataSource = database.dataSource(),
