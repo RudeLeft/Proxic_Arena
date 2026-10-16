@@ -123,6 +123,17 @@ Open Format exemption test: card.getRules().getType().isBasicLand()
 Nothing of that kind appears in the Mechanics Lab corpus today, but
 Open Format allows any card, so one will eventually be imported.
 
+**CONFIRMED by the owner, 2026-10-15.** Asked directly whether
+"any number" cards should be exempt from the 4-copy limit, the
+answer was **no — 4 copies max, no exceptions**. This was previously
+an inference from how the format was described; it is now a
+decision. The rule stays explainable in one sentence: four of any
+card, unlimited basic lands.
+
+A deck containing five Relentless Rats is therefore INVALID in Open
+Format, and the import must say so plainly rather than silently
+trimming it.
+
 **Open question (small):** should those cards be exempt after all?
 Default, pending a decision, is **no** — the literal reading of the
 rule as given.

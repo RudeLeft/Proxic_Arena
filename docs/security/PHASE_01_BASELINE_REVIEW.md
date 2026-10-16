@@ -153,9 +153,18 @@ worker still spawns a child JVM under the read-only root.
 
 - **Cloudflare (4, 5)** — unverified until deployment.
 - **No authentication** — §1.101 forbids it in Phase 1. Until Phase
-  3, anyone who can reach the server can use it. That is acceptable
-  only because nothing is behind it yet, and it stops being
-  acceptable the moment Phase 2 stores a deck.
+  3, anyone who can reach the server can use it.
+
+  **Owner decision, 2026-10-15: accepted.** Offered Cloudflare
+  Access as a stopgap, the owner chose to leave the hostname open:
+  it is not published anywhere, and the data is their own.
+
+  Recorded as an accepted risk rather than an open gap. What it
+  means concretely once Phase 2 ships: anyone who learns the
+  hostname can upload deck packages, which consumes disk and
+  creates rows nobody asked for. It is not a path to the host or to
+  the database, both of which stay private. Worth revisiting if the
+  hostname is ever shared, linked or indexed.
 - **No audit logging** — no phase has asked for it yet.
 - **Postgres root filesystem is writable** — the image needs it;
   revisit if a hardened variant is adopted.
