@@ -3,8 +3,8 @@
 PHASE_04 §4.172. Run 2026-10-16 against the local stack and the test
 suites that drive it.
 
-**25 of 26 pass. 1 is blocked on the production deployment and is not
-claimed here.**
+**26 of 26 pass.** 25 here; P4-Y was run by the owner on the real
+host and is recorded at the end of this document.
 
 Three accounts carry the suites — an owner, a recipient and a
 stranger — plus a fourth that is party to nothing, because with three
@@ -41,7 +41,7 @@ recipient. That mistake was live in a test until the §4.171 audit.
 | P4-V Storage layout preservation | **PASS** (as amended) |
 | P4-W CSRF | **PASS** |
 | P4-X Two-user browser workflow | **PASS** |
-| P4-Y Production Deck Depot | **BLOCKED** — needs the deployment |
+| P4-Y Production Deck Depot | **PASS** — on the host, see PRODUCTION below |
 | P4-Z Project integrity | **PASS** (one pre-existing deletion, owner decided) |
 
 ---
@@ -207,18 +207,63 @@ Phase 3. Nothing there was touched today, and the owner decided on
 
 ---
 
-## Blocked on deployment
+---
 
-**P4-Y — Production Deck Depot.** Through
-`https://proxic.barnflix.net`: upload as the owner, confirm privacy
-from a second account, share, view, revoke. It needs the Phase 4
-build on the host, which by agreement happens at the gate rather than
-mid-build.
+# PRODUCTION — P4-Y
 
-Two things will change on that host the moment `V004` and `V005`
-apply:
+Deployed 2026-10-16 to the Unraid host and driven through
+`https://proxic.barnflix.net` by the owner.
 
-- the existing deck becomes **owned** by `RudeLeft` and `GET
-  /api/decks` stops returning anything else;
-- a second account must exist for the sharing half of P4-Y, created
-  with `arena-admin` as `RudeLeft` was.
+## The migrations, on real data
+
+```text
+Migrating schema "public" to version "004 - deck ownership"
+Migrating schema "public" to version "005 - per owner package uniqueness"
+flyway applied=2 target=005
+```
+
+`V004` assigned the deck that already existed there to `RudeLeft`
+(owner decision D1) — the second time that migration has run against
+live data rather than a fixture, after the development stack.
+
+## The arc, confirmed by the owner
+
+```text
+shared the deck with Pat
+signed in as Pat        -> the deck is there
+revoked the share
+signed in as Pat again  -> the deck is gone
+```
+
+Two accounts, two sessions, one real server behind a Cloudflare
+tunnel. Access appeared when a share was created and disappeared when
+it was revoked, with nothing cached in between.
+
+What the owner verified is the access arc. The finer points of the
+recipient's view — no share panel, no delete control (§4.71) — are
+covered by the two-user Playwright run against the local stack rather
+than by hand here, and this document does not claim otherwise.
+
+## Deployment notes worth keeping
+
+**`up --build` can leave the old container running.** The build
+rebuilt the image and Compose reported the container `Running`
+rather than recreating it, so the host served the previous bundle
+while holding the current image. `--force-recreate` is the reliable
+form, and `pull_policy: build` closes only the build half of that
+trap.
+
+**Diagnose from the thing, not from the inference.** Cached `COPY`
+layers were read here as proof that the build context was wrong; they
+were not. An earlier build had legitimately included the new sources,
+and the readings that said "still the old bundle" were taken before
+the container was recreated. The one measurement that settled it was
+asking the image directly:
+
+```bash
+docker run --rm --entrypoint sh proxic-arena-arena-server:latest   -c 'grep -lc "Deck Depot" /app/frontend/dist/assets/*.js'
+```
+
+**`/api/version` cannot answer "what is deployed?".** Its `buildId`
+is null, so the only honest signal was the frontend bundle hash. That
+is a gap, and it is carried into the Phase 5 proposals.

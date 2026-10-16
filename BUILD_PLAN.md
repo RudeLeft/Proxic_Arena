@@ -16,7 +16,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 1 | Application Foundation | **COMPLETE** 2026-10-15 — gate PASSED, deployed and verified at `https://proxic.barnflix.net` | `PHASE_01_APPLICATION_FOUNDATION_LOCKED.md` |
 | 2 | Deck Package Import | **COMPLETE** 2026-10-15 — gate PASSED, 20/20 acceptance tests | `PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` |
 | 3 | Accounts & Authentication | **COMPLETE** 2026-10-16 — gate PASSED, deployed and signed into at `https://proxic.barnflix.net` | `PHASE_03_ACCOUNTS_AUTHENTICATION_LOCKED.md` |
-| 4 | Deck Depot | **IN BUILD** 2026-10-16 — ownership, sharing and documentation complete; 4 amendments; gate pending | `PHASE_04_DECK_DEPOT_LOCKED.md` |
+| 4 | Deck Depot | **COMPLETE** 2026-10-16 — gate PASSED, deployed; a deck shared and revoked between two accounts on the live host | `PHASE_04_DECK_DEPOT_LOCKED.md` |
 | 5 | Lobby, Game Rooms, Match Setup | PROVISIONAL | `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_PROVISIONAL.md` |
 | 6 | Forge Match Runtime & Game Protocol | PROVISIONAL | `PHASE_06_FORGE_MATCH_RUNTIME_AUTHORITATIVE_GAME_PROTOCOL_PROVISIONAL.md` |
 | 7 | Battlefield Presentation & Interaction | DRAFT (6 open questions, §7.51) | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md` |
