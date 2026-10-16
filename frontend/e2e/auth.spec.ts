@@ -102,7 +102,34 @@ test("visiting login while signed in goes to the app", async ({ page }) => {
 test("signing out ends the session and protects the page again", async ({ page }) => {
   await signIn(page);
   await page.goto("/account");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  // exact: the account page now also has "Sign out everywhere".
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+
+  await page.goto("/decks");
+  await expect(page).toHaveURL(/\/login/);
+});
+
+test("sign out everywhere ends sessions in other browsers too", async ({ browser, page }) => {
+  // §3.34, P3-I. Two independent contexts are two independent
+  // cookie jars, which is the only honest way to prove this from a
+  // browser: a one-context test cannot tell "ended every session"
+  // from "ended mine".
+  const other = await browser.newContext();
+  const otherPage = await other.newPage();
+  await signIn(otherPage);
+  await otherPage.goto("/decks");
+  await expect(otherPage.getByText("Proxic Deck Builder")).toBeVisible();
+
+  await signIn(page);
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await expect(page.getByText(/Signed out of \d+ session/)).toBeVisible();
+
+  // The OTHER browser is now signed out, which it finds out on its
+  // next request rather than being told.
+  await otherPage.goto("/decks");
+  await expect(otherPage).toHaveURL(/\/login/);
+  await other.close();
 
   await page.goto("/decks");
   await expect(page).toHaveURL(/\/login/);

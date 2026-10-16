@@ -280,6 +280,19 @@ private fun Application.installRoutes(
             val accounts = net.barnflix.proxic.auth.Accounts(database.dataSource(), sessions)
             val throttle = net.barnflix.proxic.auth.LoginThrottle()
 
+            // §3.90 -- expired rows are swept on a timer. The gate
+            // audit found the purge existed and was never called.
+            val maintenance =
+                net.barnflix.proxic.auth.SessionMaintenance(
+                    sessions,
+                    throttle,
+                    this@installRoutes.log,
+                )
+            maintenance.start()
+            this@installRoutes.environment.monitor.subscribe(ApplicationStopped) {
+                maintenance.stop()
+            }
+
             route("/api") {
                 authRoutes(config, accounts, sessions, throttle)
             }

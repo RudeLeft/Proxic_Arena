@@ -1,7 +1,5 @@
 package net.barnflix.proxic.auth
 
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
@@ -43,6 +41,9 @@ data class UserView(
 data class MeResponse(val authenticated: Boolean, val user: UserView? = null)
 
 @Serializable
+data class LogoutAllResponse(val revokedSessions: Int)
+
+@Serializable
 data class DisplayNameRequest(val displayName: String = "")
 
 @Serializable
@@ -50,107 +51,6 @@ data class PasswordChangeRequest(
     val currentPassword: String = "",
     val newPassword: String = "",
 )
-
-/** The principal for this call, or null (§3.38). */
-suspend fun ApplicationCall.principal(sessions: Sessions): Principal? {
-    val token = request.cookies[SESSION_COOKIE] ?: return null
-    return sessions.authenticate(token)
-}
-
-/**
- * Require a session, or answer 401 and return null.
- *
- * §3.43: unauthenticated is 401. Not 403, which means "I know who
- * you are and you still may not", and not a redirect, which an API
- * client cannot follow usefully.
- */
-suspend fun ApplicationCall.requireAuth(sessions: Sessions): Principal? {
-    val principal = principal(sessions)
-    if (principal == null) {
-        respond(
-            HttpStatusCode.Unauthorized,
-            ErrorResponse("UNAUTHENTICATED", "Sign in to continue.", null),
-        )
-    }
-    return principal
-}
-
-/**
- * §3.50–§3.53 — CSRF, plus an origin check.
- *
- * Double-submit: the token is in a readable cookie AND must be
- * echoed in a header. A cross-site attacker can cause the cookie to
- * be SENT but cannot read it to set the header, because the browser
- * refuses cross-origin reads.
- *
- * The origin check is a second, independent gate. Either alone has
- * known weaknesses; together they cover each other.
- *
- * Returns true when the request may proceed; otherwise it has
- * already been answered.
- */
-suspend fun ApplicationCall.csrfOk(config: ServerConfig): Boolean {
-    if (request.local.method !in MUTATING_METHODS) return true
-
-    // §3.53 — the configured origin, or this request's own.
-    if (!originAcceptable(config)) {
-        respond(
-            HttpStatusCode.Forbidden,
-            ErrorResponse("BAD_ORIGIN", "That request came from an unexpected origin.", null),
-        )
-        return false
-    }
-
-    val cookie = request.cookies[CSRF_COOKIE]
-    val header = request.header(CSRF_HEADER)
-    // §3.51 — header only. A token accepted from a query string
-    // ends up in logs, referrers and browser history.
-    if (cookie.isNullOrBlank() || header.isNullOrBlank() || cookie != header) {
-        respond(
-            HttpStatusCode.Forbidden,
-            ErrorResponse("CSRF_FAILED", "That request could not be verified.", null),
-        )
-        return false
-    }
-    return true
-}
-
-private val MUTATING_METHODS =
-    setOf(
-        HttpMethod.Post,
-        HttpMethod.Put,
-        HttpMethod.Patch,
-        HttpMethod.Delete,
-    )
-
-/**
- * Is this request's `Origin` acceptable? (§3.53)
- *
- * Accepted when there is no Origin at all (a non-browser client,
- * which CSRF does not apply to), when it matches the configured
- * public origin, or when it matches THE ORIGIN THIS REQUEST WAS
- * SENT TO — which is the definition of same-origin.
- *
- * The last case is not a loosening. The first version compared only
- * against the configured origin, so the page served from
- * http://127.0.0.1:8080 could not log in to the server at
- * http://127.0.0.1:8080: every request from the application itself
- * was refused as foreign. It failed identically on the LAN port and
- * would fail on any future host.
- *
- * Found by a browser test, after the server suite passed: the test
- * engine sends no Origin header, so nothing below the browser could
- * have caught it.
- */
-private fun ApplicationCall.originAcceptable(config: ServerConfig): Boolean {
-    val origin = request.header(HttpHeaders.Origin) ?: return true
-    if (origin == config.publicOrigin) return true
-
-    val host = request.header(HttpHeaders.Host) ?: return false
-    // A browser's Origin carries no port when it is the default for
-    // the scheme, so both forms are compared.
-    return origin == "http://$host" || origin == "https://$host"
-}
 
 fun Route.authRoutes(
     config: ServerConfig,
@@ -227,6 +127,27 @@ fun Route.authRoutes(
             call.respond(HttpStatusCode.NoContent)
         }
 
+        post("/logout-all") {
+            // §3.34 -- end every session this user holds, on every
+            // device, including this one.
+            //
+            // Distinct from /logout, which ends only the session
+            // that made the request. This is what someone reaches
+            // for after using a shared computer, and the whole point
+            // is that it reaches the sessions they can no longer
+            // get at.
+            //
+            // It mutates, so it is behind CSRF; and it needs a
+            // session, because "revoke everything" must name WHOSE
+            // everything, and the only trustworthy answer is the
+            // caller's own session (never a username in the body).
+            if (!call.csrfOk(config)) return@post
+            val principal = call.requireAuth(sessions) ?: return@post
+            val revoked = sessions.revokeAllForUser(principal.user.userId)
+            call.clearSession(config)
+            call.respond(LogoutAllResponse(revoked))
+        }
+
         get("/me") {
             // §3.49 — an unauthenticated caller gets a documented
             // answer, not a 401. The page uses this to decide
@@ -242,64 +163,16 @@ fun Route.authRoutes(
             )
         }
 
-        post("/password") {
-            // §3.35, §3.36.
-            if (!call.csrfOk(config)) return@post
-            val principal = call.requireAuth(sessions) ?: return@post
-            val body =
-                runCatching { call.receive<PasswordChangeRequest>() }.getOrNull()
-                    ?: return@post call.respond(
-                        HttpStatusCode.BadRequest,
-                        ErrorResponse("INVALID_REQUEST", "Expected a current and new password.", null),
-                    )
-
-            // The current password is re-verified even though the
-            // caller is authenticated: a borrowed session must not
-            // be enough to take the account.
-            if (accounts.login(principal.user.username, body.currentPassword) !is LoginResult.Success) {
-                return@post call.respond(
-                    HttpStatusCode.Unauthorized,
-                    ErrorResponse("INVALID_CREDENTIALS", "That password is not correct.", null),
-                )
-            }
-            PasswordHasher.rejectionReason(body.newPassword)?.let { reason ->
-                return@post call.respond(
-                    HttpStatusCode.UnprocessableEntity,
-                    ErrorResponse("WEAK_PASSWORD", reason, null),
-                )
-            }
-
-            accounts.changePassword(principal.user.userId, body.newPassword)
-            // Every session died, including this one (§3.36), so the
-            // cookie is cleared rather than left pointing at a
-            // revoked session.
-            call.clearSession(config)
-            call.respond(HttpStatusCode.NoContent)
-        }
-
-        post("/display-name") {
-            if (!call.csrfOk(config)) return@post
-            val principal = call.requireAuth(sessions) ?: return@post
-            val body =
-                runCatching { call.receive<DisplayNameRequest>() }.getOrNull()
-                    ?: return@post call.respond(
-                        HttpStatusCode.BadRequest,
-                        ErrorResponse("INVALID_REQUEST", "Expected a display name.", null),
-                    )
-            val name = body.displayName.trim()
-            if (name.isEmpty() || name.length > 64) {
-                return@post call.respond(
-                    HttpStatusCode.UnprocessableEntity,
-                    ErrorResponse("INVALID_DISPLAY_NAME", "A display name is 1 to 64 characters.", null),
-                )
-            }
-            accounts.updateDisplayName(principal.user.userId, name)
-            call.respond(MeResponse(true, principal.user.copy(displayName = name).view()))
-        }
+        // §3.35-§3.38 -- the routes that change an account live
+        // in AccountRoutes.kt. Split out when detekt found this
+        // function past its complexity threshold: the answer to a
+        // route table that has outgrown one function is a second
+        // function, not a higher threshold.
+        accountRoutes(config, accounts, sessions)
     }
 }
 
-private fun User.view() =
+internal fun User.view() =
     UserView(
         userId = userId.toString(),
         username = username,
@@ -338,7 +211,7 @@ private fun ApplicationCall.issueSession(
     setSessionCookie(config, CSRF_COOKIE, SessionTokens.generate(), httpOnly = false)
 }
 
-private fun ApplicationCall.clearSession(config: ServerConfig) {
+internal fun ApplicationCall.clearSession(config: ServerConfig) {
     for (name in listOf(SESSION_COOKIE, CSRF_COOKIE)) {
         response.cookies.append(
             name = name,

@@ -303,5 +303,13 @@ Changing a password at `/account` revokes **every** session for that
 user, including the browser doing it. The page says so and signs you
 out a moment later; that is the rule working, not a crash.
 
-There is no separate "sign out other devices" button. Changing the
-password is that button.
+There is also a **Sign out everywhere** button on `/account`, which
+ends every session without changing the password. It reports how many
+it ended; if it says it could not, sessions elsewhere are still live
+and it is worth retrying rather than assuming.
+
+An administrator can do the same from the host:
+
+```bash
+docker compose exec arena-server /app/bin/arena-admin revoke-sessions RudeLeft
+```

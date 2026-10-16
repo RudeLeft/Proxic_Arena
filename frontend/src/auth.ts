@@ -159,6 +159,24 @@ export async function logout(fetchFn: typeof fetch = fetch): Promise<void> {
  * person to login with a message, rather than showing an error that
  * looks like the feature is broken.
  */
+/**
+ * §3.34 — end every session, on every device, including this one.
+ *
+ * Not best-effort, unlike `logout`: if this fails, sessions
+ * elsewhere are still live and saying "signed out everywhere" would
+ * be a lie. The caller is told so it can say something true.
+ */
+export async function logoutEverywhere(fetchFn: typeof fetch = fetch): Promise<number | null> {
+  try {
+    const response = await apiFetch("/api/auth/logout-all", { method: "POST" }, fetchFn);
+    if (!response.ok) return null;
+    const body = (await response.json()) as { revokedSessions?: number };
+    return body.revokedSessions ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 export function isSessionExpired(response: Response): boolean {
   return response.status === 401;
 }

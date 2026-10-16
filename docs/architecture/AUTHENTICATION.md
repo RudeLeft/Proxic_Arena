@@ -219,6 +219,7 @@ limit is a brake on guessing, not a distributed defence.
 ```text
 POST /api/auth/login          username + password -> session
 POST /api/auth/logout         ends this session; quiet success if none
+POST /api/auth/logout-all     ends EVERY session this user holds
 GET  /api/auth/me             who am I (200 with a null user if nobody)
 POST /api/auth/password       change password; revokes EVERY session
 POST /api/auth/display-name   change display name
@@ -233,6 +234,13 @@ the request** (§3.36). That is the point: a password is changed
 because it may be compromised, and leaving other sessions alive would
 defeat the change. The account page says so before it happens, so
 being signed out does not look like a bug.
+
+`/api/auth/logout-all` is what someone reaches for after using a
+shared computer. It needs a session, because "revoke everything" must
+name *whose* everything and the only trustworthy answer is the
+caller's own session — never a username in the body. It reports how
+many sessions it ended, so the page can say something true rather
+than a reassuring guess.
 
 The login response never contains the token — it is set as a cookie
 and nowhere else, which a test asserts directly.
@@ -272,6 +280,30 @@ reads it from stdin instead, which is the automation path.
 
 The first administrator is created this way; see
 `docs/deployment/UNRAID_CHECKLIST.md`.
+
+---
+
+## Expired-session cleanup
+
+A background sweep every 6 hours deletes `user_session` rows **30
+days past expiry** and evicts stale throttle entries. The first run
+is 5 minutes after boot, because startup is the busiest moment the
+server has.
+
+It is housekeeping, not security: `authenticate` already refuses
+expired, revoked and disabled sessions, so if the sweep stopped
+running the only consequence would be a larger table. Rows are kept
+long past expiry on purpose — the row is the record that the session
+existed.
+
+The sweep catches its own exceptions, because
+`scheduleWithFixedDelay` silently stops rescheduling a task that
+throws: one transient database error would otherwise end cleanup for
+the lifetime of the process.
+
+> Found during the Phase 3 gate audit: the purge and the throttle
+> eviction were both implemented, both tested, and neither was ever
+> called. A cleanup function nothing runs is not cleanup.
 
 ---
 

@@ -380,6 +380,89 @@ class AuthApiTest {
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         }
 
+    // --- logout-all (§3.34) -----------------------------------------
+
+    /**
+     * P3-I — every session, not just this one.
+     *
+     * Three sessions are opened deliberately: a "logout-all" that
+     * only ended the caller's own session would pass a one-session
+     * test and leave the shared computer signed in, which is the
+     * exact situation the button exists for.
+     */
+    @Test
+    fun `logout-all ends every session this user holds`() =
+        testApplication {
+            seedUser()
+            application { module(config()) }
+
+            val first = login().cookie(SESSION_COOKIE)!!
+            val second = login().cookie(SESSION_COOKIE)!!
+            val third = login()
+            val thirdSession = third.cookie(SESSION_COOKIE)!!
+            val csrf = third.cookie(CSRF_COOKIE)!!
+
+            val response =
+                client.post("/api/auth/logout-all") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$thirdSession; $CSRF_COOKIE=$csrf")
+                    header(CSRF_HEADER, csrf)
+                }
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            assertTrue(response.bodyAsText().contains("3"), response.bodyAsText())
+
+            // Every one of them, including the caller's own.
+            for ((label, token) in listOf("first" to first, "second" to second, "third" to thirdSession)) {
+                val me =
+                    client.get("/api/auth/me") {
+                        header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
+                    }
+                assertTrue(
+                    me.bodyAsText().contains("\"authenticated\":false"),
+                    "$label session still works: ${me.bodyAsText()}",
+                )
+            }
+        }
+
+    @Test
+    fun `logout-all needs a session and a CSRF token`() =
+        testApplication {
+            // The negative controls. An endpoint that revokes
+            // everything must not be reachable by a cross-site form,
+            // and must not be usable to revoke somebody else.
+            seedUser()
+            application { module(config()) }
+
+            // 403, not 401: the CSRF gate runs BEFORE authentication,
+            // so a request with no cookies at all is refused as
+            // cross-site before anyone asks who it is. That order is
+            // deliberate -- it is cheaper, and it means an
+            // unauthenticated mutating request never reaches code
+            // that could act on it.
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                client.post("/api/auth/logout-all").status,
+            )
+
+            val response = login()
+            val session = response.cookie(SESSION_COOKIE)!!
+            val csrf = response.cookie(CSRF_COOKIE)!!
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                client.post("/api/auth/logout-all") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session; $CSRF_COOKIE=$csrf")
+                }.status,
+                "no CSRF header should be refused",
+            )
+
+            // ...and the session still works, because a refused
+            // request must change nothing.
+            assertTrue(
+                client.get("/api/auth/me") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session")
+                }.bodyAsText().contains("RudeLeft"),
+            )
+        }
+
     /**
      * §3.99-§3.102 on an authentication failure.
      *

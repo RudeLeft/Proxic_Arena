@@ -89,7 +89,7 @@ export function LoginPage() {
 }
 
 export function AccountPage() {
-  const { state, signOut, setUser } = useAuth();
+  const { state, signOut, signOutEverywhere, setUser } = useAuth();
   const [displayName, setDisplayName] = useState(
     state.status === "authenticated" ? state.user.displayName : "",
   );
@@ -201,6 +201,33 @@ export function AccountPage() {
         <button type="button" onClick={() => void signOut()}>
           Sign out
         </button>
+
+        {/* §3.34 — the thing to reach for after a shared computer.
+            Separate from Sign out, because the difference matters:
+            one ends this session, the other ends the ones you can no
+            longer get at. */}
+        <button
+          type="button"
+          onClick={() => {
+            void (async () => {
+              const revoked = await signOutEverywhere();
+              if (revoked === null) {
+                // Saying "signed out everywhere" when the call
+                // failed would be a lie about security, and the
+                // sessions elsewhere really are still live.
+                setMessage("Those sessions could not be ended. Try again.");
+                return;
+              }
+              setMessage(`Signed out of ${revoked} session(s) everywhere.`);
+              window.setTimeout(() => void signOut(), 1200);
+            })();
+          }}
+        >
+          Sign out everywhere
+        </button>
+        <p className="hint">
+          Ends every session on every device, including this one.
+        </p>
       </section>
     </main>
   );

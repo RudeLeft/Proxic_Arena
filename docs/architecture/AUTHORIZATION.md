@@ -58,6 +58,7 @@ to `/login` itself.
 | `POST /api/auth/login`, `/logout` | anyone |
 | `GET /api/auth/me` | anyone (answers "nobody") |
 | `POST /api/auth/password`, `/display-name` | the signed-in user |
+| `POST /api/auth/logout-all` | the signed-in user, for their own sessions only |
 | **every** `/api/decks` route | any signed-in user |
 | `GET /ws/user` | any signed-in user |
 
@@ -126,9 +127,11 @@ Where a later phase would attach, and what already exists for it:
 - **Per-deck or per-match ownership.** `Principal` carries `userId`;
   nothing stores it against a deck yet. This is the schema change
   that unowned decks defer.
-- **Admin HTTP surface.** `Role` is resolved on every request and
-  available at every route; a `requireAdmin` gate would be a few
-  lines. None is written because nothing needs it.
+- **Admin HTTP surface.** `call.requireAdmin(sessions)` exists and is
+  tested — 401 for nobody, 403 for a signed-in player, through for an
+  admin — but **no route uses it**, because account administration
+  lives in `arena-admin` behind host access. The gate is written so
+  that the first admin endpoint cannot be added without one.
 - **Per-match authorization** (Phase 6). Seat and priority rules
   belong to the match, not to the role. The rule that holds now —
   the server decides, the client never asserts — is what those rules

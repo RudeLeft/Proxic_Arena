@@ -14,6 +14,7 @@ import {
   fetchAuthState,
   login as loginRequest,
   logout as logoutRequest,
+  logoutEverywhere,
   safeReturnPath,
   type AuthState,
   type AuthUser,
@@ -23,6 +24,8 @@ interface AuthContextValue {
   state: AuthState;
   signIn: (username: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** §3.34 — sign out everywhere. Returns the count, or null if it failed. */
+  signOutEverywhere: () => Promise<number | null>;
   /** Called when any API answers 401 while the page is open (§3.74). */
   sessionExpired: () => void;
   setUser: (user: AuthUser) => void;
@@ -60,6 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "anonymous" });
   }, []);
 
+  const signOutEverywhere = useCallback(async () => {
+    // Deliberately does NOT flip state here, matching the password
+    // change: this session is already dead server-side, and flipping
+    // immediately unmounts the page before it can tell the user what
+    // happened. The caller says its piece, then calls signOut.
+    return await logoutEverywhere();
+  }, []);
+
   const sessionExpired = useCallback(() => {
     setState({ status: "anonymous", reason: "expired" });
   }, []);
@@ -69,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ state, signIn, signOut, sessionExpired, setUser }),
-    [state, signIn, signOut, sessionExpired, setUser],
+    () => ({ state, signIn, signOut, signOutEverywhere, sessionExpired, setUser }),
+    [state, signIn, signOut, signOutEverywhere, sessionExpired, setUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
