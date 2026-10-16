@@ -368,7 +368,13 @@ private suspend fun ImportContext.handleImport(
             return
         }
 
-        when (val result = importer.import(upload, originalName)) {
+        // §4.52, §4.6 -- the owner comes from the SESSION the Phase 3
+        // intercept already resolved and stashed, never from the
+        // multipart body. A client that can name an owner can give a
+        // deck to somebody else, or take one.
+        val owner = call.attributes[net.barnflix.proxic.PRINCIPAL_KEY].user.userId
+
+        when (val result = importer.import(upload, originalName, owner)) {
             is ImportResult.Imported ->
                 call.respond(
                     HttpStatusCode.Created,

@@ -127,14 +127,17 @@ class DatabaseTest {
                         val tables = buildList { while (rows.next()) add(rows.getString(1)) }
                         // Phase 2: imported_deck, deck_entry, art_asset.
                         // Phase 3: app_user, user_session.
+                        // Phase 4: deck_share. Ownership is a COLUMN
+                        // on imported_deck, not a table -- §4.10.
                         // Still forbidden until their own phases:
-                        // deck ownership, sharing, matches, friends,
-                        // ratings.
+                        // matches, friends, ratings, and anything
+                        // social (§4.89).
                         assertEquals(
                             listOf(
                                 "app_user",
                                 "art_asset",
                                 "deck_entry",
+                                "deck_share",
                                 "imported_deck",
                                 "user_session",
                             ),

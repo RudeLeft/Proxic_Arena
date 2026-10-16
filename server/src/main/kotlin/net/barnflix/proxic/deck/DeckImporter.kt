@@ -44,6 +44,8 @@ sealed interface ImportResult {
  */
 private data class PreparedImport(
     val deckId: UUID,
+    /** §4.52 — bound at import, from the SESSION, never from the request. */
+    val ownerUserId: UUID,
     val displayName: String,
     val sourceFilename: String,
     val checksum: String,
@@ -65,9 +67,18 @@ class DeckImporter(
     /** §2.14 — the manifest shape, so a change can be detected later. */
     private val manifestSchemaVersion = 1
 
+    /**
+     * @param ownerUserId PHASE_04 §4.52, §4.6 -- the authenticated
+     *   caller, resolved from their session by the route. It is a
+     *   required parameter rather than an optional one so that an
+     *   ownerless import cannot be written by accident (§4.53), and
+     *   it is never read from the request body: a client that can
+     *   name the owner can give a deck to somebody else.
+     */
     fun import(
         upload: File,
         originalFilename: String,
+        ownerUserId: UUID,
     ): ImportResult {
         // §2.37 — one isolated staging directory per import, under
         // /data and NEVER /tmp: the production container runs with a
@@ -78,7 +89,7 @@ class DeckImporter(
 
         return try {
             staging.mkdirs()
-            runImport(upload, originalFilename, staging)
+            runImport(upload, originalFilename, staging, ownerUserId)
         } catch (e: Exception) {
             log.error("import {} failed unexpectedly", importId, e)
             ImportResult.Rejected(
@@ -99,6 +110,7 @@ class DeckImporter(
         upload: File,
         originalFilename: String,
         staging: File,
+        ownerUserId: UUID,
     ): ImportResult {
         // 1-3. Structure and limits, before anything is extracted.
         val inspected =
@@ -187,6 +199,7 @@ class DeckImporter(
         return persist(
             PreparedImport(
                 deckId = deckId,
+                ownerUserId = ownerUserId,
                 displayName = deck.declaredName ?: originalFilename.removeSuffix(".zip"),
                 sourceFilename = originalFilename,
                 checksum = checksum,
@@ -245,8 +258,8 @@ class DeckImporter(
                     """
                     INSERT INTO imported_deck
                       (deck_id, display_name, source_filename, package_sha256,
-                       total_cards, distinct_cards, import_schema_version)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                       total_cards, distinct_cards, import_schema_version, owner_user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """.trimIndent(),
                 ).use { statement ->
                     statement.setObject(1, deckId)
@@ -256,6 +269,7 @@ class DeckImporter(
                     statement.setInt(5, deck.totalCards)
                     statement.setInt(6, deck.entries.size)
                     statement.setInt(7, manifestSchemaVersion)
+                    statement.setObject(8, prepared.ownerUserId)
                     statement.executeUpdate()
                 }
 

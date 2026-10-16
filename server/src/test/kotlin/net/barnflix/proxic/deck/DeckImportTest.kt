@@ -33,6 +33,14 @@ class DeckImportTest {
     private lateinit var dataRoot: File
     private lateinit var importer: DeckImporter
 
+    /**
+     * PHASE_04 §4.52 — every deck has an owner, so these tests need
+     * an account. The import API takes the id as a parameter rather
+     * than reading it from a request, which is what makes an
+     * ownerless import impossible to write by accident (§4.53).
+     */
+    private lateinit var owner: java.util.UUID
+
     @BeforeTest
     fun start() {
         assumeTrue(
@@ -64,6 +72,9 @@ class DeckImportTest {
             )
         database = Database.connect(config)!!.also { it.migrate() }
         importer = DeckImporter(config, database!!.dataSource(), CardResolver(config))
+        val accounts = net.barnflix.proxic.auth.Accounts(database!!.dataSource())
+        accounts.createUser("RudeLeft", "a perfectly fine passphrase", net.barnflix.proxic.auth.Role.ADMIN)
+        owner = accounts.findByUsername("RudeLeft")!!.userId
     }
 
     @AfterTest
@@ -83,7 +94,7 @@ class DeckImportTest {
 
     @Test
     fun `the real export imports completely`() {
-        val result = importer.import(realExport, realExport.name)
+        val result = importer.import(realExport, realExport.name, owner)
         assertTrue(result is ImportResult.Imported, "got $result")
         result as ImportResult.Imported
 
@@ -99,7 +110,7 @@ class DeckImportTest {
 
     @Test
     fun `art is written to disk and a display derivative is generated`() {
-        importer.import(realExport, realExport.name)
+        importer.import(realExport, realExport.name, owner)
 
         val store = ArtStore(dataRoot)
         val hashes =
@@ -137,10 +148,10 @@ class DeckImportTest {
     /** The owner's D3 decision, end to end. */
     @Test
     fun `importing the identical package twice is refused`() {
-        val first = importer.import(realExport, realExport.name)
+        val first = importer.import(realExport, realExport.name, owner)
         assertTrue(first is ImportResult.Imported)
 
-        val second = importer.import(realExport, realExport.name)
+        val second = importer.import(realExport, realExport.name, owner)
         assertTrue(second is ImportResult.Duplicate, "got $second")
         assertEquals(
             (first as ImportResult.Imported).deckId,
@@ -167,7 +178,7 @@ class DeckImportTest {
             out.closeEntry()
         }
 
-        val result = importer.import(illegal, illegal.name)
+        val result = importer.import(illegal, illegal.name, owner)
         assertTrue(result is ImportResult.Rejected, "got $result")
         result as ImportResult.Rejected
         assertEquals("DECK_NOT_LEGAL", result.code)
@@ -191,7 +202,7 @@ class DeckImportTest {
             out.closeEntry()
         }
 
-        val result = importer.import(bogus, bogus.name)
+        val result = importer.import(bogus, bogus.name, owner)
         assertTrue(result is ImportResult.Rejected, "got $result")
         result as ImportResult.Rejected
         assertEquals("CARDS_NOT_RESOLVED", result.code)
@@ -212,7 +223,7 @@ class DeckImportTest {
      */
     @Test
     fun `an imported deck becomes a Forge deck with the same cards`() {
-        val result = importer.import(realExport, realExport.name)
+        val result = importer.import(realExport, realExport.name, owner)
         assertTrue(result is ImportResult.Imported, "got $result")
 
         // Read the entries back OUT of the database, so this tests
@@ -307,7 +318,7 @@ class DeckImportTest {
             }
         }
 
-        val result = importer.import(partial, partial.name)
+        val result = importer.import(partial, partial.name, owner)
         assertTrue(result is ImportResult.Imported, "missing art should not fail an import: $result")
         result as ImportResult.Imported
 
@@ -321,7 +332,7 @@ class DeckImportTest {
     /** §2.38 — staging is cleaned up whatever happened. */
     @Test
     fun `no staging directory survives an import`() {
-        importer.import(realExport, realExport.name)
+        importer.import(realExport, realExport.name, owner)
         val staging = File(dataRoot, "temp/deck-imports")
         val leftovers = staging.listFiles()?.toList().orEmpty()
         assertEquals(emptyList(), leftovers, "staging directories were left behind")
@@ -331,7 +342,7 @@ class DeckImportTest {
     fun `art is shared between two decks rather than stored twice`() {
         // The same cards in a different deck: different package, so
         // not a duplicate, but the artwork is identical.
-        importer.import(realExport, realExport.name)
+        importer.import(realExport, realExport.name, owner)
         val artAfterFirst = rowCount("art_asset")
 
         val second = File("build/second-deck.zip")
@@ -355,7 +366,7 @@ class DeckImportTest {
             }
         }
 
-        val result = importer.import(second, second.name)
+        val result = importer.import(second, second.name, owner)
         assertTrue(result is ImportResult.Imported, "got $result")
         assertEquals(2, rowCount("imported_deck"))
         // §2.135: the second deck added no new art rows.

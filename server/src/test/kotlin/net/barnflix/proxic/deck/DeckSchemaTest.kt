@@ -83,17 +83,32 @@ class DeckSchemaTest {
             """
             INSERT INTO imported_deck
               (deck_id, display_name, source_filename, package_sha256,
-               total_cards, distinct_cards, import_schema_version)
-            VALUES (?, ?, ?, ?, 65, 11, 1)
+               total_cards, distinct_cards, import_schema_version, owner_user_id)
+            VALUES (?, ?, ?, ?, 65, 11, 1, ?)
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, id)
             statement.setString(2, name)
             statement.setString(3, "$name.zip")
             statement.setString(4, checksum)
+            // PHASE_04 §4.16 — there is no such thing as an
+            // ownerless deck any more, so even a schema test needs a
+            // user. That constraint is the point of the phase.
+            statement.setObject(5, ownerId())
             statement.executeUpdate()
         }
         return id
+    }
+
+    /** Created on first use; every deck needs an owner (§4.16). */
+    private fun ownerId(): UUID {
+        val accounts = net.barnflix.proxic.auth.Accounts(database!!.dataSource())
+        accounts.findByUsername("RudeLeft")?.let { return it.userId }
+        return accounts.createUser(
+            "RudeLeft",
+            "a perfectly fine passphrase",
+            net.barnflix.proxic.auth.Role.ADMIN,
+        ).userId
     }
 
     private val checksumA = "a".repeat(64)
@@ -115,7 +130,14 @@ class DeckSchemaTest {
             // tags and match history in this phase. Asserting the exact
             // set catches a speculative table as soon as it appears.
             assertEquals(
-                listOf("app_user", "art_asset", "deck_entry", "imported_deck", "user_session"),
+                listOf(
+                    "app_user",
+                    "art_asset",
+                    "deck_entry",
+                    "deck_share",
+                    "imported_deck",
+                    "user_session",
+                ),
                 tables,
             )
         }
