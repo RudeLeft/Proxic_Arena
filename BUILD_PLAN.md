@@ -15,7 +15,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 0B | Forge Deferred Validation | OPEN (trigger register) | `PHASE_00B_FORGE_DEFERRED_VALIDATION_DRAFT.md` |
 | 1 | Application Foundation | **COMPLETE** 2026-10-15 — gate PASSED, deployed and verified at `https://proxic.barnflix.net` | `PHASE_01_APPLICATION_FOUNDATION_LOCKED.md` |
 | 2 | Deck Package Import | **COMPLETE** 2026-10-15 — gate PASSED, 20/20 acceptance tests | `PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` |
-| 3 | Accounts & Authentication | **LOCKED** 2026-10-16 — 3 open owner decisions | `PHASE_03_ACCOUNTS_AUTHENTICATION_LOCKED.md` |
+| 3 | Accounts & Authentication | **IN BUILD** 2026-10-16 — owner decisions answered; implementation and documentation complete, gate pending | `PHASE_03_ACCOUNTS_AUTHENTICATION_LOCKED.md` |
 | 4 | Deck Depot | PROVISIONAL | `PHASE_04_DECK_DEPOT_PROVISIONAL.md` |
 | 5 | Lobby, Game Rooms, Match Setup | PROVISIONAL | `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_PROVISIONAL.md` |
 | 6 | Forge Match Runtime & Game Protocol | PROVISIONAL | `PHASE_06_FORGE_MATCH_RUNTIME_AUTHORITATIVE_GAME_PROTOCOL_PROVISIONAL.md` |
@@ -24,6 +24,12 @@ See `docs/architecture/OPEN_FORMAT.md`.
 Phase 2 added deck import: `docs/architecture/DECK_PACKAGE_FORMAT.md`
 is the Deck Builder contract and `DECK_IMPORT_PIPELINE.md` is how an
 import runs.
+
+Phase 3 added accounts: `docs/architecture/AUTHENTICATION.md` is how
+identity works and `AUTHORIZATION.md` is what an identity may do.
+Owner decisions: **D1** every deck endpoint requires a session,
+**D2** the LAN port stays for diagnostics while login goes through
+the tunnel, **D3** the first administrator is `RudeLeft`.
 
 Accepted architectural facts live in
 `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`; decisions taken

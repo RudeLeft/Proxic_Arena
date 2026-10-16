@@ -67,6 +67,8 @@ you were asked to do, stop and say so.
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
+| `docs/architecture/AUTHENTICATION.md` | How identity works: hashing, sessions, cookies, CSRF, the admin tool. Read before touching anything in `auth/`. |
+| `docs/architecture/AUTHORIZATION.md` | What an identity may do. Decks are UNOWNED; the server never reads a role back from a client. |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
 | `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
 

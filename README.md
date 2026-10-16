@@ -6,11 +6,20 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Current phase: 1 — Application Foundation.** The gate is not yet
-passed; `PHASE_01_EXIT_GATE.md` lists exactly what is proven, what is
-written, and what remains. There is **no gameplay yet**: Phase 1
-builds the server, the page, the database, the Docker stack and the
-Forge worker handshake, and deliberately stops there.
+**Current phase: 3 — Accounts and Authentication.** Phase 1
+(application foundation) and Phase 2 (deck package import) have both
+passed their gates — `PHASE_01_EXIT_GATE.md` and
+`PHASE_02_EXIT_GATE.md` list exactly what is proven. There is **no
+gameplay yet**: the phases so far build the server, the page, the
+database, the Docker stack, the Forge worker handshake, deck import,
+and now accounts, and deliberately stop there.
+
+**Everything except health, version and the status page now requires
+a session.** Accounts are created by an administrator with
+`arena-admin`; there is no self-registration. See
+`docs/architecture/AUTHENTICATION.md`, and
+`docs/troubleshooting/AUTHENTICATION.md` when a login will not
+work.
 
 **One play mode: Open Format** — 60–65 cards, at most 4 copies of any
 one card (basic lands unlimited), no sideboard, 2 players. Commander
@@ -324,7 +333,8 @@ docs/
   architecture/            accepted decisions, layout contract
   decisions/               ADRs
   research/                phase evidence
-  troubleshooting/         FOUNDATION.md
+  troubleshooting/         FOUNDATION.md, DECK_IMPORT.md,
+                           AUTHENTICATION.md
 forge_patches/             empty on purpose; see its README
 spikes/                    Phase 0A measurement harnesses
 ```
@@ -342,6 +352,12 @@ spikes/                    Phase 0A measurement harnesses
 6. `docs/architecture/DECK_PACKAGE_FORMAT.md` — the Deck Builder ↔
    Arena contract, and `DECK_IMPORT_PIPELINE.md` for how an import
    actually runs.
-6. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
+7. `docs/architecture/AUTHENTICATION.md` — who someone is, and
+   `AUTHORIZATION.md` — what they may then do. When a login will not
+   work, `docs/troubleshooting/AUTHENTICATION.md`, which starts with
+   the one thing that catches everybody: sign in through the tunnel,
+   not the LAN port.
+8. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
    `docs/deployment/UNRAID_CHECKLIST.md` — going public through the
-   tunnel. Both written from the specification and **not yet run**.
+   tunnel. Both have since been run against the real host, and
+   carry the three corrections that deployment found.
