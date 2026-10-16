@@ -94,53 +94,115 @@ Owner decision: no fewer than 60, no more than 65, no sideboard.
 
 ---
 
-## Open owner decisions
+## Owner decisions — RESOLVED 2026-10-15
 
-These block implementation of the sections named. Everything else in
-this phase is decided.
+### D1 — Deck import IS enabled in production
 
-### D1 — Is deck import enabled in production? (§2.20, §2.21, §2.108)
+**Decision: yes.** Import runs on `proxic.barnflix.net` without
+authentication.
 
-**This is a genuine conflict and needs your answer.**
+This contradicts §2.20 and §2.21, so it is recorded as **PHASE 2
+AMENDMENT 1** below rather than applied silently (§2.132).
 
-§2.20 states that deck mutation endpoints must not be publicly
-exposed before authentication exists, and §2.21 offers
-`DECK_IMPORT_ENABLED=false` for production. §2.108 requires a test
-proving public mutation is unavailable.
+What it means in practice, stated plainly because the owner should
+be able to change their mind later with the facts in front of them:
+anyone who learns the hostname can upload deck packages. The
+realistic damage is disk consumption and unwanted rows, not access
+to the host or the database — both stay private, the container runs
+non-root with a read-only root filesystem, and PostgreSQL is not
+reachable from outside the Docker network.
 
-On 2026-10-15 the owner accepted leaving `proxic.barnflix.net`
-public without authentication. That decision was made on the
-understanding that the exposure included deck import — it does not,
-because §2.20 forbids it. The accepted risk is therefore smaller
-than described: a stranger who finds the hostname can view the
-foundation page, not upload.
+Two mitigations the specification already requires, which matter
+more now than they would have:
 
-The question that remains:
+- **§2.30 ZIP resource limits** — maximum upload size, uncompressed
+  size, file count and PNG count. These are now the only thing
+  bounding a hostile upload, so they are not optional and must not
+  be generous "just in case".
+- **§2.110 storage measurement** — know how much disk imports
+  consume, so filling it is noticed rather than discovered.
 
-- **(a) Honour §2.20.** Import is disabled in production until Phase
-  3 adds authentication. Decks are imported against a local
-  development stack. Safest, and what the specification says.
-- **(b) Amend §2.20.** Import is enabled in production because this
-  is a single-user deployment on an unpublished hostname. Requires a
-  PHASE 2 AMENDMENT recording the decision, and §2.108's test
-  changes meaning.
-- **(c) Enable it behind Cloudflare Access.** Import works in
-  production, and the edge requires the owner's email first. Keeps
-  §2.20's intent without waiting for Phase 3.
+**§2.108's test changes meaning.** It can no longer assert that
+public mutation is unavailable. It must instead assert that the
+limits in §2.30 are enforced on the public endpoint: an oversized
+archive, a bomb and an over-count package are each refused.
 
-### D2 — What happens to an unresolvable card? (§2.47)
+### D2 — An unresolvable card rejects the whole import
 
-§2.47 requires failed card resolution to be reported, but a deck
-with one unresolvable card out of sixty is a judgement call: reject
-the whole import, or import it flagged as unplayable? Phase 0A's
-measurement says ~26 cards in the Mechanics Lab corpus are
-unsupported, so this will happen.
+**Decision: reject.** A deck containing a card Forge cannot resolve
+is refused with a reason naming the card. It is not imported in a
+degraded or flagged state.
 
-### D3 — Are duplicate imports rejected or versioned? (§2.72, §2.73)
+This is consistent with §2.94 (no silent card substitution) and with
+Open Format's copy rule (C6): the import either produces a deck that
+can actually be played, or it says why not.
 
-§2.72 requires a package checksum and §2.73 names duplicate imports,
-but not the behaviour: refuse the second import, create a second
-deck, or return the first one's id.
+**Owner note:** Proxic Deck Builder should not let such a deck be
+created in the first place — it already carries an export warning
+for unsupported cards. Arena still validates independently, because
+a package can be hand-edited, can come from an older Deck Builder
+version, and the two projects are permanently separate (AGENTS
+ISO-002). Trusting the exporter would make Arena's correctness
+depend on a program it does not control.
+
+Phase 0A measured roughly 26 unsupported cards in the Mechanics Lab
+corpus, so this path will be exercised rather than theoretical.
+
+### D3 — A duplicate import is refused only when it is IDENTICAL
+
+**Decision: refuse an identical package; accept anything else.**
+
+"Identical" is the §2.72 package checksum. If the checksum matches
+an existing import, the second import is refused and the response
+names the existing deck.
+
+Consequences worth being explicit about:
+
+- Re-uploading the same file is a no-op with a clear message, not a
+  second copy of 400 MB of artwork.
+- The same deck NAME with different contents is a different deck and
+  imports normally. Names are not identity (§2.66: the internal deck
+  id is).
+- A deck whose only change is artwork has a different checksum and
+  therefore imports as a new deck. That follows from the decision
+  rather than contradicting it, and §2.135's content-hash
+  de-duplication means the shared art is stored once regardless.
+
+---
+
+## PHASE 2 AMENDMENT 1
+
+**Reason:**
+The owner runs a single-user deployment on an unpublished hostname
+and wants deck import usable in production rather than only against
+a local development stack.
+
+**Affected requirement:** §2.20, §2.21, §2.108.
+
+**Old decision:**
+Deck mutation endpoints must not be exposed as unrestricted
+anonymous public endpoints before authentication exists; production
+keeps import disabled (`DECK_IMPORT_ENABLED=false`).
+
+**New decision:**
+Deck import is enabled in production without authentication until
+Phase 3 provides accounts. §2.108's test asserts that §2.30's
+resource limits are enforced on the public endpoint, instead of
+asserting that the endpoint is unavailable.
+
+**Evidence:**
+Owner decision 2026-10-15, after being told that the earlier
+"accept the public exposure" decision had been put to them in
+overstated terms, and that §2.20 would otherwise have prevented
+exactly this.
+
+**Affected later phases:**
+Phase 3 should remove this amendment's exception when authentication
+lands, rather than leaving an unauthenticated path in place beside
+a login.
+
+**Approved by project owner:** yes, 2026-10-15
+**Date:** 2026-10-15
 
 ---
 
