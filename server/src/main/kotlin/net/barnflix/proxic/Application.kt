@@ -148,6 +148,20 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
         level = Level.INFO
         callIdMdc("requestId")
         // §1.42: no println. Logback owns output.
+
+        // Ktor colourises the status line by default, which reaches
+        // for jansi, which unpacks a .so into /tmp and executes it.
+        // /tmp is a noexec tmpfs on purpose (§1.59), so every startup
+        // printed an UnsatisfiedLinkError stack trace -- alarming,
+        // harmless, and the first thing anyone reads in a deployment
+        // log.
+        //
+        // Colour in a container log is noise anyway: nothing reads
+        // this on a terminal. Turning it off here is better than the
+        // two things I tried first -- jansi has no `disable`
+        // property, and excluding the library breaks CallLogging
+        // outright (ClassNotFoundException: Ansi$Color).
+        disableDefaultColors()
     }
 
     // §1.99, §1.100 — bounded HTTP body, before the bytes are read.
