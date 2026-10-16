@@ -6,6 +6,7 @@ import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
@@ -141,6 +142,15 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
 
     // §1.99, §1.100 — bounded HTTP body, before the bytes are read.
     install(BodySizeLimit)
+
+    // Answer HEAD wherever GET is answered.
+    //
+    // Found on the first public deployment: GET / returned 200 and
+    // HEAD / returned 404, because Ktor routes HEAD separately.
+    // Uptime monitors and health checkers default to HEAD, so the
+    // site would have been reported down while serving perfectly --
+    // and a monitor that cries wolf is worse than no monitor.
+    install(AutoHeadResponse)
 
     install(WebSockets) {
         // Ktor 2.x takes java.time.Duration here, not kotlin.time.

@@ -222,6 +222,25 @@ class ConfigAndStaticTest {
             assertEquals(HttpStatusCode.OK, client.get("/assets/app.js").status)
         }
 
+    /**
+     * HEAD must be answered wherever GET is.
+     *
+     * Found on the first public deployment: `GET /` returned 200 and
+     * `HEAD /` returned 404. Uptime monitors default to HEAD, so the
+     * site would have been reported down while serving perfectly.
+     */
+    @Test
+    fun `HEAD is answered wherever GET is`() = testApplication {
+        val dir = builtFrontend()
+        application { module(withStatic(dir)) }
+
+        for (route in listOf("/", "/play", "/api/health/live", "/api/version")) {
+            val get = client.get(route)
+            val head = client.head(route)
+            assertEquals(get.status, head.status, "HEAD $route disagreed with GET")
+        }
+    }
+
     /** An unbuilt frontend is its own state, not a missing route (§1.71). */
     @Test
     fun `an unbuilt frontend says so instead of 404`() =
