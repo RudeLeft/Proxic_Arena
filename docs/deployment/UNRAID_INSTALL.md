@@ -11,7 +11,7 @@
 > tell me and I will adjust.
 
 This gets the stack running and reachable **on the LAN only**.
-Putting it behind `arena.barnflix.net` is
+Putting it behind `proxic.barnflix.net` is
 `UNRAID_CHECKLIST.md`, deliberately separate — get it running
 first, go public second.
 

@@ -264,7 +264,7 @@ different checkout is refused rather than used.
 
 ## Cloudflare Tunnel deployment
 
-Production is reached at `https://arena.barnflix.net` through a
+Production is reached at `https://proxic.barnflix.net` through a
 Cloudflare Tunnel that terminates TLS at the edge and forwards to
 `arena-server` over the internal Docker network. No host port is
 published in that configuration, and PostgreSQL is never exposed.

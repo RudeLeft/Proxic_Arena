@@ -258,7 +258,7 @@ old build, which looks exactly like a change that had no effect.
   deliberate: a required-variable marker on a profiled service makes
   `docker compose up` fail for everyone not running the edge.
 
-## arena.barnflix.net does not reach Arena Server
+## proxic.barnflix.net does not reach Arena Server
 
 - The tunnel's public hostname must route to `arena-server:8080` over
   the internal network, not to a published host port.
