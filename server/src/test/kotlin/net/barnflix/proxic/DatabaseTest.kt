@@ -69,7 +69,11 @@ class DatabaseTest {
         val c = container!!
         val db = Database.connect(configFor(c))!!
         db.use {
-            assertEquals(1, it.migrate(), "V001 should apply on a clean database")
+            // Every migration in the repository applies. The count
+            // grows with each phase, so this asserts "more than
+            // none" rather than a number that needs editing every
+            // time; the IDEMPOTENCY assertion below is the point.
+            assertTrue(it.migrate() >= 1, "migrations should apply on a clean database")
 
             // The history row is the observable evidence that Flyway
             // owns the schema -- V001 itself creates no tables (§1.36).
@@ -81,6 +85,13 @@ class DatabaseTest {
                         assertTrue(rows.next(), "no migration was recorded")
                         assertEquals("001", rows.getString("version"))
                         assertTrue(rows.getBoolean("success"))
+                        // Later migrations must have succeeded too.
+                        while (rows.next()) {
+                            assertTrue(
+                                rows.getBoolean("success"),
+                                "migration ${rows.getString("version")} failed",
+                            )
+                        }
                     }
                 }
             }
@@ -91,9 +102,17 @@ class DatabaseTest {
         }
     }
 
-    /** §1.36/§1.37 — no speculative schema. */
+    /**
+     * §1.36/§1.37 — no speculative schema.
+     *
+     * Phase 1 created no tables at all. Phase 2 added exactly three.
+     * The assertion is the EXACT set rather than a count, so a table
+     * nobody decided on shows up as a failure the moment it appears
+     * — which is the whole point of §1.36, and the reason this test
+     * is updated per phase instead of deleted.
+     */
     @Test
-    fun `phase 1 creates no application tables`() {
+    fun `migrations create exactly the tables their phases defined`() {
         val c = container!!
         Database.connect(configFor(c))!!.use { db ->
             db.migrate()
@@ -106,9 +125,14 @@ class DatabaseTest {
                         """.trimIndent(),
                     ).use { rows ->
                         val tables = buildList { while (rows.next()) add(rows.getString(1)) }
-                        // users/decks/matches must not exist until the
-                        // phase that defines them.
-                        assertEquals(emptyList(), tables, "unexpected Phase 1 schema: $tables")
+                        // Phase 2: imported_deck, deck_entry, art_asset.
+                        // Still forbidden until their own phases:
+                        // users, sessions, matches, friends, ratings.
+                        assertEquals(
+                            listOf("art_asset", "deck_entry", "imported_deck"),
+                            tables.sorted(),
+                            "unexpected schema: $tables",
+                        )
                     }
                 }
             }
