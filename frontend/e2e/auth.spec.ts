@@ -13,6 +13,33 @@ import { signIn, testPassword, testUser } from "./helpers";
 const username = testUser;
 const password = testPassword;
 
+test("the home page offers a way in, and says who you are", async ({ page }) => {
+  // §3.69. The defect this exists for: the home page had five green
+  // indicators and NOTHING about authentication -- no sign-in link,
+  // no identity. Every other test here navigates straight to /login
+  // or /decks, so the whole suite passed while a person arriving at
+  // the site had no visible way in.
+  await page.goto("/");
+  await expect(page.getByText("Not signed in")).toBeVisible();
+  const signInLink = page.getByRole("link", { name: "Sign in" });
+  await expect(signInLink).toBeVisible();
+
+  await signInLink.click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await signIn(page);
+  await page.goto("/");
+  // Identity, role and the way onward (§3.69).
+  await expect(page.getByText(/Signed in as/)).toBeVisible();
+  await expect(page.getByText("ADMIN")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Decks" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+
+  // ...and out again, from the same page.
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByText("Not signed in")).toBeVisible();
+});
+
 test("an anonymous visitor to a protected page is sent to login", async ({ page }) => {
   // §3.67, and PHASE 3 AMENDMENT 1: the deck API needs a session,
   // so without this redirect the page would show a wall of 401s

@@ -10,6 +10,8 @@
 // browser.
 
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 import {
   INITIAL_SNAPSHOT,
   connectSystemSocket,
@@ -157,6 +159,66 @@ function RendererPanel({ onState }: { onState: (s: ServiceState) => void }) {
   );
 }
 
+/**
+ * Who you are, and the way in — PHASE_03 §3.69.
+ *
+ * The home page is public (§3.83): it is the status page, and a
+ * signed-out visitor is meant to see it. But it said NOTHING about
+ * authentication, so there was no way to sign in from it and no way
+ * to tell whether you already were.
+ *
+ * Found by the owner on the production deployment, looking at a page
+ * with five green lights and no login. Every automated test passed,
+ * because each one navigated straight to /login or /decks -- the
+ * tests knew where the door was, and a person has no reason to.
+ */
+function HomeIdentity() {
+  const { state, signOut } = useAuth();
+
+  // Deliberately renders nothing while loading rather than guessing
+  // (§3.73): a "Sign in" link that flickers into "Signed in as..."
+  // tells the visitor the page is unsure who they are.
+  if (state.status === "loading") return null;
+
+  if (state.status !== "authenticated") {
+    return (
+      <section className="panel">
+        <div className="row">
+          <span className="name">Not signed in</span>
+          <span className="state">
+            <Link to="/login">Sign in</Link>
+          </span>
+        </div>
+        <p className="hint">
+          Accounts are created by an administrator. Signing in is required for decks.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel">
+      <div className="row">
+        <span className="name">Signed in as {state.user.displayName}</span>
+        {/* Shown because §3.69 asks for it. The server never trusts
+            it coming back -- authorisation is decided from the
+            session, every request (§3.19). */}
+        <span className="state">{state.user.role}</span>
+      </div>
+      <div className="row">
+        <span className="name">
+          <Link to="/decks">Decks</Link> · <Link to="/account">Account</Link>
+        </span>
+        <span className="state">
+          <button type="button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </span>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [snap, setSnap] = useState<Snapshot>(INITIAL_SNAPSHOT);
   const [renderer, setRenderer] = useState<ServiceState>("loading");
@@ -197,6 +259,8 @@ export default function App() {
         Foundation Build {snap.version?.proxicVersion ?? "—"}
         {snap.version ? ` · protocol v${snap.version.protocolVersion}` : ""}
       </p>
+
+      <HomeIdentity />
 
       <section className="panel">
         <Indicator name="Application Server" state={snap.server} />
