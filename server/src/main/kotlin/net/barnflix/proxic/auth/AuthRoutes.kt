@@ -242,11 +242,23 @@ private fun ApplicationCall.setSessionCookie(
         secure = config.secureCookies,
         httpOnly = httpOnly,
         extensions = mapOf("SameSite" to "Lax"),
-        // The DEFAULT encoding, not RAW. Ktor appends a `$x-enc=RAW`
-        // marker to a raw cookie so it can decode it later, and that
-        // marker ends up in the Set-Cookie header as an attribute no
-        // browser asked for. Session and CSRF tokens are base64url,
-        // which URI encoding leaves untouched, so the default costs
-        // nothing and emits a clean header.
+        // The DEFAULT encoding, not RAW.
+        //
+        // Ktor appends an `$x-enc=` marker so it can decode the value
+        // later, and it does so for the default encoding too -- the
+        // real header reads `...; SameSite=Lax; $x-enc=URI_ENCODING`.
+        // An earlier version of this comment claimed the default
+        // avoided the marker; the acceptance pass read the live
+        // header and found otherwise.
+        //
+        // It is harmless: an unknown cookie attribute is ignored by
+        // every browser, and the VALUE is untouched -- session and
+        // CSRF tokens are base64url, which URI encoding leaves
+        // alone, which is why the cookie the browser sends back
+        // still matches the hash in the database.
+        //
+        // RAW is still the wrong choice: it would stop Ktor
+        // normalising anything, for no gain on values that need no
+        // encoding.
     )
 }
