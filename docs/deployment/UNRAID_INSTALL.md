@@ -1,168 +1,157 @@
-# Installing Proxic Arena on Unraid — step by step
+# Installing Proxic Arena on Unraid
 
-> **Not yet run on a real Unraid host.** Written from the
-> specification, the compose files and how Unraid generally works.
-> The first execution is the verification (§1.71). If a step does
-> not match what you see, stop and tell me — do not improvise around
-> it, because a workaround that happens to work is how undocumented
-> deployments start.
+Three commands, then the GUI. Everything that used to be a manual
+step — creating directories, fixing their ownership, generating
+secrets, remembering `-f` flags, remembering to rebuild — is now done
+by the project instead of by a person.
+
+> **Verified on a real Unraid 6.12/7.x host.** The notes marked
+> *Found by deploying* are failures this document exists to prevent.
 >
-> Assumes Unraid **6.12 or 7.x**. If you are on something older,
-> tell me and I will adjust.
+> This gets the stack running and reachable on the LAN. Going public
+> through `proxic.barnflix.net` is `UNRAID_CHECKLIST.md`.
 
-This gets the stack running and reachable **on the LAN only**.
-Putting it behind `proxic.barnflix.net` is
-`UNRAID_CHECKLIST.md`, deliberately separate — get it running
-first, go public second.
+Since Phase 3, **everything except health, version and the status
+page requires a sign-in**, and accounts are created by hand. Between
+the stack starting and Step 5 below, the site shows a login nobody
+can get past. That is expected, not a fault.
 
 ---
 
-## Step 1 — Install Docker Compose
+## Step 0 — Install Docker Compose Manager (first time only)
 
 Unraid ships Docker but not the compose plugin.
 
-1. Open the Unraid web UI → **Apps** (Community Applications).
-2. Search for **Docker Compose Manager** (author: dcflachs).
-3. Click **Install**. It takes a few seconds.
-4. A **Compose** section appears at the bottom of the **Docker**
-   tab.
+1. Unraid web UI → **Apps** (Community Applications).
+2. Search **Docker Compose Manager** (author: dcflachs) → **Install**.
+3. A **Compose** section appears at the bottom of the **Docker** tab.
 
-**Verify before moving on.** Open a terminal (the `>_` icon in the
-Unraid header, or SSH in) and run:
+Check it took:
 
 ```bash
 docker compose version
 ```
 
-You want a version number. If you get "docker: 'compose' is not a
-docker command", the plugin did not install its binary — stop and
-tell me what it printed.
+A version number means yes. "docker: 'compose' is not a docker
+command" means the plugin did not install its binary — stop there.
 
-## Step 2 — Get the code onto the server
+**Disk space:** about **4 GB free** for the build. The finished image
+is 986 MB; the Forge clone and Maven cache inside the build are
+temporary but real.
 
-In the Unraid terminal:
+---
 
-```bash
-mkdir -p /mnt/user/appdata/proxic_arena
-cd /mnt/user/appdata
-git clone https://github.com/RudeLeft/Proxic_Arena.git src
-cd proxic-arena-src
-git log --oneline -1
-```
+## Step 1 — Get the code
 
-The repository is **public**, so no credentials are needed.
-
-If `git` is missing, install **NerdTools** from Community
-Applications and enable git, or copy the folder over SMB instead —
-the repository is small (9.8 MB; the heavy parts are gitignored).
-
-Check the last commit line matches what you expect. A deployment
-built from the wrong commit is the kind of thing nobody notices for
-a week.
-
-**Disk space:** you need roughly **4 GB free** on the array for the
-build. The finished image is 986 MB; the Forge clone and Maven cache
-inside the build are temporary but real.
-
-## Step 3 — Create the data directories
+Pick any folder **outside** `/mnt/user/appdata/proxic_arena/` — the
+Compose Manager writes its own bookkeeping files into project
+folders, and the application's data should not share a directory with
+them.
 
 ```bash
-mkdir -p /mnt/user/appdata/proxic_arena/v2/postgres
-mkdir -p /mnt/user/appdata/proxic_arena/v2/data
+mkdir -p /mnt/user/compose && cd /mnt/user/compose
+git clone https://github.com/RudeLeft/Proxic_Arena.git proxic-arena
+cd proxic-arena && git log --oneline -1
 ```
 
-The `v2/` level is not decoration. Unraid's compose tooling writes
-`name` and `project_name` files into appdata subdirectories, and
-PostgreSQL's `initdb` refuses a data directory that is not empty —
-two 8-byte files were enough to make the container restart-loop with
-"directory exists but is not empty". A dedicated subdirectory keeps
-the database away from that, and away from the previous
-deployment's files.
+The repository is **public**; no credentials needed. If `git` is
+missing, install **NerdTools** from Community Applications, or copy
+the folder over SMB (it is small — 9.8 MB).
 
-They sit under `appdata` on purpose: that is where Unraid's backup
-routines and the Appdata Backup plugin look. Named volumes inside
-Docker's own storage would work and would be invisible to all of it.
+Check the commit line is the one you expect. A deployment built from
+the wrong commit is the kind of thing nobody notices for a week.
 
-## Step 4 — Create `.env`
+## Step 2 — Run the setup script
 
 ```bash
-cd /mnt/user/appdata/proxic_arena/src
-cp .env.example .env
+sh scripts/unraid-setup.sh
 ```
 
-Generate real secrets:
+It writes `.env`: production mode, a 32-byte session secret, a
+16-byte database password, the public URL, and `COMPOSE_FILE` so that
+no command ever needs `-f` flags again.
 
-```bash
-openssl rand -hex 32    # paste as PROXIC_SESSION_SECRET
-openssl rand -hex 16    # paste as POSTGRES_PASSWORD
-```
+Safe to run twice. **It never regenerates a secret that is already
+set** — doing so to `POSTGRES_PASSWORD` would lock the server out of
+an existing database, because PostgreSQL keeps whatever `initdb` was
+given.
 
-Edit `.env` (`nano .env`) and set:
+It prints what it did, never a secret value.
+
+## Step 3 — Add the stack in the GUI
+
+**Docker** tab → **Compose** → **Add New Compose Stack**:
+
+| Field | Value |
+| --- | --- |
+| Stack Name | `proxic-arena` — exactly |
+| Compose Source | **External folder** |
+| folder | the path from Step 1 |
+| External ENV File Path | leave blank |
+| Compose File Discovery | leave as default |
+
+**The name must match.** `docker-compose.yml` sets
+`name: proxic-arena` internally, but a `-p` flag from the plugin
+overrides it. If the two disagree you get a second set of containers
+on the same bind mounts, fighting over the same port. Two compose
+files sharing a project name once replaced this stack's database with
+a development one.
+
+Leave discovery alone: `COMPOSE_FILE` in `.env` already names
+`docker-compose.yml` and `docker-compose.unraid.yml`.
+
+`docker-compose.local.yml` is **not** among them, deliberately — it
+turns `Secure` off on session cookies, which is right for a laptop on
+plain HTTP and wrong for anything reachable from outside.
+
+## Step 4 — Compose Up
+
+Press it. First run takes **3–10 minutes**: it clones upstream Forge,
+verifies the pinned commit and compiles. Later runs are cache hits.
+
+Three things happen without being asked:
 
 ```text
-APP_ENV=production
-POSTGRES_PASSWORD=<the 16-byte value>
-PROXIC_SESSION_SECRET=<the 32-byte value>
+init-data      chowns the data directory to the server's uid, exits
+postgres       starts, becomes healthy
+arena-server   rebuilds if the source changed, then starts
 ```
 
-Leave `CLOUDFLARE_TUNNEL_TOKEN` empty. That belongs to the public
-step, not this one.
+- **`pull_policy: build`** is why you never run a build command. Left
+  out, `up` would reuse an image that merely has the right *name* —
+  so new code would be pulled, every indicator would go green, and
+  nothing would be new.
+- **`init-data`** is why there is no `chown` step. Docker creates a
+  missing bind-mount source as `root`, the server runs as uid 100,
+  and card art would fail with permission denied on the first import.
 
-**The placeholders must go.** The server refuses to start in
-production while a secret is missing or still says `changeme`, and
-exits **78**. If that happens the message names the variable — it is
-the guard working, not a bug.
+Watch the `arena-server` log for `Successfully applied N migrations`
+(three on a fresh database: V001 foundation, V002 decks, V003
+accounts).
 
-`.env` must sit **next to `docker-compose.yml`**. If you later use
-the Compose Manager UI and it keeps projects in its own folder,
-the file has to be in *that* folder. Putting it somewhere
-reasonable-looking but wrong produces a refusal naming a variable
-you are certain you set.
+If it stops with **"Forge mismatch"**, that is the §1.61 guard
+refusing to build from the wrong source, not a network problem.
 
-## Step 5 — Build the image
+## Step 5 — Create your account
+
+**Docker** tab → `arena-server` → **Console**:
 
 ```bash
-cd /mnt/user/appdata/proxic_arena/src
-docker compose build
+/app/bin/arena-admin create RudeLeft --admin
 ```
 
-- Expect **3–10 minutes** on a typical Unraid box (75 seconds on a
-  developer laptop; the Forge clone and compile dominate, and your
-  array is slower than an SSD).
-- Needs outbound internet: GitHub, Maven Central, npm.
-- The build **clones upstream Forge and verifies the commit**. If it
-  stops with "Forge mismatch", that is the §1.61 guard refusing to
-  build from the wrong source — not a network problem.
+It prompts for the password — twice, not echoed, never on a command
+line, never in shell history. **Minimum 12 characters**, no other
+rules.
 
-## Step 6 — Start it
+A password passed as `--password=...` is **refused outright**
+(§3.58). Then:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.unraid.yml \
-               -f docker-compose.local.yml up -d
+/app/bin/arena-admin list
 ```
 
-Three files, each doing one thing:
-
-| File | Why |
-| --- | --- |
-| `docker-compose.yml` | the stack itself |
-| `docker-compose.unraid.yml` | puts the data under `/mnt/user/appdata` |
-| `docker-compose.local.yml` | publishes port 8080 so you can reach it on the LAN **before** the tunnel exists |
-
-> Drop `docker-compose.local.yml` once the tunnel is working. In
-> production the tunnel reaches the server over Docker's internal
-> network and **no host port should be published** (§1.51).
-
-Watch it come up:
-
-```bash
-docker compose ps
-```
-
-Postgres becomes healthy first, then arena-server — allow about
-45 seconds.
-
-## Step 7 — Verify
+## Step 6 — Verify
 
 ```bash
 curl -s http://127.0.0.1:8765/api/health/ready
@@ -174,86 +163,86 @@ Expected, exactly:
 {"status":"ok","checks":{"dataRoot":"ok","database":"ok","forgeWorker":"ok"}}
 ```
 
-Then open `http://<unraid-ip>:8765` in a browser. You should see the
-foundation page with five indicators, all **Ready**.
+Open `http://<unraid-ip>:8765` — five indicators, all **Ready**.
 
-If any is not:
+> **Signing in will not work on that address, by design.** A browser
+> will not keep a `Secure` cookie delivered over plain HTTP, so the
+> login silently bounces back to the form. Use
+> `https://proxic.barnflix.net`. The LAN port is for diagnostics
+> (owner decision D2); `docs/troubleshooting/AUTHENTICATION.md`
+> leads with this.
+
+If an indicator is not Ready:
 
 | Indicator | Where to look |
 | --- | --- |
 | Database | `docker compose logs postgres`; check `POSTGRES_PASSWORD` |
-| Forge Runtime | the five-state table in `FOUNDATION.md` — it names which one |
-| WebSocket | nothing between you and it yet, so this should just work |
-| Pixi Renderer | browser console |
+| Forge Runtime | the five-state table in `FOUNDATION.md` |
+| WebSocket | nothing between you and it yet; it should just work |
+| Pixi Renderer | the browser console |
 
-`docs/troubleshooting/FOUNDATION.md` covers each failure.
-
-## Step 8 — Make sure the database is not exposed
+## Step 7 — Confirm the database is not exposed
 
 ```bash
 docker compose ps
 ```
 
-`postgres` must show `5432/tcp` with **no** host binding. From
-another machine:
+`postgres` must show `5432/tcp` with **no** host binding, and from
+another machine `curl http://<unraid-ip>:5432` must fail.
 
-```bash
-curl http://<unraid-ip>:5432
-```
+Port 8765 **will** answer — that is PHASE 1 AMENDMENT 2, and it means
+anything on your LAN can reach the server. Health and version are
+public there; everything else needs a session.
 
-must fail. (Port 8765 **will** answer — that is the amendment, and
-it means anything on your LAN can reach the server directly. There
-is no authentication until Phase 3.) If it answers, something published the database and that
-needs fixing before anything else.
+## Step 8 — Survive a reboot
 
-## Step 9 — Survive a reboot (do this now, while it is empty)
+`restart: unless-stopped` is set, so Docker restarts containers
+itself. The Unraid-specific risk is Docker starting before the array
+mounts, leaving a bind mount under `/mnt/user` missing.
 
-`restart: unless-stopped` is set, so Docker restarts the containers
-by itself. The thing worth testing is Unraid-specific: if Docker
-starts before the array is mounted, a bind mount under
-`/mnt/user` may not be there yet.
-
-Reboot the server deliberately, now, while the database holds
-nothing. Then re-run step 7. If the stack comes back unhealthy,
-that is much better learned today than after Phase 2 has stored
-decks.
-
-**Verified on this host, 2026-10-15:** Docker started after the
-array mounted, the stack came back unattended, and readiness
-reported `database: ok`, `forgeWorker: ok` through the tunnel.
+**Verified on this host, 2026-10-15:** Docker started after the array
+mounted, the stack came back unattended, and readiness reported
+`database: ok`, `forgeWorker: ok` through the tunnel.
 
 ---
 
 ## Where things are afterwards
 
 ```text
-/mnt/user/appdata/proxic_arena/src/       the repository and compose files
+/mnt/user/compose/proxic-arena/              repository, compose files, .env
 /mnt/user/appdata/proxic_arena/v2/postgres   database
-/mnt/user/appdata/proxic_arena/v2/data       application data (/data)
+/mnt/user/appdata/proxic_arena/v2/data       card art and uploads (/data)
 ```
+
+The data lives under `appdata` so Unraid's backup routines and the
+Appdata Backup plugin find it. Named Docker volumes would work and
+would be invisible to all of it.
+
+The `v2/` level is not decoration. *Found by deploying:* Unraid's
+compose tooling writes `name` and `project_name` files into appdata
+subdirectories, and PostgreSQL's `initdb` **refuses a data directory
+that is not empty** — two 8-byte files were enough to restart-loop
+the database.
 
 ## Everyday commands
 
-```bash
-cd /mnt/user/appdata/proxic_arena/src
+From the project folder, where `.env` sets `COMPOSE_FILE`:
 
-docker compose ps                        # what is running
-docker compose logs -f arena-server      # follow the server log
-docker compose down                      # stop; data survives
-docker compose up -d                     # start again
-docker compose build && docker compose up -d   # after a git pull
+```bash
+docker compose ps                   # what is running
+docker compose logs -f arena-server # follow the log
+docker compose down                 # stop; data survives
+docker compose up -d                # start, rebuilding if code changed
 ```
 
-> `docker compose down -v` **destroys the volumes.** With the Unraid
-> override your data is in bind mounts, so `-v` will not take it —
-> but do not rely on that. Deleting the appdata folders will.
+To deploy new code: `git pull`, then **Compose Up** in the GUI. The
+rebuild is automatic.
+
+> `docker compose down -v` destroys named volumes. Your data is in
+> bind mounts so `-v` will not take it — but do not rely on that.
+> Deleting the appdata folders will.
 
 ## Next
 
-Once all five indicators are green on the LAN, go to
-`UNRAID_CHECKLIST.md` for the Cloudflare tunnel and the four
-remaining acceptance tests.
-
-Before you do, read its first section: there is **no authentication
-until Phase 3**, so making the public hostname live means anyone who
-reaches it can use the server.
+`UNRAID_CHECKLIST.md` for the Cloudflare tunnel and the remaining
+acceptance tests.

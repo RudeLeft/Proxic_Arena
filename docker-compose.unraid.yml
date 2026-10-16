@@ -1,6 +1,11 @@
 # Unraid override — stores data under /mnt/user/appdata.
 #
-#   docker compose -f docker-compose.yml -f docker-compose.unraid.yml up -d
+#   docker compose up -d
+#
+# No -f flags: `scripts/unraid-setup.sh` writes COMPOSE_FILE into
+# .env, which Compose reads for itself. That matters for the Unraid
+# Compose Manager GUI, whose buttons run plain `docker compose`
+# commands with no way to pass flags.
 #
 # WHY this exists. The base file uses NAMED volumes, which live inside
 # Docker's own storage (/var/lib/docker). That works, but on Unraid it
@@ -23,7 +28,7 @@
 # A dedicated subdirectory keeps the data away from whatever writes
 # those, and away from the previous deployment's files.
 #
-# NOT YET RUN on a real Unraid host.
+# Run on the real host; the port note below came out of doing it.
 
 name: proxic-arena
 
@@ -32,9 +37,53 @@ services:
     volumes:
       - /mnt/user/appdata/proxic_arena/v2/postgres:/var/lib/postgresql/data
 
+  # One-shot: make the bind-mounted data directory writable by the
+  # server, then exit.
+  #
+  # Docker creates a missing bind-mount source as root:root, and the
+  # server deliberately runs as a non-root user (uid 100), so it
+  # cannot write there -- card art fails with permission denied on
+  # the first import. Phase 1 never wrote to /data, which is why this
+  # only showed up when Phase 2 reached the host.
+  #
+  # Doing it here rather than in a setup command means a fresh
+  # install, a moved appdata folder and a restored backup all end up
+  # correct without anyone remembering a chown.
+  #
+  # §1.99 still holds: it is root for one chown, drops every
+  # capability except the three that chown needs, cannot gain more,
+  # and is gone before the server starts.
+  init-data:
+    image: alpine:3.20.3@sha256:1e42bbe2508154c9126d48c2b8a75420c3544343bf86fd041fb7527e017a4b4a
+    user: root
+    command: sh -c "chown -R 100:101 /data && chmod 0755 /data"
+    volumes:
+      - /mnt/user/appdata/proxic_arena/v2/data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - DAC_OVERRIDE
+    restart: "no"
+
   arena-server:
     volumes:
       - /mnt/user/appdata/proxic_arena/v2/data:/data
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+    # Rebuild from source whenever `up` runs.
+    #
+    # Without this, `up` reuses an image that merely has the right
+    # NAME -- so pulling new code and pressing Compose Up starts the
+    # OLD build, every indicator goes green, and nothing is new. The
+    # GUI has no "build" button, so the compose file has to say it.
+    #
+    # An unchanged source tree is a cache hit, not a rebuild.
+    pull_policy: build
     # PHASE 1 AMENDMENT 2. Port 8080 is taken on this host and the
     # existing cloudflared -- which runs OUTSIDE this stack -- is
     # already configured to reach the origin on 8765.
