@@ -339,6 +339,9 @@ spikes/                    Phase 0A measurement harnesses
    start.
 5. `docs/security/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,
    checked rather than asserted.
+6. `docs/architecture/DECK_PACKAGE_FORMAT.md` — the Deck Builder ↔
+   Arena contract, and `DECK_IMPORT_PIPELINE.md` for how an import
+   actually runs.
 6. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
    `docs/deployment/UNRAID_CHECKLIST.md` — going public through the
    tunnel. Both written from the specification and **not yet run**.
