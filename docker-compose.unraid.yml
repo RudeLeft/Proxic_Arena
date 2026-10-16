@@ -10,6 +10,12 @@
 #
 # Easier to decide now than after there is a deck in it.
 #
+# Paths match the owner's existing appdata folder: proxic_arena,
+# with an underscore. If the previous deployment also lives there,
+# these two subdirectories keep the new stack's data distinct --
+# but deleting the old deployment later means deleting its files,
+# not the folder.
+#
 # NOT YET RUN on a real Unraid host.
 
 name: proxic-arena
@@ -17,8 +23,8 @@ name: proxic-arena
 services:
   postgres:
     volumes:
-      - /mnt/user/appdata/proxic-arena/postgres:/var/lib/postgresql/data
+      - /mnt/user/appdata/proxic_arena/postgres:/var/lib/postgresql/data
 
   arena-server:
     volumes:
-      - /mnt/user/appdata/proxic-arena/data:/data
+      - /mnt/user/appdata/proxic_arena/data:/data

@@ -43,16 +43,32 @@ tell me what it printed.
 In the Unraid terminal:
 
 ```bash
-mkdir -p /mnt/user/appdata/proxic-arena
+mkdir -p /mnt/user/appdata/proxic_arena
 cd /mnt/user/appdata
-git clone <your-repo-url> proxic-arena-src
+git clone https://github.com/RudeLeft/Proxic_Arena_V2.git src
 cd proxic-arena-src
 git log --oneline -1
 ```
 
+The repository is **private**, so git asks for credentials:
+username `RudeLeft`, password a **fine-grained personal access
+token** with `Contents: Read-only` on this repository only
+(<https://github.com/settings/personal-access-tokens/new>). Not your
+GitHub password — that will not work.
+
+To avoid retyping it on every `git pull`:
+
+```bash
+git config --global credential.helper store
+```
+
+That writes the token in plaintext to `~/.git-credentials` on the
+server. Acceptable for a private home server; worth knowing rather
+than discovering.
+
 If `git` is missing, install **NerdTools** from Community
 Applications and enable git, or copy the folder over SMB instead —
-the repository is small (the heavy parts are gitignored).
+the repository is small (9.8 MB; the heavy parts are gitignored).
 
 Check the last commit line matches what you expect. A deployment
 built from the wrong commit is the kind of thing nobody notices for
@@ -65,8 +81,8 @@ inside the build are temporary but real.
 ## Step 3 — Create the data directories
 
 ```bash
-mkdir -p /mnt/user/appdata/proxic-arena/postgres
-mkdir -p /mnt/user/appdata/proxic-arena/data
+mkdir -p /mnt/user/appdata/proxic_arena/postgres
+mkdir -p /mnt/user/appdata/proxic_arena/data
 ```
 
 These are where the database and the application's files live. They
@@ -77,7 +93,7 @@ Docker's own storage would work and would be invisible to all of it.
 ## Step 4 — Create `.env`
 
 ```bash
-cd /mnt/user/appdata/proxic-arena-src
+cd /mnt/user/appdata/proxic_arena/src
 cp .env.example .env
 ```
 
@@ -113,7 +129,7 @@ you are certain you set.
 ## Step 5 — Build the image
 
 ```bash
-cd /mnt/user/appdata/proxic-arena-src
+cd /mnt/user/appdata/proxic_arena/src
 docker compose build
 ```
 
@@ -212,15 +228,15 @@ decks.
 ## Where things are afterwards
 
 ```text
-/mnt/user/appdata/proxic-arena-src/     the repository and compose files
-/mnt/user/appdata/proxic-arena/postgres database
-/mnt/user/appdata/proxic-arena/data     application data (/data)
+/mnt/user/appdata/proxic_arena/src/       the repository and compose files
+/mnt/user/appdata/proxic_arena/postgres   database
+/mnt/user/appdata/proxic_arena/data       application data (/data)
 ```
 
 ## Everyday commands
 
 ```bash
-cd /mnt/user/appdata/proxic-arena-src
+cd /mnt/user/appdata/proxic_arena/src
 
 docker compose ps                        # what is running
 docker compose logs -f arena-server      # follow the server log
