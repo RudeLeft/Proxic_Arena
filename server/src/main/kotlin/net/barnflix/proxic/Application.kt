@@ -17,6 +17,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
+import net.barnflix.proxic.deck.deckRoutes
 import org.slf4j.event.Level
 import java.io.File
 import java.time.Duration
@@ -255,6 +256,30 @@ private fun Application.installRoutes(
         // §1.29 handler lives in its own function: detekt was
         // right that installRoutes had grown past readable.
         systemWebSocket(config)
+
+        // PHASE_02 — deck import and discovery. Registered only when
+        // a database exists: every one of these routes needs it, and
+        // a 404 is a better answer than a 500 for a server that was
+        // never configured to store decks.
+        val database = dependencies.database
+        if (database != null) {
+            route("/api") {
+                deckRoutes(
+                    config = config,
+                    dataSource = database.dataSource(),
+                    importer =
+                        net.barnflix.proxic.deck.DeckImporter(
+                            config,
+                            database.dataSource(),
+                            net.barnflix.proxic.deck.CardResolver(config),
+                        ),
+                    // PHASE 2 AMENDMENT 1: on by default, by owner
+                    // decision, with the switch kept because the
+                    // endpoint is unauthenticated until Phase 3.
+                    importEnabled = config.deckImportEnabled,
+                )
+            }
+        }
 
         // §1.27 — production static serving. In development Vite
         // serves the app and proxies here (§1.28), so this directory

@@ -4,6 +4,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 
 /**
@@ -59,6 +60,26 @@ object Limits {
     /** How often an idle socket is pinged, and how long it may not answer. */
     const val WS_PING_SECONDS: Long = 15
     const val WS_TIMEOUT_SECONDS: Long = 30
+
+    /**
+     * Routes that accept more than [MAX_HTTP_BODY_BYTES], and how
+     * much (PHASE_02 carry-forward C1).
+     *
+     * Deck import accepts a package of up to 150 MB. The GLOBAL
+     * limit stays at 1 MB: raising it instead would let every
+     * endpoint accept a deck-sized body, which is the opposite of
+     * what PHASE_02 §2.30 asks for.
+     *
+     * Found by running it — the first version of the import endpoint
+     * was refused by this plugin before the route ever saw the
+     * upload, with a 413 naming the global limit.
+     */
+    private val ROUTE_LIMITS: List<Pair<String, Long>> =
+        listOf("/api/decks/import" to 150L * 1024 * 1024)
+
+    fun bodyLimitFor(path: String): Long =
+        ROUTE_LIMITS.firstOrNull { (prefix, _) -> path.startsWith(prefix) }?.second
+            ?: MAX_HTTP_BODY_BYTES
 }
 
 /**
@@ -74,14 +95,17 @@ val BodySizeLimit =
     createApplicationPlugin(name = "BodySizeLimit") {
         onCall { call ->
             val declared = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: return@onCall
-            if (declared > Limits.MAX_HTTP_BODY_BYTES) {
+            // Per-route, not global (carry-forward C1): deck import
+            // accepts a package, every other endpoint does not.
+            val limit = Limits.bodyLimitFor(call.request.path())
+            if (declared > limit) {
                 call.respond(
                     HttpStatusCode.PayloadTooLarge,
                     ErrorResponse(
                         errorCode = "BODY_TOO_LARGE",
                         // The limit is stated. A refusal that does not say
                         // what the limit is leaves a client guessing.
-                        detail = "Request body exceeds ${Limits.MAX_HTTP_BODY_BYTES} bytes.",
+                        detail = "Request body exceeds $limit bytes.",
                         requestId = call.callId,
                     ),
                 )

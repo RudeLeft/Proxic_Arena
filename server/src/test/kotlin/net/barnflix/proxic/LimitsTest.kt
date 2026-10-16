@@ -53,6 +53,30 @@ class LimitsTest {
             assertEquals(HttpStatusCode.NotFound, response.status)
         }
 
+    /**
+     * PHASE_02 carry-forward C1 — raised for ONE route, not globally.
+     *
+     * The deck importer needs 150 MB. Raising the global limit
+     * instead would let every endpoint accept a deck-sized body,
+     * which is the opposite of what PHASE_02 §2.30 asks for, and is
+     * the easy mistake to make when a 413 is in the way.
+     */
+    @Test
+    fun `the raised import limit applies to that route alone`() {
+        assertEquals(
+            150L * 1024 * 1024,
+            Limits.bodyLimitFor("/api/decks/import"),
+            "deck import should accept a package",
+        )
+        for (path in listOf("/api/version", "/api/decks", "/api/system/status", "/", "/ws/system")) {
+            assertEquals(
+                Limits.MAX_HTTP_BODY_BYTES,
+                Limits.bodyLimitFor(path),
+                "$path must keep the global limit",
+            )
+        }
+    }
+
     @Test
     fun `ordinary GET requests are unaffected`() =
         testApplication {

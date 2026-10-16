@@ -32,6 +32,15 @@ data class ServerConfig(
      * seen work.
      */
     val maxSystemConnections: Int = Limits.MAX_SYSTEM_CONNECTIONS,
+    /**
+     * PHASE_02 §2.21 / AMENDMENT 1.
+     *
+     * The owner enabled import in production, so this defaults to
+     * true — but the switch exists because the endpoint is
+     * unauthenticated until Phase 3, and turning it off should not
+     * require deploying a different build.
+     */
+    val deckImportEnabled: Boolean = true,
     private val sessionSecretValue: String? = null,
     private val databasePasswordValue: String? = null,
     val databaseUserValue: String? = null,
@@ -98,6 +107,8 @@ data class ServerConfig(
                 maxSystemConnections =
                     getenv("PROXIC_MAX_CONNECTIONS")?.toIntOrNull()
                         ?: Limits.MAX_SYSTEM_CONNECTIONS,
+                deckImportEnabled =
+                    getenv("DECK_IMPORT_ENABLED")?.toBooleanStrictOrNull() ?: true,
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),
