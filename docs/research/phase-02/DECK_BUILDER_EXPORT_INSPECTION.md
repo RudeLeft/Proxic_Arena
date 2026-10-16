@@ -232,3 +232,32 @@ a transforming card**.
 
 The front face is the deck entry's identity: it is the card that
 goes in the deck, and the name the artwork is filed under.
+
+
+## FINDING 7 — the display derivative width, measured not guessed
+
+§2.134 requires display-sized derivatives. The first attempt used
+512 px wide, which measured badly:
+
+```text
+[BENCHMARK] source 745x1040, 370-1725 KB
+            512-wide derivative   585-974 KB
+                                  BIGGER than the four sources that
+                                  were already small
+            only 2x fewer pixels than the source
+```
+
+Java's PNG writer is not clever, so a generous width bought nothing
+and cost disk. 384 px covers 2x the card size on a 1440p board with
+headroom:
+
+```text
+[BENCHMARK] 384-wide derivative   338-555 KB, every one smaller
+            deck total            12.1 MB -> 4.9 MB
+            pixels                0.77 MP -> 0.21 MP  (3.7x fewer)
+```
+
+The derivative is also deleted when it is not smaller than its
+original, which can happen for an already-small source: the decode
+saving still applies, but there is no reason to keep a file larger
+than the thing it replaces.
