@@ -54,6 +54,8 @@ services:
   # capability except the three that chown needs, cannot gain more,
   # and is gone before the server starts.
   init-data:
+    labels:
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/RudeLeft/Proxic_Arena/main/docs/assets/proxic-arena-icon.png"
     image: alpine:3.20.3@sha256:1e42bbe2508154c9126d48c2b8a75420c3544343bf86fd041fb7527e017a4b4a
     user: root
     command: sh -c "chown -R 100:101 /data && chmod 0755 /data"
@@ -98,5 +100,13 @@ services:
     #
     # Override the port with PROXIC_HOST_PORT in .env if 8765 is
     # ever taken too.
+    labels:
+      # Clicking the container's WebUI opens the TUNNEL, not the LAN
+      # port. Unraid's usual http://[IP]:[PORT] would open a page
+      # where signing in silently fails -- a browser will not keep a
+      # Secure cookie over plain HTTP (owner decision D2). Sending
+      # people to the address that works is worth losing the
+      # convention over.
+      net.unraid.docker.webui: "https://proxic.barnflix.net"
     ports:
       - "${PROXIC_HOST_PORT:-8765}:8080"

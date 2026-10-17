@@ -148,6 +148,31 @@ written. If that ever changes: GitHub → the repository's
 
 ---
 
+## Icons on the Docker tab
+
+Compose-created containers have no Community Applications template,
+which is why they show a blank placeholder where every other
+container has a picture. Unraid reads two labels off a container, and
+the compose files now set them:
+
+```text
+net.unraid.docker.icon   the Proxic Arena badge, served from this
+                         repository over raw.githubusercontent
+net.unraid.docker.webui  https://proxic.barnflix.net
+```
+
+All three containers carry the icon, so the stack reads as one
+application rather than three unrelated rows.
+
+The WebUI link points at the **tunnel**, not Unraid's usual
+`http://[IP]:[PORT]`. That convention would open a page where signing
+in silently fails, because a browser will not keep a `Secure` cookie
+over plain HTTP (owner decision D2). Sending people to the address
+that works is worth breaking the convention for.
+
+Labels are applied when a container is **created**, so they appear
+after the next Update Stack rather than immediately.
+
 ## What did not change
 
 - **`.env` still lives on the host** and is never published. Secrets

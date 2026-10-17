@@ -17,10 +17,26 @@
 # data was lost, but the containers fought over one name.
 name: proxic-arena
 
+# Unraid reads these labels off a container and uses them on the
+# Docker tab. Compose-created containers have no template, which is
+# why they show a blank placeholder where every other container has
+# a picture.
+#
+# The icon is served from this repository over raw.githubusercontent,
+# which works because the repository is public and costs nothing to
+# host. Unraid fetches it once and caches it.
+x-unraid-icon: &unraid-icon
+  net.unraid.docker.icon: "https://raw.githubusercontent.com/RudeLeft/Proxic_Arena/main/docs/assets/proxic-arena-icon.png"
+
 services:
   postgres:
     image: postgres:16.4-alpine@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c
     restart: unless-stopped
+    labels:
+      # The same icon: it is this stack's database, and a row of
+      # matching badges reads as one application rather than three
+      # unrelated containers.
+      <<: *unraid-icon
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
@@ -73,6 +89,8 @@ services:
     # for.
     image: ghcr.io/rudeleft/proxic_arena:latest
     restart: unless-stopped
+    labels:
+      <<: *unraid-icon
     depends_on:
       postgres:
         condition: service_healthy
