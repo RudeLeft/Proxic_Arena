@@ -65,7 +65,7 @@ https://proxic.barnflix.net/api/version
 ```
 
 ```json
-{"proxicVersion":"0.1.0", ..., "buildId":"3652748…"}
+{"proxicVersion":"0.1.0", ..., "buildId":"6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a"}
 ```
 
 `buildId` is the commit. Compare it with the latest commit on
@@ -122,10 +122,12 @@ the day a correct build sat in a correct image while the old
 container kept running.
 
 **The image will not pull** — `denied` or `unauthorized`. The package
-must be public for the host to pull without credentials. On GitHub:
-the repository's **Packages** → `proxic_arena` → **Package settings**
-→ change visibility to public. This is a one-time setting; a package
-published by Actions starts private.
+must be public for the host to pull without credentials. The first
+publish came out public on its own, inheriting the repository's
+visibility, and an anonymous pull was verified before this was
+written. If that ever changes: GitHub → the repository's
+**Packages** → `proxic_arena` → **Package settings** → visibility
+**public**.
 
 ---
 

@@ -131,10 +131,10 @@ arena-server   pulls ghcr.io/rudeleft/proxic_arena:latest, then starts
 Watch the `arena-server` log for `Successfully applied N migrations`
 (five on a fresh database, V001 through V005).
 
-If the pull is refused with `denied` or `unauthorized`, the package
-is still private: GitHub → the repository's **Packages** →
-`proxic_arena` → **Package settings** → visibility **public**. A
-package published by Actions starts private.
+The image is public — an anonymous pull was verified — so nothing
+needs a login. If a pull is ever refused with `denied`, check the
+package's visibility: GitHub → the repository's **Packages** →
+`proxic_arena` → **Package settings**.
 
 If it stops with **"Forge mismatch"**, that is the §1.61 guard
 refusing to build from the wrong source, not a network problem.
