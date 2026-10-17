@@ -155,6 +155,61 @@ makes §6.124 (hidden identity gets no real reference), §6.125
 (face-down stays face-down) and §6.129 (no enumerating an
 opponent's deck) achievable rather than aspirational.
 
+### Second pass — 2026-10-17
+
+The six ranges the first pass left. No contradictions found in the
+action and decision model: §6.42-§6.44 already carry Phase 0A's
+findings verbatim (both visibility questions, the empty-name trap),
+and §6.99-§6.103 match the binding constraints on duplicate
+defences and rejecting before the waiter.
+
+**D4 - the room returns to OPEN when a match ends.**
+
+§6.16 adds `IN_MATCH` and §6.17 ends the match at `ENDED`, but
+neither says what becomes of the ROOM, and §6.186 excludes rematch
+flow. Owner decision: it returns to **OPEN** - both players still
+seated, decks still chosen, readiness reset. That is not rematch
+flow: no button, no score, no UI. It is the state the room already
+returns to after Cancel preparation, and two people who have just
+finished a game are the likeliest to want another.
+
+### Build-time facts worth knowing before they surprise someone
+
+**`IN_MATCH` is not a legal room status yet.** V006's CHECK allows
+only `OPEN`, `READY_FOR_MATCH`, `CLOSED`, `EXPIRED`. Phase 6 needs a
+migration to add it, and the §6.185 exit gate requires the
+transition.
+
+**That also settles a question carried out of Phase 5.** "What does
+a live match do to room expiry?" answers itself: the sweep's filter
+is `status IN ('OPEN', 'READY_FOR_MATCH')`, so an `IN_MATCH` room is
+untouched by default. The thing to be careful of is the opposite -
+when D4 returns the room to `OPEN`, its 24-hour clock starts again
+from the last activity, and the match itself is not activity unless
+something touches the room.
+
+**The match socket route is undecided, and the constraint is
+recorded rather than the choice.** §6.108-§6.111 describe a match
+connection without naming a path. Phase 5 put the lobby on
+`/ws/user` and recorded that any per-room path added later **must
+share that authentication rather than copy it**. §6.191's decision
+volume - roughly 240 priority windows per 12-turn game against ~23
+actual actions - is the argument for a match-scoped socket rather
+than piling it onto the lobby's. Decide at build time; do not
+reimplement the session revalidation.
+
+**Four new documents** are required: `MATCH_PROTOCOL.md`,
+`FORGE_WORKER_RUNTIME.md`, `MATCH_STATE_VISIBILITY.md` and
+`MATCH_ACTION_MODEL.md` (§6.177-§6.180).
+
+**The worker answers six commands today**, none of them
+game-related: PING, VERSION, VERIFY_RESOURCES, RESOLVE_CARDS,
+BUILD_DECK, SHUTDOWN. The entire match runtime is new work inside
+it. That is the scale of this phase, and it is why D1's test-only
+deck command is a small addition rather than a new subsystem.
+
+**65 acceptance tests**, P6-A through P6-BL. Phase 5 had 26.
+
 ### What this pass did NOT cover
 
 5,520 lines and 280 sections. This pass targeted the interfaces most
@@ -164,14 +219,16 @@ consistent with `MATCH_SETUP_CONTRACT.md`), the match record
 `display_name` snapshot V007 added), format and multiplayer scope,
 concurrency, test strategy, and asset plumbing.
 
-**Not yet reviewed in detail:** §6.33-§6.47 (printing identity,
-state ownership, hidden information), §6.48-§6.107 (the action and
-decision model and its fourteen named card regressions),
-§6.108-§6.122 (auth, reconnect, ordering), §6.132-§6.146 (the
-functional match UI), §6.163-§6.185 (operations and the required
-documents), and the acceptance tests P6-A through P6-BL.
+All six ranges have now been walked (see "Second pass" above). What
+remains before this is renamed `_LOCKED` is not review but
+confirmation: the owner reading the four decisions recorded here and
+agreeing they are what was meant.
 
-Those must be walked before this document is renamed `_LOCKED`.
+Deliberately NOT resolved here, because they are build-time
+engineering choices rather than specification questions: the match
+socket route, the internal worker message schema for game state, and
+how the functional Phase 6 client renders a battlefield it is
+explicitly not required to make pretty.
 
 ---
 
