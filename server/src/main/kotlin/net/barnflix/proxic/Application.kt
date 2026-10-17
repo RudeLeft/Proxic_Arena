@@ -23,6 +23,7 @@ import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.room.roomRoutes
 import org.slf4j.event.Level
 import java.io.File
 import java.time.Duration
@@ -342,12 +343,26 @@ private fun Application.installRoutes(
                 // Decks remain UNOWNED (§3.86): any signed-in user
                 // sees all of them, and none belong to anybody
                 // until Phase 4.
+                //
+                // PHASE_05 carry-forward C4: /api/rooms is gated the
+                // same way rather than growing its own copy. Two
+                // authentication gates is one gate and one future
+                // oversight.
                 intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
-                    if (!call.request.path().startsWith("/api/decks")) return@intercept
+                    val path = call.request.path()
+                    val guarded =
+                        path.startsWith("/api/decks") || path.startsWith("/api/rooms")
+                    if (!guarded) return@intercept
                     val principal = call.requireAuth(sessions) ?: return@intercept finish()
                     if (!call.csrfOk(config)) return@intercept finish()
                     call.attributes.put(PRINCIPAL_KEY, principal)
                 }
+
+                // PHASE_05 §5.14, §5.76-§5.81, §5.138, §5.139. The
+                // lobby is the announcer: an HTTP response reaches
+                // the caller, and the other members learn through
+                // the socket they already hold.
+                roomRoutes(roomService, lobby)
 
                 deckRoutes(
                     config = config,

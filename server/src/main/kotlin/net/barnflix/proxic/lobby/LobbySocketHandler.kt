@@ -5,6 +5,8 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.barnflix.proxic.auth.User
+import net.barnflix.proxic.room.Room
+import net.barnflix.proxic.room.RoomAnnouncer
 import net.barnflix.proxic.room.RoomResult
 import net.barnflix.proxic.room.RoomService
 import java.util.UUID
@@ -52,8 +54,44 @@ class LobbyService(
     private val rooms: RoomService,
     private val invitations: Invitations = Invitations(),
     private val chat: ChatLimiter = ChatLimiter(),
-) : LobbySocketHandler {
+) : LobbySocketHandler, RoomAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
+
+    // --- RoomAnnouncer: what the HTTP routes cannot say themselves ----
+    //
+    // §5.76 and §5.81 both describe people OTHER than the caller
+    // learning that a room changed. An HTTP response reaches one
+    // client; this reaches the rest of them.
+
+    override suspend fun roomChanged(room: Room) {
+        // A room that just filled is no longer inviting anybody
+        // (§5.22): leaving its invitations live would let somebody
+        // accept into a room with no seat, and be refused for a
+        // reason they could not have known about.
+        if (room.isFull()) invitations.forgetRoom(room.roomId)
+        hub.sendToAll(room.members.map { it.userId }, roomMessage(room))
+    }
+
+    override suspend fun roomClosed(
+        roomId: UUID,
+        formerMembers: Collection<UUID>,
+        reason: String,
+    ) {
+        // The gap this closes: an invitation outlives the room it
+        // points at, and accepting it fails with ROOM_NOT_FOUND --
+        // correct, and baffling to the person who was invited
+        // thirty seconds ago.
+        invitations.forgetRoom(roomId)
+        hub.sendToAll(formerMembers, roomClosedMessage(roomId, reason))
+    }
+
+    override suspend fun removedFromRoom(
+        roomId: UUID,
+        userId: UUID,
+        reason: String,
+    ) {
+        hub.sendTo(userId, removedFromRoomMessage(roomId, reason))
+    }
 
     override suspend fun open(
         connectionId: String,
@@ -196,12 +234,11 @@ class LobbyService(
             when (val result = rooms.join(roomId, me)) {
                 is RoomResult.Refused -> reply(errorMessage(result.error))
 
-                is RoomResult.Ok -> {
+                is RoomResult.Ok ->
                     // Everyone in the room sees the new seat, the
                     // joiner included — one message, one source of
-                    // truth.
-                    hub.sendToAll(result.room.members.map { it.userId }, roomMessage(result.room))
-                }
+                    // truth, and the same path the HTTP routes use.
+                    roomChanged(result.room)
             }
         }
 

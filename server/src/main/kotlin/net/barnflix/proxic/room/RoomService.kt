@@ -20,6 +20,28 @@ import javax.sql.DataSource
 private const val PRESET_OPEN_FORMAT = "OPEN_FORMAT_1V1"
 private const val OPEN_FORMAT_PLAYERS = 2
 
+/**
+ * §5.135–§5.137 — has the room moved since the client looked?
+ *
+ * Checked INSIDE the transaction, after the row lock, because
+ * anywhere else it is a guess: between an unlocked read and the
+ * write, the revision this compares against can change again.
+ *
+ * Null means the caller did not say, which is allowed (§5.136
+ * says requests MAY include it). The socket's invitation accept
+ * is the honest case: the joiner never saw a revision, so there
+ * is nothing for them to be stale about.
+ */
+private fun stale(
+    room: Room,
+    expectedRevision: Long?,
+): RoomResult.Refused? =
+    if (expectedRevision != null && expectedRevision != room.revision) {
+        RoomResult.Refused(RoomError.StaleRevision(room.revision))
+    } else {
+        null
+    }
+
 class RoomService(
     dataSource: DataSource,
     private val deckAuthorization: DeckAuthorization,
@@ -132,6 +154,13 @@ class RoomService(
      * Phase 5 implements no host transfer, so a host leaving is the
      * end of that room rather than a succession puzzle. Everyone
      * else is removed with it, which is what §5.18 asks for.
+     *
+     * No `expectedRevision`, unlike the mutations above, and the
+     * omission is deliberate: leaving and closing are statements of
+     * intent, not edits to state. "I want out" does not stop being
+     * true because somebody else changed their deck while you
+     * clicked, and refusing it with a 409 would trap a player in a
+     * room until they clicked twice.
      */
     fun leave(
         roomId: UUID,
@@ -159,11 +188,13 @@ class RoomService(
         roomId: UUID,
         hostUserId: UUID,
         targetUserId: UUID,
+        expectedRevision: Long? = null,
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
                 store.lockedRoom(connection, roomId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
+            stale(room, expectedRevision)?.let { return@inTransaction it }
 
             when {
                 !room.isHost(hostUserId) -> RoomResult.Refused(RoomError.HostRequired)
@@ -218,11 +249,13 @@ class RoomService(
         roomId: UUID,
         hostUserId: UUID,
         count: Int,
+        expectedRevision: Long? = null,
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
                 store.lockedRoom(connection, roomId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
+            stale(room, expectedRevision)?.let { return@inTransaction it }
 
             when {
                 !room.isHost(hostUserId) -> RoomResult.Refused(RoomError.HostRequired)
@@ -278,11 +311,13 @@ class RoomService(
         roomId: UUID,
         userId: UUID,
         deckId: UUID?,
+        expectedRevision: Long? = null,
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
                 store.lockedRoom(connection, roomId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
+            stale(room, expectedRevision)?.let { return@inTransaction it }
 
             when {
                 !room.isMember(userId) -> RoomResult.Refused(RoomError.NotFound)
@@ -325,11 +360,13 @@ class RoomService(
         roomId: UUID,
         userId: UUID,
         ready: Boolean,
+        expectedRevision: Long? = null,
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
                 store.lockedRoom(connection, roomId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
+            stale(room, expectedRevision)?.let { return@inTransaction it }
             val member =
                 room.member(userId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)

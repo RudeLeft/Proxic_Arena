@@ -5,6 +5,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
@@ -21,6 +22,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import net.barnflix.proxic.Database
 import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.auth.Accounts
+import net.barnflix.proxic.auth.CSRF_COOKIE
+import net.barnflix.proxic.auth.CSRF_HEADER
 import net.barnflix.proxic.auth.Role
 import net.barnflix.proxic.auth.SESSION_COOKIE
 import net.barnflix.proxic.module
@@ -187,7 +190,17 @@ class LobbySocketTest {
                     host.await("PRESENCE_JOINED")
 
                     // The host needs a room before inviting anyone.
-                    val roomId = createRoom(hostToken)
+                    val roomId = createRoom("RudeLeft")
+
+                    // Creating one announces it to the host's own
+                    // connections — §5.6, a second tab is the same
+                    // player and must see the room too. Consume it,
+                    // so the ROOM awaited below is the one that
+                    // carries the guest.
+                    assertEquals(
+                        1,
+                        host.await("ROOM")!!["room"]!!.jsonObject["members"]!!.jsonArray.size,
+                    )
 
                     val patId = userId("Pat")
                     host.say("""{"type":"INVITE","userId":"$patId"}""")
@@ -230,7 +243,7 @@ class LobbySocketTest {
             val client = createClient { install(ClientWebSockets) }
             val hostToken = tokenFor("RudeLeft")
             val outsiderToken = tokenFor("Sam")
-            val roomId = createRoom(hostToken)
+            val roomId = createRoom("RudeLeft")
 
             client.webSocket(
                 "/ws/user",
@@ -271,7 +284,7 @@ class LobbySocketTest {
             application { module(config()) }
             val client = createClient { install(ClientWebSockets) }
             val hostToken = tokenFor("RudeLeft")
-            createRoom(hostToken)
+            createRoom("RudeLeft")
 
             client.webSocket(
                 "/ws/user",
@@ -394,17 +407,33 @@ class LobbySocketTest {
             Accounts(it.dataSource()).findByUsername(username)!!.userId
         }
 
-    /** Creates a room directly, since the HTTP routes are the next slice. */
-    private fun createRoom(
-        @Suppress("UNUSED_PARAMETER") token: String,
-    ): UUID =
-        Database.connect(config())!!.use { database ->
-            val rooms =
-                net.barnflix.proxic.room.RoomService(
-                    database.dataSource(),
-                    net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
-                )
-            val host = Accounts(database.dataSource()).findByUsername("RudeLeft")!!.userId
-            (rooms.create(host) as net.barnflix.proxic.room.RoomResult.Ok).room.roomId
-        }
+    /**
+     * Host a room the way a browser does.
+     *
+     * Through the HTTP route rather than the service, so these
+     * tests exercise the same door the lobby page uses. The second
+     * login is deliberate: the route needs the CSRF pair (§3.51)
+     * and the socket tests only ever captured the session cookie.
+     */
+    private suspend fun ApplicationTestBuilder.createRoom(username: String): UUID {
+        val cookies =
+            client.post("/api/auth/login") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"username":"$username","password":"$password"}""")
+            }.headers.getAll(HttpHeaders.SetCookie)!!
+
+        fun cookie(name: String) = cookies.first { it.startsWith("$name=") }.substringAfter("=").substringBefore(";")
+
+        val csrf = cookie(CSRF_COOKIE)
+        val body =
+            client.post("/api/rooms") {
+                header(HttpHeaders.Cookie, "$SESSION_COOKIE=${cookie(SESSION_COOKIE)}; $CSRF_COOKIE=$csrf")
+                header(CSRF_HEADER, csrf)
+            }.bodyAsText()
+
+        return UUID.fromString(
+            json.parseToJsonElement(body).jsonObject["room"]!!
+                .jsonObject["roomId"]!!.jsonPrimitive.content,
+        )
+    }
 }

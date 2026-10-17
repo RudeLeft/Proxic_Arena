@@ -8,7 +8,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.barnflix.proxic.BuildInfo
-import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomError
 import java.util.UUID
 
@@ -28,7 +27,7 @@ import java.util.UUID
 // render, not what it is allowed to ask for. Every rule is
 // re-checked server-side when it asks.
 
-private fun envelope(
+internal fun envelope(
     type: String,
     body: JsonObjectBuilder.() -> Unit = {},
 ): JsonObject =
@@ -69,55 +68,6 @@ fun presenceChange(
         put("userId", entry.userId.toString())
         put("username", entry.username)
         put("displayName", entry.displayName)
-    }
-
-/**
- * The room, as the server holds it.
- *
- * Sent to every member on every change, carrying the revision so a
- * client can tell a stale view from a current one.
- *
- * Deck NAMES travel; deck contents do not (§5.x). Another member
- * needs to know you have chosen something and what it is called,
- * never what is in it.
- */
-fun roomMessage(room: Room): JsonObject =
-    envelope("ROOM") {
-        putJsonObject("room") {
-            put("roomId", room.roomId.toString())
-            put("hostUserId", room.hostUserId.toString())
-            put("presetId", room.presetId)
-            put("desiredPlayerCount", room.desiredPlayerCount)
-            put("status", room.status.name)
-            put("revision", room.revision)
-            put("everyoneReady", room.everyoneReady())
-            putJsonArray("members") {
-                room.members.forEach { member ->
-                    add(
-                        buildJsonObject {
-                            put("userId", member.userId.toString())
-                            put("username", member.username)
-                            put("displayName", member.displayName)
-                            put("seatNumber", member.seatNumber)
-                            put("ready", member.ready)
-                            put("isHost", member.isHost)
-                            put("selectedDeckId", member.selectedDeckId?.toString())
-                            put("selectedDeckName", member.selectedDeckName)
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-/** The room you were in is gone (§5.18 host departure, or expiry). */
-fun roomClosedMessage(
-    roomId: UUID,
-    reason: String,
-): JsonObject =
-    envelope("ROOM_CLOSED") {
-        put("roomId", roomId.toString())
-        put("reason", reason)
     }
 
 /** You have been invited. The only way into a room (AMENDMENT 1). */
