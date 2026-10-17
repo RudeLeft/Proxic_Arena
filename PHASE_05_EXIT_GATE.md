@@ -179,12 +179,24 @@ its own leftovers.
 
 - **P5-Y has not been run.** Until it is, "works on the host" is
   untested for this phase.
-- **`buildId` is `dev` on a local build.** Carried from Phase 4.
+- ~~**`/api/version` cannot say what is deployed.**~~ **RESOLVED.**
+  Carried unresolved from the Phase 3 and Phase 4 gates. The build
+  identity is now the first line of the startup log, is reported by
+  `/api/version`, and is an OCI label `docker inspect` can read with
+  nothing running. A local build says `dev`, or the commit plus
+  `-dirty` when the shell supplies it.
 - **Authentication events are still not logged as events** —
   deferred at the Phase 3 gate.
 - **No storage quotas.** Carried from Phase 4.
 - **Rooms can outlive 24 hours by up to one sweep interval.**
 - **Invitations and chat do not survive a restart** — deliberate.
+- **One unexplained browser-suite failure.** `match-setup.spec`
+  failed once in a full run and passed in four subsequent ones,
+  alone and together. The trace was overwritten before I read it,
+  so this was **not diagnosed**. The most plausible cause —
+  selecting a deck by "first in the list", which depends on what an
+  earlier spec file left behind — has been removed; both players
+  now pick by name. If it recurs on CI, the trace will be kept.
 - **A live match's effect on room expiry is undecided.** Today a room
   in a match would still be swept after 24 idle hours. Phase 6's.
 

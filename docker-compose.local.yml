@@ -21,6 +21,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Which local build is this?
+      #
+      # The Dockerfile's default is the constant "dev", which is
+      # honest about being unpublished and useless for telling two
+      # local builds apart — and a developer rebuilds a dozen times
+      # an afternoon. CI passes the commit sha; this passes
+      # whatever the shell knows, falling back to the same honest
+      # constant when it knows nothing.
+      #
+      #   export PROXIC_BUILD_ID="$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
+      #
+      # The `-dirty` marker matters more than the sha: a build from
+      # uncommitted changes labelled with a clean commit is worse
+      # than one labelled "dev", because it looks trustworthy.
+      args:
+        PROXIC_BUILD_ID: ${PROXIC_BUILD_ID:-dev}
+        PROXIC_REVISION: ${PROXIC_BUILD_ID:-unknown}
     pull_policy: build
     ports:
       - "127.0.0.1:8080:8080"

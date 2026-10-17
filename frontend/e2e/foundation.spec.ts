@@ -92,6 +92,32 @@ test("the version is displayed and matches the API", async ({ page }) => {
   );
 });
 
+/**
+ * "Which build is this?" — carried unresolved from the Phase 3 and
+ * Phase 4 gates, and resolved in Phase 5.
+ *
+ * Answered in three places that must agree: the startup log, this
+ * endpoint, and an OCI label. Only one of them is reachable from a
+ * browser, so this pins the one that is — and pins that it is a
+ * real answer rather than the `null` that cost an hour of bundle-
+ * hash archaeology during the Phase 4 deployment.
+ */
+test("the running server says which build it is", async ({ request }) => {
+  const version = (await (await request.get("/api/version")).json()) as {
+    buildId: string | null;
+    proxicVersion: string;
+    forgeRelease: string;
+  };
+
+  expect(
+    version.buildId,
+    "buildId is null: PROXIC_BUILD_ID was not set at image build",
+  ).not.toBeNull();
+  expect(version.buildId).not.toBe("");
+  expect(version.proxicVersion).toBeTruthy();
+  expect(version.forgeRelease).toBeTruthy();
+});
+
 test("P1-L: Pixi initialises, and navigating away and back leaves no duplicate", async ({
   page,
 }) => {

@@ -82,9 +82,29 @@ https://proxic.barnflix.net/api/version
 ```
 
 `buildId` is the commit. Compare it with the latest commit on
-`main`; if they match, that is what is running. A local build
-reports `dev`, which is honest about being neither published nor
-reproducible.
+`main`; if they match, that is what is running.
+
+**Three places say the same thing**, so you are never reduced to
+comparing bundle hashes again:
+
+| Where | How |
+| --- | --- |
+| the container log | first line at startup |
+| the API | `/api/version` |
+| the image, with nothing running | Docker tab, or `docker inspect` |
+
+The log line is the one to reach for when something is wrong,
+because it appears before anything can fail:
+
+```text
+Proxic Arena 0.1.0 · protocol 1 · forge-2.0.15 · build 7cf1f40
+```
+
+A **local** build reports `dev` unless the shell told it otherwise —
+honest about being neither published nor reproducible. A local build
+made from uncommitted changes reports `-dirty`, which matters more
+than the sha: a build that looks like a clean commit and is not is
+worse than one that admits it is nothing in particular.
 
 Database migrations apply themselves when the new container starts —
 watch for `flyway applied=N` in the log if a release includes schema

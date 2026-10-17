@@ -98,6 +98,14 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     await host.locator('input[type="file"]').setInputFiles(pkg!);
     await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 300_000 });
 
+    // The name the server gave THIS import, read from the library
+    // rather than guessed from the filename.
+    const library = (await (await host.request.get("/api/decks")).json()) as {
+      mine: { deckId: string; displayName: string }[];
+    };
+    expect(library.mine).toHaveLength(1);
+    const deckName = library.mine[0]!.displayName;
+
     await host.getByRole("button", { name: "view" }).first().click();
     await expect(host.getByRole("heading", { name: "Share this deck" })).toBeVisible();
     await host.getByLabel("Username").fill(secondUser);
@@ -117,17 +125,25 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     await expect(host.getByText("2 of 2")).toBeVisible();
 
     // --- decks, chosen inline (AMENDMENT 4) -----------------------
+    //
+    // Both players pick the deck BY NAME rather than by `.first()`.
+    // The suite shares two accounts across six files and runs in
+    // one order; "whatever is first in the list" is a dependency on
+    // what the previous file left behind, and the Phase 4 gate's
+    // worst finding started as exactly that kind of cross-file
+    // interference.
     const hostDecks = host.getByRole("region", { name: "My decks" });
-    await hostDecks.getByRole("button", { name: "Use this deck" }).first().click();
-    await expect(hostDecks.getByRole("button", { name: "Selected" })).toBeVisible();
+    const deckRow = hostDecks.locator("li", { hasText: deckName });
+    await deckRow.getByRole("button", { name: "Use this deck" }).click();
+    await expect(deckRow.getByRole("button", { name: "Selected" })).toBeVisible();
 
     // §4.59 — the guest's copy says whose it is, and §5.41 says a
     // shared deck is selectable.
     const guestDecks = guest.getByRole("region", { name: "My decks" });
-    const deckName = (await guestDecks.locator("li .name").first().innerText()).split(" ·")[0]!;
-    await expect(guestDecks.getByText(`shared by ${testUser}`)).toBeVisible();
-    await guestDecks.getByRole("button", { name: "Use this deck" }).first().click();
-    await expect(guestDecks.getByRole("button", { name: "Selected" })).toBeVisible();
+    const guestRow = guestDecks.locator("li", { hasText: deckName });
+    await expect(guestRow).toContainText(`shared by ${testUser}`);
+    await guestRow.getByRole("button", { name: "Use this deck" }).click();
+    await expect(guestRow.getByRole("button", { name: "Selected" })).toBeVisible();
 
     // §5.46, §5.47 — the host can see that the guest's seat is
     // decided, and NOT what they decided on.

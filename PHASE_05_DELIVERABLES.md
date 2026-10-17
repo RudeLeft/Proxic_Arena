@@ -355,8 +355,10 @@ process boundary (ARCH-001).
 
 - **P5-Y has not been run.** Until it is, "works on the host" is
   untested for this phase.
-- **`buildId` is still `dev` on a local build.** Carried from the
-  Phase 4 gate; `/api/version` cannot always say what is deployed.
+- ~~`/api/version` cannot say what is deployed.~~ **Resolved** —
+  startup log, `/api/version` and an OCI label all carry the build
+  identity, and a local build from uncommitted changes says
+  `-dirty`.
 - **Authentication events are still not logged as events** —
   deferred at the Phase 3 gate, owner decision 2026-10-16.
 - **No storage quotas.** Carried from Phase 4.

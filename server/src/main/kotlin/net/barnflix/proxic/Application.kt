@@ -126,6 +126,27 @@ class Dependencies(
 )
 
 private fun Application.installPluginsAndDependencies(config: ServerConfig): Dependencies {
+    // WHICH BUILD IS THIS? — carried unresolved from the Phase 3 and
+    // Phase 4 gates.
+    //
+    // `/api/version` has answered this since Phase 4, but answering
+    // it needs a reachable server, a session for the page, and
+    // somebody who knows the endpoint exists. `docker logs` is
+    // where anyone actually looks first, and it said nothing at
+    // all: the Phase 4 deployment was diagnosed by comparing
+    // frontend bundle hashes, and it cost an hour.
+    //
+    // First line of the log, before anything can fail, because the
+    // build identity is most valuable precisely when startup is
+    // going wrong.
+    log.info(
+        "Proxic Arena {} · protocol {} · {} · build {}",
+        BuildInfo.PROXIC_VERSION,
+        BuildInfo.PROTOCOL_VERSION,
+        BuildInfo.FORGE_RELEASE,
+        BuildInfo.buildId ?: "unidentified (PROXIC_BUILD_ID is unset)",
+    )
+
     install(ContentNegotiation) {
         json(
             Json {
