@@ -129,22 +129,17 @@ jobs:
       - run: ./gradlew :server:test --no-daemon
 
       # A test that skips itself is not a test that passed. Phase 1
-      # shipped two tests that silently never ran; this is the same
-      # failure wearing CI clothes, so the gate counts skips and
-      # fails on any.
-      - name: Fail if any test skipped
+      # shipped two that silently never ran; this is the same failure
+      # wearing CI clothes, where nobody is watching the console.
+      #
+      # Classes that legitimately cannot run here -- they need the
+      # real Deck Builder export, gitignored because of its artwork --
+      # are declared in ci/expected-skips.txt with the reason. Any
+      # other skip fails the build, and is named.
+      - name: Fail on undeclared skips
         if: always()
-        run: |
-          skipped=$(grep -ho 'skipped="[0-9]*"' server/build/test-results/test/*.xml \
-            | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
-          total=$(grep -ho ' tests="[0-9]*"' server/build/test-results/test/*.xml \
-            | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
-          echo "$total server tests, $skipped skipped"
-          echo "$total server tests, $skipped skipped" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$skipped" -ne 0 ]; then
-            echo "::error::$skipped server test(s) skipped. A skipped test proves nothing."
-            exit 1
-          fi
+        run: sh ci/check-skips.sh server/build/test-results/test
+
 
   browser-tests:
     name: Browser tests
