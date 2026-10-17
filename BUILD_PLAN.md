@@ -20,6 +20,15 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 5 | Lobby, Game Rooms, Match Setup | **COMPLETE** 2026-10-17 — gate PASSED, 26/26 acceptance including the production run. 4 amendments: no join codes, presence, invitations, ephemeral chat | `PHASE_05_EXIT_GATE.md` |
 | 6 | Forge Match Runtime & Game Protocol | PROVISIONAL | `PHASE_06_FORGE_MATCH_RUNTIME_AUTHORITATIVE_GAME_PROTOCOL_PROVISIONAL.md` |
 | 7 | Battlefield Presentation & Interaction | DRAFT (6 open questions, §7.51) | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md` |
+| 8+ | Commander | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |
+| 8+ | Two-Headed Giant | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |
+
+Commander and Two-Headed Giant were removed from scope on 2026-10-15
+and put back on the ROADMAP on 2026-10-17. The difference matters:
+they are not being built, and nothing offers them, but Phase 6 now
+designs so they remain reachable without rework. AGENTS FMT-001 and
+FMT-005 draw that line — a seat model that can hold four is in
+scope; a game that seats four is not.
 
 Phase 2 added deck import: `docs/architecture/DECK_PACKAGE_FORMAT.md`
 is the Deck Builder contract and `DECK_IMPORT_PIPELINE.md` is how an

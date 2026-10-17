@@ -63,6 +63,118 @@ every such deferral in its §7.4.
 
 ---
 
+## LOCK REVIEW — 2026-10-17 (first pass)
+
+Checked against what is now TRUE rather than what was assumed when
+this was written: Phase 0A's accepted findings, Phases 1-5 as built,
+and the four Phase 5 amendments. **Still PROVISIONAL** - see "what
+this pass did not cover" at the end.
+
+### Owner decisions
+
+**D1 - deterministic scenarios use a test-only worker path.**
+
+§6.6 Layer B needs focused scenarios that reach a named card on
+demand. Phase 0A's proven technique was stacked decks - 24x Krenko,
+20x Acidic Slime, 24x Ainok Tracker - because a singleton corpus
+never reaches rare paths reliably.
+
+**Open Format caps copies at 4**, enforced at import (Phase 2) and
+again at preparation (Phase 5). Those decks can no longer be
+imported or prepared, and the existing corpus deck, while legal, is
+a *playable* deck rather than a deterministic one: a named card at
+4 copies in 65 is not reachable on demand.
+
+The worker gains a command that builds a Forge deck directly from a
+card list, used **only** by the test harness - never reachable
+through Deck Depot, never through `/api`. The production rule is
+untouched, which is the point: the alternative was a
+development-only preset, and a format rule with an
+environment-dependent exception is the thing §5.94 warns about.
+
+**D2 - Commander and Two-Headed Giant are back on the ROADMAP, and
+Phase 6 designs for them.**
+
+Removed from scope 2026-10-15; returned to the roadmap 2026-10-17 as
+intended future phases. They are not being built and nothing offers
+them.
+
+`AGENTS.md` FMT-001 was amended by the owner - "or plan for" is
+gone - and **FMT-005 was added to bound what "design for" means**,
+because left vague it becomes licence to build Commander inside
+Phase 6:
+
+```text
+REQUIRED   acted-for carried separately from authorised-to-answer
+           seat and team identity representable end to end
+           sequencing from Forge, never from Ktor
+           preset catalogue a server-side list, not a constant
+           player-count bounds configuration, not an assumption
+
+FORBIDDEN  command zone, shared life, singleton or colour-identity
+           rules, mulligan variants, any runtime player count above 2
+```
+
+A seat model that can hold four is in scope; a game that seats four
+is not. §6.147, §6.148 and P6-AQ therefore **stand** rather than
+being voided.
+
+**D3 - the concurrency target stays at 3, and the real ceiling gets
+measured.**
+
+12 GB is available on the deployment host. Phase 0A measured one JVM
+per match at ~611 MB, so §6.159's three simultaneous matches is
+roughly 1.8 GB before Postgres and the server - comfortable. Prove 3
+as specified and record the actual ceiling as evidence.
+
+### Cross-phase constraint found in this pass
+
+**Match-time artwork is NOT Deck Depot artwork authorization.**
+
+Phase 4 AMENDMENT 2 made an image require *deck access* **and** the
+asset being referenced by that deck. An opponent has no access to
+your deck, so the naive implementation - reusing the Deck Depot
+asset route - would show them nothing.
+
+But §6.126 requires that when Forge permits the viewer to know a
+card, it maps to the correct imported artwork, and a permanent on
+the battlefield is visible to both players.
+
+These do not contradict. They are two authorization rules, and
+Phase 6 needs the second:
+
+```text
+Deck Depot   you may see assets of decks you have access to
+Match        you may see the asset of an object the GAME currently
+             shows you, whoever owns the deck it came from
+```
+
+Match asset references must be issued per object from current Forge
+visibility, never derived from deck ownership - which is also what
+makes §6.124 (hidden identity gets no real reference), §6.125
+(face-down stays face-down) and §6.129 (no enumerating an
+opponent's deck) achievable rather than aspirational.
+
+### What this pass did NOT cover
+
+5,520 lines and 280 sections. This pass targeted the interfaces most
+likely to have gone stale: setup claim and launch (§6.9-§6.12,
+consistent with `MATCH_SETUP_CONTRACT.md`), the match record
+(§6.18-§6.19, consistent with what Phase 5 writes, including the
+`display_name` snapshot V007 added), format and multiplayer scope,
+concurrency, test strategy, and asset plumbing.
+
+**Not yet reviewed in detail:** §6.33-§6.47 (printing identity,
+state ownership, hidden information), §6.48-§6.107 (the action and
+decision model and its fourteen named card regressions),
+§6.108-§6.122 (auth, reconnect, ordering), §6.132-§6.146 (the
+functional match UI), §6.163-§6.185 (operations and the required
+documents), and the acceptance tests P6-A through P6-BL.
+
+Those must be walked before this document is renamed `_LOCKED`.
+
+---
+
 ## 6.0 Purpose
 
 Phase 6 crosses the boundary from a validated pre-game room into a real running Magic game.

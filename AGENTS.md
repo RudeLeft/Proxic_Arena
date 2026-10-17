@@ -78,11 +78,34 @@ you were asked to do, stop and say so.
 
 ## FORMAT — the only supported play mode
 
-- **FMT-001 — MUST NOT:** Implement, offer or plan for any play mode
-  other than **Open Format**: 65-card deck maximum, no more than 4
-  copies of a specific card, unrestricted card pool, 2 players.
-  Commander and Two-Headed Giant were removed by owner decision on
-  2026-10-15. _USER to change._
+- **FMT-001 — MUST NOT:** Implement or offer any play mode other than
+  **Open Format**: 65-card deck maximum, no more than 4 copies of a
+  specific card, unrestricted card pool, 2 players. Commander and
+  Two-Headed Giant were removed from SCOPE by owner decision on
+  2026-10-15.
+  **AMENDED 2026-10-17 (owner decision).** "or plan for" is gone.
+  Commander and Two-Headed Giant are now intended FUTURE phases
+  (see BUILD_PLAN), so the runtime must be designed for them rather
+  than merely not blocking them — see FMT-005 for exactly how far
+  that goes. What stays forbidden is unchanged: nothing offers,
+  exposes or enables either mode today. The preset catalogue has one
+  entry, the player count is bounded at 2, and no UI presents a
+  choice. _USER to change._
+- **FMT-005 — MUST:** Keep multiplayer reachable without rework, and
+  stop there. The boundary is the point of this rule: "design for"
+  became licence to build Commander inside Phase 6 the moment it was
+  left vague.
+  **Required:** carry "the player being acted for" separately from
+  "the connection authorised to answer" (Phase 0A binding
+  constraint); keep seat and team identity representable end to end;
+  take decision sequencing from Forge, never from Ktor; keep the
+  preset catalogue a server-side list rather than a constant; keep
+  player-count bounds configuration rather than an assumption.
+  **MUST NOT**, until the phase that owns that format: add a command
+  zone, shared life totals, singleton or colour-identity deck rules,
+  mulligan variants, or any runtime player count above 2. A seat
+  model that can hold four is in scope; a game that seats four is
+  not. _USER to change._
 - **FMT-002 — MUST:** Enforce deck legality in Proxic, not Forge.
   `DeckFormat.Constructed` is min 60 with **no maximum**; Open Format
   is **max 65**. They are different rules, so the check cannot be
