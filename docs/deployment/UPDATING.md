@@ -44,11 +44,24 @@ image, which is exactly right and completely useless.
 
 ```text
 push to main
-   -> GitHub Actions builds the image
-   -> publishes ghcr.io/rudeleft/proxic_arena:latest
-                ghcr.io/rudeleft/proxic_arena:<commit sha>
+   -> build the candidate image          ghcr.io/...:ci-<sha>
+   -> static analysis + 49 frontend tests
+   -> 233 server tests                   against that image's Forge
+   -> 29 browser tests                   against that image, running
+   -> all green? retag it latest and <sha>
    -> Unraid: Check for Updates -> Update Stack
 ```
+
+**Nothing becomes `latest` until the tests pass.** Deploying is two
+clicks now, which makes a bad build as easy to ship as a good one —
+so the gate stands where the risk moved to.
+
+The image is built once and **promoted by retagging**, never rebuilt
+for publication. The bytes you deploy are the exact bytes that
+passed; a gate that tests one build and ships another is not a gate.
+
+If a run fails, no new image appears, your Update button stays quiet,
+and the server keeps running what it was running.
 
 The host pulls a finished image. It never compiles anything, never
 needs the repository, and never needs 4 GB free to deploy.
@@ -102,9 +115,13 @@ the database needs a word first.
 
 Rare, and each has a plain cause.
 
-**"Check for Updates" says nothing changed.** The Action may still be
-running. Check the Actions tab on GitHub; a publish takes a few
-minutes.
+**"Check for Updates" says nothing changed.** Either the run is still
+going — the full gate takes about fifteen minutes — or it failed and
+nothing was published. The Actions tab on GitHub says which, and a
+failed run names the test that stopped it.
+
+That is the gate working. The alternative is a green button that
+deploys a broken build.
 
 **It updated, but the site looks the same.** Check `buildId` first.
 If it changed, the server is new and the browser is holding the old

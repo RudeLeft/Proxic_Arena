@@ -25,3 +25,10 @@ net.barnflix.proxic.deck.DeckApiTest
 net.barnflix.proxic.deck.DeckImportTest
 net.barnflix.proxic.deck.CardResolverTest
 net.barnflix.proxic.deck.PackageInspectorTest
+
+# Added after the first gate run named it. I had counted the
+# export-dependent classes by hand and got 18; the real number is 19,
+# and `parses the real Deck Builder export` is exactly what it sounds
+# like. The checker finding a class I had missed is the checker
+# working -- a hand-counted allowlist would have been wrong quietly.
+net.barnflix.proxic.deck.DeckListTest
