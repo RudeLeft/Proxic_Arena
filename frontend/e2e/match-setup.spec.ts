@@ -124,14 +124,22 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     // §4.59 — the guest's copy says whose it is, and §5.41 says a
     // shared deck is selectable.
     const guestDecks = guest.getByRole("region", { name: "My decks" });
+    const deckName = (await guestDecks.locator("li .name").first().innerText()).split(" ·")[0]!;
     await expect(guestDecks.getByText(`shared by ${testUser}`)).toBeVisible();
     await guestDecks.getByRole("button", { name: "Use this deck" }).first().click();
     await expect(guestDecks.getByRole("button", { name: "Selected" })).toBeVisible();
 
-    // §5.141 — the other player sees the deck's NAME, never its
-    // contents. Asserted on the HOST's page about the GUEST's seat,
-    // because that is the direction the rule is about.
-    await expect(seatOf(host, secondUser)).not.toContainText("no deck yet");
+    // §5.46, §5.47 — the host can see that the guest's seat is
+    // decided, and NOT what they decided on.
+    //
+    // This assertion used to read `not.toContainText("no deck yet")`
+    // and nothing else, which passed while the server was leaking
+    // every member's deck name to the whole table. The §5.228 audit
+    // caught the leak; this is the assertion that would have.
+    await expect(seatOf(host, secondUser)).toContainText("deck chosen");
+    await expect(seatOf(host, secondUser)).not.toContainText(deckName);
+    // The guest's own seat names it, on their own page.
+    await expect(seatOf(guest, secondUser)).toContainText(deckName);
 
     // --- ready ----------------------------------------------------
     // §5.41 — the button was unusable until a deck was chosen, and

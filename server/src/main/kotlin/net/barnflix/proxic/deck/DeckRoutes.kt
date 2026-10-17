@@ -136,6 +136,11 @@ fun Route.deckRoutes(
     dataSource: DataSource,
     importer: DeckImporter,
     importEnabled: Boolean,
+    // PHASE_05 §5.50, §5.51 — somebody may be sitting in a lobby
+    // with this deck selected. Optional so Phase 2's tests, which
+    // predate rooms entirely, still describe a Deck Depot on its
+    // own.
+    deckAccess: DeckAccessListener = DeckAccessListener.NONE,
 ) {
     val artStore = ArtStore(File(config.dataRoot))
     val authorization = DeckAuthorization(dataSource)
@@ -259,7 +264,7 @@ fun Route.deckRoutes(
         // length and complexity limits: a route table that has
         // outgrown one function wants a second function, not a
         // raised threshold.
-        shareRoutes(authorization, sharing)
+        shareRoutes(authorization, sharing, deckAccess)
 
         // §2.79
         delete("/{deckId}") {
@@ -297,6 +302,11 @@ fun Route.deckRoutes(
 
                 DeckAccess.OWNER -> Unit
             }
+
+            // §5.50 — BEFORE the row goes. Afterwards the foreign
+            // key has already nulled every selection and there is
+            // nothing left to tell a room about.
+            deckAccess.deckAccessChanged(deckId, beingDeleted = true)
 
             val removed = deleteDeck(dataSource, deckId)
             if (removed) {

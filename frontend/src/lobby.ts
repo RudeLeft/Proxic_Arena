@@ -39,6 +39,14 @@ export interface RoomMemberView {
   seatNumber: number;
   ready: boolean;
   isHost: boolean;
+  /**
+   * §5.46 — what the table knows: that this seat has chosen.
+   *
+   * The two below are present only on YOUR OWN seat (§5.47). An
+   * opponent's deck name is not the lobby's to show, and the
+   * server does not send it.
+   */
+  deckSelected: boolean;
   selectedDeckId: string | null;
   selectedDeckName: string | null;
 }
@@ -303,6 +311,7 @@ function asMember(value: unknown): RoomMemberView | null {
     seatNumber: typeof v["seatNumber"] === "number" ? v["seatNumber"] : 0,
     ready: v["ready"] === true,
     isHost: v["isHost"] === true,
+    deckSelected: v["deckSelected"] === true,
     selectedDeckId: asString(v["selectedDeckId"]),
     selectedDeckName: asString(v["selectedDeckName"]),
   };

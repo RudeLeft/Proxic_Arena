@@ -42,7 +42,7 @@ internal suspend fun Handler.respondRoom(
         is RoomResult.Refused -> respondRefusal(result.error)
         is RoomResult.Ok -> {
             announcer.roomChanged(result.room)
-            call.respond(RoomResponse(result.room.view()))
+            call.respond(RoomResponse(result.room.viewFor(callerId())))
         }
     }
 }

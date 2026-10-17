@@ -464,6 +464,13 @@ function RoomPanel({
   );
 }
 
+/** §5.46, §5.47 — the most the viewer is entitled to. */
+function deckLabel(member: RoomMemberView, isMe: boolean): string {
+  if (!member.deckSelected) return "no deck yet";
+  if (isMe) return member.selectedDeckName ?? "deck chosen";
+  return "deck chosen";
+}
+
 function Seat({
   member,
   isMe,
@@ -485,8 +492,11 @@ function Seat({
         {isMe && <span className="hint"> (you)</span>}
       </span>
       <span className="state">
-        {/* §5.141 — the deck's NAME, never its contents. */}
-        {member.selectedDeckName ?? "no deck yet"}
+        {/* §5.47 — your own deck by name, everybody else's as a
+            fact. The server does not send an opponent's deck name
+            at all, so this is what the page CAN render, not a
+            policy it is choosing. */}
+        {deckLabel(member, isMe)}
         {member.ready ? " · ready" : " · not ready"}
       </span>
       {canRemove && (

@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.put
 import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomView
-import net.barnflix.proxic.room.view
+import net.barnflix.proxic.room.viewFor
 import java.util.UUID
 
 // What the socket says about a ROOM — PHASE_05 §5.76, §5.79, §5.81.
@@ -35,13 +35,18 @@ private val viewJson = Json { encodeDefaults = true }
  * of one shape disagree eventually, in a way that surfaces as a
  * client bug long after the cause.
  *
- * Deck NAMES travel; deck contents do not (§5.141). Another member
- * needs to know you have chosen something and what it is called,
- * never what is in it.
+ * Built PER RECIPIENT, which is why this takes a viewer. §5.47 says
+ * another participant does not need your deck's display name, and
+ * §5.140 forbids one overbroad payload when deck information
+ * differs by viewer. The table learns that a seat has chosen; what
+ * it chose is the chooser's business.
  */
-fun roomMessage(room: Room): JsonObject =
+fun roomMessage(
+    room: Room,
+    viewerId: UUID,
+): JsonObject =
     envelope("ROOM") {
-        put("room", viewJson.encodeToJsonElement(RoomView.serializer(), room.view()))
+        put("room", viewJson.encodeToJsonElement(RoomView.serializer(), room.viewFor(viewerId)))
     }
 
 /**

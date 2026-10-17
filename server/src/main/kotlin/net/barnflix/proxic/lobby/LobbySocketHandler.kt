@@ -69,7 +69,10 @@ class LobbyService(
         // accept into a room with no seat, and be refused for a
         // reason they could not have known about.
         if (room.isFull()) invitations.forgetRoom(room.roomId)
-        hub.sendToAll(room.members.map { it.userId }, roomMessage(room))
+        // One message PER MEMBER, not one message to all of them:
+        // §5.47 and §5.140 make the room a personalized snapshot,
+        // so each player's copy names only their own deck.
+        for (member in room.members) hub.sendTo(member.userId, roomMessage(room, member.userId))
     }
 
     override suspend fun roomClosed(
@@ -128,7 +131,7 @@ class LobbyService(
 
         // A refresh should land you back where you were, not outside
         // it (§5.119): the room survived, so send it.
-        rooms.roomOf(user.userId)?.let { hub.sendTo(user.userId, roomMessage(it)) }
+        rooms.roomOf(user.userId)?.let { hub.sendTo(user.userId, roomMessage(it, user.userId)) }
 
         return Session(connection)
     }
@@ -151,6 +154,20 @@ class LobbyService(
                 ),
             )
         }
+    }
+
+    /**
+     * Housekeeping, on the room sweep's timer.
+     *
+     * `ChatLimiter.evictIdle` said in its own comment that it was
+     * "called by the same sweep as session cleanup", and nothing
+     * called it at all — the §5.228 audit's third instance of code
+     * that exists, is tested and is wired to nothing (AGENTS
+     * TEST-010). The leak was small, one map entry per user who
+     * ever spoke, and small is not the same as fixed.
+     */
+    fun sweep() {
+        chat.evictIdle()
     }
 
     private inner class Session(private val connection: LobbyConnection) : LobbySession {

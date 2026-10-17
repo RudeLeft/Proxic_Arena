@@ -276,6 +276,59 @@ class RoomRoutesTest {
             assertEquals("NOT_FOUND", real.errorCode())
         }
 
+    /**
+     * §5.46, §5.47, §5.140 — the snapshot is PER VIEWER.
+     *
+     * The first version of this sent one payload to everybody,
+     * carrying every member's deck id and deck name. §5.47 says
+     * another participant does not need an opponent's deck display
+     * name, and §5.140 forbids precisely that shape. A deck name is
+     * the title of a private object in somebody's Deck Depot.
+     *
+     * Found by the §5.228 checklist audit — and an end-to-end test
+     * I had written was asserting the leak as though it were the
+     * feature.
+     */
+    @Test
+    fun `a member sees their own deck by name and nobody else's`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val guest = signIn("Pat")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+            val guestId = seat(roomId, "Pat")
+            val deckId = insertDeck(guestId, "Pat's secret brew")
+
+            val chosen =
+                client.put("/api/rooms/$roomId/my-deck") {
+                    signedBy(guest)
+                    jsonBody("""{"deckId":"$deckId"}""")
+                }
+            assertEquals(HttpStatusCode.OK, chosen.status)
+
+            // The guest's own view names it.
+            val mine =
+                client.get("/api/rooms/$roomId") { signedBy(guest) }.room()["members"]!!
+                    .jsonArray.map { it.jsonObject }
+                    .first { it["userId"]!!.jsonPrimitive.content == "$guestId" }
+            assertEquals("Pat's secret brew", mine["selectedDeckName"]!!.jsonPrimitive.content)
+
+            // The host's view of the same seat does not, and the
+            // deck id is not there either — it is a handle to a
+            // private object.
+            val hostResponse = client.get("/api/rooms/$roomId") { signedBy(host) }
+            val raw = hostResponse.bodyAsText()
+            assertTrue("Pat's secret brew" !in raw, "the host was shown a deck name: $raw")
+            assertTrue("$deckId" !in raw, "the host was shown a deck id: $raw")
+
+            // ...but they can still see that the seat is decided,
+            // which is what §5.46 says setup needs.
+            val theirs =
+                hostResponse.room()["members"]!!.jsonArray.map { it.jsonObject }
+                    .first { it["userId"]!!.jsonPrimitive.content == "$guestId" }
+            assertEquals(true, theirs["deckSelected"]!!.jsonPrimitive.content.toBoolean())
+        }
+
     /** §5.43 — a deck id you do not hold is not a key to anything. */
     @Test
     fun `selecting a deck you cannot use is refused`() =
@@ -310,6 +363,45 @@ class RoomRoutesTest {
 
             assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
             assertEquals("DECK_REQUIRED", response.errorCode())
+        }
+
+    /**
+     * §5.216, §5.67 — identity is never a client claim.
+     *
+     * The endpoint has no field for whose deck this is, which is
+     * how §5.44 is enforced. This proves the stronger thing: adding
+     * one does not work either. A body naming another user is
+     * ignored, and the action lands on the caller.
+     */
+    @Test
+    fun `a body claiming another user is ignored`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val guest = signIn("Pat")
+            val room = client.createRoom(host)
+            val roomId = room["roomId"]!!.jsonPrimitive.content
+            val hostId = room["hostUserId"]!!.jsonPrimitive.content
+            val guestId = seat(roomId, "Pat")
+            val guestDeck = insertDeck(guestId, "Pat's deck")
+
+            // Pat asks to set the HOST's deck to Pat's own.
+            val response =
+                client.put("/api/rooms/$roomId/my-deck") {
+                    signedBy(guest)
+                    jsonBody("""{"deckId":"$guestDeck","userId":"$hostId"}""")
+                }
+            assertEquals(HttpStatusCode.OK, response.status)
+
+            // It landed on Pat, because the server read the session
+            // and not the body.
+            val seats =
+                client.get("/api/rooms/$roomId") { signedBy(guest) }.room()["members"]!!
+                    .jsonArray.map { it.jsonObject }
+            val theHost = seats.first { it["userId"]!!.jsonPrimitive.content == hostId }
+            val pat = seats.first { it["userId"]!!.jsonPrimitive.content == "$guestId" }
+            assertEquals(false, theHost["deckSelected"]!!.jsonPrimitive.content.toBoolean())
+            assertEquals(true, pat["deckSelected"]!!.jsonPrimitive.content.toBoolean())
         }
 
     // --- host authority -----------------------------------------------------
@@ -627,6 +719,33 @@ class RoomRoutesTest {
         }
 
     // --- helpers ---------------------------------------------------------------
+
+    /** A deck this user owns, without running Phase 2's importer. */
+    private fun insertDeck(
+        ownerId: UUID,
+        name: String,
+    ): UUID {
+        val deckId = UUID.randomUUID()
+        Database.connect(config())!!.use { database ->
+            database.dataSource().connection.use { connection ->
+                connection.prepareStatement(
+                    """
+                    INSERT INTO imported_deck
+                        (deck_id, display_name, source_filename, package_sha256,
+                         total_cards, distinct_cards, import_schema_version, owner_user_id)
+                    VALUES (?, ?, 'test.zip', ?, 60, 15, 1, ?)
+                    """.trimIndent(),
+                ).use {
+                    it.setObject(1, deckId)
+                    it.setString(2, name)
+                    it.setString(3, deckId.toString().replace("-", "").repeat(2).take(64))
+                    it.setObject(4, ownerId)
+                    it.executeUpdate()
+                }
+            }
+        }
+        return deckId
+    }
 
     /**
      * Seat somebody through the service.

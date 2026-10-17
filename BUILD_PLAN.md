@@ -17,7 +17,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 2 | Deck Package Import | **COMPLETE** 2026-10-15 — gate PASSED, 20/20 acceptance tests | `PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` |
 | 3 | Accounts & Authentication | **COMPLETE** 2026-10-16 — gate PASSED, deployed and signed into at `https://proxic.barnflix.net` | `PHASE_03_ACCOUNTS_AUTHENTICATION_LOCKED.md` |
 | 4 | Deck Depot | **COMPLETE** 2026-10-16 — gate PASSED, deployed; a deck shared and revoked between two accounts on the live host | `PHASE_04_DECK_DEPOT_LOCKED.md` |
-| 5 | Lobby, Game Rooms, Match Setup | **LOCKED** 2026-10-17 — 4 amendments: no join codes, presence, invitations, ephemeral chat | `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_LOCKED.md` |
+| 5 | Lobby, Game Rooms, Match Setup | **COMPLETE** 2026-10-17 — gate PASSED locally, 25/26 acceptance; P5-Y (production) outstanding. 4 amendments: no join codes, presence, invitations, ephemeral chat | `PHASE_05_EXIT_GATE.md` |
 | 6 | Forge Match Runtime & Game Protocol | PROVISIONAL | `PHASE_06_FORGE_MATCH_RUNTIME_AUTHORITATIVE_GAME_PROTOCOL_PROVISIONAL.md` |
 | 7 | Battlefield Presentation & Interaction | DRAFT (6 open questions, §7.51) | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md` |
 
@@ -34,6 +34,14 @@ must ask rather than trust a client for.
 Owner decisions: **D1** every deck endpoint requires a session,
 **D2** the LAN port stays for diagnostics while login goes through
 the tunnel, **D3** the first administrator is `RudeLeft`.
+
+Phase 5 added the lobby: `docs/architecture/LOBBY_ARCHITECTURE.md`
+is the model, `LOBBY_PROTOCOL.md` is the wire, and
+`MATCH_SETUP_CONTRACT.md` is the handoff Phase 6 launches from.
+Owner decisions: **D1** no join codes — presence, invitations and
+chat instead, **D2** invitations reach online users only, **D3** one
+global ephemeral chat channel, **D4** rooms expire after 24 hours of
+inactivity.
 
 Accepted architectural facts live in
 `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md`; decisions taken

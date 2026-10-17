@@ -79,7 +79,7 @@ private fun Route.readRoutes(rooms: RoomService) {
     // §5.139 — what the lobby asks on load, so a refresh puts you
     // back where you were rather than outside it.
     get("/current") {
-        call.respond(CurrentRoomResponse(rooms.roomOf(callerId())?.view()))
+        call.respond(CurrentRoomResponse(rooms.roomOf(callerId())?.viewFor(callerId())))
     }
 
     // §5.138 — members only. A non-member gets exactly the answer
@@ -88,7 +88,7 @@ private fun Route.readRoutes(rooms: RoomService) {
         val roomId = roomIdOrNull() ?: return@get respondBadRoomId()
         val room = rooms.find(roomId)
         if (room == null || !room.isMember(callerId())) return@get respondNoSuchRoom()
-        call.respond(RoomResponse(room.view()))
+        call.respond(RoomResponse(room.viewFor(callerId())))
     }
 }
 
@@ -105,7 +105,7 @@ private fun Route.lifecycleRoutes(
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)
-                call.respond(HttpStatusCode.Created, RoomResponse(result.room.view()))
+                call.respond(HttpStatusCode.Created, RoomResponse(result.room.viewFor(callerId())))
             }
         }
     }
@@ -128,7 +128,7 @@ private fun Route.lifecycleRoutes(
                 } else {
                     announcer.roomChanged(result.room)
                 }
-                call.respond(RoomResponse(result.room.view()))
+                call.respond(RoomResponse(result.room.viewFor(callerId())))
             }
         }
     }
@@ -142,7 +142,7 @@ private fun Route.lifecycleRoutes(
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomClosed(roomId, before, "CLOSED_BY_HOST")
-                call.respond(RoomResponse(result.room.view()))
+                call.respond(RoomResponse(result.room.viewFor(callerId())))
             }
         }
     }
@@ -195,7 +195,7 @@ private fun Route.memberRoutes(
                 // the room.
                 announcer.removedFromRoom(roomId, targetId, "REMOVED_BY_HOST")
                 announcer.roomChanged(result.room)
-                call.respond(RoomResponse(result.room.view()))
+                call.respond(RoomResponse(result.room.viewFor(callerId())))
             }
         }
     }

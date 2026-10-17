@@ -35,6 +35,14 @@ class RoomMaintenance(
     private val lifetime: Duration = DEFAULT_LIFETIME,
     private val retention: Duration = DEFAULT_RETENTION,
     private val intervalMinutes: Long = DEFAULT_INTERVAL_MINUTES,
+    /**
+     * Anything else that wants an hourly tick.
+     *
+     * The lobby's chat limiter, today. A second scheduled executor
+     * for one map eviction would be machinery; a hook on the sweep
+     * that already runs is a line.
+     */
+    private val alsoSweep: () -> Unit = {},
 ) {
     private val expiry = RoomExpiry(dataSource)
 
@@ -80,6 +88,10 @@ class RoomMaintenance(
                 announcer.roomClosed(room.roomId, room.formerMembers, "EXPIRED")
             }
         }
+
+        // Never allowed to fail the room sweep: this is
+        // housekeeping riding along, and the rooms matter more.
+        runCatching { alsoSweep() }.onFailure { log.warn("lobby sweep failed", it) }
 
         val purged = expiry.purgeFinished(retention)
         if (purged > 0) log.info("purged $purged finished room record(s)")

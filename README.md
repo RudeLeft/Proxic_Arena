@@ -6,14 +6,16 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Phases 1–4 are complete.** Application foundation, deck package
-import, accounts and authentication, and the Deck Depot have all
-passed their gates — `PHASE_01_EXIT_GATE.md` through
-`PHASE_04_EXIT_GATE.md` list exactly what is proven. Phase 5 (lobby
-and match setup) has not started. There is **no
-gameplay yet**: the phases so far build the server, the page, the
-database, the Docker stack, the Forge worker handshake, deck import,
-and now accounts, and deliberately stop there.
+**Phases 1–5 are complete.** Application foundation, deck package
+import, accounts and authentication, the Deck Depot, and the lobby
+have all passed their gates — `PHASE_01_EXIT_GATE.md` through
+`PHASE_05_EXIT_GATE.md` list exactly what is proven. Phase 5 passed
+locally; its production run (P5-Y) is the owner's to perform.
+
+There is still **no gameplay**. Phase 5 takes two players all the
+way to a validated, frozen match setup and deliberately stops: no
+Forge match is started, no game state exists, no card is drawn.
+Phase 6 is what turns a setup into a match.
 
 **Everything except health, version and the status page requires a
 session.** Accounts are created by an administrator with
@@ -21,8 +23,16 @@ session.** Accounts are created by an administrator with
 `docs/architecture/AUTHENTICATION.md`, and
 `docs/troubleshooting/AUTHENTICATION.md` when a login will not work.
 
+**There are no join codes.** A host sees who is signed in and
+invites them by clicking their name; an invitation the server
+recorded is the only way into a room. There is no public games list
+and no matchmaking. See `docs/architecture/LOBBY_ARCHITECTURE.md`,
+and `docs/troubleshooting/LOBBY.md` when a room misbehaves.
+
 **Decks are private.** Each belongs to the account that uploaded it,
 and is visible to nobody else until its owner shares it by username.
+In a room, the other player learns that you have chosen a deck —
+never which one.
 An administrator has no privileged access. See
 `docs/architecture/DECK_DEPOT.md` and `DECK_AUTHORIZATION.md`.
 

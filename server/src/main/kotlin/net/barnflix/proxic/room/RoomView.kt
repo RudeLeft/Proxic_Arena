@@ -1,6 +1,7 @@
 package net.barnflix.proxic.room
 
 import kotlinx.serialization.Serializable
+import java.util.UUID
 
 // What a room looks like on the wire — PHASE_05 §5.138–§5.141.
 //
@@ -10,11 +11,23 @@ import kotlinx.serialization.Serializable
 // and if those two disagreed, the disagreement would appear as a
 // client bug long after the cause.
 //
-// §5.141 governs what is in here. Safe shared member information:
-// who, where they sit, whether they are ready, and which deck they
-// chose BY NAME. Deck contents never travel (a deck shared with one
-// member is not shared with the table), and neither does anything
-// about sessions, accounts or the share graph.
+// §5.140, §5.46, §5.47 — THE VIEW IS PER VIEWER. This started as
+// one payload sent to everybody, carrying every member's deck id
+// and deck name. The §5.228 audit caught it: §5.47 says another
+// participant does not need an opponent's deck display NAME, and
+// §5.140 forbids exactly the shape it had -- "one overbroad
+// payload to all clients when deck information differs by viewer".
+//
+// A deck name is not harmless. It is the title of a private object
+// in somebody's Deck Depot, it may be a deck shared with them by a
+// third party, and §5.46 says the snapshot should expose only what
+// setup requires. What setup requires is whether a seat has chosen
+// yet; the rest is the chooser's business.
+//
+// So: your own seat carries the deck id and name, everybody else's
+// carries a boolean. §5.141's safe list is the rest of it -- who,
+// where they sit, whether they are ready -- and deck contents, the
+// share graph and anything about sessions never travel at all.
 
 @Serializable
 data class RoomMemberView(
@@ -25,13 +38,22 @@ data class RoomMemberView(
     val ready: Boolean,
     val isHost: Boolean,
     /**
-     * Null means "has not chosen", which every member may see:
-     * §5.141 lists deck selected/not selected as shared state, and
-     * a lobby where you cannot tell whether the other player is
-     * still deciding is a lobby people stare at.
+     * §5.46, §5.141 — what the TABLE may know.
+     *
+     * Whether this seat has chosen, and nothing about what. A lobby
+     * where you cannot tell if the other player is still deciding
+     * is a lobby people stare at; a lobby that names their deck is
+     * one that leaked.
      */
-    val selectedDeckId: String?,
-    val selectedDeckName: String?,
+    val deckSelected: Boolean,
+    /**
+     * §5.47 — present ONLY on the viewer's own seat.
+     *
+     * Null on everybody else's, which is the difference between a
+     * personalized snapshot and a broadcast.
+     */
+    val selectedDeckId: String? = null,
+    val selectedDeckName: String? = null,
 )
 
 @Serializable
@@ -53,8 +75,14 @@ data class RoomView(
     val members: List<RoomMemberView>,
 )
 
-/** The one place a Room becomes JSON. */
-fun Room.view(): RoomView =
+/**
+ * The one place a Room becomes JSON, for ONE viewer.
+ *
+ * [viewerId] is who will read it, and it is never a client claim:
+ * HTTP takes it from the authenticated principal and the socket
+ * from the connection's own session (§5.67).
+ */
+fun Room.viewFor(viewerId: UUID): RoomView =
     RoomView(
         roomId = roomId.toString(),
         hostUserId = hostUserId.toString(),
@@ -72,8 +100,12 @@ fun Room.view(): RoomView =
                     seatNumber = member.seatNumber,
                     ready = member.ready,
                     isHost = member.isHost,
-                    selectedDeckId = member.selectedDeckId?.toString(),
-                    selectedDeckName = member.selectedDeckName,
+                    deckSelected = member.selectedDeckId != null,
+                    // §5.47 — your own deck, and only your own.
+                    selectedDeckId =
+                        member.selectedDeckId.takeIf { member.userId == viewerId }?.toString(),
+                    selectedDeckName =
+                        member.selectedDeckName.takeIf { member.userId == viewerId },
                 )
             },
     )

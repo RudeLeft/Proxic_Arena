@@ -24,6 +24,7 @@ import java.util.UUID
 fun Route.shareRoutes(
     authorization: DeckAuthorization,
     sharing: DeckSharing,
+    deckAccess: DeckAccessListener = DeckAccessListener.NONE,
 ) {
     // §4.32 — share with a named user.
     post("/{deckId}/shares") {
@@ -136,6 +137,11 @@ fun Route.shareRoutes(
                 ErrorResponse(refusal.code, refusal.detail, null),
             )
         }
+        // §5.51 — AFTER the revocation, because until it lands
+        // `canUseDeck` still says yes. A recipient sitting in a
+        // lobby, ready, with this deck selected loses both.
+        deckAccess.deckAccessChanged(deckId, beingDeleted = false)
+
         // Idempotent: revoking a share that is not there leaves
         // the state the caller asked for (§4.34).
         call.respond(HttpStatusCode.NoContent)

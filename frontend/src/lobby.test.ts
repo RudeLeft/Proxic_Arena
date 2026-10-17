@@ -26,6 +26,7 @@ function room(overrides: Partial<RoomView> = {}): RoomView {
         seatNumber: 1,
         ready: false,
         isHost: true,
+        deckSelected: false,
         selectedDeckId: null,
         selectedDeckName: null,
       },
@@ -140,6 +141,7 @@ describe("the room", () => {
           seatNumber: 2,
           ready: false,
           isHost: false,
+          deckSelected: false,
           selectedDeckId: null,
           selectedDeckName: null,
         },
@@ -148,6 +150,7 @@ describe("the room", () => {
           seatNumber: 1,
           ready: true,
           isHost: true,
+          deckSelected: true,
           selectedDeckId: "d1",
           selectedDeckName: "Burn",
         },
@@ -155,6 +158,44 @@ describe("the room", () => {
     });
     const state = apply([{ type: "ROOM", room: unsorted }]);
     expect(state.room?.members.map((m) => m.seatNumber)).toEqual([1, 2]);
+  });
+
+  /**
+   * §5.47 — an opponent's deck NAME is not sent, so the page
+   * cannot render it even by accident. The reducer keeps whatever
+   * the server said and nothing more.
+   */
+  it("carries deck identity only where the server sent it", () => {
+    const state = apply([
+      {
+        type: "ROOM",
+        room: room({
+          members: [
+            {
+              ...pat,
+              seatNumber: 1,
+              ready: true,
+              isHost: true,
+              deckSelected: true,
+              selectedDeckId: "d1",
+              selectedDeckName: "Burn",
+            },
+            {
+              ...sam,
+              seatNumber: 2,
+              ready: true,
+              isHost: false,
+              deckSelected: true,
+            },
+          ] as never,
+        }),
+      },
+    ]);
+    const [mine, theirs] = state.room!.members;
+    expect(mine?.selectedDeckName).toBe("Burn");
+    expect(theirs?.deckSelected).toBe(true);
+    expect(theirs?.selectedDeckName).toBeNull();
+    expect(theirs?.selectedDeckId).toBeNull();
   });
 
   it("clears on close, and says why in English", () => {

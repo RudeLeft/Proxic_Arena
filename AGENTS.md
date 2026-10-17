@@ -341,6 +341,14 @@ Release-blocking. Treat every rule here as security, not presentation.
 - **TEST-009 — MUST NOT:** Assert that a snapshot arrived when the claim
   is that the game continued. The relay replays the last snapshot on
   resume whether or not the match is alive. _REVIEW._
+- **TEST-010 — MUST:** Prove that production **calls** the rule, not only
+  that the rule works. A unit test shows a function does what it says and
+  says nothing about whether anything invokes it. This has now shipped
+  three times: `purgeExpiredSessions()` and `LoginThrottle.evictExpired()`
+  at the Phase 3 gate, `RoomDeckWatch` and `RoomRecovery` at the Phase 5
+  gate — every one written, tested, green, and wired to nothing. An
+  unused class compiles perfectly. Grep for the call site, or drive the
+  real system and watch the effect. _REVIEW._
 
 ---
 

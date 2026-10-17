@@ -469,6 +469,12 @@ private fun Route.databaseRoutes(
             call.attributes.put(PRINCIPAL_KEY, principal)
         }
 
+        // PHASE_05 §5.120, §5.122, §5.198, §5.213 — what a restart
+        // has to put right: readiness nobody is behind, and a setup
+        // frozen for players who have all gone. Before the routes
+        // open, so no client is ever served a room claiming either.
+        net.barnflix.proxic.room.RoomRecovery(database.dataSource(), application.log).recover()
+
         // PHASE_05 §5.124-§5.126, owner D4 — abandoned
         // rooms expire. Unlike the session sweep this is
         // not housekeeping: nothing else expires a room, so
@@ -479,6 +485,9 @@ private fun Route.databaseRoutes(
                 database.dataSource(),
                 lobby,
                 application.log,
+                // The lobby's chat limiter rides this tick rather
+                // than owning a second scheduled executor.
+                alsoSweep = lobby::sweep,
             )
         roomMaintenance.start()
         application.environment.monitor.subscribe(ApplicationStopped) {
@@ -517,6 +526,20 @@ private fun Route.databaseRoutes(
         deckRoutes(
             config = config,
             dataSource = database.dataSource(),
+            // PHASE_05 §5.50, §5.51 — a deck deleted or a share
+            // revoked reaches whoever is sitting in a lobby with it
+            // selected. The §5.228 audit found RoomDeckWatch
+            // written, tested and called by nothing; this is the
+            // call it was missing.
+            deckAccess =
+                net.barnflix.proxic.room.RoomDeckAccess(
+                    net.barnflix.proxic.room.RoomDeckWatch(
+                        database.dataSource(),
+                        net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+                    ),
+                    lobby,
+                    net.barnflix.proxic.room.DeckRecipients(database.dataSource()),
+                ),
             importer =
                 net.barnflix.proxic.deck.DeckImporter(
                     config,

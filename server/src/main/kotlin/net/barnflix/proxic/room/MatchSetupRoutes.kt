@@ -94,7 +94,7 @@ fun Route.matchSetupRoutes(
 
             is PrepareResult.Prepared -> {
                 announcer.roomChanged(result.room)
-                call.respond(MatchSetupResponse(result.setup, result.room.view()))
+                call.respond(MatchSetupResponse(result.setup, result.room.viewFor(callerId())))
             }
         }
     }
@@ -107,7 +107,7 @@ fun Route.matchSetupRoutes(
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)
-                call.respond(RoomResponse(result.room.view()))
+                call.respond(RoomResponse(result.room.viewFor(callerId())))
             }
         }
     }
