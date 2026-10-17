@@ -482,8 +482,21 @@ private fun Route.databaseRoutes(
         // oversight.
         intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
             val path = call.request.path()
+            // §5.37 — /api/match-presets is in here too, and was
+            // not at first. It answered 200 to anybody, which was
+            // caught by probing the DEPLOYED server rather than by
+            // any test: LOBBY_PROTOCOL.md said it was gated, the
+            // README says everything but health, version and status
+            // needs a session, and the code agreed with neither.
+            //
+            // Nothing sensitive leaked -- one preset name and a
+            // player count. The reason to fix it is that a claim in
+            // a document and the behaviour of the server must not
+            // disagree, which is a Phase 5 exit criterion.
             val guarded =
-                path.startsWith("/api/decks") || path.startsWith("/api/rooms")
+                path.startsWith("/api/decks") ||
+                    path.startsWith("/api/rooms") ||
+                    path.startsWith("/api/match-presets")
             if (!guarded) return@intercept
             val principal = call.requireAuth(sessions) ?: return@intercept finish()
             if (!call.csrfOk(config)) return@intercept finish()

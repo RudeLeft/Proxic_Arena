@@ -161,6 +161,13 @@ class RoomRoutesTest {
                         client.delete(
                             "/api/rooms/${UUID.randomUUID()}/members/${UUID.randomUUID()}",
                         ),
+                    // Not a room route, and that is exactly why it
+                    // was missed: the intercept matched on the
+                    // /api/rooms prefix and this one does not share
+                    // it. It answered 200 to anybody on the live
+                    // server while the protocol document said it
+                    // was gated.
+                    "GET /match-presets" to client.get("/api/match-presets"),
                 )
 
             for ((endpoint, answer) in answers) {

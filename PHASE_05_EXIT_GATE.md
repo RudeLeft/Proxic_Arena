@@ -56,7 +56,7 @@ ESLint, Prettier, ktlint, detekt   clean
 | old Arena remains unchanged | **YES** — P5-Z |
 | Deck Builder remains unchanged | **YES** — P5-Z |
 | Forge remains clean | **YES** — pin matches `/api/version` |
-| documentation matches actual behaviour | **YES** |
+| documentation matches actual behaviour | **YES**, after a correction — see below |
 
 ---
 
@@ -172,6 +172,26 @@ while the server leaked.
 **A test's second run finds what the first one hides.** The deck that
 could not be deleted only surfaced because the test ran again and met
 its own leftovers.
+
+---
+
+## Found after this gate was written
+
+**`/api/match-presets` answered 200 to anybody.** The auth intercept
+matched on the `/api/decks` and `/api/rooms` prefixes, and this route
+shares neither. `LOBBY_PROTOCOL.md` said it was gated, the README says
+everything but health, version and status needs a session, and the
+code agreed with neither.
+
+Nothing sensitive leaked — one preset name and a player count. The
+reason it matters is that "documentation matches actual behaviour" is
+a criterion in the table above, and I had marked it YES.
+
+Found by probing the **deployed** server after the Unraid update, not
+by any test. The suite's "every room endpoint requires a session" test
+enumerated room routes, and this is not a room route; it was missed
+for the same reason the intercept missed it. The test now includes it,
+and was proved to fail against the un-fixed code (AGENTS TEST-004).
 
 ---
 

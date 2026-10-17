@@ -58,7 +58,7 @@ invitation over the socket is the only way in.
 | `POST` | `/rooms/{roomId}/prepare-match` | host |
 | `POST` | `/rooms/{roomId}/cancel-preparation` | host |
 | `GET` | `/rooms/{roomId}/match-setup` | members |
-| `GET` | `/match-presets` | any |
+| `GET` | `/match-presets` | any signed-in user |
 
 ### Bodies
 
