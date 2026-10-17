@@ -35,9 +35,9 @@ docker compose version
 A version number means yes. "docker: 'compose' is not a docker
 command" means the plugin did not install its binary — stop there.
 
-**Disk space:** about **4 GB free** for the build. The finished image
-is 986 MB; the Forge clone and Maven cache inside the build are
-temporary but real.
+**Disk space:** about **1.5 GB** for the pulled image. The host no
+longer builds, so the Forge clone and Maven cache that used to need
+~4 GB of array are GitHub's problem now.
 
 ---
 
@@ -109,28 +109,32 @@ plain HTTP and wrong for anything reachable from outside.
 
 ## Step 4 — Compose Up
 
-Press it. First run takes **3–10 minutes**: it clones upstream Forge,
-verifies the pinned commit and compiles. Later runs are cache hits.
+Press it. The host **pulls** a published image rather than building
+one, so this takes about a minute rather than ten, and needs no
+build space on the array.
 
 Three things happen without being asked:
 
 ```text
 init-data      chowns the data directory to the server's uid, exits
 postgres       starts, becomes healthy
-arena-server   rebuilds if the source changed, then starts
+arena-server   pulls ghcr.io/rudeleft/proxic_arena:latest, then starts
 ```
 
-- **`pull_policy: build`** is why you never run a build command. Left
-  out, `up` would reuse an image that merely has the right *name* —
-  so new code would be pulled, every indicator would go green, and
-  nothing would be new.
+- **`pull_policy: always`** is why there is no build step. GitHub
+  Actions builds on every push to `main`; the host only ever pulls.
+  Updates afterwards are two clicks — `UPDATING.md`.
 - **`init-data`** is why there is no `chown` step. Docker creates a
   missing bind-mount source as `root`, the server runs as uid 100,
   and card art would fail with permission denied on the first import.
 
 Watch the `arena-server` log for `Successfully applied N migrations`
-(three on a fresh database: V001 foundation, V002 decks, V003
-accounts).
+(five on a fresh database, V001 through V005).
+
+If the pull is refused with `denied` or `unauthorized`, the package
+is still private: GitHub → the repository's **Packages** →
+`proxic_arena` → **Package settings** → visibility **public**. A
+package published by Actions starts private.
 
 If it stops with **"Forge mismatch"**, that is the §1.61 guard
 refusing to build from the wrong source, not a network problem.
@@ -235,11 +239,13 @@ From the project folder, where `.env` sets `COMPOSE_FILE`:
 docker compose ps                   # what is running
 docker compose logs -f arena-server # follow the log
 docker compose down                 # stop; data survives
-docker compose up -d                # start, rebuilding if code changed
+docker compose up -d                # start, pulling if a newer image exists
 ```
 
-To deploy new code: `git pull`, then **Compose Up** in the GUI. The
-rebuild is automatic.
+**To deploy new code you need none of these.** In the Compose
+plugin: *Check for Updates*, then *Update Stack*. See
+`UPDATING.md`, including how to confirm which build is live and how
+to roll one back.
 
 > `docker compose down -v` destroys named volumes. Your data is in
 > bind mounts so `-v` will not take it — but do not rely on that.

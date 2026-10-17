@@ -362,7 +362,9 @@ spikes/                    Phase 0A measurement harnesses
    work, `docs/troubleshooting/AUTHENTICATION.md`, which starts with
    the one thing that catches everybody: sign in through the tunnel,
    not the LAN port.
-8. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
+8. `docs/deployment/UPDATING.md` — two clicks, how to tell what is
+   deployed, and how to roll back.
+9. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
    `docs/deployment/UNRAID_CHECKLIST.md` — going public through the
    tunnel. Both have since been run against the real host, and
    carry the three corrections that deployment found.

@@ -38,12 +38,13 @@ reachable on the LAN. This document is only the public step.
 
 - [ ] Clone the repository to the Unraid box (or copy it).
 - [ ] Confirm `git log --oneline -1` matches what you expect.
-- [ ] You need **Docker** and **git** on the host. Nothing else —
-      the image builds its own Java, Node and Maven.
+- [ ] You need **Docker** on the host. Nothing else — the image is
+      built and published by GitHub Actions, so the host compiles
+      nothing.
 
-Disk: the build needs roughly **4 GB** free. The final image is
-986 MB; the Forge clone and Maven cache inside the build are
-transient but real.
+Disk: about **1.5 GB** for the pulled image. The ~4 GB the old
+on-host build needed is GitHub's problem now. Updating afterwards is
+two clicks — `UPDATING.md`.
 
 ## 2. Create `.env`
 

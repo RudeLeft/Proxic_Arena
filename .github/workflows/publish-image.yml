@@ -1,0 +1,78 @@
+# Build the Arena image and publish it, so a server only ever pulls.
+#
+# Why this exists: deployment used to mean pulling source onto the
+# Unraid host, building a gigabyte of image on the array, and hoping
+# Compose recreated the container. It skipped that last step more
+# than once -- a host ran old code while every indicator said
+# success. Building here instead makes the host's job "pull a tag",
+# which the Unraid Compose plugin's own Update buttons already know
+# how to do.
+#
+# The image carries the commit it was built from, so /api/version
+# can finally answer "what is deployed?".
+
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+  # Buildable by hand, for when a publish needs re-running without a
+  # commit to hang it on.
+  workflow_dispatch:
+
+concurrency:
+  # One publish at a time. Two pushes in quick succession should not
+  # race to decide what `latest` means.
+  group: publish-image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      # The build clones upstream Forge and compiles it, which is
+      # minutes of work that rarely changes. Caching layers between
+      # runs keeps an ordinary push to a few minutes.
+      - uses: docker/setup-buildx-action@v3.7.1
+
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Provided by Actions; no secret to create or rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          push: true
+          # Two tags on purpose: `latest` is what the server follows,
+          # and the commit tag is what you roll back to. A deployment
+          # you cannot name is one you cannot undo.
+          tags: |
+            ghcr.io/rudeleft/proxic_arena:latest
+            ghcr.io/rudeleft/proxic_arena:${{ github.sha }}
+          build-args: |
+            PROXIC_BUILD_ID=${{ github.sha }}
+            PROXIC_REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Say what was published
+        run: |
+          echo "### Published" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "ghcr.io/rudeleft/proxic_arena:latest" >> "$GITHUB_STEP_SUMMARY"
+          echo "ghcr.io/rudeleft/proxic_arena:${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Update the host: Compose plugin -> Check for Updates -> Update Stack." \
+            >> "$GITHUB_STEP_SUMMARY"

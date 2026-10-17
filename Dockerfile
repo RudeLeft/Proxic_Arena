@@ -112,6 +112,24 @@ ENV PROXIC_STATIC_ROOT=/app/frontend/dist \
     PROXIC_PORT=8080 \
     APP_ENV=production
 
+# What this image IS — PHASE_04 §33, carried into Phase 5.
+#
+# /api/version reports `buildId`, and it was null in every deployment
+# because nothing ever set PROXIC_BUILD_ID. That turned "which build
+# is on the host?" into archaeology: comparing frontend bundle
+# hashes, asking the image to grep itself, reading container start
+# times. It cost an hour during the Phase 4 deployment.
+#
+# CI passes the commit; a local build gets "dev", which is honest
+# about being neither published nor reproducible.
+ARG PROXIC_BUILD_ID=dev
+ENV PROXIC_BUILD_ID=${PROXIC_BUILD_ID}
+
+# OCI labels, so `docker inspect` answers the same question without
+# the server running at all.
+ARG PROXIC_REVISION=unknown
+LABEL org.opencontainers.image.title="Proxic Arena"       org.opencontainers.image.source="https://github.com/RudeLeft/Proxic_Arena"       org.opencontainers.image.revision="${PROXIC_REVISION}"       org.opencontainers.image.licenses="NOASSERTION"
+
 USER proxic
 EXPOSE 8080
 

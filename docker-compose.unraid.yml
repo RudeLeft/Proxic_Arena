@@ -75,15 +75,14 @@ services:
     depends_on:
       init-data:
         condition: service_completed_successfully
-    # Rebuild from source whenever `up` runs.
+    # Always take the published image.
     #
-    # Without this, `up` reuses an image that merely has the right
-    # NAME -- so pulling new code and pressing Compose Up starts the
-    # OLD build, every indicator goes green, and nothing is new. The
-    # GUI has no "build" button, so the compose file has to say it.
-    #
-    # An unchanged source tree is a cache hit, not a rebuild.
-    pull_policy: build
+    # The host builds nothing: GitHub Actions did that on push, and
+    # the image carries the commit it was built from (PROXIC_BUILD_ID,
+    # readable at /api/version). Updating is "Check for Updates" then
+    # "Update Stack" in the Compose plugin -- no terminal, no git, no
+    # 4 GB of build space on the array.
+    pull_policy: always
     # PHASE 1 AMENDMENT 2. Port 8080 is taken on this host and the
     # existing cloudflared -- which runs OUTSIDE this stack -- is
     # already configured to reach the origin on 8765.

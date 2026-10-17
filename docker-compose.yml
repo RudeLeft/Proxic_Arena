@@ -54,9 +54,24 @@ services:
       start_period: 10s
 
   arena-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # The PUBLISHED image, not a build.
+    #
+    # Deployment used to mean: pull the source, build a gigabyte of
+    # image on the array, and hope Compose recreated the container.
+    # It skipped the last step more than once, which is how a host
+    # ran old code while reporting success.
+    #
+    # Now GitHub Actions builds on every push to main and publishes
+    # here, so a server only ever PULLS. That also makes the Unraid
+    # Compose plugin's "Check for Updates" work on this service: it
+    # reads registries, and said "not checked" for a locally built
+    # image because there was nothing to read.
+    #
+    # Local development builds from source instead -- see
+    # docker-compose.local.yml, which adds the build back. The
+    # default is the safe, boring one; building is the thing you ask
+    # for.
+    image: ghcr.io/rudeleft/proxic_arena:latest
     restart: unless-stopped
     depends_on:
       postgres:

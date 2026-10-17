@@ -14,6 +14,14 @@ name: proxic-arena
 
 services:
   arena-server:
+    # Build from the working tree. The base file names a published
+    # image; a developer wants the code in front of them, and
+    # `pull_policy: build` means `up` rebuilds when sources change
+    # rather than quietly reusing a tag.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: build
     ports:
       - "127.0.0.1:8080:8080"
     environment:
