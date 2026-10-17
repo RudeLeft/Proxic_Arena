@@ -23,6 +23,8 @@ import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.room.matchPresetRoutes
+import net.barnflix.proxic.room.matchSetupRoutes
 import net.barnflix.proxic.room.roomRoutes
 import org.slf4j.event.Level
 import java.io.File
@@ -285,101 +287,15 @@ private fun Application.installRoutes(
         // right that installRoutes had grown past readable.
         systemWebSocket(config)
 
-        // PHASE_02 — deck import and discovery. Registered only when
-        // a database exists: every one of these routes needs it, and
-        // a 404 is a better answer than a 500 for a server that was
-        // never configured to store decks.
-        val database = dependencies.database
-        if (database != null) {
-            val sessions = net.barnflix.proxic.auth.Sessions(database.dataSource())
-            val accounts = net.barnflix.proxic.auth.Accounts(database.dataSource(), sessions)
-            val throttle = net.barnflix.proxic.auth.LoginThrottle()
-
-            // §3.90 -- expired rows are swept on a timer. The gate
-            // audit found the purge existed and was never called.
-            val maintenance =
-                net.barnflix.proxic.auth.SessionMaintenance(
-                    sessions,
-                    throttle,
-                    this@installRoutes.log,
-                )
-            maintenance.start()
-            this@installRoutes.environment.monitor.subscribe(ApplicationStopped) {
-                maintenance.stop()
-            }
-
-            route("/api") {
-                authRoutes(config, accounts, sessions, throttle)
-            }
-
-            // §3.77-§3.82 — the authenticated WebSocket. Outside
-            // /api, beside /ws/system, which stays anonymous
-            // infrastructure (§3.83).
-            //
-            // PHASE_05 — presence, invitations and chat ride on this
-            // socket rather than a second endpoint (§5.66, and
-            // carry-forward C3): authentication and the 30-second
-            // revalidation already live here, and a second socket
-            // would have to reimplement both.
-            val roomService =
-                net.barnflix.proxic.room.RoomService(
-                    database.dataSource(),
-                    net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
-                )
-            val lobby =
-                net.barnflix.proxic.lobby.LobbyService(
-                    net.barnflix.proxic.lobby.LobbyHub(),
-                    roomService,
-                )
-            userSocket(sessions, lobby)
-
-            route("/api") {
-                // PHASE 3 AMENDMENT 1 (owner decision D1): every
-                // deck endpoint requires a session. This ends the
-                // anonymous access PHASE 2 AMENDMENT 1 allowed,
-                // which existed only because there was no
-                // authentication to require.
-                //
-                // Decks remain UNOWNED (§3.86): any signed-in user
-                // sees all of them, and none belong to anybody
-                // until Phase 4.
-                //
-                // PHASE_05 carry-forward C4: /api/rooms is gated the
-                // same way rather than growing its own copy. Two
-                // authentication gates is one gate and one future
-                // oversight.
-                intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
-                    val path = call.request.path()
-                    val guarded =
-                        path.startsWith("/api/decks") || path.startsWith("/api/rooms")
-                    if (!guarded) return@intercept
-                    val principal = call.requireAuth(sessions) ?: return@intercept finish()
-                    if (!call.csrfOk(config)) return@intercept finish()
-                    call.attributes.put(PRINCIPAL_KEY, principal)
-                }
-
-                // PHASE_05 §5.14, §5.76-§5.81, §5.138, §5.139. The
-                // lobby is the announcer: an HTTP response reaches
-                // the caller, and the other members learn through
-                // the socket they already hold.
-                roomRoutes(roomService, lobby)
-
-                deckRoutes(
-                    config = config,
-                    dataSource = database.dataSource(),
-                    importer =
-                        net.barnflix.proxic.deck.DeckImporter(
-                            config,
-                            database.dataSource(),
-                            net.barnflix.proxic.deck.CardResolver(config),
-                        ),
-                    // PHASE 2 AMENDMENT 1: on by default, by owner
-                    // decision, with the switch kept because the
-                    // endpoint is unauthenticated until Phase 3.
-                    importEnabled = config.deckImportEnabled,
-                )
-            }
-        }
+        // PHASE_02 onwards — everything that needs a database.
+        // Registered only when one exists: every route in there
+        // needs it, and a 404 is a better answer than a 500 for a
+        // server that was never configured to store anything.
+        //
+        // Its own function because detekt was right that
+        // installRoutes had grown past readable -- for the third
+        // time, which is the point at which the seam is real.
+        dependencies.database?.let { databaseRoutes(config, it) }
 
         // §1.27 — production static serving. In development Vite
         // serves the app and proxies here (§1.28), so this directory
@@ -479,12 +395,150 @@ internal fun resolveStaticFile(
 }
 
 /**
+ * Routes, sweeps and dependencies that need PostgreSQL.
+ *
+ * Accounts, decks, the authenticated socket, rooms and match
+ * setup. Split out of [installRoutes] when that function passed
+ * detekt's length limit for the third time.
+ */
+private fun Route.databaseRoutes(
+    config: ServerConfig,
+    database: Database,
+) {
+    val sessions = net.barnflix.proxic.auth.Sessions(database.dataSource())
+    val accounts = net.barnflix.proxic.auth.Accounts(database.dataSource(), sessions)
+    val throttle = net.barnflix.proxic.auth.LoginThrottle()
+
+    // §3.90 -- expired rows are swept on a timer. The gate
+    // audit found the purge existed and was never called.
+    val maintenance =
+        net.barnflix.proxic.auth.SessionMaintenance(
+            sessions,
+            throttle,
+            application.log,
+        )
+    maintenance.start()
+    application.environment.monitor.subscribe(ApplicationStopped) {
+        maintenance.stop()
+    }
+
+    route("/api") {
+        authRoutes(config, accounts, sessions, throttle)
+    }
+
+    // §3.77-§3.82 — the authenticated WebSocket. Outside
+    // /api, beside /ws/system, which stays anonymous
+    // infrastructure (§3.83).
+    //
+    // PHASE_05 — presence, invitations and chat ride on this
+    // socket rather than a second endpoint (§5.66, and
+    // carry-forward C3): authentication and the 30-second
+    // revalidation already live here, and a second socket
+    // would have to reimplement both.
+    val roomService =
+        net.barnflix.proxic.room.RoomService(
+            database.dataSource(),
+            net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+        )
+    val lobbyHub = net.barnflix.proxic.lobby.LobbyHub()
+    val lobby = net.barnflix.proxic.lobby.LobbyService(lobbyHub, roomService)
+    userSocket(sessions, lobby)
+
+    route("/api") {
+        // PHASE 3 AMENDMENT 1 (owner decision D1): every
+        // deck endpoint requires a session. This ends the
+        // anonymous access PHASE 2 AMENDMENT 1 allowed,
+        // which existed only because there was no
+        // authentication to require.
+        //
+        // Decks remain UNOWNED (§3.86): any signed-in user
+        // sees all of them, and none belong to anybody
+        // until Phase 4.
+        //
+        // PHASE_05 carry-forward C4: /api/rooms is gated the
+        // same way rather than growing its own copy. Two
+        // authentication gates is one gate and one future
+        // oversight.
+        intercept(io.ktor.server.application.ApplicationCallPipeline.Plugins) {
+            val path = call.request.path()
+            val guarded =
+                path.startsWith("/api/decks") || path.startsWith("/api/rooms")
+            if (!guarded) return@intercept
+            val principal = call.requireAuth(sessions) ?: return@intercept finish()
+            if (!call.csrfOk(config)) return@intercept finish()
+            call.attributes.put(PRINCIPAL_KEY, principal)
+        }
+
+        // PHASE_05 §5.124-§5.126, owner D4 — abandoned
+        // rooms expire. Unlike the session sweep this is
+        // not housekeeping: nothing else expires a room, so
+        // if it stopped running they would stay joinable
+        // forever.
+        val roomMaintenance =
+            net.barnflix.proxic.room.RoomMaintenance(
+                database.dataSource(),
+                lobby,
+                application.log,
+            )
+        roomMaintenance.start()
+        application.environment.monitor.subscribe(ApplicationStopped) {
+            roomMaintenance.stop()
+        }
+
+        // PHASE_05 §5.14, §5.76-§5.81, §5.138, §5.139. The
+        // lobby is the announcer: an HTTP response reaches
+        // the caller, and the other members learn through
+        // the socket they already hold.
+        roomRoutes(roomService, lobby)
+
+        // PHASE_05 §5.91-§5.117 — prepare and cancel a
+        // match setup. Preparation starts nothing; it
+        // validates and freezes the snapshot Phase 6 will
+        // launch from.
+        matchSetupRoutes(
+            net.barnflix.proxic.room.MatchSetupService(
+                database.dataSource(),
+                net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+                net.barnflix.proxic.room.MatchPreflight(
+                    database.dataSource(),
+                    net.barnflix.proxic.deck.CardResolver(config),
+                ),
+                lobbyHub,
+            ),
+            roomService,
+            lobby,
+        )
+
+        // §5.37, §5.94 — the server says which presets
+        // exist; a browser holding a stale list is
+        // corrected rather than believed.
+        matchPresetRoutes()
+
+        deckRoutes(
+            config = config,
+            dataSource = database.dataSource(),
+            importer =
+                net.barnflix.proxic.deck.DeckImporter(
+                    config,
+                    database.dataSource(),
+                    net.barnflix.proxic.deck.CardResolver(config),
+                ),
+            // PHASE 2 AMENDMENT 1: on by default, by owner
+            // decision, with the switch kept because the
+            // endpoint is unauthenticated until Phase 3.
+            importEnabled = config.deckImportEnabled,
+        )
+    }
+}
+
+/**
  * The infrastructure WebSocket (§1.29–§1.32, §1.100).
  *
  * Extracted from installRoutes because that function had grown
  * past 120 lines. The connection lifecycle, the protocol guard and
  * the ceiling belong together and read better on their own.
  */
+
 private fun Route.systemWebSocket(config: ServerConfig) {
     webSocket("/ws/system") {
         // §1.100 — concurrent connection ceiling. Counted on

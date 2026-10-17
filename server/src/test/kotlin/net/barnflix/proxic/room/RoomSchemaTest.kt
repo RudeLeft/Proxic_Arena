@@ -325,8 +325,12 @@ class RoomSchemaTest {
         val setupId = setup(roomId, "READY")
         withConnection { connection ->
             connection.prepareStatement(
-                "INSERT INTO match_setup_player (setup_id, user_id, seat_number, deck_id) " +
-                    "VALUES (?, ?, 1, ?)",
+                // display_name since V007 (§5.105, §5.106): the
+                // snapshot keeps the name the match was prepared
+                // with rather than joining the live account.
+                "INSERT INTO match_setup_player " +
+                    "(setup_id, user_id, seat_number, deck_id, display_name) " +
+                    "VALUES (?, ?, 1, ?, 'RudeLeft')",
             ).use {
                 it.setObject(1, setupId)
                 it.setObject(2, host)

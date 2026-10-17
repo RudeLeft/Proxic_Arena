@@ -4,6 +4,7 @@ import io.ktor.websocket.Frame
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.serialization.json.JsonObject
 import net.barnflix.proxic.auth.User
+import net.barnflix.proxic.room.Presence
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -46,7 +47,7 @@ class LobbyConnection(
  * Thread-safe by construction: every connection is its own coroutine
  * and all of them touch this.
  */
-class LobbyHub {
+class LobbyHub : Presence {
     private val connections = ConcurrentHashMap<UUID, MutableSet<LobbyConnection>>()
 
     // --- connections --------------------------------------------------
@@ -78,6 +79,16 @@ class LobbyHub {
         connections.remove(connection.user.userId, set)
         return true
     }
+
+    /**
+     * §5.92 — is this player actually here?
+     *
+     * The same map presence is drawn from, deliberately: a room
+     * that refuses to prepare because somebody is offline, and a
+     * presence list showing them online, would be two answers to
+     * one question.
+     */
+    override fun isOnline(userId: UUID): Boolean = connections[userId]?.isNotEmpty() == true
 
     fun online(): List<PresenceEntry> =
         connections.values

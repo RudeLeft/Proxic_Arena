@@ -470,6 +470,125 @@ class RoomRoutesTest {
             assertEquals("INVALID_ROOM_CONFIGURATION", response.errorCode())
         }
 
+    // --- match setup --------------------------------------------------------
+
+    /** §5.91 — host-only, like every other configuration action. */
+    @Test
+    fun `a member cannot prepare the match`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val guest = signIn("Pat")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+            seat(roomId, "Pat")
+
+            val response =
+                client.post("/api/rooms/$roomId/prepare-match") { signedBy(guest) }
+            assertEquals(HttpStatusCode.Forbidden, response.status)
+            assertEquals("ROOM_HOST_REQUIRED", response.errorCode())
+        }
+
+    /**
+     * §5.101 — the privacy rule that only exists at the route.
+     *
+     * The host is told WHICH seats need attention and nothing
+     * about why. The why goes to the player it is about, over
+     * their own socket. A host who could read it would be reading
+     * something about a deck shared with that player, not with the
+     * table — which is the Phase 4 rule this phase must not undo.
+     */
+    @Test
+    fun `the host is told which seats need attention, never why`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            signIn("Pat")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+            val guestId = seat(roomId, "Pat")
+
+            val response =
+                client.post("/api/rooms/$roomId/prepare-match") { signedBy(host) }
+
+            assertEquals(HttpStatusCode.Conflict, response.status)
+            val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            assertEquals("SETUP_NOT_READY", body["errorCode"]!!.jsonPrimitive.content)
+
+            // Every member appears, so the answer does not reveal
+            // the roster by omission.
+            val seats = body["seats"]!!.jsonArray.map { it.jsonObject }
+            assertEquals(2, seats.size)
+            val guestSeat = seats.first { it["userId"]!!.jsonPrimitive.content == "$guestId" }
+            assertEquals(true, guestSeat["needsAttention"]!!.jsonPrimitive.content.toBoolean())
+
+            // And nothing about WHAT is wrong. The seat entries
+            // carry a boolean and an id, full stop — checked on the
+            // seats themselves rather than the whole body, because
+            // the envelope's own SETUP_NOT_READY is a room-level
+            // fact the host is entitled to.
+            for (seat in seats) {
+                assertEquals(
+                    setOf("userId", "needsAttention"),
+                    seat.keys,
+                    "a seat carried more than the table may know: $seat",
+                )
+            }
+        }
+
+    /** §5.117 — cancelling a room that was never prepared. */
+    @Test
+    fun `cancelling preparation is host-only`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val guest = signIn("Pat")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+            seat(roomId, "Pat")
+
+            val response =
+                client.post("/api/rooms/$roomId/cancel-preparation") { signedBy(guest) }
+            assertEquals(HttpStatusCode.Forbidden, response.status)
+        }
+
+    /** §5.138's rule again: a non-member learns nothing. */
+    @Test
+    fun `a non-member cannot read the match setup`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val stranger = signIn("Pat")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+
+            val response =
+                client.get("/api/rooms/$roomId/match-setup") { signedBy(stranger) }
+            assertEquals(HttpStatusCode.NotFound, response.status)
+        }
+
+    /** §5.37, §5.94 — the server owns the preset list. */
+    @Test
+    fun `the preset list is Open Format only`() =
+        testApplication {
+            application { module(config()) }
+            val token = signIn("RudeLeft")
+
+            val response = client.get("/api/match-presets") { signedBy(token) }
+            assertEquals(HttpStatusCode.OK, response.status)
+
+            val presets =
+                json.parseToJsonElement(response.bodyAsText())
+                    .jsonObject["presets"]!!.jsonArray
+            assertEquals(1, presets.size)
+            assertEquals(
+                "OPEN_FORMAT_1V1",
+                presets[0].jsonObject["presetId"]!!.jsonPrimitive.content,
+            )
+            assertEquals(
+                listOf(2),
+                presets[0].jsonObject["allowedPlayerCounts"]!!.jsonArray.map {
+                    it.jsonPrimitive.content.toInt()
+                },
+            )
+        }
+
     // --- malformed input ------------------------------------------------------
 
     /** A broken client gets 400, which is not a privacy leak: no

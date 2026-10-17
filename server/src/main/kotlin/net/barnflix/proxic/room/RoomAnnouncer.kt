@@ -33,6 +33,22 @@ interface RoomAnnouncer {
         reason: String,
     )
 
+    /**
+     * One player's own validation problem — §5.100, §5.101.
+     *
+     * Sent to THAT PLAYER and nobody else. §5.101 is explicit: the
+     * rest of the table learns that somebody needs attention, never
+     * what is wrong with their deck. Routing it here rather than
+     * returning it to the host is what makes that true by
+     * construction instead of by everyone remembering.
+     */
+    suspend fun setupProblem(
+        userId: UUID,
+        roomId: UUID,
+        code: String,
+        detail: String,
+    )
+
     /** One person is out; the room continues without them (§5.81). */
     suspend fun removedFromRoom(
         roomId: UUID,
@@ -44,6 +60,13 @@ interface RoomAnnouncer {
 /** For wiring that has no socket: tests, and a server with no lobby. */
 object SilentAnnouncer : RoomAnnouncer {
     override suspend fun roomChanged(room: Room) = Unit
+
+    override suspend fun setupProblem(
+        userId: UUID,
+        roomId: UUID,
+        code: String,
+        detail: String,
+    ) = Unit
 
     override suspend fun roomClosed(
         roomId: UUID,

@@ -69,3 +69,21 @@ fun roomClosedMessage(
         put("roomId", roomId.toString())
         put("reason", reason)
     }
+
+/**
+ * Your deck, your problem — §5.100.
+ *
+ * Addressed to one player. The detail is written for them and is
+ * never broadcast: §5.101 says the rest of the table needs to know
+ * that somebody requires attention and nothing more.
+ */
+fun setupProblemMessage(
+    roomId: UUID,
+    code: String,
+    detail: String,
+): JsonObject =
+    envelope("SETUP_PROBLEM") {
+        put("roomId", roomId.toString())
+        put("errorCode", code)
+        put("detail", detail)
+    }

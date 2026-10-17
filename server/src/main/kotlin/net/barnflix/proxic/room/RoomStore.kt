@@ -114,6 +114,21 @@ internal class RoomStore(private val dataSource: DataSource) {
             it.setObject(1, roomId)
             it.executeUpdate()
         }
+        // §5.79 — an unconsumed setup does not survive its room.
+        // Found while wiring match setup: without this a closed
+        // room left a READY snapshot behind, and Phase 6 would
+        // happily launch a match for a room nobody is in.
+        //
+        // READY only. A CONSUMED setup is a match that was already
+        // launched, and rewriting it would be falsifying history.
+        connection.prepareStatement(
+            "UPDATE match_setup SET status = 'INVALIDATED' " +
+                "WHERE room_id = ? AND status = 'READY'",
+        ).use {
+            it.setObject(1, roomId)
+            it.executeUpdate()
+        }
+
         // §5.18 — everyone is removed from the active room. The room
         // row survives as a CLOSED record until the sweep.
         connection.prepareStatement("DELETE FROM room_member WHERE room_id = ?").use {

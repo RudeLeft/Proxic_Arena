@@ -85,6 +85,15 @@ class LobbyService(
         hub.sendToAll(formerMembers, roomClosedMessage(roomId, reason))
     }
 
+    override suspend fun setupProblem(
+        userId: UUID,
+        roomId: UUID,
+        code: String,
+        detail: String,
+    ) {
+        hub.sendTo(userId, setupProblemMessage(roomId, code, detail))
+    }
+
     override suspend fun removedFromRoom(
         roomId: UUID,
         userId: UUID,
