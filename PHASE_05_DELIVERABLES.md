@@ -359,9 +359,11 @@ process boundary (ARCH-001).
   startup log, `/api/version` and an OCI label all carry the build
   identity, and a local build from uncommitted changes says
   `-dirty`.
-- **Authentication events are still not logged as events** —
-  deferred at the Phase 3 gate, owner decision 2026-10-16.
-- **No storage quotas.** Carried from Phase 4.
+- ~~Authentication events are not logged as events.~~ **Resolved** —
+  §3.94–§3.97 implemented, with a test that proves no credential
+  reaches the log.
+- ~~No storage quotas.~~ **Not debt** — §4.128 says a quota system
+  is not required at this scale. Carried in error.
 - **Chat has no moderation or retention** — deliberate (AMENDMENT 3),
   and only safe because the owner creates every account by hand.
 - **A room can outlive its 24 hours by up to one sweep interval.**

@@ -3,6 +3,7 @@ package net.barnflix.proxic.auth
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
+import io.ktor.server.application.log
 import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -82,6 +83,13 @@ fun Route.authRoutes(
 
             val source = call.clientSource()
             throttle.retryAfter(source, body.username)?.let { seconds ->
+                // §3.94 — a throttled attempt is its own event. It
+                // is the one that says somebody is TRYING.
+                call.application.log.authEvent(
+                    AuthEvent.LOGIN_THROTTLED,
+                    AuthResult.REFUSED,
+                    username = body.username.trim().lowercase(),
+                )
                 call.response.headers.append("Retry-After", seconds.toString())
                 return@post call.respond(
                     HttpStatusCode.TooManyRequests,
@@ -96,12 +104,27 @@ fun Route.authRoutes(
             when (val result = accounts.login(body.username, body.password)) {
                 is LoginResult.Success -> {
                     throttle.recordSuccess(source, body.username)
+                    call.application.log.authEvent(
+                        AuthEvent.LOGIN_SUCCESS,
+                        AuthResult.SUCCESS,
+                        username = result.principal.user.username,
+                        userId = result.principal.user.userId,
+                        sessionId = result.principal.sessionId,
+                    )
                     call.issueSession(config, result)
                     call.respond(HttpStatusCode.OK, MeResponse(true, result.principal.user.view()))
                 }
 
                 else -> {
                     throttle.recordFailure(source, body.username)
+                    // §3.96 — the ATTEMPTED name is recorded, which
+                    // is what makes a brute-force attempt legible.
+                    // The password is not, not even its length.
+                    call.application.log.authEvent(
+                        AuthEvent.LOGIN_FAILURE,
+                        AuthResult.FAILURE,
+                        username = body.username.trim().lowercase(),
+                    )
                     // §3.42, §3.43 — one message, one status, every
                     // time. 401 and nothing that distinguishes an
                     // unknown user from a wrong password.
@@ -122,7 +145,16 @@ fun Route.authRoutes(
             // an unauthenticated caller "you were not signed in"
             // says more than it needs to, and the client's job is
             // the same either way.
-            call.principal(sessions)?.let { sessions.revokeSession(it.sessionId) }
+            call.principal(sessions)?.let {
+                sessions.revokeSession(it.sessionId)
+                call.application.log.authEvent(
+                    AuthEvent.LOGOUT,
+                    AuthResult.SUCCESS,
+                    username = it.user.username,
+                    userId = it.user.userId,
+                    sessionId = it.sessionId,
+                )
+            }
             call.clearSession(config)
             call.respond(HttpStatusCode.NoContent)
         }
@@ -144,6 +176,14 @@ fun Route.authRoutes(
             if (!call.csrfOk(config)) return@post
             val principal = call.requireAuth(sessions) ?: return@post
             val revoked = sessions.revokeAllForUser(principal.user.userId)
+            call.application.log.authEvent(
+                AuthEvent.LOGOUT_EVERYWHERE,
+                AuthResult.SUCCESS,
+                username = principal.user.username,
+                userId = principal.user.userId,
+                sessionId = principal.sessionId,
+                detail = "sessions=$revoked",
+            )
             call.clearSession(config)
             call.respond(LogoutAllResponse(revoked))
         }

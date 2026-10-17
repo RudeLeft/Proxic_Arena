@@ -93,6 +93,25 @@ test("a real package imports and its artwork renders", async ({ page }) => {
   const cards = page.locator(".card img");
   await expect(cards).toHaveCount(11);
 
+  // Wait for the browser to finish DECODING them, not merely for
+  // the elements to exist. `toHaveCount` is satisfied the moment
+  // the <img> tags are in the DOM, and naturalWidth is 0 until the
+  // bytes have arrived and been decoded — so reading it straight
+  // afterwards is a race the test loses occasionally.
+  //
+  // Diagnosed from a kept trace after this flaked once in four
+  // full runs: eleven real card images, and one of them had not
+  // finished.
+  await expect
+    .poll(
+      async () =>
+        await cards.evaluateAll((images) =>
+          images.every((image) => (image as HTMLImageElement).complete),
+        ),
+      { message: "the card images never finished loading" },
+    )
+    .toBe(true);
+
   const widths = await cards.evaluateAll((images) =>
     images.map((image) => (image as HTMLImageElement).naturalWidth),
   );

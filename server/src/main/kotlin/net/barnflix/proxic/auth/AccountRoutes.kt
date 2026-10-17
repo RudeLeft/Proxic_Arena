@@ -2,6 +2,7 @@ package net.barnflix.proxic.auth
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
+import io.ktor.server.application.log
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -50,6 +51,15 @@ fun Route.accountRoutes(
         }
 
         accounts.changePassword(principal.user.userId, body.newPassword)
+        // §3.94 — the event, never the password. Every session died
+        // with it (§3.36), which is itself worth recording.
+        call.application.log.authEvent(
+            AuthEvent.PASSWORD_CHANGED,
+            AuthResult.SUCCESS,
+            username = principal.user.username,
+            userId = principal.user.userId,
+            sessionId = principal.sessionId,
+        )
         // Every session died, including this one (§3.36), so the
         // cookie is cleared rather than left pointing at a revoked
         // session.
@@ -78,6 +88,12 @@ fun Route.accountRoutes(
             )
         }
         accounts.updateDisplayName(principal.user.userId, name)
+        call.application.log.authEvent(
+            AuthEvent.DISPLAY_NAME_CHANGED,
+            AuthResult.SUCCESS,
+            username = principal.user.username,
+            userId = principal.user.userId,
+        )
         call.respond(MeResponse(true, principal.user.copy(displayName = name).view()))
     }
 }

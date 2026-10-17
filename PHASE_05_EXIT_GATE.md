@@ -234,19 +234,40 @@ and was proved to fail against the un-fixed code (AGENTS TEST-004).
   `/api/version`, and is an OCI label `docker inspect` can read with
   nothing running. A local build says `dev`, or the commit plus
   `-dirty` when the shell supplies it.
-- **Authentication events are still not logged as events** —
-  deferred at the Phase 3 gate.
-- **No storage quotas.** Carried from Phase 4.
+- ~~**Authentication events are not logged as events.**~~
+  **RESOLVED.** Deferred at the Phase 3 gate and carried through two
+  more. §3.94–§3.97 now have thirteen event types going through one
+  function, so there is a single place a credential could leak —
+  and a test that captures what the server actually wrote and reads
+  it back. Proved to catch a deliberately planted
+  `log.info("... ${password}")`.
+- ~~**No storage quotas.**~~ **NOT DEBT — this was a filing error on
+  my part.** §4.128 "No Premature Storage Quotas" says plainly that
+  a quota system is not required, because accounts are
+  administrator-created and the expected scale is small. I had been
+  carrying a deliberate decision as though it were an omission.
 - **Rooms can outlive 24 hours by up to one sweep interval.**
-- **Invitations and chat do not survive a restart** — deliberate.
-- ~~**One unexplained browser-suite failure.**~~ **EXPLAINED** — and
-  my first guess was wrong. I had blamed selecting a deck by "first
-  in the list" and removed that dependence; it was not the cause.
-  CI kept the trace the local run had overwritten, and it was a
-  loose locator: `getByText(/Shared with/)` also matches the
-  **"Shared with me" panel heading**, which renders whether or not
-  that list has anything in it. See the section above — the same
-  bug sat in a Phase 4 spec, green, proving nothing.
+  Accepted, not outstanding: making it exact would put a clock in
+  nine queries to be right about the twenty-fifth hour.
+- **Invitations and chat do not survive a restart** — deliberate
+  (owner D2 and AMENDMENT 3), not outstanding. Recorded because it
+  is worth knowing, not because it needs doing.
+- ~~**One unexplained browser-suite failure.**~~ **RESOLVED — there
+  were THREE, in three different files**, and the hunt for the
+  first found the others. All were races, all now fixed, and the
+  suite ran **four consecutive clean full passes** afterwards:
+
+  | Where | Race |
+  | --- | --- |
+  | `match-setup` / `sharing` | `/Shared with/` also matched the always-present "Shared with me" heading |
+  | `auth` | clicked **Sign out**, then navigated — `click()` returns on dispatch, not when the POST finishes |
+  | `decks` | read image `naturalWidth` before the browser had decoded them |
+
+  My first explanation was wrong: I had blamed deck ordering and
+  removed that dependence for nothing. The method that worked was
+  running the full suite repeatedly and **keeping the artefacts** —
+  I had twice destroyed the evidence by re-running before reading
+  it.
 - **A live match's effect on room expiry is undecided.** Today a room
   in a match would still be swept after 24 idle hours. Phase 6's.
 

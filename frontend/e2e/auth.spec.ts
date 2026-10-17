@@ -130,7 +130,21 @@ test("signing out ends the session and protects the page again", async ({ page }
   await signIn(page);
   await page.goto("/account");
   // exact: the account page now also has "Sign out everywhere".
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  //
+  // Wait for the REQUEST, not just the click. `click()` returns
+  // when the click is dispatched, not when the POST it triggers
+  // has finished -- so the navigation below could win the race,
+  // reach /decks with a still-valid cookie, and fail an assertion
+  // about a sign-out that simply had not happened yet.
+  //
+  // Diagnosed from a kept trace after this flaked once in three
+  // full runs. The other two sign-out tests assert a UI change
+  // instead of navigating, and those poll, so they were never
+  // exposed to it.
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/auth/logout") && r.status() < 500),
+    page.getByRole("button", { name: "Sign out", exact: true }).click(),
+  ]);
 
   await page.goto("/decks");
   await expect(page).toHaveURL(/\/login/);

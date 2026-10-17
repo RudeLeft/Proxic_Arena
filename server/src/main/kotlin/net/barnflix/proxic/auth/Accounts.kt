@@ -113,6 +113,14 @@ class Accounts(
     private val dataSource: DataSource,
     private val sessions: Sessions = Sessions(dataSource),
 ) {
+    // §3.94 — the account-changing events live HERE rather than at
+    // each caller. These operations have one implementation and
+    // several callers (the admin CLI, the account page, and
+    // whatever Phase 6 adds), and an event attached to callers is
+    // an event some caller forgets. Seven defects this phase were
+    // that exact shape.
+    private val log: org.slf4j.Logger = org.slf4j.LoggerFactory.getLogger(Accounts::class.java)
+
     /**
      * A hash to verify against when the username does not exist.
      *
@@ -158,6 +166,13 @@ class Accounts(
                 statement.executeUpdate()
             }
         }
+        log.authEvent(
+            AuthEvent.USER_CREATED,
+            AuthResult.SUCCESS,
+            username = user.username,
+            userId = user.userId,
+            detail = "role=${user.role}",
+        )
         return user
     }
 
@@ -211,7 +226,13 @@ class Accounts(
         dataSource.connection.use { connection ->
             updatePasswordHash(connection, userId, PasswordHasher.hash(newPassword))
         }
-        sessions.revokeAllForUser(userId)
+        val revoked = sessions.revokeAllForUser(userId)
+        log.authEvent(
+            AuthEvent.PASSWORD_CHANGED,
+            AuthResult.SUCCESS,
+            userId = userId,
+            detail = "sessionsRevoked=$revoked",
+        )
     }
 
     fun setStatus(
@@ -228,7 +249,14 @@ class Accounts(
         }
         // §3.37 — a disabled account's sessions end immediately,
         // not whenever they happen to expire.
-        if (status == AccountStatus.DISABLED) sessions.revokeAllForUser(userId)
+        val revoked =
+            if (status == AccountStatus.DISABLED) sessions.revokeAllForUser(userId) else 0
+        log.authEvent(
+            if (status == AccountStatus.DISABLED) AuthEvent.USER_DISABLED else AuthEvent.USER_ENABLED,
+            AuthResult.SUCCESS,
+            userId = userId,
+            detail = "sessionsRevoked=$revoked",
+        )
     }
 
     fun findByUsername(username: String): User? =

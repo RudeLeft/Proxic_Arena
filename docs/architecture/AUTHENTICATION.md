@@ -340,3 +340,43 @@ status, and a signed-out visitor is meant to see it.
   locked out by someone else failing logins at their name.
 - No HSTS from this server: Cloudflare owns it (see
   `SecurityHeaders.kt`).
+
+---
+
+## What gets logged
+
+§3.94–§3.97. Thirteen event types, all through one function so
+there is a single place to get this wrong:
+
+```text
+LOGIN_SUCCESS     LOGIN_FAILURE     LOGIN_THROTTLED
+LOGOUT            LOGOUT_EVERYWHERE
+PASSWORD_CHANGED  DISPLAY_NAME_CHANGED
+SESSION_REVOKED   SESSION_EXPIRED_IN_FLIGHT
+USER_CREATED      USER_DISABLED     USER_ENABLED
+ADMIN_PASSWORD_RESET
+```
+
+One line, fixed shape, so it greps:
+
+```text
+auth event=LOGIN_FAILURE result=FAILURE username=rudeleft
+```
+
+The request id, connection id, session id and user id ride in the
+MDC rather than the message, so they appear on every line in a
+request's scope without each call site passing them.
+
+**Never written, by §3.95:** the password (not even its length), the
+raw session token, the CSRF token, the password hash. The session
+**id** is fine and is logged; the **token** is not.
+
+§3.96 permits recording the attempted username on a failure, and it
+is recorded — a brute-force attempt is illegible without it, and a
+username is not a secret.
+
+The account-changing events (created, disabled, enabled, password
+changed) are emitted by `Accounts`, not by the routes. Those
+operations have one implementation and several callers — the admin
+CLI, the account page, and whatever comes next — and an event
+attached to callers is an event some caller forgets.
