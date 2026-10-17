@@ -125,14 +125,25 @@ test("an illegal deck lists every problem at once", async ({ page }) => {
   // A deck that breaks two rules: too few cards, and five copies.
   const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
   const illegal = join(directory, "illegal.zip");
-  const { execSync } = await import("node:child_process");
+  const { execFileSync } = await import("node:child_process");
   writeFileSync(
     join(directory, "Illegal Deck.txt"),
     "// Illegal Deck\n\n5 Fiery Temper [INR:154]\n5 Rift Bolt [2X2:122]\n",
   );
-  execSync(
-    `powershell -Command "Compress-Archive -Path '${join(directory, "Illegal Deck.txt")}' -DestinationPath '${illegal}' -Force"`,
-  );
+  // Node, not PowerShell. The PowerShell form worked on the machine
+  // it was written on and failed the first time CI ran this on
+  // Linux -- shelling out to the platform for a zip is a dependency
+  // on the platform.
+  //
+  // execFileSync with an argument array, not a command string: this
+  // repository lives under a path containing spaces, and the
+  // string form needed quoting that the first attempt got wrong.
+  // An array has nothing to quote.
+  execFileSync("node", [
+    join(process.cwd(), "..", "scripts", "make-zip.mjs"),
+    illegal,
+    join(directory, "Illegal Deck.txt"),
+  ]);
 
   await page.goto("/decks");
   await page.locator('input[type="file"]').setInputFiles(illegal);
