@@ -126,19 +126,17 @@ class DeckSchemaTest {
                 """.trimIndent(),
             ).use { rows -> while (rows.next()) tables += rows.getString(1) }
 
-            // §2.68 forbids user ownership, sharing, ratings, folders,
-            // tags and match history in this phase. Asserting the exact
-            // set catches a speculative table as soon as it appears.
-            assertEquals(
-                listOf(
-                    "app_user",
-                    "art_asset",
-                    "deck_entry",
-                    "deck_share",
-                    "imported_deck",
-                    "user_session",
-                ),
-                tables,
+            // This test owns PHASE 2's tables; DatabaseTest owns the
+            // EXACT set for the whole schema and is where §1.36's
+            // no-speculative-schema rule is enforced.
+            //
+            // It used to assert the full list too, and the two copies
+            // drifted apart the moment Phase 5 added a table: one
+            // test failed for a reason that had nothing to do with
+            // decks. One invariant, one place.
+            assertTrue(
+                tables.containsAll(listOf("art_asset", "deck_entry", "imported_deck")),
+                "a Phase 2 table is missing: $tables",
             )
         }
 

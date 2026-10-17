@@ -129,9 +129,14 @@ class DatabaseTest {
                         // Phase 3: app_user, user_session.
                         // Phase 4: deck_share. Ownership is a COLUMN
                         // on imported_deck, not a table -- §4.10.
+                        // Phase 5: room, room_member, match_setup,
+                        // match_setup_player. NOT a chat table:
+                        // messages are ephemeral by owner decision
+                        // D3, and a table would be the first step
+                        // towards the retention policy that decision
+                        // exists to avoid.
                         // Still forbidden until their own phases:
-                        // matches, friends, ratings, and anything
-                        // social (§4.89).
+                        // match history, friends, ratings.
                         assertEquals(
                             listOf(
                                 "app_user",
@@ -139,6 +144,10 @@ class DatabaseTest {
                                 "deck_entry",
                                 "deck_share",
                                 "imported_deck",
+                                "match_setup",
+                                "match_setup_player",
+                                "room",
+                                "room_member",
                                 "user_session",
                             ),
                             tables.sorted(),
