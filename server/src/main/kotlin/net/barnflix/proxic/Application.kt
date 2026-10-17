@@ -314,7 +314,23 @@ private fun Application.installRoutes(
             // §3.77-§3.82 — the authenticated WebSocket. Outside
             // /api, beside /ws/system, which stays anonymous
             // infrastructure (§3.83).
-            userSocket(sessions)
+            //
+            // PHASE_05 — presence, invitations and chat ride on this
+            // socket rather than a second endpoint (§5.66, and
+            // carry-forward C3): authentication and the 30-second
+            // revalidation already live here, and a second socket
+            // would have to reimplement both.
+            val roomService =
+                net.barnflix.proxic.room.RoomService(
+                    database.dataSource(),
+                    net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+                )
+            val lobby =
+                net.barnflix.proxic.lobby.LobbyService(
+                    net.barnflix.proxic.lobby.LobbyHub(),
+                    roomService,
+                )
+            userSocket(sessions, lobby)
 
             route("/api") {
                 // PHASE 3 AMENDMENT 1 (owner decision D1): every

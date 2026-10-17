@@ -1,5 +1,6 @@
 package net.barnflix.proxic.auth
 
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
@@ -157,10 +158,7 @@ class UserSocketTest {
                 // happened.
                 send(Frame.Text("""{"type":"PING"}"""))
 
-                val next =
-                    withTimeoutOrNull(10_000) {
-                        runCatching { (incoming.receive() as? Frame.Text)?.readText() }.getOrNull()
-                    }
+                val next = nextAnswer()
                 assertTrue(
                     next == null || next.contains("SESSION_ENDED"),
                     "a revoked session kept answering: $next",
@@ -183,7 +181,7 @@ class UserSocketTest {
             }) {
                 withTimeoutOrNull(5_000) { incoming.receive() } // HELLO
                 send(Frame.Text("""{"type":"PING"}"""))
-                val pong = withTimeoutOrNull(5_000) { (incoming.receive() as Frame.Text).readText() }
+                val pong = nextAnswer()
                 assertTrue(pong != null && pong.contains("PONG"), "got: $pong")
             }
         }
@@ -202,4 +200,34 @@ class UserSocketTest {
                 assertTrue(hello != null && hello.contains("HELLO"), "got: $hello")
             }
         }
+
+    /**
+     * The next frame that answers something we asked.
+     *
+     * Since PHASE_05 the authenticated socket also carries the lobby,
+     * which speaks unprompted: presence on connect, and a room or a
+     * chat line whenever one arrives. Those frames are correct and
+     * may interleave with anything, so a test asking "what did my
+     * PING get" must step over them rather than assume the socket is
+     * silent until spoken to.
+     *
+     * Returns null when the connection closed or nothing came — both
+     * are answers here, and the callers distinguish them.
+     */
+    private suspend fun DefaultClientWebSocketSession.nextAnswer(): String? =
+        withTimeoutOrNull(10_000) {
+            while (true) {
+                val frame =
+                    runCatching { incoming.receive() }.getOrNull() ?: return@withTimeoutOrNull null
+                val text = (frame as? Frame.Text)?.readText() ?: continue
+                if (UNPROMPTED.none { text.contains(""""type":"$it"""") }) return@withTimeoutOrNull text
+            }
+            @Suppress("UNREACHABLE_CODE")
+            null
+        }
+
+    private companion object {
+        /** Lobby traffic nobody asked for. Not an answer to anything. */
+        val UNPROMPTED = listOf("PRESENCE", "PRESENCE_JOINED", "PRESENCE_LEFT", "ROOM", "CHAT")
+    }
 }

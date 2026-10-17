@@ -16,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.barnflix.proxic.BuildInfo
 import net.barnflix.proxic.LogContext
+import net.barnflix.proxic.lobby.LobbySocketHandler
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
@@ -50,7 +51,22 @@ private val wireJson =
  */
 private const val REVALIDATE_SECONDS = 30L
 
-fun Route.userSocket(sessions: Sessions) {
+/**
+ * @param lobby PHASE_05 — presence, invitations and chat ride on
+ *   THIS socket rather than a second endpoint. §5.66 permits it
+ *   ("may follow established project conventions"), and the reason
+ *   to take that permission is above: authentication and the
+ *   30-second revalidation already live here, and a second socket
+ *   would have to reimplement both. One of them would eventually
+ *   drift.
+ *
+ *   Optional so Phase 3's socket tests still describe a socket with
+ *   no lobby attached.
+ */
+fun Route.userSocket(
+    sessions: Sessions,
+    lobby: LobbySocketHandler? = null,
+) {
     webSocket("/ws/user") {
         // §3.78 — the cookie that authenticates every other request
         // authenticates the upgrade too. Ktor exposes the request's
@@ -90,14 +106,34 @@ fun Route.userSocket(sessions: Sessions) {
                 },
             )
 
+            // Presence begins once the client has been greeted, so
+            // a joining announcement never arrives before the
+            // connection knows who it is.
+            val session = lobby?.open(connectionId, principal.user, outgoing)
+
             while (true) {
                 // The timeout IS the revalidation clock: a quiet
                 // connection is re-checked on schedule rather than
                 // only when the client happens to say something.
-                val frame =
+                // Three outcomes, and conflating two of them was a
+                // bug: null means the revalidation timeout fired,
+                // a CLOSED result means the peer has gone, and
+                // anything else is a frame.
+                //
+                // The first version caught the close as an exception
+                // and returned null, so the loop treated a dead
+                // connection as a quiet one: it spun immediately,
+                // re-queried the session on every pass, and never
+                // reached its own cleanup. Found by a Phase 5
+                // presence test waiting for a departure that was
+                // never announced.
+                val received =
                     withTimeoutOrNull(REVALIDATE_SECONDS * 1000) {
-                        runCatching { incoming.receive() }.getOrNull()
+                        incoming.receiveCatching()
                     }
+                if (received != null && received.isClosed) break
+
+                val frame = received?.getOrNull()
 
                 if (!stillAuthorised(sessions, token, principal.sessionId)) {
                     // §3.81.
@@ -113,8 +149,16 @@ fun Route.userSocket(sessions: Sessions) {
                     runCatching {
                         wireJson.parseToJsonElement(frame.readText()) as JsonObject
                     }.getOrNull()
-                when (message?.get("type")?.toString()?.trim('"')) {
-                    "PING" -> sendFrame("PONG", buildJsonObject {})
+                val type = message?.get("type")?.toString()?.trim('"')
+                when {
+                    type == "PING" -> sendFrame("PONG", buildJsonObject {})
+
+                    // The lobby owns everything else it recognises.
+                    // It answers the client itself, because most of
+                    // its replies go to OTHER connections too.
+                    type != null && message != null && session?.handles(type) == true ->
+                        session.handle(type, message)
+
                     else ->
                         sendFrame(
                             "ERROR",
@@ -126,6 +170,11 @@ fun Route.userSocket(sessions: Sessions) {
             // The loop's own timeout escaping is not an error.
             call.application.log.debug("authenticated ws timeout", expected)
         } finally {
+            // Presence must end even when the connection died badly:
+            // a user who appears online forever is worse than one
+            // who flickers, because somebody will try to invite
+            // them.
+            lobby?.close(connectionId, principal.user)
             LogContext.withFields(LogContext.CONNECTION_ID to connectionId) {
                 call.application.log.info("authenticated ws close")
             }
