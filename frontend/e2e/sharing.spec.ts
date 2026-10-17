@@ -62,10 +62,12 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await owner.goto("/decks");
   await owner.locator('input[type="file"]').setInputFiles(zip!);
   // The confirmation names the deck, the way decks.spec.ts waits.
-  await expect(owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first())
-    .toBeVisible({ timeout: 180_000 });
+  await expect(
+    owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first(),
+  ).toBeVisible({ timeout: 180_000 });
 
-  const deckName = await owner.locator("section.panel", { hasText: "My decks" })
+  const deckName = await owner
+    .locator("section.panel", { hasText: "My decks" })
     .locator(".row .name")
     .first()
     .innerText();
@@ -98,7 +100,13 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await expect(owner.getByRole("heading", { name: "Share this deck" })).toBeVisible();
   await owner.getByLabel("Username").fill(secondUser);
   await owner.getByRole("button", { name: "Share", exact: true }).click();
-  await expect(owner.getByText(/Shared with/)).toBeVisible();
+  // Specific, because `/Shared with/` also matches the
+  // "Shared with me" panel HEADING, which renders whether or not
+  // that list has anything in it. The loose version passed by
+  // asserting the heading was visible -- proving nothing about
+  // the share -- and failed only when both elements happened to
+  // be present at the moment Playwright evaluated it.
+  await expect(owner.getByText(`Shared with ${secondUser}`)).toBeVisible();
 
   // --- User B, after the share ------------------------------------
   await guest.reload();
@@ -153,15 +161,18 @@ test("a recipient cannot delete or re-share, even by calling the API", async ({ 
   await clearOwnDecks(owner);
   await owner.goto("/decks");
   await owner.locator('input[type="file"]').setInputFiles(zip!);
-  await expect(owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first())
-    .toBeVisible({ timeout: 180_000 });
+  await expect(
+    owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first(),
+  ).toBeVisible({ timeout: 180_000 });
 
   const library = (await (await owner.request.get("/api/decks")).json()) as {
     mine: { deckId: string }[];
   };
   const deckId = library.mine[0].deckId;
 
-  const ownerCsrf = (await ownerContext.cookies()).find((c) => c.name === "proxicarena_csrf")!.value;
+  const ownerCsrf = (await ownerContext.cookies()).find(
+    (c) => c.name === "proxicarena_csrf",
+  )!.value;
   await owner.request.post(`/api/decks/${deckId}/shares`, {
     headers: { "X-CSRF-Token": ownerCsrf, "Content-Type": "application/json" },
     data: { username: secondUser },
@@ -170,7 +181,9 @@ test("a recipient cannot delete or re-share, even by calling the API", async ({ 
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await signInAs(guest, secondUser, secondPassword);
-  const guestCsrf = (await guestContext.cookies()).find((c) => c.name === "proxicarena_csrf")!.value;
+  const guestCsrf = (await guestContext.cookies()).find(
+    (c) => c.name === "proxicarena_csrf",
+  )!.value;
 
   // Visible, so 403 rather than 404 — the recipient knows it exists.
   expect((await guest.request.get(`/api/decks/${deckId}`)).status()).toBe(200);

@@ -177,6 +177,23 @@ its own leftovers.
 
 ## Found after this gate was written
 
+**A Phase 4 test had been passing by asserting the wrong element.**
+`sharing.spec` checked `getByText(/Shared with/)` after sharing a
+deck. That regex also matches the **"Shared with me" panel heading**,
+which `DeckList` renders unconditionally — only the rows are
+conditional. So most runs the assertion resolved to the heading,
+went green, and proved nothing about the share. It failed only when
+both elements happened to be present at the moment Playwright
+evaluated it, which looked exactly like flakiness.
+
+I then copied the same loose locator into `match-setup.spec`, which
+is what the "unexplained failure" below actually was. CI caught it
+because CI keeps traces that a local re-run overwrites.
+
+Both are specific now (`Shared with Pat`), and the replacement was
+proved to fail when the share does not happen (AGENTS TEST-004) —
+which the original could not have done.
+
 **`/api/match-presets` answered 200 to anybody.** The auth intercept
 matched on the `/api/decks` and `/api/rooms` prefixes, and this route
 shares neither. `LOBBY_PROTOCOL.md` said it was gated, the README says
@@ -210,13 +227,14 @@ and was proved to fail against the un-fixed code (AGENTS TEST-004).
 - **No storage quotas.** Carried from Phase 4.
 - **Rooms can outlive 24 hours by up to one sweep interval.**
 - **Invitations and chat do not survive a restart** — deliberate.
-- **One unexplained browser-suite failure.** `match-setup.spec`
-  failed once in a full run and passed in four subsequent ones,
-  alone and together. The trace was overwritten before I read it,
-  so this was **not diagnosed**. The most plausible cause —
-  selecting a deck by "first in the list", which depends on what an
-  earlier spec file left behind — has been removed; both players
-  now pick by name. If it recurs on CI, the trace will be kept.
+- ~~**One unexplained browser-suite failure.**~~ **EXPLAINED** — and
+  my first guess was wrong. I had blamed selecting a deck by "first
+  in the list" and removed that dependence; it was not the cause.
+  CI kept the trace the local run had overwritten, and it was a
+  loose locator: `getByText(/Shared with/)` also matches the
+  **"Shared with me" panel heading**, which renders whether or not
+  that list has anything in it. See the section above — the same
+  bug sat in a Phase 4 spec, green, proving nothing.
 - **A live match's effect on room expiry is undecided.** Today a room
   in a match would still be swept after 24 idle hours. Phase 6's.
 

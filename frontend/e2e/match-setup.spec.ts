@@ -110,7 +110,13 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     await expect(host.getByRole("heading", { name: "Share this deck" })).toBeVisible();
     await host.getByLabel("Username").fill(secondUser);
     await host.getByRole("button", { name: "Share", exact: true }).click();
-    await expect(host.getByText(/Shared with/)).toBeVisible();
+    // Specific, because `/Shared with/` also matches the
+    // "Shared with me" panel HEADING, which renders whether or not
+    // that list has anything in it. The loose version passed by
+    // asserting the heading was visible -- proving nothing about
+    // the share -- and failed only when both elements happened to
+    // be present at the moment Playwright evaluated it.
+    await expect(host.getByText(`Shared with ${secondUser}`)).toBeVisible();
 
     // --- a room, with both players in it --------------------------
     await host.goto("/play");
