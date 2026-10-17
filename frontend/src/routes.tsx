@@ -13,6 +13,7 @@
 import { Route, Routes } from "react-router-dom";
 import App from "./App";
 import DecksPage from "./DecksPage";
+import LobbyPage from "./LobbyPage";
 import { AccountPage, LoginPage } from "./LoginPage";
 import { RequireAuth } from "./AuthContext";
 
@@ -39,7 +40,18 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<App />} />
-      <Route path="/play" element={<Placeholder title="Play" phase="Phases 5–7" />} />
+      {/* PHASE_05 AMENDMENT 4 — the one lobby page. Protected for
+          the same reason /decks is: every room endpoint requires a
+          session, so an anonymous visitor would meet a page of
+          401s rather than a login form. */}
+      <Route
+        path="/play"
+        element={
+          <RequireAuth>
+            <LobbyPage />
+          </RequireAuth>
+        }
+      />
       <Route path="/login" element={<LoginPage />} />
       {/* PHASE_03 §3.67 — protected. The deck API requires a
           session (PHASE 3 AMENDMENT 1), so an unauthenticated

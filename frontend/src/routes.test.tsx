@@ -56,12 +56,21 @@ describe("routes", () => {
     expect(screen.queryByText(/Foundation Build/i)).toBeNull();
   });
 
-  it("names the owning phase on a placeholder rather than faking it", () => {
+  /**
+   * PHASE_05 AMENDMENT 4 — /play is the lobby now.
+   *
+   * This test used to assert the §1.105 placeholder ("no fake
+   * gameplay"). That rule has not gone away: the 404 test above
+   * still covers the only placeholder left, and the lobby is not a
+   * mock — it renders what the server says and nothing else.
+   *
+   * What is worth asserting here instead is the gate. Every room
+   * endpoint requires a session, so an anonymous visitor must meet
+   * a login form rather than a page of 401s.
+   */
+  it("sends an anonymous visitor from /play to sign in", async () => {
     at("/play");
-    expect(screen.getByText(/Not implemented yet/i)).toBeDefined();
-    // §1.105: no fake gameplay. A mock table would look like
-    // progress and would have to be deleted before the real one
-    // could be built.
-    expect(screen.getByText(/Phases 5–7/)).toBeDefined();
+    // The form, not the heading: both say "Sign in".
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
   });
 });

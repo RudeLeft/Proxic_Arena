@@ -211,3 +211,123 @@ form button {
   font-size: 13px;
   margin: 10px 0 0;
 }
+
+/* ---------------------------------------------------------------
+   The lobby — PHASE_05 AMENDMENT 4.
+
+   Two columns on a wide screen, one on a narrow one. Everything the
+   amendment lists is on this page at once, which is the whole point
+   of it: a player picks a deck where they are standing.
+   --------------------------------------------------------------- */
+
+main.lobby {
+  /* Wider than the diagnostic pages: two columns of panels do not
+     fit in 760px without the chat becoming a slot. */
+  max-width: 1040px;
+}
+
+.lobby-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 18px;
+  align-items: start;
+}
+
+/* One column once the two would be too narrow to read. Presence and
+   chat come first on a phone: that is how you find somebody to play
+   with, and the room is empty until you have. */
+@media (max-width: 860px) {
+  .lobby-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.lobby-side,
+.lobby-main {
+  min-width: 0;
+}
+
+.panel.invitation {
+  border-color: #3b5bdb;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* The base button rule carries margin-left: 8px, for buttons that
+   sit at the end of a row. In an action row the spacing is `gap`,
+   and the inherited margin pushed the first button 8px out of line
+   with everything else in the panel. Measured, not guessed: the
+   row started at 507 and the button at 515. */
+.actions button {
+  margin-left: 0;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--muted);
+}
+
+button.secondary:hover:not(:disabled) {
+  color: var(--text);
+}
+
+button.small {
+  padding: 4px 10px;
+  font-size: 13px;
+  margin: 0 0 0 10px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.presence,
+.seats,
+.deck-choices {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.row.seat .name {
+  /* The name takes the slack so "Remove" stays at the edge however
+     long a display name is. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.row.seat.empty .name,
+.row.seat.empty .state {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.chat-log {
+  /* Bounded and scrolling: the log is capped at MAX_CHAT_LINES in
+     lobby.ts, and a panel that grows with it would push the
+     composer off the screen. */
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 10px 0;
+  padding-right: 6px;
+}
+
+.chat-line {
+  margin: 0 0 6px;
+  /* A pasted wall of one long word must not widen the column. */
+  overflow-wrap: anywhere;
+}
+
+.chat-who {
+  color: var(--muted);
+}
+
+.chat-who::after {
+  content: ":";
+}
