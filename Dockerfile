@@ -130,6 +130,20 @@ ENV PROXIC_BUILD_ID=${PROXIC_BUILD_ID}
 ARG PROXIC_REVISION=unknown
 LABEL org.opencontainers.image.title="Proxic Arena"       org.opencontainers.image.source="https://github.com/RudeLeft/Proxic_Arena"       org.opencontainers.image.revision="${PROXIC_REVISION}"       org.opencontainers.image.licenses="NOASSERTION"
 
+# Unraid's Docker tab, from the IMAGE rather than the compose file.
+#
+# A container inherits its image's labels, so putting these here
+# means the icon arrives with an ordinary image update. Setting them
+# only in compose looked equivalent and was not: the host pulled a
+# new image, recreated the container, and still showed a blank
+# placeholder, because the compose file on the host predated the
+# labels and nothing had told it otherwise.
+#
+# postgres and init-data run third-party images and cannot carry
+# these, so the compose files still set them there. Those entries
+# rarely change; this one is the one that will.
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/RudeLeft/Proxic_Arena/main/docs/assets/proxic-arena-icon.png"       net.unraid.docker.webui="https://proxic.barnflix.net"
+
 USER proxic
 EXPOSE 8080
 

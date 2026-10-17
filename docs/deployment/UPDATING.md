@@ -173,6 +173,16 @@ that works is worth breaking the convention for.
 Labels are applied when a container is **created**, so they appear
 after the next Update Stack rather than immediately.
 
+**Where the labels live matters.** `arena-server` carries its icon in
+the **image**, so it arrives with an ordinary update. `postgres` and
+`init-data` run third-party images, so their labels come from the
+compose file — which means a change to *those* needs a `git pull` on
+the host before Update Stack.
+
+That is the one thing a pull is still for: **image updates need
+none; compose-file changes do.** Found the hard way, by pulling a new
+image and still getting a blank placeholder.
+
 ## What did not change
 
 - **`.env` still lives on the host** and is never published. Secrets
