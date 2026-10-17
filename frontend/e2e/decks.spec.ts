@@ -13,6 +13,22 @@ import { join } from "node:path";
 
 const realExport = join(process.cwd(), "..", "Test Deck", "Basic_Mono_Red_65_Card_Deck.zip");
 
+/**
+ * Any importable package: the real Deck Builder export when a
+ * developer has one, otherwise the generated CI fixture.
+ *
+ * The two tests that assert an export's SPECIFICS (11 distinct
+ * cards, 11 images) stay tied to the real thing, because §2.3 asks
+ * for a real export and a fixture cannot stand in for one. Tests
+ * that only need "a valid package" use this, so they run on CI
+ * instead of skipping.
+ */
+function anyPackage(): string | null {
+  if (existsSync(realExport)) return realExport;
+  const fixture = join(process.cwd(), "..", "Test Deck", "ci-deck.zip");
+  return existsSync(fixture) ? fixture : null;
+}
+
 /** Remove every deck, so a run does not depend on what came before. */
 async function clearDecks(page: Page) {
   // The CSRF header is required on DELETE (§3.52). Without it every
@@ -129,14 +145,17 @@ test("an illegal deck lists every problem at once", async ({ page }) => {
 });
 
 test("importing the same package twice is refused and points at the deck", async ({ page }) => {
-  test.skip(!existsSync(realExport), "no real export");
+  // Any valid package proves this rule, so it runs on CI with the
+  // generated fixture rather than skipping.
+  const pkg = anyPackage();
+  test.skip(!pkg, "no deck package available");
   test.setTimeout(180_000);
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(realExport);
+  await page.locator('input[type="file"]').setInputFiles(pkg!);
   await expect(page.getByText("Artwork stored")).toBeVisible({ timeout: 90_000 });
 
-  await page.locator('input[type="file"]').setInputFiles(realExport);
+  await page.locator('input[type="file"]').setInputFiles(pkg!);
   await expect(page.locator(".panel.error")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/already been imported/i).first()).toBeVisible();
   // Owner decision D3: refusing is right, a dead end is not.

@@ -1,0 +1,24 @@
+# CI override — run the stack from an image already built in this run.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+#
+# Like docker-compose.local.yml, but it does NOT build: the image
+# under test was built once at the start of the run and is being
+# tested before it is allowed to become `latest`. Building again here
+# would test a different image than the one that ships.
+
+name: proxic-arena-ci
+
+services:
+  arena-server:
+    # Whatever tag the workflow put on the candidate image.
+    image: ${PROXIC_CI_IMAGE:-ghcr.io/rudeleft/proxic_arena:latest}
+    # Never pull, never build: the runner already has it.
+    pull_policy: never
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # The browser tests speak plain HTTP to localhost, and a
+      # browser will not keep a Secure cookie over that -- the same
+      # finding that produced owner decision D2 for the LAN port.
+      PROXIC_SECURE_COOKIES: "false"

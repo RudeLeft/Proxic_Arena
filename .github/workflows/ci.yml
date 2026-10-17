@@ -1,0 +1,268 @@
+# Test, then publish. Never the other way round.
+#
+# Deploying is now two clicks on the Unraid host, which makes a bad
+# build as easy to ship as a good one. So nothing becomes `latest`
+# until the suites that have actually caught defects in this project
+# have run against the very image that would ship.
+#
+# Build once, test that image, promote it by retagging. A gate that
+# tests one build and publishes another is not a gate.
+#
+# The three tiers, and what each has caught here:
+#
+#   checks   static analysis and 49 frontend tests
+#   server   233 tests: authorization, migrations, sharing rules
+#   browser  29 tests: the CSP breaking Pixi, an origin check that
+#            refused the app's own requests, a login page nobody
+#            could reach. Server tests passed through all three.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/rudeleft/proxic_arena
+  # The candidate: built, tested, and only then promoted.
+  CANDIDATE_TAG: ci-${{ github.sha }}
+
+jobs:
+  build:
+    name: Build the candidate image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: docker/setup-buildx-action@v3.7.1
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push candidate
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.CANDIDATE_TAG }}
+          build-args: |
+            PROXIC_BUILD_ID=${{ github.sha }}
+            PROXIC_REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  checks:
+    name: Static analysis and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-java@v4.5.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: "24.11.1"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: ./gradlew :server:ktlintCheck :server:detekt --no-daemon
+
+      - run: npm ci
+        working-directory: frontend
+      - run: npx tsc --noEmit
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+
+  server-tests:
+    name: Server tests
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-java@v4.5.0
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Forge is gitignored, so without this the Forge-dependent
+      # tests call assumeTrue and SKIP -- a green gate that never ran
+      # card resolution or deck import. Rather than compile Forge a
+      # second time, take the worker and the resource tree out of the
+      # image that was just built with them.
+      - name: Take the Forge worker and resources from the image
+        run: |
+          docker pull "$IMAGE:$CANDIDATE_TAG"
+          id=$(docker create "$IMAGE:$CANDIDATE_TAG")
+          mkdir -p forge-worker/target spikes/forge-phase0a/forge-upstream/forge-gui
+          docker cp "$id:/app/forge/forge-worker.jar" \
+            forge-worker/target/forge-worker-0.1.0.jar
+          docker cp "$id:/app/forge/res" \
+            spikes/forge-phase0a/forge-upstream/forge-gui/res
+          docker rm "$id" > /dev/null
+          ls -la forge-worker/target/
+
+      - run: ./gradlew :server:test --no-daemon
+
+      # A test that skips itself is not a test that passed. Phase 1
+      # shipped two tests that silently never ran; this is the same
+      # failure wearing CI clothes, so the gate counts skips and
+      # fails on any.
+      - name: Fail if any test skipped
+        if: always()
+        run: |
+          skipped=$(grep -ho 'skipped="[0-9]*"' server/build/test-results/test/*.xml \
+            | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
+          total=$(grep -ho ' tests="[0-9]*"' server/build/test-results/test/*.xml \
+            | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
+          echo "$total server tests, $skipped skipped"
+          echo "$total server tests, $skipped skipped" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$skipped" -ne 0 ]; then
+            echo "::error::$skipped server test(s) skipped. A skipped test proves nothing."
+            exit 1
+          fi
+
+  browser-tests:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: "24.11.1"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the candidate stack
+        run: |
+          docker pull "$IMAGE:$CANDIDATE_TAG"
+          # Ephemeral secrets: this database exists for ten minutes
+          # and is thrown away. The real ones live on the host and
+          # are never in this repository.
+          {
+            echo "POSTGRES_DB=proxic"
+            echo "POSTGRES_USER=proxic"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "PROXIC_SESSION_SECRET=$(openssl rand -hex 32)"
+            echo "APP_ENV=production"
+            echo "PROXIC_CI_IMAGE=$IMAGE:$CANDIDATE_TAG"
+          } > .env
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/api/health/ready > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -s http://127.0.0.1:8080/api/version
+
+      # The accounts the suites sign in as. Passwords are the
+      # defaults in e2e/helpers.ts, which exist only here and on a
+      # developer's laptop.
+      - name: Create the test accounts
+        run: |
+          server() { docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server "$@"; }
+          printf '%s' 'a perfectly fine local passphrase' \
+            | server /app/bin/arena-admin create RudeLeft --admin --password-stdin
+          printf '%s' 'a perfectly ordinary player password' \
+            | server /app/bin/arena-admin create Pat --password-stdin
+
+      # The real Deck Builder export is gitignored because it carries
+      # Wizards of the Coast artwork, so CI builds a legal stand-in:
+      # 65 basic lands and five generated PNGs. Without it every
+      # import test would skip and the gate would pass having tested
+      # no deck at all.
+      - name: Build the CI deck package
+        run: |
+          mkdir -p "Test Deck"
+          node scripts/make-ci-deck.mjs "Test Deck/ci-deck.zip"
+
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Run the browser suite
+        working-directory: frontend
+        env:
+          # The bundled Chromium; the msedge channel is a Windows
+          # workaround and does not exist here.
+          PROXIC_E2E_CHANNEL: bundled
+        run: npx playwright test
+
+      - name: Server log, if anything failed
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail 200 arena-server
+
+      - uses: actions/upload-artifact@v4.4.3
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  publish:
+    name: Promote to latest
+    runs-on: ubuntu-latest
+    needs: [build, checks, server-tests, browser-tests]
+    # Only main publishes. A pull request gets the full gate and
+    # changes nothing anyone can deploy.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    timeout-minutes: 15
+    steps:
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Retag, not rebuild. The bytes that ship are the exact bytes
+      # that passed, which is the whole point of a candidate tag.
+      - name: Promote the tested image
+        run: |
+          docker buildx imagetools create \
+            --tag "$IMAGE:latest" \
+            --tag "$IMAGE:${{ github.sha }}" \
+            "$IMAGE:$CANDIDATE_TAG"
+
+      - name: Say what was published
+        run: |
+          {
+            echo "### Published"
+            echo ''
+            echo '```'
+            echo "$IMAGE:latest"
+            echo "$IMAGE:${{ github.sha }}"
+            echo '```'
+            echo ''
+            echo 'Update the host: Compose plugin → Check for Updates → Update Stack.'
+          } >> "$GITHUB_STEP_SUMMARY"

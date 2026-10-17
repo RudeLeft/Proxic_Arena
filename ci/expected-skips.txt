@@ -1,0 +1,27 @@
+# Test classes allowed to skip on CI, and why.
+#
+# A skipped test proves nothing, and Phase 1 shipped two that
+# silently never ran. So the gate FAILS on any skip that is not
+# declared here: adding a test that quietly assumes its way out of
+# running breaks the build until somebody writes down why.
+#
+# Everything here skips for one reason: it needs the real Proxic
+# Deck Builder export, which is gitignored because it carries
+# Wizards of the Coast artwork. The generated CI fixture
+# (protocol/fixtures/ci-deck) is a legal stand-in for "a valid
+# package", but it cannot stand in for "a real export" -- these
+# tests assert that specific export's card count, distinct names and
+# artwork, which is the whole point of PHASE_02 §2.3.
+#
+# What covers them instead on CI: the browser tier imports the
+# fixture through the real page and the real pipeline, so import,
+# Forge resolution, artwork storage and the Deck Depot all run.
+# What is NOT covered here is the shape of a genuine export, which
+# is checked on a developer's machine where that file exists.
+#
+# One class per line. Anything else is a comment.
+
+net.barnflix.proxic.deck.DeckApiTest
+net.barnflix.proxic.deck.DeckImportTest
+net.barnflix.proxic.deck.CardResolverTest
+net.barnflix.proxic.deck.PackageInspectorTest
