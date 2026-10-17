@@ -207,7 +207,14 @@ function HomeIdentity() {
       </div>
       <div className="row">
         <span className="name">
-          <Link to="/decks">Deck Depot</Link> · <Link to="/account">Account</Link>
+          {/* PHASE_05 §5.228 "Add Play/lobby entry". There was no
+              link to /play anywhere: the lobby existed and nothing
+              pointed at it, so the only way in was typing the URL.
+              Found by the owner, signed in on two browsers,
+              looking for the thing that had been built. Play comes
+              first because it is what the site is FOR. */}
+          <Link to="/play">Play</Link> · <Link to="/decks">Deck Depot</Link> ·{" "}
+          <Link to="/account">Account</Link>
         </span>
         <span className="state">
           <button type="button" onClick={() => void signOut()}>
@@ -268,9 +275,7 @@ export default function App() {
             commit and the full forty are noise on a status line. A
             local build reports "dev", which is honest about being
             neither published nor reproducible. */}
-        {snap.version?.buildId && (
-          <> · build {snap.version.buildId.slice(0, 7)}</>
-        )}
+        {snap.version?.buildId && <> · build {snap.version.buildId.slice(0, 7)}</>}
       </p>
 
       <HomeIdentity />

@@ -193,6 +193,42 @@ test("the lobby survives a refresh", async ({ browser }) => {
   }
 });
 
+/**
+ * §5.228 "Add Play/lobby entry" — the lobby must be REACHABLE.
+ *
+ * There was no link to /play anywhere in the app. The page existed,
+ * the routes worked, every test navigated to it directly, and a
+ * signed-in player looking for it had no way to find it short of
+ * typing the URL. Found by the owner on the production host,
+ * signed in on two browsers, looking for the thing that had been
+ * built.
+ *
+ * Navigating by URL is what hid it, so this test clicks.
+ */
+test("a signed-in player can find the lobby by clicking", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await signIn(page);
+
+  try {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Play" }).click();
+    await expect(page).toHaveURL(/\/play/);
+    await expect(page.getByRole("heading", { name: "Who is here" })).toBeVisible();
+
+    // And back out again: a page with no way off it is a dead end.
+    await page.getByRole("link", { name: "Deck Depot" }).click();
+    await expect(page).toHaveURL(/\/decks/);
+
+    // The Deck Depot points back at where a deck gets used.
+    await page.getByRole("link", { name: "Play" }).click();
+    await expect(page).toHaveURL(/\/play/);
+  } finally {
+    await leaveAnyRoom(page);
+    await context.close();
+  }
+});
+
 test("an anonymous visitor is sent to sign in rather than shown a broken lobby", async ({
   browser,
 }) => {

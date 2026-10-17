@@ -238,6 +238,13 @@ export default function LobbyPage() {
           />
         </div>
       </div>
+
+      {/* A page with no way off it is a dead end. The lobby is the
+          one place a player will sit for a while, so it says where
+          else they can go. */}
+      <p className="verdict">
+        <Link to="/decks">Deck Depot</Link> · <a href="/">Server status</a>
+      </p>
     </main>
   );
 }

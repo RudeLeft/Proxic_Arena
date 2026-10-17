@@ -177,6 +177,19 @@ its own leftovers.
 
 ## Found after this gate was written
 
+**The lobby had no entry point.** No link to `/play` existed
+anywhere in the application. The page worked, the route worked, and
+every test navigated to it directly — so nothing noticed that a
+signed-in player had no way to reach it short of typing the URL.
+
+"Add Play/lobby entry" is an item on the §5.228 checklist I walked,
+and I marked it done. What I had checked was that the route existed.
+
+Found by the owner on the production host, signed in on two
+browsers, looking for the thing that had been built. There is now a
+test that **clicks** rather than navigating, because navigating by
+URL is exactly what hid it.
+
 **A Phase 4 test had been passing by asserting the wrong element.**
 `sharing.spec` checked `getByText(/Shared with/)` after sharing a
 deck. That regex also matches the **"Shared with me" panel heading**,

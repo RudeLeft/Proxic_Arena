@@ -4,6 +4,7 @@
 // builder (§2.87). Its job is to prove the pipeline works from a
 // browser and to show a player what went wrong when it does not.
 
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   deleteDeck,
@@ -297,8 +298,7 @@ export default function DecksPage() {
           §2.82 still holds: this is not a generic deck-file
           importer. */}
       <p className="sub">
-        Deck Depot — import a deck package exported by{" "}
-        <strong>Proxic Deck Builder</strong>
+        Deck Depot — import a deck package exported by <strong>Proxic Deck Builder</strong>
       </p>
 
       <section className="panel">
@@ -361,7 +361,9 @@ export default function DecksPage() {
       {open && <DeckCards detail={open} />}
 
       <p className="verdict">
-        <a href="/">Back to the foundation page</a>
+        {/* The lobby is where a deck gets used, so the Deck Depot
+            should point at it rather than only back home. */}
+        <Link to="/play">Play</Link> · <a href="/">Back to the foundation page</a>
       </p>
     </main>
   );
