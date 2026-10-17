@@ -49,3 +49,9 @@ frontend/dist/
 build/
 */build/
 data/
+
+# Playwright's per-run output. Written by every browser-suite run
+# and committed by accident once, because `git add -A` picks up a
+# directory nothing told git to ignore.
+frontend/test-results/
+frontend/playwright-report/
