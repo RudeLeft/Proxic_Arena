@@ -258,6 +258,19 @@ export default function App() {
       <p className="sub">
         Foundation Build {snap.version?.proxicVersion ?? "—"}
         {snap.version ? ` · protocol v${snap.version.protocolVersion}` : ""}
+        {/* Which build is this? The question cost an hour during the
+            Phase 4 deployment, answered by comparing bundle hashes.
+            The server knows (PROXIC_BUILD_ID, baked in by CI), so
+            the page should say it where a person can see it without
+            opening devtools.
+
+            Short form, because the first seven characters identify a
+            commit and the full forty are noise on a status line. A
+            local build reports "dev", which is honest about being
+            neither published nor reproducible. */}
+        {snap.version?.buildId && (
+          <> · build {snap.version.buildId.slice(0, 7)}</>
+        )}
       </p>
 
       <HomeIdentity />
