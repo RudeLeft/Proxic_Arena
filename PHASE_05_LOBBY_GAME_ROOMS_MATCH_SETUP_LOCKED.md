@@ -2,45 +2,309 @@
 
 # Phase 5 — Lobby, Game Rooms & Match Setup
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED 2026-10-17 (reviewed against Phases 0A, 1, 2, 3 and 4)  
 **Phase Type:** Production feature  
-**Depends On:** Completed, tested, and accepted Phase 4  
-**Primary Goal:** Authenticated host/join rooms, deck selection, readiness, and validated match setup  
-**Forge Match Execution:** NOT IMPLEMENTED IN THIS PHASE  
-**Battlefield:** NOT IMPLEMENTED IN THIS PHASE  
-**Gameplay:** NOT IMPLEMENTED IN THIS PHASE
+**Depends On:** Completed, tested and accepted Phase 4  
+**Primary Goal:** Authenticated rooms, match configuration and validated deck selection, up to the moment a match is ready to launch  
+**Gameplay:** NOT IMPLEMENTED IN THIS PHASE  
+**Forge Match Runtime:** PHASE 6
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
-> specification downstream of it is a guess wearing a lock. Phase 0 has
-> been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
-> triggers); this phase may be locked once 0A is accepted.
+> **LOCKED 2026-10-17.** Phases 1 through 4 have all passed their
+> gates and are deployed, so every capability this phase stands on is
+> built rather than assumed.
 >
-> Content is unchanged. Only the status and the dependency notes below
-> were added.
+> The original 235 sections are unchanged. **Everything added by this
+> review is in the sections below** — nothing was edited silently.
 
 > **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
-> Proxic Arena supports **one play mode: Open Format** — 65-card deck
-> maximum, no more than 4 copies of a specific card, unrestricted card
-> pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
-> Wherever this document describes a format choice, a preset catalog,
-> a command zone, teams or shared life, that content is **void**.
-> See `docs/architecture/OPEN_FORMAT.md`.
+> Proxic Arena supports **one play mode: Open Format** — 60–65 cards,
+> at most 4 copies of any card, unrestricted pool, **2 players**.
+> Commander and Two-Headed Giant are out of scope. §5.30, §5.38 and
+> §5.39 are therefore inert rather than wrong: they are already
+> conditional on a preset that needs teams, and no such preset
+> exists.
 
-**Phase-0A-dependent decisions in this phase:**
+---
 
-- §5.28–5.31 — the match preset catalog depends on 0A.9's format
-  classification. A preset may not be offered for a format 0A has not
-  shown Forge can run.
-- §5.30, §5.39 — Two-Headed Giant. The project owner has **closed** this:
-  2HG is out of initial scope. 0A.9 records the classification; the
-  lobby must not offer the preset.
-- §5.38 — team assignment follows 2HG and is therefore out of scope for
-  the initial release.
+## §5.1 execution gate — passed, for once
 
-Room identity, join codes, membership, deck selection, `canUseDeck`,
-sanitized room views and readiness are independent of 0A.
+§5.1 requires a stop-and-report if a prior-phase capability is
+"missing, incomplete, or materially inconsistent". Phase 4's review
+found three such conflicts. This one found none. Each dependency was
+checked against the code rather than assumed:
+
+```text
+authenticated Arena users          app_user, uuid primary key
+stable user IDs                    never reassigned; no transfer
+authenticated HTTP requests        requireAuth, 401 for nobody
+authenticated WebSocket identity   /ws/user, session cookie upgrade
+Phase 3 CSRF protection            double submit + origin check
+Deck Depot ownership and sharing   V004/V005, DeckSharing
+canUseDeck(userId, deckId)         DeckAuthorization.canUseDeck
+persistent normalized decks        imported_deck, deck_entry
+Forge-resolved deck identities     CardResolver, pinned worker
+Phase 1 realtime foundation        /ws/system, protocol envelopes
+```
+
+Worth recording why the seventh line passes: `canUseDeck` exists
+**only because the Phase 4 §4.171 checklist audit added it**. It was
+a method on an enum until that audit asked whether later phases could
+actually call the thing they were told to rely on. Had that audit not
+happened, Phase 5's gate would have failed on its first dependency.
+
+One stale detail, not a conflict: §5.173 and §5.188 say
+`arena.barnflix.net`. The host is `proxic.barnflix.net`.
+
+---
+
+## Owner decisions — RESOLVED 2026-10-17
+
+### D1 — **No join codes. Presence and invitations instead.**
+
+Everyone who can play has an account the owner created, so discovery
+by code solves a problem this server does not have. A room is created
+by a host and other players are **invited by clicking their name** in
+a presence list.
+
+The specification itself calls codes "not authentication" (§5.11):
+they are a discovery mechanism, and presence is a better one when the
+population is known.
+
+### D2 — **Invitations reach online users only**
+
+You may only invite someone present in the list, so an invite always
+reaches a live session. No pending-invite storage, no invite expiry,
+nothing to reconcile when a room closed hours ago. If they are not
+online, you wait.
+
+This is what keeps D1 cheaper than the codes it replaces: an invite
+is a message to a connected client, not a stored object with five
+states.
+
+### D3 — **One global chat channel, ephemeral**
+
+Everyone signed in sees one channel. Messages live in server memory,
+vanish on restart, and have no scrollback beyond the session.
+
+A coordination tool, deliberately not a feature with a retention
+policy. No database table, no history, no moderation tooling —
+because nothing is kept and every account was created by hand.
+
+### D4 — **Rooms expire after 24 hours of inactivity**
+
+Activity is joining, leaving, configuring, selecting a deck, readying
+or a host action (§5.124). A browser holding a socket open is not
+activity.
+
+Long enough that an interrupted evening survives the night; short
+enough that abandoned rooms do not accumulate.
+
+---
+
+## PHASE 5 AMENDMENT 1
+
+**Reason:** Owner decision D1. Join codes exist so strangers can find
+each other. Arena has no self-registration (§3.106): every account
+was created by the owner, so there are no strangers.
+
+**Affected requirements:** §5.8, §5.9, §5.10, §5.11, §5.12, §5.84,
+§5.85, §5.151, §5.154, §5.165, §5.170, §5.200, and the join-code
+clauses of §5.2, §5.13, §5.14, §5.21, §5.79, §5.125, §5.128, §5.181.
+
+**Old decision:** A room carries a six-character code. Users join by
+receiving it from another user; the code can be regenerated; failed
+attempts are throttled.
+
+**New decision:** A room has **no code**. A host invites a user who
+is present, and that user accepts. `room.join_code` does not exist in
+the schema, and there is no join endpoint that takes a code.
+
+What this deletes along with the codes: collision handling, secure
+code generation, regeneration, code-attempt throttling, code-error
+privacy, and code redaction in logs. They were all solving problems
+created by the code itself.
+
+§5.13 survives unchanged in substance — there is still **no public
+room directory**, no browsable games list and no matchmaking. A
+presence list shows who is signed in, not what rooms exist.
+
+---
+
+## PHASE 5 AMENDMENT 2
+
+**Reason:** Owner decision D1. §5.147 forbids a presence directory
+and invitations, naming "manually share the join code" as the
+alternative — the mechanism Amendment 1 removes.
+
+**Affected requirements:** §5.147, §5.150.
+
+**Old decision:** No presence directory, no invitations.
+
+**New decision:** A **presence list** of signed-in users, and
+**invitations** to a room, are the joining mechanism. Both are
+transient: presence is connection state (§5.120 already says
+presence lives in memory), and an invitation is a message to a
+connected session rather than a stored row (D2).
+
+Still forbidden, and not loosened: friends, friend requests, a social
+graph, public invite URLs, and any directory of rooms. The list shows
+accounts that are connected right now and nothing about them beyond
+display name.
+
+---
+
+## PHASE 5 AMENDMENT 3
+
+**Reason:** Owner decision D3. §5.148 says plainly: "Do not create a
+chat subsystem."
+
+**Affected requirements:** §5.148.
+
+**Old decision:** No lobby chat.
+
+**New decision:** **One global, ephemeral chat channel** for
+signed-in users.
+
+The rule was protecting against what chat usually brings: moderation,
+abuse reporting, retention, harassment between strangers. None of
+those exist on a server where the owner creates every account by
+hand and no message outlives a restart.
+
+Bounded deliberately, and these bounds are the amendment rather than
+an implementation detail:
+
+```text
+one channel            no rooms, no direct messages
+memory only            no table, no history, dropped on restart
+bounded length         a message is short or it is refused
+rate limited           the same shape as login throttling
+authenticated          sender identity from the session, never a claim
+escaped                rendered as text by React; CSP forbids inline script
+```
+
+§5.149 stands: **no voice or video.**
+
+---
+
+## PHASE 5 AMENDMENT 4
+
+**Reason:** Owner decision D1, the shape of the page rather than its
+rules. The lobby, the presence list and deck selection are one view,
+so a player picks a deck where they are standing rather than on
+another page.
+
+**Affected requirements:** §5.151–§5.160 (lobby presentation), which
+describe a code-centred layout.
+
+**Old decision:** A lobby screen built around displaying and entering
+a room code.
+
+**New decision:** One authenticated lobby page:
+
+```text
+presence + chat        who is here, and a channel
+host a game            creates a room
+the room               members, seats, configuration, ready state
+my decks               Deck Depot, inline, for selecting one
+```
+
+This changes presentation only. Every rule about seats, host
+authority, readiness, configuration and deck validation is unchanged
+— in particular §5.42 (`canUseDeck` is mandatory), §5.43 and §5.44
+(no selecting another user's deck, no host assigning one) and §5.51
+(revocation invalidates readiness).
+
+---
+
+## Carry-forward from Phases 1 to 4
+
+What the built system imposes on this phase.
+
+### C1 — `V006` lives in the server's resources
+
+`server/src/main/resources/db/migration/V006__rooms.sql`. **Not** in
+`database/`, which exists, is empty, and is a trap: Flyway loads from
+`classpath:db/migration`, so a migration placed there never runs and
+nothing reports an error.
+
+`DatabaseTest` asserts the EXACT set of tables, so adding room tables
+means updating that assertion in the same commit. That assertion is
+how §1.36's no-speculative-schema rule stays alive.
+
+### C2 — every 404 looks the same, which Phase 5 needs
+
+The §1.44 handler rewrites every 404 into one shape, so a route's
+`ROOM_NOT_FOUND` never reaches a client. Phase 4 discovered this and
+it turned out to be a stronger privacy guarantee than the spec asked
+for: a non-member cannot distinguish "no such room" from "not
+yours", because there is no difference to distinguish.
+
+§5.165's join-code error privacy becomes this instead.
+
+### C3 — one authenticated socket already exists
+
+`/ws/user` authenticates from the session cookie, refuses anonymous
+and revoked connections identically, and **re-validates every 30
+seconds** so a revoked session ends an open connection.
+
+Presence, chat and room events are all per-user realtime concerns, so
+they belong on that socket rather than on a second endpoint that
+would have to reimplement authentication and revalidation. §5.66
+permits this: it says the path "may follow established project
+conventions". If a per-room path is ever added, it must share the
+existing authentication rather than copy it.
+
+### C4 — the deck gate is an intercept; rooms need the same
+
+`/api/decks` is protected by one `intercept` that runs `requireAuth`
+then `csrfOk` and stashes the principal. `/api/rooms` should be
+gated the same way, with per-room authorization inside the handlers
+where the membership is known.
+
+### C5 — `canUseDeck` is the only deck question
+
+`DeckAuthorization.canUseDeck(userId, deckId)` is the answer. Not a
+second copy of the rule, not a cached map, not anything the client
+says. It is computed from the database on the asking, which is what
+makes §5.51 work: a share revoked a second ago is already false.
+
+It does **not** decide format legality (§4.48). A deck you may use
+can still be an illegal deck.
+
+### C6 — throttling has a shape here already
+
+`LoginThrottle` keys on `source + normalized username`, 10 attempts
+per 15 minutes, cleared by success, swept by the maintenance job.
+Chat rate limiting should mirror it rather than invent a second
+style. It is in-process, which is honest about being one server.
+
+### C7 — a test that skips does not pass
+
+CI fails on any skip not declared in `ci/expected-skips.txt`. New
+tests must run on a runner with no real Deck Builder export: use the
+generated fixture (`scripts/make-ci-deck.mjs`), which imports as 65
+cards, 5 distinct names and 5 artwork files.
+
+Tests needing two users have four accounts available in the browser
+fixtures, because with three users and two of them sharing, the
+"third party" turns out to be a participant.
+
+### C8 — `/play` is a placeholder that says this phase owns it
+
+`frontend/src/routes.tsx` serves a placeholder at `/play` naming
+"Phases 5–7". Phase 5 should replace it rather than add a parallel
+route, and the placeholder's promise — that nothing pretends to be
+gameplay — holds until Phase 6.
+
+### C9 — deployment is two clicks, and gated
+
+Pushing to `main` runs static analysis, 233 server tests and 29
+browser tests before anything is published; the host then pulls a
+finished image. Nothing in this phase should add a step the host has
+to run by hand, and anything that must change on the host — a
+compose file, an environment variable — is a `git pull`, which is
+the one thing an image update cannot deliver.
 
 ---
 
