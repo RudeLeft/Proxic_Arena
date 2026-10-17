@@ -101,21 +101,14 @@ internal class RoomExpiry(private val dataSource: DataSource) {
     /**
      * §5.125 — an unconsumed setup does not outlive its room.
      *
-     * Only READY ones: a CONSUMED setup is a match Phase 6 already
-     * launched, and rewriting that record would be falsifying
-     * history to tidy a table.
+     * Shared with cancelling and closing, which must behave
+     * identically; see SetupInvalidation.kt.
      */
     private fun invalidateSetups(
         connection: Connection,
         roomId: UUID,
     ) {
-        connection.prepareStatement(
-            "UPDATE match_setup SET status = 'INVALIDATED' " +
-                "WHERE room_id = ? AND status = 'READY'",
-        ).use {
-            it.setObject(1, roomId)
-            it.executeUpdate()
-        }
+        invalidateReadySetups(connection, roomId)
     }
 
     private fun markExpired(

@@ -165,21 +165,14 @@ internal class MatchSetupStore(private val dataSource: DataSource) {
     /**
      * §5.114 — READY becomes INVALIDATED.
      *
-     * Never touches CONSUMED: that is a match Phase 6 launched, and
-     * rewriting the record would be falsifying history to tidy a
-     * table.
+     * Delegated so that cancelling, closing and expiring cannot
+     * drift apart; see SetupInvalidation.kt for why the seats go
+     * with it.
      */
     fun invalidate(
         connection: Connection,
         roomId: UUID,
-    ): Int =
-        connection.prepareStatement(
-            "UPDATE match_setup SET status = 'INVALIDATED' " +
-                "WHERE room_id = ? AND status = 'READY'",
-        ).use {
-            it.setObject(1, roomId)
-            it.executeUpdate()
-        }
+    ): Int = invalidateReadySetups(connection, roomId)
 
     fun setRoomStatus(
         connection: Connection,

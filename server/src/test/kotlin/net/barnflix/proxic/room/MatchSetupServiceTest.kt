@@ -334,6 +334,68 @@ class MatchSetupServiceTest {
         assertIs<RoomResult.Ok>(rooms.setPlayerCount(room.roomId, host, 2))
     }
 
+    /**
+     * §5.114 — a cancelled setup must not hold a deck hostage.
+     *
+     * `match_setup_player.deck_id` is ON DELETE RESTRICT, which is
+     * right for a setup that could still launch and wrong for one
+     * that never will. Before this was fixed, preparing a match
+     * once and cancelling it made that deck undeletable FOREVER:
+     * the owner's Deck Depot delete failed with a foreign-key
+     * violation and nothing on screen could explain it.
+     *
+     * Found by the end-to-end test on its second run, when the
+     * leftover deck made a re-import look like a duplicate.
+     */
+    @Test
+    fun `a deck can be deleted after its match setup is cancelled`() {
+        val room = readyRoom()
+        val service = setups()
+        assertIs<PrepareResult.Prepared>(service.prepare(room.roomId, room.hostUserId))
+        assertIs<RoomResult.Ok>(service.cancel(room.roomId, room.hostUserId))
+
+        val deckId = room.members.first { it.isHost }.selectedDeckId!!
+        // Clear the selection first: room_member also references the
+        // deck, with SET NULL, so this is not what is under test.
+        check(rooms().selectDeck(room.roomId, room.hostUserId, null) is RoomResult.Ok)
+
+        val deleted =
+            runCatching {
+                database!!.dataSource().connection.use { connection ->
+                    connection.prepareStatement("DELETE FROM imported_deck WHERE deck_id = ?")
+                        .use {
+                            it.setObject(1, deckId)
+                            it.executeUpdate()
+                        }
+                }
+            }
+        assertTrue(
+            deleted.isSuccess,
+            "a cancelled setup still held the deck: ${deleted.exceptionOrNull()?.message}",
+        )
+    }
+
+    /** The same, for a room that was closed rather than cancelled. */
+    @Test
+    fun `a deck can be deleted after its room is closed`() {
+        val room = readyRoom()
+        assertIs<PrepareResult.Prepared>(setups().prepare(room.roomId, room.hostUserId))
+        check(rooms().close(room.roomId, room.hostUserId) is RoomResult.Ok)
+
+        val deckId = room.members.first { it.isHost }.selectedDeckId!!
+        val deleted =
+            runCatching {
+                database!!.dataSource().connection.use { connection ->
+                    connection.prepareStatement("DELETE FROM imported_deck WHERE deck_id = ?")
+                        .use {
+                            it.setObject(1, deckId)
+                            it.executeUpdate()
+                        }
+                }
+            }
+        assertTrue(deleted.isSuccess, "a closed room still held the deck")
+    }
+
     /** §5.79 — closing a room does not leave a launchable setup. */
     @Test
     fun `closing a prepared room invalidates its setup`() {
