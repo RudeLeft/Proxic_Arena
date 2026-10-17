@@ -9,8 +9,8 @@ rules.
 **Phases 1–5 are complete.** Application foundation, deck package
 import, accounts and authentication, the Deck Depot, and the lobby
 have all passed their gates — `PHASE_01_EXIT_GATE.md` through
-`PHASE_05_EXIT_GATE.md` list exactly what is proven. Phase 5 passed
-locally; its production run (P5-Y) is the owner's to perform.
+`PHASE_05_EXIT_GATE.md` list exactly what is proven — including two
+players reaching a prepared match on the live host.
 
 There is still **no gameplay**. Phase 5 takes two players all the
 way to a validated, frozen match setup and deliberately stops: no

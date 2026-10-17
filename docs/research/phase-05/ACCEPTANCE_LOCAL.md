@@ -4,8 +4,9 @@ PHASE_05 §5.229. Run 2026-10-17 against the local Docker stack
 (`docker-compose.yml` + `docker-compose.local.yml`), with a real
 Forge worker answering the preflight.
 
-**25 of 26 pass. P5-Y is the owner's to run** — it needs the
-production host and the Cloudflare tunnel, exactly as P4-Y did.
+**26 of 26 pass.** P5-Y was run by the owner on the production host
+on 2026-10-17, build `0299372`; its record is in
+`PHASE_05_EXIT_GATE.md`.
 
 ```text
 325 server tests      0 skipped  0 failed
@@ -51,7 +52,7 @@ node scripts/phase5-acceptance.mjs http://127.0.0.1:8080
 | P5-V Prepare preconditions | **PASS** | script + `MatchSetupServiceTest` |
 | P5-W Prepared-state lock | **PASS** | `match-setup.spec` |
 | P5-X Cancel preparation | **PASS** | `match-setup.spec` + `MatchSetupServiceTest` |
-| P5-Y Production multi-user workflow | **NOT RUN** | owner's host |
+| P5-Y Production multi-user workflow | **PASS** | owner, on the host |
 | P5-Z Project integrity | **PASS** | below |
 
 ---

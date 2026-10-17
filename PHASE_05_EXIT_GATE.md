@@ -1,8 +1,9 @@
 # Phase 5 Exit Gate
 
-**Status: PASSED LOCALLY — 2026-10-17.**
-**One criterion outstanding: P5-Y, the production run, which is the
-owner's to perform.**
+**Status: PASSED — 2026-10-17.**
+
+All 26 acceptance tests pass. P5-Y was run by the owner on the
+production host against build `0299372`.
 
 Two signed-in players find each other in a presence list, one hosts
 and invites the other by clicking their name, both choose a deck
@@ -17,7 +18,7 @@ match setup. No match starts — that is Phase 6's.
 ESLint, Prettier, ktlint, detekt   clean
 ```
 
-**25 of 26 acceptance tests pass.** Evidence:
+**26 of 26 acceptance tests pass.** Evidence:
 `docs/research/phase-05/ACCEPTANCE_LOCAL.md`.
 
 ---
@@ -52,7 +53,7 @@ ESLint, Prettier, ktlint, detekt   clean
 | `READY_FOR_MATCH` creates an immutable snapshot | **YES** — P5-U |
 | no Forge match is started in Phase 5 | **YES** |
 | `MATCH_SETUP_CONTRACT.md` is complete | **YES** |
-| production multi-user workflow succeeds | **NOT RUN** — P5-Y, owner's host |
+| production multi-user workflow succeeds | **YES** — P5-Y, two accounts through `proxic.barnflix.net` |
 | old Arena remains unchanged | **YES** — P5-Z |
 | Deck Builder remains unchanged | **YES** — P5-Z |
 | Forge remains clean | **YES** — pin matches `/api/version` |
@@ -227,8 +228,6 @@ and was proved to fail against the un-fixed code (AGENTS TEST-004).
 
 ## Unresolved
 
-- **P5-Y has not been run.** Until it is, "works on the host" is
-  untested for this phase.
 - ~~**`/api/version` cannot say what is deployed.**~~ **RESOLVED.**
   Carried unresolved from the Phase 3 and Phase 4 gates. The build
   identity is now the first line of the startup log, is reported by
@@ -263,13 +262,39 @@ four-player formats, and Two-Headed Giant.
 
 ---
 
+## P5-Y — the production run
+
+Run by the owner on 2026-10-17, build `0299372`, two accounts in two
+separate browsers through `proxic.barnflix.net` and the Cloudflare
+tunnel. All six requirements:
+
+| | |
+| --- | --- |
+| create | RudeLeft hosted |
+| join | Pat was invited by name and accepted — no code exists |
+| select authorized decks | both chose from their own library |
+| ready | both |
+| **receive realtime synchronization** | Pat saw the prepared state **without refreshing** |
+| **prepare valid match setup** | the room locked and said so; no match started |
+
+And the privacy rule held where it matters most: **both players saw
+"deck chosen" on the other's seat**, never the deck's name (§5.47).
+That is the rule the §5.228 audit found broken, confirmed fixed on
+the deployed server rather than only in a test.
+
+One thing worth recording about how this went: the owner reported
+"prepare match does nothing, which makes sense since we haven't made
+that yet". It had worked. Phase 5 ending at a frozen snapshot — no
+game, no cards, nothing that looks like starting — is correct and
+deliberate (§5.91), and it reads as nothing happening. **Phase 6
+should expect that confusion** and may want the prepared state to
+say more plainly what comes next.
+
+---
+
 ## Next
 
 `PHASE_05_DELIVERABLES.md` for the §5.230 record, and
 `docs/research/phase-05/ACCEPTANCE_LOCAL.md` for the evidence.
-
-**Before Phase 6 opens:** the owner runs P5-Y on the production host
-— two accounts, one room, invitation, decks, ready, prepare — and
-records the result here.
 
 Phase 6 (Forge Match Runtime) is **not** started automatically.

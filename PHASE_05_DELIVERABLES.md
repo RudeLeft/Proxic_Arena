@@ -312,9 +312,11 @@ deck choices kept.
 
 ## 32. Production multi-user browser result
 
-**NOT RUN.** P5-Y needs the production host and the tunnel, and is
-the owner's to run — as P4-Y was. Everything else was run locally
-against the same image.
+**PASS.** Run by the owner on 2026-10-17, build `0299372`, two
+accounts in two browsers through `proxic.barnflix.net`. All six
+requirements, including realtime synchronization (the second player
+saw the prepared state without refreshing) and deck privacy (each
+player saw "deck chosen" on the other's seat, never the name).
 
 ## 33. Maximum-supported-player-count test
 
@@ -353,8 +355,6 @@ process boundary (ARCH-001).
 
 ## 38. Any unresolved concerns
 
-- **P5-Y has not been run.** Until it is, "works on the host" is
-  untested for this phase.
 - ~~`/api/version` cannot say what is deployed.~~ **Resolved** —
   startup log, `/api/version` and an OCI label all carry the build
   identity, and a local build from uncommitted changes says
