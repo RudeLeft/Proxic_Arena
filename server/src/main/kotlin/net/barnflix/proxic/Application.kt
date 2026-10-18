@@ -552,6 +552,13 @@ private fun Route.databaseRoutes(
         // open, so no client is ever served a room claiming either.
         net.barnflix.proxic.room.RoomRecovery(database.dataSource(), application.log).recover()
 
+        // §6.157 — and every match, because a worker is a CHILD
+        // PROCESS of this server and died with the last one.
+        // Without this, /api/matches/current hands players back a
+        // match whose Forge is gone and both of them wait for a
+        // decision that will never arrive.
+        net.barnflix.proxic.match.MatchRecovery(database.dataSource(), application.log).recover()
+
         // PHASE_05 §5.124-§5.126, owner D4 — abandoned
         // rooms expire. Unlike the session sweep this is
         // not housekeeping: nothing else expires a room, so

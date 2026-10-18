@@ -261,6 +261,82 @@ class MatchLauncherTest {
         assertEquals("winner:seat 1 on turn 9", summary)
     }
 
+    // --- surviving a restart — §6.154, §6.157 -------------------------------
+
+    /**
+     * THE PRODUCTION BUG, reproduced.
+     *
+     * After a restart the `match` rows still said RUNNING.
+     * /api/matches/current handed those back, both browsers
+     * opened a match socket for a game whose Forge had died with
+     * the previous container, and both sat on "Waiting for the
+     * game" indefinitely -- waiting for a decision that was never
+     * coming, in a room still locked IN_MATCH that they could not
+     * leave. From the players' side it was indistinguishable from
+     * a slow opponent.
+     *
+     * §6.157 allows two answers and demands the honest one. A
+     * worker is a CHILD PROCESS of the server, so it dies with
+     * it and there is nothing to reattach to: the match becomes
+     * FAILED_RUNTIME.
+     */
+    @Test
+    fun `a restart ends the matches it finds and gives their rooms back`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        MatchRecords(source()).recordRunning(launched.match.matchId, java.time.Instant.now())
+
+        MatchRecovery(source(), org.slf4j.LoggerFactory.getLogger("test")).recover()
+
+        val (status, summary, failure) = matchRow(launched.match.matchId)
+        assertEquals("FAILED_RUNTIME", status)
+        assertEquals("SERVER_RESTARTED", failure)
+        // §6.149 — Forge is gone, so nobody won. Recording a
+        // winner here would be Arena inventing a result.
+        assertEquals(null, summary, "a restart recorded a winner")
+
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.OPEN, after.status, "the room was left locked")
+        assertEquals(2, after.members.size, "somebody lost their seat")
+        assertTrue(after.members.none { it.ready }, "readiness was not reset")
+    }
+
+    /** A match still starting is in exactly the same position. */
+    @Test
+    fun `a restart also ends a match that was still launching`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        assertEquals(MatchStatus.LAUNCHING, launched.match.status)
+
+        MatchRecovery(source(), org.slf4j.LoggerFactory.getLogger("test")).recover()
+
+        assertEquals("FAILED_RUNTIME", matchRow(launched.match.matchId).first)
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        assertEquals(RoomStatus.OPEN, rooms.find(room.roomId)!!.status)
+    }
+
+    /** A finished match is history, and a restart does not rewrite it. */
+    @Test
+    fun `a restart leaves an already finished match alone`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.WINNER, 1, 14),
+            java.time.Instant.now(),
+        )
+
+        MatchRecovery(source(), org.slf4j.LoggerFactory.getLogger("test")).recover()
+
+        val (status, summary, failure) = matchRow(launched.match.matchId)
+        assertEquals("ENDED", status)
+        assertEquals("winner:seat 1 on turn 14", summary, "a restart overwrote a real result")
+        assertEquals(null, failure)
+    }
+
     // --- P6-A ---------------------------------------------------------------
 
     /** §6.18, §6.19 — one match record, with the seats as prepared. */
