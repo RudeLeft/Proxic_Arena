@@ -352,7 +352,9 @@ Release-blocking. Treat every rule here as security, not presentation.
   machine-checkable. _AUTO._
 - **TEST-006 — MUST:** Still get the owner's eyes on anything that changes
   what the board looks like. Automation covers correctness, not whether it
-  looks right. _MANUAL._
+  looks right. This comes AFTER TEST-011, never instead of it: the owner
+  is judging whether the thing is good, not discovering whether it runs.
+  _MANUAL._
 - **TEST-007 — MUST:** Prove a viewport test actually changed the
   geometry. A layout test once looped over three window sizes while
   silently rendering the same one; it passed, and a human screenshot
@@ -372,6 +374,36 @@ Release-blocking. Treat every rule here as security, not presentation.
   gate — every one written, tested, green, and wired to nothing. An
   unused class compiles perfectly. Grep for the call site, or drive the
   real system and watch the effect. _REVIEW._
+- **TEST-011 — MUST:** Verify it myself, by code AND by eye, before
+  handing it over. The owner reviews the work; the owner is not the
+  detector.
+
+  Written after Phase 6's decision slice shipped four separate faults
+  that were each found by the owner playing a game and describing what
+  happened: a prompt left on screen for a question that no longer
+  existed, a ghost match from before a restart, a room that could not be
+  closed, and a game that stopped on an unimplemented interaction with
+  the evidence discarded. Every one was findable here. Unit tests were
+  green for all four.
+
+  Concretely, before saying something works:
+
+  1. **A test that fails without the fix** (TEST-004). Green on its own
+     proves the test runs, not that it bites.
+  2. **Drive the real thing.** Not the test suite — the application:
+     `scripts/play-a-game.py` for anything Forge decides,
+     `frontend/e2e/match.spec.ts` against the local stack for anything a
+     player sees. Both run in about a minute and neither needs a second
+     person.
+  3. **Look at it.** A screenshot that nobody reads is not evidence. For
+     a UI change, read the image and say what is in it.
+  4. **Say how the claim could have been wrong.** "Tests pass" is not a
+     finding; "I removed the guard and three tests failed" is.
+
+  And when something genuinely cannot be verified here — a real
+  opponent's judgement, a device not available — say so explicitly in
+  the handover rather than letting "done" imply it was checked.
+  _REVIEW._
 
 ---
 

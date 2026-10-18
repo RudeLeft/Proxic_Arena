@@ -253,6 +253,17 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // Passing is always available, because a player must be able
     // to decline to act.
     await expect(matchPanel(asked).getByRole("button", { name: "Pass" })).toBeVisible();
+
+    // AGENTS TEST-011 — and leave something to LOOK AT.
+    //
+    // A green tick says the locators matched; it does not say the
+    // screen is comprehensible. These two images are the evidence
+    // for the "by eye" half of the rule, and they are written on
+    // SUCCESS, because the failure screenshots Playwright writes
+    // by default only exist when something is already known to be
+    // wrong.
+    await asked.screenshot({ path: "test-results/seen/asked.png", fullPage: true });
+    await waiting.screenshot({ path: "test-results/seen/waiting.png", fullPage: true });
   } finally {
     // Always, even on failure: a match left running holds a 611 MB
     // worker and locks its room against every later test.
