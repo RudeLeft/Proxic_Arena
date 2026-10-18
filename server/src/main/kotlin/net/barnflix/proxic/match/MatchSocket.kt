@@ -73,6 +73,13 @@ fun Route.matchSocket(
             // §6.110 — hello first, and NOT a decision before it.
             send(Frame.Text(matchHelloMessage(matchId, seat).toString()))
 
+            // §6.110, §6.48 — STATE FIRST. A decision references
+            // objects by id, so the board has to arrive before
+            // the question that names them.
+            runtime.snapshotFor(matchId, userId)?.let { state ->
+                send(Frame.Text(snapshotMessage(state).toString()))
+            }
+
             // §6.111, §6.112 — whatever Forge is still waiting for,
             // re-sent to the connection that just arrived. The
             // decision stayed pending while nobody was listening:

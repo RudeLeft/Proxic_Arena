@@ -120,6 +120,18 @@ sealed interface WorkerEvent {
     data class Ended(val outcome: GameOutcome) : WorkerEvent
 
     /**
+     * §6.40 — what ONE seat can see, as the worker built it.
+     *
+     * Carried through unchanged. The worker removed everything
+     * this viewer may not see (§6.42) before it was serialised,
+     * and the server's job is routing, not filtering: a second
+     * filter here would be a second opinion about visibility,
+     * and the one that matters is Forge's.
+     */
+    data class Snapshot(val seat: Int, val state: kotlinx.serialization.json.JsonObject) :
+        WorkerEvent
+
+    /**
      * The worker stopped talking — §6.154.
      *
      * Distinct from [Ended] on purpose. A pipe that closed is not
@@ -139,6 +151,13 @@ sealed interface WorkerEvent {
  * should not also know what a WebSocket is.
  */
 interface DecisionAnnouncer {
+    /** §6.40 — the viewer's own state, to that viewer alone. */
+    suspend fun snapshot(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        state: kotlinx.serialization.json.JsonObject,
+    )
+
     /** §6.99 - ask the one user authorised to answer. */
     suspend fun ask(
         matchId: java.util.UUID,
@@ -184,6 +203,12 @@ interface DecisionAnnouncer {
                     matchId: java.util.UUID,
                     userId: java.util.UUID,
                     request: DecisionRequest,
+                ) = Unit
+
+                override suspend fun snapshot(
+                    matchId: java.util.UUID,
+                    userId: java.util.UUID,
+                    state: kotlinx.serialization.json.JsonObject,
                 ) = Unit
 
                 override suspend fun cleared(

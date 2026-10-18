@@ -235,3 +235,122 @@ describe("a decision that cannot be refused", () => {
     expect(state.decision?.decisionId).toBe(9);
   });
 });
+
+// The board — PHASE_06 §6.40, §6.41, §6.42.
+//
+// What the page is allowed to believe about game state. §6.42 is
+// the one that matters: hidden information is removed before
+// serialisation, so these tests are about handling what arrives,
+// never about concealing it afterwards.
+describe("the board", () => {
+  const SNAPSHOT = {
+    type: "MATCH_SNAPSHOT",
+    state: {
+      stateRevision: 10,
+      turn: 3,
+      phase: "MAIN1",
+      activeSeat: 1,
+      seat: 1,
+      players: [
+        { seat: 1, name: "RudeLeft", life: 20, handCount: 6, libraryCount: 52, graveyardCount: 1 },
+        { seat: 2, name: "Pat", life: 18, handCount: 7, libraryCount: 51, graveyardCount: 0 },
+      ],
+      battlefield: [
+        { id: "card:51", seat: 1, name: "Mountain", tapped: true, faceDown: false, known: true },
+        { id: "card:77", seat: 2, name: "Face-down", tapped: false, faceDown: true, known: false },
+      ],
+      hand: [
+        {
+          id: "card:9",
+          seat: 1,
+          name: "Staggershock",
+          tapped: false,
+          faceDown: false,
+          known: true,
+        },
+      ],
+      graveyard: [],
+      stack: [{ id: "stack:3", description: "Staggershock" }],
+    },
+  };
+
+  it("reads the board the server sent", () => {
+    const state = apply([SNAPSHOT]);
+    expect(state.board?.turn).toBe(3);
+    expect(state.board?.players).toHaveLength(2);
+    expect(state.board?.battlefield[0]?.tapped).toBe(true);
+    expect(state.board?.hand[0]?.name).toBe("Staggershock");
+    expect(state.board?.stack[0]?.id).toBe("stack:3");
+  });
+
+  /**
+   * §6.41 — the revision is monotonic, and an older snapshot
+   * must not overwrite a newer one. Frames are ordered on one
+   * socket, but a reconnect sends the STORED snapshot while a
+   * live one may already be in flight.
+   */
+  it("ignores a snapshot older than the one it has", () => {
+    const state = apply([
+      SNAPSHOT,
+      { type: "MATCH_SNAPSHOT", state: { ...SNAPSHOT.state, stateRevision: 4, turn: 1 } },
+    ]);
+    expect(state.board?.turn).toBe(3);
+  });
+
+  it("takes a newer one", () => {
+    const state = apply([
+      SNAPSHOT,
+      { type: "MATCH_SNAPSHOT", state: { ...SNAPSHOT.state, stateRevision: 11, turn: 4 } },
+    ]);
+    expect(state.board?.turn).toBe(4);
+  });
+
+  /**
+   * An unidentified card is unidentified. The page does not
+   * decide this and cannot undo it — the identity was never on
+   * the wire (§6.42).
+   */
+  it("keeps a card it was not told the identity of unknown", () => {
+    const state = apply([SNAPSHOT]);
+    const faceDown = state.board?.battlefield.find((card) => card.id === "card:77");
+    expect(faceDown?.known).toBe(false);
+    expect(faceDown?.name).toBe("Face-down");
+  });
+
+  // Only an explicit true counts, so a malformed frame errs
+  // toward showing LESS rather than more.
+  it("treats anything but true as not known", () => {
+    const state = apply([
+      {
+        type: "MATCH_SNAPSHOT",
+        state: {
+          ...SNAPSHOT.state,
+          battlefield: [{ id: "card:1", seat: 2, name: "Mountain", known: "yes" }],
+        },
+      },
+    ]);
+    expect(state.board?.battlefield[0]?.known).toBe(false);
+  });
+
+  it("ignores a snapshot with no revision rather than blanking the board", () => {
+    const state = apply([SNAPSHOT, { type: "MATCH_SNAPSHOT", state: { turn: 9 } }]);
+    expect(state.board?.turn).toBe(3);
+  });
+
+  // §6.48 — a decision arrives after the state it refers to, and
+  // the ids match, so the page never matches up by name.
+  it("shares object ids with decisions", () => {
+    const state = apply([
+      SNAPSHOT,
+      {
+        type: "DECISION_REQUEST",
+        decisionId: 1,
+        actedForSeat: 1,
+        stateVersion: 10,
+        options: [{ actionId: "card:51", label: "Mountain" }],
+      },
+    ]);
+    const onBoard = state.board?.battlefield.map((card) => card.id) ?? [];
+    expect(onBoard).toContain(state.decision?.options[0]?.actionId);
+  });
+});

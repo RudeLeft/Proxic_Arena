@@ -246,8 +246,67 @@ public final class GameHost {
         }
     }
 
+    /** Where a per-viewer snapshot goes. Set by the worker's protocol. */
+    private volatile java.util.function.BiConsumer<Integer, com.google.gson.JsonObject>
+            snapshotSink = (seat, snapshot) -> { };
+
+    public void onSnapshot(
+            java.util.function.BiConsumer<Integer, com.google.gson.JsonObject> sink) {
+        this.snapshotSink = sink;
+    }
+
+    /**
+     * §6.48 — STATE FIRST, THEN THE QUESTION.
+     *
+     * "A client must not receive an interaction referencing an
+     * object it cannot identify from current state." A decision
+     * names objects by id; if the browser has not been told what
+     * those ids are, the only thing it can do is guess by name,
+     * which §6.47 exists to forbid.
+     *
+     * Publishing here rather than at each call site is what makes
+     * that an invariant instead of a convention: there is one
+     * place a decision leaves this class, and the state goes out
+     * of it first.
+     */
+    public void publishSnapshots() {
+        Game current = game;
+        if (current == null) {
+            return;
+        }
+        long revision = gate.bumpStateVersion();
+        for (Player player : current.getPlayers()) {
+            Integer seat = seatOf.get(player.getLobbyPlayer());
+            if (seat == null) {
+                continue;
+            }
+            com.google.gson.JsonObject snapshot =
+                    ViewerSnapshot.of(current, player, seatsByPlayer(current), revision);
+            try {
+                snapshotSink.accept(seat, snapshot);
+            } catch (RuntimeException e) {
+                // A transport problem must not stop the game.
+                System.err.println("proxic: snapshot not delivered: " + e);
+            }
+        }
+    }
+
+    /** Forge player to Arena seat, rebuilt per snapshot round. */
+    private java.util.Map<Player, Integer> seatsByPlayer(Game current) {
+        java.util.Map<Player, Integer> map = new java.util.IdentityHashMap<>();
+        for (Player player : current.getPlayers()) {
+            Integer seat = seatOf.get(player.getLobbyPlayer());
+            if (seat != null) {
+                map.put(player, seat);
+            }
+        }
+        return map;
+    }
+
     void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
         decisionCounts.merge(pending.kind(), 1, Integer::sum);
+        // §6.48 — the state the question refers to, before it.
+        publishSnapshots();
         publisher.accept(pending, labels);
     }
 

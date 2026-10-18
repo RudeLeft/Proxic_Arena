@@ -368,3 +368,71 @@ button:disabled {
   width: 100%;
   text-align: left;
 }
+
+/* The board — PHASE_06 §6.40.
+   Deliberately plain: this slice is about the game being
+   FOLLOWABLE, not about it looking like Forge. Text and counts
+   first; a card is a chip with a name, because a name is what
+   the snapshot carries. */
+.board {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.board-turn {
+  margin: 0 0 10px;
+}
+
+.board-players {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.board-players .isMe .name {
+  font-weight: 600;
+}
+
+.board-zone {
+  margin-bottom: 12px;
+}
+
+.board-zone h4 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.board-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card-chip {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+/* Tapped is shown AND said, because colour alone is not a label. */
+.card-chip.tapped {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.card-chip.theirs {
+  border-style: dashed;
+}
+
+/* Nothing is concealed here — the identity was never sent. */
+.card-chip.unknown {
+  color: var(--muted);
+}

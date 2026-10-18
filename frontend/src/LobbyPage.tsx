@@ -19,7 +19,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary, type DeckSummary } from "./decks";
-import { EMPTY_MATCH, connectMatch, type MatchSocket, type MatchState } from "./match";
+import {
+  EMPTY_MATCH,
+  connectMatch,
+  type MatchSocket,
+  type MatchState,
+  type Snapshot,
+  type SnapshotCard,
+} from "./match";
 import {
   EMPTY_LOBBY,
   MAX_CHAT_LENGTH,
@@ -792,38 +799,10 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         </p>
       )}
 
+      {game.board && <Board board={game.board} />}
+
       {game.notice && <p className="error-text">{game.notice}</p>}
       {abandonFailure && <p className="error-text">{abandonFailure}</p>}
-
-      {(running || match.status === "LAUNCHING") &&
-        (confirmingAbandon ? (
-          <div className="actions">
-            {/* Said plainly, because it ends the game for BOTH
-                players and there is no undo. §6.153 is why it
-                can say "nobody wins": an abandoned match records
-                no winner at all. */}
-            <p className="error-text">
-              End this match for both players? Nobody wins it, and it cannot be resumed.
-            </p>
-            <button type="button" disabled={abandoning} onClick={() => void abandon()}>
-              Yes, abandon the match
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={abandoning}
-              onClick={() => setConfirmingAbandon(false)}
-            >
-              Keep playing
-            </button>
-          </div>
-        ) : (
-          <div className="actions">
-            <button type="button" className="secondary" onClick={() => setConfirmingAbandon(true)}>
-              Abandon match
-            </button>
-          </div>
-        ))}
 
       {game.decision ? (
         <div className="decision">
@@ -867,6 +846,36 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       ) : (
         running && <p className="hint">Waiting for the game.</p>
       )}
+
+      {(running || match.status === "LAUNCHING") &&
+        (confirmingAbandon ? (
+          <div className="actions">
+            {/* Said plainly, because it ends the game for BOTH
+                players and there is no undo. §6.153 is why it
+                can say "nobody wins": an abandoned match records
+                no winner at all. */}
+            <p className="error-text">
+              End this match for both players? Nobody wins it, and it cannot be resumed.
+            </p>
+            <button type="button" disabled={abandoning} onClick={() => void abandon()}>
+              Yes, abandon the match
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={abandoning}
+              onClick={() => setConfirmingAbandon(false)}
+            >
+              Keep playing
+            </button>
+          </div>
+        ) : (
+          <div className="actions">
+            <button type="button" className="secondary" onClick={() => setConfirmingAbandon(true)}>
+              Abandon match
+            </button>
+          </div>
+        ))}
     </section>
   );
 }
@@ -957,6 +966,101 @@ function hintFor(kind: string, options: number): string {
     default:
       return "These are the actions Forge says you can take.";
   }
+}
+
+/**
+ * The board, as this player may see it — PHASE_06 §6.40, §6.42.
+ *
+ * Renders what the server sent and nothing else. There is no
+ * hidden state here to reveal: §6.42 requires the opponent's
+ * cards to be removed BEFORE serialisation, so a developer
+ * console shows exactly what this does. A card marked unknown is
+ * unknown to this browser, not merely undrawn.
+ */
+function Board({ board }: { board: Snapshot }) {
+  const me = board.players.find((player) => player.seat === board.seat);
+  const others = board.players.filter((player) => player.seat !== board.seat);
+
+  return (
+    <div className="board">
+      <p className="hint board-turn">
+        Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
+        {board.activeSeat === board.seat ? "your turn" : "opponent's turn"}
+      </p>
+
+      <ul className="board-players">
+        {[me, ...others]
+          .filter((player) => player !== undefined)
+          .map((player) => (
+            <li
+              key={player.seat}
+              className={player.seat === board.seat ? "row seat isMe" : "row seat"}
+            >
+              <span className="name">
+                {player.name}
+                {player.seat === board.seat ? " (you)" : ""}
+              </span>
+              <span className="state">
+                {player.life} life · {player.handCount} in hand · {player.libraryCount} in library
+                {player.graveyardCount > 0 ? ` · ${player.graveyardCount} in graveyard` : ""}
+              </span>
+            </li>
+          ))}
+      </ul>
+
+      {board.stack.length > 0 && (
+        <div className="board-zone">
+          <h4>On the stack</h4>
+          <ul className="board-cards">
+            {board.stack.map((item) => (
+              <li key={item.id}>{item.description}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="board-zone">
+        <h4>Battlefield</h4>
+        {board.battlefield.length === 0 ? (
+          <p className="hint">Nothing in play.</p>
+        ) : (
+          <ul className="board-cards">
+            {board.battlefield.map((card) => (
+              <CardChip key={card.id} card={card} mine={card.seat === board.seat} />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="board-zone">
+        <h4>Your hand ({board.hand.length})</h4>
+        {board.hand.length === 0 ? (
+          <p className="hint">Empty.</p>
+        ) : (
+          <ul className="board-cards">
+            {board.hand.map((card) => (
+              <CardChip key={card.id} card={card} mine />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CardChip({ card, mine }: { card: SnapshotCard; mine: boolean }) {
+  const classes = ["card-chip"];
+  if (card.tapped) classes.push("tapped");
+  if (!mine) classes.push("theirs");
+  if (!card.known) classes.push("unknown");
+  return (
+    <li className={classes.join(" ")}>
+      {card.name}
+      {/* Tapped is said in words as well as shown: a player who
+          cannot distinguish the two styles still needs to know. */}
+      {card.tapped ? " (tapped)" : ""}
+    </li>
+  );
 }
 
 function matchUrl(matchId: string): string {

@@ -254,6 +254,23 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     const actions = matchPanel(asked).getByRole("listitem").getByRole("button");
     await expect(matchPanel(asked).getByRole("button", { name: "Pass" })).toBeVisible();
 
+    // --- THE BOARD, FOR BOTH OF THEM --------------------------
+    //
+    // §6.40, §6.42. Both players get a board; each sees their
+    // OWN hand named and the opponent's only as a count. The
+    // asymmetry is the test: a page that showed both hands would
+    // pass a "the board renders" assertion just as happily.
+    for (const page of [asked, waiting]) {
+      await expect(page.getByRole("heading", { name: "Battlefield" })).toBeVisible();
+      await expect(page.getByText(/20 life/).first()).toBeVisible();
+      await expect(page.getByText(/in library/).first()).toBeVisible();
+    }
+    // Each player's own hand is headed with a count, and the
+    // cards in it are named; the opponent's hand has no such
+    // section at all, because its contents never arrived.
+    await expect(asked.getByRole("heading", { name: /Your hand/ })).toBeVisible();
+    await expect(waiting.getByRole("heading", { name: /Your hand/ })).toBeVisible();
+
     // --- ANSWER IT, AND SEE THE GAME MOVE ---------------------
     //
     // The decision slice is not proved by a list of buttons; it

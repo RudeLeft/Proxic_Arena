@@ -32,6 +32,14 @@ class MatchDecisionsTest {
                 told += "${name(userId)}/ASK:${request.decisionId}"
             }
 
+            override suspend fun snapshot(
+                matchId: UUID,
+                userId: UUID,
+                state: kotlinx.serialization.json.JsonObject,
+            ) {
+                told += "${name(userId)}/SNAPSHOT"
+            }
+
             override suspend fun cleared(
                 matchId: UUID,
                 userId: UUID,

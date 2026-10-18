@@ -218,53 +218,53 @@ class MatchWorker(
             "DECISION_REQUEST" ->
                 readDecisionFrame(frame)?.let { raise(WorkerEvent.Decision(it)) }
 
+            "MATCH_SNAPSHOT" -> readSnapshot(frame)?.let { raise(it) }
+
             "GAME_ENDED" ->
                 readOutcomeFrame(frame)?.let { raise(WorkerEvent.Ended(it)) }
 
             "DECISION_ACCEPTED" ->
                 readDecisionId(frame)?.let { raise(WorkerEvent.Answered(it)) }
 
-            "ERROR" -> {
-                val code = frame["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED"
-                if (code == "DECISION_REFUSED") {
-                    // The GATE's verdict, which outranks the
-                    // server's pre-filter: only the gate can see
-                    // whether this is still the pending decision.
-                    readDecisionId(frame)?.let { id ->
-                        raise(WorkerEvent.Refused(id, readRefusal(frame)))
-                    }
-                    return
-                }
-                // A safe application-level message. The worker's
-                // detail is a class name, never a stack trace, and
-                // nothing from Forge's internals travels further
-                // than this log line.
-                val detail = frame["detail"]?.jsonPrimitive?.content ?: "unknown"
-                log.warn("match $matchId: worker error $code $detail")
-                // Only meaningful while a start is outstanding;
-                // offer() on a full queue is a no-op, which is
-                // exactly right once the game is running.
-                startResult.offer(WorkerStart.Failed(code, detail))
-            }
+            "ERROR" -> onError(frame)
 
             else -> Unit
         }
     }
 
-    private fun raise(event: WorkerEvent) {
+    private fun onError(frame: JsonObject) {
+        val code = frame["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED"
+        if (code == "DECISION_REFUSED") {
+            // The GATE's verdict, which outranks the server's
+            // pre-filter: only the gate can see whether this is
+            // still the pending decision.
+            readDecisionId(frame)?.let { id -> raise(WorkerEvent.Refused(id, readRefusal(frame))) }
+            return
+        }
+        // A safe application-level message. The worker's detail
+        // is a class name, never a stack trace, and nothing from
+        // Forge's internals travels further than this log line.
+        val detail = frame["detail"]?.jsonPrimitive?.content ?: "unknown"
+        log.warn("match $matchId: worker error $code $detail")
+        // Only meaningful while a start is outstanding; offer()
+        // on a full queue is a no-op, which is exactly right once
+        // the game is running.
+        startResult.offer(WorkerStart.Failed(code, detail))
+    }
+
+    /**
+     * The event sink, wrapped so a consumer cannot stop the pump.
+     *
+     * A value rather than a method because that is what it is:
+     * the caller's sink with a guard around it. Behind this pipe
+     * sits a Forge thread blocked on an answer, and a listener
+     * that throws must not be the reason it stays blocked.
+     */
+    private val raise: (WorkerEvent) -> Unit = { event ->
         runCatching { onEvent(event) }
             .onFailure { log.warn("match $matchId: event not delivered", it) }
     }
 
-    /**
-     * Forward an answer the server has already authorised.
-     *
-     * `seat` is the server's conclusion about who is allowed to
-     * answer, never anything the browser said. The worker checks
-     * it again at the gate, which is not redundancy for its own
-     * sake: the gate is the only thing that can see whether the
-     * decision is still the pending one.
-     */
     fun answer(
         decisionId: Long,
         seat: Int,
@@ -373,3 +373,10 @@ private fun stderrTarget(
         log.warn("match $matchId: no worker log; stderr is being discarded", it)
         ProcessBuilder.Redirect.DISCARD
     }
+
+/** §6.40 — one seat's view, carried through unchanged. */
+private fun readSnapshot(frame: JsonObject): WorkerEvent.Snapshot? {
+    val seat = frame["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return null
+    val state = frame["state"] as? JsonObject ?: return null
+    return WorkerEvent.Snapshot(seat, state)
+}

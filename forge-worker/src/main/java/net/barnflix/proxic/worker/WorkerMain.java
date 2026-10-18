@@ -269,6 +269,15 @@ public final class WorkerMain {
                         ask.add("options", options);
                         send(ask);
                     });
+                    // §6.40 — one snapshot per viewer, and the
+                    // seat it is for is on the frame. The server
+                    // routes it to that seat and nobody else.
+                    GAME.onSnapshot((seat, snapshot) -> {
+                        JsonObject frame = frame("MATCH_SNAPSHOT", null);
+                        frame.addProperty("seat", seat);
+                        frame.add("state", snapshot);
+                        send(frame);
+                    });
                     // §6.151 — the ending is ANNOUNCED, not polled.
                     // The server has a sequence to run when a game
                     // finishes (persist the result, give the room

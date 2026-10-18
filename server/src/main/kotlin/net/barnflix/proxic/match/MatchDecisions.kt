@@ -32,6 +32,15 @@ class MatchDecisions(
             // question may already have arrived.
             is WorkerEvent.Answered -> live.answered(event.decisionId)
 
+            is WorkerEvent.Snapshot -> {
+                live.snapshotTaken(event.seat, event.state)
+                live.match.participants
+                    .firstOrNull { it.seatNumber == event.seat }
+                    ?.let { seat ->
+                        tell { announcer.snapshot(live.match.matchId, seat.userId, event.state) }
+                    }
+            }
+
             // Not this class's business: the match LIFECYCLE
             // belongs to the runtime, which owns the database row,
             // the room and the worker process. Named rather than

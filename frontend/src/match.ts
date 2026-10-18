@@ -53,6 +53,48 @@ export interface Decision {
   mandatory: boolean;
 }
 
+/**
+ * One card, as this viewer is allowed to see it — §6.42, §6.46.
+ *
+ * `known` false means the SERVER did not send an identity, not
+ * that the page is hiding one. There is nothing here to reveal:
+ * hidden information is removed before serialisation, so a
+ * developer console shows the same "Face-down" this does.
+ */
+export interface SnapshotCard {
+  /** Typed (`card:51`), and the SAME id a decision uses (§6.47). */
+  id: string;
+  seat: number;
+  name: string;
+  tapped: boolean;
+  faceDown: boolean;
+  known: boolean;
+}
+
+export interface SnapshotPlayer {
+  seat: number;
+  name: string;
+  life: number;
+  /** Counts, because a hand's SIZE is public and its contents are not. */
+  handCount: number;
+  libraryCount: number;
+  graveyardCount: number;
+}
+
+/** §6.40 — the board as one seat may see it. */
+export interface Snapshot {
+  stateRevision: number;
+  turn: number;
+  phase: string;
+  activeSeat: number;
+  seat: number;
+  players: SnapshotPlayer[];
+  battlefield: SnapshotCard[];
+  hand: SnapshotCard[];
+  graveyard: SnapshotCard[];
+  stack: { id: string; description: string }[];
+}
+
 export type MatchConnection = "connecting" | "open" | "closed";
 
 export interface MatchState {
@@ -71,6 +113,8 @@ export interface MatchState {
    */
   awaiting: number | null;
   notice: string | null;
+  /** The board, or null before the first snapshot arrives. */
+  board: Snapshot | null;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -79,6 +123,7 @@ export const EMPTY_MATCH: MatchState = {
   decision: null,
   awaiting: null,
   notice: null,
+  board: null,
 };
 
 /**
@@ -95,6 +140,17 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       const seat = asNumber(message["seat"]);
       if (seat === null) return state;
       return { ...state, connection: "open", seat };
+    }
+
+    case "MATCH_SNAPSHOT": {
+      const board = asSnapshot(message["state"]);
+      if (!board) return state;
+      // §6.41 — the revision is monotonic, so an older snapshot
+      // arriving late must not overwrite a newer one. Frames are
+      // ordered on one socket, but a reconnect sends the stored
+      // snapshot while the live one may already be in flight.
+      if (state.board && board.stateRevision < state.board.stateRevision) return state;
+      return { ...state, board };
     }
 
     case "DECISION_REQUEST": {
@@ -164,6 +220,82 @@ function refusalText(reason: string | null): string {
     default:
       return "That answer was not accepted.";
   }
+}
+
+function asSnapshot(value: unknown): Snapshot | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const revision = asNumber(row["stateRevision"]);
+  const seat = asNumber(row["seat"]);
+  if (revision === null || seat === null) return null;
+  return {
+    stateRevision: revision,
+    seat,
+    turn: asNumber(row["turn"]) ?? 0,
+    phase: asString(row["phase"]) ?? "",
+    activeSeat: asNumber(row["activeSeat"]) ?? 0,
+    players: asPlayers(row["players"]),
+    battlefield: asCards(row["battlefield"]),
+    hand: asCards(row["hand"]),
+    graveyard: asCards(row["graveyard"]),
+    stack: asStack(row["stack"]),
+  };
+}
+
+function asPlayers(value: unknown): SnapshotPlayer[] {
+  if (!Array.isArray(value)) return [];
+  const players: SnapshotPlayer[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const seat = asNumber(row["seat"]);
+    if (seat === null) continue;
+    players.push({
+      seat,
+      name: asString(row["name"]) ?? `Seat ${seat}`,
+      life: asNumber(row["life"]) ?? 0,
+      handCount: asNumber(row["handCount"]) ?? 0,
+      libraryCount: asNumber(row["libraryCount"]) ?? 0,
+      graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
+    });
+  }
+  return players;
+}
+
+function asCards(value: unknown): SnapshotCard[] {
+  if (!Array.isArray(value)) return [];
+  const cards: SnapshotCard[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const id = asString(row["id"]);
+    const seat = asNumber(row["seat"]);
+    if (!id || seat === null) continue;
+    cards.push({
+      id,
+      seat,
+      name: asString(row["name"]) ?? "Face-down",
+      tapped: row["tapped"] === true,
+      faceDown: row["faceDown"] === true,
+      // Only an explicit true counts. Anything else is treated
+      // as "not identified", which errs toward showing less.
+      known: row["known"] === true,
+    });
+  }
+  return cards;
+}
+
+function asStack(value: unknown): { id: string; description: string }[] {
+  if (!Array.isArray(value)) return [];
+  const items: { id: string; description: string }[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const id = asString(row["id"]);
+    if (!id) continue;
+    items.push({ id, description: asString(row["description"]) ?? "" });
+  }
+  return items;
 }
 
 function asDecision(message: Record<string, unknown>): Decision | null {

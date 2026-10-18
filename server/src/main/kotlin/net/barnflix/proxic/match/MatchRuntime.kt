@@ -178,6 +178,19 @@ class MatchRuntime(
         return running.answer(userId, decisionId, actionId)
     }
 
+    /**
+     * §6.110, §6.111 — the board, before any decision.
+     *
+     * "Send complete viewer snapshot" on connect, and §6.48 is
+     * why the order matters: a decision names objects by id, and
+     * a client that has not been told what those ids are can
+     * only guess by name.
+     */
+    fun snapshotFor(
+        matchId: UUID,
+        userId: UUID,
+    ): kotlinx.serialization.json.JsonObject? = live[matchId]?.snapshotFor(userId)
+
     /** §6.111 — what to re-send to a connection that just arrived. */
     fun pendingFor(
         matchId: UUID,

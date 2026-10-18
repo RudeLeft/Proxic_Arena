@@ -55,6 +55,28 @@ class LiveMatch(
 
     fun pending(): DecisionRequest? = pending.get()
 
+    /**
+     * §6.111 — the latest state each seat was sent.
+     *
+     * Kept so a connection that arrives mid-game gets the board
+     * before anything else. "Do not reconstruct from the
+     * browser's cached state" — so the server holds the last one
+     * it sent rather than asking the client what it had.
+     */
+    private val snapshots = java.util.concurrent.ConcurrentHashMap<Int, Any>()
+
+    fun snapshotTaken(
+        seat: Int,
+        state: kotlinx.serialization.json.JsonObject,
+    ) {
+        snapshots[seat] = state
+    }
+
+    fun snapshotFor(userId: UUID): kotlinx.serialization.json.JsonObject? {
+        val seat = seatOf(userId) ?: return null
+        return snapshots[seat] as? kotlinx.serialization.json.JsonObject
+    }
+
     fun nowAsking(request: DecisionRequest) {
         pending.set(request)
     }

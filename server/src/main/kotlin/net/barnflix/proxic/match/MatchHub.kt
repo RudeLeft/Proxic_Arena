@@ -82,6 +82,14 @@ class MatchHub : DecisionAnnouncer {
         sendTo(matchId, userId, decisionMessage(request))
     }
 
+    override suspend fun snapshot(
+        matchId: UUID,
+        userId: UUID,
+        state: JsonObject,
+    ) {
+        sendTo(matchId, userId, snapshotMessage(state))
+    }
+
     override suspend fun cleared(
         matchId: UUID,
         userId: UUID,
@@ -147,6 +155,18 @@ fun refusalMessage(
     envelope("DECISION_REFUSED") {
         put("decisionId", decisionId)
         put("reason", reason.name)
+    }
+
+/**
+ * §6.40 — the viewer's own state, forwarded as the worker built it.
+ *
+ * Not rebuilt and not re-filtered. The worker removed what this
+ * viewer may not see before serialising it (§6.42); re-deriving
+ * anything here would be a second opinion about visibility.
+ */
+fun snapshotMessage(state: JsonObject): JsonObject =
+    envelope("MATCH_SNAPSHOT") {
+        put("state", state)
     }
 
 /** Nothing is waiting on you. Carries no game information at all. */
