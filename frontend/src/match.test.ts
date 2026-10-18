@@ -354,3 +354,97 @@ describe("the board", () => {
     expect(onBoard).toContain(state.decision?.options[0]?.actionId);
   });
 });
+
+// What a board needs to be readable — PHASE_06 §6.40, §6.42.
+describe("board detail", () => {
+  const withCreature = (card: Record<string, unknown>) => ({
+    type: "MATCH_SNAPSHOT",
+    state: {
+      stateRevision: 20,
+      seat: 1,
+      turn: 5,
+      phase: "COMBAT_DECLARE_BLOCKERS",
+      activeSeat: 1,
+      players: [{ seat: 1, name: "RudeLeft", life: 20, handCount: 1, libraryCount: 40 }],
+      battlefield: [card],
+      hand: [],
+      graveyard: [],
+      stack: [],
+    },
+  });
+
+  it("reads a creature's power, toughness and state", () => {
+    const state = apply([
+      withCreature({
+        id: "card:7",
+        seat: 1,
+        name: "Hellspark Elemental",
+        kind: "creature",
+        types: "Creature - Elemental",
+        power: 3,
+        toughness: 1,
+        damage: 0,
+        sick: true,
+        attacking: false,
+        known: true,
+      }),
+    ]);
+    const card = state.board?.battlefield[0];
+    expect(card?.kind).toBe("creature");
+    expect(card?.power).toBe(3);
+    expect(card?.toughness).toBe(1);
+    expect(card?.sick).toBe(true);
+  });
+
+  it("reads counters and what a card is attached to", () => {
+    const state = apply([
+      withCreature({
+        id: "card:8",
+        seat: 1,
+        name: "Bear",
+        kind: "creature",
+        power: 2,
+        toughness: 2,
+        known: true,
+        counters: [{ name: "P1P1", count: 2 }],
+        attachedTo: "card:9",
+      }),
+    ]);
+    const card = state.board?.battlefield[0];
+    expect(card?.counters).toEqual([{ name: "P1P1", count: 2 }]);
+    expect(card?.attachedTo).toBe("card:9");
+  });
+
+  /**
+   * §6.42 again, and the reason the worker returns early for a
+   * hidden card: a face-down creature's real power and toughness
+   * are as secret as its name. Sending them would let anybody
+   * work out what it is.
+   */
+  it("a card it may not identify carries no power or type either", () => {
+    const state = apply([
+      withCreature({
+        id: "card:9",
+        seat: 2,
+        name: "Face-down",
+        kind: "unknown",
+        known: false,
+      }),
+    ]);
+    const card = state.board?.battlefield[0];
+    expect(card?.known).toBe(false);
+    expect(card?.power).toBeNull();
+    expect(card?.toughness).toBeNull();
+    expect(card?.kind).toBe("unknown");
+  });
+
+  // Absent fields are not zero. A non-creature has no power, and
+  // showing "0/0" for a land would be a lie about the board.
+  it("a land has no power or toughness", () => {
+    const state = apply([
+      withCreature({ id: "card:1", seat: 1, name: "Mountain", kind: "land", known: true }),
+    ]);
+    expect(state.board?.battlefield[0]?.power).toBeNull();
+    expect(state.board?.battlefield[0]?.damage).toBe(0);
+  });
+});

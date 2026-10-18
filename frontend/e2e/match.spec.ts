@@ -261,9 +261,16 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // asymmetry is the test: a page that showed both hands would
     // pass a "the board renders" assertion just as happily.
     for (const page of [asked, waiting]) {
-      await expect(page.getByRole("heading", { name: "Battlefield" })).toBeVisible();
+      // Both sides of the table are drawn, each with its own
+      // totals. Asserted on the TOTALS rather than a heading:
+      // the layout groups by player now, and a heading-shaped
+      // assertion pinned the test to one arrangement of the
+      // board rather than to what it has to say.
       await expect(page.getByText(/20 life/).first()).toBeVisible();
       await expect(page.getByText(/in library/).first()).toBeVisible();
+      // Two players means two sets of totals, which is what
+      // makes it a table rather than a list.
+      expect(await page.getByText(/in library/).count()).toBe(2);
     }
     // Each player's own hand is headed with a count, and the
     // cards in it are named; the opponent's hand has no such
@@ -307,6 +314,43 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
         { timeout: 120_000 },
       )
       .toBe(true);
+
+    // --- PLAY ON, UNTIL THERE IS A BOARD TO LOOK AT -----------
+    //
+    // The first decision happens on turn one upkeep with nothing
+    // in play, so a screenshot taken there shows two empty
+    // battlefields and proves nothing about the layout. This
+    // plays forward -- lands when offered, pass otherwise --
+    // until something is actually in play.
+    //
+    // Bounded and non-fatal: if it does not populate, the test
+    // has already asserted everything it asserts, and the
+    // screenshot simply shows less.
+    const inPlay = (page: Page) => page.locator(".board-side .card-chip");
+    for (let step = 0; step < 120; step++) {
+      if ((await inPlay(asked).count()) > 2 && (await inPlay(waiting).count()) > 0) break;
+
+      const live = (await matchPanel(asked).getByRole("button", { name: "Pass" }).count())
+        ? asked
+        : waiting;
+      const land = matchPanel(live)
+        .getByRole("listitem")
+        .getByRole("button", { name: /Play land/ });
+      const options = matchPanel(live).getByRole("listitem").getByRole("button");
+
+      if ((await land.count()) > 0) {
+        await land.first().click();
+      } else if ((await options.count()) > 0 && step % 3 === 0) {
+        // Occasionally take a real action, so creatures reach
+        // the battlefield rather than only lands.
+        await options.first().click();
+      } else {
+        const pass = matchPanel(live).getByRole("button", { name: "Pass" });
+        if ((await pass.count()) === 0) break;
+        await pass.click();
+      }
+      await live.waitForTimeout(120);
+    }
 
     // AGENTS TEST-011 — and leave something to LOOK AT.
     //

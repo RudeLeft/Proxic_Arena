@@ -61,6 +61,11 @@ export interface Decision {
  * hidden information is removed before serialisation, so a
  * developer console shows the same "Face-down" this does.
  */
+export interface SnapshotCounter {
+  name: string;
+  count: number;
+}
+
 export interface SnapshotCard {
   /** Typed (`card:51`), and the SAME id a decision uses (§6.47). */
   id: string;
@@ -69,6 +74,26 @@ export interface SnapshotCard {
   tapped: boolean;
   faceDown: boolean;
   known: boolean;
+  /**
+   * How to draw it: "creature", "land", "other", or "unknown"
+   * when the viewer may not identify it.
+   *
+   * Forge's type line decided this, not the name. The old
+   * project's client worked out land-ness from basic-land names
+   * and put every nonbasic land in the wrong row.
+   */
+  kind: string;
+  types: string;
+  /** Creatures only; absent on everything else. */
+  power: number | null;
+  toughness: number | null;
+  damage: number;
+  sick: boolean;
+  attacking: boolean;
+  blocking: boolean;
+  counters: SnapshotCounter[];
+  /** The card this is attached to, for auras and equipment. */
+  attachedTo: string | null;
 }
 
 export interface SnapshotPlayer {
@@ -280,9 +305,33 @@ function asCards(value: unknown): SnapshotCard[] {
       // Only an explicit true counts. Anything else is treated
       // as "not identified", which errs toward showing less.
       known: row["known"] === true,
+      kind: asString(row["kind"]) ?? "unknown",
+      types: asString(row["types"]) ?? "",
+      power: asNumber(row["power"]),
+      toughness: asNumber(row["toughness"]),
+      damage: asNumber(row["damage"]) ?? 0,
+      sick: row["sick"] === true,
+      attacking: row["attacking"] === true,
+      blocking: row["blocking"] === true,
+      counters: asCounters(row["counters"]),
+      attachedTo: asString(row["attachedTo"]),
     });
   }
   return cards;
+}
+
+function asCounters(value: unknown): SnapshotCounter[] {
+  if (!Array.isArray(value)) return [];
+  const counters: SnapshotCounter[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const name = asString(row["name"]);
+    const count = asNumber(row["count"]);
+    if (!name || count === null) continue;
+    counters.push({ name, count });
+  }
+  return counters;
 }
 
 function asStack(value: unknown): { id: string; description: string }[] {

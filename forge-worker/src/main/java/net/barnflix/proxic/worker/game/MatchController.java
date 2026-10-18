@@ -600,7 +600,29 @@ public final class MatchController extends GeneratedControllerBase {
     private String describe(SpellAbility sa) {
         String name = sa.getHostCard().getName();
         String cost = costOf(sa);
-        return cost.isEmpty() ? name + " — " + sa : name + " — " + cost + " — " + sa;
+        String what = String.valueOf(sa).trim();
+
+        // Forge's own description often repeats the card name
+        // ("Hellspark Elemental - Creature 3 / 1") and, for a
+        // mana ability, the cost as well ("{T}: Add {R}"). Seen
+        // on screen, the line read "Hellspark Elemental — {1}{R}
+        // — Hellspark Elemental - Creature 3 / 1", which buries
+        // the only part that differs between two options.
+        if (what.startsWith(name)) {
+            what = what.substring(name.length()).replaceFirst("^\s*[-–—:]\s*", "").trim();
+        }
+        if (!cost.isEmpty() && what.startsWith(cost)) {
+            cost = "";
+        }
+
+        StringBuilder label = new StringBuilder(name);
+        if (!cost.isEmpty()) {
+            label.append(" — ").append(cost);
+        }
+        if (!what.isEmpty()) {
+            label.append(" — ").append(what);
+        }
+        return label.toString();
     }
 
     /**

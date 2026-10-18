@@ -370,10 +370,11 @@ button:disabled {
 }
 
 /* The board — PHASE_06 §6.40.
-   Deliberately plain: this slice is about the game being
-   FOLLOWABLE, not about it looking like Forge. Text and counts
-   first; a card is a chip with a name, because a name is what
-   the snapshot carries. */
+
+   Laid out like a table: opponent above, you below, the stack
+   between them. Text only; card artwork is a separate slice,
+   because it crosses an asset-authorisation boundary (§6.121,
+   §6.125) and a layout change should not carry that. */
 .board {
   margin-top: 14px;
   border-top: 1px solid var(--line);
@@ -384,23 +385,55 @@ button:disabled {
   margin: 0 0 10px;
 }
 
-.board-players {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
+.board-side {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
 }
 
-.board-players .isMe .name {
+/* Your own side is the one you act from, so it reads first. */
+.board-side.mine {
+  border-color: var(--accent, #4a7a9b);
+}
+
+.board-totals {
+  margin-bottom: 8px;
+}
+
+.board-totals .name {
   font-weight: 600;
 }
 
-.board-zone {
-  margin-bottom: 12px;
+.board-empty {
+  margin: 0;
 }
 
-.board-zone h4 {
+.board-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.board-row-label {
+  flex: 0 0 68px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.board-stack {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+
+.board-stack h4,
+.board-hand h4 {
   margin: 0 0 6px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -416,23 +449,60 @@ button:disabled {
 }
 
 .card-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  min-width: 90px;
 }
 
-/* Tapped is shown AND said, because colour alone is not a label. */
+.card-name {
+  font-weight: 500;
+}
+
+.card-pt {
+  font-variant-numeric: tabular-nums;
+}
+
+.card-counters,
+.card-note,
+.card-attached {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.card-attached::before {
+  content: "+ ";
+}
+
+/* Tapped is ROTATED, as on a table — and also says so, because
+   an angle is not a label for anyone who cannot see it. */
 .card-chip.tapped {
-  opacity: 0.55;
-  font-style: italic;
+  transform: rotate(6deg);
+  opacity: 0.7;
 }
 
 .card-chip.theirs {
   border-style: dashed;
 }
 
-/* Nothing is concealed here — the identity was never sent. */
+/* Nothing is concealed here: the identity never arrived. */
 .card-chip.unknown {
   color: var(--muted);
+  font-style: italic;
+}
+
+.card-chip.attacking {
+  border-color: #b06a4a;
+}
+
+.card-chip.blocking {
+  border-color: #5a7fa8;
+}
+
+.card-chip.stacked {
+  min-width: 0;
 }

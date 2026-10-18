@@ -153,20 +153,81 @@ final class ViewerSnapshot {
         entry.addProperty("faceDown", view.isFaceDown());
 
         boolean maySee = view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer);
-        if (maySee) {
-            String name = view.getCurrentState().getName();
-            // §6.44's second measured failure: a face-down card's
-            // name comes back EMPTY, and code that treated an
-            // empty name as "hidden" blanked cards for their own
-            // controller 650 times. The visibility answer above
-            // decides; the name is only read afterwards.
-            entry.addProperty("name", name == null || name.isEmpty() ? "Face-down" : name);
-        } else {
-            // No name, and no identity of any kind. Not sent and
-            // then hidden (§6.42) — never serialised at all.
-            entry.addProperty("name", "Face-down");
-        }
         entry.addProperty("known", maySee);
+
+        if (!maySee) {
+            // No identity of ANY kind. Not sent and then hidden
+            // (§6.42) — never serialised at all. That includes
+            // the things a board would like to draw: a
+            // face-down creature's real power and toughness are
+            // as hidden as its name, and sending them would let
+            // anybody work out what it is.
+            entry.addProperty("name", "Face-down");
+            entry.addProperty("kind", "unknown");
+            return entry;
+        }
+
+        CardView.CardStateView state = view.getCurrentState();
+        String name = state.getName();
+        // §6.44's second measured failure: a face-down card's
+        // name comes back EMPTY, and code that treated an empty
+        // name as "hidden" blanked cards for their OWN
+        // controller 650 times. The visibility answer above
+        // decides; the name is only read afterwards.
+        entry.addProperty("name", name == null || name.isEmpty() ? "Face-down" : name);
+
+        // What SORT of thing it is, so a board can group lands
+        // away from creatures instead of showing one long row.
+        entry.addProperty("kind", kindOf(state));
+        entry.addProperty("types", String.valueOf(state.getType()));
+
+        if (state.isCreature()) {
+            entry.addProperty("power", state.getPower());
+            entry.addProperty("toughness", state.getToughness());
+            entry.addProperty("damage", view.getDamage());
+            // A creature that cannot attack yet looks identical
+            // to one that can, and the difference decides turns.
+            entry.addProperty("sick", view.isSick());
+            entry.addProperty("attacking", view.isAttacking());
+            entry.addProperty("blocking", view.isBlocking());
+        }
+
+        JsonArray counters = new JsonArray();
+        card.getCounters().entrySet().forEach(counter -> {
+            JsonObject kind = new JsonObject();
+            kind.addProperty("name", String.valueOf(counter.getElement()));
+            kind.addProperty("count", counter.getCount());
+            counters.add(kind);
+        });
+        if (counters.size() > 0) {
+            entry.add("counters", counters);
+        }
+
+        // Auras and equipment are drawn WITH what they modify,
+        // which is the only arrangement that reads correctly: an
+        // equipment in its own row tells you nothing about which
+        // creature is now a 5/5.
+        CardView attachedTo = view.getAttachedTo();
+        if (attachedTo != null) {
+            entry.addProperty("attachedTo", "card:" + attachedTo.getId());
+        }
         return entry;
+    }
+
+    /**
+     * One word for how to draw it.
+     *
+     * Read off Forge's type line rather than guessed from the
+     * name — the old project's client decided land-ness from
+     * basic-land names and put every nonbasic in the wrong row.
+     */
+    private static String kindOf(CardView.CardStateView state) {
+        if (state.isCreature()) {
+            return "creature";
+        }
+        if (state.isLand()) {
+            return "land";
+        }
+        return "other";
     }
 }

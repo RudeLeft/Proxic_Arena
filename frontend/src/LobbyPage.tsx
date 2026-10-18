@@ -26,6 +26,7 @@ import {
   type MatchState,
   type Snapshot,
   type SnapshotCard,
+  type SnapshotPlayer,
 } from "./match";
 import {
   EMPTY_LOBBY,
@@ -971,15 +972,20 @@ function hintFor(kind: string, options: number): string {
 /**
  * The board, as this player may see it — PHASE_06 §6.40, §6.42.
  *
- * Renders what the server sent and nothing else. There is no
- * hidden state here to reveal: §6.42 requires the opponent's
- * cards to be removed BEFORE serialisation, so a developer
- * console shows exactly what this does. A card marked unknown is
- * unknown to this browser, not merely undrawn.
+ * Laid out the way a table is: the opponent across from you,
+ * your own side nearest. Lands sit apart from creatures because
+ * that is how players actually read a board — "can they block"
+ * and "can they pay" are different questions and mixing the rows
+ * forces you to answer both at once.
+ *
+ * Nothing here is concealed. §6.42 requires hidden information
+ * to be removed BEFORE serialisation, so a card this page cannot
+ * name is a card whose name never arrived; a developer console
+ * shows exactly what this does.
  */
 function Board({ board }: { board: Snapshot }) {
   const me = board.players.find((player) => player.seat === board.seat);
-  const others = board.players.filter((player) => player.seat !== board.seat);
+  const opponents = board.players.filter((player) => player.seat !== board.seat);
 
   return (
     <div className="board">
@@ -988,58 +994,44 @@ function Board({ board }: { board: Snapshot }) {
         {board.activeSeat === board.seat ? "your turn" : "opponent's turn"}
       </p>
 
-      <ul className="board-players">
-        {[me, ...others]
-          .filter((player) => player !== undefined)
-          .map((player) => (
-            <li
-              key={player.seat}
-              className={player.seat === board.seat ? "row seat isMe" : "row seat"}
-            >
-              <span className="name">
-                {player.name}
-                {player.seat === board.seat ? " (you)" : ""}
-              </span>
-              <span className="state">
-                {player.life} life · {player.handCount} in hand · {player.libraryCount} in library
-                {player.graveyardCount > 0 ? ` · ${player.graveyardCount} in graveyard` : ""}
-              </span>
-            </li>
-          ))}
-      </ul>
+      {opponents.map((player) => (
+        <PlayerSide
+          key={player.seat}
+          player={player}
+          cards={board.battlefield.filter((card) => card.seat === player.seat)}
+          mine={false}
+        />
+      ))}
 
       {board.stack.length > 0 && (
-        <div className="board-zone">
+        <div className="board-stack">
           <h4>On the stack</h4>
           <ul className="board-cards">
             {board.stack.map((item) => (
-              <li key={item.id}>{item.description}</li>
+              <li key={item.id} className="card-chip stacked">
+                {item.description}
+              </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="board-zone">
-        <h4>Battlefield</h4>
-        {board.battlefield.length === 0 ? (
-          <p className="hint">Nothing in play.</p>
-        ) : (
-          <ul className="board-cards">
-            {board.battlefield.map((card) => (
-              <CardChip key={card.id} card={card} mine={card.seat === board.seat} />
-            ))}
-          </ul>
-        )}
-      </div>
+      {me && (
+        <PlayerSide
+          player={me}
+          cards={board.battlefield.filter((card) => card.seat === me.seat)}
+          mine
+        />
+      )}
 
-      <div className="board-zone">
+      <div className="board-zone board-hand">
         <h4>Your hand ({board.hand.length})</h4>
         {board.hand.length === 0 ? (
           <p className="hint">Empty.</p>
         ) : (
           <ul className="board-cards">
             {board.hand.map((card) => (
-              <CardChip key={card.id} card={card} mine />
+              <CardChip key={card.id} card={card} mine attachments={[]} />
             ))}
           </ul>
         )}
@@ -1048,17 +1040,127 @@ function Board({ board }: { board: Snapshot }) {
   );
 }
 
-function CardChip({ card, mine }: { card: SnapshotCard; mine: boolean }) {
+/** One player: their totals, then their creatures, then their lands. */
+function PlayerSide({
+  player,
+  cards,
+  mine,
+}: {
+  player: SnapshotPlayer;
+  cards: SnapshotCard[];
+  mine: boolean;
+}) {
+  // Auras and equipment are drawn WITH what they modify. An
+  // equipment in its own row tells you nothing about which
+  // creature is now a 5/5.
+  const attachments = cards.filter((card) => card.attachedTo !== null);
+  const standalone = cards.filter((card) => card.attachedTo === null);
+  const attachedTo = (id: string) => attachments.filter((card) => card.attachedTo === id);
+
+  const creatures = standalone.filter((card) => card.kind === "creature");
+  const lands = standalone.filter((card) => card.kind === "land");
+  const rest = standalone.filter((card) => card.kind !== "creature" && card.kind !== "land");
+
+  return (
+    <section className={mine ? "board-side mine" : "board-side theirs"}>
+      <div className="row board-totals">
+        <span className="name">
+          {player.name}
+          {mine ? " (you)" : ""}
+        </span>
+        <span className="state">
+          {player.life} life · {player.handCount} in hand · {player.libraryCount} in library
+          {player.graveyardCount > 0 ? ` · ${player.graveyardCount} in graveyard` : ""}
+        </span>
+      </div>
+
+      {standalone.length === 0 ? (
+        <p className="hint board-empty">Nothing in play.</p>
+      ) : (
+        <>
+          <CardRow label="Creatures" cards={creatures} mine={mine} attachedTo={attachedTo} />
+          <CardRow label="Other" cards={rest} mine={mine} attachedTo={attachedTo} />
+          <CardRow label="Lands" cards={lands} mine={mine} attachedTo={attachedTo} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function CardRow({
+  label,
+  cards,
+  mine,
+  attachedTo,
+}: {
+  label: string;
+  cards: SnapshotCard[];
+  mine: boolean;
+  attachedTo: (id: string) => SnapshotCard[];
+}) {
+  if (cards.length === 0) return null;
+  return (
+    <div className="board-row">
+      <span className="board-row-label">{label}</span>
+      <ul className="board-cards">
+        {cards.map((card) => (
+          <CardChip key={card.id} card={card} mine={mine} attachments={attachedTo(card.id)} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * One permanent.
+ *
+ * Tapped is shown by rotating it AND said in words, because
+ * colour and angle alone are not labels — a player who cannot
+ * tell the two apart still has to know which lands are spent.
+ */
+function CardChip({
+  card,
+  mine,
+  attachments,
+}: {
+  card: SnapshotCard;
+  mine: boolean;
+  attachments: SnapshotCard[];
+}) {
   const classes = ["card-chip"];
   if (card.tapped) classes.push("tapped");
   if (!mine) classes.push("theirs");
   if (!card.known) classes.push("unknown");
+  if (card.attacking) classes.push("attacking");
+  if (card.blocking) classes.push("blocking");
+
+  // Damage is subtracted so the number means what a player
+  // means by it: what this creature has LEFT.
+  const remaining = card.toughness === null ? null : card.toughness - card.damage;
+
   return (
     <li className={classes.join(" ")}>
-      {card.name}
-      {/* Tapped is said in words as well as shown: a player who
-          cannot distinguish the two styles still needs to know. */}
-      {card.tapped ? " (tapped)" : ""}
+      <span className="card-name">{card.name}</span>
+      {card.power !== null && card.toughness !== null && (
+        <span className="card-pt">
+          {card.power}/{remaining}
+          {card.damage > 0 ? ` (${card.damage} damage)` : ""}
+        </span>
+      )}
+      {card.counters.length > 0 && (
+        <span className="card-counters">
+          {card.counters.map((counter) => `${counter.count} ${counter.name}`).join(", ")}
+        </span>
+      )}
+      {card.sick && <span className="card-note">summoning sick</span>}
+      {card.attacking && <span className="card-note">attacking</span>}
+      {card.blocking && <span className="card-note">blocking</span>}
+      {card.tapped && <span className="card-note">tapped</span>}
+      {attachments.length > 0 && (
+        <span className="card-attached">
+          {attachments.map((attached) => attached.name).join(", ")}
+        </span>
+      )}
     </li>
   );
 }
