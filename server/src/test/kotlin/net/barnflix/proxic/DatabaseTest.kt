@@ -135,8 +135,13 @@ class DatabaseTest {
                         // D3, and a table would be the first step
                         // towards the retention policy that decision
                         // exists to avoid.
+                        // Phase 6: match, match_participant. This
+                        // is the match RECORD, not match history: it
+                        // says what is running and what ran, and
+                        // §6.186 still forbids a history UI, a
+                        // replay system and ratings.
                         // Still forbidden until their own phases:
-                        // match history, friends, ratings.
+                        // friends, ratings, spectators.
                         assertEquals(
                             listOf(
                                 "app_user",
@@ -144,6 +149,8 @@ class DatabaseTest {
                                 "deck_entry",
                                 "deck_share",
                                 "imported_deck",
+                                "match",
+                                "match_participant",
                                 "match_setup",
                                 "match_setup_player",
                                 "room",

@@ -8,7 +8,24 @@ import java.util.UUID
 // column juggling.
 
 /** §5.86 — the room lifecycle, as the database CHECK enforces it. */
-enum class RoomStatus { OPEN, READY_FOR_MATCH, CLOSED, EXPIRED }
+enum class RoomStatus {
+    OPEN,
+    READY_FOR_MATCH,
+
+    /**
+     * PHASE_06 §6.16 — a match is running from this room.
+     *
+     * Added in V010. Phase 5's CHECK allowed four values and this
+     * was not one, which the Phase 6 lock review caught: the §6.185
+     * exit gate requires the transition and the schema forbade it.
+     *
+     * The expiry sweep filters on OPEN and READY_FOR_MATCH, so a
+     * room in a match is safe from it without anything being added.
+     */
+    IN_MATCH,
+    CLOSED,
+    EXPIRED,
+}
 
 /** §5.130 — a snapshot's lifecycle. */
 enum class SetupStatus { READY, CONSUMED, INVALIDATED }
