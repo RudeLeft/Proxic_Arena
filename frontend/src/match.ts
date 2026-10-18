@@ -106,6 +106,17 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return { ...state, decision: null, awaiting: null };
     }
 
+    case "DECISION_CLEARED": {
+      // Priority moved to somebody else. Only one player holds it
+      // at a time, so a prompt left on screen here is a prompt for
+      // a question that no longer exists -- which is what the
+      // first build did, and it made the game look broken.
+      //
+      // The notice goes too: whatever it said was about the
+      // question being removed.
+      return { ...state, decision: null, awaiting: null, notice: null };
+    }
+
     case "DECISION_REFUSED": {
       const decisionId = asNumber(message["decisionId"]);
       if (decisionId === null) return state;

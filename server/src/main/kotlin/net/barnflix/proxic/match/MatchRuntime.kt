@@ -136,7 +136,19 @@ class MatchRuntime(
         userId: UUID,
         decisionId: Long,
         actionId: String?,
-    ): DecisionRefusal? = live[matchId]?.answer(userId, decisionId, actionId) ?: DecisionRefusal.UNREACHABLE
+    ): DecisionRefusal? {
+        val running = live[matchId]
+        if (running == null) {
+            // Worth a line, because the player is shown "the game
+            // did not receive that" and the two causes look
+            // identical from the browser: a match this process
+            // never started (a restart threw its workers away,
+            // §6.122) or one that has already ended.
+            log.warn("match $matchId: an answer arrived for a match this process is not running")
+            return DecisionRefusal.UNREACHABLE
+        }
+        return running.answer(userId, decisionId, actionId)
+    }
 
     /** §6.111 — what to re-send to a connection that just arrived. */
     fun pendingFor(

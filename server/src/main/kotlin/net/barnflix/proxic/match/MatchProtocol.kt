@@ -87,6 +87,24 @@ interface DecisionAnnouncer {
     )
 
     /**
+     * Nothing is being asked of you — §6.38's fourth line.
+     *
+     * Sent to every participant who is NOT the one being asked,
+     * every time the pending decision changes. Without it a
+     * player who has just been asked something keeps their
+     * question on screen after priority has passed to the other
+     * seat: only one player holds priority in Magic, but the
+     * server was telling only the new holder and leaving the
+     * previous one looking at a live-seeming prompt. Clicking it
+     * is refused, which is safe but reads as the game being
+     * broken.
+     */
+    suspend fun cleared(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+    )
+
+    /**
      * The gate said no, after the server had said yes.
      *
      * Only reachable by the authorised user: anybody else was
@@ -106,6 +124,11 @@ interface DecisionAnnouncer {
                     matchId: java.util.UUID,
                     userId: java.util.UUID,
                     request: DecisionRequest,
+                ) = Unit
+
+                override suspend fun cleared(
+                    matchId: java.util.UUID,
+                    userId: java.util.UUID,
                 ) = Unit
 
                 override suspend fun refused(

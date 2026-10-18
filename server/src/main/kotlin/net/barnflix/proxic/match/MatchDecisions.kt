@@ -68,6 +68,19 @@ class MatchDecisions(
             return
         }
         tell { announcer.ask(live.match.matchId, user, request) }
+
+        // AND TELL EVERYONE ELSE IT IS NOT THEIRS. Only one
+        // player holds priority, so a decision arriving for one
+        // seat means every other seat's prompt is now dead. The
+        // first version told only the new holder, which left the
+        // previous one looking at a question that no longer
+        // existed -- refused on click, which is safe, but reads
+        // as the game having broken.
+        live.match.participants
+            .map { it.userId }
+            .filterNot { it == user }
+            .distinct()
+            .forEach { other -> tell { announcer.cleared(live.match.matchId, other) } }
     }
 
     /**

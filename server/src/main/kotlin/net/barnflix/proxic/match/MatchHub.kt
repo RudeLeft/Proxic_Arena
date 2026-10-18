@@ -82,6 +82,13 @@ class MatchHub : DecisionAnnouncer {
         sendTo(matchId, userId, decisionMessage(request))
     }
 
+    override suspend fun cleared(
+        matchId: UUID,
+        userId: UUID,
+    ) {
+        sendTo(matchId, userId, clearedMessage())
+    }
+
     override suspend fun refused(
         matchId: UUID,
         userId: UUID,
@@ -140,6 +147,9 @@ fun refusalMessage(
         put("decisionId", decisionId)
         put("reason", reason.name)
     }
+
+/** Nothing is waiting on you. Carries no game information at all. */
+fun clearedMessage(): JsonObject = envelope("DECISION_CLEARED") { }
 
 /** §6.110 — the greeting, before any decision. */
 fun matchHelloMessage(

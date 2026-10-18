@@ -151,3 +151,39 @@ describe("what it refuses to invent", () => {
     expect(state.decision?.decisionId).toBe(7);
   });
 });
+
+/**
+ * Only one player holds priority — PHASE_06 §6.38.
+ *
+ * Reported from a real game: both browsers showed "Your move" at
+ * once, one with Forge's actions and one with a Pass-only prompt
+ * left over from earlier. Clicking the dead one was refused,
+ * which is safe, but it reads as the game having broken — and it
+ * means a player cannot tell whose turn it is from the screen.
+ */
+describe("when priority moves to the other player", () => {
+  it("clears the prompt", () => {
+    const state = apply([QUESTION, { type: "DECISION_CLEARED" }]);
+    expect(state.decision).toBeNull();
+    expect(state.awaiting).toBeNull();
+  });
+
+  it("clears a refusal notice with it", () => {
+    const state = apply([
+      QUESTION,
+      { type: "DECISION_REFUSED", decisionId: 7, reason: "NOT_PENDING" },
+      { type: "DECISION_CLEARED" },
+    ]);
+    expect(state.notice).toBeNull();
+  });
+
+  it("leaves the seat and connection alone", () => {
+    const state = apply([
+      { type: "MATCH_HELLO", matchId: "m-1", seat: 2 },
+      QUESTION,
+      { type: "DECISION_CLEARED" },
+    ]);
+    expect(state.seat).toBe(2);
+    expect(state.connection).toBe("open");
+  });
+});
