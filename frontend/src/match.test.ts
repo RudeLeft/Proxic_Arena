@@ -54,7 +54,10 @@ describe("a decision", () => {
       { ...QUESTION, options: [{ label: "nothing to click" }, { actionId: "action:0:card:3" }] },
     ]);
     expect(state.decision?.options).toHaveLength(1);
-    expect(state.decision?.options[0].label).toBeNull();
+    // ?.[0] rather than [0]: noUncheckedIndexedAccess makes an
+    // index access possibly-undefined, and the assertion above
+    // does not narrow it for the compiler.
+    expect(state.decision?.options?.[0]?.label).toBeNull();
   });
 
   // Kotlin's Long does not fit JavaScript's number, so ids may
