@@ -43,9 +43,18 @@ public final class MatchController extends GeneratedControllerBase {
     private final GameHost host;
     private final AtomicInteger priorityWindows = new AtomicInteger();
 
-    public MatchController(Game game, Player player, LobbyPlayer lobbyPlayer, GameHost host) {
+    /** §6.38 — the Forge player this controller decides for. */
+    private final int actedForSeat;
+
+    /** §6.38 — the seat whose human is allowed to answer. */
+    private final int authorisedSeat;
+
+    public MatchController(Game game, Player player, LobbyPlayer lobbyPlayer, GameHost host,
+                           int actedForSeat, int authorisedSeat) {
         super(game, player, lobbyPlayer);
         this.host = host;
+        this.actedForSeat = actedForSeat;
+        this.authorisedSeat = authorisedSeat;
     }
 
     // ---- pregame ------------------------------------------------------
@@ -122,7 +131,8 @@ public final class MatchController extends GeneratedControllerBase {
         try {
             String choice =
                     host.gate().ask(
-                            player.getName(),
+                            actedForSeat,
+                            authorisedSeat,
                             "chooseSpellAbilityToPlay",
                             new java.util.ArrayList<>(byId.keySet()),
                             pending -> host.publishDecision(pending, labelsFor(byId)));

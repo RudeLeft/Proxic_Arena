@@ -38,10 +38,21 @@ import java.util.function.Consumer;
  * and a transport that second-guesses them is a second rules
  * engine (§6.50).
  *
- * `seat` here is the player being ACTED FOR. Which connection is
- * AUTHORISED to answer is the server's question, not this one —
- * §0A.8 requires those to stay separate, and mind-slave effects are
- * exactly where they come apart.
+ * TWO SEATS, NEVER ONE — §6.37, §6.38, §0A.8.
+ *
+ * `actedForSeat` is the Forge player the decision is ABOUT.
+ * `authorisedSeat` is the seat whose human may answer it. They are
+ * the same number in every ordinary decision and they come apart
+ * under Mindslaver, which is precisely why the protocol carries
+ * both rather than deriving one from the other. §6.37 forbids
+ * hardcoding "the decision concerns seat N, so seat N's owner
+ * answers".
+ *
+ * They are SEAT NUMBERS, not names. Forge identifies a player by
+ * `getName()`, which in Arena is a display name — and display
+ * names are not unique (only `username_normalized` is). Routing an
+ * answer on a name would, for two players who chose the same one,
+ * authorise the wrong human.
  */
 public final class DecisionGate {
 
@@ -55,11 +66,17 @@ public final class DecisionGate {
     }
 
     /** One outstanding question. */
-    public record Pending(long decisionId, String seat, String kind, long stateVersion,
-                          java.util.List<String> options) {}
+    public record Pending(long decisionId, int actedForSeat, int authorisedSeat, String kind,
+                          long stateVersion, java.util.List<String> options) {}
 
-    /** A client's answer. */
-    public record Response(long decisionId, String seat, long expectedStateVersion,
+    /**
+     * A client's answer.
+     *
+     * `seat` is the seat the SERVER authorised, resolved from the
+     * authenticated connection. §6.100: never a seat the browser
+     * supplied.
+     */
+    public record Response(long decisionId, int seat, long expectedStateVersion,
                            String choice) {}
 
     private final AtomicLong nextDecisionId = new AtomicLong(1);
@@ -101,10 +118,12 @@ public final class DecisionGate {
      * stays alive and the question stands, which is what makes
      * §6.111's reconnect possible at all.
      */
-    public String ask(String seat, String kind, java.util.List<String> options,
-                      Consumer<Pending> deliver) throws InterruptedException {
+    public String ask(int actedForSeat, int authorisedSeat, String kind,
+                      java.util.List<String> options, Consumer<Pending> deliver)
+            throws InterruptedException {
         long id = nextDecisionId.getAndIncrement();
-        Pending question = new Pending(id, seat, kind, stateVersion.get(), options);
+        Pending question =
+                new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options);
 
         // Clear BEFORE publishing the question. An answer left over
         // from the previous one would otherwise be waiting in the
@@ -138,7 +157,10 @@ public final class DecisionGate {
             // outstanding, if queued, answers the NEXT question.
             return Reject.NOT_PENDING;
         }
-        if (!question.seat().equals(response.seat())) {
+        // §6.102 — against the AUTHORISED seat, not the one the
+        // decision is about. Under Mindslaver the player being
+        // acted for must not be able to answer for themselves.
+        if (question.authorisedSeat() != response.seat()) {
             return Reject.WRONG_SEAT;
         }
         if (answered.contains(response.decisionId())) {

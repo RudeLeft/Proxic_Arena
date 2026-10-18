@@ -1,0 +1,148 @@
+package net.barnflix.proxic.match
+
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/**
+ * Reading the worker's wire — PHASE_06 §6.37, §6.99, §6.100.
+ *
+ * The server and the worker are built together and pinned
+ * together, so these are not tests about hostile input. They are
+ * tests about what the server does when a frame is NOT what it
+ * expects, and the answer has to be "drop it" rather than "fill
+ * in the blanks" — because the blank that matters here is which
+ * human is allowed to answer.
+ */
+class WorkerFramesTest {
+    private val json = Json
+
+    private fun frame(text: String): JsonObject = json.parseToJsonElement(text) as JsonObject
+
+    @Test
+    fun `a decision frame reads into both seats`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"type":"DECISION_REQUEST","decisionId":"12","actedForSeat":1,
+                     "authorisedSeat":2,"kind":"chooseSpellAbilityToPlay","stateVersion":"8",
+                     "options":[{"actionId":"action:0:card:7","label":"Mountain - tap"}]}
+                    """.trimIndent(),
+                ),
+            )
+
+        assertEquals(12L, request?.decisionId)
+        assertEquals(1, request?.actedForSeat)
+        assertEquals(2, request?.authorisedSeat)
+        assertEquals(8L, request?.stateVersion)
+        assertEquals("action:0:card:7", request?.options?.single()?.actionId)
+        assertEquals("Mountain - tap", request?.options?.single()?.label)
+    }
+
+    /**
+     * THE ONE THAT MATTERS. A frame with no authorised seat is
+     * unreadable, not half-understood.
+     *
+     * The tempting recovery is to fall back to the seat being
+     * acted for, which is right in every ordinary decision and
+     * wrong in exactly the case the field exists for (§6.37).
+     * Dropping the frame leaves Forge blocked and a human
+     * looking at a stuck game, which is visible; guessing hands
+     * somebody their opponent's decisions, which is not.
+     */
+    @Test
+    fun `a decision with no authorised seat is dropped, not guessed`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"type":"DECISION_REQUEST","decisionId":"12","actedForSeat":1,
+                     "kind":"chooseSpellAbilityToPlay","stateVersion":"8","options":[]}
+                    """.trimIndent(),
+                ),
+            )
+
+        assertNull(request)
+    }
+
+    @Test
+    fun `an option with no action id is dropped rather than offered blank`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"1","actedForSeat":1,"authorisedSeat":1,"kind":"k",
+                     "stateVersion":"1","options":[{"label":"no id here"},
+                     {"actionId":"action:0:card:3","label":null}]}
+                    """.trimIndent(),
+                ),
+            )
+
+        assertEquals(1, request?.options?.size)
+        assertEquals("action:0:card:3", request?.options?.single()?.actionId)
+        // A label is a presentation hint (§6.49) and may be absent;
+        // an action id is the thing the answer names and may not.
+        assertNull(request?.options?.single()?.label)
+    }
+
+    @Test
+    fun `an unknown refusal reason is not invented`() {
+        assertEquals(
+            DecisionRefusal.WRONG_SEAT,
+            readRefusal(frame("""{"detail":"WRONG_SEAT"}""")),
+        )
+        assertEquals(
+            DecisionRefusal.NOT_PENDING,
+            readRefusal(frame("""{"detail":"SOMETHING_NEW"}""")),
+        )
+        assertEquals(DecisionRefusal.NOT_PENDING, readRefusal(frame("{}")))
+    }
+
+    /** §6.36 — the seat number travels, because the name cannot. */
+    @Test
+    fun `the start frame carries a seat number for every player`() {
+        val built =
+            startGameFrame(
+                java.util.UUID.randomUUID(),
+                listOf(
+                    WorkerSeat("Pat", 1, listOf(entry("Mountain", 30))),
+                    // The SAME display name, which Arena permits:
+                    // only usernames are unique. The seat numbers
+                    // are what keep these two apart.
+                    WorkerSeat("Pat", 2, listOf(entry("Forest", 30))),
+                ),
+            )
+
+        val players = built["players"] as kotlinx.serialization.json.JsonArray
+        val seats =
+            players.map { (it as JsonObject).getValue("seatNumber").toString().toInt() }
+        assertEquals(listOf(1, 2), seats)
+    }
+
+    /**
+     * §6.100 — a pass is an absent actionId, not an empty one.
+     *
+     * The worker turns a missing field into Forge's `null`, which
+     * is the pass. An empty string would be an action id that
+     * matches nothing, and the gate would refuse it.
+     */
+    @Test
+    fun `a pass leaves the action out`() {
+        val passing = decisionResponseFrame(7, 1, 42, null)
+        val playing = decisionResponseFrame(7, 1, 42, "action:0:card:7")
+
+        assertTrue("actionId" !in passing.keys, "a pass carried an action")
+        assertEquals("action:0:card:7", playing.getValue("actionId").toString().trim('"'))
+        assertEquals("1", passing.getValue("seat").toString())
+        assertEquals("42", passing.getValue("stateVersion").toString())
+    }
+
+    private fun entry(
+        name: String,
+        quantity: Int,
+    ) = net.barnflix.proxic.deck.DeckEntry(quantity, name, null, null, "$quantity $name", 1)
+}

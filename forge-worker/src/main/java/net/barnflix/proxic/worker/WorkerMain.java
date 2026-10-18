@@ -212,11 +212,18 @@ public final class WorkerMain {
                                     one.get("quantity").getAsInt()));
                         }
                         String name = seat.get("displayName").getAsString();
+                        // §6.36 — the SERVER's seat number travels
+                        // with the seat. Falling back to the array
+                        // index keeps an older server working, but
+                        // an explicit number is what the protocol
+                        // routes on: display names are not unique.
+                        int seatNumber = seat.has("seatNumber")
+                                ? seat.get("seatNumber").getAsInt() : i + 1;
                         ForgeRuntime.BuiltDeck built =
                                 runtime.buildDeckObject(entries, name + "'s deck");
                         built.unresolved.forEach(unresolvedAll::add);
                         seats.add(new net.barnflix.proxic.worker.game.GameHost.Seat(
-                                name, built.deck));
+                                name, seatNumber, built.deck));
                     }
 
                     // A deck Forge could not fully build is not a
@@ -240,7 +247,12 @@ public final class WorkerMain {
                     GAME.onDecision((pending, labels) -> {
                         JsonObject ask = frame("DECISION_REQUEST", null);
                         ask.addProperty("decisionId", pending.decisionId());
-                        ask.addProperty("seat", pending.seat());
+                        // §6.38 — BOTH seats. The server needs the
+                        // second one to decide whose connection may
+                        // answer, and must not infer it from the
+                        // first (§6.37).
+                        ask.addProperty("actedForSeat", pending.actedForSeat());
+                        ask.addProperty("authorisedSeat", pending.authorisedSeat());
                         ask.addProperty("kind", pending.kind());
                         ask.addProperty("stateVersion", pending.stateVersion());
                         JsonArray options = new JsonArray();
@@ -285,7 +297,7 @@ public final class WorkerMain {
                 net.barnflix.proxic.worker.game.DecisionGate.Response answer =
                         new net.barnflix.proxic.worker.game.DecisionGate.Response(
                                 request.get("decisionId").getAsLong(),
-                                request.get("seat").getAsString(),
+                                request.get("seat").getAsInt(),
                                 request.get("stateVersion").getAsLong(),
                                 request.has("actionId") && !request.get("actionId").isJsonNull()
                                         ? request.get("actionId").getAsString() : null);

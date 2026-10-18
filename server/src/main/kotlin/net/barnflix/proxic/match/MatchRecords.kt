@@ -115,7 +115,10 @@ internal class MatchRecords(private val dataSource: DataSource) {
                 val deckId = participant.deckId ?: return@use null
                 val cards = entriesOf(connection, deckId)
                 if (cards.isEmpty()) return@use null
-                WorkerSeat(participant.displayName, cards)
+                // The seat NUMBER is what the worker routes on,
+                // and it travels from the frozen setup rather than
+                // being an index into this list.
+                WorkerSeat(participant.displayName, participant.seatNumber, cards)
             }
         }
 

@@ -331,3 +331,40 @@ button:disabled {
 .chat-who::after {
   content: ":";
 }
+
+/* The decision panel — PHASE_06 §6.99.
+   One option per row rather than a wrapped button row: an action
+   label is "Lightning Bolt - Cast Lightning Bolt", which is long,
+   and a player choosing between near-identical abilities of the
+   same card has to be able to read them. The action row pattern
+   above is for three or four short verbs; this is a list. */
+.decision {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.decision h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.actions-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Forge can offer a lot of abilities at once. A panel that grew
+     without bound would push Pass off the screen, and Pass is the
+     one answer that is always available. */
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.actions-list button {
+  margin-left: 0;
+  width: 100%;
+  text-align: left;
+}

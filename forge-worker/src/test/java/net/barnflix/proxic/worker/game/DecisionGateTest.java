@@ -28,6 +28,9 @@ class DecisionGateTest {
 
     private static final List<String> OPTIONS = List.of("action:0:card:7", "action:1:card:9");
 
+    private static final int ALICE = 1;
+    private static final int BOB = 2;
+
     /** Ask on another thread, so the test can submit while it blocks. */
     private static final class Asker {
         final DecisionGate gate;
@@ -37,12 +40,17 @@ class DecisionGateTest {
         volatile DecisionGate.Pending pending;
         final Thread thread;
 
-        Asker(DecisionGate gate, String seat) {
+        Asker(DecisionGate gate, int seat) {
+            this(gate, seat, seat);
+        }
+
+        Asker(DecisionGate gate, int actedFor, int authorised) {
             this.gate = gate;
             this.thread =
                     new Thread(() -> {
                         try {
-                            answer.set(gate.ask(seat, "chooseSpellAbilityToPlay", OPTIONS, p -> {
+                            answer.set(gate.ask(actedFor, authorised,
+                                    "chooseSpellAbilityToPlay", OPTIONS, p -> {
                                 pending = p;
                                 asked.countDown();
                             }));
@@ -64,11 +72,11 @@ class DecisionGateTest {
     @Test
     void a_valid_answer_reaches_the_waiter() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         assertNull(gate.submit(new DecisionGate.Response(
-                asker.pending.decisionId(), "Alice", asker.pending.stateVersion(),
+                asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
                 "action:0:card:7")));
 
         assertTrue(asker.done.await(5, TimeUnit.SECONDS), "the waiter never resumed");
@@ -79,13 +87,13 @@ class DecisionGateTest {
     @Test
     void the_wrong_seat_is_refused() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         assertEquals(
                 DecisionGate.Reject.WRONG_SEAT,
                 gate.submit(new DecisionGate.Response(
-                        asker.pending.decisionId(), "Bob", asker.pending.stateVersion(),
+                        asker.pending.decisionId(), BOB, asker.pending.stateVersion(),
                         "action:0:card:7")));
 
         assertEquals(1, asker.done.getCount(), "a wrong-seat answer reached the waiter");
@@ -102,11 +110,11 @@ class DecisionGateTest {
     @Test
     void a_duplicate_is_refused_before_the_waiter_wakes() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         DecisionGate.Response same = new DecisionGate.Response(
-                asker.pending.decisionId(), "Alice", asker.pending.stateVersion(),
+                asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
                 "action:0:card:7");
 
         assertNull(gate.submit(same));
@@ -120,16 +128,16 @@ class DecisionGateTest {
     @Test
     void an_answer_to_a_closed_decision_is_refused() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker first = new Asker(gate, "Alice");
+        Asker first = new Asker(gate, ALICE);
         first.awaitAsked();
         long oldId = first.pending.decisionId();
         long oldVersion = first.pending.stateVersion();
         assertNull(gate.submit(new DecisionGate.Response(
-                oldId, "Alice", oldVersion, "action:0:card:7")));
+                oldId, ALICE, oldVersion, "action:0:card:7")));
         assertTrue(first.done.await(5, TimeUnit.SECONDS));
 
         // A second question is now outstanding.
-        Asker second = new Asker(gate, "Alice");
+        Asker second = new Asker(gate, ALICE);
         second.awaitAsked();
 
         // The late answer to the FIRST one must not become the
@@ -137,7 +145,7 @@ class DecisionGateTest {
         assertEquals(
                 DecisionGate.Reject.DUPLICATE,
                 gate.submit(new DecisionGate.Response(
-                        oldId, "Alice", oldVersion, "action:0:card:7")));
+                        oldId, ALICE, oldVersion, "action:0:card:7")));
         assertEquals(1, second.done.getCount(), "a stale answer leaked into the next question");
     }
 
@@ -145,13 +153,13 @@ class DecisionGateTest {
     @Test
     void a_stale_state_version_is_refused() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         assertEquals(
                 DecisionGate.Reject.STALE_STATE,
                 gate.submit(new DecisionGate.Response(
-                        asker.pending.decisionId(), "Alice",
+                        asker.pending.decisionId(), ALICE,
                         asker.pending.stateVersion() - 1, "action:0:card:7")));
     }
 
@@ -165,32 +173,66 @@ class DecisionGateTest {
 
         assertEquals(
                 DecisionGate.Reject.NOT_PENDING,
-                gate.submit(new DecisionGate.Response(1, "Alice", 1, "action:0:card:7")));
+                gate.submit(new DecisionGate.Response(1, ALICE, 1, "action:0:card:7")));
     }
 
     /** §6.101 — the choice must be one this decision offered. */
     @Test
     void an_action_that_was_not_offered_is_refused() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         assertEquals(
                 DecisionGate.Reject.STALE_DECISION,
                 gate.submit(new DecisionGate.Response(
-                        asker.pending.decisionId(), "Alice", asker.pending.stateVersion(),
+                        asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
                         "action:0:card:999")));
+    }
+
+    /**
+     * §6.37, §6.38 — MINDSLAVER. The decision is ABOUT Alice; the
+     * human allowed to answer it is Bob.
+     *
+     * The two assertions are the whole rule. Bob answers because
+     * Bob controls the decision, and Alice is refused even though
+     * the decision concerns her own player. A gate that carried
+     * one seat could not express this, and the natural single-seat
+     * implementation gets it exactly backwards.
+     */
+    @Test
+    void the_controller_answers_not_the_player_controlled() throws Exception {
+        DecisionGate gate = new DecisionGate();
+        Asker asker = new Asker(gate, ALICE, BOB);
+        asker.awaitAsked();
+
+        assertEquals(ALICE, asker.pending.actedForSeat());
+        assertEquals(BOB, asker.pending.authorisedSeat());
+
+        // The player being acted for does not get to answer.
+        assertEquals(
+                DecisionGate.Reject.WRONG_SEAT,
+                gate.submit(new DecisionGate.Response(
+                        asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
+                        "action:0:card:7")));
+        assertEquals(1, asker.done.getCount(), "the controlled player answered for themselves");
+
+        // The controller does.
+        assertNull(gate.submit(new DecisionGate.Response(
+                asker.pending.decisionId(), BOB, asker.pending.stateVersion(),
+                "action:0:card:7")));
+        assertTrue(asker.done.await(5, TimeUnit.SECONDS), "the waiter never resumed");
     }
 
     /** Passing is an answer, and it is allowed. */
     @Test
     void a_pass_is_accepted() throws Exception {
         DecisionGate gate = new DecisionGate();
-        Asker asker = new Asker(gate, "Alice");
+        Asker asker = new Asker(gate, ALICE);
         asker.awaitAsked();
 
         assertNull(gate.submit(new DecisionGate.Response(
-                asker.pending.decisionId(), "Alice", asker.pending.stateVersion(), null)));
+                asker.pending.decisionId(), ALICE, asker.pending.stateVersion(), null)));
 
         assertTrue(asker.done.await(5, TimeUnit.SECONDS));
         assertEquals(DecisionGate.PASS, asker.answer.get());

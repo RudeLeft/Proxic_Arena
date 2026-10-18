@@ -68,8 +68,8 @@ class MatchRuntimeTest {
             val result =
                 worker.start(
                     listOf(
-                        WorkerSeat("Alice", basics("Mountain", 60)),
-                        WorkerSeat("Bob", basics("Forest", 60)),
+                        WorkerSeat("Alice", 1, basics("Mountain", 60)),
+                        WorkerSeat("Bob", 2, basics("Forest", 60)),
                     ),
                 )
 
@@ -94,7 +94,7 @@ class MatchRuntimeTest {
         val broken = config().copy(forgeWorkerJar = "no/such/worker.jar")
         val worker = MatchWorker(broken, UUID.randomUUID())
 
-        val result = worker.start(listOf(WorkerSeat("Alice", basics("Mountain", 60))))
+        val result = worker.start(listOf(WorkerSeat("Alice", 1, basics("Mountain", 60))))
 
         val failed = assertIs<WorkerStart.Failed>(result)
         assertEquals("WORKER_MISSING", failed.code)
@@ -106,7 +106,7 @@ class MatchRuntimeTest {
         val none = config().copy(forgeWorkerJar = null)
         val worker = MatchWorker(none, UUID.randomUUID())
 
-        val result = worker.start(listOf(WorkerSeat("Alice", basics("Mountain", 60))))
+        val result = worker.start(listOf(WorkerSeat("Alice", 1, basics("Mountain", 60))))
 
         assertEquals("WORKER_UNCONFIGURED", assertIs<WorkerStart.Failed>(result).code)
     }
@@ -126,8 +126,8 @@ class MatchRuntimeTest {
             val result =
                 worker.start(
                     listOf(
-                        WorkerSeat("Alice", basics("Definitely Not A Real Card", 60)),
-                        WorkerSeat("Bob", basics("Forest", 60)),
+                        WorkerSeat("Alice", 1, basics("Definitely Not A Real Card", 60)),
+                        WorkerSeat("Bob", 2, basics("Forest", 60)),
                     ),
                 )
 

@@ -32,13 +32,17 @@ class MatchRuntime(
     private val rooms: net.barnflix.proxic.room.RoomService? = null,
     private val roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
         net.barnflix.proxic.room.SilentAnnouncer,
+    private val decisions: DecisionAnnouncer = DecisionAnnouncer.NONE,
 ) : MatchStarter {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
     private val records = MatchRecords(dataSource)
 
+    /** Who gets told what the worker says. */
+    private val routing = MatchDecisions(decisions)
+
     /** Every match this process is running. §6.159 bounds the size. */
-    private val live = ConcurrentHashMap<UUID, MatchWorker>()
+    private val live = ConcurrentHashMap<UUID, LiveMatch>()
 
     /**
      * Start Forge for a match that has been claimed.
@@ -55,8 +59,16 @@ class MatchRuntime(
             return WorkerStart.Failed("DECK_UNAVAILABLE", "A deck could not be read.")
         }
 
-        val worker = MatchWorker(config, match.matchId)
-        live[match.matchId] = worker
+        // The worker is built with its event sink already
+        // attached, because a DECISION_REQUEST can arrive before
+        // `start` returns: Forge publishes the first one the
+        // moment a priority window opens, which is the same
+        // instant that makes the game RUNNING.
+        lateinit var running: LiveMatch
+        val worker =
+            MatchWorker(config, match.matchId) { event -> routing.handle(running, event) }
+        running = LiveMatch(match, worker)
+        live[match.matchId] = running
 
         val result = worker.start(seats)
         when (result) {
@@ -112,6 +124,34 @@ class MatchRuntime(
     }
 
     /**
+     * Answer a decision on a user's behalf — §6.101, §6.102.
+     *
+     * The authorisation is [LiveMatch]'s; this only finds the
+     * match. A match this process is not running is UNREACHABLE
+     * rather than NOT_PENDING: the difference matters to whoever
+     * reads the log after a restart (§6.122).
+     */
+    fun answer(
+        matchId: UUID,
+        userId: UUID,
+        decisionId: Long,
+        actionId: String?,
+    ): DecisionRefusal? = live[matchId]?.answer(userId, decisionId, actionId) ?: DecisionRefusal.UNREACHABLE
+
+    /** §6.111 — what to re-send to a connection that just arrived. */
+    fun pendingFor(
+        matchId: UUID,
+        userId: UUID,
+    ): DecisionRequest? {
+        val running = live[matchId] ?: return null
+        val question = running.pending() ?: return null
+        // Only to the user who may answer it. A pending decision
+        // sent to the other seat is private information about what
+        // their opponent is being asked (§6.39 onward).
+        return question.takeIf { running.authorisedUser() == userId }
+    }
+
+    /**
      * A failed start gives the room back, and says so.
      *
      * Both halves matter and for different reasons: the UPDATE is
@@ -153,11 +193,11 @@ class MatchRuntime(
 
     /** §6.162 — stop one match, touching no other. */
     fun terminate(matchId: UUID) {
-        live.remove(matchId)?.stop()
+        live.remove(matchId)?.worker?.stop()
         records.recordStatus(matchId, MatchStatus.TERMINATED, clock())
     }
 
-    fun isRunning(matchId: UUID): Boolean = live[matchId]?.isAlive() == true
+    fun isRunning(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true
 
     /** How many matches this process is running. §6.159's number. */
     fun liveCount(): Int = live.size
@@ -165,7 +205,7 @@ class MatchRuntime(
     /** Stop everything. Called when the application stops. */
     fun stopAll() {
         live.keys.toList().forEach { matchId ->
-            live.remove(matchId)?.stop()
+            live.remove(matchId)?.worker?.stop()
         }
     }
 }

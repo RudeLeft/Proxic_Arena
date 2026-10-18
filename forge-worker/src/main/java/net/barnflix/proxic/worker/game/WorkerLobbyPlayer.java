@@ -29,10 +29,17 @@ import forge.game.player.PlayerController;
  */
 final class WorkerLobbyPlayer extends LobbyPlayer implements IGameEntitiesFactory {
     private final GameHost host;
+    private final int seatNumber;
 
-    WorkerLobbyPlayer(String name, GameHost host) {
+    WorkerLobbyPlayer(String name, int seatNumber, GameHost host) {
         super(name);
+        this.seatNumber = seatNumber;
         this.host = host;
+    }
+
+    /** The seat whose human answers through this lobby player. */
+    int seatNumber() {
+        return seatNumber;
     }
 
     @Override
@@ -45,17 +52,22 @@ final class WorkerLobbyPlayer extends LobbyPlayer implements IGameEntitiesFactor
     @Override
     public Player createIngamePlayer(Game game, int id) {
         Player player = new Player(getName(), game, id);
-        player.setFirstController(new MatchController(game, player, this, host));
+        // Acted for and authorised are the same seat here: an
+        // ordinary player answering their own decisions.
+        player.setFirstController(
+                new MatchController(game, player, this, host, seatNumber, seatNumber));
         return player;
     }
 
     @Override
     public PlayerController createMindSlaveController(Player master, Player slave) {
-        // The player being ACTED FOR is `slave`; the human
-        // AUTHORISED to answer is whoever controls `master`. When
-        // decisions start reaching browsers, that difference is the
-        // thing the protocol must carry — not the thing the
-        // controller quietly resolves here.
-        return new MatchController(slave.getGame(), slave, this, host);
+        // WHERE THE TWO SEATS COME APART. The player being ACTED
+        // FOR is `slave`; the human AUTHORISED to answer is this
+        // lobby player, the master's. §6.37 forbids collapsing
+        // them, so both travel in the decision rather than being
+        // resolved away here.
+        return new MatchController(
+                slave.getGame(), slave, this, host,
+                host.seatOf(slave.getLobbyPlayer()), seatNumber);
     }
 }

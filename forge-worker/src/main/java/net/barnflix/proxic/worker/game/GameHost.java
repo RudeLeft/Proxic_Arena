@@ -45,6 +45,22 @@ public final class GameHost {
     private volatile Game game;
     private volatile Thread gameThread;
 
+    /** §6.36's chain, the worker's link: Forge lobby player → seat. */
+    private final java.util.Map<LobbyPlayer, Integer> seatOf =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+
+    /**
+     * Which seat a Forge player belongs to.
+     *
+     * -1 for anything this host did not seat, which is a loud
+     * wrong answer rather than a plausible one: seat 0 would be
+     * indistinguishable from the first real seat.
+     */
+    int seatOf(LobbyPlayer lobbyPlayer) {
+        Integer seat = seatOf.get(lobbyPlayer);
+        return seat == null ? -1 : seat;
+    }
+
     /**
      * Construct the game and start it on its own thread.
      *
@@ -56,7 +72,13 @@ public final class GameHost {
     public void start(List<Seat> seats, String matchName) {
         List<RegisteredPlayer> registered = new ArrayList<>();
         for (Seat seat : seats) {
-            LobbyPlayer lobby = new WorkerLobbyPlayer(seat.displayName, this);
+            LobbyPlayer lobby = new WorkerLobbyPlayer(seat.displayName, seat.seatNumber, this);
+            // Identity, not equality. Two seats may carry the same
+            // display name -- Arena only makes usernames unique --
+            // and a map keyed on the name would collapse them into
+            // one seat, which is how an answer reaches the wrong
+            // player.
+            seatOf.put(lobby, seat.seatNumber);
             registered.add(new RegisteredPlayer(seat.deck).setPlayer(lobby));
         }
 
@@ -220,9 +242,17 @@ public final class GameHost {
     public static final class Seat {
         public final String displayName;
         public final Deck deck;
+        /**
+         * The server's seat number, carried through unchanged.
+         *
+         * The ONLY identity the protocol routes on. Display names
+         * are for humans to read and are not unique.
+         */
+        public final int seatNumber;
 
-        public Seat(String displayName, Deck deck) {
+        public Seat(String displayName, int seatNumber, Deck deck) {
             this.displayName = displayName;
+            this.seatNumber = seatNumber;
             this.deck = deck;
         }
     }

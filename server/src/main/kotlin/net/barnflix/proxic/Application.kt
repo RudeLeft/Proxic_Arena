@@ -24,6 +24,7 @@ import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.deckRoutes
 import net.barnflix.proxic.match.matchRoutes
+import net.barnflix.proxic.match.matchSocket
 import net.barnflix.proxic.room.matchPresetRoutes
 import net.barnflix.proxic.room.matchSetupRoutes
 import net.barnflix.proxic.room.roomRoutes
@@ -464,7 +465,40 @@ private fun Route.databaseRoutes(
         )
     val lobbyHub = net.barnflix.proxic.lobby.LobbyHub()
     val lobby = net.barnflix.proxic.lobby.LobbyService(lobbyHub, roomService)
+    // PHASE_06 §6.107-§6.109 — where a decision reaches a
+    // human, and the runtime that publishes into it. Both live
+    // out here with the other sockets rather than inside
+    // /api: §6.107 names the endpoint /ws/matches/{matchId},
+    // and a socket nested in the /api block would be served at
+    // /api/ws/... behind the REST auth gate, which answers an
+    // upgrade with a 401 the browser reports as "connection
+    // failed".
+    val matchHub = net.barnflix.proxic.match.MatchHub()
+    val matchRuntime =
+        net.barnflix.proxic.match.MatchRuntime(
+            database.dataSource(),
+            config,
+            announcer = lobby,
+            rooms = roomService,
+            roomAnnouncer = lobby,
+            decisions = matchHub,
+        )
+    application.environment.monitor.subscribe(ApplicationStopped) {
+        // §6.162 — a stopping server takes its match workers
+        // with it. Each is ~611 MB; leaving them behind would
+        // outlive the thing that knows they exist.
+        matchRuntime.stopAll()
+    }
+
     userSocket(sessions, lobby)
+
+    // §6.108 — participants only, checked per match.
+    matchSocket(
+        sessions,
+        net.barnflix.proxic.match.MatchStore(database.dataSource()),
+        matchRuntime,
+        matchHub,
+    )
 
     route("/api") {
         // PHASE 3 AMENDMENT 1 (owner decision D1): every
@@ -565,21 +599,6 @@ private fun Route.databaseRoutes(
         // prepared setup, and find the one you are in. No Forge is
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
-        val matchRuntime =
-            net.barnflix.proxic.match.MatchRuntime(
-                database.dataSource(),
-                config,
-                announcer = lobby,
-                rooms = roomService,
-                roomAnnouncer = lobby,
-            )
-        application.environment.monitor.subscribe(ApplicationStopped) {
-            // §6.162 — a stopping server takes its match workers
-            // with it. Each is ~611 MB; leaving them behind would
-            // outlive the thing that knows they exist.
-            matchRuntime.stopAll()
-        }
-
         matchRoutes(
             net.barnflix.proxic.match.MatchLauncher(
                 database.dataSource(),

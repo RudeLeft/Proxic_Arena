@@ -3,12 +3,8 @@ package net.barnflix.proxic.match
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 import net.barnflix.proxic.BuildInfo
 import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.deck.DeckEntry
@@ -40,6 +36,14 @@ private const val START_TIMEOUT_SECONDS = 180L
  */
 data class WorkerSeat(
     val displayName: String,
+    /**
+     * The identity everything downstream routes on.
+     *
+     * Not the display name: Arena only makes usernames unique, so
+     * two players in one match may share a display name and an
+     * answer routed by name could reach the wrong human.
+     */
+    val seatNumber: Int,
     val cards: List<DeckEntry>,
 )
 
@@ -53,11 +57,38 @@ sealed interface WorkerStart {
 class MatchWorker(
     private val config: ServerConfig,
     private val matchId: UUID,
+    /**
+     * Where a decision goes.
+     *
+     * Called from the pump thread, so it must return quickly: the
+     * worker's stdout is not being read while this runs, and
+     * behind it sits a Forge thread blocked on an answer.
+     */
+    private val onEvent: (WorkerEvent) -> Unit = {},
 ) {
     private val log = LoggerFactory.getLogger(MatchWorker::class.java)
     private val json = Json { ignoreUnknownKeys = true }
 
     private var process: Process? = null
+    private var toWorker: java.io.BufferedWriter? = null
+
+    /**
+     * How the start result gets back from the pump thread.
+     *
+     * A queue rather than a return value because of a RACE the
+     * first version of this lost: the worker publishes its first
+     * DECISION_REQUEST from Forge's thread the moment a priority
+     * window opens, and writes GAME_STARTED from its main thread
+     * just after awaitRunning returns. Those are two threads
+     * behind one synchronized send, so either frame can be first.
+     * The old code read exactly one frame and treated anything
+     * that was not GAME_STARTED as a failed start, so a perfectly
+     * good game would have been reported FAILED_STARTUP depending
+     * on which thread won.
+     *
+     * The pump reads everything and files it by type instead.
+     */
+    private val startResult = java.util.concurrent.ArrayBlockingQueue<WorkerStart>(1)
 
     /**
      * Spawn, handshake, and start the game.
@@ -93,7 +124,7 @@ class MatchWorker(
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .start()
             process = started
-            handshakeAndStart(started, seats)
+            greetAndStart(started, seats)
         } catch (e: Exception) {
             // §1.66's rule, carried here: a worker that cannot be
             // spawned is a RESULT, never an exception escaping into
@@ -103,12 +134,13 @@ class MatchWorker(
         }
     }
 
-    private fun handshakeAndStart(
+    private fun greetAndStart(
         started: Process,
         seats: List<WorkerSeat>,
     ): WorkerStart {
         val reader = started.inputStream.bufferedReader()
         val writer = started.outputStream.bufferedWriter()
+        toWorker = writer
 
         // §6.26 — verify what we are talking to BEFORE trusting it
         // with a match. A worker built against a different Forge
@@ -132,64 +164,121 @@ class MatchWorker(
             )
         }
 
-        writer.write(startGameMessage(seats).toString())
-        writer.newLine()
-        writer.flush()
+        // The pump starts BEFORE the request, so nothing the
+        // worker says in reply can be missed.
+        startPump(reader)
 
-        val answer =
-            readFrame(reader, START_TIMEOUT_SECONDS)
-                ?: return WorkerStart.Failed(
-                    "GAME_START_TIMEOUT",
-                    "Forge did not start a game in time.",
+        send(startGameFrame(matchId, seats))
+
+        return startResult.poll(START_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            ?: WorkerStart.Failed("GAME_START_TIMEOUT", "Forge did not start a game in time.")
+    }
+
+    /**
+     * Read the worker's stdout for as long as it lives.
+     *
+     * One thread per match, daemon, named for thread dumps. It
+     * does no work beyond parsing and handing off: a slow consumer
+     * here stops the server reading the pipe, the pipe's buffer
+     * fills, and Forge blocks on its own println -- a deadlock
+     * that would look like "the game froze".
+     */
+    private fun startPump(reader: java.io.BufferedReader) {
+        val thread =
+            Thread({
+                runCatching { reader.forEachLine { line -> dispatch(line) } }
+                    .onFailure { log.warn("match $matchId: reading the worker stopped", it) }
+                // The worker died without answering. Nobody should
+                // be left waiting on the start queue for three
+                // minutes to find that out.
+                startResult.offer(
+                    WorkerStart.Failed("WORKER_UNREACHABLE", "The worker stopped talking."),
                 )
+            }, "proxic-match-pump-$matchId")
+        thread.isDaemon = true
+        thread.start()
+    }
 
-        return when (answer["type"]?.jsonPrimitive?.content) {
+    private fun dispatch(line: String) {
+        // Forge's own chatter ("Read cards: 33980 files") shares
+        // this stream, so a line that is not a frame is skipped
+        // rather than treated as a malformed one.
+        if (!line.trimStart().startsWith("{")) return
+        val frame =
+            runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: return
+
+        when (frame["type"]?.jsonPrimitive?.content) {
             "GAME_STARTED" ->
-                WorkerStart.Running(answer["turn"]?.jsonPrimitive?.int ?: 0)
+                startResult.offer(WorkerStart.Running(frame["turn"]?.jsonPrimitive?.int ?: 0))
 
-            else ->
-                WorkerStart.Failed(
-                    answer["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED",
-                    // §6.99 — a safe application-level message. The
-                    // worker's own detail is a class name, not a
-                    // stack trace, and nothing from Forge's
-                    // internals travels further than this log line.
-                    answer["detail"]?.jsonPrimitive?.content ?: "unknown",
-                )
+            "DECISION_REQUEST" ->
+                readDecisionFrame(frame)?.let { raise(WorkerEvent.Decision(it)) }
+
+            "DECISION_ACCEPTED" ->
+                readDecisionId(frame)?.let { raise(WorkerEvent.Answered(it)) }
+
+            "ERROR" -> {
+                val code = frame["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED"
+                if (code == "DECISION_REFUSED") {
+                    // The GATE's verdict, which outranks the
+                    // server's pre-filter: only the gate can see
+                    // whether this is still the pending decision.
+                    readDecisionId(frame)?.let { id ->
+                        raise(WorkerEvent.Refused(id, readRefusal(frame)))
+                    }
+                    return
+                }
+                // A safe application-level message. The worker's
+                // detail is a class name, never a stack trace, and
+                // nothing from Forge's internals travels further
+                // than this log line.
+                val detail = frame["detail"]?.jsonPrimitive?.content ?: "unknown"
+                log.warn("match $matchId: worker error $code $detail")
+                // Only meaningful while a start is outstanding;
+                // offer() on a full queue is a no-op, which is
+                // exactly right once the game is running.
+                startResult.offer(WorkerStart.Failed(code, detail))
+            }
+
+            else -> Unit
         }
     }
 
-    private fun startGameMessage(seats: List<WorkerSeat>): JsonObject =
-        buildJsonObject {
-            put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
-            put("type", "START_GAME")
-            put("messageId", UUID.randomUUID().toString())
-            put("matchId", matchId.toString())
-            putJsonArray("players") {
-                seats.forEach { seat ->
-                    add(
-                        buildJsonObject {
-                            put("displayName", seat.displayName)
-                            put(
-                                "cards",
-                                buildJsonArray {
-                                    seat.cards.forEach { card ->
-                                        add(
-                                            buildJsonObject {
-                                                put("name", card.name)
-                                                card.setCode?.let { put("set", it) }
-                                                card.collectorNumber?.let { put("number", it) }
-                                                put("quantity", card.quantity)
-                                            },
-                                        )
-                                    }
-                                },
-                            )
-                        },
-                    )
-                }
-            }
+    private fun raise(event: WorkerEvent) {
+        runCatching { onEvent(event) }
+            .onFailure { log.warn("match $matchId: event not delivered", it) }
+    }
+
+    /**
+     * Forward an answer the server has already authorised.
+     *
+     * `seat` is the server's conclusion about who is allowed to
+     * answer, never anything the browser said. The worker checks
+     * it again at the gate, which is not redundancy for its own
+     * sake: the gate is the only thing that can see whether the
+     * decision is still the pending one.
+     */
+    fun answer(
+        decisionId: Long,
+        seat: Int,
+        stateVersion: Long,
+        actionId: String?,
+    ): Boolean =
+        runCatching {
+            send(decisionResponseFrame(decisionId, seat, stateVersion, actionId))
+            true
+        }.getOrElse {
+            log.warn("match $matchId: could not send an answer", it)
+            false
         }
+
+    @Synchronized
+    private fun send(frame: JsonObject) {
+        val writer = toWorker ?: error("the worker is not started")
+        writer.write(frame.toString())
+        writer.newLine()
+        writer.flush()
+    }
 
     /** Is the process still there? §6.17's RUNNING depends on it. */
     fun isAlive(): Boolean = process?.isAlive == true
@@ -233,12 +322,16 @@ class MatchWorker(
         }
         return null
     }
-
-    private fun javaExecutable(): String {
-        val home = System.getProperty("java.home")
-        val candidate = File(home, if (isWindows()) "bin/java.exe" else "bin/java")
-        return if (candidate.isFile) candidate.absolutePath else "java"
-    }
-
-    private fun isWindows(): Boolean = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
 }
+
+// Not class members: these touch nothing the worker owns, and
+// detekt counts what a class does. A process launcher that also
+// knows how to spell java.exe is two jobs.
+
+private fun javaExecutable(): String {
+    val home = System.getProperty("java.home")
+    val candidate = File(home, if (isWindows()) "bin/java.exe" else "bin/java")
+    return if (candidate.isFile) candidate.absolutePath else "java"
+}
+
+private fun isWindows(): Boolean = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)

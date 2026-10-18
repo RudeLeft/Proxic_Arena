@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary, type DeckSummary } from "./decks";
+import { EMPTY_MATCH, connectMatch, type MatchSocket, type MatchState } from "./match";
 import {
   EMPTY_LOBBY,
   MAX_CHAT_LENGTH,
@@ -709,6 +710,34 @@ function DeckPanel({
  */
 function MatchPanel({ match, me }: { match: MatchView; me: string }) {
   const mine = match.participants.find((seat) => seat.userId === me);
+  const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
+  const socketRef = useRef<MatchSocket | null>(null);
+  const running = match.status === "RUNNING";
+
+  // §6.107 — the match socket, open only once there is a game to
+  // connect to. Keyed on the match id so a second match opens a
+  // second connection rather than quietly reusing the first.
+  useEffect(() => {
+    if (!running) return undefined;
+    setGame(EMPTY_MATCH);
+    const socket = connectMatch(matchUrl(match.matchId), (apply) => setGame(apply));
+    socketRef.current = socket;
+    return () => {
+      socketRef.current = null;
+      socket.close();
+    };
+  }, [match.matchId, running]);
+
+  const answer = (actionId: string | null) => {
+    const decision = game.decision;
+    if (!decision) return;
+    // §6.132's shape, carried here: the page does not predict.
+    // The question stays on screen until the SERVER says it was
+    // taken, because a refusal has to put the player back where
+    // they were rather than in front of an empty game.
+    setGame((previous) => ({ ...previous, awaiting: decision.decisionId, notice: null }));
+    socketRef.current?.answer(decision.decisionId, actionId);
+  };
 
   return (
     <section className="panel" aria-label="Your match">
@@ -726,6 +755,66 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       <p className="hint">
         Seat {mine ? mine.seatNumber : "?"} of {match.participants.length}.
       </p>
+
+      {running && game.connection === "closed" && (
+        // §5.133's rule for the game: a page that stopped being
+        // told must say so rather than showing a live-looking
+        // game. The decision is still pending on the server
+        // (§6.112) — nothing passed on this player's behalf.
+        <p className="error-text">
+          You are no longer connected to the game. Reload the page — the game is still running and
+          nothing has been answered for you.
+        </p>
+      )}
+
+      {game.notice && <p className="error-text">{game.notice}</p>}
+
+      {game.decision ? (
+        <div className="decision">
+          <h3>
+            {game.decision.actedForSeat === mine?.seatNumber
+              ? "Your move"
+              : `Playing for seat ${game.decision.actedForSeat}`}
+          </h3>
+          <ul className="actions-list">
+            {game.decision.options.map((option) => (
+              <li key={option.actionId}>
+                <button
+                  type="button"
+                  disabled={game.awaiting !== null}
+                  onClick={() => answer(option.actionId)}
+                >
+                  {option.label ?? option.actionId}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="secondary"
+            disabled={game.awaiting !== null}
+            onClick={() => answer(null)}
+          >
+            Pass
+          </button>
+          {/* §6.50 — this list is FORGE's. The page does not add
+              to it, remove from it or reorder it, because an
+              option Forge offered and a browser hid is a rules
+              disagreement the player cannot see. */}
+          <p className="hint">
+            {game.decision.options.length === 0
+              ? "Forge is not offering any action right now; passing is the only answer."
+              : "These are the actions Forge says you can take."}
+          </p>
+        </div>
+      ) : (
+        running && <p className="hint">Waiting for the game.</p>
+      )}
     </section>
   );
+}
+
+function matchUrl(matchId: string): string {
+  const scheme = location.protocol === "https:" ? "wss" : "ws";
+  return `${scheme}://${location.host}/ws/matches/${matchId}`;
 }
