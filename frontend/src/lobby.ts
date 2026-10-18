@@ -97,11 +97,26 @@ export interface MatchSeatView {
   deckName: string | null;
 }
 
+/**
+ * How a game finished — PHASE_06 §6.149.
+ *
+ * FORGE's result, by SEAT. The page turns a seat into a name
+ * using the participant list it already holds; the server never
+ * sends "Pat won", because a display name is not an identity and
+ * two players may share one.
+ */
+export interface MatchOutcome {
+  kind: string;
+  winningSeat: number | null;
+  endedOnTurn: number;
+}
+
 export interface MatchView {
   matchId: string;
   status: string;
   failureCode: string | null;
   participants: MatchSeatView[];
+  outcome: MatchOutcome | null;
 }
 
 export type ConnectionState = "connecting" | "open" | "closed";
@@ -243,6 +258,25 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       const participants = asMatchSeats(message["participants"]);
       const failureCode = asString(message["failureCode"]);
 
+      if (status === "ENDED" || status === "FAILED_RUNTIME") {
+        // §6.151 — the game is over. The match STAYS on screen,
+        // because the result is the thing the players most want
+        // to see and a panel that vanished at the final turn
+        // would be the worst possible moment to disappear. The
+        // room comes back on its own ROOM message.
+        return {
+          ...state,
+          match: {
+            matchId,
+            status,
+            failureCode,
+            participants,
+            outcome: asOutcome(message),
+          },
+          notice: null,
+        };
+      }
+
       if (status === "FAILED_STARTUP" || status === "TERMINATED") {
         // No match to be in. The room comes back on its own ROOM
         // message; all this has to do is stop claiming a game is
@@ -259,7 +293,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       }
       return {
         ...state,
-        match: { matchId, status, failureCode, participants },
+        match: { matchId, status, failureCode, participants, outcome: null },
         notice: null,
       };
     }
@@ -290,6 +324,19 @@ function matchFailed(code: string | null): string {
     default:
       return "The match did not start. The room is open again.";
   }
+}
+
+function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
+  const kind = asString(message["outcome"]);
+  if (!kind) return null;
+  const seat = message["winningSeat"];
+  const turn = message["endedOnTurn"];
+  return {
+    kind,
+    // Absent for a draw and for a failure. Absent is not seat zero.
+    winningSeat: typeof seat === "number" ? seat : null,
+    endedOnTurn: typeof turn === "number" ? turn : 0,
+  };
 }
 
 function asMatchSeats(value: unknown): MatchSeatView[] {
@@ -747,6 +794,7 @@ function asMatch(value: unknown): MatchView | null {
     status,
     failureCode: asString(row["failureCode"]),
     participants: asMatchSeats(row["participants"]),
+    outcome: asOutcome(row),
   };
 }
 

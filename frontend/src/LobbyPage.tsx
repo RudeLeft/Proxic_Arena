@@ -713,6 +713,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
   const socketRef = useRef<MatchSocket | null>(null);
   const running = match.status === "RUNNING";
+  const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
 
   // §6.107 — the match socket, open only once there is a game to
   // connect to. Keyed on the match id so a second match opens a
@@ -743,9 +744,11 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
     <section className="panel" aria-label="Your match">
       <h2>Your match</h2>
       <p>
-        {match.status === "LAUNCHING"
-          ? "Starting the game. Forge is loading — this takes a few seconds."
-          : "The game is running."}
+        {finished
+          ? resultText(match, mine?.seatNumber ?? null)
+          : match.status === "LAUNCHING"
+            ? "Starting the game. Forge is loading — this takes a few seconds."
+            : "The game is running."}
       </p>
       {mine?.deckName && (
         // §5.47 into §6: your own deck by name. The server sends
@@ -812,6 +815,40 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       )}
     </section>
   );
+}
+
+/**
+ * §6.149 — FORGE decided this, and the page only reads it.
+ *
+ * Nothing here looks at life totals, connections or who left.
+ * The winner is a SEAT the server sent; turning it into "you" or
+ * a name is the only interpretation allowed, and it uses the
+ * participant list the page already holds.
+ */
+function resultText(match: MatchView, mySeat: number | null): string {
+  if (match.status === "FAILED_RUNTIME" || match.outcome?.kind === "FAILED") {
+    // §6.154 — not a loss for anybody. A match that stopped is a
+    // fault, and recording a winner for it would be a lie.
+    return "The game stopped before it finished. Nobody won it.";
+  }
+  const outcome = match.outcome;
+  if (!outcome) return "The game is over.";
+
+  const turn = outcome.endedOnTurn > 0 ? ` on turn ${outcome.endedOnTurn}` : "";
+  if (outcome.kind === "DRAW") return `The game was a draw${turn}.`;
+  if (outcome.kind !== "WINNER" || outcome.winningSeat === null) {
+    return `The game ended without a result${turn}.`;
+  }
+  if (outcome.winningSeat === mySeat) return `You won${turn}.`;
+
+  // The match participant list carries seats, not names (§5.47
+  // keeps other people's decks out of it, and names were never
+  // needed before). With two seats "your opponent" is exact; with
+  // more it would not be, so the seat is named instead. FMT-005
+  // keeps that case representable even though Open Format is two.
+  return match.participants.length === 2
+    ? `Your opponent won${turn}.`
+    : `Seat ${outcome.winningSeat} won${turn}.`;
 }
 
 function matchUrl(matchId: string): string {

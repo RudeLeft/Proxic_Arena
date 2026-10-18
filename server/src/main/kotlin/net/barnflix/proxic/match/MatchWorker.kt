@@ -194,6 +194,10 @@ class MatchWorker(
                 startResult.offer(
                     WorkerStart.Failed("WORKER_UNREACHABLE", "The worker stopped talking."),
                 )
+                // And if it was already RUNNING, that offer goes
+                // nowhere -- nobody is polling any more. §6.154 is
+                // a separate event for exactly that case.
+                raise(WorkerEvent.Stopped)
             }, "proxic-match-pump-$matchId")
         thread.isDaemon = true
         thread.start()
@@ -213,6 +217,9 @@ class MatchWorker(
 
             "DECISION_REQUEST" ->
                 readDecisionFrame(frame)?.let { raise(WorkerEvent.Decision(it)) }
+
+            "GAME_ENDED" ->
+                readOutcomeFrame(frame)?.let { raise(WorkerEvent.Ended(it)) }
 
             "DECISION_ACCEPTED" ->
                 readDecisionId(frame)?.let { raise(WorkerEvent.Answered(it)) }

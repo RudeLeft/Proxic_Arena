@@ -99,6 +99,7 @@ class LobbyService(
     override suspend fun matchChanged(
         match: net.barnflix.proxic.match.Match,
         failureCode: String?,
+        outcome: net.barnflix.proxic.match.GameOutcome?,
     ) {
         for (viewer in match.participants) {
             val seats =
@@ -116,6 +117,7 @@ class LobbyService(
                     match.status.name,
                     failureCode,
                     seats,
+                    outcome,
                 ),
             )
         }

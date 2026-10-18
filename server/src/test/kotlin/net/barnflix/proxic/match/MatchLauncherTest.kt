@@ -152,6 +152,115 @@ class MatchLauncherTest {
             }
         }
 
+    private fun matchRow(matchId: UUID): Triple<String, String?, String?> =
+        source().connection.use { connection ->
+            connection.prepareStatement(
+                "SELECT status, result_summary, failure_code FROM match WHERE match_id = ?",
+            ).use {
+                it.setObject(1, matchId)
+                it.executeQuery().use { rows ->
+                    rows.next()
+                    Triple(rows.getString(1), rows.getString(2), rows.getString(3))
+                }
+            }
+        }
+
+    // --- how a game ends — §6.149, §6.151, §6.154 ---------------------------
+
+    /**
+     * §6.151's sequence, and D4's amendment to it.
+     *
+     * The locked §6.151 says the source room is CLOSED; the owner
+     * decision recorded in the same document supersedes that and
+     * returns it to OPEN, both players still seated with their
+     * decks and readiness reset. Two people who have just
+     * finished a game are the likeliest to want another.
+     */
+    @Test
+    fun `a finished game records Forge's result and gives the room back`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.WINNER, winningSeat = 2, turn = 11),
+            java.time.Instant.now(),
+        )
+        records.releaseRoom(launched.match.roomId)
+
+        val (status, summary, failure) = matchRow(launched.match.matchId)
+        assertEquals("ENDED", status)
+        // §6.149 — by SEAT. A display name is not an identity, and
+        // "Pat won" records nothing when both players are Pat.
+        assertEquals("winner:seat 2 on turn 11", summary)
+        assertEquals(null, failure)
+
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.OPEN, after.status)
+        assertEquals(2, after.members.size, "somebody lost their seat")
+        assertTrue(after.members.none { it.ready }, "readiness was not reset")
+    }
+
+    /**
+     * §6.154 — a match that stopped records NO WINNER.
+     *
+     * The tempting version credits whoever was still connected.
+     * This writes FAILED_RUNTIME with an empty result instead,
+     * because a worker exiting is a fault and not a game.
+     */
+    @Test
+    fun `a runtime failure records no winner`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.FAILED, winningSeat = null, turn = 3),
+            java.time.Instant.now(),
+        )
+
+        val (status, summary, failure) = matchRow(launched.match.matchId)
+        assertEquals("FAILED_RUNTIME", status)
+        assertEquals(null, summary, "a crashed match recorded a result")
+        assertEquals("WORKER_STOPPED", failure)
+    }
+
+    /**
+     * A second ending cannot overwrite the first.
+     *
+     * GAME_ENDED followed by the pipe closing as the worker exits
+     * is the NORMAL ending, not an unusual one, so the late
+     * failure must not turn a real result into FAILED_RUNTIME.
+     * The UPDATE is conditional on RUNNING, which is what stops it.
+     */
+    @Test
+    fun `a late failure cannot overwrite a real result`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.WINNER, 1, 9),
+            java.time.Instant.now(),
+        )
+
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.FAILED, null, 9),
+            java.time.Instant.now(),
+        )
+
+        val (status, summary, _) = matchRow(launched.match.matchId)
+        assertEquals("ENDED", status)
+        assertEquals("winner:seat 1 on turn 9", summary)
+    }
+
     // --- P6-A ---------------------------------------------------------------
 
     /** §6.18, §6.19 — one match record, with the seats as prepared. */
@@ -224,7 +333,7 @@ class MatchLauncherTest {
             MatchRuntime(
                 source(),
                 config(),
-                announcer = { match, code -> told += "MATCH ${match.status} $code" },
+                announcer = { match, code, _ -> told += "MATCH ${match.status} $code" },
                 rooms = rooms,
                 roomAnnouncer = watchRoom,
             )

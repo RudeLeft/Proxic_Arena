@@ -84,6 +84,49 @@ internal class MatchRecords(private val dataSource: DataSource) {
         }
     }
 
+    /**
+     * §6.151, §6.149 — the game finished, and this is Forge's word.
+     *
+     * `result_summary` holds what FORGE reported and nothing Arena
+     * concluded. A failure writes FAILED_RUNTIME with no summary
+     * at all rather than a winner: §6.154 is explicit that a
+     * crashed match must not record a fake one.
+     */
+    fun recordEnded(
+        matchId: UUID,
+        outcome: GameOutcome,
+        at: Instant,
+    ) {
+        val failed = outcome.kind == GameOutcome.FAILED
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "UPDATE match SET status = ?, result_summary = ?, failure_code = ?, " +
+                    "ended_at = ? WHERE match_id = ? AND status = 'RUNNING'",
+            ).use {
+                it.setString(1, if (failed) "FAILED_RUNTIME" else "ENDED")
+                it.setString(2, if (failed) null else summaryOf(outcome))
+                it.setString(3, if (failed) "WORKER_STOPPED" else null)
+                it.setTimestamp(4, java.sql.Timestamp.from(at))
+                it.setObject(5, matchId)
+                it.executeUpdate()
+            }
+        }
+    }
+
+    /**
+     * Forge's result as one readable line.
+     *
+     * By SEAT, because a display name is not an identity: two
+     * players may share one, and "Pat won" would then be a record
+     * of nothing.
+     */
+    private fun summaryOf(outcome: GameOutcome): String =
+        when (outcome.kind) {
+            GameOutcome.WINNER -> "winner:seat ${outcome.winningSeat} on turn ${outcome.turn}"
+            GameOutcome.DRAW -> "draw on turn ${outcome.turn}"
+            else -> "no result on turn ${outcome.turn}"
+        }
+
     fun recordStatus(
         matchId: UUID,
         status: MatchStatus,

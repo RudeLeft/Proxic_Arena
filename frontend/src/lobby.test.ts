@@ -421,3 +421,84 @@ describe("the match", () => {
     expect(state.match?.status).toBe("RUNNING");
   });
 });
+
+// How a game finishes — PHASE_06 §6.149, §6.151, §6.154.
+//
+// §6.149 is the rule every test here is really about: FORGE owns
+// the result. The page never derives one from life totals, a
+// dropped connection or a worker exiting, and the winner arrives
+// as a SEAT because a display name is not an identity.
+describe("a finished match", () => {
+  const seats = [
+    { userId: "u-pat", seatNumber: 1, deckName: "Mono Red" },
+    { userId: "u-sam", seatNumber: 2, deckName: null },
+  ];
+
+  it("keeps the match on screen and records who won", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "ENDED",
+        outcome: "WINNER",
+        winningSeat: 2,
+        endedOnTurn: 11,
+        participants: seats,
+      },
+    ]);
+
+    // Not cleared: the result is the thing the players most want
+    // to see, and the final turn is the worst moment to vanish.
+    expect(state.match?.status).toBe("ENDED");
+    expect(state.match?.outcome?.kind).toBe("WINNER");
+    expect(state.match?.outcome?.winningSeat).toBe(2);
+    expect(state.match?.outcome?.endedOnTurn).toBe(11);
+  });
+
+  it("takes a draw with no winning seat", () => {
+    const state = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "ENDED",
+        outcome: "DRAW",
+        endedOnTurn: 7,
+        participants: seats,
+      },
+    ]);
+    expect(state.match?.outcome?.kind).toBe("DRAW");
+    // Absent is not seat zero.
+    expect(state.match?.outcome?.winningSeat).toBeNull();
+  });
+
+  /**
+   * §6.154 — a match that stopped is a fault, not a win.
+   *
+   * The dangerous version records the connected player as the
+   * winner. There is no code path here that can produce a winner
+   * from a failure: the server sends none and the page invents
+   * none.
+   */
+  it("a runtime failure names no winner", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "FAILED_RUNTIME",
+        failureCode: "WORKER_STOPPED",
+        participants: seats,
+      },
+    ]);
+    expect(state.match?.status).toBe("FAILED_RUNTIME");
+    expect(state.match?.outcome).toBeNull();
+  });
+
+  it("a running match carries no outcome", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+    ]);
+    expect(state.match?.outcome).toBeNull();
+  });
+});

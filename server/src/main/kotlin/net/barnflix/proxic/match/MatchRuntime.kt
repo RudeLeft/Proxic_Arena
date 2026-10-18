@@ -41,6 +41,9 @@ class MatchRuntime(
     /** Who gets told what the worker says. */
     private val routing = MatchDecisions(decisions)
 
+    /** What is written down, and who is told, when a match stops. */
+    private val endings = MatchEndings(records, announcer, rooms, roomAnnouncer, clock)
+
     /** Every match this process is running. §6.159 bounds the size. */
     private val live = ConcurrentHashMap<UUID, LiveMatch>()
 
@@ -55,7 +58,7 @@ class MatchRuntime(
         val seats = records.seatsFor(match)
         if (seats == null) {
             records.recordFailure(match.matchId, "DECK_UNAVAILABLE", clock())
-            releaseRoom(match, "DECK_UNAVAILABLE")
+            endings.failedStart(match, "DECK_UNAVAILABLE")
             return WorkerStart.Failed("DECK_UNAVAILABLE", "A deck could not be read.")
         }
 
@@ -66,7 +69,32 @@ class MatchRuntime(
         // instant that makes the game RUNNING.
         lateinit var running: LiveMatch
         val worker =
-            MatchWorker(config, match.matchId) { event -> routing.handle(running, event) }
+            MatchWorker(config, match.matchId) { event ->
+                when (event) {
+                    // §6.151 — the match lifecycle is the
+                    // runtime's: the database row, the room and
+                    // the process. Decisions are routing's.
+                    is WorkerEvent.Ended ->
+                        endings.finish(
+                            running,
+                            event.outcome,
+                            alreadyGone = live.remove(match.matchId) == null,
+                        )
+
+                    // §6.154 — a pipe that closed is not a result.
+                    // A RUNNING match whose process is gone is
+                    // FAILED_RUNTIME, and never a win for whoever
+                    // happened to still be connected.
+                    WorkerEvent.Stopped ->
+                        endings.finish(
+                            running,
+                            GameOutcome(GameOutcome.FAILED, null, 0),
+                            alreadyGone = live.remove(match.matchId) == null,
+                        )
+
+                    else -> routing.handle(running, event)
+                }
+            }
         running = LiveMatch(match, worker)
         live[match.matchId] = running
 
@@ -75,7 +103,7 @@ class MatchRuntime(
             is WorkerStart.Running -> {
                 records.recordRunning(match.matchId, clock())
                 log.info("match ${match.matchId}: RUNNING at turn ${result.turn}")
-                announce(match.copy(status = MatchStatus.RUNNING), null)
+                endings.running(match.copy(status = MatchStatus.RUNNING))
             }
 
             is WorkerStart.Failed -> {
@@ -96,7 +124,7 @@ class MatchRuntime(
                 // only goes wrong when Forge fails to start, which
                 // is exactly when the players least want to be
                 // stuck.
-                releaseRoom(match, result.code)
+                endings.failedStart(match, result.code)
             }
         }
         return result
@@ -161,46 +189,6 @@ class MatchRuntime(
         // sent to the other seat is private information about what
         // their opponent is being asked (§6.39 onward).
         return question.takeIf { running.authorisedUser() == userId }
-    }
-
-    /**
-     * A failed start gives the room back, and says so.
-     *
-     * Both halves matter and for different reasons: the UPDATE is
-     * what lets the players prepare again, and the announcement is
-     * what means they find that out without reloading the page.
-     * Either one alone leaves somebody looking at a lie.
-     */
-    private fun releaseRoom(
-        match: Match,
-        failureCode: String,
-    ) {
-        records.releaseRoom(match.roomId)
-        announce(match.copy(status = MatchStatus.FAILED_STARTUP), failureCode)
-        rooms?.find(match.roomId)?.let { room ->
-            runCatching {
-                kotlinx.coroutines.runBlocking { roomAnnouncer.roomChanged(room) }
-            }.onFailure { log.warn("match ${match.matchId}: room unannounced", it) }
-        }
-    }
-
-    /**
-     * Tell the participants, from a plain thread.
-     *
-     * runBlocking because the runtime is not a coroutine: it is a
-     * thread per launch, and the alternative is a scope owned by
-     * something that has no lifecycle of its own. Never allowed to
-     * fail the start -- a match that is running but unannounced is
-     * recoverable by a refresh; one that was rolled back because a
-     * socket write failed is not.
-     */
-    private fun announce(
-        match: Match,
-        failureCode: String?,
-    ) {
-        runCatching {
-            kotlinx.coroutines.runBlocking { announcer.matchChanged(match, failureCode) }
-        }.onFailure { log.warn("match ${match.matchId}: could not announce", it) }
     }
 
     /** §6.162 — stop one match, touching no other. */

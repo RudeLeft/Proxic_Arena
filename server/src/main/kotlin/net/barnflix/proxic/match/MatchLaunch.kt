@@ -151,13 +151,15 @@ fun interface MatchAnnouncer {
      * so a player's own deck stays their own (§5.47).
      *
      * [failureCode] is null unless the match failed.
+     * [outcome] is null unless it finished (§6.149).
      */
     suspend fun matchChanged(
         match: Match,
         failureCode: String?,
+        outcome: GameOutcome?,
     )
 
     companion object {
-        val NONE = MatchAnnouncer { _, _ -> }
+        val NONE = MatchAnnouncer { _, _, _ -> }
     }
 }

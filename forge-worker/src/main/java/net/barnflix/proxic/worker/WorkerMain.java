@@ -265,6 +265,23 @@ public final class WorkerMain {
                         ask.add("options", options);
                         send(ask);
                     });
+                    // §6.151 — the ending is ANNOUNCED, not polled.
+                    // The server has a sequence to run when a game
+                    // finishes (persist the result, give the room
+                    // back, shut the worker down) and it cannot run
+                    // any of it if it has to ask.
+                    GAME.onEnded(result -> {
+                        JsonObject ended = frame("GAME_ENDED", null);
+                        ended.addProperty("outcome", result.kind());
+                        // §6.149 — a SEAT. Forge names the winning
+                        // player, and a display name is not an
+                        // identity.
+                        if ("WINNER".equals(result.kind())) {
+                            ended.addProperty("winningSeat", result.winningSeat());
+                        }
+                        ended.addProperty("turn", result.turn());
+                        send(ended);
+                    });
                     GAME.start(seats, request.has("matchId")
                             ? request.get("matchId").getAsString() : "match");
 

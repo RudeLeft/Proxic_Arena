@@ -32,6 +32,14 @@ class MatchDecisions(
             // question may already have arrived.
             is WorkerEvent.Answered -> live.answered(event.decisionId)
 
+            // Not this class's business: the match LIFECYCLE
+            // belongs to the runtime, which owns the database row,
+            // the room and the worker process. Named rather than
+            // swept into an `else` so that adding a new event
+            // still breaks the build here and makes somebody
+            // decide where it belongs.
+            is WorkerEvent.Ended, WorkerEvent.Stopped -> Unit
+
             is WorkerEvent.Refused ->
                 // Whoever got this far WAS the authorised user:
                 // anybody else is stopped before the worker is

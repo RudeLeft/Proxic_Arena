@@ -141,6 +141,47 @@ class WorkerFramesTest {
         assertEquals("42", passing.getValue("stateVersion").toString())
     }
 
+    // --- how a game ends — §6.149, §6.151, §6.154 ---------------------
+
+    @Test
+    fun `a winner is read as a seat`() {
+        val outcome =
+            readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"turn":11}"""))
+
+        assertEquals("WINNER", outcome?.kind)
+        assertEquals(2, outcome?.winningSeat)
+        assertEquals(11, outcome?.turn)
+    }
+
+    /** A draw has no winning seat, and absent is not seat zero. */
+    @Test
+    fun `a draw names nobody`() {
+        val outcome = readOutcomeFrame(frame("""{"outcome":"DRAW","turn":7}"""))
+
+        assertEquals("DRAW", outcome?.kind)
+        assertNull(outcome?.winningSeat)
+    }
+
+    /**
+     * §6.154 — a failure names nobody either.
+     *
+     * The temptation is to treat the surviving player as the
+     * winner. Nothing in this path can produce one: the frame
+     * carries no seat and nothing here supplies a default.
+     */
+    @Test
+    fun `a failure names nobody`() {
+        val outcome = readOutcomeFrame(frame("""{"outcome":"FAILED","turn":3}"""))
+
+        assertEquals(GameOutcome.FAILED, outcome?.kind)
+        assertNull(outcome?.winningSeat)
+    }
+
+    @Test
+    fun `an outcome frame with no outcome is dropped`() {
+        assertNull(readOutcomeFrame(frame("""{"turn":3}""")))
+    }
+
     private fun entry(
         name: String,
         quantity: Int,

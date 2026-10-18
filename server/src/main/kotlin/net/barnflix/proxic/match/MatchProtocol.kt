@@ -52,6 +52,31 @@ enum class DecisionRefusal {
 }
 
 /**
+ * How a game finished — §6.149, §6.151, §6.154.
+ *
+ * FORGE's answer, carried verbatim. Arena never derives a winner
+ * from life totals, a dropped connection or a worker exiting:
+ * §6.149 lists those exact temptations and forbids all of them.
+ *
+ * The winner is a SEAT. Forge names the winning player and an
+ * Arena display name is not an identity -- "Pat won" says nothing
+ * when both players are called Pat.
+ */
+data class GameOutcome(
+    val kind: String,
+    val winningSeat: Int?,
+    val turn: Int,
+) {
+    companion object {
+        const val WINNER = "WINNER"
+        const val DRAW = "DRAW"
+
+        /** The game stopped without Forge reaching a result (§6.154). */
+        const val FAILED = "FAILED"
+    }
+}
+
+/**
  * Everything the worker says that the server acts on.
  *
  * A sealed type rather than three callbacks: the pump has one
@@ -68,6 +93,19 @@ sealed interface WorkerEvent {
 
     /** The gate refused one, and this is the reason it gave. */
     data class Refused(val decisionId: Long, val reason: DecisionRefusal) : WorkerEvent
+
+    /** §6.151 — the game is over, and this is what Forge said. */
+    data class Ended(val outcome: GameOutcome) : WorkerEvent
+
+    /**
+     * The worker stopped talking — §6.154.
+     *
+     * Distinct from [Ended] on purpose. A pipe that closed is not
+     * a result: it is a RUNNING match whose process is gone, which
+     * is FAILED_RUNTIME and never a win for the player who
+     * happened to still be connected.
+     */
+    data object Stopped : WorkerEvent
 }
 
 /**

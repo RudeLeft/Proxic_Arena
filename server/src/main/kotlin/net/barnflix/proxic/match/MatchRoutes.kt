@@ -115,7 +115,7 @@ fun Route.matchRoutes(
                     // match had started. Found by the audit that
                     // followed the "leave room" bug.
                     rooms?.find(result.match.roomId)?.let { roomAnnouncer.roomChanged(it) }
-                    matchAnnouncer.matchChanged(result.match, null)
+                    matchAnnouncer.matchChanged(result.match, null, null)
 
                     // §6.17 — the answer is LAUNCHING. Forge starts
                     // behind it, and the match becomes RUNNING when

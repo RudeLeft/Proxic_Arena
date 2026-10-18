@@ -51,6 +51,18 @@ private fun readOptions(value: JsonElement?): List<DecisionOption> =
         DecisionOption(actionId, option["label"]?.jsonPrimitive?.contentOrNull)
     }
 
+/** §6.149, §6.151 — what Forge said, read without interpretation. */
+fun readOutcomeFrame(frame: JsonObject): GameOutcome? =
+    runCatching {
+        GameOutcome(
+            kind = frame.getValue("outcome").jsonPrimitive.content,
+            // Absent for a draw, for a game with no outcome and
+            // for a failure. Absent is NOT seat zero.
+            winningSeat = frame["winningSeat"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
+            turn = frame["turn"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+        )
+    }.getOrNull()
+
 fun readDecisionId(frame: JsonObject): Long? = frame["decisionId"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
 
 /**

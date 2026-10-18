@@ -109,11 +109,21 @@ fun matchMessage(
     status: String,
     failureCode: String?,
     seats: List<Triple<String, Int, String?>>,
+    outcome: net.barnflix.proxic.match.GameOutcome? = null,
 ): JsonObject =
     envelope("MATCH") {
         put("matchId", matchId)
         put("status", status)
         failureCode?.let { put("failureCode", it) }
+        // §6.149 — FORGE's result, by seat. The browser turns a
+        // seat into a name using the participant list it already
+        // has; the server does not send "Pat won", because a
+        // display name is not an identity.
+        outcome?.let {
+            put("outcome", it.kind)
+            it.winningSeat?.let { seat -> put("winningSeat", seat) }
+            put("endedOnTurn", it.turn)
+        }
         putJsonArray("participants") {
             seats.forEach { (userId, seat, deckName) ->
                 add(

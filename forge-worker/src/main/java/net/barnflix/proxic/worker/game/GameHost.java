@@ -45,6 +45,34 @@ public final class GameHost {
     private volatile Game game;
     private volatile Thread gameThread;
 
+    /**
+     * How a game ending leaves this class.
+     *
+     * Unprompted, because §6.151 is a sequence the SERVER has to
+     * run -- persist the result, release the room, shut the worker
+     * down -- and it cannot run any of it if it only learns the
+     * game ended by asking. The first version had the result
+     * available on request and nothing ever requested it, so a
+     * finished game sat claiming to be running.
+     */
+    private volatile java.util.function.Consumer<Result> endSink = result -> { };
+
+    public void onEnded(java.util.function.Consumer<Result> sink) {
+        this.endSink = sink;
+    }
+
+    /**
+     * What Forge said, as seats — §6.149.
+     *
+     * A SEAT, not a name. Forge identifies the winner by its
+     * player's name, which in Arena is a display name and is not
+     * unique; "winner: Pat" is not an answer when both players are
+     * called Pat. `kind` is WINNER, DRAW, NONE or FAILED, and
+     * nothing here is inferred from life totals or a dropped
+     * connection.
+     */
+    public record Result(String kind, int winningSeat, int turn) {}
+
     /** §6.36's chain, the worker's link: Forge lobby player → seat. */
     private final java.util.Map<LobbyPlayer, Integer> seatOf =
             java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
@@ -120,6 +148,11 @@ public final class GameHost {
                                 // a runtime can produce.
                                 running.countDown();
                                 finished.countDown();
+                                // After the latches, so anything
+                                // waiting on them is already free:
+                                // the sink writes to a pipe and a
+                                // slow reader must not hold them.
+                                publishEnd(created);
                             }
                         },
                         "proxic-game-" + matchName);
@@ -178,6 +211,38 @@ public final class GameHost {
      */
     void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
         publisher.accept(pending, labels);
+    }
+
+    /**
+     * Tell whoever is listening how it finished.
+     *
+     * Never throws into the game thread's finally: a transport
+     * problem must not become the reason the latches are the last
+     * thing that happened.
+     */
+    private void publishEnd(Game finishedGame) {
+        Result result;
+        if (failure.get() != null) {
+            // §6.154 — a crashed RUNNING game is FAILED_RUNTIME,
+            // not a loss for anybody. Do not record a fake winner.
+            result = new Result("FAILED", 0, turn());
+        } else if (finishedGame.getOutcome() == null) {
+            result = new Result("NONE", 0, turn());
+        } else if (finishedGame.getOutcome().isDraw()) {
+            result = new Result("DRAW", 0, turn());
+        } else {
+            result = new Result(
+                    "WINNER",
+                    seatOf(finishedGame.getOutcome().getWinningLobbyPlayer()),
+                    turn());
+        }
+        try {
+            endSink.accept(result);
+        } catch (RuntimeException e) {
+            // Nothing useful to do here: the server will notice the
+            // worker has stopped talking either way.
+            System.err.println("proxic: could not publish the result: " + e);
+        }
     }
 
     /** Called by the controller when a seat is first offered priority. */
