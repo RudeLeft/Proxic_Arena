@@ -23,6 +23,7 @@ import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.room.matchPresetRoutes
 import net.barnflix.proxic.room.matchSetupRoutes
 import net.barnflix.proxic.room.roomRoutes
@@ -493,9 +494,17 @@ private fun Route.databaseRoutes(
             // player count. The reason to fix it is that a claim in
             // a document and the behaviour of the server must not
             // disagree, which is a Phase 5 exit criterion.
+            // PHASE_06 — /api/matches joins the list. The last
+            // addition, /api/match-presets, was open to the world
+            // because it did not share a prefix with anything here
+            // and nothing noticed until the deployed server was
+            // probed. The route test enumerates every one of these
+            // now, so the next omission fails a build rather than
+            // reaching production.
             val guarded =
                 path.startsWith("/api/decks") ||
                     path.startsWith("/api/rooms") ||
+                    path.startsWith("/api/matches") ||
                     path.startsWith("/api/match-presets")
             if (!guarded) return@intercept
             val principal = call.requireAuth(sessions) ?: return@intercept finish()
@@ -550,6 +559,18 @@ private fun Route.databaseRoutes(
             ),
             roomService,
             lobby,
+        )
+
+        // PHASE_06 §6.10, §6.11, §6.114 — launch a match from a
+        // prepared setup, and find the one you are in. No Forge is
+        // started yet: the record exists in LAUNCHING so a worker
+        // that fails has somewhere to say so.
+        matchRoutes(
+            net.barnflix.proxic.match.MatchLauncher(
+                database.dataSource(),
+                net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+            ),
+            net.barnflix.proxic.match.MatchStore(database.dataSource()),
         )
 
         // §5.37, §5.94 — the server says which presets
