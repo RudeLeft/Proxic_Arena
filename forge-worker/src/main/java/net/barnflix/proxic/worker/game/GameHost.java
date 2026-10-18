@@ -131,6 +131,33 @@ public final class GameHost {
         }
     }
 
+    private final DecisionGate gate = new DecisionGate();
+
+    /** Where a published decision goes. Set by the worker's protocol. */
+    private volatile java.util.function.BiConsumer<DecisionGate.Pending,
+            java.util.Map<String, String>> publisher = (pending, labels) -> { };
+
+    public DecisionGate gate() {
+        return gate;
+    }
+
+    public void onDecision(
+            java.util.function.BiConsumer<DecisionGate.Pending,
+                    java.util.Map<String, String>> sink) {
+        this.publisher = sink;
+    }
+
+    /**
+     * §6.48 — the client is told about a decision it can act on.
+     *
+     * Called from Forge's thread, INSIDE the blocked call. Whatever
+     * the publisher does must not block for long, or the game
+     * thread is held by the transport rather than by the player.
+     */
+    void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
+        publisher.accept(pending, labels);
+    }
+
     /** Called by the controller when a seat is first offered priority. */
     void markRunning() {
         running.countDown();

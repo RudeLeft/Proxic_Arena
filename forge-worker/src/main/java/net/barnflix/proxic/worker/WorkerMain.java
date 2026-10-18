@@ -233,6 +233,26 @@ public final class WorkerMain {
                     }
 
                     GAME = new net.barnflix.proxic.worker.game.GameHost();
+                    // §6.99 — a decision becomes a frame. Sent from
+                    // Forge's own thread, inside the blocked call,
+                    // so this writes and returns rather than waiting
+                    // for anything.
+                    GAME.onDecision((pending, labels) -> {
+                        JsonObject ask = frame("DECISION_REQUEST", null);
+                        ask.addProperty("decisionId", pending.decisionId());
+                        ask.addProperty("seat", pending.seat());
+                        ask.addProperty("kind", pending.kind());
+                        ask.addProperty("stateVersion", pending.stateVersion());
+                        JsonArray options = new JsonArray();
+                        for (String id : pending.options()) {
+                            JsonObject option = new JsonObject();
+                            option.addProperty("actionId", id);
+                            option.addProperty("label", labels.get(id));
+                            options.add(option);
+                        }
+                        ask.add("options", options);
+                        send(ask);
+                    });
                     GAME.start(seats, request.has("matchId")
                             ? request.get("matchId").getAsString() : "match");
 
@@ -250,6 +270,36 @@ public final class WorkerMain {
                     send(started);
                 } catch (RuntimeException | InterruptedException e) {
                     send(error("GAME_START_FAILED", e.getClass().getSimpleName()));
+                }
+            }
+            case "DECISION_RESPONSE" -> {
+                // §6.101-§6.104 — every check happens in the gate,
+                // BEFORE the value can reach the blocked waiter. A
+                // late or duplicated answer that slipped through
+                // would not be ignored; it would become the answer
+                // to whatever Forge asks next.
+                if (GAME == null) {
+                    send(error("NO_GAME", "no game has been started"));
+                    break;
+                }
+                net.barnflix.proxic.worker.game.DecisionGate.Response answer =
+                        new net.barnflix.proxic.worker.game.DecisionGate.Response(
+                                request.get("decisionId").getAsLong(),
+                                request.get("seat").getAsString(),
+                                request.get("stateVersion").getAsLong(),
+                                request.has("actionId") && !request.get("actionId").isJsonNull()
+                                        ? request.get("actionId").getAsString() : null);
+
+                net.barnflix.proxic.worker.game.DecisionGate.Reject refused =
+                        GAME.gate().submit(answer);
+                if (refused == null) {
+                    JsonObject ok = frame("DECISION_ACCEPTED", messageId);
+                    ok.addProperty("decisionId", answer.decisionId());
+                    send(ok);
+                } else {
+                    JsonObject no = error("DECISION_REFUSED", refused.name());
+                    no.addProperty("decisionId", answer.decisionId());
+                    send(no);
                 }
             }
             case "GAME_RESULT" -> {
@@ -332,7 +382,17 @@ public final class WorkerMain {
         return frame;
     }
 
-    private static void send(JsonObject frame) {
+    /**
+     * Write one frame.
+     *
+     * SYNCHRONIZED since Phase 6: the game runs on its own thread
+     * and publishes DECISION_REQUEST from inside Forge's blocked
+     * call, while the main thread answers commands. Two unguarded
+     * writers on one stdout interleave, and half a JSON object
+     * followed by half another is not a frame anybody can parse —
+     * it would look like a protocol bug on the server.
+     */
+    private static synchronized void send(JsonObject frame) {
         protocol.print(GSON.toJson(frame));
         protocol.print('\n');
         // See (2) above. Without this the parent can wait forever for

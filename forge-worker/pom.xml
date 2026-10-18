@@ -61,6 +61,23 @@
       <artifactId>gson</artifactId>
       <version>2.11.0</version>
     </dependency>
+    <!-- PHASE_06 — the worker gained testable logic.
+
+         The decision gate holds a blocked Forge call stack and
+         decides which answers reach it. Phase 0A measured 203
+         leaked answers when its two duplicate defences were
+         removed, so "it compiles" is not evidence here.
+
+         The image build runs `mvn package` WITHOUT -DskipTests,
+         so these run on every build of the deployed artifact. A
+         gate that stops rejecting fails the image rather than
+         shipping. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -77,6 +94,11 @@
       </resource>
     </resources>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>properties-maven-plugin</artifactId>

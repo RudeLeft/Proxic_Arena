@@ -102,14 +102,65 @@ public final class MatchController extends GeneratedControllerBase {
             throw new IllegalStateException("priority loop guard tripped");
         }
 
-        // PASS IS `null`, NOT AN EMPTY LIST.
-        //
-        // An empty list is "here are zero abilities I am playing",
-        // which Forge answers by offering the same window again --
-        // forever, per the guard above. `null` is the pass. One
-        // character between a game and a hang, and the hang is
-        // silent.
-        return null;
+        // §6.50 — THE OPTIONS COME FROM FORGE. Not from card type,
+        // not from zone, not from mana cost, not from card text.
+        // Whatever Forge says is playable right now is what the
+        // player may do, and nothing here filters or reorders it.
+        java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
+        for (forge.game.card.Card card : player.getAllCards()) {
+            for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
+                // §6.46 — TYPED ids, because card ids and
+                // stack-instance ids share a number space and a bare
+                // integer cannot say which it means. The index keeps
+                // two abilities of ONE card distinct, which is
+                // §6.51's invariant: an object can expose zero, one
+                // or several actions.
+                byId.put("action:" + byId.size() + ":card:" + card.getId(), sa);
+            }
+        }
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            player.getName(),
+                            "chooseSpellAbilityToPlay",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            pending -> host.publishDecision(pending, labelsFor(byId)));
+
+            if (DecisionGate.PASS.equals(choice)) {
+                // PASS IS `null`, NOT AN EMPTY LIST.
+                //
+                // An empty list is "here are zero abilities I am
+                // playing", which Forge answers by offering the same
+                // window again -- forever, per the guard above.
+                // `null` is the pass. One character between a game
+                // and a hang, and the hang is silent.
+                return null;
+            }
+            SpellAbility chosen = byId.get(choice);
+            // The gate already refused a choice that was not on the
+            // list, so null here means the list changed underneath
+            // us. Passing is the safe answer; inventing one is not.
+            return chosen == null ? null : java.util.List.of(chosen);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
+     * Labels for a client that has no game state yet.
+     *
+     * §6.49 — presentation hints, not authority. When viewer
+     * snapshots exist the client will identify an action from the
+     * state it already holds (§6.48), and these become redundant
+     * rather than load-bearing.
+     */
+    private java.util.LinkedHashMap<String, String> labelsFor(
+            java.util.LinkedHashMap<String, SpellAbility> byId) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        byId.forEach((id, sa) -> labels.put(id, sa.getHostCard().getName() + " - " + sa));
+        return labels;
     }
 
     // ---- notifications, not decisions ------------------------------------
