@@ -573,8 +573,55 @@ public final class MatchController extends GeneratedControllerBase {
     private java.util.LinkedHashMap<String, String> labelsFor(
             java.util.LinkedHashMap<String, SpellAbility> byId) {
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        byId.forEach((id, sa) -> labels.put(id, sa.getHostCard().getName() + " - " + sa));
+        byId.forEach((id, sa) -> labels.put(id, describe(sa)));
         return labels;
+    }
+
+    /**
+     * One action, with WHAT IT COSTS.
+     *
+     * Reported by the owner: on turn one with no lands, three
+     * instants were offered and none could be cast. They were
+     * right that it looks wrong, and the cost is the missing
+     * half of the picture -- "Fiery Temper" says nothing about
+     * affordability, "Fiery Temper — {2}{R}" says everything when
+     * the battlefield is empty.
+     *
+     * This is a LEGIBILITY fix and not a filter, deliberately.
+     * Screening the list by affordability would mean deciding
+     * what a board can pay, which Forge does not offer outside
+     * its AI (CostPartMana.canPay returns true unconditionally)
+     * and which hides legal plays the moment anything reduces a
+     * cost, grants convoke, or plays for free. §6.50's second
+     * rules engine is wrong in exactly the cases people build
+     * decks around, so the player is told the cost and left to
+     * judge.
+     */
+    private String describe(SpellAbility sa) {
+        String name = sa.getHostCard().getName();
+        String cost = costOf(sa);
+        return cost.isEmpty() ? name + " — " + sa : name + " — " + cost + " — " + sa;
+    }
+
+    /**
+     * What this costs, from wherever Forge keeps it.
+     *
+     * An ACTIVATED ability carries its own pay costs; a SPELL
+     * usually does not, and the mana cost lives on the card. The
+     * first version read only the ability's and showed nothing
+     * at all for every spell -- which is precisely the case the
+     * owner reported.
+     */
+    private String costOf(SpellAbility sa) {
+        forge.game.cost.Cost costs = sa.getPayCosts();
+        if (costs != null) {
+            String text = costs.toString();
+            if (text != null && !text.isBlank() && !"".equals(text.trim())) {
+                return text.trim();
+            }
+        }
+        forge.card.mana.ManaCost mana = sa.getHostCard().getManaCost();
+        return mana == null ? "" : mana.toString().trim();
     }
 
     // ---- notifications, not decisions ------------------------------------
