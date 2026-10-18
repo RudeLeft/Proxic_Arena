@@ -169,6 +169,70 @@ test("an invitation can be declined, and the seat stays empty", async ({ browser
   }
 });
 
+/**
+ * Leaving gives you the lobby back, WITHOUT a refresh.
+ *
+ * Reported by the owner: after Leave room, "Host a game" did not
+ * come back until the page was reloaded. The server answers a
+ * leave with the room as it now is — correct for the members who
+ * remain — and the page adopted it, so it kept showing a room the
+ * player had just left.
+ *
+ * The socket did not cover it either: a leave is announced to the
+ * REMAINING members, and the leaver is not one.
+ *
+ * No reload anywhere in this test. A reload is exactly what hid
+ * the bug.
+ */
+test("leaving a room gives the lobby back without a refresh", async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  await signIn(host);
+  await leaveAnyRoom(host);
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await leaveAnyRoom(guest);
+
+  try {
+    await openLobby(host);
+    await openLobby(guest);
+    await host.getByRole("button", { name: "Host a game" }).click();
+    await host
+      .getByRole("region", { name: "Who is here" })
+      .locator("li", { hasText: secondUser })
+      .getByRole("button", { name: "Invite" })
+      .click();
+    await guest.getByRole("button", { name: "Accept" }).click();
+    await expect(host.getByText("2 of 2")).toBeVisible();
+
+    // The GUEST leaves: the case with no socket message at all.
+    await guest.getByRole("button", { name: "Leave room" }).click();
+    await expect(guest.getByRole("heading", { name: "No game yet" })).toBeVisible();
+    await expect(guest.getByRole("button", { name: "Host a game" })).toBeEnabled();
+
+    // And the host sees the seat free again, also without a reload.
+    await expect(host.getByText("1 of 2")).toBeVisible();
+
+    // The HOST closes: this one does get a socket message, and the
+    // HTTP answer must not put the dead room back.
+    await host.getByRole("button", { name: "Close room" }).click();
+    await expect(host.getByRole("heading", { name: "No game yet" })).toBeVisible();
+    await expect(host.getByRole("button", { name: "Host a game" })).toBeEnabled();
+
+    // The real proof that the lobby is usable again, not just
+    // rendering the right words.
+    await host.getByRole("button", { name: "Host a game" }).click();
+    await expect(host.getByRole("heading", { name: "Your game" })).toBeVisible();
+  } finally {
+    await leaveAnyRoom(host);
+    await leaveAnyRoom(guest);
+    await hostContext.close();
+    await guestContext.close();
+  }
+});
+
 test("the lobby survives a refresh", async ({ browser }) => {
   // §5.119 — a persisted room is the reason a refresh does not
   // destroy a lobby. The page asks GET /api/rooms/current on load,

@@ -75,6 +75,43 @@ export default function LobbyPage() {
     };
   }, []);
 
+  /**
+   * Leaving and closing: the room is no longer YOURS.
+   *
+   * These cannot go through `run`, and the reason is subtle enough
+   * that it shipped. The server answers both with the room AS IT
+   * NOW IS — correct, because the other members need it — but the
+   * caller has just stopped being a member. Adopting that response
+   * left the page showing "Your game" for a room the player had
+   * left, until they refreshed.
+   *
+   * The socket does not rescue it either: a leave is announced to
+   * the REMAINING members, and the leaver is not one. Closing
+   * happens to work only because the closer is still in the
+   * notified list, and even then the HTTP response can land after
+   * ROOM_CLOSED and put the dead room back.
+   *
+   * So this is explicit: whatever the server says about the room,
+   * my view of it is now empty. Reported by the owner, who had to
+   * refresh to get "Host a game" back.
+   */
+  const runLeaving = useCallback(async (call: () => Promise<RoomResult>) => {
+    setBusy(true);
+    setFailure(null);
+    const result = await call();
+    setBusy(false);
+    if (result.ok) {
+      setLobby((previous) => ({
+        ...previous,
+        room: null,
+        setupProblem: null,
+        notice: null,
+      }));
+    } else {
+      setFailure(result.failure.detail);
+    }
+  }, []);
+
   useEffect(() => {
     const socket = connectLobby(lobbyUrl(), setLobby);
     socketRef.current = socket;
@@ -196,8 +233,8 @@ export default function LobbyPage() {
               me={me.userId}
               iAmHost={iAmHost}
               busy={busy}
-              onLeave={() => void run(() => leaveRoom(room.roomId))}
-              onClose={() => void run(() => closeRoom(room.roomId))}
+              onLeave={() => void runLeaving(() => leaveRoom(room.roomId))}
+              onClose={() => void runLeaving(() => closeRoom(room.roomId))}
               onRemove={(userId) =>
                 void run(() => removeMember(room.roomId, userId, room.revision))
               }
