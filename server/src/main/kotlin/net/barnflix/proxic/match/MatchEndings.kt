@@ -86,6 +86,28 @@ internal class MatchEndings(
     }
 
     /**
+     * §6.162 — a match somebody ended on purpose.
+     *
+     * NOT a concession and NOT a result. §6.153 forbids declaring
+     * the opponent the winner without Forge's, and Forge did not
+     * report one, so nobody won: TERMINATED with no summary.
+     *
+     * The room comes back the same way it does after a real
+     * ending, which is the entire point of the feature -- a room
+     * whose match has wedged was previously unleavable,
+     * unclosable and unpreparable until the 24-hour sweep.
+     */
+    fun abandoned(match: Match) {
+        if (!records.recordTerminated(match.matchId, clock())) {
+            // Already over. Someone else abandoned it, or it
+            // finished between the check and here.
+            return
+        }
+        log.info("match ${match.matchId}: TERMINATED by a participant")
+        giveTheRoomBack(match.copy(status = MatchStatus.TERMINATED), null, null)
+    }
+
+    /**
      * §6.15 — a start that never became a game.
      *
      * Without this a failed start BRICKS the room: the claim

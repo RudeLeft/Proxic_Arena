@@ -27,6 +27,7 @@ import {
   closeRoom,
   connectLobby,
   createRoom,
+  abandonMatch,
   fetchCurrentMatch,
   fetchCurrentRoom,
   fetchMatchSetupId,
@@ -713,6 +714,9 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
   const socketRef = useRef<MatchSocket | null>(null);
   const running = match.status === "RUNNING";
+  const [confirmingAbandon, setConfirmingAbandon] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
+  const [abandonFailure, setAbandonFailure] = useState<string | null>(null);
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
 
   // §6.107 — the match socket, open only once there is a game to
@@ -728,6 +732,24 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       socket.close();
     };
   }, [match.matchId, running]);
+
+  /**
+   * §6.162 — the escape hatch.
+   *
+   * Nothing optimistic happens: the page does not clear the
+   * match, because the SERVER decides whether the match ended
+   * and the MATCH message is what says so. A page that cleared
+   * it locally on a request that was refused would show a lobby
+   * for a game still running.
+   */
+  const abandon = async () => {
+    setAbandoning(true);
+    setAbandonFailure(null);
+    const result = await abandonMatch(match.matchId);
+    setAbandoning(false);
+    setConfirmingAbandon(false);
+    if (!result.ok) setAbandonFailure(result.failure.detail);
+  };
 
   const answer = (actionId: string | null) => {
     const decision = game.decision;
@@ -771,6 +793,37 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       )}
 
       {game.notice && <p className="error-text">{game.notice}</p>}
+      {abandonFailure && <p className="error-text">{abandonFailure}</p>}
+
+      {(running || match.status === "LAUNCHING") &&
+        (confirmingAbandon ? (
+          <div className="actions">
+            {/* Said plainly, because it ends the game for BOTH
+                players and there is no undo. §6.153 is why it
+                can say "nobody wins": an abandoned match records
+                no winner at all. */}
+            <p className="error-text">
+              End this match for both players? Nobody wins it, and it cannot be resumed.
+            </p>
+            <button type="button" disabled={abandoning} onClick={() => void abandon()}>
+              Yes, abandon the match
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={abandoning}
+              onClick={() => setConfirmingAbandon(false)}
+            >
+              Keep playing
+            </button>
+          </div>
+        ) : (
+          <div className="actions">
+            <button type="button" className="secondary" onClick={() => setConfirmingAbandon(true)}>
+              Abandon match
+            </button>
+          </div>
+        ))}
 
       {game.decision ? (
         <div className="decision">

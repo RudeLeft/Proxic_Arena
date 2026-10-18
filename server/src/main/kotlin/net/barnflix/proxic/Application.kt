@@ -616,6 +616,7 @@ private fun Route.databaseRoutes(
             rooms = roomService,
             roomAnnouncer = lobby,
             matchAnnouncer = lobby,
+            control = matchRuntime,
         )
 
         // §5.37, §5.94 — the server says which presets

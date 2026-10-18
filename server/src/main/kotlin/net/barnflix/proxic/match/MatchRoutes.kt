@@ -94,6 +94,7 @@ fun Route.matchRoutes(
     roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
         net.barnflix.proxic.room.SilentAnnouncer,
     matchAnnouncer: MatchAnnouncer = MatchAnnouncer.NONE,
+    control: MatchControl = MatchControl.NONE,
 ) {
     route("/matches") {
         // §6.10, §6.11 — the host starts it.
@@ -135,6 +136,59 @@ fun Route.matchRoutes(
         get("/current") {
             val match = matches.activeMatchOf(callerId())
             call.respond(CurrentMatchResponse(match?.viewFor(callerId())))
+        }
+
+        /**
+         * §6.162 — the escape hatch.
+         *
+         * A match that has stopped responding leaves its room
+         * locked IN_MATCH: §6.152 means no lobby action can end
+         * it, so until this existed the players could not leave,
+         * close, or prepare again until the 24-hour sweep. That
+         * happened twice in testing.
+         *
+         * ANY PARTICIPANT may do it, not just the host. The
+         * trapped case is precisely the one where somebody's
+         * browser or connection is gone, and a host-only hatch
+         * would be shut exactly when it is needed. The tradeoff
+         * is that one player can end the other's game, and it is
+         * worth taking because nothing is at stake in the
+         * result: §6.153 forbids declaring the opponent the
+         * winner, so an abandoned match records no winner at all.
+         * There is nothing to gain by abandoning a game you are
+         * losing.
+         */
+        post("/{$MATCH_ID}/abandon") {
+            val matchId =
+                call.parameters[MATCH_ID]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    ?: return@post respondBadRequest("That is not a match id.")
+
+            val match = matches.find(matchId)
+            // A match you are not in and one that does not exist
+            // are the same answer (§4.65).
+            if (match == null || match.participants.none { it.userId == callerId() }) {
+                return@post call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("MATCH_NOT_FOUND", "No such match.", call.callId),
+                )
+            }
+            if (match.status != MatchStatus.LAUNCHING && match.status != MatchStatus.RUNNING) {
+                return@post call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorResponse(
+                        "MATCH_NOT_RUNNING",
+                        "That match is already over.",
+                        call.callId,
+                    ),
+                )
+            }
+
+            control.abandon(match)
+            call.respond(
+                MatchResponse(
+                    match.copy(status = MatchStatus.TERMINATED).viewFor(callerId()),
+                ),
+            )
         }
 
         // §6.108 — participants only. Knowing a match id is not

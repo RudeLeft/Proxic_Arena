@@ -128,6 +128,27 @@ fun interface MatchStarter {
 }
 
 /**
+ * Ending a match that is not ending by itself — §6.162.
+ *
+ * Separate from [MatchStarter] because starting and abandoning
+ * are different authorities: anybody may be told to start a
+ * match they host, and abandoning is the escape hatch for a game
+ * that has stopped responding.
+ *
+ * §6.164 — the browser cannot kill a worker. It names a MATCH it
+ * participates in; the server decides what that means and which
+ * process, if any, is involved. No pid, no path, no handle ever
+ * crosses that line.
+ */
+fun interface MatchControl {
+    fun abandon(match: Match)
+
+    companion object {
+        val NONE = MatchControl { }
+    }
+}
+
+/**
  * Telling the players what their match is doing — PHASE_06 §6.17.
  *
  * Declared in `match` and implemented over in `lobby`, the same
@@ -145,6 +166,7 @@ fun interface MatchStarter {
  * ONE connection something". A view-update model with holes in it
  * does not get better by being used 240 times a game.
  */
+
 fun interface MatchAnnouncer {
     /**
      * The match moved. Sent to its participants, one message each

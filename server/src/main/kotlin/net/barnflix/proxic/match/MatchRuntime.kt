@@ -33,7 +33,7 @@ class MatchRuntime(
     private val roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
         net.barnflix.proxic.room.SilentAnnouncer,
     private val decisions: DecisionAnnouncer = DecisionAnnouncer.NONE,
-) : MatchStarter {
+) : MatchStarter, MatchControl {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
     private val records = MatchRecords(dataSource)
@@ -191,10 +191,19 @@ class MatchRuntime(
         return question.takeIf { running.authorisedUser() == userId }
     }
 
-    /** §6.162 — stop one match, touching no other. */
-    fun terminate(matchId: UUID) {
-        live.remove(matchId)?.worker?.stop()
-        records.recordStatus(matchId, MatchStatus.TERMINATED, clock())
+    /**
+     * §6.162 — end ONE match, touching no other.
+     *
+     * Works whether or not this process is running it, and that
+     * is the case it exists for: after a restart the row says
+     * RUNNING and no worker exists, so a version that required a
+     * live match would refuse exactly when the players are most
+     * stuck. The worker is stopped if there is one; the record
+     * and the room are put right either way.
+     */
+    override fun abandon(match: Match) {
+        live.remove(match.matchId)?.worker?.stop()
+        endings.abandoned(match)
     }
 
     fun isRunning(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true

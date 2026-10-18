@@ -502,3 +502,54 @@ describe("a finished match", () => {
     expect(state.match?.outcome).toBeNull();
   });
 });
+
+// Abandoning — PHASE_06 §6.153, §6.162.
+//
+// The escape hatch for a match that has stopped responding.
+// §6.152 means no lobby action can end a running match, so
+// without this a wedged game left its room locked until the
+// 24-hour sweep.
+describe("an abandoned match", () => {
+  const seats = [
+    { userId: "u-pat", seatNumber: 1, deckName: "Mono Red" },
+    { userId: "u-sam", seatNumber: 2, deckName: null },
+  ];
+
+  it("clears the match and says nobody won", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      { type: "MATCH", matchId: "m-1", status: "TERMINATED", participants: seats },
+    ]);
+
+    expect(state.match).toBeNull();
+    // §6.153 — Arena must not declare the opponent the winner
+    // without Forge's result, and there is none.
+    expect(state.notice?.detail).toContain("Nobody won it");
+  });
+
+  /**
+   * Not phrased as a failure. Somebody meant to do this, and
+   * wording that implied a crash would send people looking for
+   * a fault that is not there.
+   */
+  it("reads as deliberate, not as a fault", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "TERMINATED", participants: seats },
+    ]);
+    expect(state.notice?.kind).toBe("info");
+  });
+
+  it("is distinct from a match that never started", () => {
+    const state = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "FAILED_STARTUP",
+        failureCode: "DECK_UNAVAILABLE",
+        participants: seats,
+      },
+    ]);
+    expect(state.notice?.kind).toBe("error");
+    expect(state.notice?.detail).toContain("deck could not be read");
+  });
+});

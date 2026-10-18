@@ -261,6 +261,85 @@ class MatchLauncherTest {
         assertEquals("winner:seat 1 on turn 9", summary)
     }
 
+    // --- abandoning — §6.153, §6.162 ---------------------------------------
+
+    private fun endings() =
+        MatchEndings(
+            MatchRecords(source()),
+            MatchAnnouncer.NONE,
+            RoomService(source(), DeckAuthorization(source())),
+        )
+
+    /**
+     * THE ESCAPE HATCH. A match that has stopped responding
+     * leaves its room locked IN_MATCH, and §6.152 means no lobby
+     * action can end it -- so until this existed the players
+     * could not leave, close or prepare again until the 24-hour
+     * sweep. That trapped the owner twice in testing.
+     */
+    @Test
+    fun `abandoning a match frees the room`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        MatchRecords(source()).recordRunning(launched.match.matchId, java.time.Instant.now())
+
+        endings().abandoned(launched.match)
+
+        val (status, summary, failure) = matchRow(launched.match.matchId)
+        assertEquals("TERMINATED", status)
+        // §6.153 — Arena must not declare the opponent the winner
+        // without Forge's result, and there is none. Nobody won.
+        assertEquals(null, summary, "an abandoned match recorded a winner")
+        // Not a failure either: somebody meant to do this.
+        assertEquals(null, failure)
+
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.OPEN, after.status)
+        assertEquals(2, after.members.size)
+        assertTrue(after.members.none { it.ready })
+    }
+
+    /** Both players pressing it at once must not matter. */
+    @Test
+    fun `abandoning twice is harmless`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        MatchRecords(source()).recordRunning(launched.match.matchId, java.time.Instant.now())
+
+        endings().abandoned(launched.match)
+        endings().abandoned(launched.match)
+
+        assertEquals("TERMINATED", matchRow(launched.match.matchId).first)
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        assertEquals(RoomStatus.OPEN, rooms.find(room.roomId)!!.status)
+    }
+
+    /**
+     * A finished game cannot be abandoned afterwards.
+     *
+     * Otherwise a click that arrives a moment late would erase a
+     * real Forge result and replace it with a termination.
+     */
+    @Test
+    fun `abandoning cannot erase a result`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(GameOutcome.WINNER, 2, 6),
+            java.time.Instant.now(),
+        )
+
+        endings().abandoned(launched.match)
+
+        val (status, summary, _) = matchRow(launched.match.matchId)
+        assertEquals("ENDED", status)
+        assertEquals("winner:seat 2 on turn 6", summary)
+    }
+
     // --- surviving a restart — §6.154, §6.157 -------------------------------
 
     /**

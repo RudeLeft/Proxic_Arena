@@ -127,6 +127,35 @@ internal class MatchRecords(private val dataSource: DataSource) {
             else -> "no result on turn ${outcome.turn}"
         }
 
+    /**
+     * §6.162, TERMINATED — somebody ended this match deliberately.
+     *
+     * "Intentional operational termination that is not itself a
+     * Forge game result", in §6.17's words, so `result_summary`
+     * stays NULL. §6.153 is explicit that Arena must not declare
+     * the opponent the winner without Forge's result, and an
+     * abandoned game has none: nobody won it.
+     *
+     * Conditional on the match still being live, which makes it
+     * idempotent and stops a late abandon overwriting a real
+     * result with a termination. Returns whether this call was
+     * the one that ended it.
+     */
+    fun recordTerminated(
+        matchId: UUID,
+        at: Instant,
+    ): Boolean =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "UPDATE match SET status = 'TERMINATED', ended_at = ? " +
+                    "WHERE match_id = ? AND status IN ('LAUNCHING', 'RUNNING')",
+            ).use {
+                it.setTimestamp(1, java.sql.Timestamp.from(at))
+                it.setObject(2, matchId)
+                it.executeUpdate() == 1
+            }
+        }
+
     fun recordStatus(
         matchId: UUID,
         status: MatchStatus,

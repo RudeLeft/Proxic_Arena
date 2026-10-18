@@ -277,7 +277,22 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         };
       }
 
-      if (status === "FAILED_STARTUP" || status === "TERMINATED") {
+      if (status === "TERMINATED") {
+        // §6.162 — somebody ended it on purpose. Not a failure
+        // and not a result: nobody won, and the wording has to
+        // say that rather than implying something went wrong.
+        return {
+          ...state,
+          match: null,
+          notice: {
+            kind: "info",
+            errorCode: status,
+            detail: "The match was abandoned. Nobody won it, and the room is open again.",
+          },
+        };
+      }
+
+      if (status === "FAILED_STARTUP") {
         // No match to be in. The room comes back on its own ROOM
         // message; all this has to do is stop claiming a game is
         // starting and say why it is not.
@@ -772,6 +787,46 @@ export async function launchMatch(
 }
 
 /** §6.114 — asked on load, so a refresh lands you back in the match. */
+/**
+ * §6.162 — end a match that has stopped responding.
+ *
+ * The browser names a MATCH it is in, and nothing else: §6.164
+ * forbids it controlling a worker, so there is no pid, path or
+ * handle here and the server decides what ending it means.
+ */
+export async function abandonMatch(
+  matchId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MatchResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(`/api/matches/${matchId}/abandon`, { method: "POST" }, fetchFn);
+  } catch {
+    return {
+      ok: false,
+      failure: { errorCode: "NETWORK", detail: "The server could not be reached." },
+    };
+  }
+
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    return {
+      ok: false,
+      failure: {
+        errorCode: asString(body["errorCode"]) ?? "REQUEST_FAILED",
+        detail: asString(body["detail"]) ?? "The match could not be abandoned.",
+      },
+    };
+  }
+  const match = asMatch(body["match"]);
+  return match
+    ? { ok: true, match }
+    : {
+        ok: false,
+        failure: { errorCode: "MALFORMED_RESPONSE", detail: "The server's answer made no sense." },
+      };
+}
+
 export async function fetchCurrentMatch(fetchFn: typeof fetch = fetch): Promise<MatchView | null> {
   try {
     const response = await apiFetch("/api/matches/current", {}, fetchFn);
