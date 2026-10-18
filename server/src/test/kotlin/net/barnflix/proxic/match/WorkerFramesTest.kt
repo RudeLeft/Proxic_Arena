@@ -43,6 +43,18 @@ class WorkerFramesTest {
         assertEquals("Mountain - tap", request?.options?.single()?.label)
     }
 
+    @Test
+    fun `a mandatory decision is read as mandatory, and absence means optional`() {
+        val base = """"decisionId":"1","actedForSeat":1,"authorisedSeat":1,"stateVersion":"1""""
+        val mandatory = readDecisionFrame(frame("{$base,\"mandatory\":true,\"options\":[]}"))
+        assertEquals(true, mandatory?.mandatory)
+
+        // An older worker that does not send the field must not
+        // accidentally make a decision unrefusable.
+        val silent = readDecisionFrame(frame("{$base,\"options\":[]}"))
+        assertEquals(false, silent?.mandatory)
+    }
+
     /**
      * THE ONE THAT MATTERS. A frame with no authorised seat is
      * unreadable, not half-understood.

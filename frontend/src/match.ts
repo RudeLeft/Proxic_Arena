@@ -42,6 +42,15 @@ export interface Decision {
   kind: string;
   stateVersion: number;
   options: DecisionOption[];
+  /**
+   * Some decisions have no "no".
+   *
+   * Discarding to hand size is the plain case: the rules say
+   * discard, so only WHICH is open. The page must not offer a
+   * Pass the server will refuse -- a button that always fails is
+   * worse than no button.
+   */
+  mandatory: boolean;
 }
 
 export type MatchConnection = "connecting" | "open" | "closed";
@@ -148,6 +157,8 @@ function refusalText(reason: string | null): string {
     case "WRONG_SEAT":
     case "NOT_YOURS":
       return "That decision is not yours to make.";
+    case "PASS_NOT_ALLOWED":
+      return "This one cannot be skipped — the rules require a choice.";
     case "UNREACHABLE":
       return "The game did not receive that. It may have stopped.";
     default:
@@ -166,6 +177,9 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     stateVersion,
     kind: asString(message["kind"]) ?? "unknown",
     options: asOptions(message["options"]),
+    // Absent means optional, matching the server: an older
+    // server cannot accidentally make a decision unrefusable.
+    mandatory: message["mandatory"] === true,
   };
 }
 

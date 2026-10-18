@@ -255,6 +255,10 @@ public final class WorkerMain {
                         ask.addProperty("authorisedSeat", pending.authorisedSeat());
                         ask.addProperty("kind", pending.kind());
                         ask.addProperty("stateVersion", pending.stateVersion());
+                        // Some decisions have no "no" -- discarding
+                        // to hand size is the plain case. The client
+                        // must not offer a Pass the gate will refuse.
+                        ask.addProperty("mandatory", pending.mandatory());
                         JsonArray options = new JsonArray();
                         for (String id : pending.options()) {
                             JsonObject option = new JsonObject();

@@ -146,6 +146,28 @@ class LiveMatchTest {
     }
 
     /**
+     * Some decisions have no "no", and the SERVER refuses one too.
+     *
+     * The gate refuses it as well, and that is not duplication:
+     * §6.100 says the browser's word is not authority, and a pass
+     * forwarded to Forge for a mandatory decision would be a
+     * question nobody answered. Nothing reaches the worker.
+     */
+    @Test
+    fun `a pass is refused when the decision is mandatory`() {
+        val live = live()
+        live.nowAsking(question().copy(mandatory = true))
+
+        assertEquals(DecisionRefusal.PASS_NOT_ALLOWED, live.answer(alice, 7, null))
+        assertTrue(sent.isEmpty(), "a pass was forwarded for a decision that forbids one")
+
+        // A real choice still goes through, so the refusal is
+        // about the pass and not about the decision.
+        assertNull(live.answer(alice, 7, "action:0:card:7"))
+        assertEquals(listOf("7/1/42/action:0:card:7"), sent)
+    }
+
+    /**
      * §6.100, §6.104 — the state version is the QUESTION's.
      *
      * Nothing in `answer`'s signature lets a caller supply one,

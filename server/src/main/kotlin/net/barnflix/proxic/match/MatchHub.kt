@@ -127,6 +127,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         put("actedForSeat", request.actedForSeat)
         put("kind", request.kind)
         put("stateVersion", request.stateVersion)
+        put("mandatory", request.mandatory)
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(

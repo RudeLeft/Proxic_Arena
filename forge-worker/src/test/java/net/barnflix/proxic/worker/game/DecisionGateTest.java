@@ -277,6 +277,57 @@ class DecisionGateTest {
         assertTrue(asker.done.await(5, TimeUnit.SECONDS), "the waiter never resumed");
     }
 
+    /**
+     * Some decisions have no "no".
+     *
+     * Discarding down to hand size is the plain case: the rules
+     * say discard, so only WHICH is open, and Forge's own input
+     * disables cancelling for it. A pass must be refused rather
+     * than answered for -- nobody else may choose a player's
+     * cards, so the game waits instead.
+     */
+    @Test
+    void a_pass_is_refused_when_the_rules_do_not_allow_one() throws Exception {
+        DecisionGate gate = new DecisionGate();
+        AtomicReference<String> answer = new AtomicReference<>();
+        CountDownLatch asked = new CountDownLatch(1);
+        AtomicReference<DecisionGate.Pending> pending = new AtomicReference<>();
+        Thread asker =
+                new Thread(() -> {
+                    try {
+                        answer.set(gate.ask(ALICE, ALICE, "discard", OPTIONS, true, p -> {
+                            pending.set(p);
+                            asked.countDown();
+                        }));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+        asker.setDaemon(true);
+        asker.start();
+        assertTrue(asked.await(5, TimeUnit.SECONDS));
+        assertTrue(pending.get().mandatory());
+
+        assertEquals(
+                DecisionGate.Reject.PASS_NOT_ALLOWED,
+                gate.submit(new DecisionGate.Response(
+                        pending.get().decisionId(), ALICE, pending.get().stateVersion(), null)));
+
+        // And a real choice still works, so the refusal is about
+        // the pass and not about the decision.
+        assertNull(gate.submit(new DecisionGate.Response(
+                pending.get().decisionId(), ALICE, pending.get().stateVersion(),
+                "action:0:card:7")));
+        assertEquals("action:0:card:7", pollAnswer(answer));
+    }
+
+    private static String pollAnswer(AtomicReference<String> answer) throws InterruptedException {
+        for (int i = 0; i < 100 && answer.get() == null; i++) {
+            Thread.sleep(20);
+        }
+        return answer.get();
+    }
+
     /** Passing is an answer, and it is allowed. */
     @Test
     void a_pass_is_accepted() throws Exception {

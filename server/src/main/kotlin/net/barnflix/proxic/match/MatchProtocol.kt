@@ -34,6 +34,15 @@ data class DecisionRequest(
     val kind: String,
     val stateVersion: Long,
     val options: List<DecisionOption>,
+    /**
+     * Some decisions have no "no" — §6.105's other side.
+     *
+     * Discarding to hand size is the plain case: the rules say
+     * discard, so only WHICH is open. Forge's own input disables
+     * cancelling for it. The client must not offer a pass the
+     * gate will refuse, and the server must not forward one.
+     */
+    val mandatory: Boolean = false,
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */
@@ -49,6 +58,9 @@ enum class DecisionRefusal {
 
     /** Refused by the SERVER, before the worker was troubled. */
     NOT_YOURS,
+
+    /** There was no "no" to choose. */
+    PASS_NOT_ALLOWED,
 }
 
 /**

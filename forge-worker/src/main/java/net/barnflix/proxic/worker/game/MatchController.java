@@ -490,6 +490,79 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Discarding down to hand size — §6.105, AGENTS FORGE-RULE.
+     *
+     * The rules say discard; the only question is WHICH, and that
+     * is entirely the player's. Forge's own human input sets
+     * min = max = nDiscard and `setCancelAllowed(false)`, so
+     * there is no "no" to offer and the decision is marked
+     * mandatory.
+     *
+     * Asked ONE CARD AT A TIME rather than as a multi-select.
+     * That is how a person does it, it needs no new protocol
+     * shape, and a half-finished selection cannot be submitted:
+     * each answer is final on its own and the next question
+     * reflects it. Forge's desktop client uses a multi-select
+     * dialog; the outcome is identical.
+     *
+     * Interruption returns what has been chosen so far rather
+     * than nothing. The worker is shutting down at that point,
+     * and a partial honest answer beats a confident empty one.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsToDiscardToMaximumHandSize(int nDiscard) {
+        forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+        if (nDiscard <= 0) {
+            return chosen;
+        }
+
+        try {
+            while (chosen.size() < nDiscard) {
+                java.util.LinkedHashMap<String, forge.game.card.Card> byId =
+                        new java.util.LinkedHashMap<>();
+                java.util.LinkedHashMap<String, String> labels =
+                        new java.util.LinkedHashMap<>();
+                for (forge.game.card.Card card
+                        : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
+                    if (chosen.contains(card)) {
+                        continue;
+                    }
+                    String id = "discard:card:" + card.getId();
+                    byId.put(id, card);
+                    labels.put(id, card.getName());
+                }
+                if (byId.isEmpty()) {
+                    // Fewer cards in hand than Forge asked for.
+                    // Nothing to invent; give back what there is.
+                    return chosen;
+                }
+
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "chooseCardsToDiscardToMaximumHandSize",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                true,
+                                pending -> host.publishDecision(pending, labels));
+
+                forge.game.card.Card card = byId.get(choice);
+                if (card == null) {
+                    // The gate refuses a pass on a mandatory
+                    // decision, so this means the answer named
+                    // something that is no longer in hand. Ask
+                    // again with a fresh list.
+                    continue;
+                }
+                chosen.add(card);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return chosen;
+    }
+
+    /**
      * Labels for a client that has no game state yet.
      *
      * §6.49 — presentation hints, not authority. When viewer

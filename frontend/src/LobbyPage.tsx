@@ -845,14 +845,19 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            className="secondary"
-            disabled={game.awaiting !== null}
-            onClick={() => answer(null)}
-          >
-            Pass
-          </button>
+          {/* No Pass when the rules do not allow one. Offering a
+              button that is always refused is worse than offering
+              nothing: it reads as the game being broken. */}
+          {!game.decision.mandatory && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={game.awaiting !== null}
+              onClick={() => answer(null)}
+            >
+              Pass
+            </button>
+          )}
           {/* §6.50 — this list is FORGE's. The page does not add
               to it, remove from it or reorder it, because an
               option Forge offered and a browser hid is a rules
@@ -919,6 +924,12 @@ function headingFor(kind: string): string {
       return "Choose a target";
     case "getAbilityToPlay":
       return "Choose which ability";
+    case "chooseManaAbility":
+      return "Choose which mana to make";
+    case "applyManaToCost":
+      return "Tap something for mana";
+    case "chooseCardsToDiscardToMaximumHandSize":
+      return "Discard a card";
     default:
       return "Your move";
   }
@@ -936,6 +947,13 @@ function hintFor(kind: string, options: number): string {
       return "These are the legal targets Forge allows. Pass to cancel instead.";
     case "getAbilityToPlay":
       return "That card can do more than one thing. Pass to cancel instead.";
+    case "applyManaToCost":
+    case "chooseManaAbility":
+      // The label carries what is still owed, so the hint says
+      // what the choice IS rather than repeating it.
+      return "Choose what to tap. Pass to cancel the whole thing.";
+    case "chooseCardsToDiscardToMaximumHandSize":
+      return "You are over your maximum hand size. This cannot be skipped.";
     default:
       return "These are the actions Forge says you can take.";
   }

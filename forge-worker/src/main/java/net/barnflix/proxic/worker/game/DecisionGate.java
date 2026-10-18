@@ -63,11 +63,24 @@ public final class DecisionGate {
         DUPLICATE,
         STALE_DECISION,
         STALE_STATE,
+
+        /**
+         * Passing was not on offer.
+         *
+         * Some decisions have no "no". Discarding down to hand
+         * size is the plain case: the rules say discard, so the
+         * only question is WHICH. A client that passes anyway is
+         * refused rather than answered for -- the game waits,
+         * which is correct, because nobody else may choose a
+         * player's cards for them.
+         */
+        PASS_NOT_ALLOWED,
     }
 
     /** One outstanding question. */
     public record Pending(long decisionId, int actedForSeat, int authorisedSeat, String kind,
-                          long stateVersion, java.util.List<String> options) {}
+                          long stateVersion, java.util.List<String> options,
+                          boolean mandatory) {}
 
     /**
      * A client's answer.
@@ -121,9 +134,17 @@ public final class DecisionGate {
     public String ask(int actedForSeat, int authorisedSeat, String kind,
                       java.util.List<String> options, Consumer<Pending> deliver)
             throws InterruptedException {
+        return ask(actedForSeat, authorisedSeat, kind, options, false, deliver);
+    }
+
+    public String ask(int actedForSeat, int authorisedSeat, String kind,
+                      java.util.List<String> options, boolean mandatory,
+                      Consumer<Pending> deliver)
+            throws InterruptedException {
         long id = nextDecisionId.getAndIncrement();
         Pending question =
-                new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options);
+                new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options,
+                        mandatory);
 
         // Clear BEFORE publishing the question. An answer left over
         // from the previous one would otherwise be waiting in the
@@ -171,6 +192,12 @@ public final class DecisionGate {
         }
         if (response.expectedStateVersion() != question.stateVersion()) {
             return Reject.STALE_STATE;
+        }
+        if (response.choice() == null && question.mandatory()) {
+            // The rules leave no "no" here. Refusing keeps the
+            // game waiting, which is right: the alternative is
+            // choosing somebody's cards for them.
+            return Reject.PASS_NOT_ALLOWED;
         }
         if (response.choice() != null && !question.options().contains(response.choice())) {
             // §6.101 — the answer must name one of the candidates

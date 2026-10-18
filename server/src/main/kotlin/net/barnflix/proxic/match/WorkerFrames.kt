@@ -41,6 +41,10 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             kind = frame["kind"]?.jsonPrimitive?.content ?: "unknown",
             stateVersion = frame.getValue("stateVersion").jsonPrimitive.content.toLong(),
             options = readOptions(frame["options"]),
+            // Absent means optional, which is the safe default:
+            // an older worker that does not send it cannot
+            // accidentally make a decision unrefusable.
+            mandatory = frame["mandatory"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
         )
     }.getOrNull()
 

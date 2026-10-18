@@ -187,3 +187,51 @@ describe("when priority moves to the other player", () => {
     expect(state.connection).toBe("open");
   });
 });
+
+/**
+ * Some decisions have no "no" — PHASE_06 §6.105.
+ *
+ * Discarding to hand size is the plain case: the rules say
+ * discard, so only WHICH is open, and Forge's own input disables
+ * cancelling for it. The page must not offer a Pass the server
+ * will refuse — a button that always fails reads as the game
+ * being broken.
+ */
+describe("a decision that cannot be refused", () => {
+  const MANDATORY = {
+    type: "DECISION_REQUEST",
+    decisionId: 9,
+    actedForSeat: 1,
+    kind: "chooseCardsToDiscardToMaximumHandSize",
+    stateVersion: 3,
+    mandatory: true,
+    options: [{ actionId: "discard:card:12", label: "Mountain" }],
+  };
+
+  it("is carried as mandatory", () => {
+    const state = apply([MANDATORY]);
+    expect(state.decision?.mandatory).toBe(true);
+  });
+
+  // An older server that does not send the field must not
+  // accidentally make a decision unrefusable.
+  it("defaults to optional when the server says nothing", () => {
+    const state = apply([QUESTION]);
+    expect(state.decision?.mandatory).toBe(false);
+  });
+
+  it("only true means true", () => {
+    const state = apply([{ ...MANDATORY, mandatory: "yes" }]);
+    expect(state.decision?.mandatory).toBe(false);
+  });
+
+  it("explains a refused pass in words a player can act on", () => {
+    const state = apply([
+      MANDATORY,
+      { type: "DECISION_REFUSED", decisionId: 9, reason: "PASS_NOT_ALLOWED" },
+    ]);
+    expect(state.notice).toContain("cannot be skipped");
+    // And the question stays, because it still needs answering.
+    expect(state.decision?.decisionId).toBe(9);
+  });
+});

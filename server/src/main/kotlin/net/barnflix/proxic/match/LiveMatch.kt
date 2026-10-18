@@ -117,8 +117,17 @@ class LiveMatch(
         val seat = seatOf(userId) ?: return DecisionRefusal.NOT_YOURS
         if (seat != question.authorisedSeat) return DecisionRefusal.NOT_YOURS
 
+        // Some decisions have no "no". Refused HERE as well as at
+        // the gate, because §6.100 says the browser's word is not
+        // authority and a pass that reached Forge would be
+        // answered by nobody.
+        if (actionId == null && question.mandatory) {
+            return DecisionRefusal.PASS_NOT_ALLOWED
+        }
+
         // §6.101 — the choice must be one THIS decision offered. A
-        // null actionId is a pass, which is always on the table.
+        // null actionId is a pass, which is allowed unless the
+        // decision says otherwise.
         if (actionId != null && question.options.none { it.actionId == actionId }) {
             return DecisionRefusal.STALE_DECISION
         }
