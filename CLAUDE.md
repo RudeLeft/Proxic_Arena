@@ -6,15 +6,22 @@ contract — project locations, phase discipline, evidence rules, Forge
 boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
-**Phase 0A is ACCEPTED (2026-10-15). Phase 1 is the active phase.**
+**Phase 0A is ACCEPTED (2026-10-15). Phases 1-5 are COMPLETE.
+Phase 6 (Forge Match Runtime) is LOCKED 2026-10-17 and is the
+active phase.**
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.
 
 **One play mode only: Open Format** — 60-65 card deck, max 4
-copies of a specific card, unrestricted card pool, 2 players. Commander
-and Two-Headed Giant are out of scope (owner decision 2026-10-15). See
-`docs/architecture/OPEN_FORMAT.md` and AGENTS.md FMT-001.
+copies of a specific card, unrestricted card pool, 2 players.
+
+Commander and Two-Headed Giant are **not built and not offered**,
+but they returned to the ROADMAP on 2026-10-17 (owner decision), so
+Phase 6 designs so they stay reachable. AGENTS.md FMT-005 draws the
+line: a seat model that can hold four is in scope; a game that seats
+four is not. See `docs/architecture/OPEN_FORMAT.md`, FMT-001 and
+FMT-005.
 
 This session is scoped to `Proxic_Arena` (this folder) only.
 

@@ -2,7 +2,7 @@
 
 # Phase 6 — Forge Match Runtime & Authoritative Game Protocol
 
-**Status:** PROVISIONAL  
+**Status:** LOCKED 2026-10-17  
 **Phase Type:** Core game-runtime implementation  
 **Depends On:** Completed, tested, and accepted Phase 5  
 **Primary Goal:** Launch, supervise, connect to, and complete real Forge-controlled matches through a stable Proxic browser protocol  
@@ -13,8 +13,9 @@
 **Full Mechanics/UI Coverage:** NOT CLAIMED IN THIS PHASE  
 
 
-> **PROVISIONAL, not LOCKED.** This phase was locked before Phase 0 was
-> executed. Phase 0 exists to decide the architecture, so a locked
+> **LOCKED 2026-10-17**, after the two-pass review recorded below and
+> seven owner decisions. It was PROVISIONAL because it had been
+> locked once before Phase 0 was executed. Phase 0 exists to decide the architecture, so a locked
 > specification downstream of it is a guess wearing a lock. Phase 0 has
 > been split into `PHASE_00A` (blocking) and `PHASE_00B` (deferred with
 > triggers); this phase may be locked once 0A is accepted.
@@ -218,6 +219,23 @@ consistent with `MATCH_SETUP_CONTRACT.md`), the match record
 (§6.18-§6.19, consistent with what Phase 5 writes, including the
 `display_name` snapshot V007 added), format and multiplayer scope,
 concurrency, test strategy, and asset plumbing.
+
+**D5 - vertical slice first.** Two players, one crude game, end to
+end before anything is polished: launch, hands, priority, one spell
+cast, a game that ends. Ugly but real. The alternative - full
+protocol first, client last - layers more cleanly, and Phase 5
+showed that the defects which actually mattered were the ones only
+visible by USING it. Seven of them, and the owner found the worst
+by looking for the lobby as a player would.
+
+**D6 - every slice that passes CI is deployed.** Phase 5 reached
+the host once, at the end, which is when "there is no link to the
+lobby" was discovered. Half-built features on the host are the
+price; finding that class of defect while it is cheap is what is
+bought.
+
+**D7 - this document is LOCKED.** Later changes are recorded
+amendments, not edits.
 
 All six ranges have now been walked (see "Second pass" above). What
 remains before this is renamed `_LOCKED` is not review but
