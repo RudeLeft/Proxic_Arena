@@ -50,6 +50,40 @@ internal class MatchRecords(private val dataSource: DataSource) {
         }
     }
 
+    /**
+     * A failed start gives the room back.
+     *
+     * OPEN with readiness cleared, which is owner decision D4's
+     * shape: the players are still seated with their decks, and
+     * can prepare again. The setup they used is CONSUMED and stays
+     * that way -- it was claimed, and claiming is what stops a
+     * second launch.
+     */
+    fun releaseRoom(roomId: UUID) {
+        dataSource.connection.use { connection ->
+            val released =
+                connection.prepareStatement(
+                    "UPDATE room SET status = 'OPEN', revision = revision + 1 " +
+                        "WHERE room_id = ? AND status = 'IN_MATCH'",
+                ).use {
+                    it.setObject(1, roomId)
+                    it.executeUpdate()
+                }
+            // ONLY if this call is the one that unlocked it. The
+            // readiness clear is unconditional SQL and would
+            // otherwise un-ready a room that is merely prepared --
+            // a release arriving late for a room that had already
+            // moved on would quietly undo everybody's tick.
+            if (released == 0) return@use
+            connection.prepareStatement(
+                "UPDATE room_member SET ready = FALSE WHERE room_id = ?",
+            ).use {
+                it.setObject(1, roomId)
+                it.executeUpdate()
+            }
+        }
+    }
+
     fun recordStatus(
         matchId: UUID,
         status: MatchStatus,

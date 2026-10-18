@@ -54,7 +54,7 @@ class LobbyService(
     private val rooms: RoomService,
     private val invitations: Invitations = Invitations(),
     private val chat: ChatLimiter = ChatLimiter(),
-) : LobbySocketHandler, RoomAnnouncer {
+) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
 
     // --- RoomAnnouncer: what the HTTP routes cannot say themselves ----
@@ -86,6 +86,39 @@ class LobbyService(
         // thirty seconds ago.
         invitations.forgetRoom(roomId)
         hub.sendToAll(formerMembers, roomClosedMessage(roomId, reason))
+    }
+
+    /**
+     * PHASE_06 §6.17 — the match moved, and its players hear it.
+     *
+     * Per participant, so a deck name only reaches the player it
+     * belongs to. The audit that followed the "leave room" bug
+     * found this path missing entirely: launching announced
+     * nothing, and RUNNING announced nothing to anybody.
+     */
+    override suspend fun matchChanged(
+        match: net.barnflix.proxic.match.Match,
+        failureCode: String?,
+    ) {
+        for (viewer in match.participants) {
+            val seats =
+                match.participants.map { seat ->
+                    Triple(
+                        seat.userId.toString(),
+                        seat.seatNumber,
+                        seat.deckName.takeIf { seat.userId == viewer.userId },
+                    )
+                }
+            hub.sendTo(
+                viewer.userId,
+                matchMessage(
+                    match.matchId.toString(),
+                    match.status.name,
+                    failureCode,
+                    seats,
+                ),
+            )
+        }
     }
 
     override suspend fun setupProblem(

@@ -331,3 +331,93 @@ describe("robustness", () => {
     expect(state.room?.members).toHaveLength(0);
   });
 });
+
+// The match — PHASE_06 §6.17, §6.114.
+//
+// Every test here exists because of a REFRESH. The launch, and then
+// RUNNING some seconds later, change state behind an asynchronous
+// JVM spawn; before this the page learned about neither and the
+// owner had to reload to find out a game had started. The reducer
+// is where "learned about" is decided, so it is where this is
+// provable without a browser.
+describe("the match", () => {
+  const seats = [
+    { userId: "u-pat", seatNumber: 1, deckName: "Mono Red" },
+    { userId: "u-sam", seatNumber: 2, deckName: null },
+  ];
+
+  it("takes a launching match", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "LAUNCHING", participants: seats },
+    ]);
+    expect(state.match?.matchId).toBe("m-1");
+    expect(state.match?.status).toBe("LAUNCHING");
+    expect(state.match?.participants).toHaveLength(2);
+  });
+
+  it("moves to running without anything being asked for", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "LAUNCHING", participants: seats },
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+    ]);
+    expect(state.match?.status).toBe("RUNNING");
+  });
+
+  it("keeps only your own deck name, because the server sends only that", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+    ]);
+    expect(state.match?.participants.map((s) => s.deckName)).toEqual(["Mono Red", null]);
+  });
+
+  // The one that matters most, and the reason the server now gives
+  // the room back: a failed start used to leave the room IN_MATCH
+  // forever. Here it must at least stop the page insisting a match
+  // is on its way.
+  it("a failed start leaves no match, and says why", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "LAUNCHING", participants: seats },
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "FAILED_STARTUP",
+        failureCode: "DECK_UNAVAILABLE",
+        participants: seats,
+      },
+    ]);
+    expect(state.match).toBeNull();
+    expect(state.notice?.kind).toBe("error");
+    expect(state.notice?.detail).toContain("deck could not be read");
+  });
+
+  it("explains a failure it has never heard of without printing the code", () => {
+    const state = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "FAILED_STARTUP",
+        failureCode: "SOMETHING_NEW",
+        participants: seats,
+      },
+    ]);
+    expect(state.notice?.detail).toBe("The match did not start. The room is open again.");
+  });
+
+  it("a closed room takes the match with it", () => {
+    const state = apply([
+      { type: "ROOM", room: room() },
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      { type: "ROOM_CLOSED", roomId: "r-1", reason: "CLOSED_BY_HOST" },
+    ]);
+    expect(state.match).toBeNull();
+    expect(state.room).toBeNull();
+  });
+
+  it("ignores a frame with no status rather than blanking the match", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      { type: "MATCH", matchId: "m-1" },
+    ]);
+    expect(state.match?.status).toBe("RUNNING");
+  });
+});

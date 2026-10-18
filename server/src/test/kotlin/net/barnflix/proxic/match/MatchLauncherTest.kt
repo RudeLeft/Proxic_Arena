@@ -12,9 +12,11 @@ import net.barnflix.proxic.room.DeckVerdict
 import net.barnflix.proxic.room.MatchSetupService
 import net.barnflix.proxic.room.PrepareResult
 import net.barnflix.proxic.room.Room
+import net.barnflix.proxic.room.RoomAnnouncer
 import net.barnflix.proxic.room.RoomResult
 import net.barnflix.proxic.room.RoomService
 import net.barnflix.proxic.room.RoomStatus
+import net.barnflix.proxic.room.SilentAnnouncer
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
@@ -182,6 +184,85 @@ class MatchLauncherTest {
 
         val rooms = RoomService(source(), DeckAuthorization(source()))
         assertEquals(RoomStatus.IN_MATCH, rooms.find(room.roomId)!!.status)
+    }
+
+    /**
+     * A FAILED START GIVES THE ROOM BACK.
+     *
+     * The bug this was written against: launching consumes the
+     * setup and locks the room, and nothing undid either when the
+     * worker failed. The room sat in IN_MATCH holding a setup that
+     * no longer existed, so the players could neither prepare
+     * again nor start -- and the only thing that ever cleared it
+     * was the 24-hour expiry sweep.
+     *
+     * The failure it actually hits is DECK_UNAVAILABLE -- this
+     * harness inserts decks without resolved card rows, so the
+     * seats cannot be built. That is the EARLIER of the two
+     * failure paths and the easier one to leave unhandled, since
+     * it returns before the worker is ever touched. No JVM is
+     * spawned, so this costs milliseconds.
+     *
+     * Run against the un-fixed runtime this fails on the first
+     * assertion with IN_MATCH (TEST-004).
+     */
+    @Test
+    fun `a failed start returns the room to the players`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val told = mutableListOf<String>()
+        val watchRoom =
+            object : RoomAnnouncer by SilentAnnouncer {
+                override suspend fun roomChanged(room: Room) {
+                    told += "ROOM ${room.status}"
+                }
+            }
+        val runtime =
+            MatchRuntime(
+                source(),
+                config(),
+                announcer = { match, code -> told += "MATCH ${match.status} $code" },
+                rooms = rooms,
+                roomAnnouncer = watchRoom,
+            )
+
+        val result = runtime.beginBlocking(launched.match)
+        assertIs<WorkerStart.Failed>(result)
+
+        // The room is usable again...
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.OPEN, after.status)
+        // ...and nobody is still ticked, because the decks were
+        // released with the setup and a ready seat without a deck
+        // is the state §5's CHECK constraint forbids.
+        assertTrue(after.members.none { it.ready }, "somebody was left ready")
+
+        // And BOTH halves were announced, because a room that is
+        // open again but says IN_MATCH on screen is the same bug
+        // from the player's side.
+        assertEquals(
+            listOf("MATCH FAILED_STARTUP DECK_UNAVAILABLE", "ROOM OPEN"),
+            told,
+        )
+    }
+
+    /** The same path must not disturb a room that is not in a match. */
+    @Test
+    fun `releasing a room leaves an unrelated open room alone`() {
+        val (room, _) = preparedRoom()
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val before = rooms.find(room.roomId)!!.revision
+
+        MatchRecords(source()).releaseRoom(room.roomId)
+
+        // Still READY_FOR_MATCH: the UPDATE is conditional on
+        // IN_MATCH, so a stray release cannot unlock a prepared
+        // room out from under a launch that is about to happen.
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.READY_FOR_MATCH, after.status)
+        assertEquals(before, after.revision)
     }
 
     // --- P6-B, the one that matters -----------------------------------------

@@ -90,6 +90,10 @@ fun Route.matchRoutes(
     launcher: MatchLauncher,
     matches: MatchStore,
     starter: MatchStarter = MatchStarter.NONE,
+    rooms: net.barnflix.proxic.room.RoomService? = null,
+    roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
+        net.barnflix.proxic.room.SilentAnnouncer,
+    matchAnnouncer: MatchAnnouncer = MatchAnnouncer.NONE,
 ) {
     route("/matches") {
         // §6.10, §6.11 — the host starts it.
@@ -104,6 +108,15 @@ fun Route.matchRoutes(
             when (val result = launcher.launch(setupId, callerId())) {
                 is LaunchResult.Refused -> respondRefusal(result.error)
                 is LaunchResult.Launched -> {
+                    // TELL THE OTHER PLAYER. The room just became
+                    // IN_MATCH and a match exists; without this
+                    // their lobby still shows a prepared room and
+                    // they would have to refresh to find out a
+                    // match had started. Found by the audit that
+                    // followed the "leave room" bug.
+                    rooms?.find(result.match.roomId)?.let { roomAnnouncer.roomChanged(it) }
+                    matchAnnouncer.matchChanged(result.match, null)
+
                     // §6.17 — the answer is LAUNCHING. Forge starts
                     // behind it, and the match becomes RUNNING when
                     // it does. Waiting here would hold the request

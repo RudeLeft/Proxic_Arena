@@ -28,6 +28,10 @@ class MatchRuntime(
     private val dataSource: DataSource,
     private val config: ServerConfig,
     private val clock: () -> Instant = Instant::now,
+    private val announcer: MatchAnnouncer = MatchAnnouncer.NONE,
+    private val rooms: net.barnflix.proxic.room.RoomService? = null,
+    private val roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
+        net.barnflix.proxic.room.SilentAnnouncer,
 ) : MatchStarter {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
@@ -47,6 +51,7 @@ class MatchRuntime(
         val seats = records.seatsFor(match)
         if (seats == null) {
             records.recordFailure(match.matchId, "DECK_UNAVAILABLE", clock())
+            releaseRoom(match, "DECK_UNAVAILABLE")
             return WorkerStart.Failed("DECK_UNAVAILABLE", "A deck could not be read.")
         }
 
@@ -58,6 +63,7 @@ class MatchRuntime(
             is WorkerStart.Running -> {
                 records.recordRunning(match.matchId, clock())
                 log.info("match ${match.matchId}: RUNNING at turn ${result.turn}")
+                announce(match.copy(status = MatchStatus.RUNNING), null)
             }
 
             is WorkerStart.Failed -> {
@@ -68,6 +74,17 @@ class MatchRuntime(
                 live.remove(match.matchId)
                 records.recordFailure(match.matchId, result.code, clock())
                 log.warn("match ${match.matchId}: FAILED_STARTUP ${result.code} ${result.detail}")
+
+                // GIVE THE ROOM BACK. Without this a failed start
+                // BRICKS it: the room stays IN_MATCH holding a setup
+                // the claim already consumed, so the players cannot
+                // prepare again and nothing frees it short of the
+                // 24-hour sweep. Found by the audit rather than by
+                // anything going wrong, which is the point -- it
+                // only goes wrong when Forge fails to start, which
+                // is exactly when the players least want to be
+                // stuck.
+                releaseRoom(match, result.code)
             }
         }
         return result
@@ -92,6 +109,46 @@ class MatchRuntime(
             )
         thread.isDaemon = true
         thread.start()
+    }
+
+    /**
+     * A failed start gives the room back, and says so.
+     *
+     * Both halves matter and for different reasons: the UPDATE is
+     * what lets the players prepare again, and the announcement is
+     * what means they find that out without reloading the page.
+     * Either one alone leaves somebody looking at a lie.
+     */
+    private fun releaseRoom(
+        match: Match,
+        failureCode: String,
+    ) {
+        records.releaseRoom(match.roomId)
+        announce(match.copy(status = MatchStatus.FAILED_STARTUP), failureCode)
+        rooms?.find(match.roomId)?.let { room ->
+            runCatching {
+                kotlinx.coroutines.runBlocking { roomAnnouncer.roomChanged(room) }
+            }.onFailure { log.warn("match ${match.matchId}: room unannounced", it) }
+        }
+    }
+
+    /**
+     * Tell the participants, from a plain thread.
+     *
+     * runBlocking because the runtime is not a coroutine: it is a
+     * thread per launch, and the alternative is a scope owned by
+     * something that has no lifecycle of its own. Never allowed to
+     * fail the start -- a match that is running but unannounced is
+     * recoverable by a refresh; one that was rolled back because a
+     * socket write failed is not.
+     */
+    private fun announce(
+        match: Match,
+        failureCode: String?,
+    ) {
+        runCatching {
+            kotlinx.coroutines.runBlocking { announcer.matchChanged(match, failureCode) }
+        }.onFailure { log.warn("match ${match.matchId}: could not announce", it) }
     }
 
     /** §6.162 — stop one match, touching no other. */

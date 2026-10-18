@@ -566,7 +566,13 @@ private fun Route.databaseRoutes(
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
         val matchRuntime =
-            net.barnflix.proxic.match.MatchRuntime(database.dataSource(), config)
+            net.barnflix.proxic.match.MatchRuntime(
+                database.dataSource(),
+                config,
+                announcer = lobby,
+                rooms = roomService,
+                roomAnnouncer = lobby,
+            )
         application.environment.monitor.subscribe(ApplicationStopped) {
             // §6.162 — a stopping server takes its match workers
             // with it. Each is ~611 MB; leaving them behind would
@@ -581,6 +587,9 @@ private fun Route.databaseRoutes(
             ),
             net.barnflix.proxic.match.MatchStore(database.dataSource()),
             matchRuntime,
+            rooms = roomService,
+            roomAnnouncer = lobby,
+            matchAnnouncer = lobby,
         )
 
         // §5.37, §5.94 — the server says which presets

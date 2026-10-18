@@ -80,6 +80,30 @@ export interface Notice {
   detail: string;
 }
 
+/**
+ * The match this socket says you are in — PHASE_06 §6.17.
+ *
+ * Carried on the lobby state rather than fetched, because the
+ * status changes behind a JVM spawn: LAUNCHING is the answer to the
+ * launch request, and RUNNING arrives some seconds later with
+ * nobody asking. A page that only learned this from HTTP would need
+ * a refresh to find out the game had started, which is the exact
+ * class of bug this sweep is clearing.
+ */
+export interface MatchSeatView {
+  userId: string;
+  seatNumber: number;
+  /** §5.47 again: your own deck by name, nobody else's. */
+  deckName: string | null;
+}
+
+export interface MatchView {
+  matchId: string;
+  status: string;
+  failureCode: string | null;
+  participants: MatchSeatView[];
+}
+
 export type ConnectionState = "connecting" | "open" | "closed";
 
 export interface LobbyState {
@@ -91,6 +115,8 @@ export interface LobbyState {
   invitation: Invitation | null;
   setupProblem: SetupProblem | null;
   notice: Notice | null;
+  /** Null until a match exists, and null again once one cannot. */
+  match: MatchView | null;
 }
 
 export const EMPTY_LOBBY: LobbyState = {
@@ -101,6 +127,7 @@ export const EMPTY_LOBBY: LobbyState = {
   invitation: null,
   setupProblem: null,
   notice: null,
+  match: null,
 };
 
 /**
@@ -172,6 +199,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         ...state,
         room: null,
         setupProblem: null,
+        match: null,
         notice: {
           kind: "info",
           errorCode: type,
@@ -208,6 +236,34 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       return { ...state, setupProblem: { roomId, errorCode, detail } };
     }
 
+    case "MATCH": {
+      const matchId = asString(message["matchId"]);
+      const status = asString(message["status"]);
+      if (!matchId || !status) return state;
+      const participants = asMatchSeats(message["participants"]);
+      const failureCode = asString(message["failureCode"]);
+
+      if (status === "FAILED_STARTUP" || status === "TERMINATED") {
+        // No match to be in. The room comes back on its own ROOM
+        // message; all this has to do is stop claiming a game is
+        // starting and say why it is not.
+        return {
+          ...state,
+          match: null,
+          notice: {
+            kind: "error",
+            errorCode: failureCode ?? status,
+            detail: matchFailed(failureCode),
+          },
+        };
+      }
+      return {
+        ...state,
+        match: { matchId, status, failureCode, participants },
+        notice: null,
+      };
+    }
+
     case "ERROR": {
       const errorCode = asString(message["errorCode"]);
       const detail = asString(message["detail"]);
@@ -218,6 +274,36 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
     default:
       return state;
   }
+}
+
+/** §6.99 — what went wrong, in words, without Forge's internals. */
+function matchFailed(code: string | null): string {
+  switch (code) {
+    case "DECK_UNAVAILABLE":
+      return "A deck could not be read, so the match did not start. The room is open again.";
+    case "WORKER_INCOMPATIBLE":
+    case "WORKER_UNCONFIGURED":
+    case "WORKER_MISSING":
+      return "This server cannot run matches right now. The room is open again.";
+    case "GAME_START_TIMEOUT":
+      return "The game took too long to start. The room is open again — try once more.";
+    default:
+      return "The match did not start. The room is open again.";
+  }
+}
+
+function asMatchSeats(value: unknown): MatchSeatView[] {
+  if (!Array.isArray(value)) return [];
+  const seats: MatchSeatView[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const userId = asString(row["userId"]);
+    const seatNumber = row["seatNumber"];
+    if (!userId || typeof seatNumber !== "number") continue;
+    seats.push({ userId, seatNumber, deckName: asString(row["deckName"]) });
+  }
+  return seats;
 }
 
 function closedBecause(reason: string | null): string {
@@ -561,6 +647,107 @@ export async function prepareMatch(
     };
   }
   return { ok: true, room };
+}
+
+/**
+ * PHASE_06 §6.10 — the setup id the launch needs.
+ *
+ * Fetched rather than remembered. The host may have prepared the
+ * match in a previous page load, or on another device, and a
+ * "Start match" button that only works when THIS tab did the
+ * preparing is a button that mysteriously does nothing.
+ */
+export async function fetchMatchSetupId(
+  roomId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<string | null> {
+  try {
+    const response = await apiFetch(`/api/rooms/${roomId}/match-setup`, {}, fetchFn);
+    if (!response.ok) return null;
+    const body = (await response.json()) as Record<string, unknown>;
+    const setup = body["setup"];
+    if (typeof setup !== "object" || setup === null) return null;
+    return asString((setup as Record<string, unknown>)["setupId"]);
+  } catch {
+    return null;
+  }
+}
+
+export type MatchResult = { ok: true; match: MatchView } | { ok: false; failure: RoomFailure };
+
+/**
+ * §6.10, §6.17 — start it. The answer is LAUNCHING, not RUNNING.
+ *
+ * The body carries ONLY the setup id: not seats, not decks, not
+ * the preset. §6.10 is explicit about it, and the reason is that a
+ * client which can name its own seat can name somebody else's.
+ */
+export async function launchMatch(
+  setupId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MatchResult> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      "/api/matches",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setupId }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return {
+      ok: false,
+      failure: { errorCode: "NETWORK", detail: "The server could not be reached." },
+    };
+  }
+
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    return {
+      ok: false,
+      failure: {
+        errorCode: asString(body["errorCode"]) ?? "REQUEST_FAILED",
+        detail: asString(body["detail"]) ?? "The match could not be started.",
+      },
+    };
+  }
+  const match = asMatch(body["match"]);
+  if (!match) {
+    return {
+      ok: false,
+      failure: { errorCode: "MALFORMED_RESPONSE", detail: "The server's answer made no sense." },
+    };
+  }
+  return { ok: true, match };
+}
+
+/** §6.114 — asked on load, so a refresh lands you back in the match. */
+export async function fetchCurrentMatch(fetchFn: typeof fetch = fetch): Promise<MatchView | null> {
+  try {
+    const response = await apiFetch("/api/matches/current", {}, fetchFn);
+    if (!response.ok) return null;
+    const body = (await response.json()) as Record<string, unknown>;
+    return asMatch(body["match"]);
+  } catch {
+    return null;
+  }
+}
+
+function asMatch(value: unknown): MatchView | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const matchId = asString(row["matchId"]);
+  const status = asString(row["status"]);
+  if (!matchId || !status) return null;
+  return {
+    matchId,
+    status,
+    failureCode: asString(row["failureCode"]),
+    participants: asMatchSeats(row["participants"]),
+  };
 }
 
 /** §5.139 — asked on load, so a refresh lands you back in the room. */

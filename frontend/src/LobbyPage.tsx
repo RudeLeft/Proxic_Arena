@@ -26,7 +26,10 @@ import {
   closeRoom,
   connectLobby,
   createRoom,
+  fetchCurrentMatch,
   fetchCurrentRoom,
+  fetchMatchSetupId,
+  launchMatch,
   leaveRoom,
   prepareMatch,
   removeMember,
@@ -34,6 +37,7 @@ import {
   setReady,
   type LobbySocket,
   type LobbyState,
+  type MatchView,
   type RoomMemberView,
   type RoomResult,
   type RoomView,
@@ -66,6 +70,13 @@ export default function LobbyPage() {
         // Not if the socket already delivered something newer.
         previous.room && previous.room.revision >= room.revision ? previous : { ...previous, room },
       );
+    });
+    // §6.114 — and back into the MATCH, for the same reason. A
+    // page reloaded mid-game that showed a lobby would be telling
+    // the player they are not in the game they are in.
+    void fetchCurrentMatch().then((match) => {
+      if (cancelled || !match) return;
+      setLobby((previous) => (previous.match ? previous : { ...previous, match }));
     });
     void listDecks().then((next) => {
       if (!cancelled) setLibrary(next);
@@ -106,7 +117,38 @@ export default function LobbyPage() {
         room: null,
         setupProblem: null,
         notice: null,
+        match: null,
       }));
+    } else {
+      setFailure(result.failure.detail);
+    }
+  }, []);
+
+  /**
+   * §6.10 — start the match the host already prepared.
+   *
+   * Two calls, because the launch takes a SETUP id and the page
+   * holds a room. Deliberately not cached from the prepare: see
+   * fetchMatchSetupId.
+   *
+   * Nothing optimistic happens here either. The 201 carries the
+   * match in LAUNCHING, and RUNNING arrives on the socket seconds
+   * later when Forge is up — which is the whole reason the MATCH
+   * message exists.
+   */
+  const launch = useCallback(async (roomId: string) => {
+    setBusy(true);
+    setFailure(null);
+    const setupId = await fetchMatchSetupId(roomId);
+    if (!setupId) {
+      setBusy(false);
+      setFailure("That match is no longer prepared. Prepare it again.");
+      return;
+    }
+    const result = await launchMatch(setupId);
+    setBusy(false);
+    if (result.ok) {
+      setLobby((previous) => ({ ...previous, match: result.match, notice: null }));
     } else {
       setFailure(result.failure.detail);
     }
@@ -187,8 +229,19 @@ export default function LobbyPage() {
       )}
 
       {lobby.notice && (
+        // Dismissible, because nothing else reliably clears it. A
+        // notice is cleared when a ROOM arrives, so "The host
+        // closed the room." sat on the page indefinitely for
+        // anybody who did not immediately host another one.
         <section className={lobby.notice.kind === "error" ? "panel error" : "panel"}>
           <p>{lobby.notice.detail}</p>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setLobby((previous) => ({ ...previous, notice: null }))}
+          >
+            Dismiss
+          </button>
         </section>
       )}
 
@@ -227,6 +280,8 @@ export default function LobbyPage() {
         </div>
 
         <div className="lobby-main">
+          {lobby.match && <MatchPanel match={lobby.match} me={me.userId} />}
+
           {room ? (
             <RoomPanel
               room={room}
@@ -241,6 +296,8 @@ export default function LobbyPage() {
               onReady={(ready) => void run(() => setReady(room.roomId, ready, room.revision))}
               onPrepare={() => void run(() => prepareMatch(room.roomId, room.revision))}
               onCancelPreparation={() => void run(() => cancelPreparation(room.roomId))}
+              onLaunch={() => void launch(room.roomId)}
+              launched={lobby.match !== null}
             />
           ) : (
             <section className="panel">
@@ -402,6 +459,8 @@ function RoomPanel({
   onReady,
   onPrepare,
   onCancelPreparation,
+  onLaunch,
+  launched,
 }: {
   room: RoomView;
   me: string;
@@ -413,6 +472,9 @@ function RoomPanel({
   onReady: (ready: boolean) => void;
   onPrepare: () => void;
   onCancelPreparation: () => void;
+  onLaunch: () => void;
+  /** A match already exists for this room, so there is nothing to start. */
+  launched: boolean;
 }) {
   const myMember = room.members.find((m) => m.userId === me);
   const prepared = room.status === "READY_FOR_MATCH";
@@ -456,9 +518,9 @@ function RoomPanel({
         )}
       </ul>
 
-      {prepared && (
+      {prepared && !launched && (
         <p className="hint">
-          The match is prepared and the room is locked. Phase 6 launches it; nothing starts yet.
+          The match is prepared and the room is locked. Starting it hands the decks to Forge.
         </p>
       )}
 
@@ -484,8 +546,14 @@ function RoomPanel({
           </button>
         )}
 
-        {iAmHost && prepared && (
-          <button type="button" disabled={busy} onClick={onCancelPreparation}>
+        {iAmHost && prepared && !launched && (
+          <button type="button" disabled={busy} onClick={onLaunch}>
+            Start match
+          </button>
+        )}
+
+        {iAmHost && prepared && !launched && (
+          <button type="button" className="secondary" disabled={busy} onClick={onCancelPreparation}>
             Cancel preparation
           </button>
         )}
@@ -606,6 +674,38 @@ function DeckPanel({
           deck because the endpoint cannot express it. Saying so
           saves a host looking for one. */}
       {inRoom && <p className="hint">Each player chooses their own deck.</p>}
+    </section>
+  );
+}
+
+/**
+ * What the lobby shows about a live match — PHASE_06 §6.17.
+ *
+ * Deliberately thin. The board, the hand and the decisions are the
+ * next slice; what this has to do today is stop the page claiming
+ * a player is sitting in a lobby when they are in a game, and
+ * change by itself when LAUNCHING becomes RUNNING. Those two are
+ * the refresh-free requirement, and they are testable now.
+ */
+function MatchPanel({ match, me }: { match: MatchView; me: string }) {
+  const mine = match.participants.find((seat) => seat.userId === me);
+
+  return (
+    <section className="panel" aria-label="Your match">
+      <h2>Your match</h2>
+      <p>
+        {match.status === "LAUNCHING"
+          ? "Starting the game. Forge is loading — this takes a few seconds."
+          : "The game is running."}
+      </p>
+      {mine?.deckName && (
+        // §5.47 into §6: your own deck by name. The server sends
+        // nobody else's, so there is nothing here to leak.
+        <p className="hint">You are playing {mine.deckName}.</p>
+      )}
+      <p className="hint">
+        Seat {mine ? mine.seatNumber : "?"} of {match.participants.length}.
+      </p>
     </section>
   );
 }

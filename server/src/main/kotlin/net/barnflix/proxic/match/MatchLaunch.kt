@@ -126,3 +126,38 @@ fun interface MatchStarter {
         val NONE = MatchStarter { }
     }
 }
+
+/**
+ * Telling the players what their match is doing — PHASE_06 §6.17.
+ *
+ * Declared in `match` and implemented over in `lobby`, the same
+ * direction as RoomAnnouncer: the match rules have no idea a
+ * WebSocket exists and keep it that way.
+ *
+ * This exists because the audit after the "leave room" bug found
+ * the same fault three more times, and the worst of them was here:
+ * launching a match announced NOTHING. The opponent's lobby still
+ * showed a prepared room, and when the match became RUNNING a
+ * minute later — or failed — nobody was told at all.
+ *
+ * That matters more here than anywhere else, because the next
+ * thing built on top is a decision protocol that is entirely "tell
+ * ONE connection something". A view-update model with holes in it
+ * does not get better by being used 240 times a game.
+ */
+fun interface MatchAnnouncer {
+    /**
+     * The match moved. Sent to its participants, one message each
+     * so a player's own deck stays their own (§5.47).
+     *
+     * [failureCode] is null unless the match failed.
+     */
+    suspend fun matchChanged(
+        match: Match,
+        failureCode: String?,
+    )
+
+    companion object {
+        val NONE = MatchAnnouncer { _, _ -> }
+    }
+}

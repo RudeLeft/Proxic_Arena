@@ -2,7 +2,10 @@ package net.barnflix.proxic.lobby
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomView
 import net.barnflix.proxic.room.viewFor
@@ -91,4 +94,35 @@ fun setupProblemMessage(
         put("roomId", roomId.toString())
         put("errorCode", code)
         put("detail", detail)
+    }
+
+/**
+ * Your match moved — PHASE_06 §6.17.
+ *
+ * Built per recipient, like ROOM: a participant sees their own
+ * deck by name and everybody else's as a fact (§5.47). A match is
+ * not a reason to relax that — it is the moment somebody would
+ * most like to know what they are facing.
+ */
+fun matchMessage(
+    matchId: String,
+    status: String,
+    failureCode: String?,
+    seats: List<Triple<String, Int, String?>>,
+): JsonObject =
+    envelope("MATCH") {
+        put("matchId", matchId)
+        put("status", status)
+        failureCode?.let { put("failureCode", it) }
+        putJsonArray("participants") {
+            seats.forEach { (userId, seat, deckName) ->
+                add(
+                    buildJsonObject {
+                        put("userId", userId)
+                        put("seatNumber", seat)
+                        put("deckName", deckName)
+                    },
+                )
+            }
+        }
     }
