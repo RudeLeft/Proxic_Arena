@@ -123,6 +123,7 @@ fun RoomError.httpStatus(): io.ktor.http.HttpStatusCode =
         // The request was well formed and the room disagrees: a
         // conflict with state, not a malformed ask.
         RoomError.NotOpen,
+        RoomError.MatchInProgress,
         RoomError.Full,
         RoomError.AlreadyInARoom,
         RoomError.AlreadyMember,

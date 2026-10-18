@@ -173,6 +173,10 @@ class RoomService(
             if (!room.isMember(userId)) {
                 return@inTransaction RoomResult.Refused(RoomError.NotFound)
             }
+            // §6.152 — a match is not left through the lobby.
+            if (room.status == RoomStatus.IN_MATCH) {
+                return@inTransaction RoomResult.Refused(RoomError.MatchInProgress)
+            }
 
             if (room.isHost(userId)) {
                 store.close(connection, roomId)
@@ -198,6 +202,11 @@ class RoomService(
 
             when {
                 !room.isHost(hostUserId) -> RoomResult.Refused(RoomError.HostRequired)
+
+                // §6.152 — and the host cannot remove somebody out
+                // of a game they are playing.
+                room.status == RoomStatus.IN_MATCH ->
+                    RoomResult.Refused(RoomError.MatchInProgress)
 
                 // Leaving is `leave`. Removing yourself as host would
                 // close the room through a door marked "kick", which
@@ -230,6 +239,12 @@ class RoomService(
             if (!room.isHost(hostUserId)) {
                 return@inTransaction RoomResult.Refused(RoomError.HostRequired)
             }
+            // §6.152 — closing the room would end the other
+            // player's game without them conceding, and leave a
+            // 611 MB worker with nothing to report to.
+            if (room.status == RoomStatus.IN_MATCH) {
+                return@inTransaction RoomResult.Refused(RoomError.MatchInProgress)
+            }
             store.close(connection, roomId)
             RoomResult.Ok(store.load(connection, roomId)!!)
         }
@@ -259,6 +274,11 @@ class RoomService(
 
             when {
                 !room.isHost(hostUserId) -> RoomResult.Refused(RoomError.HostRequired)
+
+                // §6.152 — and the host cannot remove somebody out
+                // of a game they are playing.
+                room.status == RoomStatus.IN_MATCH ->
+                    RoomResult.Refused(RoomError.MatchInProgress)
 
                 room.status != RoomStatus.OPEN -> RoomResult.Refused(RoomError.NotOpen)
 

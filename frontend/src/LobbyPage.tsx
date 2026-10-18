@@ -170,6 +170,15 @@ export default function LobbyPage() {
   );
   const iAmHost = Boolean(me && room && room.hostUserId === me.userId);
   const prepared = room?.status === "READY_FOR_MATCH";
+  /**
+   * §6.152 — while a match is on, the lobby does nothing.
+   *
+   * Not just a hidden button. Every room mutation is refused by
+   * the server for this status, because a browser action must not
+   * end somebody else's game. This is the page agreeing with that
+   * rather than offering controls that come back as refusals.
+   */
+  const inMatch = room?.status === "IN_MATCH";
 
   /** One place where every room call reports its refusal. */
   const run = useCallback(async (call: () => Promise<RoomResult>) => {
@@ -273,7 +282,7 @@ export default function LobbyPage() {
           <PresencePanel
             lobby={lobby}
             myUserId={me.userId}
-            canInvite={iAmHost && !prepared && !isFull(room)}
+            canInvite={iAmHost && !prepared && !inMatch && !isFull(room)}
             onInvite={(userId) => send({ type: "INVITE", userId })}
           />
           <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
@@ -298,6 +307,7 @@ export default function LobbyPage() {
               onCancelPreparation={() => void run(() => cancelPreparation(room.roomId))}
               onLaunch={() => void launch(room.roomId)}
               launched={lobby.match !== null}
+              inMatch={inMatch}
             />
           ) : (
             <section className="panel">
@@ -461,6 +471,7 @@ function RoomPanel({
   onCancelPreparation,
   onLaunch,
   launched,
+  inMatch,
 }: {
   room: RoomView;
   me: string;
@@ -475,6 +486,8 @@ function RoomPanel({
   onLaunch: () => void;
   /** A match already exists for this room, so there is nothing to start. */
   launched: boolean;
+  /** The room is playing a match, and the lobby is not in charge. */
+  inMatch: boolean;
 }) {
   const myMember = room.members.find((m) => m.userId === me);
   const prepared = room.status === "READY_FOR_MATCH";
@@ -500,7 +513,7 @@ function RoomPanel({
             key={member.userId}
             member={member}
             isMe={member.userId === me}
-            canRemove={iAmHost && !prepared && !member.isHost}
+            canRemove={iAmHost && !prepared && !inMatch && !member.isHost}
             busy={busy}
             onRemove={() => onRemove(member.userId)}
           />
@@ -524,8 +537,15 @@ function RoomPanel({
         </p>
       )}
 
+      {inMatch && (
+        <p className="hint">
+          The match is being played. Nothing here can change it — closing a browser is not a
+          concession, and neither is leaving the room.
+        </p>
+      )}
+
       <div className="actions">
-        {myMember && !prepared && (
+        {myMember && !prepared && !inMatch && (
           <button
             type="button"
             disabled={busy || (!myMember.ready && !myMember.selectedDeckId)}
@@ -535,7 +555,7 @@ function RoomPanel({
           </button>
         )}
 
-        {iAmHost && !prepared && (
+        {iAmHost && !prepared && !inMatch && (
           <button
             type="button"
             disabled={busy || !room.everyoneReady}
@@ -546,19 +566,19 @@ function RoomPanel({
           </button>
         )}
 
-        {iAmHost && prepared && !launched && (
+        {iAmHost && prepared && !launched && !inMatch && (
           <button type="button" disabled={busy} onClick={onLaunch}>
             Start match
           </button>
         )}
 
-        {iAmHost && prepared && !launched && (
+        {iAmHost && prepared && !launched && !inMatch && (
           <button type="button" className="secondary" disabled={busy} onClick={onCancelPreparation}>
             Cancel preparation
           </button>
         )}
 
-        {iAmHost ? (
+        {inMatch ? null : iAmHost ? (
           <button type="button" className="secondary" disabled={busy} onClick={onClose}>
             Close room
           </button>

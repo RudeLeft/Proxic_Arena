@@ -13,6 +13,7 @@ import net.barnflix.proxic.room.MatchSetupService
 import net.barnflix.proxic.room.PrepareResult
 import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomAnnouncer
+import net.barnflix.proxic.room.RoomError
 import net.barnflix.proxic.room.RoomResult
 import net.barnflix.proxic.room.RoomService
 import net.barnflix.proxic.room.RoomStatus
@@ -263,6 +264,58 @@ class MatchLauncherTest {
         val after = rooms.find(room.roomId)!!
         assertEquals(RoomStatus.READY_FOR_MATCH, after.status)
         assertEquals(before, after.revision)
+    }
+
+    /**
+     * §6.152 — WHILE A MATCH IS ON, THE LOBBY DOES NOTHING.
+     *
+     * Found from the other end: the owner noticed "Prepare match"
+     * was clickable again after starting a game, and reasonably
+     * assumed it was cosmetic. It was not. Four room mutations ran
+     * with no status guard at all, and the worst of them was
+     * cancel-preparation -- it sets the room back to OPEN and
+     * clears readiness, so calling it mid-match would have let the
+     * host prepare and launch a SECOND match with the same two
+     * players. Two Forge JVMs, two games, the first orphaned.
+     *
+     * §6.152 is the rule that settles the whole group: a browser
+     * action is not a concession. Ending a game is Forge's
+     * business (§6.153) or an operational termination (§6.162) --
+     * never a lobby button.
+     *
+     * Every assertion here fails against the unguarded code.
+     */
+    @Test
+    fun `the lobby cannot touch a room that is playing a match`() {
+        val (room, setupId) = preparedRoom()
+        assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val host = room.hostUserId
+        val guest = room.members.first { it.userId != host }.userId
+
+        // The one with no guard at all, and the dangerous one.
+        assertRefused(setups().cancel(room.roomId, host), "cancel-preparation")
+
+        // The host cannot take the game away from the other player.
+        assertRefused(rooms.close(room.roomId, host), "close")
+        assertRefused(rooms.remove(room.roomId, host, guest), "remove")
+
+        // And a player cannot walk out of a game through the lobby.
+        assertRefused(rooms.leave(room.roomId, guest), "leave")
+
+        // Nothing moved: still IN_MATCH, still both seats.
+        val after = rooms.find(room.roomId)!!
+        assertEquals(RoomStatus.IN_MATCH, after.status)
+        assertEquals(2, after.members.size)
+    }
+
+    private fun assertRefused(
+        result: RoomResult,
+        what: String,
+    ) {
+        val refused = assertIs<RoomResult.Refused>(result, "$what was allowed during a match")
+        assertEquals(RoomError.MatchInProgress, refused.error, "$what gave the wrong reason")
     }
 
     // --- P6-B, the one that matters -----------------------------------------

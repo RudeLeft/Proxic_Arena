@@ -109,6 +109,22 @@ sealed interface RoomError {
         override val detail = "That room is no longer open."
     }
 
+    /**
+     * A match is being played in this room — PHASE_06 §6.152.
+     *
+     * Separate from [NotOpen] because it means something different
+     * and is temporary: the room comes back when the match ends.
+     * §6.152 settles why every lobby mutation has to be refused
+     * rather than just hidden — a browser action does not end a
+     * game. Closing the room while Forge is mid-match would orphan
+     * a 611 MB process and take the game away from the other
+     * player, which is a concession nobody made.
+     */
+    data object MatchInProgress : RoomError {
+        override val code = "MATCH_IN_PROGRESS"
+        override val detail = "A match is being played in that room."
+    }
+
     data object Full : RoomError {
         override val code = "ROOM_FULL"
         override val detail = "That room is full."

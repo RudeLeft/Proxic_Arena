@@ -93,6 +93,24 @@ class MatchSetupService(
             if (!room.isHost(hostUserId)) {
                 return@inTransaction RoomResult.Refused(RoomError.HostRequired)
             }
+            // THE ONE THAT HAD NO GUARD AT ALL.
+            //
+            // Cancelling sets the room back to OPEN and clears
+            // readiness. Called while a match was running it would
+            // have unlocked a room whose game was still being
+            // played, letting the host prepare and launch a SECOND
+            // match with the same two players -- two Forge JVMs,
+            // two games, and the first one orphaned. Nothing in the
+            // UI offered it; the endpoint did.
+            if (room.status != RoomStatus.READY_FOR_MATCH) {
+                return@inTransaction RoomResult.Refused(
+                    if (room.status == RoomStatus.IN_MATCH) {
+                        RoomError.MatchInProgress
+                    } else {
+                        RoomError.NotOpen
+                    },
+                )
+            }
 
             setups.invalidate(connection, roomId)
             rooms.clearReadiness(connection, roomId)
