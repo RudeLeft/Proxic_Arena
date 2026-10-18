@@ -43,6 +43,12 @@ public final class MatchController extends GeneratedControllerBase {
     private final GameHost host;
     private final AtomicInteger priorityWindows = new AtomicInteger();
 
+    /** §6.189 — what was tried at the current state and achieved nothing. */
+    private final java.util.Set<String> declined = new java.util.HashSet<>();
+
+    private String lastSignature = "";
+    private String lastOffered;
+
     /** §6.38 — the Forge player this controller decides for. */
     private final int actedForSeat;
 
@@ -111,6 +117,42 @@ public final class MatchController extends GeneratedControllerBase {
             throw new IllegalStateException("priority loop guard tripped");
         }
 
+        // §6.189 — AND NOT THE ONES THAT JUST FAILED.
+        //
+        // "The adapter must never offer an action it cannot
+        // perform, and never fail to perform one it offered."
+        // That cannot be done by screening for affordability:
+        // Forge has no such test outside its AI --
+        // CostPartMana.canPay returns true unconditionally, with
+        // the comment "this should probably be checked at some
+        // point" -- and writing one here would mean deciding what
+        // a board can pay, which is §6.50's second rules engine
+        // and would hide legal plays the moment anything reduces
+        // a cost.
+        //
+        // So this learns from Forge instead. If the player chose
+        // something and the game did not move, that action did
+        // not work HERE AND NOW, and is not offered again until
+        // something changes. Nothing about the rules is assumed;
+        // the only claim is "we tried it and nothing happened".
+        //
+        // Measured: without this, a Staggershock offered on turn
+        // one with no lands was chosen, targeted and cancelled
+        // 50,000 times -- Forge's own loop guard is AI-only, so
+        // it re-offered for ever. The counters named it exactly
+        // as §6.189 predicted: chooseSpellAbilityToPlay=50000
+        // against chooseTargetsFor=50000, with mana payment never
+        // reached at all.
+        String signature = stateSignature();
+        if (!signature.equals(lastSignature)) {
+            lastSignature = signature;
+            declined.clear();
+        } else if (lastOffered != null) {
+            declined.add(lastOffered);
+            host.noteDeclinedAction();
+        }
+        lastOffered = null;
+
         // §6.50 — THE OPTIONS COME FROM FORGE. Not from card type,
         // not from zone, not from mana cost, not from card text.
         // Whatever Forge says is playable right now is what the
@@ -126,6 +168,14 @@ public final class MatchController extends GeneratedControllerBase {
                 // or several actions.
                 byId.put("action:" + byId.size() + ":card:" + card.getId(), sa);
             }
+        }
+
+        // Whatever did not work at this exact state is dropped.
+        byId.keySet().removeAll(declined);
+        if (byId.isEmpty()) {
+            // Everything Forge offered has already failed here.
+            // Passing is the honest answer and ends the window.
+            return null;
         }
 
         try {
@@ -147,6 +197,7 @@ public final class MatchController extends GeneratedControllerBase {
                 // and a hang, and the hang is silent.
                 return null;
             }
+            lastOffered = choice;
             SpellAbility chosen = byId.get(choice);
             // The gate already refused a choice that was not on the
             // list, so null here means the list changed underneath
@@ -375,6 +426,35 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * THE PLAYER TAPS THE LANDS — §6.91, §6.105.
+     *
+     * Forge's human input asks for permanents one at a time and
+     * offers automatic payment only as a BUTTON, implemented by
+     * swapping in the AI controller. Proxic has no such button and
+     * no AI in the worker: the rules enforce what is legal and the
+     * player decides everything the rules leave open.
+     *
+     * Owner's framing, 2026-10-18: "we don't want to take
+     * decisions away from the player, we want the rules to enforce
+     * them."
+     */
+    @Override
+    public boolean applyManaToCost(
+            forge.game.mana.ManaCostBeingPaid toPay,
+            SpellAbility ability,
+            String prompt,
+            forge.game.mana.ManaConversionMatrix matrix,
+            boolean effect) {
+        try {
+            return new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
+                    .pay(toPay, ability);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
      * §6.91 — FORGE decides what is affordable, not Proxic.
      *
      * Every cost type is refused loudly by default and the few
@@ -386,6 +466,27 @@ public final class MatchController extends GeneratedControllerBase {
     public forge.game.cost.CostDecisionMakerBase getCostDecisionMaker(
             Player payer, SpellAbility ability, boolean effect, String prompt) {
         return new MatchCostDecision(payer, effect, ability, ability.getHostCard());
+    }
+
+    /**
+     * Has the game moved?
+     *
+     * Deliberately coarse and deliberately FORGE's: turn, phase,
+     * what is on the stack, what is in hand, what is on the
+     * battlefield, and how much mana is floating. Any real action
+     * changes at least one. Nothing here interprets the game --
+     * it only asks whether it is the same game state as a moment
+     * ago.
+     */
+    private String stateSignature() {
+        forge.game.Game current = player.getGame();
+        return current.getPhaseHandler().getTurn()
+                + "/" + current.getPhaseHandler().getPhase()
+                + "/" + current.getStack().size()
+                + "/" + player.getCardsIn(forge.game.zone.ZoneType.Hand).size()
+                + "/" + player.getCardsIn(forge.game.zone.ZoneType.Battlefield).size()
+                + "/" + player.getManaPool().totalMana()
+                + "/" + player.getLife();
     }
 
     /**

@@ -374,6 +374,27 @@ Release-blocking. Treat every rule here as security, not presentation.
   gate — every one written, tested, green, and wired to nothing. An
   unused class compiles perfectly. Grep for the call site, or drive the
   real system and watch the effect. _REVIEW._
+- **FORGE-RULE — MUST:** Let the rules enforce, and let the player
+  decide. Owner's framing, 2026-10-18: "we don't want to take decisions
+  away from the player, we want the rules to enforce them."
+
+  Where Forge says what is LEGAL, use its answer and never compute a
+  rival one — candidates, payability, which abilities can pay a cost.
+  Where the rules leave a genuine choice, ask: which land to tap, which
+  target, which of a card's abilities. The engine narrows; the person
+  picks.
+
+  Forge itself draws this line and is worth copying rather than
+  second-guessing. Its human mana input asks for permanents one at a
+  time; automatic payment is a BUTTON, implemented by temporarily
+  swapping in the AI controller. Its "express mana" rule decides when a
+  choice inside one card is immaterial — and stops guessing when the
+  amounts differ, the ability is not undoable or renewable, it has a
+  sub-ability, the spell tracks mana spent, or the card declares
+  `ManaNeededToAvoidNegativeEffect`. Those tests are the rules
+  speaking. Reimplementing them is §6.50's second rules engine; the
+  first thing it would get wrong is the mana base somebody built a deck
+  around. _REVIEW._
 - **TEST-011 — MUST:** Verify it myself, by code AND by eye, before
   handing it over. The owner reviews the work; the owner is not the
   detector.

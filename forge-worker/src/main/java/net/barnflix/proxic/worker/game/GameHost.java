@@ -221,6 +221,25 @@ public final class GameHost {
     private final java.util.Map<String, Integer> decisionCounts =
             java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>());
 
+    /**
+     * §6.189 — "count what is declined rather than dropping it
+     * silently."
+     *
+     * An action that was offered, chosen, and achieved nothing.
+     * A handful is ordinary; thousands is the runaway that
+     * section was written about.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger declinedActions =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    void noteDeclinedAction() {
+        declinedActions.incrementAndGet();
+    }
+
+    public int declinedActions() {
+        return declinedActions.get();
+    }
+
     public java.util.Map<String, Integer> decisionCounts() {
         synchronized (decisionCounts) {
             return new java.util.LinkedHashMap<>(decisionCounts);
@@ -297,6 +316,9 @@ public final class GameHost {
         // what names a runaway that reached no stub at all.
         if (!decisionCounts.isEmpty()) {
             detail = detail + " [asked: " + decisionCounts() + "]";
+        }
+        if (declinedActions.get() > 0) {
+            detail = detail + " [declined: " + declinedActions.get() + "]";
         }
         // And which stubs were reached, since a game may touch
         // several before the one that threw.

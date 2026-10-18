@@ -46,6 +46,25 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * "{T}" — tap the thing the cost already names.
+     *
+     * No choice exists: the permanent is decided by the ability
+     * being activated, not by the player. Every mana ability on a
+     * land has this, which is why nothing could be paid for until
+     * it was here.
+     *
+     * Forge's two implementations DISAGREE on the number -- the
+     * human returns 1 and the AI returns 0 -- and this follows
+     * the human, as it does for paysRightAfterDecision. Proxic is
+     * modelling a person, and where Forge's own paths differ the
+     * human one is the one to copy.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostTap cost) {
+        return PaymentDecision.number(1);
+    }
+
+    /**
      * Pay each cost as it is decided, like a human and unlike the AI.
      *
      * Forge's human controller returns true and the AI returns
