@@ -121,7 +121,7 @@ class MatchWorker(
         return try {
             val started =
                 ProcessBuilder(command)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(stderrTarget(config.dataRoot, matchId, log))
                     .start()
             process = started
             greetAndStart(started, seats)
@@ -342,3 +342,34 @@ private fun javaExecutable(): String {
 }
 
 private fun isWindows(): Boolean = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+
+/**
+ * §6.155 — where the worker's stderr goes.
+ *
+ * NOT /dev/null, which is where it went until a real game
+ * stopped mid-turn and the only evidence of why had already
+ * been thrown away. Forge's own stack traces and the
+ * adapter's "[STUB REACHED] PlayerController.<method>" lines
+ * are written there, and §6.106 requires exact evidence to
+ * be recorded for future implementation.
+ *
+ * One file per match, named by match id, so a failure can be
+ * read without untangling three concurrent games. Falls back
+ * to discarding if the directory cannot be made: a worker
+ * that refused to start because a log file could not be
+ * opened would be a worse failure than the one this exists
+ * to diagnose.
+ */
+private fun stderrTarget(
+    dataRoot: String,
+    matchId: UUID,
+    log: org.slf4j.Logger,
+): ProcessBuilder.Redirect =
+    runCatching {
+        val directory = File(dataRoot, "match-logs")
+        directory.mkdirs()
+        ProcessBuilder.Redirect.to(File(directory, "$matchId.log"))
+    }.getOrElse {
+        log.warn("match $matchId: no worker log; stderr is being discarded", it)
+        ProcessBuilder.Redirect.DISCARD
+    }

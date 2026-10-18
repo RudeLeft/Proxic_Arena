@@ -280,6 +280,13 @@ public final class WorkerMain {
                             ended.addProperty("winningSeat", result.winningSeat());
                         }
                         ended.addProperty("turn", result.turn());
+                        // §6.105, §6.106 — the evidence travels
+                        // with the ending. Safe text only: a
+                        // method name and a message, never a
+                        // stack trace or game state.
+                        if (result.detail() != null) {
+                            ended.addProperty("detail", result.detail());
+                        }
                         send(ended);
                     });
                     GAME.start(seats, request.has("matchId")

@@ -66,6 +66,16 @@ data class GameOutcome(
     val kind: String,
     val winningSeat: Int?,
     val turn: Int,
+    /**
+     * §6.105, §6.106 — why it stopped, when it stopped badly.
+     *
+     * Safe technical evidence: a Forge method and message, never
+     * a stack trace and never game state. Null unless the game
+     * failed. The commonest value names the interaction the
+     * protocol cannot yet represent, which is the single fact
+     * needed to implement it.
+     */
+    val detail: String? = null,
 ) {
     companion object {
         const val WINNER = "WINNER"

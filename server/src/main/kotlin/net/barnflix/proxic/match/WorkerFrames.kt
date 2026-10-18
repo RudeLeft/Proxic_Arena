@@ -60,6 +60,7 @@ fun readOutcomeFrame(frame: JsonObject): GameOutcome? =
             // for a failure. Absent is NOT seat zero.
             winningSeat = frame["winningSeat"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
             turn = frame["turn"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+            detail = frame["detail"]?.jsonPrimitive?.contentOrNull,
         )
     }.getOrNull()
 

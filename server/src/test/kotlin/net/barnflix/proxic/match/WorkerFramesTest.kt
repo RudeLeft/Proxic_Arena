@@ -177,6 +177,43 @@ class WorkerFramesTest {
         assertNull(outcome?.winningSeat)
     }
 
+    /**
+     * §6.105, §6.106 — the EVIDENCE survives the trip.
+     *
+     * A real game stopped after one land was played and the only
+     * record of why went to the worker's stderr, which the
+     * server was discarding. The players got "the game stopped",
+     * which is true and useless. §6.106 requires the source
+     * method and message to be recorded, and for the adapter's
+     * own loud failure the exception message names the exact
+     * interaction that is not implemented yet.
+     */
+    @Test
+    fun `a failure carries the reason it failed`() {
+        val detail =
+            "UnsupportedOperationException: " +
+                "Phase 0A adapter does not implement chooseTargets"
+        val outcome =
+            readOutcomeFrame(
+                frame("""{"outcome":"FAILED","turn":2,"detail":"$detail"}"""),
+            )
+
+        assertEquals(GameOutcome.FAILED, outcome?.kind)
+        assertTrue(
+            outcome?.detail?.contains("chooseTargets") == true,
+            "the method name did not survive: ${outcome?.detail}",
+        )
+    }
+
+    /** A clean ending carries no detail, because there is none. */
+    @Test
+    fun `a winner carries no failure detail`() {
+        val outcome =
+            readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":1,"turn":9}"""))
+
+        assertNull(outcome?.detail)
+    }
+
     @Test
     fun `an outcome frame with no outcome is dropped`() {
         assertNull(readOutcomeFrame(frame("""{"turn":3}""")))

@@ -71,7 +71,7 @@ public final class GameHost {
      * nothing here is inferred from life totals or a dropped
      * connection.
      */
-    public record Result(String kind, int winningSeat, int turn) {}
+    public record Result(String kind, int winningSeat, int turn, String detail) {}
 
     /** §6.36's chain, the worker's link: Forge lobby player → seat. */
     private final java.util.Map<LobbyPlayer, Integer> seatOf =
@@ -225,16 +225,25 @@ public final class GameHost {
         if (failure.get() != null) {
             // §6.154 — a crashed RUNNING game is FAILED_RUNTIME,
             // not a loss for anybody. Do not record a fake winner.
-            result = new Result("FAILED", 0, turn());
+            //
+            // §6.105, §6.106 — AND RECORD WHY. The commonest
+            // cause by far is the adapter's deliberate loud
+            // failure: Forge asked for an interaction this
+            // protocol cannot represent, and the exception
+            // message names the method. Without it the server
+            // can only say "the game stopped", which is true,
+            // useless, and indistinguishable from a crash.
+            result = new Result("FAILED", 0, turn(), describeFailure());
         } else if (finishedGame.getOutcome() == null) {
-            result = new Result("NONE", 0, turn());
+            result = new Result("NONE", 0, turn(), null);
         } else if (finishedGame.getOutcome().isDraw()) {
-            result = new Result("DRAW", 0, turn());
+            result = new Result("DRAW", 0, turn(), null);
         } else {
             result = new Result(
                     "WINNER",
                     seatOf(finishedGame.getOutcome().getWinningLobbyPlayer()),
-                    turn());
+                    turn(),
+                    null);
         }
         try {
             endSink.accept(result);
@@ -243,6 +252,35 @@ public final class GameHost {
             // worker has stopped talking either way.
             System.err.println("proxic: could not publish the result: " + e);
         }
+    }
+
+    /**
+     * §6.106 — safe technical evidence, and nothing else.
+     *
+     * The exception's CLASS and MESSAGE. For the adapter's own
+     * loud failure that message is "... does not implement
+     * <method>", which is exactly §6.106's "source Forge
+     * method/message" and is the single most useful fact there
+     * is. No stack trace and no game state: §6.99 keeps Forge's
+     * internals out of anything a player could see, and the
+     * stack trace is in the worker's stderr log for whoever
+     * needs it.
+     */
+    private String describeFailure() {
+        Throwable failed = failure.get();
+        if (failed == null) {
+            return null;
+        }
+        String message = failed.getMessage();
+        String detail = failed.getClass().getSimpleName()
+                + (message == null ? "" : ": " + message);
+        // And which stubs were reached, since a game may touch
+        // several before the one that threw.
+        if (!GeneratedControllerBase.REACHED_STUBS.isEmpty()) {
+            detail = detail + " [stubs reached: "
+                    + String.join(", ", GeneratedControllerBase.REACHED_STUBS.keySet()) + "]";
+        }
+        return detail;
     }
 
     /** Called by the controller when a seat is first offered priority. */

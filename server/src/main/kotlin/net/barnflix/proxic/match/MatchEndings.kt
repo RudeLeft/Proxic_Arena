@@ -71,7 +71,19 @@ internal class MatchEndings(
         val failed = outcome.kind == GameOutcome.FAILED
 
         records.recordEnded(match.matchId, outcome, clock())
-        log.info("match ${match.matchId}: ${outcome.kind} on turn ${outcome.turn}")
+        if (failed) {
+            // §6.106 — "record exact evidence for future
+            // implementation". This line IS that record, and it
+            // is the reason the players' message can stay vague:
+            // they are told the game stopped, and the detail
+            // that lets somebody fix it lives here instead.
+            log.warn(
+                "match ${match.matchId}: FAILED_RUNTIME on turn ${outcome.turn} " +
+                    "-- ${outcome.detail ?: "no detail from the worker"}",
+            )
+        } else {
+            log.info("match ${match.matchId}: ${outcome.kind} on turn ${outcome.turn}")
+        }
         live.worker.stop()
 
         val status = if (failed) MatchStatus.FAILED_RUNTIME else MatchStatus.ENDED
