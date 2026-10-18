@@ -1,0 +1,202 @@
+package net.barnflix.proxic.worker.game;
+
+import forge.LobbyPlayer;
+import forge.deck.Deck;
+import forge.game.Game;
+import forge.game.GameRules;
+import forge.game.GameType;
+import forge.game.Match;
+import forge.game.player.Player;
+import forge.game.player.RegisteredPlayer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+/**
+ * One Forge game, inside one worker — PHASE_06 §6.17, §6.20.
+ *
+ * `Match.startGame` BLOCKS for the whole game. It does not return
+ * until somebody has won, and every decision in between is a call
+ * back into a PlayerController on that same thread. So the game
+ * gets a thread of its own and this class is the handle onto it.
+ *
+ * That single fact shapes the rest of Phase 6: a decision is not a
+ * message the engine sends and forgets, it is a blocked call stack
+ * waiting for an answer. Phase 0A's binding constraints — reject a
+ * response BEFORE it reaches the waiter, keep both duplicate
+ * defences — are about this stack.
+ *
+ * §6.17's statuses map onto what this exposes:
+ *
+ *   LAUNCHING        constructed, not yet past mulligans
+ *   RUNNING          a seat has been offered priority
+ *   ENDED            startGame returned and Forge reported an outcome
+ *   FAILED_RUNTIME   startGame threw
+ */
+public final class GameHost {
+    private final CountDownLatch running = new CountDownLatch(1);
+    private final CountDownLatch finished = new CountDownLatch(1);
+    private final AtomicReference<String> outcome = new AtomicReference<>();
+    private final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+    private volatile Game game;
+    private volatile Thread gameThread;
+
+    /**
+     * Construct the game and start it on its own thread.
+     *
+     * Returns as soon as the thread is started, NOT when the game
+     * is running: the caller waits on {@link #awaitRunning} for
+     * that. Conflating the two would report RUNNING for a game that
+     * threw during its first upkeep.
+     */
+    public void start(List<Seat> seats, String matchName) {
+        List<RegisteredPlayer> registered = new ArrayList<>();
+        for (Seat seat : seats) {
+            LobbyPlayer lobby = new WorkerLobbyPlayer(seat.displayName, this);
+            registered.add(new RegisteredPlayer(seat.deck).setPlayer(lobby));
+        }
+
+        // §0.22's construction graph, as Phase 0A proved it.
+        // GameType.Constructed because Open Format IS constructed
+        // as far as Forge is concerned — the bounds Open Format adds
+        // are Proxic's and were already enforced at import and at
+        // preparation (FMT-002).
+        GameRules rules = new GameRules(GameType.Constructed);
+        rules.setGamesPerMatch(1);
+        Match match = new Match(rules, registered, matchName);
+        Game created = match.createGame();
+        this.game = created;
+
+        // NOTHING installs controllers here, deliberately. Forge
+        // builds its own Player objects during createGame through
+        // the IGameEntitiesFactory on each LobbyPlayer, so that is
+        // where the controller goes. A loop over getPlayers() after
+        // the fact looks equivalent, runs after Forge has already
+        // decided what each player is, and silently misses
+        // createMindSlaveController.
+
+        Thread thread =
+                new Thread(
+                        () -> {
+                            try {
+                                match.startGame(created, null);
+                                outcome.set(describeOutcome(created));
+                            } catch (Throwable t) {
+                                // §6.15, §6.162 — a crashed game is a
+                                // reported result, never a silent hang.
+                                failure.set(t);
+                            } finally {
+                                // Both latches, always. A game that
+                                // threw during mulligans would
+                                // otherwise leave a caller waiting
+                                // on `running` forever, and "it
+                                // hung" is the least useful failure
+                                // a runtime can produce.
+                                running.countDown();
+                                finished.countDown();
+                            }
+                        },
+                        "proxic-game-" + matchName);
+        thread.setDaemon(true);
+        this.gameThread = thread;
+        thread.start();
+    }
+
+    private final java.util.Set<String> unsupported =
+            java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<>());
+
+    /**
+     * §6.189 — the game is spinning rather than progressing.
+     *
+     * Recorded as a failure before the controller throws, so the
+     * reason survives: a bare exception out of the game thread
+     * says "IllegalStateException" and nothing about why.
+     */
+    void failRunaway(String detail) {
+        failure.compareAndSet(null, new IllegalStateException(detail));
+    }
+
+    /** §6.96 — a card Forge itself says it cannot play. */
+    void noteUnsupported(String cardName) {
+        unsupported.add(cardName);
+    }
+
+    public java.util.List<String> unsupportedCards() {
+        synchronized (unsupported) {
+            return new ArrayList<>(unsupported);
+        }
+    }
+
+    /** Called by the controller when a seat is first offered priority. */
+    void markRunning() {
+        running.countDown();
+    }
+
+    /**
+     * Wait for the running milestone.
+     *
+     * Returns false on timeout rather than throwing: a worker that
+     * cannot start a game must report FAILED_STARTUP, and an
+     * exception here would be reported as something else.
+     */
+    public boolean awaitRunning(long timeout, TimeUnit unit) throws InterruptedException {
+        return running.await(timeout, unit) && failure.get() == null;
+    }
+
+    public boolean awaitFinished(long timeout, TimeUnit unit) throws InterruptedException {
+        return finished.await(timeout, unit);
+    }
+
+    public String outcome() {
+        return outcome.get();
+    }
+
+    public Throwable failure() {
+        return failure.get();
+    }
+
+    public int turn() {
+        Game g = game;
+        return g == null ? 0 : g.getPhaseHandler().getTurn();
+    }
+
+    /** Stop the game thread. Used when a match is terminated. */
+    public void stop() {
+        Thread t = gameThread;
+        if (t != null) {
+            t.interrupt();
+        }
+    }
+
+    /**
+     * §6.149 — what FORGE said, not what Arena concluded.
+     *
+     * `getRegisteredPlayers` rather than `getPlayers`: a player who
+     * has lost and left is dropped from the latter, so the loser
+     * would vanish from the report that exists to name them.
+     */
+    private static String describeOutcome(Game finishedGame) {
+        if (finishedGame.getOutcome() == null) {
+            return "none";
+        }
+        if (finishedGame.getOutcome().isDraw()) {
+            return "draw";
+        }
+        return "winner:" + finishedGame.getOutcome().getWinningLobbyPlayer().getName();
+    }
+
+    /** A seat as the server hands it over. */
+    public static final class Seat {
+        public final String displayName;
+        public final Deck deck;
+
+        public Seat(String displayName, Deck deck) {
+            this.displayName = displayName;
+            this.deck = deck;
+        }
+    }
+}

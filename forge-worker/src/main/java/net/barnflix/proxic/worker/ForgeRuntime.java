@@ -128,8 +128,29 @@ public final class ForgeRuntime {
      * the caller decides.
      */
     public DeckBuild buildDeck(java.util.List<DeckRequest> requested) {
+        BuiltDeck built = buildDeckObject(requested, "Proxic import");
+        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+        for (PaperCard card : built.deck.getMain().toFlatList()) {
+            counts.merge(card.getName(), 1, Integer::sum);
+        }
+        return new DeckBuild(
+                built.deck.getMain().toFlatList().size(), counts, built.unresolved);
+    }
+
+    /**
+     * The same construction, returning the DECK rather than a
+     * summary of it — PHASE_06 §6.20.
+     *
+     * Phase 2 only ever needed to know whether a deck builds; Phase
+     * 6 needs the object to hand to Forge. One method does the
+     * resolving so the deck a match is played with is the same deck
+     * import said was fine, built the same way. Two code paths here
+     * would mean "it imported" and "it plays" could disagree.
+     */
+    public BuiltDeck buildDeckObject(
+            java.util.List<DeckRequest> requested, String deckName) {
         ensureLoaded();
-        forge.deck.Deck deck = new forge.deck.Deck("Proxic import");
+        forge.deck.Deck deck = new forge.deck.Deck(deckName);
         forge.deck.CardPool main = deck.getMain();
 
         java.util.List<String> unresolved = new java.util.ArrayList<>();
@@ -151,11 +172,18 @@ public final class ForgeRuntime {
             main.add(card, entry.quantity);
         }
 
-        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
-        for (PaperCard card : main.toFlatList()) {
-            counts.merge(card.getName(), 1, Integer::sum);
+        return new BuiltDeck(deck, unresolved);
+    }
+
+    /** A real Forge deck, and what could not be put in it. */
+    public static final class BuiltDeck {
+        public final forge.deck.Deck deck;
+        public final java.util.List<String> unresolved;
+
+        public BuiltDeck(forge.deck.Deck deck, java.util.List<String> unresolved) {
+            this.deck = deck;
+            this.unresolved = unresolved;
         }
-        return new DeckBuild(main.toFlatList().size(), counts, unresolved);
     }
 
     /** One requested deck line. */

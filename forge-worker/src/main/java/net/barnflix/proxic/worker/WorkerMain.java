@@ -181,6 +181,105 @@ public final class WorkerMain {
                     send(error("BUILD_FAILED", e.getClass().getSimpleName()));
                 }
             }
+            case "START_GAME" -> {
+                // PHASE_06 §6.17, §6.20 — LAUNCHING to RUNNING.
+                //
+                // The answer is sent only once the game has reached
+                // its first priority window. A worker that replied
+                // as soon as the game was CONSTRUCTED would report
+                // RUNNING for a game that throws during its first
+                // upkeep, which is the §6.17 distinction between
+                // LAUNCHING and RUNNING made meaningless.
+                try {
+                    JsonArray players = request.getAsJsonArray("players");
+                    java.util.List<net.barnflix.proxic.worker.game.GameHost.Seat> seats =
+                            new java.util.ArrayList<>();
+                    JsonArray unresolvedAll = new JsonArray();
+
+                    for (int i = 0; i < players.size(); i++) {
+                        JsonObject seat = players.get(i).getAsJsonObject();
+                        java.util.List<ForgeRuntime.DeckRequest> entries =
+                                new java.util.ArrayList<>();
+                        JsonArray cards = seat.getAsJsonArray("cards");
+                        for (int c = 0; c < cards.size(); c++) {
+                            JsonObject one = cards.get(c).getAsJsonObject();
+                            entries.add(new ForgeRuntime.DeckRequest(
+                                    one.get("name").getAsString(),
+                                    one.has("set") && !one.get("set").isJsonNull()
+                                            ? one.get("set").getAsString() : null,
+                                    one.has("number") && !one.get("number").isJsonNull()
+                                            ? one.get("number").getAsString() : null,
+                                    one.get("quantity").getAsInt()));
+                        }
+                        String name = seat.get("displayName").getAsString();
+                        ForgeRuntime.BuiltDeck built =
+                                runtime.buildDeckObject(entries, name + "'s deck");
+                        built.unresolved.forEach(unresolvedAll::add);
+                        seats.add(new net.barnflix.proxic.worker.game.GameHost.Seat(
+                                name, built.deck));
+                    }
+
+                    // A deck Forge could not fully build is not a
+                    // deck to start a match with. Phase 5's
+                    // preflight should have caught this; if it
+                    // reaches here, something changed in between
+                    // and starting anyway would be playing a game
+                    // with cards missing.
+                    if (unresolvedAll.size() > 0) {
+                        JsonObject failed = error("DECK_UNRESOLVED", "cards did not resolve");
+                        failed.add("unresolved", unresolvedAll);
+                        send(failed);
+                        break;
+                    }
+
+                    GAME = new net.barnflix.proxic.worker.game.GameHost();
+                    GAME.start(seats, request.has("matchId")
+                            ? request.get("matchId").getAsString() : "match");
+
+                    boolean running = GAME.awaitRunning(120, java.util.concurrent.TimeUnit.SECONDS);
+                    if (!running) {
+                        Throwable failure = GAME.failure();
+                        send(error("GAME_START_FAILED", failure == null
+                                ? "no priority window within 120s"
+                                : failure.getClass().getSimpleName()));
+                        break;
+                    }
+
+                    JsonObject started = frame("GAME_STARTED", messageId);
+                    started.addProperty("turn", GAME.turn());
+                    send(started);
+                } catch (RuntimeException | InterruptedException e) {
+                    send(error("GAME_START_FAILED", e.getClass().getSimpleName()));
+                }
+            }
+            case "GAME_RESULT" -> {
+                // Diagnostics for this slice: wait for the game to
+                // finish and report what FORGE said (§6.149). Both
+                // seats pass priority until a decision protocol
+                // exists, so a game ends by decking -- a weak game
+                // and a strong proof that Forge ran it.
+                try {
+                    if (GAME == null) {
+                        send(error("NO_GAME", "no game has been started"));
+                        break;
+                    }
+                    int seconds = request.has("timeoutSeconds")
+                            ? request.get("timeoutSeconds").getAsInt() : 300;
+                    boolean finished =
+                            GAME.awaitFinished(seconds, java.util.concurrent.TimeUnit.SECONDS);
+                    JsonObject result = frame("GAME_RESULT", messageId);
+                    result.addProperty("finished", finished);
+                    result.addProperty("turn", GAME.turn());
+                    result.addProperty("outcome",
+                            GAME.outcome() == null ? "none" : GAME.outcome());
+                    if (GAME.failure() != null) {
+                        result.addProperty("failure", GAME.failure().getClass().getSimpleName());
+                    }
+                    send(result);
+                } catch (InterruptedException e) {
+                    send(error("GAME_RESULT_FAILED", "interrupted"));
+                }
+            }
             case "SHUTDOWN" -> {
                 send(frame("SHUTTING_DOWN", messageId));
                 return false;
@@ -207,6 +306,14 @@ public final class WorkerMain {
         }
         send(ready);
     }
+
+    /**
+     * The game this worker is running, if any.
+     *
+     * One per process, because Phase 0A chose one JVM per match and
+     * nothing here should quietly make that untrue.
+     */
+    private static net.barnflix.proxic.worker.game.GameHost GAME;
 
     private static JsonObject frame(String type, String correlatesTo) {
         JsonObject frame = new JsonObject();
