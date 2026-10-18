@@ -159,6 +159,100 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Actually play what the player chose — §6.50, §6.91.
+     *
+     * `chooseSpellAbilityToPlay` only NAMES an ability; Forge then
+     * calls this to play it, and until now the adapter refused
+     * loudly here. That is why a real game stopped the moment
+     * somebody did anything: picking was implemented and doing
+     * was not.
+     *
+     * FORGE'S OWN HUMAN PATH, deliberately, and not the AI one.
+     * `PlayerControllerAi.playChosenSpellAbility` resolves lands
+     * directly and hands everything else to
+     * `ComputerUtil.handlePlayingSpellAbility`, which CHOOSES
+     * TARGETS for the player. That is the engine inventing
+     * answers, which is what §6.105 forbids and what Phase 0A
+     * called a second rules engine.
+     *
+     * This path instead calls back into this controller for
+     * every sub-decision -- targets, modes, costs, mana -- so
+     * each one arrives as a decision the player answers, or as a
+     * loud failure naming the next thing to implement. Both are
+     * correct outcomes; neither is a guess.
+     *
+     * It takes a plain PlayerController and lives in forge-game
+     * rather than the GUI module, so nothing about it is tied to
+     * Forge's desktop interface.
+     */
+    @Override
+    public boolean playChosenSpellAbility(SpellAbility sa) {
+        return forge.game.player.PlaySpellAbility.playSpellAbility(this, player, sa);
+    }
+
+    /**
+     * WHICH ability of this card — §6.50, §6.51.
+     *
+     * Forge asks this while playing something, when the object
+     * the player pointed at can do more than one thing. §6.51's
+     * invariant is exactly that: an object may expose zero, one
+     * or several actions.
+     *
+     * Zero is nothing to play, and one is not a choice -- it is
+     * the only thing Forge offers, and returning it is not
+     * "choose the first option" in §6.105's sense, which forbids
+     * picking one of SEVERAL to avoid asking. Several is a real
+     * decision and goes to the player through the gate like any
+     * other.
+     */
+    @Override
+    public SpellAbility getAbilityToPlay(
+            forge.game.card.Card hostCard,
+            List<SpellAbility> abilities,
+            forge.util.ITriggerEvent triggerEvent) {
+        if (abilities == null || abilities.isEmpty()) {
+            return null;
+        }
+        if (abilities.size() == 1) {
+            return abilities.get(0);
+        }
+
+        java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
+        for (SpellAbility sa : abilities) {
+            byId.put("action:" + byId.size() + ":card:" + hostCard.getId(), sa);
+        }
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "getAbilityToPlay",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            pending -> host.publishDecision(pending, labelsFor(byId)));
+            // A pass here means "do not play it after all", which
+            // Forge expresses as null. Not an error.
+            return DecisionGate.PASS.equals(choice) ? null : byId.get(choice);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
+     * Play something that does not use the stack.
+     *
+     * A faithful port of Forge's own human path and nothing
+     * more: no choice is made here, so there is nothing for a
+     * player to answer. Any decision inside it comes back
+     * through this controller as usual.
+     */
+    @Override
+    public void playSpellAbilityNoStack(SpellAbility effectSA, boolean canSetupTargets) {
+        forge.game.player.PlaySpellAbility.playSpellAbilityNoStack(
+                this, player, effectSA, !canSetupTargets);
+    }
+
+    /**
      * Labels for a client that has no game state yet.
      *
      * §6.49 — presentation hints, not authority. When viewer
