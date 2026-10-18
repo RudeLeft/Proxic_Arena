@@ -244,15 +244,52 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     await expect(matchPanel(waiting).getByRole("heading", { name: /Your move/ })).toHaveCount(0);
     await expect(matchPanel(waiting).getByText(/Waiting for the game/)).toBeVisible();
 
-    // §6.50 — the actions are FORGE's. The page neither invents
-    // them nor hides them, so there is at least one and each has
-    // a label Forge supplied.
+    // §6.50 — the actions are FORGE's, and there may be NONE.
+    //
+    // An earlier version asserted at least one and failed on a
+    // perfectly ordinary window where the player had nothing
+    // playable. That is real Magic, not a fault: most priority
+    // in a game is declined. What must always be true is that
+    // the player can decline.
     const actions = matchPanel(asked).getByRole("listitem").getByRole("button");
-    expect(await actions.count()).toBeGreaterThan(0);
-
-    // Passing is always available, because a player must be able
-    // to decline to act.
     await expect(matchPanel(asked).getByRole("button", { name: "Pass" })).toBeVisible();
+
+    // --- ANSWER IT, AND SEE THE GAME MOVE ---------------------
+    //
+    // The decision slice is not proved by a list of buttons; it
+    // is proved by one of them reaching Forge and the game asking
+    // the next question. Casting Staggershock makes Forge ask who
+    // it hits, so the second decision is the TARGETING one -- the
+    // piece this slice added.
+    const hadActions = (await actions.count()) > 0;
+    const firstLabel = hadActions ? await actions.first().textContent() : null;
+    if (hadActions) {
+      await actions.first().click();
+    } else {
+      await matchPanel(asked).getByRole("button", { name: "Pass" }).click();
+    }
+
+    // A new question, not the same one. Compared by LABEL because
+    // the ids are Forge's and opaque: targets read as player or
+    // card names, actions read as "Card - what it does".
+    await expect
+      .poll(
+        async () => {
+          const listed = await matchPanel(asked)
+            .getByRole("listitem")
+            .getByRole("button")
+            .allTextContents();
+          const waitingHas = await matchPanel(waiting)
+            .getByRole("heading", { name: /Your move/ })
+            .count();
+          // Either this player is asked something NEW, or
+          // priority has moved to the other one. Both mean the
+          // answer was taken; neither means it was ignored.
+          return (listed.length > 0 && listed[0] !== firstLabel) || waitingHas > 0;
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(true);
 
     // AGENTS TEST-011 — and leave something to LOOK AT.
     //

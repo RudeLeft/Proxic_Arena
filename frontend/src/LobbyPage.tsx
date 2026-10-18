@@ -829,7 +829,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         <div className="decision">
           <h3>
             {game.decision.actedForSeat === mine?.seatNumber
-              ? "Your move"
+              ? headingFor(game.decision.kind)
               : `Playing for seat ${game.decision.actedForSeat}`}
           </h3>
           <ul className="actions-list">
@@ -857,11 +857,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               to it, remove from it or reorder it, because an
               option Forge offered and a browser hid is a rules
               disagreement the player cannot see. */}
-          <p className="hint">
-            {game.decision.options.length === 0
-              ? "Forge is not offering any action right now; passing is the only answer."
-              : "These are the actions Forge says you can take."}
-          </p>
+          <p className="hint">{hintFor(game.decision.kind, game.decision.options.length)}</p>
         </div>
       ) : (
         running && <p className="hint">Waiting for the game.</p>
@@ -902,6 +898,47 @@ function resultText(match: MatchView, mySeat: number | null): string {
   return match.participants.length === 2
     ? `Your opponent won${turn}.`
     : `Seat ${outcome.winningSeat} won${turn}.`;
+}
+
+/**
+ * What Forge is asking, in the player's words.
+ *
+ * Found by LOOKING at it (AGENTS TEST-011): a target choice was
+ * headed "Your move" and footed "These are the actions Forge
+ * says you can take", so a list of two player names read as a
+ * list of things to do. The decision's kind was already in the
+ * protocol and simply was not used.
+ *
+ * An unknown kind falls back to the general wording rather than
+ * showing the raw name: a newer server asking something this
+ * build has never heard of should still be answerable.
+ */
+function headingFor(kind: string): string {
+  switch (kind) {
+    case "chooseTargetsFor":
+      return "Choose a target";
+    case "getAbilityToPlay":
+      return "Choose which ability";
+    default:
+      return "Your move";
+  }
+}
+
+function hintFor(kind: string, options: number): string {
+  if (options === 0) {
+    return "Forge is not offering any action right now; passing is the only answer.";
+  }
+  switch (kind) {
+    case "chooseTargetsFor":
+      // §6.93 — the candidates are Forge's, and saying so is not
+      // decoration: it is why an option that looks wrong is not
+      // a bug in the page.
+      return "These are the legal targets Forge allows. Pass to cancel instead.";
+    case "getAbilityToPlay":
+      return "That card can do more than one thing. Pass to cancel instead.";
+    default:
+      return "These are the actions Forge says you can take.";
+  }
 }
 
 function matchUrl(matchId: string): string {

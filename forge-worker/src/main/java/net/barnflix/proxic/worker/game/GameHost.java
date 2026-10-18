@@ -209,7 +209,26 @@ public final class GameHost {
      * the publisher does must not block for long, or the game
      * thread is held by the transport rather than by the player.
      */
+    /**
+     * §6.189 — how many of each KIND have been asked.
+     *
+     * The section is explicit that this instrumentation is what
+     * localised a measured infinite loop: "Only the ratio between
+     * decision counts localised it -- chooseTargetsFor at 679,963
+     * against payManaCost at 2." No error, no stub, no log line;
+     * just two numbers that did not belong together.
+     */
+    private final java.util.Map<String, Integer> decisionCounts =
+            java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>());
+
+    public java.util.Map<String, Integer> decisionCounts() {
+        synchronized (decisionCounts) {
+            return new java.util.LinkedHashMap<>(decisionCounts);
+        }
+    }
+
     void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
+        decisionCounts.merge(pending.kind(), 1, Integer::sum);
         publisher.accept(pending, labels);
     }
 
@@ -274,6 +293,11 @@ public final class GameHost {
         String message = failed.getMessage();
         String detail = failed.getClass().getSimpleName()
                 + (message == null ? "" : ": " + message);
+        // §6.189 — the counts, because the ratio between them is
+        // what names a runaway that reached no stub at all.
+        if (!decisionCounts.isEmpty()) {
+            detail = detail + " [asked: " + decisionCounts() + "]";
+        }
         // And which stubs were reached, since a game may touch
         // several before the one that threw.
         if (!GeneratedControllerBase.REACHED_STUBS.isEmpty()) {

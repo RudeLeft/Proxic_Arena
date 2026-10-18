@@ -253,6 +253,142 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * WHO OR WHAT this is aimed at — §6.93, §6.50.
+     *
+     * "Legal targets come from Forge." Every candidate here is
+     * `TargetRestrictions.getAllCandidates`, unfiltered and
+     * unreordered; this method decides nothing about legality and
+     * could not, because deciding it would make Proxic a second
+     * rules engine (§6.50).
+     *
+     * Forge's own human path is TargetSelection, which lives in
+     * forge-gui and takes a PlayerControllerHuman, so it cannot be
+     * delegated to. This is the same shape driven by the gate
+     * instead: ask, one target at a time, from the candidates
+     * Forge supplied, until the ability has as many as it needs.
+     *
+     * Returns false to CANCEL — "I do not want to play this after
+     * all" — which is a legal answer and not an error.
+     */
+    @Override
+    public boolean chooseTargetsFor(SpellAbility ability) {
+        if (!ability.usesTargeting()) {
+            return true;
+        }
+        forge.game.spellability.TargetRestrictions restrictions =
+                ability.getTargetRestrictions();
+        int min = ability.getMinTargets();
+        int max = ability.getMaxTargets();
+        if (max == 0 && min == 0) {
+            return true;
+        }
+
+        // §6.105 — divided damage is a SECOND question ("how much
+        // to each?") that this protocol cannot yet carry. Refuse
+        // loudly rather than splitting it arbitrarily.
+        if (ability.isDividedAsYouChoose()) {
+            loud("chooseTargetsFor:dividedAsYouChoose");
+        }
+
+        while (ability.getTargets().size() < max) {
+            java.util.List<forge.game.GameEntity> candidates =
+                    restrictions.getAllCandidates(ability);
+            // Already chosen ones are not offered again: a target
+            // list is a set, and Forge rejects a repeat anyway.
+            candidates.removeIf(entity -> ability.getTargets().contains(entity));
+            if (candidates.isEmpty()) {
+                break;
+            }
+
+            boolean enough = ability.getTargets().size() >= min;
+            java.util.LinkedHashMap<String, forge.game.GameEntity> byId =
+                    new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels =
+                    new java.util.LinkedHashMap<>();
+            for (forge.game.GameEntity candidate : candidates) {
+                // §6.46 — TYPED ids. A card id and a player id
+                // share a number space, and a bare integer cannot
+                // say which it means.
+                String id = (candidate instanceof forge.game.card.Card card)
+                        ? "target:card:" + card.getId()
+                        : "target:player:" + candidate.getId();
+                byId.put(id, candidate);
+                labels.put(id, candidate.toString());
+            }
+
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "chooseTargetsFor",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                pending -> host.publishDecision(pending, labels));
+
+                if (DecisionGate.PASS.equals(choice)) {
+                    // Stop. With enough targets that is "no more";
+                    // without them it is "cancel", and Forge reads
+                    // false as the player changing their mind.
+                    return enough;
+                }
+                forge.game.GameEntity chosen = byId.get(choice);
+                if (chosen == null) {
+                    return enough;
+                }
+                ability.getTargets().add(chosen);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+
+        return ability.getTargets().size() >= min;
+    }
+
+    /**
+     * Pay the mana — §6.91, and §6.189's warning.
+     *
+     * Forge's own human path, which lives in forge-game and takes
+     * a plain PlayerController, so it is a delegation rather than
+     * a reimplementation. It calls back into this controller for
+     * the interactive part.
+     *
+     * §6.189 names "a mana ability played through the wrong path"
+     * as one of four measured causes of an INFINITE LOOP: Forge's
+     * 999-iteration safety valve is AI-only, so a human-shaped
+     * controller that fails to pay is re-offered the same action
+     * for ever, at full CPU, with no exception and no log line.
+     * The worst measured case was 679,963 identical attempts with
+     * targeting succeeding every time. That is why this is a
+     * delegation to Forge's own path and not something clever.
+     */
+    @Override
+    public boolean payManaCost(
+            forge.card.mana.ManaCost toPay,
+            forge.game.cost.CostPartMana costPartMana,
+            SpellAbility sa,
+            String prompt,
+            forge.game.mana.ManaConversionMatrix matrix,
+            boolean effect) {
+        return forge.game.player.PlaySpellAbility.payManaCost(
+                this, toPay, costPartMana, sa, player, prompt, matrix, effect);
+    }
+
+    /**
+     * §6.91 — FORGE decides what is affordable, not Proxic.
+     *
+     * Every cost type is refused loudly by default and the few
+     * that are supported are overridden explicitly, so a cost this
+     * adapter cannot represent stops the match and names itself
+     * instead of being quietly paid.
+     */
+    @Override
+    public forge.game.cost.CostDecisionMakerBase getCostDecisionMaker(
+            Player payer, SpellAbility ability, boolean effect, String prompt) {
+        return new MatchCostDecision(payer, effect, ability, ability.getHostCard());
+    }
+
+    /**
      * Labels for a client that has no game state yet.
      *
      * §6.49 — presentation hints, not authority. When viewer
