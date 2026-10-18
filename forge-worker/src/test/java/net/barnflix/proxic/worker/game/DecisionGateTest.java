@@ -40,8 +40,29 @@ class DecisionGateTest {
         volatile DecisionGate.Pending pending;
         final Thread thread;
 
+        /**
+         * Holds the asking thread INSIDE `ask`, before it starts
+         * polling for an answer.
+         *
+         * `ask` sets `pending`, clears the slot and then calls
+         * the publisher; the wait loop only begins once the
+         * publisher returns. Blocking in the publisher therefore
+         * freezes the gate in the exact state a duplicate test
+         * needs: a question outstanding, an empty slot, and a
+         * waiter that cannot wake and clear `pending` underneath
+         * the assertions.
+         *
+         * Open by default, so every other test behaves as before.
+         */
+        final CountDownLatch release = new CountDownLatch(1);
+
         Asker(DecisionGate gate, int seat) {
             this(gate, seat, seat);
+        }
+
+        /** Let the asking thread out of `ask` and into its wait. */
+        void letItWait() {
+            release.countDown();
         }
 
         Asker(DecisionGate gate, int actedFor, int authorised) {
@@ -53,6 +74,11 @@ class DecisionGateTest {
                                     "chooseSpellAbilityToPlay", OPTIONS, p -> {
                                 pending = p;
                                 asked.countDown();
+                                try {
+                                    release.await(5, TimeUnit.SECONDS);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
                             }));
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
@@ -64,7 +90,18 @@ class DecisionGateTest {
             thread.start();
         }
 
+        /**
+         * Wait until the question exists, then let the waiter run.
+         *
+         * The duplicate test uses `awaitAskedAndHold` instead,
+         * because it needs the waiter held still.
+         */
         void awaitAsked() throws InterruptedException {
+            awaitAskedAndHold();
+            letItWait();
+        }
+
+        void awaitAskedAndHold() throws InterruptedException {
             assertTrue(asked.await(5, TimeUnit.SECONDS), "the gate never published a question");
         }
     }
@@ -111,7 +148,17 @@ class DecisionGateTest {
     void a_duplicate_is_refused_before_the_waiter_wakes() throws Exception {
         DecisionGate gate = new DecisionGate();
         Asker asker = new Asker(gate, ALICE);
-        asker.awaitAsked();
+        // HELD, deliberately. This test is about the single slot
+        // specifically, which only exists as a distinct defence
+        // while the waiter has not woken: once it does, `pending`
+        // is cleared and a second answer is refused as
+        // NOT_PENDING by a different check.
+        //
+        // The first version of this test did not hold anything
+        // and asserted DUPLICATE anyway, so it was a coin toss
+        // between two refusals. It never lost locally and lost on
+        // the first CI runner that was busy enough.
+        asker.awaitAskedAndHold();
 
         DecisionGate.Response same = new DecisionGate.Response(
                 asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
@@ -119,6 +166,12 @@ class DecisionGateTest {
 
         assertNull(gate.submit(same));
         assertEquals(DecisionGate.Reject.DUPLICATE, gate.submit(same));
+
+        // And the answer that WAS accepted still gets through,
+        // so the duplicate was refused rather than the pair.
+        asker.letItWait();
+        assertTrue(asker.done.await(5, TimeUnit.SECONDS), "the waiter never resumed");
+        assertEquals("action:0:card:7", asker.answer.get());
     }
 
     /**
