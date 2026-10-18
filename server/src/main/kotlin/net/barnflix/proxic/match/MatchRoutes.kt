@@ -89,6 +89,7 @@ private fun Match.viewFor(viewerId: UUID): MatchView =
 fun Route.matchRoutes(
     launcher: MatchLauncher,
     matches: MatchStore,
+    starter: MatchStarter = MatchStarter.NONE,
 ) {
     route("/matches") {
         // §6.10, §6.11 — the host starts it.
@@ -102,11 +103,17 @@ fun Route.matchRoutes(
 
             when (val result = launcher.launch(setupId, callerId())) {
                 is LaunchResult.Refused -> respondRefusal(result.error)
-                is LaunchResult.Launched ->
+                is LaunchResult.Launched -> {
+                    // §6.17 — the answer is LAUNCHING. Forge starts
+                    // behind it, and the match becomes RUNNING when
+                    // it does. Waiting here would hold the request
+                    // open across a JVM spawn.
+                    starter.begin(result.match)
                     call.respond(
                         HttpStatusCode.Created,
                         MatchResponse(result.match.viewFor(callerId())),
                     )
+                }
             }
         }
 

@@ -565,12 +565,22 @@ private fun Route.databaseRoutes(
         // prepared setup, and find the one you are in. No Forge is
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
+        val matchRuntime =
+            net.barnflix.proxic.match.MatchRuntime(database.dataSource(), config)
+        application.environment.monitor.subscribe(ApplicationStopped) {
+            // §6.162 — a stopping server takes its match workers
+            // with it. Each is ~611 MB; leaving them behind would
+            // outlive the thing that knows they exist.
+            matchRuntime.stopAll()
+        }
+
         matchRoutes(
             net.barnflix.proxic.match.MatchLauncher(
                 database.dataSource(),
                 net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
             ),
             net.barnflix.proxic.match.MatchStore(database.dataSource()),
+            matchRuntime,
         )
 
         // §5.37, §5.94 — the server says which presets

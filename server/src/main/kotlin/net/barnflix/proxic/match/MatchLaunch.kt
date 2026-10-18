@@ -100,3 +100,29 @@ sealed interface LaunchResult {
 
     data class Refused(val error: LaunchError) : LaunchResult
 }
+
+/**
+ * Something that turns a claimed match into a running one.
+ *
+ * An interface, and the reason is timing rather than taste.
+ * Claiming a setup takes milliseconds; starting Forge takes a JVM
+ * and most of a minute. The route does the first and hands the
+ * second to this, so an HTTP request never waits on a process
+ * spawn — Cloudflare cuts a request off at 100 seconds, and a
+ * launch that took longer would look like a failure while the
+ * match started perfectly.
+ *
+ * It also keeps the route tests deterministic. With a real starter
+ * they would spawn workers, fail asynchronously on a machine with
+ * no Forge, and flip the match out of LAUNCHING while a test was
+ * asserting on it.
+ */
+fun interface MatchStarter {
+    /** Called after the claim. Must not block the caller. */
+    fun begin(match: Match)
+
+    companion object {
+        /** For tests, and for a server with no Forge configured. */
+        val NONE = MatchStarter { }
+    }
+}
