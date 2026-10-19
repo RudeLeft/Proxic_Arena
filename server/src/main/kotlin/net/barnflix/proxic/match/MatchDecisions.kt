@@ -33,11 +33,17 @@ class MatchDecisions(
             is WorkerEvent.Answered -> live.answered(event.decisionId)
 
             is WorkerEvent.Snapshot -> {
-                live.snapshotTaken(event.seat, event.state)
+                // §6.121 — the asset step, and the only place it
+                // happens. Annotating BEFORE storing means a
+                // reconnecting player gets the same references as
+                // the one who never left, and that sending IS what
+                // authorises the fetch (§6.129).
+                val state = live.art.annotate(event.state, event.seat)
+                live.snapshotTaken(event.seat, state)
                 live.match.participants
                     .firstOrNull { it.seatNumber == event.seat }
                     ?.let { seat ->
-                        tell { announcer.snapshot(live.match.matchId, seat.userId, event.state) }
+                        tell { announcer.snapshot(live.match.matchId, seat.userId, state) }
                     }
             }
 

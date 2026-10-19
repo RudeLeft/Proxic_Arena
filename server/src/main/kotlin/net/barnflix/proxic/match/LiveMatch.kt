@@ -33,6 +33,14 @@ class LiveMatch(
     val match: Match,
     val worker: MatchWorker,
     /**
+     * §6.122 — which artwork each seat may see and fetch.
+     *
+     * Per match and per viewer, and it dies with this object, which
+     * is what makes §6.130 true without any code: a match that has
+     * ended grants nothing.
+     */
+    val art: MatchArt = MatchArt(emptyMap()),
+    /**
      * How an authorised answer reaches the worker.
      *
      * A seam, defaulting to the real worker, so the

@@ -33,7 +33,7 @@ class MatchRuntime(
     private val roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
         net.barnflix.proxic.room.SilentAnnouncer,
     private val decisions: DecisionAnnouncer = DecisionAnnouncer.NONE,
-) : MatchStarter, MatchControl {
+) : MatchStarter, MatchControl, MatchAssets {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
     private val records = MatchRecords(dataSource)
@@ -46,6 +46,26 @@ class MatchRuntime(
 
     /** Every match this process is running. §6.159 bounds the size. */
     private val live = ConcurrentHashMap<UUID, LiveMatch>()
+
+    /**
+     * §6.122, §6.129 — only what this viewer has been shown.
+     *
+     * A match this process is not running answers false rather
+     * than looking anything up: §6.130 means a finished match
+     * grants nothing, and `live` is exactly the set of matches
+     * that still exist.
+     */
+    override fun mayFetch(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        assetId: String,
+    ): Boolean {
+        val running = live[matchId] ?: return false
+        val seat =
+            running.match.participants.firstOrNull { it.userId == userId }?.seatNumber
+                ?: return false
+        return running.art.mayFetch(seat, assetId)
+    }
 
     /**
      * Start Forge for a match that has been claimed.
@@ -95,7 +115,14 @@ class MatchRuntime(
                     else -> routing.handle(running, event)
                 }
             }
-        running = LiveMatch(match, worker)
+        // §6.126 — the art each seat brought, read once. A deck
+        // cannot change mid-match (§6.33 froze the printing at
+        // setup), so there is nothing to re-read.
+        val art = records.artFor(match)
+        // Worth a line: artwork silently not appearing looks like a
+        // rendering problem and is usually a deck that carried none.
+        log.info("match ${match.matchId}: art for ${art.map { it.key to it.value.size }}")
+        running = LiveMatch(match, worker, MatchArt(art))
         live[match.matchId] = running
 
         val result = worker.start(seats)

@@ -459,6 +459,25 @@ button:disabled {
   min-width: 90px;
 }
 
+/*
+ * PHASE_06 §6.131 — a functional image, nothing more.
+ *
+ * Deliberately small and deliberately above the name rather than
+ * behind it: §6.121 puts size, position and composition in Phase
+ * 7, and the job here is to prove the right picture reached the
+ * right viewer. A card still has to be readable, so the art does
+ * not replace the name.
+ *
+ * No fixed height: a missing or broken image collapses to nothing
+ * and takes the row with it rather than leaving a grey hole.
+ */
+.card-art {
+  width: 100%;
+  max-width: 120px;
+  border-radius: 3px;
+  display: block;
+}
+
 .card-name {
   font-weight: 500;
 }

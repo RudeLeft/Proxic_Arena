@@ -5,7 +5,9 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.receive
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -95,8 +97,12 @@ fun Route.matchRoutes(
         net.barnflix.proxic.room.SilentAnnouncer,
     matchAnnouncer: MatchAnnouncer = MatchAnnouncer.NONE,
     control: MatchControl = MatchControl.NONE,
+    assets: MatchAssets = MatchAssets.NONE,
+    artStore: net.barnflix.proxic.deck.ArtStore? = null,
 ) {
     route("/matches") {
+        matchAssetRoute(assets, artStore)
+
         // §6.10, §6.11 — the host starts it.
         post {
             val body =
@@ -245,4 +251,85 @@ private suspend fun Handler.respondRefusal(error: LaunchError) {
             is LaunchError.RevalidationFailed -> HttpStatusCode.UnprocessableEntity
         }
     call.respond(status, ErrorResponse(error.code, error.detail, call.callId))
+}
+
+/**
+ * §6.122 — the match-scoped artwork route, on its own.
+ *
+ * Extracted because matchRoutes was over detekt's complexity
+ * ceiling with it inlined, and because it is a different kind of
+ * thing from the rest of that file: everything else there changes
+ * a match, and this only reads an image.
+ */
+private fun Route.matchAssetRoute(
+    assets: MatchAssets,
+    artStore: net.barnflix.proxic.deck.ArtStore?,
+) {
+    // §6.122 — match-scoped artwork.
+    //
+    // A player may legally see an opponent's card during a
+    // match without gaining any access to that opponent's
+    // deck, so this cannot be the Deck Depot route with a
+    // different name. What it serves is decided by what the
+    // viewer's own snapshots have already shown them, which is
+    // §6.129: seeing one card does not open the package.
+    //
+    // §6.123 — the reference is a content hash, never a path,
+    // a deck id or an index into anything. The shape is
+    // validated before it is used, so traversal is impossible
+    // whatever arrives.
+    get("/{matchId}/assets/{assetId}") {
+        val assetId = call.parameters["assetId"].orEmpty()
+        if (!assetId.matches(Regex("[0-9a-f]{64}"))) {
+            return@get call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("INVALID_ASSET_ID", "That is not an asset id.", null),
+            )
+        }
+        val matchId =
+            call.parameters["matchId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@get call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_MATCH_ID", "That is not a match id.", null),
+                )
+
+        // §4.65's rule, for the sixth phase running: an asset
+        // you may not see and one that does not exist are the
+        // same answer. A 403 here would confirm that a
+        // particular image is in an opponent's deck, which is
+        // most of what §6.129 is protecting.
+        if (!assets.mayFetch(matchId, callerId(), assetId)) {
+            return@get call.respond(
+                HttpStatusCode.NotFound,
+                ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+            )
+        }
+
+        val store =
+            artStore
+                ?: return@get call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                )
+        val file =
+            store.displayPath(assetId).takeIf { it.isFile }
+                ?: store.originalPath(assetId).takeIf { it.isFile }
+                ?: return@get call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                )
+
+        // `private`, for the reason the Deck Depot route gives:
+        // Cloudflare sits in front of this server and a shared
+        // cache would serve one viewer's authorised image to
+        // somebody who was never shown it. The viewer's own
+        // browser may keep it, because an asset id is a content
+        // hash and those bytes cannot come to mean something
+        // else.
+        call.response.header(
+            io.ktor.http.HttpHeaders.CacheControl,
+            "private, max-age=31536000, immutable",
+        )
+        call.respondFile(file)
+    }
 }

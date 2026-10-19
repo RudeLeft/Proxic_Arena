@@ -77,6 +77,20 @@ export interface SnapshotCounter {
 export interface SnapshotCard {
   /** Typed (`card:51`), and the SAME id a decision uses (§6.47). */
   id: string;
+  /**
+   * §6.123 — a server-issued reference to this card's artwork, or
+   * absent.
+   *
+   * Absent is ordinary and means one of three different things,
+   * none of which the page has to tell apart: the card is hidden
+   * from this viewer (§6.124, and then there is no name either),
+   * the deck was imported without art for it, or it is a token
+   * (§6.128 — a token is in nobody's deck package).
+   *
+   * It is a content hash, not a path. The page does not build it
+   * and cannot guess another one.
+   */
+  art: string | null;
   seat: number;
   name: string;
   tapped: boolean;
@@ -295,6 +309,12 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
   return players;
 }
 
+/** A 64-character content hash, or nothing. */
+function asHash(value: unknown): string | null {
+  const text = asString(value);
+  return text && /^[0-9a-f]{64}$/.test(text) ? text : null;
+}
+
 function asCards(value: unknown): SnapshotCard[] {
   if (!Array.isArray(value)) return [];
   const cards: SnapshotCard[] = [];
@@ -323,6 +343,15 @@ function asCards(value: unknown): SnapshotCard[] {
       blocking: row["blocking"] === true,
       counters: asCounters(row["counters"]),
       attachedTo: asString(row["attachedTo"]),
+      // §6.123 — a content hash or nothing.
+      //
+      // Validated to the same shape the server validates, so a
+      // value that is not one cannot become part of a request
+      // URL. This parser copies named fields rather than
+      // spreading the row, which is the right discipline and is
+      // also why artwork did not appear the first time: the
+      // server was sending `art` and this dropped it.
+      art: asHash(row["art"]),
     });
   }
   return cards;

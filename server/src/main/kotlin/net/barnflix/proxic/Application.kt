@@ -22,7 +22,10 @@ import net.barnflix.proxic.auth.authRoutes
 import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
+import net.barnflix.proxic.deck.ArtStore
+import net.barnflix.proxic.deck.DeckAuthorization
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
 import net.barnflix.proxic.room.matchPresetRoutes
@@ -607,16 +610,15 @@ private fun Route.databaseRoutes(
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
         matchRoutes(
-            net.barnflix.proxic.match.MatchLauncher(
-                database.dataSource(),
-                net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
-            ),
+            MatchLauncher(database.dataSource(), DeckAuthorization(database.dataSource())),
             net.barnflix.proxic.match.MatchStore(database.dataSource()),
             matchRuntime,
             rooms = roomService,
             roomAnnouncer = lobby,
             matchAnnouncer = lobby,
             control = matchRuntime,
+            assets = matchRuntime,
+            artStore = ArtStore(File(config.dataRoot)),
         )
 
         // §5.37, §5.94 — the server says which presets

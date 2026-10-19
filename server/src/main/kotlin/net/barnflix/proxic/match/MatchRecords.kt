@@ -195,6 +195,23 @@ internal class MatchRecords(private val dataSource: DataSource) {
         }
 
     /**
+     * Seat → (card name → content hash) — §6.121, §6.126.
+     *
+     * The art each seat's OWN deck carries, which is what an
+     * opponent ends up looking at when that seat plays a card.
+     * Entries without art are left out rather than carried as
+     * nulls: the exporter omits art it could not fetch and the
+     * import succeeds anyway, so "no art" is ordinary.
+     */
+    fun artFor(match: Match): Map<Int, Map<String, String>> =
+        dataSource.connection.use { connection ->
+            match.participants.mapNotNull { participant ->
+                val deckId = participant.deckId ?: return@mapNotNull null
+                participant.seatNumber to artOf(connection, deckId)
+            }.toMap()
+        }
+
+    /**
      * §6.33 — the PRINTING travels, not just the name.
      *
      * Phase 2 stored what Forge actually resolved alongside what
@@ -234,3 +251,31 @@ internal class MatchRecords(private val dataSource: DataSource) {
             }
         }
 }
+
+/**
+ * The art rows of one deck, keyed by the name Forge will use.
+ *
+ * Top-level rather than a method because MatchRecords is already
+ * at detekt's function ceiling, and this needs nothing from it
+ * beyond the connection it is handed.
+ */
+private fun artOf(
+    connection: Connection,
+    deckId: UUID,
+): Map<String, String> =
+    connection.prepareStatement(
+        """
+        SELECT card_name, art_sha256
+          FROM deck_entry
+         WHERE deck_id = ? AND art_sha256 IS NOT NULL
+        """.trimIndent(),
+    ).use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildMap {
+                while (rows.next()) {
+                    put(rows.getString(1), rows.getString(2))
+                }
+            }
+        }
+    }

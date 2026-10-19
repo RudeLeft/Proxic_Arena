@@ -63,7 +63,31 @@ class MatchRuntimeTest {
      */
     @Test
     fun `the worker starts a real two-player game`() {
-        val worker = MatchWorker(config(), UUID.randomUUID())
+        // SOMEBODY HAS TO ANSWER THE PREGAME.
+        //
+        // Keeping the opening hand and choosing to play first are
+        // real decisions now; they used to be answered by the
+        // adapter returning a default. They are asked BEFORE the
+        // first priority window, which is the thing `start` waits
+        // for, so a test that drives the worker without answering
+        // them waits out the whole 120-second timeout and reports
+        // a failure that is really its own silence.
+        //
+        // Answering the first option is "keep" and "play first" —
+        // the boring opening a test wants.
+        lateinit var worker: MatchWorker
+        worker =
+            MatchWorker(config(), UUID.randomUUID()) { event ->
+                if (event is WorkerEvent.Decision) {
+                    val request = event.request
+                    worker.answer(
+                        request.decisionId,
+                        request.authorisedSeat,
+                        request.stateVersion,
+                        request.options.firstOrNull()?.actionId,
+                    )
+                }
+            }
         try {
             val result =
                 worker.start(

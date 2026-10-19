@@ -29,14 +29,16 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 22 |
+| MET | 25 |
 | PARTIAL | 21 |
-| NOT MET | 20 |
+| NOT MET | 17 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
-**Updated 2026-10-19** after Finding 2 was fixed: P6-AC moved from
-NOT MET to PARTIAL. The rest of the audit stands as first written.
+**Updated 2026-10-19.** Two of the six findings are fixed: the
+pregame decisions (Finding 2, P6-AC → PARTIAL) and match-time
+artwork (Finding 1, P6-X/Y/Z → MET). The rest stands as first
+written.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -50,17 +52,24 @@ twenty-one scattered ones.
 
 Read these before the table.
 
-### 1. There is no artwork in a match at all
+### 1. ~~There is no artwork in a match at all~~ — BUILT 2026-10-19
 
-P6-X, P6-Y, P6-Z and the artwork half of P6-BK and P6-BF are a
-single missing subsystem. The match snapshot carries no asset
-field of any kind; there is no match-scoped asset endpoint. Cards
-are names and numbers in the browser today.
+P6-X, P6-Y and P6-Z are met. `/api/matches/{matchId}/assets/{sha}`
+serves a card's imported artwork to a viewer who has been shown
+that card, and to nobody else.
 
-This is known and deliberate (§6.121–§6.126 is its own slice), but
-it is **five acceptance tests**, and three of them are privacy
-tests — "hidden art cannot be retrieved" is untestable while there
-is no art to retrieve. It cannot be deferred past the exit gate.
+**The authorization is the snapshot.** A viewer may fetch exactly
+the assets their own snapshots have carried, because the set is
+built BY sending them. That makes §6.124, §6.125 and §6.129 fall
+out of work already done rather than needing rules of their own: a
+card the viewer may not identify arrives with `known: false` and
+no name, so there is nothing to look up and no reference to send,
+and an opponent cannot ask for the front of a face-down card
+because they were never told which card it is.
+
+Still open from this area: the artwork halves of **P6-BF**
+(multiface, which needs a multi-face card to run at all) and
+**P6-BK** (production).
 
 ### 2. Decisions are still being made FOR the player, outside the stub system
 
@@ -192,9 +201,9 @@ restarted under a live match outside a unit test.
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| P6-X | Asset plumbing | NOT MET | No asset field in the snapshot, no match-scoped asset endpoint |
-| P6-Y | Hidden asset protection | NOT MET | Nothing to protect yet |
-| P6-Z | No asset enumeration | NOT MET | No asset endpoint to enumerate |
+| P6-X | Asset plumbing | MET | **Built 2026-10-19.** Forge object → visible identity → imported asset → match-scoped route → image on screen, asserted end to end in the browser: 16 assets served in one match, the reference matched `/api/matches/{uuid}/assets/{sha256}`, and the response was a 200 image |
+| P6-Y | Hidden asset protection | MET | A card with `known: false` is never given a reference, so there is nothing to retrieve; proven by a test that fails when the `known` check is removed (mutation run) |
+| P6-Z | No asset enumeration | MET | Being shown one card of an opponent's deck authorises that asset and no other — unit-tested both ways, and a well-formed unshown reference returns 404 in the browser suite |
 
 ### Card behaviour and the action model
 
@@ -256,10 +265,10 @@ restarted under a live match outside a unit test.
 
 In rough order of how many tests each unblocks:
 
-1. **Card artwork in a match** (§6.121–§6.126) — closes P6-X, P6-Y,
-   P6-Z, and the artwork halves of P6-BF and P6-BK. Five tests, one
-   subsystem, and three of them are privacy tests that cannot be
-   written until it exists.
+1. ~~**Card artwork in a match**~~ — done 2026-10-19. P6-X, P6-Y
+   and P6-Z are met; the artwork halves of P6-BF and P6-BK remain,
+   and both are blocked on other things (a multi-face card, and a
+   production run).
 2. **The Mechanics Lab corpus** (§6.4, §6.5) — closes P6-AS and
    unblocks P6-AA and P6-AE, which draw their scenarios from it.
 3. **Semantic non-object choices** — `chooseCardName`,

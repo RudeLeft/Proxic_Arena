@@ -830,7 +830,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         </p>
       )}
 
-      {game.board && <Board board={game.board} />}
+      {game.board && <Board board={game.board} matchId={match.matchId} />}
 
       {game.notice && <p className="error-text">{game.notice}</p>}
       {abandonFailure && <p className="error-text">{abandonFailure}</p>}
@@ -1112,7 +1112,7 @@ function hintFor(kind: string, options: number): string {
  * name is a card whose name never arrived; a developer console
  * shows exactly what this does.
  */
-function Board({ board }: { board: Snapshot }) {
+function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
   const me = board.players.find((player) => player.seat === board.seat);
   const opponents = board.players.filter((player) => player.seat !== board.seat);
 
@@ -1138,6 +1138,7 @@ function Board({ board }: { board: Snapshot }) {
           player={player}
           cards={board.battlefield.filter((card) => card.seat === player.seat)}
           mine={false}
+          matchId={matchId}
         />
       ))}
 
@@ -1159,6 +1160,7 @@ function Board({ board }: { board: Snapshot }) {
           player={me}
           cards={board.battlefield.filter((card) => card.seat === me.seat)}
           mine
+          matchId={matchId}
         />
       )}
 
@@ -1169,7 +1171,7 @@ function Board({ board }: { board: Snapshot }) {
         ) : (
           <ul className="board-cards">
             {board.hand.map((card) => (
-              <CardChip key={card.id} card={card} mine attachments={[]} />
+              <CardChip key={card.id} card={card} mine attachments={[]} matchId={matchId} />
             ))}
           </ul>
         )}
@@ -1183,10 +1185,12 @@ function PlayerSide({
   player,
   cards,
   mine,
+  matchId,
 }: {
   player: SnapshotPlayer;
   cards: SnapshotCard[];
   mine: boolean;
+  matchId: string;
 }) {
   // Auras and equipment are drawn WITH what they modify. An
   // equipment in its own row tells you nothing about which
@@ -1216,9 +1220,27 @@ function PlayerSide({
         <p className="hint board-empty">Nothing in play.</p>
       ) : (
         <>
-          <CardRow label="Creatures" cards={creatures} mine={mine} attachedTo={attachedTo} />
-          <CardRow label="Other" cards={rest} mine={mine} attachedTo={attachedTo} />
-          <CardRow label="Lands" cards={lands} mine={mine} attachedTo={attachedTo} />
+          <CardRow
+            label="Creatures"
+            cards={creatures}
+            mine={mine}
+            attachedTo={attachedTo}
+            matchId={matchId}
+          />
+          <CardRow
+            label="Other"
+            cards={rest}
+            mine={mine}
+            attachedTo={attachedTo}
+            matchId={matchId}
+          />
+          <CardRow
+            label="Lands"
+            cards={lands}
+            mine={mine}
+            attachedTo={attachedTo}
+            matchId={matchId}
+          />
         </>
       )}
     </section>
@@ -1230,11 +1252,13 @@ function CardRow({
   cards,
   mine,
   attachedTo,
+  matchId,
 }: {
   label: string;
   cards: SnapshotCard[];
   mine: boolean;
   attachedTo: (id: string) => SnapshotCard[];
+  matchId: string;
 }) {
   if (cards.length === 0) return null;
   return (
@@ -1242,7 +1266,13 @@ function CardRow({
       <span className="board-row-label">{label}</span>
       <ul className="board-cards">
         {cards.map((card) => (
-          <CardChip key={card.id} card={card} mine={mine} attachments={attachedTo(card.id)} />
+          <CardChip
+            key={card.id}
+            card={card}
+            mine={mine}
+            attachments={attachedTo(card.id)}
+            matchId={matchId}
+          />
         ))}
       </ul>
     </div>
@@ -1260,10 +1290,12 @@ function CardChip({
   card,
   mine,
   attachments,
+  matchId,
 }: {
   card: SnapshotCard;
   mine: boolean;
   attachments: SnapshotCard[];
+  matchId: string;
 }) {
   const classes = ["card-chip"];
   if (card.tapped) classes.push("tapped");
@@ -1278,6 +1310,25 @@ function CardChip({
 
   return (
     <li className={classes.join(" ")}>
+      {/*
+        §6.131 — a functional image, and the name stays either way.
+        The artwork is small at this size and a player still has to
+        be able to read what something is; Phase 7 owns what this
+        eventually looks like (§6.121 is explicit that layout, size
+        and composition are not Phase 6's).
+
+        A broken or missing image must not take the card with it,
+        so the name is a sibling rather than a caption, and the
+        element simply is not rendered when there is no reference.
+      */}
+      {card.art && (
+        <img
+          className="card-art"
+          src={`/api/matches/${matchId}/assets/${card.art}`}
+          alt=""
+          loading="lazy"
+        />
+      )}
       <span className="card-name">{card.name}</span>
       {card.power !== null && card.toughness !== null && (
         <span className="card-pt">

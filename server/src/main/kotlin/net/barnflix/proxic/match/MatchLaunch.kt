@@ -140,11 +140,36 @@ fun interface MatchStarter {
  * process, if any, is involved. No pid, no path, no handle ever
  * crosses that line.
  */
+
 fun interface MatchControl {
     fun abandon(match: Match)
 
     companion object {
         val NONE = MatchControl { }
+    }
+}
+
+/**
+ * May this player fetch this image — PHASE_06 §6.122, §6.129.
+ *
+ * Separate from MatchControl because it answers a question rather
+ * than performing an action, and because the answer is per VIEWER:
+ * the same asset is fetchable by the player whose snapshot carried
+ * it and by nobody else.
+ *
+ * NONE denies, which is the safe direction for a seam: a wiring
+ * mistake makes artwork stop appearing, rather than making an
+ * opponent's deck readable.
+ */
+fun interface MatchAssets {
+    fun mayFetch(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        assetId: String,
+    ): Boolean
+
+    companion object {
+        val NONE = MatchAssets { _, _, _ -> false }
     }
 }
 

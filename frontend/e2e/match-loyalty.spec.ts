@@ -401,6 +401,44 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     // which of its two things to do.
     const missing = questions.filter((q) => !seen.has(q.name)).map((q) => q.name);
     expect(missing, `never asked in ${answered} answered decisions`).toEqual([]);
+
+    // --- P6-X: the artwork actually arrived -------------------
+    //
+    // Asserted end to end rather than at any one layer, because
+    // every layer of this chain was correct the first time and the
+    // artwork still did not appear: the server annotated the
+    // snapshot, the page knew how to draw it, and the PARSER in
+    // between copied named fields and quietly dropped `art`.
+    // Nothing failed; there was simply no picture.
+    //
+    //     Forge object → visible identity → asset reference
+    //                  → authorised fetch → pixels on screen
+    //
+    // A 200 on the response is the only step that proves the last
+    // two, so the response is what is waited for.
+    const art = matchPanel(host).locator("img.card-art");
+    await expect(art.first()).toBeVisible({ timeout: 60_000 });
+
+    const src = await art.first().getAttribute("src");
+    expect(src, "the reference is match-scoped and opaque (§6.122, §6.123)").toMatch(
+      /^\/api\/matches\/[0-9a-f-]{36}\/assets\/[0-9a-f]{64}$/,
+    );
+
+    const fetched = await host.request.get(src!);
+    expect(fetched.status(), "an authorised viewer gets the image").toBe(200);
+    expect(fetched.headers()["content-type"] ?? "").toContain("image");
+
+    // --- P6-Z: and cannot walk the rest of the deck -----------
+    //
+    // A well-formed reference this viewer was never shown. Same
+    // match, same session, and §4.65's rule says it answers the
+    // same way a nonexistent one does.
+    const unseen = "b".repeat(64);
+    // The match id out of the reference that just worked, so the
+    // two requests differ in exactly one thing: the asset.
+    const scope = src!.slice(0, src!.lastIndexOf("/"));
+    const refused = await host.request.get(`${scope}/${unseen}`);
+    expect(refused.status(), "§6.129 — one visible card is not the package").toBe(404);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await hostContext.close();
