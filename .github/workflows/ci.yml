@@ -201,6 +201,16 @@ jobs:
           mkdir -p "Test Deck"
           node scripts/make-ci-deck.mjs "Test Deck/ci-deck.zip"
 
+      # And a deck that can CAST something. The gate deck above is
+      # basics only on purpose, so it can never reach a decision
+      # that only a spell asks for -- a planeswalker ability, its
+      # loyalty cost, or which kind of counter it puts. Without
+      # this, match-loyalty.spec.ts skips itself and the gate
+      # passes having tested none of that.
+      - name: Build the loyalty deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/loyalty-deck.zip" protocol/fixtures/planeswalker-deck
+
       - run: npm ci
         working-directory: frontend
       - run: npx playwright install --with-deps chromium

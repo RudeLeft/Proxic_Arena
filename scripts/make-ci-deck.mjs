@@ -1,10 +1,15 @@
-// Build the CI gate deck package.
+// Build a deck package from a tracked fixture.
 //
-//   node scripts/make-ci-deck.mjs [outputPath]
+//   node scripts/make-ci-deck.mjs [outputPath] [fixtureDir]
 //
-// Produces a minimal, legal Deck Builder package from the tracked
-// fixture in protocol/fixtures/ci-deck/. Default output:
-// frontend/build/ci-deck.zip
+// Produces a minimal, legal Deck Builder package. Defaults to the
+// CI gate deck: protocol/fixtures/ci-deck/ -> frontend/build/ci-deck.zip.
+//
+// A second fixture exists because the gate deck is basics only, on
+// purpose (see its README: every name resolves in any Forge pool).
+// A deck of 65 lands can never cast anything, so it cannot reach a
+// decision that only a spell asks for. protocol/fixtures/
+// planeswalker-deck/ is for those.
 //
 // Why this exists: the real export is gitignored because it carries
 // Wizards of the Coast artwork, so on CI there is no package to
@@ -22,8 +27,9 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixtureDir = join(here, "..", "protocol", "fixtures", "ci-deck");
 const out = process.argv[2] ?? join(here, "..", "frontend", "build", "ci-deck.zip");
+const fixtureDir =
+  process.argv[3] ?? join(here, "..", "protocol", "fixtures", "ci-deck");
 
 // CRC-32, because a zip entry carries one and readers check it.
 const table = Array.from({ length: 256 }, (_, n) => {
@@ -104,20 +110,6 @@ function u32be(value) {
   return b;
 }
 
-// One image per distinct card NAME (§5), under real_cards/. The
-// colours are only so a human looking at an imported CI deck can
-// see five different cards rather than five grey rectangles.
-const artwork = [
-  ["Mountain", [170, 60, 50]],
-  ["Island", [50, 90, 170]],
-  ["Forest", [50, 130, 60]],
-  ["Swamp", [60, 55, 70]],
-  ["Plains", [200, 190, 150]],
-].map(([name, rgb]) => ({
-  name: `real_cards/${name} [CI].png`,
-  data: png(60, 84, rgb),
-}));
-
 const members = readdirSync(fixtureDir)
   // README.md is documentation for humans, and §2 of the package
   // format permits exactly one .txt at the root and nothing else.
@@ -128,6 +120,42 @@ const members = readdirSync(fixtureDir)
 if (members.length !== 1) {
   throw new Error(`expected exactly one .txt in ${fixtureDir}, found ${members.length}`);
 }
+
+// One image per distinct card NAME (§5), under real_cards/.
+//
+// READ OFF THE DECKLIST rather than listed here, so a new fixture
+// needs no edit to this file and cannot be half-added -- a deck
+// whose artwork list was written separately is a deck with a
+// missing image, and §5 makes artwork optional in a way that
+// would hide it.
+//
+// The set bracket is dropped because the importer matches on the
+// NAME and ignores it, which is also why "[CI]" is honest here:
+// these are not real card images and are not meant to pass as any
+// printing.
+//
+// The colours exist only so a person looking at an imported deck
+// sees different cards rather than identical grey rectangles.
+const cardNames = [
+  ...new Set(
+    String(members[0].data)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("//"))
+      // "4 Elspeth Resplendent [SNC:12]" -> "Elspeth Resplendent"
+      .map((line) => line.replace(/^\d+\s+/, "").replace(/\s*\[[^\]]*\]\s*$/, ""))
+      .filter(Boolean),
+  ),
+];
+
+const artwork = cardNames.map((name) => {
+  // A colour from the name, so it is stable across runs and
+  // distinct between cards without a table to maintain.
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  const rgb = [60 + (hash % 150), 60 + ((hash >>> 8) % 150), 60 + ((hash >>> 16) % 150)];
+  return { name: `real_cards/${name} [CI].png`, data: png(60, 84, rgb) };
+});
 
 members.push(...artwork);
 

@@ -152,7 +152,7 @@ function SharePanel({ detail }: { detail: DeckDetail }) {
   };
 
   return (
-    <section className="panel">
+    <section className="panel" aria-label="Share this deck">
       <h2>Share this deck</h2>
 
       <form onSubmit={(event) => void submit(event)}>
@@ -225,7 +225,12 @@ function DeckList({
   onDelete?: (deckId: string) => void;
 }) {
   return (
-    <section className="panel">
+    // NAMED, because a <section> with no accessible name is not
+    // exposed as a landmark at all -- a screen reader can jump to
+    // "My decks" on the lobby page and could not here, on the page
+    // whose whole job is decks. Found by reading the page's own
+    // accessibility tree (AGENTS TEST-011).
+    <section className="panel" aria-label={title}>
       <h2>{title}</h2>
       {decks.length === 0 && <p className="hint">{empty}</p>}
       {decks.map((deck) => (
@@ -301,7 +306,7 @@ export default function DecksPage() {
         Deck Depot — import a deck package exported by <strong>Proxic Deck Builder</strong>
       </p>
 
-      <section className="panel">
+      <section className="panel" aria-label="Import a deck">
         <input
           ref={fileRef}
           type="file"
