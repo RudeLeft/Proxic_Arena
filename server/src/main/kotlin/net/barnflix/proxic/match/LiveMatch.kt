@@ -61,6 +61,25 @@ class LiveMatch(
      */
     private val pending = AtomicReference<DecisionRequest?>()
 
+    /**
+     * The decision an answer has already been FORWARDED for.
+     *
+     * P6-R. The same player in two tabs can answer the same
+     * question at the same instant, and `pending` cannot stop the
+     * second: it is cleared only when the worker acknowledges, so
+     * both answers passed every check here and both were forwarded.
+     * The worker's gate refused the duplicate — Forge applied it
+     * once, measured — but this method had already told the second
+     * tab DECISION_ACCEPTED, because "forwarded" was being reported
+     * as "accepted". The worker's refusal then arrived after the
+     * question had been cleared and reached nobody.
+     *
+     * Claiming the decision atomically before forwarding makes the
+     * server the first duplicate defence, which is where §6.102
+     * puts it: refused here, truthfully, before Forge is troubled.
+     */
+    private val forwarded = AtomicReference<Long?>()
+
     fun pending(): DecisionRequest? = pending.get()
 
     /**
@@ -165,7 +184,24 @@ class LiveMatch(
         // The state version comes from the QUESTION, not from the
         // browser (§6.100). A client that could name its own
         // version could defeat §6.104 by naming the current one.
+        // One forward per decision. getAndUpdate is the atomic
+        // claim: whoever sees the PREVIOUS value already equal to
+        // this decision was second.
+        if (forwarded.getAndUpdate { decisionId } == decisionId) {
+            return DecisionRefusal.DUPLICATE
+        }
+
         val sent = send(decisionId, seat, question.stateVersion, actionId)
+        if (!sent) release(decisionId)
         return if (sent) null else DecisionRefusal.UNREACHABLE
+    }
+
+    /**
+     * The worker refused what was forwarded, so the question is
+     * answerable again — a stale state version is a reason to try
+     * once more, not to be locked out of the decision.
+     */
+    fun release(decisionId: Long) {
+        forwarded.compareAndSet(decisionId, null)
     }
 }

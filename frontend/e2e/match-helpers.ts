@@ -109,7 +109,14 @@ export async function whoseTurn(a: Page, b: Page): Promise<{ asked: Page; waitin
  * match" until the timeout. Every step here asserts the server
  * agreed before the next one depends on it.
  */
-export async function startAMatch(host: Page, guest: Page, deckName: string) {
+export async function startAMatch(
+  host: Page,
+  guest: Page,
+  deckName: string,
+  // false stops at the first pregame question instead of answering
+  // it -- for tests whose subject IS a question nobody has answered.
+  { settle = true }: { settle?: boolean } = {},
+) {
   await host.goto("/play");
   await guest.goto("/play");
   await host.getByRole("button", { name: "Host a game" }).click();
@@ -158,6 +165,7 @@ export async function startAMatch(host: Page, guest: Page, deckName: string) {
   // window, which is the moment the match row turns RUNNING, so a
   // test that waits for "The game is running" without answering
   // them waits for ever.
+  if (!settle) return;
   await settlePregame(host, guest);
 
   // §6.17 — both learn Forge is up WITHOUT refreshing.
@@ -193,7 +201,11 @@ export async function settlePregame(host: Page, guest: Page) {
     if (!asked) {
       // Either pregame is over, or the next question has not
       // arrived yet. Running is the signal that it is over.
-      if ((await matchPanel(host).getByText(/The game is running/).count()) > 0) {
+      if (
+        (await matchPanel(host)
+          .getByText(/The game is running/)
+          .count()) > 0
+      ) {
         return;
       }
       await host.waitForTimeout(100);
@@ -215,4 +227,39 @@ export async function settlePregame(host: Page, guest: Page) {
     await options.first().click();
     await asked.waitForTimeout(60);
   }
+}
+
+/**
+ * A deck the host owns and the guest can select — Phase 5's
+ * starting point for every match test.
+ *
+ * Checked through the API rather than page wording: what matters is
+ * that the guest CAN select it, which is the server's fact.
+ */
+export async function sharedDeck(host: Page, guest: Page, pkg: string): Promise<string> {
+  await host.goto("/decks");
+  const mine = async () =>
+    (
+      (await (await host.request.get("/api/decks")).json()) as {
+        mine: { displayName: string }[];
+      }
+    ).mine;
+  if ((await mine()).length === 0) {
+    await host.locator('input[type="file"]').setInputFiles(pkg);
+    await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
+  }
+  const deckName = (await mine())[0]!.displayName;
+  const guestCanSee = async () =>
+    (
+      (await (await guest.request.get("/api/decks")).json()) as {
+        sharedWithMe: { displayName: string }[];
+      }
+    ).sharedWithMe.some((deck) => deck.displayName === deckName);
+  if (!(await guestCanSee())) {
+    await host.getByRole("button", { name: "view" }).first().click();
+    await host.getByLabel("Username").fill(secondUser);
+    await host.getByRole("button", { name: "Share", exact: true }).click();
+    await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
+  }
+  return deckName;
 }

@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 28 |
-| PARTIAL | 22 |
-| NOT MET | 13 |
+| MET | 32 |
+| PARTIAL | 20 |
+| NOT MET | 11 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -210,9 +210,9 @@ restarted under a live match outside a unit test.
 | P6-O | Duplicate response protection | MET | `DecisionGateTest` duplicate defences (both tested separately); `an acceptance clears the pending question` |
 | P6-P | Stale response protection | MET | `a late acceptance does not discard the next question`, `the state version comes from the question, not the caller` |
 | P6-Q | Invalid candidate protection | MET | `an action that was not offered is refused` |
-| P6-R | Multiple browser tabs | NOT MET | `MatchHub` is per-connection, so the mechanism exists; **no Playwright test opens two tabs** |
-| P6-S | Disconnect during decision | PARTIAL | Reconnect re-sends snapshot then pending decision (§6.111/§6.112) in code; **never exercised by a test** |
-| P6-T | Browser refresh | NOT MET | §6.113 implemented; **no e2e refreshes a running match** |
+| P6-R | Multiple browser tabs | MET | **Built 2026-10-19.** Same player, two tabs, both click the same decision at once: both answers are sent, exactly one is accepted and the other tab is told it was refused — asserted on the WebSocket frames, six runs in six. **Found a defect on the way**: before the fix both tabs were told DECISION_ACCEPTED. Forge applied the answer once (its gate refused the duplicate, measured directly), but the server reported "forwarded" as "accepted" and the worker's refusal reached nobody. The server now claims a decision atomically on first forward |
+| P6-S | Disconnect during decision | MET | **Built 2026-10-19.** The page leaves, the socket closes, the match stays LAUNCHING/RUNNING and the question stays pending; on return the frames show a snapshot BEFORE the re-sent question (§6.110) and the question is unchanged |
+| P6-T | Browser refresh | MET | **Built 2026-10-19.** A refresh keeps the same match id, the same participants and the same pending question, compared option for option |
 | P6-U | Control-another-player | PARTIAL | `actedForSeat`/`authorisedSeat` carried end to end and unit-tested both ways; **no real control-changing card has ever been played** |
 | P6-V | Combat | MET | Attack/block/order/damage all from `CombatUtil`; creature decks run combat to a winner; gate refuses un-offered candidates |
 | P6-W | Targeting | MET | `chooseTargetsFor` answered 1,600+ times across decks; candidates are Forge's; injection refused by the gate |
@@ -266,7 +266,7 @@ restarted under a live match outside a unit test.
 | ID | Test | Status | Evidence |
 |---|---|---|---|
 | P6-BA | Normal Forge match end | PARTIAL | `a finished game records Forge's result and gives the room back`; games end naturally in harness runs. **Worker exit and runtime-directory cleanup not verified** |
-| P6-BB | Browser close is not concede | PARTIAL | The pending decision survives a disconnect by design and the UI says so; **no test closes a browser and checks no loss is recorded** |
+| P6-BB | Browser close is not concede | MET | **Built 2026-10-19.** The other player's whole browser context is closed; the match stays LAUNCHING/RUNNING with no result, and on signing in again they are returned to the same match |
 | P6-BC | Imported deck immutability | PARTIAL | `a deck can be deleted after the match that used it` is adjacent; **no before/after integrity comparison** |
 | P6-BD | Exact printing runtime | PARTIAL | Import resolves exact printings (`CardResolverTest`); **runtime preservation not inspected** |
 | P6-BE | Basic land runtime | MET | Every deck in `harness-decks.json` runs on basics through real games |
@@ -296,9 +296,9 @@ In rough order of how many tests each unblocks:
    more adapter work.
 4. ~~**Pregame**~~ — done 2026-10-19. Only Leyline-style coverage
    is left on P6-AC.
-5. **Browser-session tests** — two tabs, refresh, disconnect, close.
-   Four tests (P6-R, P6-T, P6-S, P6-BB), all against code that
-   already exists, all needing Playwright rather than new features.
+5. ~~**Browser-session tests**~~ — done 2026-10-19: P6-R, P6-S, P6-T
+   and P6-BB met, in one match (`e2e/match-session.spec.ts`).
+   P6-R found a real server defect, fixed in the same change.
 6. **Concurrency and restart** — two matches, three matches, a
    restart under load. Three tests (P6-AX, P6-AY, P6-AZ).
 7. **Production evidence** — P6-BK and P6-BL, once the above make a

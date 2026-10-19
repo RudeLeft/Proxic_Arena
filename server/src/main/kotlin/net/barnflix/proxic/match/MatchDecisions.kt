@@ -55,7 +55,8 @@ class MatchDecisions(
             // decide where it belongs.
             is WorkerEvent.Ended, WorkerEvent.Stopped -> Unit
 
-            is WorkerEvent.Refused ->
+            is WorkerEvent.Refused -> {
+                live.release(event.decisionId)
                 // Whoever got this far WAS the authorised user:
                 // anybody else is stopped before the worker is
                 // troubled (§6.102).
@@ -69,6 +70,7 @@ class MatchDecisions(
                         )
                     }
                 }
+            }
         }
     }
 

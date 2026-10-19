@@ -69,6 +69,42 @@ class LiveMatchTest {
         assertEquals(listOf("7/1/42/action:0:card:7"), sent)
     }
 
+    /**
+     * P6-R — the same player in two tabs answers the same question.
+     *
+     * Measured in a browser before this existed: both tabs were told
+     * DECISION_ACCEPTED. The worker's gate refused the second and
+     * Forge applied the answer once, but the second tab had already
+     * been told its answer took. The question stays pending until
+     * the worker acknowledges, so nothing else here could tell the
+     * two answers apart.
+     */
+    @Test
+    fun `a second answer to a forwarded decision is refused, not forwarded`() {
+        val live = live()
+        live.nowAsking(question())
+
+        assertNull(live.answer(alice, 7, "action:0:card:7"))
+        assertEquals(DecisionRefusal.DUPLICATE, live.answer(alice, 7, "action:0:card:7"))
+        assertEquals(1, sent.size, "the duplicate was forwarded to Forge")
+    }
+
+    /**
+     * And a refusal from the worker gives the decision back — a
+     * stale state version is a reason to answer again, not to be
+     * locked out of the question.
+     */
+    @Test
+    fun `a decision the worker refused can be answered again`() {
+        val live = live()
+        live.nowAsking(question())
+
+        assertNull(live.answer(alice, 7, "action:0:card:7"))
+        live.release(7)
+        assertNull(live.answer(alice, 7, "action:0:card:7"))
+        assertEquals(2, sent.size)
+    }
+
     /** §6.102 — and nothing is forwarded to Forge. */
     @Test
     fun `the other player cannot answer`() {
