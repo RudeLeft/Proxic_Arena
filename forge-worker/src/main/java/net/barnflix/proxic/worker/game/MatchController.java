@@ -978,6 +978,169 @@ public final class MatchController extends GeneratedControllerBase {
      */
     private static final int OFFER_LIMIT = 64;
 
+    /**
+     * The delayed reveal, as a sentence for the prompt.
+     *
+     * Forge's own message prefix when it supplied one, because it
+     * says what the cards ARE — "You looked at" reads very
+     * differently from "Revealed from your library".
+     *
+     * Empty when there is nothing to show, which is the common
+     * case: most choices have no reveal attached.
+     */
+    private static String revealed(forge.game.player.DelayedReveal reveal) {
+        if (reveal == null || reveal.getCards() == null || reveal.getCards().isEmpty()) {
+            return "";
+        }
+        java.util.List<String> names = new java.util.ArrayList<>();
+        reveal.getCards().forEach(card -> names.add(String.valueOf(card)));
+
+        // CAPPED, and says when it is capping.
+        //
+        // This is built for "look at the top seven", where naming
+        // them all is the point. A library search hands over the
+        // whole library -- fifty-six names measured, which buries
+        // the question underneath its own context and repeats most
+        // of the options. Nothing is hidden silently: the count of
+        // what is not listed is part of the sentence, and the
+        // cards a player may actually TAKE are the options, which
+        // are never capped.
+        int shown = Math.min(names.size(), REVEAL_LIMIT);
+        String more = names.size() > shown
+                ? ", and " + (names.size() - shown) + " more"
+                : "";
+        String prefix = reveal.getMessagePrefix();
+        prefix = (prefix == null || prefix.isBlank()) ? "You are looking at:" : prefix.trim();
+        return prefix + " " + String.join(", ", names.subList(0, shown)) + more + ".";
+    }
+
+    /**
+     * Choose SEVERAL things for an effect — §6.90, §6.93.
+     *
+     * The plural of the chooser above, and not a rare one: it is
+     * what Elspeth Resplendent's -3 asks, and what every "choose up
+     * to N" and "put any number of them" ends in. Reached by a
+     * perfectly ordinary card, and until now it failed the match
+     * loudly — correctly, but a planeswalker whose second ability
+     * stops the game is not a game.
+     *
+     * ONE AT A TIME, like combat and like modes. It needs no new
+     * protocol shape, every answer is final on its own, and a
+     * half-made selection cannot be submitted. The first `min` are
+     * compulsory and the rest are not, so the question stops
+     * refusing a pass once the minimum is met — "that is all I
+     * want" is the ordinary answer to "up to three".
+     *
+     * Forge's own human path allows a cancel exactly when min is
+     * zero, which is the same rule stated from the other end.
+     */
+    @Override
+    public <T extends forge.game.GameEntity> java.util.List<T> chooseEntitiesForEffect(
+            forge.util.collect.FCollectionView<T> optionList,
+            int min,
+            int max,
+            forge.game.player.DelayedReveal delayedReveal,
+            SpellAbility sa,
+            String title,
+            Player targetedPlayer,
+            java.util.Map<String, Object> params) {
+        java.util.List<T> chosen = new java.util.ArrayList<>();
+        if (optionList == null || optionList.isEmpty()) {
+            return chosen;
+        }
+        java.util.List<T> remaining = new java.util.ArrayList<>();
+        optionList.forEach(remaining::add);
+
+        // Shown with the first question only. Repeating seven card
+        // names above every pick is noise, and the player has
+        // already read them.
+        String context = revealed(delayedReveal);
+
+        while (chosen.size() < max && !remaining.isEmpty()) {
+            java.util.LinkedHashMap<String, T> byId = new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (T candidate : remaining) {
+                // §6.46 — typed, because a card id and a player id
+                // share a number space.
+                String id = (candidate instanceof forge.game.card.Card card)
+                        ? "card:" + card.getId()
+                        : "player:" + candidate.getId();
+                byId.put(id, candidate);
+                labels.put(id, String.valueOf(candidate));
+            }
+
+            boolean mandatory = chosen.size() < min;
+            String prompt = title
+                    + (mandatory
+                        ? " (" + (min - chosen.size()) + " more needed)"
+                        : " (up to " + (max - chosen.size()) + " more, or pass)");
+            if (chosen.isEmpty() && !context.isEmpty()) {
+                prompt = prompt + " " + context;
+            }
+
+            T picked;
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "chooseEntitiesForEffect",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                mandatory,
+                                prompt,
+                                pending -> host.publishDecision(pending, labels));
+                if (DecisionGate.PASS.equals(choice)) {
+                    // Only reachable once the minimum is met; the
+                    // gate refuses a pass before that.
+                    break;
+                }
+                picked = byId.get(choice);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                picked = null;
+            }
+
+            if (picked == null) {
+                if (!mandatory) {
+                    break;
+                }
+                // Required and unanswerable: the first remaining
+                // candidate is the only answer certainly still
+                // valid, and returning short of the minimum would
+                // strand the effect.
+                picked = remaining.get(0);
+            }
+            remaining.remove(picked);
+            chosen.add(picked);
+        }
+        return chosen;
+    }
+
+    /**
+     * Searching for SEVERAL cards — the plural of
+     * {@link #chooseSingleCardForZoneChange}.
+     *
+     * One line, straight through, which is exactly what Forge's
+     * own human controller does with it.
+     */
+    @Override
+    public java.util.List<forge.game.card.Card> chooseCardsForZoneChange(
+            forge.game.zone.ZoneType destination,
+            List<forge.game.zone.ZoneType> origin,
+            SpellAbility sa,
+            forge.game.card.CardCollection fetchList,
+            int min,
+            int max,
+            forge.game.player.DelayedReveal delayedReveal,
+            String selectPrompt,
+            Player decider) {
+        return chooseEntitiesForEffect(
+                fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null);
+    }
+
+    /** How many revealed cards a prompt names before counting. */
+    private static final int REVEAL_LIMIT = 12;
+
     /** What one mode costs out of a Pawprint budget. */
     private static int pawprintOf(forge.game.spellability.AbilitySub mode) {
         String paw = mode.getParam("Pawprint");
@@ -1174,13 +1337,49 @@ public final class MatchController extends GeneratedControllerBase {
      * is not a choice either. A single OPTIONAL candidate still
      * asks, because "none" is a real answer there.
      *
-     * KNOWN GAP, stated rather than hidden: `delayedReveal`
-     * carries cards Forge would show the player while they
-     * choose — the top of a library, say. This does not surface
-     * them yet, so a choice that depends on seeing them is made
-     * blind. The candidates themselves are correct; the context
-     * is missing.
+     * `delayedReveal` carries cards Forge would show the player
+     * while they choose — the top of a library, say. It used to
+     * be dropped here, which left a choice that depends on seeing
+     * them being made blind; it is now part of the prompt. See
+     * {@link #revealed}.
      */
+    /**
+     * Searching a library, a graveyard or an exile pile — §6.42,
+     * §6.44, §6.50.
+     *
+     * Rampant Growth finds a basic land; a tutor finds anything.
+     * FORGE builds the list: it has already applied the effect's
+     * restriction, so what arrives here is exactly what may be
+     * taken, and nothing in this file re-reads the card.
+     *
+     * Delegated to {@link #chooseSingleEntityForEffect}, which is
+     * what Forge's own human controller does with this method —
+     * one line, passing everything straight through. Both of them
+     * then share the delayed reveal.
+     *
+     * THIS IS THE MOST SENSITIVE LIST IN THE GAME. The options are
+     * cards out of a hidden zone, named. They are safe because a
+     * decision travels to ONE seat: the frame carries
+     * authorisedSeat and the server sends every other participant
+     * a bare "cleared" with no options on it (MatchDecisionsTest
+     * asserts exactly that). §6.42's rule is kept the same way the
+     * snapshots keep it — by what is put on the wire, not by what
+     * a page chooses to draw.
+     */
+    @Override
+    public forge.game.card.Card chooseSingleCardForZoneChange(
+            forge.game.zone.ZoneType destination,
+            List<forge.game.zone.ZoneType> origin,
+            SpellAbility sa,
+            forge.game.card.CardCollection fetchList,
+            forge.game.player.DelayedReveal delayedReveal,
+            String selectPrompt,
+            boolean isOptional,
+            Player decider) {
+        return chooseSingleEntityForEffect(
+                fetchList, delayedReveal, sa, selectPrompt, isOptional, decider, null);
+    }
+
     @Override
     public <T extends forge.game.GameEntity> T chooseSingleEntityForEffect(
             forge.util.collect.FCollectionView<T> optionList,
@@ -1195,7 +1394,27 @@ public final class MatchController extends GeneratedControllerBase {
         }
         java.util.List<T> candidates = new java.util.ArrayList<>();
         optionList.forEach(candidates::add);
-        if (!isOptional && candidates.size() == 1) {
+
+        // WHAT ELSE THE PLAYER IS LOOKING AT.
+        //
+        // A "delayed reveal" is Forge's word for cards shown to the
+        // chooser that are not themselves choices: look at the top
+        // seven, put a permanent onto the battlefield, and the four
+        // lands you also saw are the delayed reveal. Forge's human
+        // path puts them in the same dialog as the choices.
+        //
+        // This was being dropped on the floor, so the question
+        // arrived without the context that made it a decision
+        // rather than a guess. It goes in the prompt, which travels
+        // to the one authorised seat exactly as the options do.
+        String context = revealed(delayedReveal);
+        String prompt = context.isEmpty() ? title : title + " " + context;
+
+        // Normally one candidate that cannot be declined is not a
+        // question. It is when there is something to show: Forge
+        // reveals in that case too, and a player who looked at
+        // seven cards should learn what was in them.
+        if (!isOptional && candidates.size() == 1 && context.isEmpty()) {
             return candidates.get(0);
         }
 
@@ -1219,7 +1438,7 @@ public final class MatchController extends GeneratedControllerBase {
                             "chooseSingleEntityForEffect",
                             new java.util.ArrayList<>(byId.keySet()),
                             !isOptional,
-                            title,
+                            prompt,
                             pending -> host.publishDecision(pending, labels));
             if (DecisionGate.PASS.equals(choice)) {
                 // Only reachable when the choice was optional;

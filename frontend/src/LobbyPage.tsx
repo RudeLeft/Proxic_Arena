@@ -975,6 +975,10 @@ function headingFor(kind: string): string {
       return "Choose a mode";
     case "announceRequirements":
       return "Choose how much";
+    case "chooseSingleEntityForEffect":
+      return "Choose one";
+    case "chooseEntitiesForEffect":
+      return "Choose from these";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1026,6 +1030,18 @@ function hintFor(kind: string, options: number): string {
       // cancelling the spell -- which is worth saying, because
       // every other Pass in this panel cancels something.
       return "The card does the mode you pick. Pass, if offered, takes no further mode.";
+    case "chooseSingleEntityForEffect":
+      // The generic chooser: sacrificing something, exiling
+      // something, searching a library. Forge's own line above
+      // says which, so this says where the list came from -- a
+      // library search shows cards nobody else can see, and that
+      // being deliberate rather than a leak is worth knowing.
+      return "Forge decides what may be chosen here. The line above says what for.";
+    case "chooseEntitiesForEffect":
+      // Several, one click at a time. The prompt carries the
+      // count -- how many more are needed, or how many more are
+      // allowed -- so this says what the clicking IS.
+      return "Pick them one at a time. The line above says how many more.";
     case "announceRequirements":
       // Says what the number COSTS, because that is the part a
       // list of numbers does not show. Not "the list stops at

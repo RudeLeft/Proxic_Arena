@@ -168,6 +168,28 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         },
       },
       {
+        name: "the library dig",
+        heading: /Choose from these/,
+        shot: "test-results/seen/library-search.png",
+        check: async (panel: Locator) => {
+          // Elspeth's -3. The options are cards out of a hidden
+          // zone, named — the most sensitive list in the game, and
+          // safe only because a decision goes to ONE seat.
+          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          expect(offered.length).toBeGreaterThan(0);
+
+          // Forge's own wording for what the dig is FOR, and the
+          // count this adds to it. Elspeth's -3 is "you may put a
+          // permanent card with mana value 3 or less onto the
+          // battlefield", chosen from the top seven.
+          await expect(panel.getByText(/put on the battlefield/i)).toBeVisible();
+          await expect(panel.getByText(/or pass/)).toBeVisible();
+
+          // "You MAY put" — declining is a real answer.
+          await expect(panel.getByRole("button", { name: "Pass" })).toBeVisible();
+        },
+      },
+      {
         name: "the X announcement",
         heading: /Choose how much/,
         shot: "test-results/seen/announce-x.png",
@@ -312,7 +334,16 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       //
       // Creatures matter because the +1 targets one: "up to one
       // target creature" asks nothing at all when there is none.
-      const elspeth = labels.findIndex((label) => label.includes("Elspeth"));
+      // Elspeth's -3 FIRST when it is on offer: it looks at the
+      // top seven and puts a permanent onto the battlefield, which
+      // is the library search, and it carries the delayed reveal
+      // that search prompts are supposed to show. Her ability is
+      // once a turn and -3 is only affordable some turns, so the
+      // +1 — and with it the counter-type question — still
+      // happens on all the others.
+      const dig = labels.findIndex((label) => /Look at the top/i.test(label));
+      const elspeth =
+        dig >= 0 ? dig : labels.findIndex((label) => label.includes("Elspeth"));
       const land = labels.findIndex((label) => label.includes("Play land"));
       const action = labels.findIndex(
         (label) => !label.includes("Play land") && !label.includes("Add {"),

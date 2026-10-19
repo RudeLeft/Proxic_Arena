@@ -12,17 +12,33 @@ an opponent's hand and declines to draw it has already lost the
 information, so the test is not "is it displayed" but "is it on the
 wire at all".
 
-    python -I scripts/check-hidden-information.py <worker.jar> <res-root>
+    python -I scripts/check-hidden-information.py <worker.jar> <res-root> [deck]
+
+The deck matters. A mono-red deck of burn never puts a card from a
+hidden zone into a decision, so it cannot show whether that path
+leaks; `green` searches a library, which hands the searching player
+a list of their own library by name. Decks are the shared ones in
+harness-decks.json.
 
 Exits non-zero on the first violation, naming it.
 """
+import io
 import json
+import os
 import subprocess
 import sys
 import uuid
 
 JAR, RES = sys.argv[1], sys.argv[2]
+DECK_NAME = sys.argv[3] if len(sys.argv) > 3 else "burn"
 TURNS_TO_PLAY = 400
+
+DECKS = json.load(
+    io.open(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "harness-decks.json"),
+        encoding="utf-8",
+    )
+)
 
 proc = subprocess.Popen(
     ["java", "-jar", JAR, RES],
@@ -104,7 +120,7 @@ for line in proc.stdout:
 
     kind = frame.get("type")
     if kind == "WORKER_READY":
-        deck = [{"name": "Mountain", "quantity": 40}, {"name": "Staggershock", "quantity": 25}]
+        deck = [{"name": name, "quantity": count} for name, count in DECKS[DECK_NAME]]
         send({
             "protocolVersion": 1,
             "type": "START_GAME",
