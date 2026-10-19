@@ -1446,6 +1446,350 @@ public final class MatchController extends GeneratedControllerBase {
         };
     }
 
+    /**
+     * In what order are the parts of a cost paid — §6.91.
+     *
+     * NOT ASKED, and that is Forge's own answer rather than a
+     * shortcut. Its human controller returns the order it was
+     * given unless the player has switched on a FULL CONTROL flag
+     * (ChooseCostOrder), an expert option that is off by default
+     * and that Proxic has no equivalent of.
+     *
+     * So this takes nothing away: tapping before paying mana or
+     * the other way round changes nothing a player can act on,
+     * which is why Forge hides the question too.
+     */
+    @Override
+    public List<forge.game.cost.CostPart> orderCosts(List<forge.game.cost.CostPart> costs) {
+        return costs;
+    }
+
+    // ---- values that are not game objects ------------------------------
+    //
+    // PHASE_06 §6.105, P6-AG/AH/AI. Everything above chooses a
+    // THING on the board; these choose a word. Pithing Needle names
+    // a card that may not be in the game at all, Adaptive Automaton
+    // names a creature type, Mind Bend names a colour.
+    //
+    // The protocol carries them the same way it carries numbers
+    // (see announceRequirements): one option per value, with the
+    // value in the id. Nothing here invents the list — Forge says
+    // which types and which colours are allowed, which is the whole
+    // of P6-AH's "authoritative allowed values rather than a
+    // hand-maintained frontend rules list".
+
+    /**
+     * Name a type — creature, land, artifact, whatever Forge asks.
+     *
+     * FORGE supplies `validTypes`. It is the game's own list for
+     * this effect, already filtered, and this adapter neither adds
+     * to it nor sorts it into an opinion.
+     *
+     * Optional when Forge says so, and then passing is a real
+     * answer rather than a cancel.
+     */
+    @Override
+    public String chooseSomeType(
+            String kindOfType,
+            SpellAbility sa,
+            java.util.Collection<String> validTypes,
+            boolean isOptional) {
+        java.util.List<String> types = new java.util.ArrayList<>(validTypes);
+        if (types.isEmpty()) {
+            return null;
+        }
+        if (!isOptional && types.size() == 1) {
+            return types.get(0);
+        }
+        return pickValue(
+                "chooseSomeType",
+                "Choose a " + kindOfType.toLowerCase(java.util.Locale.ROOT) + " type.",
+                types,
+                isOptional,
+                types.get(0));
+    }
+
+    /** Which kind of protection — the same shape, Forge's list. */
+    @Override
+    public String chooseProtectionType(SpellAbility sa, List<String> choices) {
+        if (choices == null || choices.isEmpty()) {
+            return null;
+        }
+        if (choices.size() == 1) {
+            return choices.get(0);
+        }
+        return pickValue(
+                "chooseProtectionType",
+                "Protection from what?",
+                choices,
+                false,
+                choices.get(0));
+    }
+
+    /**
+     * Name a colour — §6.105, P6-AI.
+     *
+     * Forge's own short-circuits first, and they are not
+     * optimisations: no colours is no question, and one colour is
+     * not a choice either.
+     */
+    @Override
+    public byte chooseColor(String message, SpellAbility sa, forge.card.ColorSet colors) {
+        return switch (colors.countColors()) {
+            case 0 -> 0;
+            case 1 -> colors.getColor();
+            default -> askColor(message, colors, false);
+        };
+    }
+
+    /** The same, where colourless is itself an answer. */
+    @Override
+    public byte chooseColorAllowColorless(
+            String message, forge.game.card.Card c, forge.card.ColorSet colors) {
+        if (colors.countColors() == 0) {
+            return 0;
+        }
+        return askColor(message, colors, true);
+    }
+
+    /**
+     * Several colours at once.
+     *
+     * One at a time, like every other many-of-something here. The
+     * first `min` cannot be declined and the rest can.
+     */
+    @Override
+    public forge.card.ColorSet chooseColors(
+            String message,
+            SpellAbility sa,
+            int min,
+            int max,
+            forge.card.ColorSet options) {
+        byte chosen = 0;
+        int taken = 0;
+        java.util.List<Byte> remaining = new java.util.ArrayList<>();
+        for (byte color : forge.card.mana.ManaAtom.MANATYPES) {
+            if (options.hasAnyColor(color)) {
+                remaining.add(color);
+            }
+        }
+
+        while (taken < max && !remaining.isEmpty()) {
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (byte color : remaining) {
+                labels.put("color:" + color, forge.card.MagicColor.toLongString(color));
+            }
+            boolean mandatory = taken < min;
+            String answer =
+                    askOne(
+                            "chooseColors",
+                            message + (mandatory
+                                    ? " (" + (min - taken) + " more needed)"
+                                    : " (up to " + (max - taken) + " more, or pass)"),
+                            labels,
+                            mandatory);
+            if (answer == null) {
+                break;
+            }
+            byte picked = Byte.parseByte(answer.substring("color:".length()));
+            chosen |= picked;
+            taken++;
+            remaining.remove(Byte.valueOf(picked));
+        }
+        return forge.card.ColorSet.fromMask(chosen);
+    }
+
+    /** One colour, asked. */
+    private byte askColor(String message, forge.card.ColorSet colors, boolean allowColorless) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        if (allowColorless) {
+            labels.put("color:0", "Colourless");
+        }
+        for (byte color : forge.card.mana.ManaAtom.MANATYPES) {
+            if (colors.hasAnyColor(color)) {
+                labels.put("color:" + color, forge.card.MagicColor.toLongString(color));
+            }
+        }
+        String answer = askOne("chooseColor", message, labels, true);
+        if (answer == null) {
+            return allowColorless ? 0 : colors.getColor();
+        }
+        return Byte.parseByte(answer.substring("color:".length()));
+    }
+
+    /**
+     * Name a card — §6.105, §6.106, P6-AG.
+     *
+     * This overload is the answerable one: Forge hands over the
+     * faces it will accept, and they become the options.
+     */
+    @Override
+    public String chooseCardName(
+            SpellAbility sa, List<forge.card.ICardFace> faces, String message) {
+        if (faces == null || faces.isEmpty()) {
+            return null;
+        }
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (forge.card.ICardFace face : faces) {
+            names.add(face.getName());
+        }
+        if (names.size() == 1) {
+            return names.get(0);
+        }
+        return pickValue("chooseCardName", message, names, false, names.get(0));
+    }
+
+    /**
+     * Name a card out of the WHOLE POOL — and this one cannot be
+     * asked yet.
+     *
+     * Pithing Needle names any card, in or out of the game. Forge
+     * answers it by listing every face in the database that matches
+     * a predicate and letting the player search: thirty-four
+     * thousand of them, which is not a list and not something this
+     * protocol can carry as options.
+     *
+     * So it fails LOUDLY and says exactly that, which is §6.105's
+     * rule and better than the alternatives. Picking one would be
+     * inventing an answer; offering a "sensible" subset would be
+     * this adapter deciding which cards are worth naming, which is
+     * the same thing wearing a hat.
+     *
+     * What it needs is a protocol shape that does not exist yet: a
+     * typed-and-searched answer rather than a chosen one. That is a
+     * decision about the protocol, not a gap in this method.
+     */
+    @Override
+    public String chooseCardName(
+            SpellAbility sa,
+            java.util.function.Predicate<forge.card.ICardFace> faces,
+            String valid,
+            String message) {
+        host.failUnsupported("chooseCardName over the whole card pool (needs a typed answer)");
+        throw new UnsupportedOperationException(
+                "naming any card needs a typed answer, which the decision protocol "
+                        + "does not carry yet");
+    }
+
+    /**
+     * Heads or tails, and its relatives — P6-AM.
+     *
+     * FORGE FLIPS THE COIN. This is only the call, and the
+     * difference matters: the outcome is the engine's, so a
+     * reconnect cannot reroll it and a duplicate answer cannot
+     * either — the gate has already closed the question by then.
+     *
+     * Forge supplies a default for the cases where nobody can be
+     * asked, and it is used when the wait is interrupted.
+     */
+    @Override
+    public boolean chooseBinary(
+            SpellAbility sa,
+            String question,
+            forge.game.player.PlayerController.BinaryChoiceType kind,
+            Boolean defaultVal) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        labels.put("binary:yes", firstOf(kind));
+        labels.put("binary:no", secondOf(kind));
+        String answer =
+                askOne(
+                        "chooseBinary",
+                        question == null || question.isBlank() ? labelOf(kind) : question,
+                        labels,
+                        true);
+        if (answer == null) {
+            return defaultVal != null && defaultVal;
+        }
+        return "binary:yes".equals(answer);
+    }
+
+    /** Forge's own words for each side of a binary choice. */
+    private static String labelOf(
+            forge.game.player.PlayerController.BinaryChoiceType kind) {
+        return switch (kind) {
+            case HeadsOrTails -> "Call the coin.";
+            case TapOrUntap -> "Tap or untap?";
+            case PlayOrDraw -> "Play or draw?";
+            case OddsOrEvens -> "Odds or evens?";
+            case UntapOrLeaveTapped -> "Untap, or leave it tapped?";
+            case LeftOrRight -> "Left or right?";
+            case AddOrRemove -> "Add or remove?";
+            case IncreaseOrDecrease -> "Increase or decrease?";
+        };
+    }
+
+    private static String firstOf(
+            forge.game.player.PlayerController.BinaryChoiceType kind) {
+        return switch (kind) {
+            case HeadsOrTails -> "Heads";
+            case TapOrUntap -> "Tap";
+            case PlayOrDraw -> "Play";
+            case OddsOrEvens -> "Odds";
+            case UntapOrLeaveTapped -> "Untap";
+            case LeftOrRight -> "Left";
+            case AddOrRemove -> "Add";
+            case IncreaseOrDecrease -> "Increase";
+        };
+    }
+
+    private static String secondOf(
+            forge.game.player.PlayerController.BinaryChoiceType kind) {
+        return switch (kind) {
+            case HeadsOrTails -> "Tails";
+            case TapOrUntap -> "Untap";
+            case PlayOrDraw -> "Draw";
+            case OddsOrEvens -> "Evens";
+            case UntapOrLeaveTapped -> "Leave it tapped";
+            case LeftOrRight -> "Right";
+            case AddOrRemove -> "Remove";
+            case IncreaseOrDecrease -> "Decrease";
+        };
+    }
+
+    /** One value out of a list of words. */
+    private String pickValue(
+            String kind,
+            String prompt,
+            java.util.List<String> values,
+            boolean optional,
+            String fallback) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (String value : values) {
+            // The value IS the id. These are not game objects, so
+            // there is no object id to carry (§6.46 types it all
+            // the same way regardless).
+            labels.put("value:" + value, value);
+        }
+        String answer = askOne(kind, prompt, labels, !optional);
+        if (answer == null) {
+            return optional ? null : fallback;
+        }
+        return answer.substring("value:".length());
+    }
+
+    /** Ask, and give back the chosen id, or null for a pass. */
+    private String askOne(
+            String kind,
+            String prompt,
+            java.util.LinkedHashMap<String, String> labels,
+            boolean mandatory) {
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            kind,
+                            new java.util.ArrayList<>(labels.keySet()),
+                            mandatory,
+                            prompt,
+                            pending -> host.publishDecision(pending, labels));
+            return DecisionGate.PASS.equals(choice) ? null : choice;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
     /** How many revealed cards a prompt names before counting. */
     private static final int REVEAL_LIMIT = 12;
 
@@ -2083,11 +2427,22 @@ public final class MatchController extends GeneratedControllerBase {
      * Becomes a presentation event when the protocol exists
      * (§6.49: events are hints, the snapshot is authoritative).
      */
+    /**
+     * Forge is telling this player something — P6-AM.
+     *
+     * The result of a coin flip, a die roll, a card looked at.
+     * This used to be a no-op, which meant the game acted on a
+     * flip the player never saw. It goes on this seat's notice
+     * list and travels with the next snapshot.
+     */
     @Override
     public void notifyOfValue(
             forge.game.spellability.SpellAbility sa, forge.game.GameObject realtimeTarget,
             String value) {
-        // see above
+        String about = sa == null || sa.getHostCard() == null
+                ? ""
+                : sa.getHostCard().getName() + ": ";
+        host.note(actedForSeat, about + value);
     }
 
     /** How many times this seat was offered priority. Diagnostics. */

@@ -29,16 +29,16 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 25 |
-| PARTIAL | 21 |
-| NOT MET | 17 |
+| MET | 28 |
+| PARTIAL | 22 |
+| NOT MET | 13 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
-**Updated 2026-10-19.** Two of the six findings are fixed: the
-pregame decisions (Finding 2, P6-AC → PARTIAL) and match-time
-artwork (Finding 1, P6-X/Y/Z → MET). The rest stands as first
-written.
+**Updated 2026-10-19.** Three of the six findings are fixed: the
+pregame decisions (Finding 2, P6-AC → PARTIAL), match-time artwork
+(Finding 1, P6-X/Y/Z → MET) and semantic non-object choices
+(Finding 3, P6-AH/AI/AM → MET, P6-AG blocked on the protocol).
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -120,15 +120,35 @@ of the 20 are legitimate plumbing, since combat and mana delegate
 to classes that do ask — but no tool checks that, and nothing
 stops the next default being added.
 
-### 3. Semantic non-object choices are a single untouched cluster
+### 3. ~~Semantic non-object choices~~ — THREE OF FOUR BUILT 2026-10-19
 
-P6-AG (card name), P6-AH (creature type), P6-AI (colour/land type)
-and P6-AM (RNG) are four tests and four stubs:
-`chooseCardName`, `chooseSomeType`, `chooseColor`, `flipACoin`,
-`rollDice`. They share a shape — a value that is not a game object
-— which the protocol has never carried. `announceRequirements`
-proved the shape works by enumerating numbers as actions; these
-would follow the same pattern.
+P6-AH, P6-AI and P6-AM are met. They follow
+`announceRequirements`'s pattern: a value that is not a game object
+becomes one option per value, with the value in the id.
+
+The numbers say what P6-AH is really asking for — a creature-type
+choice offers **356 options**, which is Forge's own list of every
+valid type. A frontend rules list would have been wrong the day a
+set shipped.
+
+P6-AM turned out to be two halves. Calling a coin (`chooseBinary`)
+is the player's; the flip itself is Forge's, so a reconnect cannot
+reroll it. The other half was missing entirely: `notifyOfValue`,
+which is how Forge TELLS a player an outcome, was a no-op, so the
+game acted on flips nobody saw. Outcomes now travel per seat on the
+snapshot — measured: "Mana Clash: tails", "Goblin Archaeologist:
+win", "Alchor's Tomb: White".
+
+**P6-AG is blocked, and not on effort.** Pithing Needle names any
+card in or out of the game. Forge answers it by listing every face
+in the database and letting the player search — thirty-four
+thousand of them, which is not a list this protocol can carry as
+options. The bounded form (Forge hands over the faces it accepts)
+is implemented; the open form fails loudly and says why. What it
+needs is a protocol shape that does not exist: a typed-and-searched
+answer rather than a chosen one. Picking one, or offering a
+"sensible" subset, would be the adapter deciding which cards are
+worth naming.
 
 ### 4. Nothing has been verified against production
 
@@ -215,13 +235,13 @@ restarted under a live match outside a unit test.
 | P6-AD | Karn / game restart | NOT MET | Not attempted; no classification recorded |
 | P6-AE | Nested interaction / Panglacial Wurm | NOT MET | Not attempted; card is in the absent Mechanics Lab corpus |
 | P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
-| P6-AG | Card-name choice | NOT MET | `chooseCardName` / `chooseSingleCardName` are stubs |
-| P6-AH | Creature-type choice | NOT MET | `chooseSomeType` is a stub |
-| P6-AI | Colour / land-type choice | NOT MET | `chooseColor` is a stub |
+| P6-AG | Card-name choice | PARTIAL | The bounded form (Forge supplies the faces) is implemented. **The open form — name any card — needs a typed answer the protocol does not carry**, and fails loudly saying so rather than guessing |
+| P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
+| P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |
 | P6-AJ | Composite / multi-representation | NOT MET | No multi-face card has been run |
 | P6-AK | Attachment relationships | PARTIAL | Snapshot carries `attachedTo`; the artifacts deck equips Bonesplitter; **never seen in a browser, no aura or mutate** |
 | P6-AL | Effective characteristics | PARTIAL | Snapshot sends Forge's `getNetPower`/`getNetToughness` plus counters and damage; **no scenario proving a difference from printed values** |
-| P6-AM | Forge RNG authority | NOT MET | `flipACoin` and `rollDice` are stubs |
+| P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
 | P6-AO | Player / global state | PARTIAL | Life, hand/library/graveyard counts, turn, phase, active seat all carried; **no poison/energy/experience-style state tested** |
 | P6-AP | Alternate Forge result | PARTIAL | Result is read from Forge's outcome, never inferred from life; **no deterministic alternate-win scenario run** |
@@ -271,10 +291,9 @@ In rough order of how many tests each unblocks:
    production run).
 2. **The Mechanics Lab corpus** (§6.4, §6.5) — closes P6-AS and
    unblocks P6-AA and P6-AE, which draw their scenarios from it.
-3. **Semantic non-object choices** — `chooseCardName`,
-   `chooseSomeType`, `chooseColor`, `flipACoin`, `rollDice`. Four
-   tests (P6-AG, P6-AH, P6-AI, P6-AM), one protocol shape already
-   proven by `announceRequirements`.
+3. ~~**Semantic non-object choices**~~ — done 2026-10-19 except
+   P6-AG, which needs a typed-answer protocol shape rather than
+   more adapter work.
 4. ~~**Pregame**~~ — done 2026-10-19. Only Leyline-style coverage
    is left on P6-AC.
 5. **Browser-session tests** — two tabs, refresh, disconnect, close.

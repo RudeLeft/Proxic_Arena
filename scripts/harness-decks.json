@@ -41,7 +41,14 @@
     "            so what Forge asks for next proves which mode it",
     "            actually took",
     "xcost       an X announced before the spell, and damage divided",
-    "            among several targets"
+    "            among several targets",
+    "words       values that are NOT game objects: a creature type",
+    "            (Adaptive Automaton), a colour (Alchor's Tomb) and",
+    "            a coin call (Goblin Archaeologist, which unlike",
+    "            Mana Clash does NOT set NoCall and so asks) and a",
+    "            flip whose only output is the outcome being told",
+    "            to the player (Mana Clash). All colourless or red,",
+    "            so a Mountain deck can cast every one of them"
   ],
 
   "burn": [["Mountain", 40], ["Staggershock", 25]],
@@ -68,5 +75,9 @@
   "modes": [["Mountain", 28], ["Abrade", 16], ["Bonesplitter", 11],
             ["Legion Warboss", 10]],
 
-  "xcost": [["Mountain", 35], ["Fireball", 20], ["Ornithopter", 10]]
+  "xcost": [["Mountain", 35], ["Fireball", 20], ["Ornithopter", 10]],
+
+  "words": [["Mountain", 28], ["Adaptive Automaton", 10],
+            ["Alchor's Tomb", 9], ["Goblin Archaeologist", 10],
+            ["Mana Clash", 8]]
 }

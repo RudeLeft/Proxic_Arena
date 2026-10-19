@@ -136,6 +136,15 @@ export interface Snapshot {
   activeSeat: number;
   seat: number;
   players: SnapshotPlayer[];
+  /**
+   * What Forge TOLD this viewer, oldest first — P6-AM.
+   *
+   * A coin flip and a die roll are the engine's to make, so the
+   * only thing owed is that the player sees the outcome. Private
+   * to the seat it was sent to: "you looked at X" is a notice for
+   * exactly one person.
+   */
+  notices: string[];
   battlefield: SnapshotCard[];
   hand: SnapshotCard[];
   graveyard: SnapshotCard[];
@@ -269,6 +278,11 @@ function refusalText(reason: string | null): string {
   }
 }
 
+function asNotices(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
+
 function asSnapshot(value: unknown): Snapshot | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
@@ -282,6 +296,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     phase: asString(row["phase"]) ?? "",
     activeSeat: asNumber(row["activeSeat"]) ?? 0,
     players: asPlayers(row["players"]),
+    notices: asNotices(row["notices"]),
     battlefield: asCards(row["battlefield"]),
     hand: asCards(row["hand"]),
     graveyard: asCards(row["graveyard"]),

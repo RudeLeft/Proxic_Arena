@@ -471,6 +471,19 @@ button:disabled {
  * No fixed height: a missing or broken image collapses to nothing
  * and takes the row with it rather than leaving a grey hole.
  */
+/* P6-AM — a short log of what the game told this player. */
+.board-notices {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.board-notices li {
+  padding: 1px 0;
+}
+
 .card-art {
   width: 100%;
   max-width: 120px;

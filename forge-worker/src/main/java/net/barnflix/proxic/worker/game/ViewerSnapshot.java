@@ -62,11 +62,22 @@ final class ViewerSnapshot {
      *               because §6.46 forbids identifying anything by
      *               name and a display name is not unique.
      */
-    static JsonObject of(Game game, Player viewer, Map<Player, Integer> seatOf, long revision) {
+    static JsonObject of(
+            Game game,
+            Player viewer,
+            Map<Player, Integer> seatOf,
+            long revision,
+            java.util.List<String> notices) {
         PlayerView viewing = viewer.getView();
 
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("stateRevision", revision);
+
+        // P6-AM — what Forge told THIS viewer, most recent last.
+        // Only this seat's own, because a notice can be private.
+        JsonArray told = new JsonArray();
+        notices.forEach(told::add);
+        snapshot.add("notices", told);
         snapshot.addProperty("turn", game.getPhaseHandler().getTurn());
         // EMPTY, not "null". There is no phase before the game
         // begins, and String.valueOf turns that into the four

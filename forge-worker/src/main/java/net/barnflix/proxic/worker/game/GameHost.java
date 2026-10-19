@@ -219,6 +219,52 @@ public final class GameHost {
                 "Forge asked for " + method + ", which this adapter does not implement"));
     }
 
+    /**
+     * What Forge TOLD a player — P6-AM, §6.131.
+     *
+     * A coin flip and a die roll are Forge's to make, not a
+     * player's to choose, so the only thing the protocol owes is
+     * showing the result. Forge announces it through
+     * notifyOfValue, which was a no-op here: the game acted on a
+     * flip the player never saw.
+     *
+     * Per SEAT, because a controller belongs to one player and
+     * what it is told may be private — "you looked at X" is a
+     * notice for exactly one person. Keyed that way, a notice
+     * cannot reach anybody else by accident.
+     *
+     * Bounded, because a long game would otherwise carry a
+     * transcript in every snapshot.
+     */
+    private final java.util.Map<Integer, java.util.Deque<String>> notices =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final int NOTICES_KEPT = 6;
+
+    void note(int seat, String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        java.util.Deque<String> queue =
+                notices.computeIfAbsent(seat, key -> new java.util.ArrayDeque<>());
+        synchronized (queue) {
+            queue.addLast(text);
+            while (queue.size() > NOTICES_KEPT) {
+                queue.removeFirst();
+            }
+        }
+    }
+
+    java.util.List<String> noticesFor(int seat) {
+        java.util.Deque<String> queue = notices.get(seat);
+        if (queue == null) {
+            return java.util.List.of();
+        }
+        synchronized (queue) {
+            return new java.util.ArrayList<>(queue);
+        }
+    }
+
     /** §6.96 — a card Forge itself says it cannot play. */
     void noteUnsupported(String cardName) {
         unsupported.add(cardName);
@@ -325,7 +371,12 @@ public final class GameHost {
                 continue;
             }
             com.google.gson.JsonObject snapshot =
-                    ViewerSnapshot.of(current, player, seatsByPlayer(current), revision);
+                    ViewerSnapshot.of(
+                            current,
+                            player,
+                            seatsByPlayer(current),
+                            revision,
+                            noticesFor(seat));
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {

@@ -1007,6 +1007,17 @@ function headingFor(kind: string): string {
       return "Put a card back";
     case "chooseStartingPlayer":
       return "Play or draw";
+    case "chooseSomeType":
+      return "Choose a type";
+    case "chooseColor":
+    case "chooseColors":
+      return "Choose a colour";
+    case "chooseProtectionType":
+      return "Choose protection";
+    case "chooseCardName":
+      return "Name a card";
+    case "chooseBinary":
+      return "Call it";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1073,6 +1084,20 @@ function hintFor(kind: string, options: number): string {
       return "These go to the bottom of your library. This cannot be skipped.";
     case "chooseStartingPlayer":
       return "On the play you are a turn ahead; on the draw you are a card ahead.";
+    case "chooseSomeType":
+    case "chooseColor":
+    case "chooseColors":
+    case "chooseProtectionType":
+    case "chooseCardName":
+      // Says where the list came from, because this is the one
+      // family of choices that is NOT about anything on the
+      // board: the list is Forge's, not the page's (P6-AH).
+      return "These are the values Forge allows. Nothing here is a card on the board.";
+    case "chooseBinary":
+      // The call is yours; the flip is not. Worth saying, because
+      // a player who calls heads and loses should know the game
+      // flipped it, not the page.
+      return "You call it. Forge flips it, and the result is announced.";
     case "orderMoveToZoneList":
       // The prompt names the END being chosen for — "closest to
       // the top", "closest to the bottom" — because that is the
@@ -1131,6 +1156,19 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
           "Before the game begins."
         )}
       </p>
+
+      {/*
+        P6-AM — what Forge told YOU. A flip, a roll, a card looked
+        at. Private to this seat, and the newest last so it reads
+        like a short log rather than a stack.
+      */}
+      {board.notices.length > 0 && (
+        <ul className="board-notices">
+          {board.notices.map((text, index) => (
+            <li key={`${index}-${text}`}>{text}</li>
+          ))}
+        </ul>
+      )}
 
       {opponents.map((player) => (
         <PlayerSide
