@@ -969,6 +969,12 @@ function headingFor(kind: string): string {
       return "Choose what resolves first";
     case "chooseSingleReplacementEffect":
       return "Choose which effect applies";
+    case "chooseCounterType":
+      return "Choose a kind of counter";
+    case "CostPutCounter":
+      return "Choose where the counter goes";
+    case "CostRemoveCounter":
+      return "Choose where to take a counter from";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -1005,6 +1011,14 @@ function hintFor(kind: string, options: number): string {
       return "Choose blockers one at a time. Pass to take the damage.";
     case "assignCombatDamage":
       return "One point at a time, so nothing is assigned for you.";
+    case "chooseCounterType":
+      // The prompt above already names the card, because Forge
+      // wrote it. What this adds is that the kind MATTERS: these
+      // are not interchangeable, and nothing will pick for you.
+      return "Which counter this is changes what it does. This cannot be skipped.";
+    case "CostPutCounter":
+    case "CostRemoveCounter":
+      return "This is part of paying for what you are doing. Pass to cancel it.";
     default:
       return "These are the actions Forge says you can take.";
   }

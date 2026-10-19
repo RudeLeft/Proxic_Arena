@@ -79,14 +79,24 @@ public abstract class GeneratedCostDecisionBase extends CostDecisionMakerBase {{
     }}
 
     /**
-     * Record and throw.
+     * Record, announce, and throw.
      *
      * The record survives Forge's own try/catch; the throw is what
-     * stops us pretending a cost was paid.
+     * stops us pretending a cost was paid. The announcement is the
+     * part that fails the MATCH, and it is here because the throw
+     * alone has been measured not to be enough: a creature deck
+     * reached an unimplemented PlayerController method twice, threw
+     * twice, and still finished reporting a winner, because Forge
+     * caught it inside its own effect code. A cost is paid deeper
+     * inside Forge than a decision is asked, not shallower.
      */
     protected static PaymentDecision loud(String costType) {{
         REACHED_COSTS.merge(costType, 1, Integer::sum);
         System.err.println("[COST REACHED] " + costType);
+        // Shared with the controller stubs deliberately: "Forge
+        // asked for something this adapter cannot represent" is one
+        // fact about the match, whichever surface it came through.
+        GeneratedControllerBase.notifyStubReached("cost " + costType);
         throw new UnsupportedOperationException(
                 "Proxic does not implement the cost " + costType);
     }}

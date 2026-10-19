@@ -19,9 +19,18 @@ match would do.
     land    play lands and pass on everything else, which separates
             "can we PLAY things" from "can we TARGET things"
 
-Decks: burn (the default), mixed, creatures. A burn deck wins
-without ever attacking, so it never reaches combat however long it
-runs; a creature deck has no other way to win.
+Decks: burn (the default), mixed, creatures, counters. A burn deck
+wins without ever attacking, so it never reaches combat however
+long it runs; a creature deck has no other way to win.
+
+`counters` exists to reach ONE decision deliberately. Elspeth
+Resplendent's +1 puts "a counter from among flying, first strike,
+lifelink, or vigilance" on a creature, which is the only shape in
+this Forge pin that asks chooseCounterType with more than one
+candidate -- every card using ExistingCounter also sets
+EachExistingCounter and so never asks. A deck chosen because it
+reaches a branch is how this project avoids TEST-010: code that
+exists, is tested, and is never called.
 
 WHY `play` AVOIDS MANA ABILITIES. Forge offers "Mountain - {T}: Add
 {R}" as an ordinary action, because it is one: a player may tap a
@@ -56,6 +65,11 @@ DECKS = {
               ("Legion Warboss", 10), ("Staggershock", 9)],
     "creatures": [("Mountain", 30), ("Hellspark Elemental", 18),
                   ("Legion Warboss", 17)],
+    # Savannah Lions so there is always something for Elspeth's +1
+    # to target: with no target the effect has nothing to put a
+    # counter on and never asks which kind.
+    "counters": [("Plains", 36), ("Elspeth Resplendent", 4),
+                 ("Savannah Lions", 20)],
 }
 
 proc = subprocess.Popen(

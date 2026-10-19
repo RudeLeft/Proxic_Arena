@@ -297,6 +297,7 @@ public final class WorkerMain {
                             ended.addProperty("winningSeat", result.winningSeat());
                         }
                         ended.addProperty("turn", result.turn());
+                        addCounters(ended);
                         // §6.105, §6.106 — the evidence travels
                         // with the ending. Safe text only: a
                         // method name and a message, never a
@@ -378,6 +379,13 @@ public final class WorkerMain {
                     if (GAME.failure() != null) {
                         result.addProperty("failure", GAME.failure().getClass().getSimpleName());
                     }
+                    // Same counters as the ending carries, because a
+                    // game that has NOT ended is exactly when they
+                    // are wanted: a survey asks "what has been
+                    // reached so far" without needing somebody to
+                    // win first. `timeoutSeconds: 0` makes this an
+                    // immediate read rather than a wait.
+                    addCounters(result);
                     send(result);
                 } catch (InterruptedException e) {
                     send(error("GAME_RESULT_FAILED", "interrupted"));
@@ -451,6 +459,40 @@ public final class WorkerMain {
         // See (2) above. Without this the parent can wait forever for
         // a line that was written and never left the buffer.
         protocol.flush();
+    }
+
+    /**
+     * What this run has been ASKED FOR — §6.105, §6.106.
+     *
+     * Three counts, and the difference between them is the point.
+     * `asked` is every decision the adapter ANSWERED: evidence of
+     * what works. `stubsReached` and `costsReached` are decision
+     * kinds the adapter does NOT implement. On a normal run those
+     * two are empty, because reaching one throws and the match
+     * fails loudly with the method name.
+     *
+     * Under -Dproxic.survey=true they are the whole point: nothing
+     * throws, the run continues past the first wall, and what comes
+     * back is a measured list of what is still missing instead of
+     * the one thing that happened to come first. A surveyed run's
+     * GAME RESULT IS MEANINGLESS — returning a default to the engine
+     * is not answering it — so this sizes remaining work and proves
+     * nothing about correctness.
+     */
+    private static void addCounters(JsonObject frame) {
+        JsonObject stubs = new JsonObject();
+        net.barnflix.proxic.worker.game.GeneratedControllerBase.REACHED_STUBS
+                .forEach(stubs::addProperty);
+        frame.add("stubsReached", stubs);
+        JsonObject costs = new JsonObject();
+        net.barnflix.proxic.worker.game.GeneratedCostDecisionBase.REACHED_COSTS
+                .forEach(costs::addProperty);
+        frame.add("costsReached", costs);
+        JsonObject asked = new JsonObject();
+        if (GAME != null) {
+            GAME.decisionCounts().forEach(asked::addProperty);
+        }
+        frame.add("asked", asked);
     }
 
     /**

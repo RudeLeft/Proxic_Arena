@@ -465,7 +465,12 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public forge.game.cost.CostDecisionMakerBase getCostDecisionMaker(
             Player payer, SpellAbility ability, boolean effect, String prompt) {
-        return new MatchCostDecision(payer, effect, ability, ability.getHostCard());
+        // The host and both seats, because some costs are a real
+        // choice -- which permanent a counter goes on -- and a cost
+        // maker that cannot ask would have to guess.
+        return new MatchCostDecision(
+                payer, effect, ability, ability.getHostCard(),
+                host, actedForSeat, authorisedSeat);
     }
 
     /**
@@ -617,6 +622,80 @@ public final class MatchController extends GeneratedControllerBase {
             // first is then the only answer that is certainly
             // still valid, and returning null would strand the
             // game.
+            return chosen == null ? first : chosen;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return first;
+        }
+    }
+
+    /**
+     * Which KIND of counter — PHASE_06 §6.50, FORGE-RULE.
+     *
+     * Reached by cards that put, move or remove a counter without
+     * naming which one, and it is a real decision with real
+     * consequences: a +1/+1 counter and a -1/-1 counter on the
+     * same creature annihilate, a charge counter spent is a charge
+     * counter gone. Nothing here reasons about which counter is
+     * better, and nothing picks on the player's behalf.
+     *
+     * FORGE chooses the candidates. Every call site builds the
+     * list from what that effect and that permanent actually allow,
+     * and several of them collapse a single candidate before asking
+     * at all — which is why a one-option list is answered here
+     * rather than published: the call sites that do ask with one
+     * option are asking a question with one answer.
+     *
+     * The prompt is Forge's own localised text, passed through
+     * because it is the only thing that says WHY the choice is
+     * being made.
+     *
+     * The survey found this one. Three decks drove 1,814 decisions
+     * and reached exactly one unimplemented kind, this — Legion
+     * Warboss's mentor trigger on a creature already carrying
+     * counters.
+     */
+    @Override
+    public forge.game.card.CounterType chooseCounterType(
+            List<forge.game.card.CounterType> options,
+            forge.game.spellability.SpellAbility sa,
+            String prompt,
+            java.util.Map<String, Object> params) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        forge.game.card.CounterType first = options.get(0);
+        if (options.size() == 1) {
+            return first;
+        }
+
+        java.util.LinkedHashMap<String, forge.game.card.CounterType> byId =
+                new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (forge.game.card.CounterType type : options) {
+            // §6.46 — typed, like every other object id. A counter
+            // name is not a number, but the prefix is what tells a
+            // client what it is answering about.
+            String id = "counter:" + type.getName();
+            byId.put(id, type);
+            labels.put(id, type.getName());
+        }
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "chooseCounterType",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            true,
+                            prompt,
+                            pending -> host.publishDecision(pending, labels));
+            forge.game.card.CounterType chosen = byId.get(choice);
+            // Mandatory, so the gate refused a pass. A miss means
+            // the candidates moved; the first is then the only
+            // answer still certainly valid, and returning null
+            // would strand the effect mid-resolution.
             return chosen == null ? first : chosen;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

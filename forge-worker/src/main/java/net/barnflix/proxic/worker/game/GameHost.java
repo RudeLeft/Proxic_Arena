@@ -98,6 +98,11 @@ public final class GameHost {
      * threw during its first upkeep.
      */
     public void start(List<Seat> seats, String matchName) {
+        // A reached stub must fail THIS match, whatever Forge does
+        // with the exception. Set per start, so the host that is
+        // actually playing is the one that hears about it.
+        GeneratedControllerBase.onStubReached(this::failUnsupported);
+
         List<RegisteredPlayer> registered = new ArrayList<>();
         for (Seat seat : seats) {
             LobbyPlayer lobby = new WorkerLobbyPlayer(seat.displayName, seat.seatNumber, this);
@@ -136,9 +141,7 @@ public final class GameHost {
                                 match.startGame(created, null);
                                 outcome.set(describeOutcome(created));
                             } catch (Throwable t) {
-                                // §6.15, §6.162 — a crashed game is a
-                                // reported result, never a silent hang.
-                                failure.set(t);
+                                recordCrash(t);
                             } finally {
                                 // Both latches, always. A game that
                                 // threw during mulligans would
@@ -173,6 +176,47 @@ public final class GameHost {
      */
     void failRunaway(String detail) {
         failure.compareAndSet(null, new IllegalStateException(detail));
+    }
+
+    /**
+     * §6.105, §6.106 — Forge asked for an interaction this
+     * adapter cannot represent.
+     *
+     * Recorded rather than relied upon to propagate. The adapter
+     * throws as well, but Forge's effect and trigger code catches
+     * exceptions in places this project does not control, and when
+     * it does the game plays on with that rule silently skipped.
+     * `publishEnd` reads this BEFORE the winner, so such a game is
+     * reported FAILED with the method name instead of as a win.
+     *
+     * It does not stop the game where it stands: the remaining
+     * decisions are still asked and answered, and the match fails
+     * when the game thread finishes. Interrupting mid-effect would
+     * unwind Forge from inside its own resolution, and a controller
+     * that then threw at every subsequent decision is the §6.189
+     * spin this project measures rather than invites.
+     */
+    /**
+     * The game thread died — §6.15, §6.162.
+     *
+     * A crashed game is a reported result, never a silent hang.
+     *
+     * FIRST recorded reason wins, and a method rather than two
+     * lines inside the thread's lambda so a test can reach it. A
+     * plain `set` here would overwrite the reason the adapter took
+     * care to record before throwing, which is the whole point of
+     * failRunaway and failUnsupported: "mana payment made no
+     * progress in 8 choices" and "Forge asked for
+     * chooseCounterType" say why, and whatever exception surfaces
+     * next out of Forge usually does not.
+     */
+    void recordCrash(Throwable t) {
+        failure.compareAndSet(null, t);
+    }
+
+    void failUnsupported(String method) {
+        failure.compareAndSet(null, new UnsupportedOperationException(
+                "Forge asked for " + method + ", which this adapter does not implement"));
     }
 
     /** §6.96 — a card Forge itself says it cannot play. */

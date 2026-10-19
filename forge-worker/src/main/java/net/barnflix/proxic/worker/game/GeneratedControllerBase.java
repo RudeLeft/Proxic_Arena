@@ -97,12 +97,47 @@ public abstract class GeneratedControllerBase extends PlayerController {
      */
     public static final boolean SURVEY = Boolean.getBoolean("proxic.survey");
 
+    /**
+     * Told when a stub is reached, so the MATCH can fail even
+     * though the throw below may never arrive anywhere.
+     *
+     * This is not belt-and-braces. STUB-002 above records that
+     * Forge catches exceptions in places this project does not
+     * control, and a measured run proves it still does: a creature
+     * deck reached chooseCounterType twice, threw twice, printed no
+     * trace, and finished with a WINNER at turn 13. A game decided
+     * partly by a rule that never applied must not be reported as
+     * somebody's win, so the host is told directly rather than
+     * through an exception whose survival is Forge's choice.
+     *
+     * Static because a worker process hosts one game at a time, and
+     * because `loud` is static -- the 109 generated overrides below
+     * call it without an instance.
+     */
+    private static volatile java.util.function.Consumer<String> watcher = method -> { };
+
+    public static void onStubReached(java.util.function.Consumer<String> sink) {
+        watcher = sink;
+    }
+
+    /**
+     * Fire the same hook for something that is not a method on this
+     * class — an unimplemented COST, which fails a match for the
+     * same reason and deserves the same announcement.
+     */
+    static void notifyStubReached(String what) {
+        watcher.accept(what);
+    }
+
     protected static void loud(String method) {
         REACHED_STUBS.merge(method, 1, Integer::sum);
         if (SURVEY) {
             return;
         }
         System.err.println("[STUB REACHED] PlayerController." + method);
+        // BEFORE the throw, because the throw is the part that can
+        // be swallowed.
+        watcher.accept(method);
         throw new UnsupportedOperationException(
                 "Phase 0A adapter does not implement " + method);
     }
