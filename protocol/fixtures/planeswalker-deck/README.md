@@ -11,7 +11,7 @@ Loyalty Test Deck.txt   37 Plains
                         4 Steel Wall
                         4 Wall of Omens
                         4 Perimeter Captain
-                        4 Yoked Ox
+                        4 Sensei's Divining Top
 ```
 
 ## Why this deck and not the CI gate deck
@@ -59,6 +59,17 @@ creature you control — which this deck always has, for the reason
 above. One deck reaching two decisions is one import and one match
 rather than two of each, and an e2e match is the slowest thing in
 the suite.
+
+Sensei's Divining Top is the fourth: `orderMoveToZoneList`. It
+costs `{1}`, it is colourless so it fits a mono-white deck, and
+its first ability needs no tap — "look at the top three cards of
+your library, then put them back in any order" is a sort, asked
+one card at a time. Elspeth's -3 cannot stand in for it: it puts
+the rest back in a RANDOM order and so never asks.
+
+It replaced four Yoked Oxen rather than four Plains. Elspeth costs
+`{3}{W}{W}` and the deck still has to cast her; twelve 0/4s are
+plenty to keep a target on the board.
 
 Secure the Wastes is the third: `announceRequirements`. It costs
 `{X}{W}`, so casting it asks how big X is before anything else

@@ -1138,6 +1138,134 @@ public final class MatchController extends GeneratedControllerBase {
                 fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null);
     }
 
+    /**
+     * What order do these go in — PHASE_06 §6.50, FORGE-RULE.
+     *
+     * Brainstorm puts two cards back on top of your library, and
+     * which of them you draw next turn is the whole card. Ponder,
+     * every "put the rest on the bottom", every multiple-card
+     * move: Forge hands over a list and asks what order it should
+     * be in.
+     *
+     * Asked ONE AT A TIME — "which of these goes first" until the
+     * list is empty — because it needs no new protocol shape and
+     * every answer is final on its own. Forge's desktop client
+     * uses a drag-to-reorder dialog; the result is the same list.
+     *
+     * THE REVERSE AT THE END IS NOT OPTIONAL. Forge's own comment,
+     * in the AI controller: "Cards going to the top of a deck are
+     * returned in reverse order." Ordering the cards correctly and
+     * then handing them back the wrong way round is a silent wrong
+     * move — the player draws the card they meant to put second.
+     * {@link #orderedMoveToTopOfLibrary} is Forge's, and decides
+     * which end "first" means.
+     */
+    @Override
+    public forge.game.card.CardCollectionView orderMoveToZoneList(
+            forge.game.card.CardCollectionView cards,
+            forge.game.zone.ZoneType destinationZone,
+            SpellAbility source) {
+        if (cards == null || cards.size() <= 1) {
+            // One card is already in order.
+            return cards;
+        }
+
+        // A GRAVEYARD IS NOT ORDERED unless something cares.
+        //
+        // Forge makes this a user preference and asks only when
+        // the game says the order can matter — a card with
+        // NeedsOrderedGraveyard, or an opponent's Bone Dancer. That
+        // middle setting is the one ported: asking on every
+        // creature that dies would be hundreds of questions a game
+        // for an answer that changes nothing. A deliberate
+        // reordering effect still asks.
+        boolean deliberate = source != null
+                && source.getApi() == forge.game.ability.ApiType.ReorderZone;
+        if (!deliberate && destinationZone == forge.game.zone.ZoneType.Graveyard
+                && !player.getGame().isGraveyardOrdered(player)) {
+            return cards;
+        }
+
+        boolean topOfDeck = orderedMoveToTopOfLibrary(destinationZone, source);
+        String end = endDescription(destinationZone, topOfDeck);
+        if (end == null) {
+            // Forge's default branch: a destination it does not
+            // order. Returned untouched rather than guessed at.
+            return cards;
+        }
+
+        java.util.List<forge.game.card.Card> remaining = new java.util.ArrayList<>();
+        cards.forEach(remaining::add);
+        forge.game.card.CardCollection ordered = new forge.game.card.CardCollection();
+
+        while (remaining.size() > 1) {
+            java.util.LinkedHashMap<String, forge.game.card.Card> byId =
+                    new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (forge.game.card.Card card : remaining) {
+                // §6.46 — typed, like every other object id.
+                String id = "order:card:" + card.getId();
+                byId.put(id, card);
+                labels.put(id, String.valueOf(card));
+            }
+
+            forge.game.card.Card picked;
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "orderMoveToZoneList",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                // Mandatory: they are all going
+                                // somewhere, and in SOME order. The
+                                // only question is which.
+                                true,
+                                "Which goes " + end + "? (" + remaining.size() + " left)",
+                                pending -> host.publishDecision(pending, labels));
+                picked = byId.get(choice);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                picked = null;
+            }
+
+            if (picked == null) {
+                // Mandatory, so this means the list moved. Keep
+                // the order Forge handed over for what is left,
+                // which is the only arrangement certainly valid.
+                break;
+            }
+            remaining.remove(picked);
+            ordered.add(picked);
+        }
+        ordered.addAll(remaining);
+
+        if (topOfDeck) {
+            // Forge's own rule, and its own comment: the top of a
+            // deck is taken in reverse.
+            java.util.Collections.reverse(ordered);
+        }
+        return ordered;
+    }
+
+    /**
+     * Which end the player is choosing for, in words.
+     *
+     * Null for a destination Forge does not order — its switch
+     * falls through to "Not Ordered" and hands the list back
+     * untouched, and so does this.
+     */
+    private static String endDescription(
+            forge.game.zone.ZoneType destination, boolean topOfDeck) {
+        return switch (destination) {
+            case Library, PlanarDeck, SchemeDeck, AttractionDeck, ContraptionDeck ->
+                    topOfDeck ? "closest to the top" : "closest to the bottom";
+            case Graveyard -> "closest to the bottom";
+            case Battlefield, Exile, Stack, None -> "first";
+            default -> null;
+        };
+    }
+
     /** How many revealed cards a prompt names before counting. */
     private static final int REVEAL_LIMIT = 12;
 

@@ -190,6 +190,25 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         },
       },
       {
+        name: "the library ordering",
+        heading: /Put them in order/,
+        shot: "test-results/seen/order-library.png",
+        check: async (panel: Locator) => {
+          // Sensei's Divining Top: look at the top three, put them
+          // back in any order. A sort asked one card at a time.
+          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          expect(offered.length).toBeGreaterThan(1);
+
+          // WHICH END. Without it the list reads as "choose one"
+          // and the player sorts their library backwards.
+          await expect(panel.getByText(/closest to the top/)).toBeVisible();
+
+          // They are all going back, in SOME order; the only
+          // question is which, so there is nothing to decline.
+          await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
+        },
+      },
+      {
         name: "the X announcement",
         heading: /Choose how much/,
         shot: "test-results/seen/announce-x.png",
@@ -264,12 +283,25 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         // And it is answerable: the answer reaches Forge and the
         // game moves on, which is the half a screenshot cannot
         // show.
+        //
+        // "The question went away" is NOT the post-condition. A
+        // sort asks again with one fewer card and the same
+        // heading, and so does picking several of something: three
+        // cards to order is two questions, and waiting sixty
+        // seconds for the heading to vanish failed all five runs
+        // on a game that was working perfectly. What has to be
+        // true is that the game MOVED -- this question is gone, or
+        // it is a shorter one.
+        const before = await panel.getByRole("listitem").getByRole("button").count();
         await panel.getByRole("listitem").getByRole("button").first().click();
         await expect
-          .poll(async () => panel.getByRole("heading", { name: question.heading }).count(), {
-            timeout: 60_000,
-          })
-          .toBe(0);
+          .poll(
+            async () =>
+              (await panel.getByRole("heading", { name: question.heading }).count()) === 0 ||
+              (await panel.getByRole("listitem").getByRole("button").count()) !== before,
+            { timeout: 60_000 },
+          )
+          .toBe(true);
 
         seen.add(question.name);
         answered += 1;

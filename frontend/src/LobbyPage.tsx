@@ -979,6 +979,8 @@ function headingFor(kind: string): string {
       return "Choose one";
     case "chooseEntitiesForEffect":
       return "Choose from these";
+    case "orderMoveToZoneList":
+      return "Put them in order";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1037,6 +1039,12 @@ function hintFor(kind: string, options: number): string {
       // library search shows cards nobody else can see, and that
       // being deliberate rather than a leak is worth knowing.
       return "Forge decides what may be chosen here. The line above says what for.";
+    case "orderMoveToZoneList":
+      // The prompt names the END being chosen for — "closest to
+      // the top", "closest to the bottom" — because that is the
+      // entire decision, and a list of cards with no end named
+      // reads as a choice of ONE rather than a sort.
+      return "Each pick is the next one in order. This cannot be skipped.";
     case "chooseEntitiesForEffect":
       // Several, one click at a time. The prompt carries the
       // count -- how many more are needed, or how many more are
