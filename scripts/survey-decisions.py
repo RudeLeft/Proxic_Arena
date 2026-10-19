@@ -20,9 +20,14 @@ show what gets asked for, which is the question here.
 
 Several decks, because which decisions a game needs is mostly a
 property of the cards in it. A mono-red burn deck will never ask how
-to order blockers.
+to order blockers, and nothing without a creature will ever be asked
+to sacrifice one. They are listed in scripts/harness-decks.json,
+which says what each is for, and are shared with play-a-game.py so
+that a kind this finds can be made to fail loudly by the same deck.
 """
+import io
 import json
+import os
 import subprocess
 import sys
 import uuid
@@ -31,17 +36,20 @@ from collections import Counter
 JAR, RES = sys.argv[1], sys.argv[2]
 DECISIONS_PER_DECK = 1200
 
-# Chosen to reach different parts of the decision surface rather
-# than to be good decks. Each name is one Forge already ships.
+# The decks live in a data FILE, shared with the other harness.
+# Not imported: `python -I` keeps this directory off sys.path, and
+# the two scripts have to agree because the workflow runs a deck
+# through both -- the survey to find what is missing, this one to
+# make it fail loudly and say so.
 DECKS = {
-    "burn": [("Mountain", 40), ("Staggershock", 25)],
-    "creatures": [("Mountain", 30), ("Hellspark Elemental", 18), ("Legion Warboss", 17)],
-    "mixed": [("Mountain", 34), ("Hellspark Elemental", 12),
-              ("Legion Warboss", 10), ("Staggershock", 9)],
-    # Planeswalkers, loyalty costs and a counter-type choice: a
-    # part of the decision surface that no mono-red deck can reach.
-    "counters": [("Plains", 36), ("Elspeth Resplendent", 4),
-                 ("Savannah Lions", 20)],
+    name: [(card, count) for card, count in entries]
+    for name, entries in json.load(
+        io.open(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "harness-decks.json"),
+            encoding="utf-8",
+        )
+    ).items()
+    if not name.startswith("_")
 }
 
 stubs = Counter()
@@ -168,5 +176,14 @@ for kind, count in costs.most_common():
 print()
 print(f"decisions driven: {played}")
 print(f"ended: {ended}")
+print()
 print("NOTE: a surveyed game is not a game. This sizes what is")
 print("missing; it proves nothing about what works.")
+print()
+print("READ THE COUNTS AS FLOORS, especially for a deck that ended")
+print("FAILED after a handful of decisions: returning a default to")
+print("the engine is not answering it, so Forge can crash a few")
+print("moves later and that deck's region goes unmeasured. A deck")
+print("that hit the decision cap is a floor for the other reason.")
+print("What this run establishes is WHICH kinds are missing; how")
+print("often each is wanted needs a deck that survives to the end.")

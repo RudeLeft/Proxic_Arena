@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "Decks for the Phase 6 harnesses -- PHASE_06 §6.105, §6.106.",
+    "",
+    "ONE definition, read by scripts/play-a-game.py and",
+    "scripts/survey-decisions.py. They must agree: the workflow is",
+    "that the survey names a decision kind nothing implements, and",
+    "then play-a-game runs THE SAME DECK without survey mode to get",
+    "the loud failure and its exact evidence. A deck the second",
+    "script has never heard of breaks that in the middle.",
+    "",
+    "Not imported, because both scripts run under `python -I`, which",
+    "keeps the script's own directory off sys.path. A data file needs",
+    "no import.",
+    "",
+    "WHICH DECKS, AND WHY. Each one is chosen to reach a region of",
+    "Forge's decision surface, not to be a good deck. A mono-red burn",
+    "deck never attacks, so it never reaches combat however long it",
+    "runs; a deck with no creature can never be asked to sacrifice",
+    "one. Counts are deliberately far above four: the Open Format",
+    "limit is enforced on import (OpenFormat.kt) and these decks never",
+    "go through it, and four copies of the card that reaches a branch",
+    "is how a run finishes having tested nothing.",
+    "",
+    "burn        damage, targeting, and a game that ends without combat",
+    "creatures   combat: attack, block, order blockers, assign damage",
+    "mixed       both, plus triggers that want ordering",
+    "counters    planeswalker loyalty costs, and which KIND of counter",
+    "blue        counterspells (targeting the stack), draw, and putting",
+    "            cards back on the library in an order",
+    "black       sacrifice as a COST, sacrifice forced on an opponent,",
+    "            and choosing a card out of a revealed hand",
+    "green       searching a library, and two targets that fight",
+    "artifacts   equipment: an activated ability that attaches to a",
+    "            creature you choose",
+    "modal       'choose one' modes, an X cost announced before the",
+    "            spell, and damage divided among several targets"
+  ],
+
+  "burn": [["Mountain", 40], ["Staggershock", 25]],
+
+  "creatures": [["Mountain", 30], ["Hellspark Elemental", 18], ["Legion Warboss", 17]],
+
+  "mixed": [["Mountain", 34], ["Hellspark Elemental", 12],
+            ["Legion Warboss", 10], ["Staggershock", 9]],
+
+  "counters": [["Plains", 45], ["Elspeth Resplendent", 4], ["Steel Wall", 4],
+               ["Wall of Omens", 4], ["Perimeter Captain", 4], ["Yoked Ox", 4]],
+
+  "blue": [["Island", 30], ["Counterspell", 10], ["Brainstorm", 10],
+           ["Ponder", 10], ["Unsummon", 5]],
+
+  "black": [["Swamp", 28], ["Ornithopter", 10], ["Village Rites", 10],
+            ["Duress", 9], ["Diabolic Edict", 8]],
+
+  "green": [["Forest", 28], ["Llanowar Elves", 12], ["Rampant Growth", 12],
+            ["Prey Upon", 13]],
+
+  "artifacts": [["Mountain", 30], ["Ornithopter", 15], ["Bonesplitter", 20]],
+
+  "modal": [["Mountain", 30], ["Abrade", 15], ["Fireball", 10], ["Ornithopter", 10]]
+}

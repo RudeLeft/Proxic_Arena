@@ -19,18 +19,13 @@ match would do.
     land    play lands and pass on everything else, which separates
             "can we PLAY things" from "can we TARGET things"
 
-Decks: burn (the default), mixed, creatures, counters. A burn deck
-wins without ever attacking, so it never reaches combat however
-long it runs; a creature deck has no other way to win.
-
-`counters` exists to reach ONE decision deliberately. Elspeth
-Resplendent's +1 puts "a counter from among flying, first strike,
-lifelink, or vigilance" on a creature, which is the only shape in
-this Forge pin that asks chooseCounterType with more than one
-candidate -- every card using ExistingCounter also sets
-EachExistingCounter and so never asks. A deck chosen because it
-reaches a branch is how this project avoids TEST-010: code that
-exists, is tested, and is never called.
+Decks are named in scripts/harness-decks.json, which says what
+each one is for. Every one of them is chosen to reach a region of
+Forge's decision surface rather than to be a good deck -- a burn
+deck never attacks, so it never reaches combat however long it
+runs, and a deck with no creature can never be asked to sacrifice
+one. Picking a deck because it reaches a branch is how this project
+avoids TEST-010: code that exists, is tested, and is never called.
 
 WHY `play` AVOIDS MANA ABILITIES. Forge offers "Mountain - {T}: Add
 {R}" as an ordinary action, because it is one: a player may tap a
@@ -45,7 +40,9 @@ Decisions answered and stubs reached are printed, and the final
 GAME_ENDED carries §6.106's evidence: the Forge method that is not
 implemented yet.
 """
+import io
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -55,21 +52,20 @@ JAR, RES = sys.argv[1], sys.argv[2]
 STRATEGY = sys.argv[3] if len(sys.argv) > 3 else "play"
 DECK = sys.argv[4] if len(sys.argv) > 4 else "burn"
 
-# Which deck decides which DECISION KINDS a run can reach, which is
-# the whole point of running it. A burn deck never attacks, so it
-# never exercises combat no matter how long it plays; a creature
-# deck has no other way to win, so it must.
+# The decks live in a data FILE, shared with the other harness.
+# Not imported: `python -I` keeps this directory off sys.path, and
+# the two scripts have to agree because the workflow runs a deck
+# through both -- the survey to find what is missing, this one to
+# make it fail loudly and say so.
 DECKS = {
-    "burn": [("Mountain", 40), ("Staggershock", 25)],
-    "mixed": [("Mountain", 34), ("Hellspark Elemental", 12),
-              ("Legion Warboss", 10), ("Staggershock", 9)],
-    "creatures": [("Mountain", 30), ("Hellspark Elemental", 18),
-                  ("Legion Warboss", 17)],
-    # Savannah Lions so there is always something for Elspeth's +1
-    # to target: with no target the effect has nothing to put a
-    # counter on and never asks which kind.
-    "counters": [("Plains", 36), ("Elspeth Resplendent", 4),
-                 ("Savannah Lions", 20)],
+    name: [(card, count) for card, count in entries]
+    for name, entries in json.load(
+        io.open(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "harness-decks.json"),
+            encoding="utf-8",
+        )
+    ).items()
+    if not name.startswith("_")
 }
 
 proc = subprocess.Popen(
