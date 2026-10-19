@@ -43,6 +43,14 @@ data class DecisionRequest(
      * gate will refuse, and the server must not forward one.
      */
     val mandatory: Boolean = false,
+    /**
+     * Forge's own wording for the question, when it has any.
+     *
+     * A generic chooser is unusable without it — "choose one"
+     * says nothing and "Choose a creature to sacrifice" says
+     * everything. Null when the kind is self-explanatory.
+     */
+    val prompt: String? = null,
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */

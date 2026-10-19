@@ -136,6 +136,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         put("kind", request.kind)
         put("stateVersion", request.stateVersion)
         put("mandatory", request.mandatory)
+        request.prompt?.let { put("prompt", it) }
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(

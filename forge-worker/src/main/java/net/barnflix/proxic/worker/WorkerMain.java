@@ -259,6 +259,10 @@ public final class WorkerMain {
                         // to hand size is the plain case. The client
                         // must not offer a Pass the gate will refuse.
                         ask.addProperty("mandatory", pending.mandatory());
+                        // Forge's own wording, when it has any.
+                        if (pending.prompt() != null && !pending.prompt().isBlank()) {
+                            ask.addProperty("prompt", pending.prompt());
+                        }
                         JsonArray options = new JsonArray();
                         for (String id : pending.options()) {
                             JsonObject option = new JsonObject();

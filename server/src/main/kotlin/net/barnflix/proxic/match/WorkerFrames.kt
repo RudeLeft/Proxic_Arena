@@ -45,6 +45,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             // an older worker that does not send it cannot
             // accidentally make a decision unrefusable.
             mandatory = frame["mandatory"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
+            prompt = frame["prompt"]?.jsonPrimitive?.contentOrNull,
         )
     }.getOrNull()
 

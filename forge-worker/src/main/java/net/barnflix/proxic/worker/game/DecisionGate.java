@@ -80,7 +80,7 @@ public final class DecisionGate {
     /** One outstanding question. */
     public record Pending(long decisionId, int actedForSeat, int authorisedSeat, String kind,
                           long stateVersion, java.util.List<String> options,
-                          boolean mandatory) {}
+                          boolean mandatory, String prompt) {}
 
     /**
      * A client's answer.
@@ -141,10 +141,24 @@ public final class DecisionGate {
                       java.util.List<String> options, boolean mandatory,
                       Consumer<Pending> deliver)
             throws InterruptedException {
+        return ask(actedForSeat, authorisedSeat, kind, options, mandatory, null, deliver);
+    }
+
+    /**
+     * @param prompt Forge's own wording for the question, when it
+     *               has one. A generic chooser is unusable
+     *               without it: "choose one" means nothing, and
+     *               "Choose a creature to sacrifice" means
+     *               everything. Null when the kind says enough.
+     */
+    public String ask(int actedForSeat, int authorisedSeat, String kind,
+                      java.util.List<String> options, boolean mandatory, String prompt,
+                      Consumer<Pending> deliver)
+            throws InterruptedException {
         long id = nextDecisionId.getAndIncrement();
         Pending question =
                 new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options,
-                        mandatory);
+                        mandatory, prompt);
 
         // Clear BEFORE publishing the question. An answer left over
         // from the previous one would otherwise be waiting in the

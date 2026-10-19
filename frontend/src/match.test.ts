@@ -448,3 +448,28 @@ describe("board detail", () => {
     expect(state.board?.battlefield[0]?.damage).toBe(0);
   });
 });
+
+// Forge's own wording — PHASE_06 §6.90.
+describe("a decision's prompt", () => {
+  it("is carried when Forge supplies one", () => {
+    const state = apply([
+      {
+        type: "DECISION_REQUEST",
+        decisionId: 3,
+        actedForSeat: 1,
+        stateVersion: 2,
+        kind: "chooseSingleEntityForEffect",
+        prompt: "Choose a creature to sacrifice",
+        options: [{ actionId: "card:4", label: "Bear" }],
+      },
+    ]);
+    expect(state.decision?.prompt).toBe("Choose a creature to sacrifice");
+  });
+
+  // Absent is null, not an empty string: the page shows nothing
+  // rather than an empty line where a question should be.
+  it("is null when Forge has none", () => {
+    const state = apply([QUESTION]);
+    expect(state.decision?.prompt).toBeNull();
+  });
+});

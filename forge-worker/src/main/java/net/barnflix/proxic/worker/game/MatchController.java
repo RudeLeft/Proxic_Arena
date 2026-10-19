@@ -563,6 +563,469 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Which replacement applies first — §6.105, AGENTS FORGE-RULE.
+     *
+     * When two effects both want to change the same event, the
+     * affected player picks the order. It is MANDATORY: the game
+     * cannot continue until one is chosen, so no pass is offered.
+     *
+     * Forge's own human path decides when it is a real choice and
+     * this ports it exactly: one option is not a choice, and
+     * neither is a list whose entries all read the same — that is
+     * the same effect reached more than once, and asking would be
+     * asking which of two identical things you prefer. Anything
+     * else goes to the player.
+     */
+    @Override
+    public forge.game.replacement.ReplacementEffect chooseSingleReplacementEffect(
+            List<forge.game.replacement.ReplacementEffect> possible) {
+        if (possible == null || possible.isEmpty()) {
+            return null;
+        }
+        forge.game.replacement.ReplacementEffect first = possible.get(0);
+        if (possible.size() == 1) {
+            return first;
+        }
+        String firstText = String.valueOf(first);
+        boolean allTheSame = possible.stream()
+                .allMatch(effect -> effect == first || firstText.equals(String.valueOf(effect)));
+        if (allTheSame) {
+            return first;
+        }
+
+        java.util.LinkedHashMap<String, forge.game.replacement.ReplacementEffect> byId =
+                new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (forge.game.replacement.ReplacementEffect effect : possible) {
+            String id = "replacement:" + byId.size();
+            byId.put(id, effect);
+            labels.put(id, String.valueOf(effect));
+        }
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "chooseSingleReplacementEffect",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            true,
+                            pending -> host.publishDecision(pending, labels));
+            forge.game.replacement.ReplacementEffect chosen = byId.get(choice);
+            // The gate refuses a pass on a mandatory decision, so
+            // a miss here means the list moved underneath us. The
+            // first is then the only answer that is certainly
+            // still valid, and returning null would strand the
+            // game.
+            return chosen == null ? first : chosen;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return first;
+        }
+    }
+
+    /**
+     * Several triggers at once — which resolves first?
+     *
+     * When more than one of your abilities triggers on the same
+     * event, you choose the order they go on the stack. Forge
+     * decides when that is a REAL choice and this ports its
+     * rule: it asks when the abilities are not all triggers,
+     * when one targets, when a trigger asks for duplicates to be
+     * ordered, or when their descriptions differ. Two identical
+     * triggers are not a choice.
+     *
+     * Mandatory, because the game cannot continue until they are
+     * on the stack.
+     */
+    private List<SpellAbility> orderSimultaneous(List<SpellAbility> abilities) {
+        if (abilities.size() < 2) {
+            return abilities;
+        }
+        boolean needPrompt = !abilities.get(0).isTrigger();
+        String firstText = String.valueOf(abilities.get(0));
+        for (int i = 1; i < abilities.size(); i++) {
+            SpellAbility current = abilities.get(i);
+            if (current.isTrigger()) {
+                needPrompt |= current.getTrigger().hasParam("OrderDuplicates");
+            } else if (current.usesTargeting()) {
+                needPrompt = true;
+            }
+            if (!needPrompt && !String.valueOf(current).equals(firstText)) {
+                needPrompt = true;
+            }
+        }
+        if (!needPrompt) {
+            return abilities;
+        }
+
+        // Asked one at a time: "which of these resolves first?",
+        // then again with the rest. The first answer is the one
+        // that resolves first, which is why the caller puts the
+        // list on the stack backwards.
+        List<SpellAbility> remaining = new java.util.ArrayList<>(abilities);
+        List<SpellAbility> ordered = new java.util.ArrayList<>();
+        while (remaining.size() > 1) {
+            java.util.LinkedHashMap<String, SpellAbility> byId =
+                    new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (SpellAbility ability : remaining) {
+                String id = "trigger:" + byId.size() + ":card:" + ability.getHostCard().getId();
+                byId.put(id, ability);
+                labels.put(id, describe(ability));
+            }
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "orderSimultaneousAbilities",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                true,
+                                pending -> host.publishDecision(pending, labels));
+                SpellAbility chosen = byId.get(choice);
+                if (chosen == null) {
+                    break;
+                }
+                ordered.add(chosen);
+                remaining.remove(chosen);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        ordered.addAll(remaining);
+        return ordered;
+    }
+
+    /**
+     * Put the simultaneous abilities on the stack, in order.
+     *
+     * A faithful port of Forge's human path. The loop runs
+     * BACKWARDS on purpose: the stack resolves last-in-first-out,
+     * so the ability the player wants to resolve first has to go
+     * on last. Copied spells take a different route onto the
+     * stack, which is Forge's business and is copied verbatim
+     * rather than simplified.
+     */
+    @Override
+    public void orderAndPlaySimultaneousSa(List<SpellAbility> activePlayerSAs) {
+        List<SpellAbility> ordered = orderSimultaneous(activePlayerSAs);
+        for (int i = ordered.size() - 1; i >= 0; i--) {
+            SpellAbility next = ordered.get(i);
+            if (next.isTrigger() && !next.isCopied()) {
+                forge.game.player.PlaySpellAbility.playSpellAbility(this, player, next);
+                continue;
+            }
+            if (next.isCopied()) {
+                if (next.isSpell()) {
+                    if (!next.getHostCard().isInZone(forge.game.zone.ZoneType.Stack)) {
+                        next.setHostCard(
+                                player.getGame().getAction().moveToStack(next.getHostCard(), next));
+                    } else {
+                        player.getGame().getStackZone().add(next.getHostCard());
+                    }
+                }
+                if (next.isMayChooseNewTargets()) {
+                    next.setupNewTargets(player);
+                }
+            }
+            player.getGame().getStack().add(next);
+        }
+    }
+
+    /**
+     * A yes-or-no question, asked properly.
+     *
+     * Forge has a great many of these — use this trigger? pay
+     * this cost? take this action? — and they are all the same
+     * shape: two explicit answers, neither of them a pass.
+     *
+     * Deliberately NOT modelled as "one option, and passing
+     * means no". A pass is "I decline to act"; "no" is an
+     * answer. Collapsing them would mean a disconnected player
+     * silently answering no to everything, which §6.112 forbids
+     * for exactly this reason.
+     *
+     * @param fallback what to assume if the worker is shutting
+     *                 down mid-question. Chosen by the caller,
+     *                 because the safe answer differs: declining
+     *                 an optional trigger is safe, and declining
+     *                 a mandatory payment is not.
+     */
+    private boolean askYesNo(String kind, String question, boolean fallback) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        labels.put("confirm:yes", "Yes — " + question);
+        labels.put("confirm:no", "No");
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            kind,
+                            new java.util.ArrayList<>(labels.keySet()),
+                            true,
+                            pending -> host.publishDecision(pending, labels));
+            return "confirm:yes".equals(choice);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return fallback;
+        }
+    }
+
+    /**
+     * Use this optional trigger? — §6.105.
+     *
+     * Forge's own short-circuit is ported first and it is not an
+     * optimisation: a trigger that COSTS something can always be
+     * declined by not paying, so asking here as well would ask
+     * the same question twice and let a player say yes and then
+     * find they had already said no.
+     */
+    @Override
+    public boolean confirmTrigger(forge.game.trigger.WrappedAbility wrapper) {
+        SpellAbility sa = wrapper.getWrappedAbility();
+        if (sa.hasParam("Cost") && !"0".equals(sa.getParam("Cost"))) {
+            return true;
+        }
+        String card = String.valueOf(wrapper.getTrigger().getHostCard());
+        return askYesNo(
+                "confirmTrigger",
+                "use the triggered ability of " + card + "?",
+                // Declining an OPTIONAL trigger is the safe
+                // answer when nobody is there to say.
+                false);
+    }
+
+    /**
+     * Choose one thing for an effect — §6.90, §6.93.
+     *
+     * The generic chooser, and the one most effects end up in:
+     * "sacrifice a creature", "exile a card", "choose a player".
+     * Forge supplies both the candidates and the WORDING, and
+     * the wording is what makes it answerable — without it the
+     * player sees a list of names and no question.
+     *
+     * Forge's own short-circuits are ported: an empty list is
+     * no choice, and a single candidate you are REQUIRED to pick
+     * is not a choice either. A single OPTIONAL candidate still
+     * asks, because "none" is a real answer there.
+     *
+     * KNOWN GAP, stated rather than hidden: `delayedReveal`
+     * carries cards Forge would show the player while they
+     * choose — the top of a library, say. This does not surface
+     * them yet, so a choice that depends on seeing them is made
+     * blind. The candidates themselves are correct; the context
+     * is missing.
+     */
+    @Override
+    public <T extends forge.game.GameEntity> T chooseSingleEntityForEffect(
+            forge.util.collect.FCollectionView<T> optionList,
+            forge.game.player.DelayedReveal delayedReveal,
+            SpellAbility sa,
+            String title,
+            boolean isOptional,
+            Player targetedPlayer,
+            java.util.Map<String, Object> params) {
+        if (optionList == null || optionList.isEmpty()) {
+            return null;
+        }
+        java.util.List<T> candidates = new java.util.ArrayList<>();
+        optionList.forEach(candidates::add);
+        if (!isOptional && candidates.size() == 1) {
+            return candidates.get(0);
+        }
+
+        java.util.LinkedHashMap<String, T> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (T candidate : candidates) {
+            // §6.46 — typed, because a card id and a player id
+            // share a number space.
+            String id = (candidate instanceof forge.game.card.Card card)
+                    ? "card:" + card.getId()
+                    : "player:" + candidate.getId();
+            byId.put(id, candidate);
+            labels.put(id, String.valueOf(candidate));
+        }
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "chooseSingleEntityForEffect",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            !isOptional,
+                            title,
+                            pending -> host.publishDecision(pending, labels));
+            if (DecisionGate.PASS.equals(choice)) {
+                // Only reachable when the choice was optional;
+                // the gate refuses a pass otherwise.
+                return null;
+            }
+            T chosen = byId.get(choice);
+            // A required choice whose answer no longer exists
+            // still has to produce something, or the effect
+            // stalls. The first candidate is the only answer
+            // certainly still valid.
+            return chosen == null && !isOptional ? candidates.get(0) : chosen;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return isOptional ? null : candidates.get(0);
+        }
+    }
+
+    /**
+     * "Do you want to do this?" — the general form.
+     *
+     * Forge supplies the wording every time, which is what makes
+     * these answerable: the kind says it is a confirmation and
+     * the message says what of.
+     *
+     * When `options` is non-empty this is not a yes/no at all —
+     * Forge is offering its own named answers, and they are
+     * shown instead of inventing Yes and No.
+     */
+    @Override
+    public boolean confirmAction(
+            SpellAbility sa,
+            forge.game.player.PlayerActionConfirmMode mode,
+            String message,
+            List<String> options,
+            forge.game.card.Card cardToShow,
+            java.util.Map<String, Object> params) {
+        if (options != null && !options.isEmpty()) {
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (String option : options) {
+                labels.put("choice:" + labels.size(), option);
+            }
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "confirmAction",
+                                new java.util.ArrayList<>(labels.keySet()),
+                                true,
+                                message,
+                                pending -> host.publishDecision(pending, labels));
+                // Forge's own convention: the FIRST option is the
+                // affirmative one.
+                return "choice:0".equals(choice);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return askYesNo("confirmAction", message, false);
+    }
+
+    /** Apply this replacement effect? Forge asks; the player answers. */
+    @Override
+    public boolean confirmReplacementEffect(
+            forge.game.replacement.ReplacementEffect replacement,
+            SpellAbility effect,
+            forge.game.GameEntity affected,
+            String question) {
+        return askYesNo("confirmReplacementEffect", question, false);
+    }
+
+    @Override
+    public boolean confirmStaticApplication(
+            forge.game.card.Card host,
+            forge.game.player.PlayerActionConfirmMode mode,
+            String message,
+            String logic) {
+        return askYesNo("confirmStaticApplication", message, false);
+    }
+
+    /**
+     * Pay this optional cost?
+     *
+     * Declining is the safe fallback: not paying means the thing
+     * does not happen, which is recoverable. Paying something
+     * nobody agreed to is not.
+     */
+    @Override
+    public boolean confirmPayment(
+            forge.game.cost.CostPart costPart, String question, SpellAbility sa) {
+        return askYesNo("confirmPayment", question, false);
+    }
+
+    /**
+     * Play something an effect told you to play.
+     *
+     * "You may cast target card without paying its mana cost"
+     * and similar. A faithful port with no choice in it: any
+     * decision inside comes back through this controller as
+     * usual.
+     */
+    @Override
+    public boolean playSaFromPlayEffect(SpellAbility targetSa) {
+        return forge.game.player.PlaySpellAbility.playSpellAbility(this, player, targetSa);
+    }
+
+    /** A triggered ability resolving. Also a port, also no choice. */
+    @Override
+    public boolean playTrigger(
+            forge.game.card.Card host,
+            forge.game.trigger.WrappedAbility wrapper,
+            boolean isMandatory) {
+        return forge.game.player.PlaySpellAbility.playSpellAbilityNoStack(
+                this, player, wrapper, false);
+    }
+
+    /**
+     * §6.94 — combat, which is the player's and Forge's together.
+     *
+     * Who attacks and who blocks is entirely the player's. What
+     * is LEGAL is Forge's, asked through CombatUtil every time.
+     * An interruption leaves combat as it stands rather than
+     * inventing attackers: an empty attack is a legal turn, and
+     * a made-up one is not recoverable.
+     */
+    @Override
+    public void declareAttackers(Player attacker, forge.game.combat.Combat combat) {
+        try {
+            new CombatChoices(host, actedForSeat, authorisedSeat)
+                    .declareAttackers(attacker, combat);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Override
+    public java.util.Map<forge.game.card.Card, Integer> assignCombatDamage(
+            forge.game.card.Card attacker,
+            forge.game.card.CardCollectionView blockers,
+            forge.game.card.CardCollectionView remaining,
+            int damageDealt,
+            forge.game.GameEntity defender,
+            boolean overrideOrder) {
+        try {
+            return new CombatChoices(host, actedForSeat, authorisedSeat)
+                    .assignCombatDamage(attacker, blockers, damageDealt, defender, overrideOrder);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            // All of it to the first blocker: a legal assignment,
+            // and better than none while the worker is stopping.
+            java.util.Map<forge.game.card.Card, Integer> fallback = new java.util.HashMap<>();
+            fallback.put(blockers.isEmpty() ? null : blockers.get(0), damageDealt);
+            return fallback;
+        }
+    }
+
+    @Override
+    public void declareBlockers(Player defender, forge.game.combat.Combat combat) {
+        try {
+            new CombatChoices(host, actedForSeat, authorisedSeat)
+                    .declareBlockers(defender, combat);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
      * Labels for a client that has no game state yet.
      *
      * §6.49 — presentation hints, not authority. When viewer

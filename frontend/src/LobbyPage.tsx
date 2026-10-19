@@ -812,6 +812,11 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               ? headingFor(game.decision.kind)
               : `Playing for seat ${game.decision.actedForSeat}`}
           </h3>
+          {/* Forge's own wording, when it has any. It is more
+              specific than anything this page could infer from
+              the kind, so it goes above the options rather than
+              replacing the heading. */}
+          {game.decision.prompt && <p className="decision-prompt">{game.decision.prompt}</p>}
           <ul className="actions-list">
             {game.decision.options.map((option) => (
               <li key={option.actionId}>
@@ -940,6 +945,26 @@ function headingFor(kind: string): string {
       return "Tap something for mana";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "Discard a card";
+    case "declareAttackers":
+      return "Declare attackers";
+    case "declareBlockers":
+      return "Declare blockers";
+    case "chooseDefender":
+      return "Choose what to attack";
+    case "chooseBlockTarget":
+      return "Choose what to block";
+    case "assignCombatDamage":
+      return "Assign combat damage";
+    case "orderSimultaneousAbilities":
+      return "Choose what resolves first";
+    case "chooseSingleReplacementEffect":
+      return "Choose which effect applies";
+    case "confirmTrigger":
+    case "confirmAction":
+    case "confirmPayment":
+    case "confirmReplacementEffect":
+    case "confirmStaticApplication":
+      return "Confirm";
     default:
       return "Your move";
   }
@@ -964,6 +989,12 @@ function hintFor(kind: string, options: number): string {
       return "Choose what to tap. Pass to cancel the whole thing.";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "You are over your maximum hand size. This cannot be skipped.";
+    case "declareAttackers":
+      return "Choose attackers one at a time. Pass when you are done attacking.";
+    case "declareBlockers":
+      return "Choose blockers one at a time. Pass to take the damage.";
+    case "assignCombatDamage":
+      return "One point at a time, so nothing is assigned for you.";
     default:
       return "These are the actions Forge says you can take.";
   }

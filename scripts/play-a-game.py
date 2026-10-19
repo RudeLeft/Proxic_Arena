@@ -10,7 +10,7 @@ It speaks the same transport the server does -- line-delimited JSON
 on the worker's stdin/stdout -- so what it proves is what a real
 match would do.
 
-    python -I scripts/play-a-game.py <worker.jar> <forge-res-root> [first|land]
+    python -I scripts/play-a-game.py <worker.jar> <res-root> [strategy] [deck]
 
     play    play like a person: a land when one is offered, then
             an action that is NOT a mana ability. The default.
@@ -18,6 +18,10 @@ match would do.
             fastest, because passing forever just decks out
     land    play lands and pass on everything else, which separates
             "can we PLAY things" from "can we TARGET things"
+
+Decks: burn (the default), mixed, creatures. A burn deck wins
+without ever attacking, so it never reaches combat however long it
+runs; a creature deck has no other way to win.
 
 WHY `play` AVOIDS MANA ABILITIES. Forge offers "Mountain - {T}: Add
 {R}" as an ordinary action, because it is one: a player may tap a
@@ -40,6 +44,19 @@ import uuid
 
 JAR, RES = sys.argv[1], sys.argv[2]
 STRATEGY = sys.argv[3] if len(sys.argv) > 3 else "play"
+DECK = sys.argv[4] if len(sys.argv) > 4 else "burn"
+
+# Which deck decides which DECISION KINDS a run can reach, which is
+# the whole point of running it. A burn deck never attacks, so it
+# never exercises combat no matter how long it plays; a creature
+# deck has no other way to win, so it must.
+DECKS = {
+    "burn": [("Mountain", 40), ("Staggershock", 25)],
+    "mixed": [("Mountain", 34), ("Hellspark Elemental", 12),
+              ("Legion Warboss", 10), ("Staggershock", 9)],
+    "creatures": [("Mountain", 30), ("Hellspark Elemental", 18),
+                  ("Legion Warboss", 17)],
+}
 
 proc = subprocess.Popen(
     ["java", "-jar", JAR, RES],
@@ -98,9 +115,9 @@ for frame in frames():
             "matchId": str(uuid.uuid4()),
             "players": [
                 {"displayName": "Alice", "seatNumber": 1,
-                 "cards": deck([("Mountain", 40), ("Staggershock", 25)])},
+                 "cards": deck(DECKS[DECK])},
                 {"displayName": "Bob", "seatNumber": 2,
-                 "cards": deck([("Mountain", 40), ("Staggershock", 25)])},
+                 "cards": deck(DECKS[DECK])},
             ],
         })
 

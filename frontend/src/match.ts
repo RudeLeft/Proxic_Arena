@@ -51,6 +51,14 @@ export interface Decision {
    * worse than no button.
    */
   mandatory: boolean;
+  /**
+   * Forge's own wording for the question, when it has any.
+   *
+   * A generic chooser is unanswerable without it — a list of
+   * creature names with no question attached could be "choose
+   * one to sacrifice" or "choose one to save".
+   */
+  prompt: string | null;
 }
 
 /**
@@ -361,6 +369,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     // Absent means optional, matching the server: an older
     // server cannot accidentally make a decision unrefusable.
     mandatory: message["mandatory"] === true,
+    prompt: asString(message["prompt"]),
   };
 }
 

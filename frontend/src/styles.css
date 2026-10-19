@@ -506,3 +506,11 @@ button:disabled {
 .card-chip.stacked {
   min-width: 0;
 }
+
+/* Forge's own wording for a decision, when it has any. It is
+   more specific than anything the page could infer from the
+   decision kind, so it reads as the question itself. */
+.decision-prompt {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
