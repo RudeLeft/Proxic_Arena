@@ -33,8 +33,15 @@
     "green       searching a library, and two targets that fight",
     "artifacts   equipment: an activated ability that attaches to a",
     "            creature you choose",
-    "modal       'choose one' modes, an X cost announced before the",
-    "            spell, and damage divided among several targets"
+    "modes       'choose one --', and nothing else: an X spell in",
+    "            the same deck gets cast first and the run never",
+    "            reaches a mode at all. Abrade's two modes need",
+    "            DISJOINT targets here -- a creature that is not an",
+    "            artifact and an artifact that is not a creature --",
+    "            so what Forge asks for next proves which mode it",
+    "            actually took",
+    "xcost       an X announced before the spell, and damage divided",
+    "            among several targets"
   ],
 
   "burn": [["Mountain", 40], ["Staggershock", 25]],
@@ -58,5 +65,8 @@
 
   "artifacts": [["Mountain", 30], ["Ornithopter", 15], ["Bonesplitter", 20]],
 
-  "modal": [["Mountain", 30], ["Abrade", 15], ["Fireball", 10], ["Ornithopter", 10]]
+  "modes": [["Mountain", 28], ["Abrade", 16], ["Bonesplitter", 11],
+            ["Legion Warboss", 10]],
+
+  "xcost": [["Mountain", 35], ["Fireball", 20], ["Ornithopter", 10]]
 }

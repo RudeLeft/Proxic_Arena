@@ -20,7 +20,7 @@
 // worker, and that is the point: the alternative is believing a
 // unit test about a branch no game ever takes.
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
@@ -34,7 +34,7 @@ test.describe.configure({ timeout: 900_000 });
 // missing fixture is a setup gap, not a defect in the code.
 const loyaltyPackage = join(process.cwd(), "..", "Test Deck", "loyalty-deck.zip");
 
-test("a planeswalker ability is paid for and asks which counter to use", async ({ browser }) => {
+test("a planeswalker ability is paid for, and modal cards ask which mode", async ({ browser }) => {
   test.skip(!existsSync(loyaltyPackage), "no loyalty deck package built");
 
   const hostContext = await browser.newContext();
@@ -123,10 +123,46 @@ test("a planeswalker ability is paid for and asks which counter to use", async (
     // play, so this takes a while. Bounded, and the bound is
     // generous because the alternative to waiting is a test that
     // asserts nothing.
-    const heading = /Choose a kind of counter/;
-    const sawTheQuestion = async () =>
-      (await matchPanel(host).getByRole("heading", { name: heading }).count()) > 0 ||
-      (await matchPanel(guest).getByRole("heading", { name: heading }).count()) > 0;
+    // TWO QUESTIONS, ONE MATCH. Both only exist in a game with
+    // spells in it, and an end-to-end match is the slowest thing
+    // in this suite, so the loop below answers each the first time
+    // it appears rather than starting a second game for the
+    // second one.
+    const questions = [
+      {
+        name: "the counter-type choice",
+        heading: /Choose a kind of counter/,
+        shot: "test-results/seen/counter-type.png",
+        check: async (panel: Locator) => {
+          // FORGE's four candidates, named — not a number, not an
+          // index (§6.50). If this ever shows two, the adapter has
+          // started deciding something that is the player's.
+          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          expect(offered.sort()).toEqual(["First Strike", "Flying", "Lifelink", "Vigilance"]);
+
+          // Forge's own wording, passed through rather than
+          // rewritten — it is the only thing that says which card
+          // this is about.
+          await expect(panel.getByText(/Select counter type to add to/)).toBeVisible();
+        },
+      },
+      {
+        name: "the modal choice",
+        heading: /Choose a mode/,
+        shot: "test-results/seen/choose-mode.png",
+        check: async (panel: Locator) => {
+          // Alley Evasion is "choose one —", and the two modes do
+          // different things to the same creature. Both must be on
+          // offer: an adapter that quietly took the first would
+          // show one, and the card would still appear to work.
+          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          expect(offered).toHaveLength(2);
+          expect(offered.some((label) => /\+1\/\+2/.test(label))).toBe(true);
+          expect(offered.some((label) => /owner's hand/i.test(label))).toBe(true);
+        },
+      },
+    ];
+    const seen = new Set<string>();
 
     // Bounded by the CLOCK, not by a loop counter. The first
     // version counted every pass of the loop, including the ones
@@ -135,13 +171,55 @@ test("a planeswalker ability is paid for and asks which counter to use", async (
     // played on behind it: 1,200 "steps", four minutes, eleven
     // actual decisions answered.
     const deadline = Date.now() + 600_000;
-    let reached = false;
     let answered = 0;
 
-    while (Date.now() < deadline) {
-      if (await sawTheQuestion()) {
-        reached = true;
+    while (Date.now() < deadline && seen.size < questions.length) {
+      // --- is one of the questions under test on screen? --------
+      let handled = false;
+      for (const question of questions) {
+        if (seen.has(question.name)) {
+          continue;
+        }
+        const on = (await matchPanel(host).getByRole("heading", { name: question.heading }).count())
+          ? host
+          : (await matchPanel(guest)
+                .getByRole("heading", { name: question.heading })
+                .count())
+            ? guest
+            : null;
+        if (!on) {
+          continue;
+        }
+        const panel = matchPanel(on);
+
+        await question.check(panel);
+
+        // Mandatory: there is no "neither". The gate refuses a pass
+        // on both of these, so the page must not offer one.
+        await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
+
+        // AGENTS TEST-011 — leave something to LOOK AT, on success,
+        // because the screenshots Playwright writes by default only
+        // exist once something is already known to be wrong.
+        await on.screenshot({ path: question.shot, fullPage: true });
+
+        // And it is answerable: the answer reaches Forge and the
+        // game moves on, which is the half a screenshot cannot
+        // show.
+        await panel.getByRole("listitem").getByRole("button").first().click();
+        await expect
+          .poll(async () => panel.getByRole("heading", { name: question.heading }).count(), {
+            timeout: 60_000,
+          })
+          .toBe(0);
+
+        seen.add(question.name);
+        answered += 1;
+        handled = true;
         break;
+      }
+      if (handled) {
+        continue;
       }
 
       // A game that has FINISHED will never ask anything again, so
@@ -188,12 +266,13 @@ test("a planeswalker ability is paid for and asks which counter to use", async (
       const options = matchPanel(live).getByRole("listitem").getByRole("button");
       const labels = await options.allTextContents();
 
-      // PLAY TOWARDS THE DECISION, deliberately. This is not a test
-      // of how well anything plays; it is a test that one decision
-      // can be reached, answered and seen. So Elspeth comes first
-      // whenever she is on offer -- which casts her, and on later
-      // turns activates her -- and her ability is once a turn, so
-      // the rest of the turn still falls through to creatures.
+      // PLAY TOWARDS THE DECISIONS, deliberately. This is not a
+      // test of how well anything plays; it is a test that these
+      // decisions can be reached, answered and seen. So Elspeth
+      // comes first whenever she is on offer -- which casts her,
+      // and on later turns activates her -- and her ability is once
+      // a turn, so the rest of the turn still falls through to
+      // creatures.
       //
       // Creatures matter because the +1 targets one: "up to one
       // target creature" asks nothing at all when there is none.
@@ -216,50 +295,13 @@ test("a planeswalker ability is paid for and asks which counter to use", async (
       await live.waitForTimeout(40);
     }
 
-    // The whole reason this file exists. A planeswalker ability
-    // was activated, which means its loyalty cost was PAID
-    // (§6.91 — nothing else can activate it), it resolved, and
-    // Forge asked a question the adapter can now answer.
-    expect(
-      reached,
-      `no counter-type decision was asked in ${answered} answered decisions`,
-    ).toBe(true);
-
-    const asked = (await matchPanel(host).getByRole("heading", { name: heading }).count())
-      ? host
-      : guest;
-    const panel = matchPanel(asked);
-
-    // FORGE's four candidates, named — not a number, not an index
-    // (§6.50). If this ever shows two, the adapter has started
-    // deciding something that is the player's.
-    const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
-    expect(offered.sort()).toEqual(["First Strike", "Flying", "Lifelink", "Vigilance"]);
-
-    // Mandatory: there is no "neither". The gate refuses a pass on
-    // this decision, so the page must not offer one.
-    await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
-
-    // Forge's own wording, passed through rather than rewritten —
-    // it is the only thing that says which card this is about.
-    await expect(panel.getByText(/Select counter type to add to/)).toBeVisible();
-
-    // AGENTS TEST-011 — leave something to LOOK AT, on success,
-    // because the screenshots Playwright writes by default only
-    // exist once something is already known to be wrong.
-    await asked.screenshot({ path: "test-results/seen/counter-type.png", fullPage: true });
-
-    // And it is answerable: the answer reaches Forge and the game
-    // moves on, which is the half a screenshot cannot show.
-    await panel.getByRole("listitem").getByRole("button").first().click();
-    await expect
-      .poll(
-        async () =>
-          (await panel.getByRole("heading", { name: heading }).count()) === 0 ||
-          (await panel.getByRole("listitem").getByRole("button").count()) === 0,
-        { timeout: 60_000 },
-      )
-      .toBe(true);
+    // The whole reason this file exists. A planeswalker ability was
+    // activated, which means its loyalty cost was PAID (§6.91 —
+    // nothing else can activate it), it resolved, and Forge asked a
+    // question the adapter can now answer; and a modal card asked
+    // which of its two things to do.
+    const missing = questions.filter((q) => !seen.has(q.name)).map((q) => q.name);
+    expect(missing, `never asked in ${answered} answered decisions`).toEqual([]);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await hostContext.close();

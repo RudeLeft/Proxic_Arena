@@ -704,6 +704,135 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * "Choose one —" — PHASE_06 §6.50, FORGE-RULE.
+     *
+     * Modal cards: Abrade either destroys an artifact or burns a
+     * creature, and which one is the entire decision the card
+     * exists to offer. Nothing here reads the modes or reasons
+     * about which is better. FORGE supplies the list, already
+     * narrowed to the modes that are legal right now, and the
+     * player picks from it.
+     *
+     * A PORT of Forge's own human loop, and its two edges are not
+     * obvious:
+     *
+     * `min` MODES ARE COMPULSORY AND THE REST ARE NOT. Escalate and
+     * entwine cards let you take more than the minimum, so the
+     * first `min` questions refuse a pass and the ones after it
+     * accept one — passing means "that is all the modes I want",
+     * which is a real and ordinary answer, not a cancel.
+     *
+     * `allowRepeat` decides whether a mode can be taken twice. When
+     * it cannot, a chosen mode leaves the list, so the second
+     * question is a shorter one.
+     */
+    @Override
+    public List<forge.game.spellability.AbilitySub> chooseModeForAbility(
+            forge.game.spellability.SpellAbility sa,
+            List<forge.game.spellability.AbilitySub> possible,
+            int min,
+            int num,
+            boolean allowRepeat) {
+        if (possible == null || possible.isEmpty()) {
+            return null;
+        }
+        // Forge's own shortcut: when every mode must be taken there
+        // is nothing to decide. "Choose one" that offers one thing
+        // is not a question.
+        if (!allowRepeat && min == num && num == possible.size()) {
+            return possible;
+        }
+
+        List<forge.game.spellability.AbilitySub> remaining =
+                new java.util.ArrayList<>(possible);
+        List<forge.game.spellability.AbilitySub> chosen = new java.util.ArrayList<>();
+        int spentPawprint = 0;
+
+        for (int round = 0; round < num; round++) {
+            if (sa.hasParam("Pawprint")) {
+                // A budget rather than a count: each mode costs
+                // some of it, so the modes that no longer fit stop
+                // being offered. Forge's rule, ported whole.
+                final int spent = spentPawprint;
+                remaining.removeIf(mode -> pawprintOf(mode) > num - spent);
+            }
+            if (remaining.isEmpty()) {
+                break;
+            }
+
+            java.util.LinkedHashMap<String, forge.game.spellability.AbilitySub> byId =
+                    new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (forge.game.spellability.AbilitySub mode : remaining) {
+                // §6.46 — typed, and indexed because two modes of
+                // one card can read the same and still be distinct.
+                String id = "mode:" + byId.size() + ":card:" + sa.getHostCard().getId();
+                byId.put(id, mode);
+                labels.put(id, mode.toUnsuppressedString());
+            }
+
+            // The first `min` cannot be declined; the rest can.
+            boolean mandatory = round < min;
+            String prompt = mandatory
+                    ? "Choose a mode for " + sa.getHostCard().getName() + "."
+                    : "Choose another mode for " + sa.getHostCard().getName()
+                            + ", or pass to take no more.";
+
+            forge.game.spellability.AbilitySub picked;
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "chooseModeForAbility",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                mandatory,
+                                prompt,
+                                pending -> host.publishDecision(pending, labels));
+                if (DecisionGate.PASS.equals(choice)) {
+                    // Only reachable when this one was optional:
+                    // the gate refuses a pass on a mandatory
+                    // decision. "No more modes" ends the choosing.
+                    break;
+                }
+                picked = byId.get(choice);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                picked = null;
+            }
+
+            if (picked == null) {
+                // Mandatory and unanswerable, or interrupted. The
+                // first remaining mode is the only answer still
+                // certainly legal, and a modal spell with no mode
+                // would strand mid-resolution.
+                if (!mandatory) {
+                    break;
+                }
+                picked = remaining.get(0);
+            }
+
+            if (!allowRepeat) {
+                remaining.remove(picked);
+            }
+            if (picked.hasParam("Pawprint")) {
+                spentPawprint += pawprintOf(picked);
+            }
+            chosen.add(picked);
+        }
+        return chosen;
+    }
+
+    /** What one mode costs out of a Pawprint budget. */
+    private static int pawprintOf(forge.game.spellability.AbilitySub mode) {
+        String paw = mode.getParam("Pawprint");
+        if (paw == null) {
+            return 0;
+        }
+        return forge.game.ability.AbilityUtils.calculateAmount(mode.getHostCard(), paw, mode);
+    }
+
+    /**
      * Several triggers at once — which resolves first?
      *
      * When more than one of your abilities triggers on the same

@@ -4,8 +4,9 @@ A legal 65-card Open Format deck that exists to reach decisions a
 deck of basic lands cannot.
 
 ```text
-Loyalty Test Deck.txt   45 Plains
+Loyalty Test Deck.txt   41 Plains
                         4 Elspeth Resplendent
+                        4 Alley Evasion
                         4 Steel Wall
                         4 Wall of Omens
                         4 Perimeter Captain
@@ -51,7 +52,14 @@ card that is not a basic land, and a fixture that breaks the format
 it is testing is not a fixture. Five different ones because four
 copies of anything is not enough on its own.
 
-45 Plains because Elspeth costs `{3}{W}{W}` and a test that loses
+Alley Evasion is here for a second decision: `chooseModeForAbility`.
+It costs `{W}`, it is "choose one —", and both of its modes target a
+creature you control — which this deck always has, for the reason
+above. One deck reaching two decisions is one import and one match
+rather than two of each, and an e2e match is the slowest thing in
+the suite.
+
+41 Plains because Elspeth costs `{3}{W}{W}` and a test that loses
 to mana is a test that reports a fault it did not find.
 
 ## What it is not

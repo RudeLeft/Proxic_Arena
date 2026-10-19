@@ -971,6 +971,8 @@ function headingFor(kind: string): string {
       return "Choose which effect applies";
     case "chooseCounterType":
       return "Choose a kind of counter";
+    case "chooseModeForAbility":
+      return "Choose a mode";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1016,6 +1018,12 @@ function hintFor(kind: string, options: number): string {
       // wrote it. What this adds is that the kind MATTERS: these
       // are not interchangeable, and nothing will pick for you.
       return "Which counter this is changes what it does. This cannot be skipped.";
+    case "chooseModeForAbility":
+      // A modal card does ONE of these. Passing, where it is
+      // allowed at all, means "no more modes" rather than
+      // cancelling the spell -- which is worth saying, because
+      // every other Pass in this panel cancels something.
+      return "The card does the mode you pick. Pass, if offered, takes no further mode.";
     case "CostPutCounter":
     case "CostRemoveCounter":
       return "This is part of paying for what you are doing. Pass to cancel it.";
