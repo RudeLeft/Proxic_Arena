@@ -363,17 +363,64 @@ heights, anchors, gaps, scale floors — not coordinates.
 
 # PART III — RENDERING
 
-## 7.15 Renderer
+## 7.15 Renderer  *(amended 2026-10-19 — owner decision)*
 
-PixiJS, mounted inside React per Phase 1 §1.17–1.18, with the lifecycle
-guarantees already required there (no duplicate canvases, no abandoned
-animation loops, no leaked listeners across navigation).
+> **Original text (superseded, kept per PHASE-002):**
+> PixiJS, mounted inside React per Phase 1 §1.17–1.18, with the lifecycle
+> guarantees already required there (no duplicate canvases, no abandoned
+> animation loops, no leaked listeners across navigation).
+> React owns chrome, panels, menus and forms. PixiJS owns the board.
 
-React owns chrome, panels, menus and forms. PixiJS owns the board.
+**Amended decision.** The board is rendered in **React DOM** — cards as
+real elements positioned by CSS transform — with **SVG overlays**
+(`pointer-events: none`) for connectors and effects. One renderer.
+PixiJS stays installed and remains a *measured contingency for the card
+layer only*, opened solely by a missed benchmark.
+
+The normative statement is `docs/architecture/BATTLEFIELD_RENDERING.md`.
+Where this phase and that document disagree, that document wins.
+
+Recorded in the PHASE-003 CONFLICT format:
+
+```text
+Requirement:   PixiJS owns the board (this section, original text)
+Observed:      §7.44 demands testing through the real event path; §7.45
+               and §7.47 demand the hidden-information assertion be made
+               on what is rendered; §7.42's properties are external DOM
+               measurements. A canvas can satisfy none of these from
+               outside without a test API that trusts the renderer about
+               itself — the shape of the old _on_card_click bug.
+Evidence:      SOURCE §7.42, §7.44, §7.45, §7.47; SOURCE §6.134;
+               UPSTREAM-DOC §7.16 (82ms Pillow rebuild, a CPU bug);
+               INFERENCE Open Format faces ~50-60 not 150+.
+Impact:        the verification half of this phase; accessibility of
+               every card; the overlay click-swallowing bug class.
+Options:       (a) PixiJS board + test API; (b) DOM cards + Pixi effects;
+               (c) DOM cards + SVG overlays, Pixi as measured contingency.
+Recommendation (c). Option (b) was rejected for introducing a second
+               renderer and a seam to maintain for a dozen vector shapes.
+Owner answer:  (c), 2026-10-19.
+```
+
+The Phase 1 §1.18 lifecycle guarantees still apply to the overlay layers
+and to any animation loop.
 
 ---
 
-## 7.16 Texture Strategy
+## 7.16 Texture Strategy  *(amended 2026-10-19 — owner decision)*
+
+> **Scope note.** Under the amended §7.15 the card layer is DOM, so card
+> art is an `<img>` with the five layout scales offered as `srcset`, and
+> decode, caching and eviction belong to the browser. The questions below
+> become binding **only if** the §7.15 contingency is taken. What remains
+> binding now is the measurement: the performance budget in
+> `BATTLEFIELD_RENDERING.md` §6, run on a 60-face / 80-permanent synthetic
+> board (acceptance P7-M, P7-Q).
+>
+> The "150+ distinct faces" figure below was sized before Open Format.
+> Two 60–65 card decks at four-of are ~23 distinct cards each; two decks
+> plus tokens is roughly 50–60 faces. `INFERENCE` — to be confirmed by
+> the P7-M benchmark, not assumed.
 
 Card faces are the dominant asset cost. A 60-permanent board plus two hands
 plus graveyards is easily 150+ distinct faces.
@@ -776,6 +823,8 @@ filtering hidden information in the UI after transmitting it
 | P7-M | Texture strategy measured under a 60-permanent board | `BENCHMARK` |
 | P7-N | Layout property suite green across the viewport × card-count matrix | `RUN` |
 | P7-O | Owner has seen and accepted the board | `USER` |
+| P7-P | *(added 2026-10-19)* For a seeded board, every card's `getBoundingClientRect()` equals `layout()`'s Box — the renderer obeys the maths through the real path (`BATTLEFIELD_RENDERING.md` §6 tier 2) | `RUN` |
+| P7-Q | *(added 2026-10-19)* The `BATTLEFIELD_RENDERING.md` §6 performance budget is met on the synthetic 80-permanent / 60-face board, numbers committed; a miss is the only thing that opens the §7.15 PixiJS contingency | `BENCHMARK` |
 
 ## 7.49 Escalation
 

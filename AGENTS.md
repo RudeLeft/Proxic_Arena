@@ -41,9 +41,12 @@ BUILD NEW
 
 ## Current phase
 
-**Phase 0A is ACCEPTED (2026-10-15). The active phase is Phase 1 —
-Application Foundation.** Production work is authorized within Phase 1
-only.
+**Phase 0A is ACCEPTED (2026-10-15). Phases 1–5 are COMPLETE. The
+active phase is Phase 6 — Forge Match Runtime & Authoritative Game
+Protocol (LOCKED 2026-10-17).** Production work is authorized within
+Phase 6 only. Phase 7 is DRAFT; its renderer is decided
+(`docs/architecture/BATTLEFIELD_RENDERING.md`) but its build is not
+authorized. *(amended 2026-10-19 — section had still named Phase 1.)*
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,
@@ -58,15 +61,16 @@ you were asked to do, stop and say so.
 
 | Document | What it is |
 | --- | --- |
-| `PHASE_00A_..._DRAFT.md` | Blocking Forge validation. Ten questions, ten tests. **The active phase.** |
+| `PHASE_00A_..._DRAFT.md` | Blocking Forge validation. Ten questions, ten tests. ACCEPTED 2026-10-15. |
 | `PHASE_00B_..._DRAFT.md` | Deferred validation. A standing register; each entry has a trigger that makes it blocking again. |
 | `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
-| `PHASE_01`–`PHASE_06` `_PROVISIONAL.md` | Production phases. Provisional because they were locked before Phase 0 ran; each carries a note on what 0A may change. |
+| `PHASE_01`–`PHASE_06` `_LOCKED.md` | Production phases, each locked at its exit gate (1–5 COMPLETE, 6 ACTIVE; see `BUILD_PLAN.md`). Amendments to a locked phase go in its `PHASE_0N_AMENDMENTS.md` or `_EXIT_GATE.md`, never into the locked text. |
 | `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
 | `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` | **The locked architecture.** Read before any production code. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
+| `docs/architecture/BATTLEFIELD_RENDERING.md` | **How the board is rendered: React DOM + SVG overlays, one renderer.** PixiJS is a measured contingency, not the plan. Supersedes Phase 7 §7.15 (owner decision 2026-10-19, Phase 1 Amendment 3). Read before touching the battlefield. |
 | `docs/architecture/AUTHENTICATION.md` | How identity works: hashing, sessions, cookies, CSRF, the admin tool. Read before touching anything in `auth/`. |
 | `docs/architecture/AUTHORIZATION.md` | What an identity may do at the HTTP level. |
 | `docs/architecture/DECK_DEPOT.md` | Deck ownership, private libraries and sharing. |

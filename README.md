@@ -47,7 +47,9 @@ and Two-Headed Giant are out of scope. See
 
 ```text
 Browser  ──────────────────────────────┐
-  React + PixiJS                       │  same origin: /api and /ws
+  React DOM + SVG (PixiJS installed,   │  same origin: /api and /ws
+  contingency only — see               │
+  docs/architecture/BATTLEFIELD_RENDERING.md)
                                        ▼
                               ┌──────────────────┐
   Cloudflare Tunnel  ───────► │   arena-server   │  Kotlin / Ktor
@@ -79,7 +81,7 @@ Three rules shape all of it:
 | --- | --- |
 | Server | Kotlin 1.9.24, Ktor 2.3.12, Java 17 |
 | Database | PostgreSQL 16.4, Flyway 10.17.0, HikariCP 5.1.0 |
-| Frontend | React 18.3.1, PixiJS 8.2.6, Vite 5.4.2, TypeScript 5.5.4 |
+| Frontend | React 18.3.1, Vite 5.4.2, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.2.6 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
 | Worker | Java 17, Maven, `forge-core` + `forge-game` only |
 | Tests | Vitest, JUnit 5, Testcontainers 1.21.3, Playwright 1.47.0 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
@@ -339,7 +341,7 @@ forge-pin.properties       the pinned Forge commit (one source)
 
 server/                    Kotlin/Ktor — HTTP, WS, sessions
 forge-worker/              Java/Maven — Forge, one JVM per match
-frontend/                  React + PixiJS + Vite
+frontend/                  React + Vite — board is DOM + SVG; PixiJS a contingency
   e2e/                     Playwright, against a running stack
 protocol/                  shared fixtures and schemas
 database/                  see its README — migrations are NOT here

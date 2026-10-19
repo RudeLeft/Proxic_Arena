@@ -88,3 +88,46 @@ None architecturally. Phase 3 should revisit the LAN exposure above.
 
 **Approved by project owner:** yes, 2026-10-15
 **Date:** 2026-10-15
+
+---
+
+## PHASE 1 AMENDMENT 3
+
+**Reason:**
+The battlefield renderer was chosen in Phase 1 before the Phase 7
+verification rules existed. Phase 7 §7.44, §7.45 and §7.47 require
+geometry, clicks and hidden-information assertions to be made on what
+is actually rendered, through the real event path; a canvas cannot
+satisfy those from outside without a test API that trusts the renderer
+about itself. Open Format also caps distinct card faces at roughly 50–60,
+a third of what the PixiJS texture case was sized for.
+
+**Affected requirement:**
+§1.0 stack table row "Battlefield renderer | PixiJS"; the ADR list entry
+`ADR-003-pixijs-renderer.md` (named, never written). §1.17–§1.19 are
+**not** affected: PixiJS is installed, its lifecycle test is green, and
+both remain true.
+
+**Old decision:**
+The battlefield renderer is PixiJS.
+
+**New decision:**
+The battlefield is rendered in React DOM with SVG overlays, per
+`docs/architecture/BATTLEFIELD_RENDERING.md`. PixiJS remains installed
+as a measured contingency for the card layer only, opened solely by a
+missed benchmark (Phase 7 P7-Q).
+
+**Evidence:**
+Owner decision in design review, 2026-10-19, after comparing DOM, PixiJS
+and a DOM/PixiJS hybrid against Phase 7's verification rules. Sources
+are cited in `BATTLEFIELD_RENDERING.md` §2 and labelled per EVID-001.
+
+**Affected later phases:**
+Phase 6 §6.134 already required replaceable presentation and sanctions
+DOM; its scope exclusions naming "final PixiJS battlefield" exclude
+building the final board in Phase 6, which is unchanged whatever
+renders it — not rewritten. Phase 7 §7.15, §7.16 and §7.48 are amended
+in place (Phase 7 is DRAFT).
+
+**Approved by project owner:** yes, 2026-10-19
+**Date:** 2026-10-19
