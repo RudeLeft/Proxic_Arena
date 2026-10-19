@@ -524,6 +524,7 @@ function RoomPanel({
             member={member}
             isMe={member.userId === me}
             canRemove={iAmHost && !prepared && !inMatch && !member.isHost}
+            inMatch={inMatch}
             busy={busy}
             onRemove={() => onRemove(member.userId)}
           />
@@ -618,12 +619,15 @@ function Seat({
   isMe,
   canRemove,
   busy,
+  inMatch,
   onRemove,
 }: {
   member: RoomMemberView;
   isMe: boolean;
   canRemove: boolean;
   busy: boolean;
+  /** The match is being played, so readiness is a spent fact. */
+  inMatch: boolean;
   onRemove: () => void;
 }) {
   return (
@@ -639,7 +643,13 @@ function Seat({
             at all, so this is what the page CAN render, not a
             policy it is choosing. */}
         {deckLabel(member, isMe)}
-        {member.ready ? " · ready" : " · not ready"}
+        {/* Readiness is a PRE-match fact. Once the game is being
+            played it is stale — the seats still carried "ready"
+            through an entire match, which says nothing true
+            about what is happening. Found by auditing Phase 5
+            against its own criteria after Phase 6 added
+            IN_MATCH, a state the lobby panel predates. */}
+        {!inMatch && (member.ready ? " · ready" : " · not ready")}
       </span>
       {canRemove && (
         <button type="button" className="small secondary" disabled={busy} onClick={onRemove}>

@@ -128,6 +128,50 @@ class RoomMaintenanceTest {
             }
         }
 
+    /**
+     * A room with a match in it does NOT expire.
+     *
+     * Phase 5's gate carried this as unresolved: "a live match's
+     * effect on room expiry is undecided. Today a room in a match
+     * would still be swept after 24 idle hours. Phase 6's."
+     *
+     * Phase 6 settled it by adding IN_MATCH, and the sweep's
+     * filter excludes it — but nothing PROVED that, and a filter
+     * nobody tests is a filter somebody widens. A match running
+     * past the idle window would otherwise have its room closed
+     * and its players' memberships ended underneath them.
+     *
+     * "Idle" is also the wrong word for a match: the room is not
+     * touched while Forge plays, so a long game looks exactly
+     * like an abandoned room to this query.
+     */
+    @Test
+    fun `a room that is in a match is not swept, however idle it looks`() {
+        val rooms = rooms()
+        val host = userId("RudeLeft")
+        val room = (rooms.create(host) as RoomResult.Ok).room
+
+        // Straight to IN_MATCH, which is what launching does.
+        database!!.dataSource().connection.use { connection ->
+            connection.prepareStatement(
+                "UPDATE room SET status = 'IN_MATCH' WHERE room_id = ?",
+            ).use {
+                it.setObject(1, room.roomId)
+                it.executeUpdate()
+            }
+        }
+
+        val recorder = Recorder()
+        // A lifetime of zero: everything that exists is idle,
+        // which is the harshest the sweep can possibly be.
+        val expired = maintenance(recorder, Duration.ZERO).sweep()
+
+        assertEquals(0, expired, "a live match's room was swept")
+        assertEquals("IN_MATCH", statusOf(room.roomId), "a live match's room changed status")
+        assertEquals(1, memberCount(room.roomId), "a player lost their seat mid-match")
+        assertTrue(recorder.closed.isEmpty(), "players were told their room closed mid-match")
+    }
+
     /** §5.125 — status, membership and the people who were in it. */
     @Test
     fun `an idle room expires, ends its memberships and tells its members`() {
