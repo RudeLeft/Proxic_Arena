@@ -1,7 +1,8 @@
-41 Plains
+37 Plains
 4 Elspeth Resplendent
 4 Steel Wall
 4 Wall of Omens
 4 Perimeter Captain
 4 Yoked Ox
 4 Alley Evasion
+4 Secure the Wastes

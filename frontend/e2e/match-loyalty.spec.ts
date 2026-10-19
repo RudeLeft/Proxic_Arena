@@ -144,6 +144,9 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
           // rewritten — it is the only thing that says which card
           // this is about.
           await expect(panel.getByText(/Select counter type to add to/)).toBeVisible();
+
+          // Mandatory: there is no "neither", so no Pass.
+          await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
         },
       },
       {
@@ -159,6 +162,43 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
           expect(offered).toHaveLength(2);
           expect(offered.some((label) => /\+1\/\+2/.test(label))).toBe(true);
           expect(offered.some((label) => /owner's hand/i.test(label))).toBe(true);
+
+          // "Choose one" is exactly one, so no Pass.
+          await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
+        },
+      },
+      {
+        name: "the X announcement",
+        heading: /Choose how much/,
+        shot: "test-results/seen/announce-x.png",
+        check: async (panel: Locator) => {
+          // Secure the Wastes is {X}{W}. The values are offered as
+          // actions because the protocol has no number field, which
+          // is Forge's own desktop behaviour too — it lists them
+          // and adds a box for anything larger.
+          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          expect(offered.every((label) => /^X = \d+$/.test(label.trim()))).toBe(true);
+
+          // Consecutive, starting at the minimum, so the player is
+          // not quietly offered a subset.
+          //
+          // HOW MANY there are is a property of the board, not of
+          // the code, and asserting "more than one" here failed on
+          // a perfectly correct question: Forge offers a spell
+          // whether or not it can be paid for -- CostPartMana.canPay
+          // is unconditionally true, which is also what sat behind
+          // the §6.189 loop -- so X can legitimately be announced
+          // with nothing untapped, and then nought is the only
+          // value the board supports. The worker-level check is
+          // where the range itself is measured.
+          const values = offered.map((label) => Number(label.trim().slice(4)));
+          expect(values.length).toBeGreaterThan(0);
+          expect(values).toEqual(values.map((_, i) => values[0]! + i));
+
+          // Unlike the other two, this one CAN be declined: a
+          // player part-way into casting something may change
+          // their mind, and Forge unwinds the cast.
+          await expect(panel.getByRole("button", { name: "Pass" })).toBeVisible();
         },
       },
     ];
@@ -193,10 +233,6 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         const panel = matchPanel(on);
 
         await question.check(panel);
-
-        // Mandatory: there is no "neither". The gate refuses a pass
-        // on both of these, so the page must not offer one.
-        await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
 
         // AGENTS TEST-011 — leave something to LOOK AT, on success,
         // because the screenshots Playwright writes by default only

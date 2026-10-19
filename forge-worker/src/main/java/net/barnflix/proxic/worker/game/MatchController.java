@@ -823,6 +823,161 @@ public final class MatchController extends GeneratedControllerBase {
         return chosen;
     }
 
+    /**
+     * How big is the X — PHASE_06 §6.91, §6.105, FORGE-RULE.
+     *
+     * Fireball asks it, and so does every kicker, multikicker and
+     * "pay {X}" on the way to being cast. Forge asks for a NUMBER,
+     * and the decision protocol offers a list of actions, so the
+     * numbers are offered as actions — one per value.
+     *
+     * That is not a workaround. FORGE'S OWN HUMAN PATH DOES THIS:
+     * SGuiChoose.getInteger lists min..cutoff and adds a "..." for
+     * typing something larger, and returns `min` outright when
+     * max <= min because one answer is not a question. Both of
+     * those are ported below. What is not ported is the "...", for
+     * want of a text box, and {@link #ceilingFor} is the answer to
+     * that — see there, because offering too few is the half that
+     * would take a decision away from the player.
+     *
+     * NULL CANCELS THE SPELL, and that is a legal answer rather
+     * than an error: PlaySpellAbility returns false and the cast is
+     * unwound. So a pass is offered, except where the cost says it
+     * is mandatory, which is Forge's own split between chooseNumber
+     * and a cancellable prompt.
+     */
+    @Override
+    public Integer announceRequirements(
+            forge.game.spellability.SpellAbility ability, int min, int max, String announce) {
+        forge.game.cost.Cost cost = ability.getPayCosts();
+
+        // Forge's clamp: an X paid with something other than mana
+        // — sacrificing X creatures, exiling X cards — cannot be
+        // bigger than what there is. Forge guards this with a
+        // full-control flag that lets an expert start a payment
+        // they cannot finish; Proxic has no such mode, so the
+        // clamp simply applies.
+        if ("X".equals(announce) && cost != null) {
+            Integer costX = cost.getMaxForNonManaX(ability, player, false);
+            if (costX != null) {
+                max = Math.min(max, costX);
+            }
+        }
+        if (min > max) {
+            // Forge: there is no announceable value. Cancels.
+            return null;
+        }
+        if (min == max) {
+            // One answer is not a question.
+            return min;
+        }
+
+        int ceiling = ceilingFor(min, max);
+        java.util.LinkedHashMap<String, Integer> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int value = min; value <= ceiling; value++) {
+            // §6.46 — typed, so a client can tell a number from a
+            // card id that happens to look like one.
+            String id = "number:" + value;
+            byId.put(id, value);
+            labels.put(id, announce + " = " + value);
+        }
+
+        // Forge's own split: a mandatory cost gets a prompt that
+        // cannot be cancelled, anything else can be backed out of.
+        boolean mandatory = cost != null && cost.isMandatory();
+        String title = "X".equals(announce)
+                ? ability.getParamOrDefault("XAnnounceTitle", announce)
+                : ability.getParamOrDefault("AnnounceTitle", announce);
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "announceRequirements",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            mandatory,
+                            "Choose " + title + " for " + ability.getHostCard().getName() + ".",
+                            pending -> host.publishDecision(pending, labels));
+            if (DecisionGate.PASS.equals(choice)) {
+                // Only reachable when this was cancellable. Forge
+                // unwinds the cast, which is what a player who
+                // changed their mind expects.
+                return null;
+            }
+            Integer chosen = byId.get(choice);
+            return chosen == null ? min : chosen;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
+     * How many values to put on offer.
+     *
+     * The hard part, and the reason it is not simply `max`: for an
+     * X paid with MANA, Forge's bound is Integer.MAX_VALUE. It can
+     * afford to be — its prompt has a text box, and a player who
+     * types a number they cannot pay for simply fails the payment
+     * afterwards. A list cannot have two billion entries.
+     *
+     * Forge's desktop client stops at min + 9 and offers "..." for
+     * the rest. Copying only the first half of that would quietly
+     * cap what a player is allowed to announce, which is exactly
+     * the kind of silent narrowing FORGE-RULE exists to prevent.
+     *
+     * So the ceiling is ASKED OF THE GAME instead: how much mana
+     * could be made right now, counting what is already floating
+     * and every permanent that has a mana ability Forge says is
+     * playable. Nothing here reasons about colours or about what
+     * the cost actually needs, which makes it an over-estimate —
+     * deliberately, because over-offering is harmless (the payment
+     * that follows will refuse, and the player can cancel) while
+     * under-offering removes a legal choice.
+     */
+    private int ceilingFor(int min, int max) {
+        if (max != Integer.MAX_VALUE && max - min <= OFFER_LIMIT) {
+            return max;
+        }
+        int available = player.getManaPool().totalMana();
+        for (forge.game.card.Card card
+                : player.getCardsIn(forge.game.zone.ZoneType.Battlefield)) {
+            for (forge.game.spellability.SpellAbility mana : card.getManaAbilities()) {
+                mana.setActivatingPlayer(player);
+                if (mana.canPlay(true)) {
+                    available++;
+                    break;
+                }
+            }
+        }
+        // AT LEAST Forge's own window of ten, whatever the board
+        // looks like. Its desktop client offers min..min+9 and a
+        // box for anything larger, and it does not check first
+        // whether any of them can be paid for -- a player is
+        // allowed to announce a number and then fail to pay, and
+        // FORGE-RULE says the rules enforce that, not the client.
+        // Offering only what is affordable would be the page
+        // deciding, and on turn one with no land in play it came
+        // to exactly one value.
+        int window = Math.max(available, FORGE_WINDOW);
+        return Math.min(max, min + Math.min(window, OFFER_LIMIT));
+    }
+
+    /** Forge's own default list length, and the floor for ours. */
+    private static final int FORGE_WINDOW = 9;
+
+    /**
+     * The most values one question will ever offer.
+     *
+     * A guard against a list nobody can read, not a rule. Nothing
+     * in Magic needs an X of more than this from a board that
+     * could pay for it, and a question with a thousand buttons is
+     * not a question either.
+     */
+    private static final int OFFER_LIMIT = 64;
+
     /** What one mode costs out of a Pawprint budget. */
     private static int pawprintOf(forge.game.spellability.AbilitySub mode) {
         String paw = mode.getParam("Pawprint");

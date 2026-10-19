@@ -973,6 +973,8 @@ function headingFor(kind: string): string {
       return "Choose a kind of counter";
     case "chooseModeForAbility":
       return "Choose a mode";
+    case "announceRequirements":
+      return "Choose how much";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1024,6 +1026,12 @@ function hintFor(kind: string, options: number): string {
       // cancelling the spell -- which is worth saying, because
       // every other Pass in this panel cancels something.
       return "The card does the mode you pick. Pass, if offered, takes no further mode.";
+    case "announceRequirements":
+      // Says what the number COSTS, because that is the part a
+      // list of numbers does not show. Not "the list stops at
+      // what you can pay" -- it does not, deliberately, and a
+      // hint that describes the page wrongly is worse than none.
+      return "You pay for what you choose. The list grows as the board can pay for more.";
     case "CostPutCounter":
     case "CostRemoveCounter":
       return "This is part of paying for what you are doing. Pass to cancel it.";

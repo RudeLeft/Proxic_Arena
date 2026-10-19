@@ -4,9 +4,10 @@ A legal 65-card Open Format deck that exists to reach decisions a
 deck of basic lands cannot.
 
 ```text
-Loyalty Test Deck.txt   41 Plains
+Loyalty Test Deck.txt   37 Plains
                         4 Elspeth Resplendent
                         4 Alley Evasion
+                        4 Secure the Wastes
                         4 Steel Wall
                         4 Wall of Omens
                         4 Perimeter Captain
@@ -59,7 +60,12 @@ above. One deck reaching two decisions is one import and one match
 rather than two of each, and an e2e match is the slowest thing in
 the suite.
 
-41 Plains because Elspeth costs `{3}{W}{W}` and a test that loses
+Secure the Wastes is the third: `announceRequirements`. It costs
+`{X}{W}`, so casting it asks how big X is before anything else
+happens, and it needs no target — which keeps the question on its
+own rather than tangled up with choosing what to hit.
+
+37 Plains because Elspeth costs `{3}{W}{W}` and a test that loses
 to mana is a test that reports a fault it did not find.
 
 ## What it is not
