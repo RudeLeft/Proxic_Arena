@@ -310,19 +310,44 @@ public final class WorkerMain {
                     GAME.start(seats, request.has("matchId")
                             ? request.get("matchId").getAsString() : "match");
 
-                    boolean running = GAME.awaitRunning(120, java.util.concurrent.TimeUnit.SECONDS);
-                    if (!running) {
-                        Throwable failure = GAME.failure();
-                        send(error("GAME_START_FAILED", failure == null
-                                ? "no priority window within 120s"
-                                : failure.getClass().getSimpleName()));
-                        break;
-                    }
-
-                    JsonObject started = frame("GAME_STARTED", messageId);
-                    started.addProperty("turn", GAME.turn());
-                    send(started);
-                } catch (RuntimeException | InterruptedException e) {
+                    // WAITED FOR ON ANOTHER THREAD, and that is not
+                    // tidiness. This method runs on the only thread
+                    // that reads stdin, so waiting here stops the
+                    // worker answering anything until the game is
+                    // RUNNING -- and RUNNING means the first
+                    // priority window, which is AFTER the mulligans.
+                    //
+                    // A pregame question therefore deadlocked the
+                    // match outright: the game thread blocked on an
+                    // answer, and the only thread that could read
+                    // that answer was blocked waiting for the game.
+                    // Nothing in the logs, no exception, just 120
+                    // seconds of silence and GAME_START_FAILED. It
+                    // went unnoticed because no decision was ever
+                    // raised before the first priority window until
+                    // mulligans became real decisions.
+                    final String startId = messageId;
+                    Thread announce = new Thread(() -> {
+                        try {
+                            boolean running =
+                                    GAME.awaitRunning(120, java.util.concurrent.TimeUnit.SECONDS);
+                            if (!running) {
+                                Throwable failure = GAME.failure();
+                                send(error("GAME_START_FAILED", failure == null
+                                        ? "no priority window within 120s"
+                                        : failure.getClass().getSimpleName()));
+                                return;
+                            }
+                            JsonObject started = frame("GAME_STARTED", startId);
+                            started.addProperty("turn", GAME.turn());
+                            send(started);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }, "proxic-started");
+                    announce.setDaemon(true);
+                    announce.start();
+                } catch (RuntimeException e) {
                     send(error("GAME_START_FAILED", e.getClass().getSimpleName()));
                 }
             }

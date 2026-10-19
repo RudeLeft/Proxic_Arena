@@ -68,7 +68,12 @@ final class ViewerSnapshot {
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("stateRevision", revision);
         snapshot.addProperty("turn", game.getPhaseHandler().getTurn());
-        snapshot.addProperty("phase", String.valueOf(game.getPhaseHandler().getPhase()));
+        // EMPTY, not "null". There is no phase before the game
+        // begins, and String.valueOf turns that into the four
+        // letters n-u-l-l -- which the page then printed, because
+        // the board now renders during the mulligans.
+        forge.game.phase.PhaseType phase = game.getPhaseHandler().getPhase();
+        snapshot.addProperty("phase", phase == null ? "" : phase.toString());
         Player active = game.getPhaseHandler().getPlayerTurn();
         snapshot.addProperty("activeSeat", active == null ? 0 : seatOf.getOrDefault(active, 0));
         snapshot.addProperty("seat", seatOf.getOrDefault(viewer, 0));

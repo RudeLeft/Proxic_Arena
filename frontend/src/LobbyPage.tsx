@@ -732,6 +732,18 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
   const socketRef = useRef<MatchSocket | null>(null);
   const running = match.status === "RUNNING";
+
+  // LAUNCHING COUNTS AS LIVE, and that is the whole fix for a
+  // three-layer deadlock.
+  //
+  // The match row turns RUNNING at the first priority window,
+  // which is AFTER the mulligans. Connecting only at RUNNING meant
+  // a pregame question had nowhere to go: Forge waited for an
+  // answer, the worker waited for Forge, the server waited for the
+  // worker, and the browser was not listening yet. It went
+  // unnoticed for as long as the adapter answered those questions
+  // itself.
+  const live = running || match.status === "LAUNCHING";
   const [confirmingAbandon, setConfirmingAbandon] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
   const [abandonFailure, setAbandonFailure] = useState<string | null>(null);
@@ -741,7 +753,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
   // connect to. Keyed on the match id so a second match opens a
   // second connection rather than quietly reusing the first.
   useEffect(() => {
-    if (!running) return undefined;
+    if (!live) return undefined;
     setGame(EMPTY_MATCH);
     const socket = connectMatch(matchUrl(match.matchId), (apply) => setGame(apply));
     socketRef.current = socket;
@@ -749,7 +761,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
       socketRef.current = null;
       socket.close();
     };
-  }, [match.matchId, running]);
+  }, [match.matchId, live]);
 
   /**
    * §6.162 — the escape hatch.
@@ -787,7 +799,15 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         {finished
           ? resultText(match, mine?.seatNumber ?? null)
           : match.status === "LAUNCHING"
-            ? "Starting the game. Forge is loading — this takes a few seconds."
+            ? // A question during LAUNCHING is not a contradiction:
+              // mulligans happen before the first priority window,
+              // and the match row only turns RUNNING at that
+              // window. Saying "Forge is loading" above a real
+              // question the player has to answer would be the
+              // page describing itself wrongly.
+              game.decision
+              ? "Setting the game up — and it needs an answer from you."
+              : "Starting the game. Forge is loading — this takes a few seconds."
             : "The game is running."}
       </p>
       {mine?.deckName && (
@@ -799,7 +819,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         Seat {mine ? mine.seatNumber : "?"} of {match.participants.length}.
       </p>
 
-      {running && game.connection === "closed" && (
+      {live && game.connection === "closed" && (
         // §5.133's rule for the game: a page that stopped being
         // told must say so rather than showing a live-looking
         // game. The decision is still pending on the server
@@ -860,7 +880,7 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
           <p className="hint">{hintFor(game.decision.kind, game.decision.options.length)}</p>
         </div>
       ) : (
-        running && <p className="hint">Waiting for the game.</p>
+        live && <p className="hint">Waiting for the game.</p>
       )}
 
       {(running || match.status === "LAUNCHING") &&
@@ -981,6 +1001,12 @@ function headingFor(kind: string): string {
       return "Choose from these";
     case "orderMoveToZoneList":
       return "Put them in order";
+    case "mulliganKeepHand":
+      return "Keep or mulligan";
+    case "tuckCardsViaMulligan":
+      return "Put a card back";
+    case "chooseStartingPlayer":
+      return "Play or draw";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1039,6 +1065,14 @@ function hintFor(kind: string, options: number): string {
       // library search shows cards nobody else can see, and that
       // being deliberate rather than a leak is worth knowing.
       return "Forge decides what may be chosen here. The line above says what for.";
+    case "mulliganKeepHand":
+      // Says what mulliganing COSTS, because the prompt gives the
+      // hand size and not the consequence.
+      return "A mulligan draws seven again and puts one more back each time.";
+    case "tuckCardsViaMulligan":
+      return "These go to the bottom of your library. This cannot be skipped.";
+    case "chooseStartingPlayer":
+      return "On the play you are a turn ahead; on the draw you are a card ahead.";
     case "orderMoveToZoneList":
       // The prompt names the END being chosen for — "closest to
       // the top", "closest to the bottom" — because that is the
@@ -1085,8 +1119,17 @@ function Board({ board }: { board: Snapshot }) {
   return (
     <div className="board">
       <p className="hint board-turn">
-        Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
-        {board.activeSeat === board.seat ? "your turn" : "opponent's turn"}
+        {board.phase ? (
+          <>
+            Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
+            {board.activeSeat === board.seat ? "your turn" : "opponent’s turn"}
+          </>
+        ) : (
+          // Before the first turn there is no phase and no active
+          // player, and saying "turn 0, opponent’s turn" about a
+          // mulligan is three wrong things in one line.
+          "Before the game begins."
+        )}
       </p>
 
       {opponents.map((player) => (

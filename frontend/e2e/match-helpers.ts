@@ -149,6 +149,17 @@ export async function startAMatch(host: Page, guest: Page, deckName: string) {
   await expect(guest.getByText(/match is prepared/i)).toBeVisible();
 
   await host.getByRole("button", { name: "Start match" }).click();
+
+  // PREGAME COMES FIRST, and nobody else will answer it.
+  //
+  // Keeping or mulliganing, and playing or drawing, are real
+  // questions now — they used to be answered by the adapter
+  // returning a default. They are asked BEFORE the first priority
+  // window, which is the moment the match row turns RUNNING, so a
+  // test that waits for "The game is running" without answering
+  // them waits for ever.
+  await settlePregame(host, guest);
+
   // §6.17 — both learn Forge is up WITHOUT refreshing.
   await expect(matchPanel(host).getByText(/The game is running/)).toBeVisible({
     timeout: 600_000,
@@ -156,4 +167,52 @@ export async function startAMatch(host: Page, guest: Page, deckName: string) {
   await expect(matchPanel(guest).getByText(/The game is running/)).toBeVisible({
     timeout: 600_000,
   });
+}
+
+/**
+ * Answer the pregame questions, whichever seat is asked.
+ *
+ * Keeps every hand and plays first — the openings a test wants are
+ * the boring ones. Each is mandatory, so there is nothing to pass
+ * on; the first option is "Keep this hand" and "Play first".
+ *
+ * Bounded by the clock rather than a count, because a player may
+ * be asked several times: each mulligan asks again.
+ */
+export async function settlePregame(host: Page, guest: Page) {
+  const pregame = /Keep or mulligan|Play or draw|Put a card back/;
+  const deadline = Date.now() + 300_000;
+
+  while (Date.now() < deadline) {
+    const asked = (await matchPanel(host).getByRole("heading", { name: pregame }).count())
+      ? host
+      : (await matchPanel(guest).getByRole("heading", { name: pregame }).count())
+        ? guest
+        : null;
+
+    if (!asked) {
+      // Either pregame is over, or the next question has not
+      // arrived yet. Running is the signal that it is over.
+      if ((await matchPanel(host).getByText(/The game is running/).count()) > 0) {
+        return;
+      }
+      await host.waitForTimeout(100);
+      continue;
+    }
+
+    const options = matchPanel(asked).getByRole("listitem").getByRole("button");
+    if ((await options.count()) === 0) {
+      await asked.waitForTimeout(100);
+      continue;
+    }
+
+    // AGENTS TEST-011 — leave the pregame question to LOOK AT.
+    // It is answered and gone within a second of appearing, so
+    // without this nobody ever sees the first question of the
+    // game. Overwritten each time; the last one wins.
+    await asked.screenshot({ path: "test-results/seen/pregame.png", fullPage: true });
+
+    await options.first().click();
+    await asked.waitForTimeout(60);
+  }
 }

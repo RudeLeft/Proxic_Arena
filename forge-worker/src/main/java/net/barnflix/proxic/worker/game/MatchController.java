@@ -65,16 +65,196 @@ public final class MatchController extends GeneratedControllerBase {
 
     // ---- pregame ------------------------------------------------------
 
+    /**
+     * Keep this hand, or mulligan — §6.105, FORGE-RULE.
+     *
+     * The first decision of every game, and it used to answer
+     * itself: this method returned `true` unconditionally, so both
+     * players kept whatever they were dealt and neither was ever
+     * asked. A one-land hand was kept. A seven-land hand was kept.
+     *
+     * It is worth saying how that survived so long. The survey
+     * measures decisions the adapter does NOT implement, because
+     * an unimplemented one records itself and throws. A method
+     * implemented as "return a sensible default" is invisible to
+     * it — nothing throws, nothing is recorded, and the run looks
+     * clean. The Phase 6 acceptance audit found this by reading,
+     * not by measuring.
+     *
+     * Keeping is the answer when nobody can be asked, because a
+     * mulligan taken on a player's behalf cannot be given back.
+     */
     @Override
-    public boolean mulliganKeepHand(Player firstPlayer, int cardsToReturn) {
-        // Keep. A mulligan decision belongs to a player, and there
-        // is no player attached yet in this slice.
-        return true;
+    public boolean mulliganKeepHand(Player firstPlayer, int alreadyPutBack) {
+        // BOTH ARGUMENTS ARE MISLEADINGLY NAMED IN FORGE, and the
+        // call site in MulliganService settles it:
+        //
+        //   mulliganKeepHand(firstPlayer, mulligan.tuckCardsDuringMulligan())
+        //
+        // The first is whoever goes FIRST, not whoever is
+        // mulliganing. The second is how many cards were already
+        // put back to produce the hand being looked at -- London
+        // tucks during the redraw (LondonMulligan.mulliganDraw),
+        // not on keep. An earlier version of this label read
+        // "Keep, and put 1 card back" and had it backwards.
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        labels.put("mulligan:keep", "Keep this hand");
+        labels.put("mulligan:again", "Mulligan");
+
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "mulliganKeepHand",
+                            new java.util.ArrayList<>(labels.keySet()),
+                            // Mandatory: there is no third answer.
+                            true,
+                            "Keep this hand of "
+                                    + player.getCardsIn(forge.game.zone.ZoneType.Hand).size()
+                                    + ", or mulligan?",
+                            pending -> host.publishDecision(pending, labels));
+            return !"mulligan:again".equals(choice);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return true;
+        }
     }
 
+    /**
+     * Which cards go back — the London mulligan.
+     *
+     * You draw seven however many times you mulligan, and put that
+     * many back. WHICH ones is the whole of the modern mulligan,
+     * and this was a loud stub: asking the question above without
+     * implementing this would have turned "always keeps" into
+     * "fails the match the moment anybody mulligans".
+     *
+     * One at a time, like every other several-of-something in this
+     * adapter.
+     */
+    @Override
+    public forge.game.card.CardCollectionView tuckCardsViaMulligan(
+            forge.game.card.CardCollectionView hand, int cardsToReturn) {
+        forge.game.card.CardCollection back = new forge.game.card.CardCollection();
+        if (hand == null || cardsToReturn <= 0) {
+            return back;
+        }
+        java.util.List<forge.game.card.Card> remaining = new java.util.ArrayList<>();
+        hand.forEach(remaining::add);
+
+        while (back.size() < cardsToReturn && !remaining.isEmpty()) {
+            java.util.LinkedHashMap<String, forge.game.card.Card> byId =
+                    new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (forge.game.card.Card card : remaining) {
+                // §6.46 — typed, like every other object id.
+                String id = "tuck:card:" + card.getId();
+                byId.put(id, card);
+                labels.put(id, card.getName());
+            }
+
+            forge.game.card.Card picked;
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "tuckCardsViaMulligan",
+                                new java.util.ArrayList<>(byId.keySet()),
+                                true,
+                                "Choose a card to put back ("
+                                        + (cardsToReturn - back.size()) + " to go).",
+                                pending -> host.publishDecision(pending, labels));
+                picked = byId.get(choice);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                picked = null;
+            }
+
+            if (picked == null) {
+                // Mandatory and unanswerable. The hand has to end
+                // up the right size or the game cannot continue,
+                // so the first remaining card goes back.
+                picked = remaining.get(0);
+            }
+            remaining.remove(picked);
+            back.add(picked);
+        }
+        return back;
+    }
+
+    /**
+     * Play first, or draw first — §6.105, FORGE-RULE.
+     *
+     * Won the die roll, and the choice that follows it is a real
+     * one: on the play you are a turn ahead, on the draw you are a
+     * card ahead. This returned `player` unconditionally, so every
+     * game in this project so far has been on the play for
+     * whoever Forge asked, without anybody choosing it.
+     *
+     * Two seats is the Open Format case and gets the question
+     * Forge's own client asks — play or draw. More than two is
+     * representable (FMT-005) and gets the general one: which
+     * player starts.
+     */
     @Override
     public Player chooseStartingPlayer(boolean isFirstGame) {
-        return player;
+        java.util.List<Player> players = new java.util.ArrayList<>();
+        player.getGame().getPlayersInTurnOrder().forEach(players::add);
+        if (players.size() <= 1) {
+            return player;
+        }
+
+        String why = isFirstGame
+                ? "You won the die roll."
+                : "You lost the last game.";
+
+        if (players.size() == 2) {
+            Player opponent = player.getOpponents().get(0);
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            labels.put("start:play", "Play first");
+            labels.put("start:draw", "Draw first");
+            try {
+                String choice =
+                        host.gate().ask(
+                                actedForSeat,
+                                authorisedSeat,
+                                "chooseStartingPlayer",
+                                new java.util.ArrayList<>(labels.keySet()),
+                                true,
+                                why + " Play first, or draw first?",
+                                pending -> host.publishDecision(pending, labels));
+                return "start:draw".equals(choice) ? opponent : player;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return player;
+            }
+        }
+
+        java.util.LinkedHashMap<String, Player> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (Player candidate : players) {
+            String id = "start:player:" + candidate.getId();
+            byId.put(id, candidate);
+            labels.put(id, String.valueOf(candidate));
+        }
+        try {
+            String choice =
+                    host.gate().ask(
+                            actedForSeat,
+                            authorisedSeat,
+                            "chooseStartingPlayer",
+                            new java.util.ArrayList<>(byId.keySet()),
+                            true,
+                            why + " Who starts this game?",
+                            pending -> host.publishDecision(pending, labels));
+            Player chosen = byId.get(choice);
+            return chosen == null ? player : chosen;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return player;
+        }
     }
 
     @Override

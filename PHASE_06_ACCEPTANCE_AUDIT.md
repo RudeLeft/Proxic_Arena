@@ -30,10 +30,13 @@ green unit tests sat underneath four shipped faults.
 | Status | Count |
 |---|---|
 | MET | 22 |
-| PARTIAL | 20 |
-| NOT MET | 21 |
+| PARTIAL | 21 |
+| NOT MET | 20 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
+
+**Updated 2026-10-19** after Finding 2 was fixed: P6-AC moved from
+NOT MET to PARTIAL. The rest of the audit stands as first written.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -71,18 +74,42 @@ mulliganKeepHand    always keeps. The player is never asked.
 chooseStartingPlayer always returns this player. Never asked.
 ```
 
-`mulliganKeepHand` carries a comment admitting the deferral;
-`chooseStartingPlayer` does not. Both contradict FORGE-RULE — "we
-don't want to take decisions away from the player, we want the
-rules to enforce them" — and `mulliganKeepHand` is most of why
-**P6-AC (pregame decisions) is NOT MET**.
+Both contradicted FORGE-RULE — "we don't want to take decisions
+away from the player, we want the rules to enforce them".
 
-This is the more important half of the finding: **the survey has a
-blind spot**, and anything in it looks finished. A pass over the
-19 asking vs 20 non-asking overrides is how the rest would be
-found; most of the 20 are legitimate plumbing (combat and mana
-delegate to classes that do ask), but that was checked by hand
-today, not by a tool.
+**FIXED 2026-10-19.** Both are asked now, along with
+`tuckCardsViaMulligan` (which had to land in the same change: it
+was a loud stub, so asking the mulligan question without it would
+have turned "always keeps" into "fails the match the moment
+anybody mulligans"). P6-AC is PARTIAL rather than MET because
+Leyline-style pregame effects are still uncovered.
+
+**Fixing it exposed a three-layer deadlock**, which is the part
+worth remembering. A pregame question could not be answered by
+anyone, because every layer assumed nothing needs answering before
+RUNNING — and RUNNING means the first priority window, which is
+after the mulligans:
+
+```text
+worker    the only thread that reads stdin was blocked in
+          awaitRunning, so the answer could never be read
+browser   the match socket opened only at status RUNNING, so the
+          question was never delivered
+```
+
+The server layer was already correct. Nothing logged, nothing
+threw: 120 seconds of silence and GAME_START_FAILED. It had been
+latent since the decision protocol was written and could not be
+reached while the adapter answered pregame itself.
+
+**The survey's blind spot remains, and is the standing lesson.**
+It measures what is UNIMPLEMENTED, because an unimplemented method
+records itself and throws; a method implemented as "return a
+sensible default" is invisible to it. The 19 asking vs 20
+non-asking overrides were separated by hand for this audit — most
+of the 20 are legitimate plumbing, since combat and mana delegate
+to classes that do ask — but no tool checks that, and nothing
+stops the next default being added.
 
 ### 3. Semantic non-object choices are a single untouched cluster
 
@@ -175,7 +202,7 @@ restarted under a live match outside a unit test.
 |---|---|---|---|
 | P6-AA | Agent of Kotis renew regression | NOT MET | The *mechanism* it asks for is demonstrated (see P6-BH), but the named regression has never been run; card not in any deck |
 | P6-AB | Multiple actions discoverable | MET | Action ids are `action:<n>:card:<id>`, distinct per ability; Hellspark Elemental offers cast and unearth, Sensei's Divining Top two abilities |
-| P6-AC | Pregame decisions | NOT MET | **`mulliganKeepHand` always keeps; the player is never asked.** No Leyline-style coverage |
+| P6-AC | Pregame decisions | PARTIAL | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **No Leyline-style coverage** |
 | P6-AD | Karn / game restart | NOT MET | Not attempted; no classification recorded |
 | P6-AE | Nested interaction / Panglacial Wurm | NOT MET | Not attempted; card is in the absent Mechanics Lab corpus |
 | P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
@@ -239,9 +266,8 @@ In rough order of how many tests each unblocks:
    `chooseSomeType`, `chooseColor`, `flipACoin`, `rollDice`. Four
    tests (P6-AG, P6-AH, P6-AI, P6-AM), one protocol shape already
    proven by `announceRequirements`.
-4. **Pregame** — ask the mulligan and the starting player instead
-   of answering them. One test (P6-AC), and it removes the two
-   known places where a decision is taken from the player.
+4. ~~**Pregame**~~ — done 2026-10-19. Only Leyline-style coverage
+   is left on P6-AC.
 5. **Browser-session tests** — two tabs, refresh, disconnect, close.
    Four tests (P6-R, P6-T, P6-S, P6-BB), all against code that
    already exists, all needing Playwright rather than new features.
