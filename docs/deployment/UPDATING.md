@@ -112,6 +112,26 @@ changes.
 
 ---
 
+## Playing one real game against the live site (optional)
+
+To check an update end to end -- two players, a real Forge game,
+hidden hands, pictures, a reload mid-game, a normal finish -- run from
+the repository on your PC:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-production-check.ps1
+```
+
+It asks for the RudeLeft and Pat passwords (not shown as you type, and
+never saved), plays one game on `https://proxic.barnflix.net` with a
+deck RudeLeft has shared with Pat, and writes screenshots and
+`report.json` to `frontend\test-results\production\`. It deletes
+nothing, and refuses to start if either player is already in a room or
+a match. This is PHASE_06 P6-BK's evidence; the test is
+`frontend/e2e/production.spec.ts`.
+
+---
+
 ## Rolling back
 
 Every build is published under its commit as well as `latest`, so a

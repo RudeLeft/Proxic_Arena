@@ -67,7 +67,7 @@ class RoomService(
                     """
                     SELECT m.room_id FROM room_member m
                       JOIN room r ON r.room_id = m.room_id
-                     WHERE m.user_id = ? AND r.status IN ('OPEN', 'READY_FOR_MATCH')
+                     WHERE m.user_id = ? AND r.status IN ('OPEN', 'READY_FOR_MATCH', 'IN_MATCH')
                     """.trimIndent(),
                 ).use { statement ->
                     statement.setObject(1, userId)
@@ -89,7 +89,7 @@ class RoomService(
      */
     fun create(hostUserId: UUID): RoomResult =
         store.inTransaction { connection ->
-            if (store.activeRoomOf(connection, hostUserId) != null) {
+            if (store.occupiedRoomOf(connection, hostUserId) != null) {
                 return@inTransaction RoomResult.Refused(RoomError.AlreadyInARoom)
             }
 
@@ -130,7 +130,7 @@ class RoomService(
                 room.isMember(userId) ->
                     RoomResult.Refused(RoomError.AlreadyMember)
 
-                store.activeRoomOf(connection, userId) != null ->
+                store.occupiedRoomOf(connection, userId) != null ->
                     RoomResult.Refused(RoomError.AlreadyInARoom)
 
                 room.isFull() ->

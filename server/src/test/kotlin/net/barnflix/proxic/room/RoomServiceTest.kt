@@ -177,6 +177,29 @@ class RoomServiceTest {
         assertEquals(first.roomId, rooms.roomOf(host)!!.roomId)
     }
 
+    /**
+     * §5.5, §5.139 — a room whose match is being played is still the
+     * players' room. Found on the live site's check (2026-10-20): a
+     * page refreshed mid-game was told it had no room ("Host a game"),
+     * and a player in a running match could host or join another one,
+     * because IN_MATCH (Phase 6) was missing from "which room am I in".
+     */
+    @Test
+    fun `a room in a match is still yours, and you cannot take another`() {
+        val room = roomWithBoth()
+        withConnection { connection ->
+            connection.prepareStatement("UPDATE room SET status = 'IN_MATCH' WHERE room_id = ?").use {
+                it.setObject(1, room.roomId)
+                it.executeUpdate()
+            }
+        }
+        assertEquals(room.roomId, rooms.roomOf(host)?.roomId, "the host's refresh lost the room")
+        assertEquals(room.roomId, rooms.roomOf(guest)?.roomId, "the guest's refresh lost the room")
+        assertEquals(RoomError.AlreadyInARoom, refusal(rooms.create(host)))
+        val other = ok(rooms.create(stranger))
+        assertEquals(RoomError.AlreadyInARoom, refusal(rooms.join(other.roomId, guest)))
+    }
+
     /** §5.22 — a full room refuses rather than growing. */
     @Test
     fun `a full room is refused, not expanded`() {

@@ -649,6 +649,31 @@ convenient it is.
 
 ---
 
+## 7.32a Open findings from the first live game (2026-10-20)
+
+Found by the owner playing on proxic.barnflix.net (P6-BK run). Both are
+presentation and interaction, so they belong here; neither is decided
+yet -- each needs an owner decision before it is built.
+
+1. **Every priority stop is asked.** The page stops at each step where
+   Forge gives priority -- the upkeep of turn 1 asked "Staggershock or
+   Fiery Temper?" before a land could be played. Forge's own desktop
+   client passes through steps the player has not set a stop on. Decide
+   which steps stop by default and how a player changes that, without
+   ever passing for a player who could act (FORGE-RULE).
+2. **Spells that cannot be paid for are offered.** Forge offers them
+   and undoes the cast when payment fails, which is safe but reads as
+   a choice that does nothing. Decide how they are shown (dimmed,
+   grouped, or a note) -- never hidden by a client guess, since an
+   alternative cost or a mana ability may pay for one (§6.142).
+3. **A refused attack does not say why.** Forge refused a declaration
+   that left a must-attack Goblin token (Legion Warboss) at home; the
+   page said only "Attack declaration invalid", once per try, and two
+   tokens labelled "Goblin Token — 1/1" could not be told apart. The
+   reason is Forge's (its combat requirements) and must be shown from
+   Forge, not re-derived; identical labels need something that tells
+   the objects apart (found by the live-site test's dry run).
+
 ## 7.33 Unknown Action Kinds Must Still Render
 
 Forge's decision surface is large and Phase 6 will not have mapped all of

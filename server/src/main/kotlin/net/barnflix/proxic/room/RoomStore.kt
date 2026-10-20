@@ -56,6 +56,32 @@ internal class RoomStore(private val dataSource: DataSource) {
         return load(connection, roomId)
     }
 
+    /**
+     * The room a user is in for §5.5's "one room at a time" and for a
+     * refresh (§5.139): an open room, one ready for a match, or one
+     * whose match is being played. [activeRoomOf] leaves the
+     * last out on purpose -- deck-access changes must not touch a room
+     * mid-match (P6-BC) -- and using it here let a player in a running
+     * match host or join another room, and told a refreshed page it
+     * had none (found on the live-site check, 2026-10-20).
+     */
+    fun occupiedRoomOf(
+        connection: Connection,
+        userId: UUID,
+    ): UUID? =
+        connection.prepareStatement(
+            """
+            SELECT m.room_id FROM room_member m
+              JOIN room r ON r.room_id = m.room_id
+             WHERE m.user_id = ? AND r.status IN ('OPEN', 'READY_FOR_MATCH', 'IN_MATCH')
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, userId)
+            statement.executeQuery().use { rows ->
+                if (rows.next()) rows.getObject(1, UUID::class.java) else null
+            }
+        }
+
     fun activeRoomOf(
         connection: Connection,
         userId: UUID,
