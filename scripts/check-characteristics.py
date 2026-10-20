@@ -18,8 +18,10 @@ and type line, and the actions Forge offers -- which is the whole
 claim: the board shows what Forge says a card IS now. Printed text
 says Serra Angel flies; under Humility it does not.
 
-A focused deck (Layer B), both seats from one list; seat 1 casts the
-white cards, seat 2 the red. Nobody attacks.
+A focused deck per seat (Layer B, not legal): seat 1 white, seat 2
+red, each holding only what it casts. Nobody attacks. One shared
+list left it to the draw -- CI-length runs reached turn 30 with seat
+1 holding none of its Serra Angels, or seat 2 none of its Wilds.
 
 Exit 0 when every property held, 1 when one did not, 2 when a card
 never reached the battlefield.
@@ -32,8 +34,8 @@ import uuid
 
 JAR, RES = sys.argv[1], sys.argv[2]
 TRACE = sys.argv[3] if len(sys.argv) > 3 else None
-DECK = [("Plains", 16), ("Mountain", 14), ("Serra Angel", 8), ("Humility", 8),
-        ("Evolving Wilds", 6), ("Blood Moon", 8)]
+SEAT1 = [("Plains", 30), ("Serra Angel", 15), ("Humility", 15)]
+SEAT2 = [("Mountain", 30), ("Evolving Wilds", 15), ("Blood Moon", 15)]
 MAX_TURN = 30
 
 proc = subprocess.Popen(
@@ -86,11 +88,12 @@ for line in proc.stdout:
     kind = frame.get("type")
 
     if kind == "WORKER_READY":
-        deck = [{"name": n, "quantity": q} for n, q in DECK]
+        def cards(deck):
+            return [{"name": n, "quantity": q} for n, q in deck]
         send({"protocolVersion": 1, "type": "START_GAME",
               "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": deck},
-                          {"displayName": "Bob", "seatNumber": 2, "cards": deck}]})
+              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": cards(SEAT1)},
+                          {"displayName": "Bob", "seatNumber": 2, "cards": cards(SEAT2)}]})
         continue
 
     if kind == "MATCH_SNAPSHOT":

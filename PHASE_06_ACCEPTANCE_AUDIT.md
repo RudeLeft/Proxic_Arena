@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 48 |
-| PARTIAL | 12 |
+| MET | 53 |
+| PARTIAL | 7 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -52,7 +52,13 @@ ledger §6.5 asks for. Two cost types the scenarios needed
 
 **Updated 2026-10-20, last.** P6-AP → MET: Laboratory Maniac wins
 with both players on 20 life, and the players are told Forge's
-reason in Forge's words.
+reason in Forge's words. P6-AU, P6-AV → MET: a worker with the wrong
+protocol version (previously never checked) or the wrong Forge is
+refused before it is asked to play, run against a real impostor.
+P6-BI, P6-BJ → MET: a room or setup rewritten to Two-Headed Giant or
+Commander cannot be prepared or launched through the API. P6-L →
+MET: every question in every regression game reached its seat after
+the state it refers to.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -215,7 +221,7 @@ restarted under a live match outside a unit test.
 | P6-I | Face-down safety | PARTIAL | Both §6.44 checks implemented and exercised **only by deliberately breaking them** — no morph/manifest card has ever been played |
 | P6-J | Revealed / known information | MET | **Run 2026-10-20**, `scripts/check-multiface.py` (in CI). Delver's "look at the top card" reaches its controller before "Reveal?" is asked; the controller reveals only an instant; the opponent is told of every reveal and of nothing declined. **Found and fixed: `reveal()` was a no-op**, so that question had been answered about a card nobody was shown, and no opponent ever saw a reveal. Now a notice to each player Forge calls it for, which is exactly the entitled set |
 | P6-K | Stable object identity | MET | Typed ids asserted by `check-hidden-information.py`; a searched card followed by id from library to battlefield |
-| P6-L | Snapshot before interaction | PARTIAL | §6.48 enforced in code (`publishSnapshots()` inside `publishDecision`) and in the socket's hello order; **no automated assertion** |
+| P6-L | Snapshot before interaction | MET | **Run 2026-10-20**, `scripts/check-snapshot-first.py` over the protocol traces of every Mechanics Lab regression (in CI): 3,362 questions in 11 games -- graveyard casting, library search, Mindslaver, a game restart, revealed and two-faced cards -- each sent after a snapshot for the same seat published after the question was asked (`stateRevision > stateVersion`), and all 17,648 card references in their options either in that snapshot or, for the 35 in a hidden zone (a library being searched, cards being ordered onto a library), named by the option's own label. The checker was itself checked on doctored traces -- one snapshot moved after its question, and an unlabelled option naming a card nobody was shown -- and fails both. The server's socket sends state before any pending question on connect (§6.110) |
 
 ### Decision protocol
 
@@ -260,7 +266,7 @@ restarted under a live match outside a unit test.
 | P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
 | P6-AO | Player / global state | MET | **Run 2026-10-20**, `scripts/check-player-state.py` (in CI) and `e2e/match-state.spec.ts`. Generic, per §6.96: every Forge counter on a player, Forge's designations, emblems/dungeons in the command zone, and day/night. Energy (Aether Hub), poison (Glistener Elf, life unchanged), monarch (Palace Jailer), day (Reckless Stormseeker) -- all seen on the board. **Found and fixed:** paying energy was an unimplemented cost that ended the match, and declining "which mana ability?" eight times ended it too (`check-mana-choice.py`; mutation-tested) |
-| P6-AP | Alternate Forge result | MET | **Run 2026-10-20**, `scripts/check-alternate-win.py` (in CI; trace `docs/testing/evidence/p6-ap-laboratory-maniac.trace.json`) and `e2e/match-alternate-win.spec.ts`. Laboratory Maniac: seat 1's library empties and its next draw wins; nobody attacks, both players end on **20 life**, so life could not have decided it. GAME_ENDED carries WINNER seat 1 and Forge's own reason ("has won due to effect of 'Laboratory Maniac'", the winner's PlayerOutcome, alternate wins only); the match record keeps it (`an alternate win is recorded with Forge's reason`) and both players read it on the result line |
+| P6-AP | Alternate Forge result | MET | **Run 2026-10-20**, `scripts/check-alternate-win.py` (in CI; trace `docs/testing/evidence/p6-ap-laboratory-maniac.trace.json`) and `e2e/match-alternate-win.spec.ts`. Laboratory Maniac: seat 1's library empties and its next draw wins; nobody attacks, both players end on **20 life**, so life could not have decided it. GAME_ENDED carries WINNER seat 1 and Forge's own reason ("has won due to effect of 'Laboratory Maniac'", the winner's PlayerOutcome, alternate wins only); the match record keeps it (`an alternate win is recorded with Forge's reason`) and both players read it on the result line. **Found and fixed:** the final board was never sent -- snapshots went out only with a question, so what happened after the last one (the mill that emptied the library; combat damage taking a player to 0) never reached the players. The worker now publishes the board before GAME_ENDED, to every registered player -- Forge drops a player who has lost from `getPlayers()`, so the first fix sent the final board to the winner alone, showing the winner alone. The check fails without either fix |
 | P6-AQ | Multiplayer sequential decision | CLASSIFIED | Open Format is two players (FMT-001); the test permits classification. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md`: the six Multiplayer-category Lab cards are BLOCKED_BY_UNSUPPORTED_PRESET |
 | P6-AR | Learn / outside-game capability | CLASSIFIED | `sideboard` returns null citing FMT-002 — `OUT_OF_ACCEPTED_SCOPE`. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md` (Professor of Symbology, CLASSIFIED) |
 | P6-AS | Mechanics Lab full-corpus import | MET | **Run 2026-10-20**, `MechanicsLabCorpusTest` (CI) and `MechanicsLabArtTest` (local; the images are never committed). 275 entries / 390 cards parsed as written; **every card resolves to its TXT printing, none refused**; Forge builds the deck; a real game starts with it as both libraries; all 275 images valid and mapped, in the Depot and at match time; TXT/CSV SHA-256 pinned. The upload route refuses it — 390 cards is not Open Format, 289 MB exceeds the package limit — and that refusal is asserted. **Passing P6-AS does not mean all mechanics in the corpus are supported** |
@@ -270,8 +276,8 @@ restarted under a live match outside a unit test.
 | ID | Test | Status | Evidence |
 |---|---|---|---|
 | P6-AT | Worker startup failure | MET | `a missing worker jar fails cleanly`, `an unconfigured worker fails cleanly`, `a failed start returns the room to the players` |
-| P6-AU | Worker protocol mismatch | PARTIAL | The **browser** protocol version is checked (`PROTOCOL_VERSION_MISMATCH`). The **worker's** is sent but never validated, and nothing tests it |
-| P6-AV | Forge revision mismatch | PARTIAL | `MatchWorker` refuses on mismatch; **no test covers it** |
+| P6-AU | Worker protocol mismatch | MET | **Run 2026-10-20**, `WorkerIdentityTest` (in CI). The worker's `protocolVersion` was sent but never validated; `MatchWorker` now refuses a different or missing one as WORKER_INCOMPATIBLE before anything else in the greeting is believed. Run against a real impostor process compiled by the test: refused, and START_GAME never reached it; a correctly greeting impostor (the control) IS sent the game. Mutation-tested: disabling the check fails both protocol tests |
+| P6-AV | Forge revision mismatch | MET | **Run 2026-10-20**, `WorkerIdentityTest` (in CI): an impostor greeting with another `forgeCommit` is refused as WORKER_INCOMPATIBLE and never sent START_GAME. Mutation-tested: disabling the check fails exactly this test |
 | P6-AW | Worker runtime crash | MET | `a runtime failure records no winner`, `a late failure cannot overwrite a real result`; `WorkerEvent.Stopped` → FAILED |
 | P6-AX | Failure isolation | MET | **Run 2026-10-20** (`e2e/match-concurrency.spec.ts`). Three matches; one worker found by its stderr file descriptor and killed with SIGKILL. Both of its players were told "The game stopped before it finished. Nobody won it.", its room reopened, and the other two matches answered their pregame questions and reached RUNNING afterwards. Screenshots `seen/crashed.png`, `seen/survivor.png` |
 | P6-AY | Three concurrent matches | MET | **Run 2026-10-20**, six players, three matches launched together. Startup (room setup to first question) 12.9–13.9 s; worker memory 824–940 MiB each, 2.66 GiB for three, server 498 MiB; 19–21 CPU-seconds per worker to the first question. Routing: exactly one player asked per match. State: three match ids, each pair sharing one. Assets: one match's image refused (404) through another match's route and to a non-participant. Shutdown: no worker left after abandoning. Numbers in `seen/concurrency.json` |
@@ -289,8 +295,8 @@ restarted under a live match outside a unit test.
 | P6-BF | Multi-face runtime | MET | **Run 2026-10-20**: Delver transforms by real play -- same id, `face` Original -> Backside, 1/1 -> 3/2 and Human Wizard -> Human Insect from Forge. Viewer-safe asset mapping: front art from the package, none for the back (packages carry fronts only; never the wrong face). Browser screenshots `seen/delver-*.png` |
 | P6-BG | Token runtime | MET | Legion Warboss creates Goblin tokens; they appear in snapshots, attack and block; no token art exists and nothing crashes |
 | P6-BH | Zone coverage | MET | **Hellspark Elemental's Unearth offered from the graveyard and performed three times.** Enumerator uses `getAllCards()` + Forge's `getAllPossibleAbilities`, so it is not hand/battlefield-bound |
-| P6-BI | Unsupported preset guard | PARTIAL | `MatchSetupService` rejects an unavailable preset; **no test asserts a direct API request cannot launch one** |
-| P6-BJ | 2HG guard | PARTIAL | Same mechanism; **not separately tested** |
+| P6-BI | Unsupported preset guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI), through the real HTTP routes: a preset named in the launch body is ignored (`extra fields in the launch body are ignored`), and a setup rewritten in the database to COMMANDER is refused at `POST /api/matches` (422) with no match row created. Mutation-tested |
+| P6-BJ | 2HG guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI): a ROOM rewritten to TWO_HEADED_GIANT cannot be prepared (422 INVALID_ROOM_CONFIGURATION), and a SETUP rewritten to it after preparation cannot be launched (422 LAUNCH_REVALIDATION_FAILED, no match row, so no worker). Mutation-tested: disabling either guard fails its tests |
 | P6-BK | Production end-to-end | NOT MET | Everything has been run against the local Docker stack |
 | P6-BL | Production worker privacy | NOT MET | No external network test |
 | P6-BM | Project integrity | PARTIAL | ISO-001/ISO-002 respected throughout and GIT-001 holds (no artwork committed); **no formal integrity comparison has been run** |

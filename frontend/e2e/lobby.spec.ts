@@ -40,6 +40,11 @@ async function leaveAnyRoom(page: Page) {
 async function openLobby(page: Page) {
   await page.goto("/play");
   await expect(page.getByRole("heading", { name: "Who is here" })).toBeVisible();
+  // The heading renders before the lobby socket is open. Seeing
+  // yourself in the list means the server has the connection: the
+  // list arrives over it. Chat keeps no history, so a line sent
+  // before the other player is connected never reaches them.
+  await expect(page.getByRole("region", { name: "Who is here" }).getByText("(you)")).toBeVisible();
 }
 
 test("a host invites somebody who is online, and they take the empty seat", async ({ browser }) => {

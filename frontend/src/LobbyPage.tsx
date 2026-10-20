@@ -456,7 +456,10 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
           placeholder="Shall we?"
           autoComplete="off"
         />
-        <button type="submit" disabled={draft.trim().length === 0}>
+        {/* Not before the socket is open: a send while it is still
+            connecting throws, the socket swallows it, and the line
+            is lost without a word. CI caught a fast click doing it. */}
+        <button type="submit" disabled={draft.trim().length === 0 || lobby.connection !== "open"}>
           Send
         </button>
       </form>

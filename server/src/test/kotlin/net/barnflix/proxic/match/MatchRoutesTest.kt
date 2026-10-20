@@ -121,6 +121,22 @@ class MatchRoutesTest {
 
     /** A prepared setup, built through the real Phase 5 path. */
     private fun preparedSetup(): String {
+        val roomId = readyRoom()
+        // `preflight =` by name: the trailing-lambda form binds to
+        // the LAST parameter, which is the clock, and the compiler
+        // was right to object.
+        val setups =
+            MatchSetupService(
+                source(),
+                DeckAuthorization(source()),
+                preflight = { DeckCheck(DeckVerdict.VALID, "") },
+            )
+        val prepared = setups.prepare(roomId, userId("RudeLeft")) as PrepareResult.Prepared
+        return prepared.setup.setupId
+    }
+
+    /** A room with both players seated, decks chosen and ready. */
+    private fun readyRoom(): UUID {
         val rooms = RoomService(source(), DeckAuthorization(source()))
         val host = userId("RudeLeft")
         val guest = userId("Pat")
@@ -149,18 +165,33 @@ class MatchRoutesTest {
             check(rooms.selectDeck(room.roomId, user, deckId) is RoomResult.Ok)
             check(rooms.setReady(room.roomId, user, true) is RoomResult.Ok)
         }
-        // `preflight =` by name: the trailing-lambda form binds to
-        // the LAST parameter, which is the clock, and the compiler
-        // was right to object.
-        val setups =
-            MatchSetupService(
-                source(),
-                DeckAuthorization(source()),
-                preflight = { DeckCheck(DeckVerdict.VALID, "") },
-            )
-        val prepared = setups.prepare(room.roomId, host) as PrepareResult.Prepared
-        return prepared.setup.setupId
+        return room.roomId
     }
+
+    /** Direct manipulation: a stored preset rewritten behind the server's back. */
+    private fun tamper(
+        table: String,
+        key: String,
+        id: String,
+        preset: String,
+    ) = source().connection.use { connection ->
+        connection.prepareStatement("UPDATE $table SET preset_id = ? WHERE $key = ?").use {
+            it.setString(1, preset)
+            it.setObject(2, UUID.fromString(id))
+            check(it.executeUpdate() == 1) { "nothing to tamper with" }
+        }
+    }
+
+    private fun matchesFor(setupId: String): Int =
+        source().connection.use { connection ->
+            connection.prepareStatement("SELECT count(*) FROM match WHERE setup_id = ?").use {
+                it.setObject(1, UUID.fromString(setupId))
+                it.executeQuery().use { rows ->
+                    rows.next()
+                    rows.getInt(1)
+                }
+            }
+        }
 
     // --- the gate -------------------------------------------------------------
 
@@ -292,6 +323,76 @@ class MatchRoutesTest {
                 },
                 "a user named in the body got a seat",
             )
+        }
+
+    // --- presets the server does not support — P6-BI, P6-BJ -------------------
+
+    /**
+     * P6-BJ — Two-Headed Giant is not supported, so nothing can
+     * launch it: not the browser, and not a setup row rewritten to
+     * name it after preparation. The launcher re-reads the preset
+     * from the stored setup and refuses before any match row, and
+     * so before any worker, exists.
+     */
+    @Test
+    fun `a setup rewritten to Two-Headed Giant cannot be launched`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val setupId = preparedSetup()
+            tamper("match_setup", "setup_id", setupId, "TWO_HEADED_GIANT")
+
+            val response =
+                client.post("/api/matches") {
+                    signedBy(host)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"setupId":"$setupId"}""")
+                }
+
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status, response.bodyAsText())
+            assertEquals("LAUNCH_REVALIDATION_FAILED", response.errorCode())
+            assertEquals(0, matchesFor(setupId), "a match was created for it")
+        }
+
+    /** P6-BI — the same for any preset the server does not offer. */
+    @Test
+    fun `a setup rewritten to an unsupported preset cannot be launched`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val setupId = preparedSetup()
+            tamper("match_setup", "setup_id", setupId, "COMMANDER")
+
+            val response =
+                client.post("/api/matches") {
+                    signedBy(host)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"setupId":"$setupId"}""")
+                }
+
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status, response.bodyAsText())
+            assertEquals(0, matchesFor(setupId), "a match was created for it")
+        }
+
+    /**
+     * P6-BJ, one step earlier — a ROOM rewritten to Two-Headed Giant
+     * cannot even be prepared, so no setup for it exists to launch.
+     */
+    @Test
+    fun `a room rewritten to Two-Headed Giant cannot be prepared`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val roomId = readyRoom()
+            tamper("room", "room_id", roomId.toString(), "TWO_HEADED_GIANT")
+
+            val response =
+                client.post("/api/rooms/$roomId/prepare-match") {
+                    signedBy(host)
+                }
+
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status, response.bodyAsText())
+            assertEquals("INVALID_ROOM_CONFIGURATION", response.errorCode())
         }
 
     // --- discovery and privacy -------------------------------------------------

@@ -419,7 +419,10 @@ public final class GameHost {
             return;
         }
         long revision = gate.bumpStateVersion();
-        for (Player player : current.getPlayers()) {
+        // REGISTERED players, not getPlayers(): Forge removes a player
+        // who has lost, so the final board went to the winner alone
+        // and showed the winner alone. Measured, P6-AP.
+        for (Player player : current.getRegisteredPlayers()) {
             // The player's OWN seat, by its ORIGINAL lobby player.
             // getLobbyPlayer() is the CURRENT controller's: under
             // Mindslaver the controlled player was filed under the
@@ -450,7 +453,7 @@ public final class GameHost {
     /** Forge player to Arena seat, rebuilt per snapshot round. */
     private java.util.Map<Player, Integer> seatsByPlayer(Game current) {
         java.util.Map<Player, Integer> map = new java.util.IdentityHashMap<>();
-        for (Player player : current.getPlayers()) {
+        for (Player player : current.getRegisteredPlayers()) {
             Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
             if (seat != null) {
                 map.put(player, seat);
@@ -594,6 +597,21 @@ public final class GameHost {
                     turn(),
                     null,
                     reason);
+        }
+        if (failure.get() == null) {
+            // The board as the game ENDED, before the result. Snapshots
+            // otherwise go out only with a question, so whatever
+            // happened after the last one never reached the players:
+            // the mill that emptied the library before Laboratory
+            // Maniac's draw, or the combat damage that took a player
+            // to zero -- the final board showed the loser alive.
+            // Found by e2e/match-alternate-win.spec.ts in CI. Not for
+            // a crash: that game's state is not something to show.
+            try {
+                publishSnapshots();
+            } catch (RuntimeException e) {
+                System.err.println("proxic: final board not delivered: " + e);
+            }
         }
         try {
             endSink.accept(result);

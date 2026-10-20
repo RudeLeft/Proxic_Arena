@@ -17,6 +17,13 @@ Checked off the protocol:
   the reason  Forge's own words name Laboratory Maniac (the winner's
               PlayerOutcome, carried as `reason`, never composed)
   the board   both players on 20 life; seat 1's library empty
+  the last    a snapshot to EACH seat after the last question and
+  board       before GAME_ENDED, showing both players. Without it the
+              players' last picture is from the last question, and
+              whatever happened after (the mill that emptied the
+              library) never reaches them; and Forge drops a player
+              who has lost from getPlayers(), so the loser got no
+              final board and the winner's showed nobody else
 
 Exit 0 when every property held, 1 when one did not, 2 when the game
 never got there.
@@ -53,7 +60,8 @@ def card_of(action_id):
 
 
 state = {}
-found = {"ended": None, "maniac_out": False, "last_board": None}
+found = {"ended": None, "maniac_out": False, "last_board": None, "final_board_sent": []}
+board_since_question = set()
 
 for line in proc.stdout:
     line = line.strip()
@@ -79,6 +87,7 @@ for line in proc.stdout:
     if kind == "MATCH_SNAPSHOT":
         s = frame.get("state") or {}
         state[s.get("seat")] = s
+        board_since_question.add(s.get("seat"))
         if s.get("seat") == 2:
             found["last_board"] = {p["seat"]: {"life": p["life"], "library": p["libraryCount"]}
                                    for p in s.get("players", [])}
@@ -87,6 +96,7 @@ for line in proc.stdout:
         continue
 
     if kind == "GAME_ENDED":
+        found["final_board_sent"] = sorted(board_since_question)
         found["ended"] = {k: frame.get(k) for k in ("outcome", "winningSeat", "turn", "reason", "detail")}
         break
     if kind == "ERROR":
@@ -94,6 +104,7 @@ for line in proc.stdout:
         break
     if kind != "DECISION_REQUEST":
         continue
+    board_since_question = set()
 
     seat = frame["authorisedSeat"]
     dkind = frame.get("kind")
@@ -136,6 +147,11 @@ if MANIAC not in str(ended.get("reason")):
     problems.append(f"Forge's reason does not name the Maniac: {ended.get('reason')!r}")
 if board and (board.get(1, {}).get("life") != 20 or board.get(2, {}).get("life") != 20):
     problems.append(f"life moved, so life could have decided it: {board}")
+if found["final_board_sent"] != [1, 2]:
+    problems.append(f"the final board went to seats {found['final_board_sent']} between the last question "
+                    "and GAME_ENDED, not to both")
+if board and sorted(board) != [1, 2]:
+    problems.append(f"the loser's final board does not show both players: {board}")
 if board and board.get(1, {}).get("library") != 0:
     problems.append(f"seat 1's library was not empty: {board}")
 if problems:

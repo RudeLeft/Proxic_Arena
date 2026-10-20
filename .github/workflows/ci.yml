@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO and P6-AP:
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP and P6-L:
       # Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
@@ -142,17 +142,21 @@ jobs:
         run: |
           res=spikes/forge-phase0a/forge-upstream/forge-gui/res
           jar=forge-worker/target/forge-worker-0.1.0.jar
-          python3 -I scripts/check-agent-of-kotis.py "$jar" "$res"
-          python3 -I scripts/check-panglacial-wurm.py "$jar" "$res"
-          python3 -I scripts/check-card-name.py "$jar" "$res"
-          python3 -I scripts/check-leyline.py "$jar" "$res"
-          python3 -I scripts/check-karn.py "$jar" "$res"
-          python3 -I scripts/check-multiface.py "$jar" "$res"
-          python3 -I scripts/check-mindslaver.py "$jar" "$res"
-          python3 -I scripts/check-characteristics.py "$jar" "$res"
-          python3 -I scripts/check-player-state.py "$jar" "$res"
-          python3 -I scripts/check-mana-choice.py "$jar" "$res"
-          python3 -I scripts/check-alternate-win.py "$jar" "$res"
+          traces=$(mktemp -d)
+          python3 -I scripts/check-agent-of-kotis.py "$jar" "$res" "$traces/agent-of-kotis.jsonl"
+          python3 -I scripts/check-panglacial-wurm.py "$jar" "$res" "$traces/panglacial-wurm.jsonl"
+          python3 -I scripts/check-card-name.py "$jar" "$res" "$traces/card-name.jsonl"
+          python3 -I scripts/check-leyline.py "$jar" "$res" "$traces/leyline.jsonl"
+          python3 -I scripts/check-karn.py "$jar" "$res" "$traces/karn.jsonl"
+          python3 -I scripts/check-multiface.py "$jar" "$res" "$traces/multiface.jsonl"
+          python3 -I scripts/check-mindslaver.py "$jar" "$res" "$traces/mindslaver.jsonl"
+          python3 -I scripts/check-characteristics.py "$jar" "$res" "$traces/characteristics.jsonl"
+          python3 -I scripts/check-player-state.py "$jar" "$res" "$traces/player-state.jsonl"
+          python3 -I scripts/check-mana-choice.py "$jar" "$res" "$traces/mana-choice.jsonl"
+          python3 -I scripts/check-alternate-win.py "$jar" "$res" "$traces/alternate-win.jsonl"
+          # P6-L, over every game above: no question reaches a seat before
+          # the state it refers to.
+          python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure

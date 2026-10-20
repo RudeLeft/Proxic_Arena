@@ -93,7 +93,7 @@ final class ViewerSnapshot {
         snapshot.addProperty("seat", seatOf.getOrDefault(viewer, 0));
 
         JsonArray players = new JsonArray();
-        for (Player player : game.getPlayers()) {
+        for (Player player : game.getRegisteredPlayers()) {
             JsonObject entry = new JsonObject();
             entry.addProperty("seat", seatOf.getOrDefault(player, 0));
             entry.addProperty("name", player.getName());
@@ -163,7 +163,7 @@ final class ViewerSnapshot {
         }
 
         JsonArray battlefield = new JsonArray();
-        for (Player player : game.getPlayers()) {
+        for (Player player : game.getRegisteredPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Battlefield)) {
                 battlefield.add(describe(card, viewing, seatOf));
             }
@@ -190,7 +190,7 @@ final class ViewerSnapshot {
         // is stable across zones, and an id on the wire is a card
         // that can be followed. The count is already public.
         JsonArray otherHands = new JsonArray();
-        for (Player player : game.getPlayers()) {
+        for (Player player : game.getRegisteredPlayers()) {
             if (player == viewer) {
                 continue;
             }
@@ -208,7 +208,7 @@ final class ViewerSnapshot {
         snapshot.add("otherHands", otherHands);
 
         JsonArray graveyard = new JsonArray();
-        for (Player player : game.getPlayers()) {
+        for (Player player : game.getRegisteredPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Graveyard)) {
                 graveyard.add(describe(card, viewing, seatOf));
             }

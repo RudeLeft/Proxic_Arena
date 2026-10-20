@@ -3,6 +3,7 @@ package net.barnflix.proxic.match
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import net.barnflix.proxic.BuildInfo
@@ -152,6 +153,18 @@ class MatchWorker(
             )
         if (ready["type"]?.jsonPrimitive?.content != "WORKER_READY") {
             return WorkerStart.Failed("WORKER_UNREACHABLE", "The worker did not greet us.")
+        }
+        // P6-AU — the worker's protocol, checked before anything
+        // else it says is believed. A worker speaking another
+        // version would read START_GAME, and every answer after it,
+        // by different rules; "probably compatible" is how a
+        // decision ends up applied to the wrong question.
+        val protocol = ready["protocolVersion"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+        if (protocol != BuildInfo.PROTOCOL_VERSION) {
+            return WorkerStart.Failed(
+                "WORKER_INCOMPATIBLE",
+                "The worker speaks protocol version $protocol, not ${BuildInfo.PROTOCOL_VERSION}.",
+            )
         }
         val commit = ready["forgeCommit"]?.jsonPrimitive?.content
         if (commit != BuildInfo.FORGE_COMMIT) {
