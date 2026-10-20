@@ -36,7 +36,7 @@ TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 SEAT1 = [("Lightning Bolt", "M10", "146", 15), ("Lightning Bolt", "A25", "141", 15),
          ("Mountain", "M10", "242", 15), ("Mountain", "M10", "245", 15)]
 SEAT2 = [("Mountain", "M10", "243", 60)]
-MAX_TURN = 16
+MAX_TURN = 30  # 16 left about one run in a hundred without one printing drawn (CI, 2026-10-20)
 
 proc = subprocess.Popen(
     ["java", "-jar", JAR, RES],
