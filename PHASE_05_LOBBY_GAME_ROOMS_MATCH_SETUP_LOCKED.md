@@ -217,6 +217,35 @@ authority, readiness, configuration and deck validation is unchanged
 
 ---
 
+## PHASE 5 AMENDMENT 5
+
+**Reason:** The owner's Lobby design lists every room (Phase 7 §7.52
+decision 19, §7.64).
+
+**Affected requirements:** AMENDMENT 2's "still forbidden ... any
+directory of rooms", and the separate prepare / launch steps a player
+sees.
+
+**Old decision:** A player sees only their own room and invitations; no
+directory of rooms.
+
+**New decision:** **Every room is visible to every signed-in player** --
+its name, seats and who is in them, never their decks. **Taking a seat
+still requires an invitation**: an uninvited player has no Join. Start
+match is one button for the player; the server still freezes, validates
+and claims the setup exactly as Phases 5 and 6 require. Friends, a
+social graph and public invite URLs stay forbidden.
+
+**Evidence:** Owner decision 2026-10-20, asked with three options
+(anyone may join; visible but invitation-only; not visible).
+
+**Affected later phases:** Phase 7 builds it (§7.64).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
+---
+
 ## Carry-forward from Phases 1 to 4
 
 What the built system imposes on this phase.

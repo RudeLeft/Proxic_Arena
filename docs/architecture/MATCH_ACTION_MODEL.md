@@ -111,4 +111,4 @@ Phase 7 builds the battlefield on this model and must:
 - offer **inspect** for any visible object without it being an action;
 - address the open findings from the first live game: every priority
   stop is asked, unpayable spells are offered, and a refused attack
-  does not say why (Phase 7 draft §7.32a).
+  does not say why (Phase 7 §7.32a, decided in §7.53, §7.54, §7.61).

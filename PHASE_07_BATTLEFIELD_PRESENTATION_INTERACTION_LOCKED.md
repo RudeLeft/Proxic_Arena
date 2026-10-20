@@ -2,9 +2,10 @@
 
 # Phase 7 — Battlefield Presentation & Interaction
 
-**Status:** DRAFT — reviewed against Phase 6 as built and every owner
-decision recorded (2026-10-20, §7.52); **ready to lock on the owner's
-approval.**
+**Status:** **LOCKED 2026-10-20** by the owner, after review against
+Phase 6 as built with every owner decision recorded (§7.51, §7.52).
+Changes from here on are amendments (§7.69 lists the ones this phase
+makes to Phases 3-6).
 **Phase Type:** Presentation, interaction, rendering — and, since
 2026-10-20, the redesigned application pages (PART X)
 **Depends on:** Phase 6 — COMPLETE 2026-10-20 (match protocol, action
@@ -53,8 +54,8 @@ It was drafted before Phase 0A ran and before Phase 6 existed, with
 open product questions. All three are resolved: Phase 0A was accepted
 (2026-10-15), Phase 6 is complete (2026-10-20), and every owner
 question is answered (§7.51, §7.52). The 2026-10-20 review found the
-corrections and protocol needs folded in below. It is locked when the
-owner approves it.
+corrections and protocol needs folded in below. Locked by the owner
+2026-10-20.
 
 ---
 

@@ -237,6 +237,34 @@ second copy adds rows and no image bytes.
 
 ---
 
+## PHASE 4 AMENDMENT 5
+
+**Reason:** The owner's Deck Depot design adds renaming; the owner chose
+that one player's deck names must not repeat (Phase 7 §7.52 decisions 17
+and 18).
+
+**Affected requirements:** deck display names (the package's name,
+fixed at import, repeatable).
+
+**Old decision:** A deck is named by its package at import and cannot be
+renamed; nothing stops two of one player's decks sharing a name.
+
+**New decision:** An owner may rename their own deck -- also while it is
+selected in a room, since everything refers to the deck id. **Names are
+unique per owner**: an import or rename that would duplicate one of that
+owner's names is refused and asks for another. Existing duplicates are
+left as they are but cannot be renamed into another duplicate. A deck
+shared with you cannot be renamed.
+
+**Evidence:** Owner decisions 2026-10-20.
+
+**Affected later phases:** Phase 7 builds it (§7.65, P7-AA).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
+---
+
 ## Carry-forward from Phases 1, 2 and 3
 
 Things already built that change how a section here must be done.

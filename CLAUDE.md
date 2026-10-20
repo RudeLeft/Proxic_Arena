@@ -7,8 +7,9 @@ boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
 **Phase 0A is ACCEPTED (2026-10-15). Phases 1-6 are COMPLETE
-(Phase 6 gate approved by the owner 2026-10-20). No phase is active:
-Phase 7 is DRAFT and must be locked before any of it is built.**
+(Phase 6 gate approved by the owner 2026-10-20). Phase 7
+(Battlefield Presentation & Interaction, and the application pages) is
+LOCKED 2026-10-20 and is the active phase.**
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.

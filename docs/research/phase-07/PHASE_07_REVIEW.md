@@ -1,6 +1,7 @@
 # Phase 7 review against what Phase 6 built — 2026-10-20
 
-Read: `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md`,
+Read: the Phase 7 draft (since locked as
+`PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_LOCKED.md`),
 `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md`,
 `docs/architecture/BATTLEFIELD_RENDERING.md`, the private UI design
 canvas (Battlefield, Lobby, Depot, Account, Admin, Login artboards and

@@ -19,7 +19,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 4 | Deck Depot | **COMPLETE** 2026-10-16 — gate PASSED, deployed; a deck shared and revoked between two accounts on the live host | `PHASE_04_DECK_DEPOT_LOCKED.md` |
 | 5 | Lobby, Game Rooms, Match Setup | **COMPLETE** 2026-10-17 — gate PASSED, 26/26 acceptance including the production run. 4 amendments: no join codes, presence, invitations, ephemeral chat | `PHASE_05_EXIT_GATE.md` |
 | 6 | Forge Match Runtime & Game Protocol | **COMPLETE** 2026-10-20 — gate PASSED (owner approved), 65/65 acceptance (63 met, 2 classified) including the production run; 48/48 required lab cards; one approved Forge patch | `PHASE_06_EXIT_GATE.md` |
-| 7 | Battlefield Presentation & Interaction | DRAFT — §7.51's six questions RESOLVED 2026-10-15; **renderer decided 2026-10-19: React DOM + SVG overlays, PixiJS a measured contingency** (`docs/architecture/BATTLEFIELD_RENDERING.md`, Phase 1 Amendment 3) | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md` |
+| 7 | Battlefield Presentation & Interaction, and the application pages | **LOCKED** 2026-10-20 — reviewed against Phase 6 as built, 19 owner decisions (§7.51, §7.52), scope widened to the whole UI design canvas; renderer React DOM + SVG overlays (`docs/architecture/BATTLEFIELD_RENDERING.md`). **ACTIVE** | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_LOCKED.md` |
 | 8+ | Commander | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |
 | 8+ | Two-Headed Giant | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |
 

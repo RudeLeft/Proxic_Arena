@@ -5432,6 +5432,41 @@ Approved by project owner:
 Date:
 ```
 
+## PHASE 6 AMENDMENT 1
+
+**Reason:** Phase 7's board needs facts the Phase 6 protocol does not
+send (Phase 7 §7.61), and the owner chose Concede and priority stops
+(Phase 7 §7.52 decisions 7, 8 and 10).
+
+**Affected requirements:** §6.177 (the match protocol), the viewer
+snapshot and the decision frames.
+
+**Old decision:** The protocol as built and documented in
+`docs/architecture/MATCH_PROTOCOL.md` (2026-10-20).
+
+**New decision:** Additive fields and messages, `protocolVersion`
+unchanged: `prioritySeat`; stack entries with source, controller, kind
+and targets; combat assignments; an `objectId` and a `payable` flag on
+each option; each player's floating mana pool; Forge's reason when a
+choice is refused; `CONCEDE` (Forge's concession, a real result, beside
+Abandon's no-winner end); and the player's priority-stop settings, with
+only a priority pass ever answered automatically. Each is tested from
+both seats with the hidden-information checks Phase 6 established.
+
+**Evidence:** `docs/research/phase-07/PHASE_07_REVIEW.md` (section B);
+owner decisions 2026-10-20.
+
+**Affected components:** the worker's `ViewerSnapshot` and
+`MatchController`, the server's match frames, the client.
+
+**Affected later phases:** Phase 7 builds and tests them (P7-R, P7-S,
+P7-T, P7-X).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
+---
+
 ---
 
 # Phase 6 Final Principles

@@ -43,10 +43,12 @@ BUILD NEW
 
 **Phase 0A is ACCEPTED (2026-10-15). Phases 1–6 are COMPLETE — Phase 6
 (Forge Match Runtime & Authoritative Game Protocol) passed its exit gate,
-approved by the owner 2026-10-20 (`PHASE_06_EXIT_GATE.md`). No phase is
-active.** Phase 7 is DRAFT; its renderer is decided
-(`docs/architecture/BATTLEFIELD_RENDERING.md`) but its build is not
-authorized until it is locked. *(amended 2026-10-19 — section had still named Phase 1.)*
+approved by the owner 2026-10-20 (`PHASE_06_EXIT_GATE.md`). The active
+phase is Phase 7 — Battlefield Presentation & Interaction, widened to the
+application pages (LOCKED 2026-10-20).** Production work is authorized
+within Phase 7 only. Its renderer is
+`docs/architecture/BATTLEFIELD_RENDERING.md`; its amendments to Phases
+3-6 are §7.69. *(amended 2026-10-19 — section had still named Phase 1.)*
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,
@@ -65,7 +67,7 @@ you were asked to do, stop and say so.
 | `PHASE_00B_..._DRAFT.md` | Deferred validation. A standing register; each entry has a trigger that makes it blocking again. |
 | `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
 | `PHASE_01`–`PHASE_06` `_LOCKED.md` | Production phases, each locked at its exit gate (1–6 COMPLETE; see `BUILD_PLAN.md`). Amendments to a locked phase go in its `PHASE_0N_AMENDMENTS.md` or `_EXIT_GATE.md`, never into the locked text. |
-| `PHASE_07_..._DRAFT.md` | Battlefield presentation and interaction. §7.4 lists every obligation earlier phases deferred here. |
+| `PHASE_07_..._LOCKED.md` | Battlefield presentation and interaction, and the application pages (PART X). LOCKED 2026-10-20, active. §7.4 lists every obligation earlier phases deferred here; §7.52 the owner's 2026-10-20 decisions. |
 | `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` | **The locked architecture.** Read before any production code. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |

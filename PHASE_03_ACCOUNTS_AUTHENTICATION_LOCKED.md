@@ -172,6 +172,40 @@ protection for the first time.
 ---
 
 
+## PHASE 3 AMENDMENT 2
+
+**Reason:** The owner's UI design adds an Admin page; Phase 7 is widened
+to build it (Phase 7 §7.52 decision 14, §7.67).
+
+**Affected requirements:** the rule that account administration happens
+only through `arena-admin` on the host, never through a browser session.
+
+**Old decision:** Accounts are created, disabled, re-enabled, given
+passwords and roles only with `arena-admin`, run by someone with shell
+access to the host -- deliberately, because an operation that can lock
+everyone out should not ride a browser session left open.
+
+**New decision:** An administrator may also do these from the Admin
+page, under three rules: the last active administrator can never be
+disabled or demoted, by anyone, including themselves (the server refuses
+it, not only the page); every admin action is recorded (who, what, to
+which account, when); a player can reach no admin route. `arena-admin`
+stays.
+
+**Accepted trade-off:** no password re-entry and no home-network
+restriction were chosen, so a browser left signed in as an administrator
+can change accounts.
+
+**Evidence:** Owner decisions 2026-10-20 (Phase 7 §7.52, decisions 14
+and 15), asked with the alternatives stated.
+
+**Affected later phases:** Phase 7 builds the page (§7.67) and proves the
+rules against the API (P7-Y).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
+---
 
 **Phase-0A dependency: effectively none.**
 
