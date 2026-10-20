@@ -175,23 +175,30 @@ for line in proc.stdout:
         if found["named"] is None:
             if offered_wilds:
                 found["wilds_ability_before"] = True
-        elif attempt is not None:
-            # Back at priority after trying the named card's ability.
-            # Forge refuses it AT ACTIVATION (PlaySpellAbility's
-            # checkRestrictions) and rolls back: no sacrifice asked,
-            # the Wilds still on the battlefield.
+        elif attempt is not None and seat == attempt["seat"]:
+            # Back at THIS player's priority after trying the named
+            # card's ability. Forge refuses it AT ACTIVATION
+            # (PlaySpellAbility's checkRestrictions) and rolls back: no
+            # sacrifice, no search, the Wilds still on the battlefield.
+            #
+            # This player's: the first version judged at the next
+            # priority of EITHER seat, and when that was the opponent's
+            # it looked for this Wilds on the opponent's battlefield --
+            # passing locally, failing on CI, on a game that was right.
             found["wilds_ability_after"] = {
                 "attempted": True,
                 "sacrifice_asked": attempt["sacrifice_asked"],
+                "searched": attempt["searched"],
                 "still_on_battlefield": attempt["card"] in wilds_on_board,
             }
             attempt = None
-        elif offered_wilds and found["wilds_ability_after"] is None:
+        elif attempt is None and offered_wilds and found["wilds_ability_after"] is None:
             # STILL OFFERED -- as Forge's own desktop client offers it:
             # both list abilities with getAllPossibleAbilities, which
             # does not consult "can't be activated" effects. So TRY
             # it, and see whether Forge lets it happen.
-            attempt = {"card": card_of(offered_wilds[0]["actionId"]), "sacrifice_asked": False}
+            attempt = {"card": card_of(offered_wilds[0]["actionId"]), "seat": seat,
+                       "sacrifice_asked": False, "searched": False}
             respond(frame, offered_wilds[0]["actionId"])
             continue
 
@@ -209,6 +216,11 @@ for line in proc.stdout:
         # Forge asking to sacrifice the Wilds would mean it let the
         # named ability through. Answer no either way.
         attempt["sacrifice_asked"] = True
+        pick = None
+    elif (attempt is not None and seat == attempt["seat"]
+          and dkind in ("chooseSingleEntityForEffect", "chooseEntitiesForEffect")):
+        # A library search for a land: the ability resolved.
+        attempt["searched"] = True
         pick = None
     elif dkind in ("declareAttackers", "declareBlockers"):
         pick = None
@@ -255,7 +267,7 @@ after = found["wilds_ability_after"]
 if after is None:
     print("INCONCLUSIVE: never tried the Wilds' ability after naming it")
     sys.exit(2)
-if after["sacrifice_asked"] or not after["still_on_battlefield"]:
+if after["sacrifice_asked"] or after["searched"] or not after["still_on_battlefield"]:
     problems.append(f"Evolving Wilds was named, and its ability still went ahead: {after}")
 if problems:
     print("WRONG:", "; ".join(problems))
