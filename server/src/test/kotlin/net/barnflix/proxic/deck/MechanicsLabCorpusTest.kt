@@ -229,8 +229,9 @@ class MechanicsLabCorpusTest {
         val SOURCE = File(FOLDER, "Proxic_Arena_Mechanics_Lab_SOURCE.txt")
         val COVERAGE = File(FOLDER, "Proxic_Arena_Mechanics_Lab_Coverage.csv")
 
-        const val SOURCE_SHA256 = "0014207daf374f927612721a0475dc507317b007b6a11935aa72e5ee64494041"
-        const val COVERAGE_SHA256 = "aa102208a9cb719f4f3415a55abb19b7f8477df416dc626f63cd55365b906ac0"
+        /** Of the content with LF line endings — what git stores; see [sha256]. */
+        const val SOURCE_SHA256 = "4db3de050ce6a69c40b4b52b10225942dacecce140829ab7ead473001cc7c1a4"
+        const val COVERAGE_SHA256 = "bea4d0bbbbe7a6fc1b5be892195c46b9efe363f25f282cf67b82994a1828a43b"
 
         /**
          * Measured 2026-10-20 against the pinned Forge (4ec5f1a2):
@@ -245,8 +246,20 @@ class MechanicsLabCorpusTest {
          */
         val REFUSED: List<String> = emptyList()
 
-        fun sha256(file: File): String =
-            MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
+        /**
+         * The CONTENT's hash, line endings normalised to LF.
+         *
+         * .gitattributes stores text as LF, but a Windows checkout
+         * may hold CRLF. The first version hashed raw bytes, pinned
+         * the CRLF hash from a Windows working copy, and failed on
+         * CI's LF checkout of the very same, unchanged file.
+         */
+        fun sha256(file: File): String {
+            val text = file.readBytes().toString(Charsets.UTF_8).replace("\r\n", "\n")
+            return MessageDigest.getInstance("SHA-256")
+                .digest(text.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+        }
 
         data class CoverageRow(val category: String, val quantity: Int, val card: String, val mechanics: String)
 
