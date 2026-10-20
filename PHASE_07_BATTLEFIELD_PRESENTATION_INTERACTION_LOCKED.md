@@ -940,6 +940,52 @@ Asked after the Phase 6 review, in plain English with game examples.
 | 18 | Two decks with one name | **Not allowed** (§7.65) |
 | 19 | The room list | **Every room is visible; taking a seat still needs an invitation** (§7.64) |
 
+## 7.52a Layout decisions at the start of the build — 2026-10-20
+
+Asked before `layout()` was written, because the canvas and the text left
+them open (owner: "if there is anything you need clarification on even if
+it's locked in the doc please ask"). Where one changes a locked decision
+it is PHASE 7 AMENDMENT 1 below.
+
+| # | Question | Decision |
+| --- | --- | --- |
+| L1 | A window that is not 16:9 | **Rows stretch sideways.** Card size follows the window's height; zone x/width follow the width left of the rail, so a wider window fits more per row (a creature row holds ~18 on 3440x1440 instead of 14) |
+| L2 | The rail on wide windows | *(build decision)* the rail's width is **proportional to the height** (235/900 of it, as on the canvas), so it never balloons; at 16:9 this reproduces the contract's x = 0.8529 exactly |
+| L3 | A permanent with two types | **Creature, then land, then other**: anything currently a creature is in the creature rows (Dryad Arbor, an animated Mutavault, artifact creatures); otherwise any land is in the land rows (Urza's Saga, Darksteel Citadel); everything else is noncreature |
+| L4 | Which row fills first | **Lands fill the long BACK row first** (by the player's edge), spilling into the short front row; creatures and noncreature permanents fill their FRONT row first |
+| L5 | Identical tokens | **Pile, like basics**: same name, same current characteristics, untapped, no counters, no attachments, not in combat |
+| L6 | Order within a row | **Arrival order**, oldest left, newest right, never re-sorted; the key is Forge's own game timestamp for when the permanent entered (§7.61 B11) |
+| L7 | Auras and Equipment | **Tucked behind their host**, name strip peeking out above it; they share the host's slot and move with it, on the host's side of the table whoever controls them |
+| L8 | Tapped basics | **Their own tapped pile** beside the untapped one ("Forest x2" untapped, "Forest x3" tapped) |
+
+Taken from the canvas as designed, not re-asked: a tapped card **tilts
+15 degrees** about its lower centre, dims and says "TAPPED"; an attacker
+**steps toward the divider** (14px at a 900px board); the hand fans in a
+shallow arc along the 0.9167 baseline, partly below the edge, and a card
+lifts when pointed at; the opponent's hand is a count.
+
+## PHASE 7 AMENDMENT 1
+
+**Reason:** Owner answers at the start of the build (§7.52a L4, L5).
+
+**Affected requirements:** §7.51 decision 6 ("front/rear automatic by
+overflow; rear fills only when front is full") and §7.58 (only basic
+lands pile).
+
+**Old decision:** every kind fills its front row first; only identical
+untapped basic lands pile.
+
+**New decision:** lands fill their back row first and spill forward;
+creatures and noncreature permanents fill their front row first.
+Identical tokens pile like basics (§7.52a L5), and tapped basics form
+their own pile (L8). Nothing else in §7.51 or §7.58 changes: placement is
+still automatic, nothing is player-arranged or stored.
+
+**Evidence:** owner decisions 2026-10-20, asked with diagrams.
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
@@ -1071,6 +1117,7 @@ like Phase 6's fields (both seats, hidden information checked).
 | B8 | dimmed unpayable options (§7.54) | `payable` on each option, from Forge's payment check |
 | B9 | concede (§7.55) | a `CONCEDE` message and Forge's result |
 | B10 | stops (§7.53) | the player's stop settings, and which questions are priority passes |
+| B11 | arrival order within a row (§7.52a L6) | each permanent's entry timestamp, Forge's `getGameTimestamp()` |
 
 ---
 
