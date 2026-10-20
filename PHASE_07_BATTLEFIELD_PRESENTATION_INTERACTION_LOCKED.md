@@ -783,7 +783,8 @@ mirror symmetry holds
 nothing collides with the stack dock
 every card has a hit region of at least the minimum size
 layout is deterministic for the same (state, viewport)
-layout is continuous: a 1px viewport change never moves a card 100px
+layout is continuous: a 1px viewport change never moves a card 100px,
+  except where a card changes rows at a capacity point (AMENDMENT 2)
 ```
 
 Run these across a generated range of viewports **and card counts**
@@ -986,6 +987,31 @@ still automatic, nothing is player-arranged or stored.
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 2
+
+**Reason:** "Rows stretch" (§7.52a L1) makes a row's capacity depend on
+the window's width, so at the width where a row stops fitting, one card
+must move to its kind's other row -- about one row-height, which §7.42's
+continuity property forbids.
+
+**Affected requirements:** §7.42 "a 1px viewport change never moves a
+card 100px".
+
+**Old decision:** no card ever moves more than ~100px on a 1px resize.
+
+**New decision:** cards move smoothly on resize **except at a row's
+capacity point**, where one card changes rows and the cards left in that
+row re-centre (by about half a card). Nothing else may jump; the test
+exempts only the group where a card actually changed rows, and fails if
+such events are frequent. Mid-game resizing is rare.
+
+**Evidence:** owner decision 2026-10-20, asked against the alternative
+of fixed row capacities (no hop, but no extra cards per row on wide
+windows).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
@@ -1118,6 +1144,7 @@ like Phase 6's fields (both seats, hidden information checked).
 | B9 | concede (§7.55) | a `CONCEDE` message and Forge's result |
 | B10 | stops (§7.53) | the player's stop settings, and which questions are priority passes |
 | B11 | arrival order within a row (§7.52a L6) | each permanent's entry timestamp, Forge's `getGameTimestamp()` |
+| B12 | identical tokens pile (§7.52a L5) | `token: true` on a token (Forge's `isToken()`) |
 
 ---
 
