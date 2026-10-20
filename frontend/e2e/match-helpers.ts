@@ -14,6 +14,7 @@
 // Every locator here was read off the running application.
 
 import { expect, type Page } from "@playwright/test";
+import { basename, extname } from "node:path";
 import { secondUser, testUser } from "./helpers";
 
 export async function csrfOf(page: Page): Promise<string> {
@@ -270,11 +271,18 @@ export async function sharedDeck(
         mine: { deckId: string; displayName: string }[];
       }
     ).mine;
-  if ((await mine()).length === 0) {
+  // THIS package's deck, by name -- a deck's display name is its
+  // package filename. The first version took the host's first deck,
+  // which was right only while each account had one; RudeLeft now
+  // owns several, and "first" is whatever the server lists first.
+  const wanted = basename(pkg, extname(pkg));
+  const ours = async () => (await mine()).find((deck) => deck.displayName === wanted);
+  if (!(await ours())) {
     await host.locator('input[type="file"]').setInputFiles(pkg);
     await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
+    await expect.poll(async () => (await ours()) !== undefined, { timeout: 60_000 }).toBe(true);
   }
-  const { deckId, displayName: deckName } = (await mine())[0]!;
+  const { deckId, displayName: deckName } = (await ours())!;
   // By ID, not by name. With several hosts on one stack the guest
   // may already hold a same-named deck from somebody else, and a
   // name check would then decide THIS deck was shared and skip
@@ -286,7 +294,14 @@ export async function sharedDeck(
       }
     ).sharedWithMe.some((deck) => deck.deckId === deckId);
   if (!(await guestCanSee())) {
-    await host.getByRole("button", { name: "view" }).first().click();
+    // THIS deck's row. `.row`, not a list item: the Deck Depot draws
+    // each deck as a div (read off the running page).
+    await host
+      .getByRole("region", { name: "My decks" })
+      .locator(".row", { hasText: deckName })
+      .getByRole("button", { name: "view" })
+      .first()
+      .click();
     await host.getByLabel("Username").fill(guestName);
     await host.getByRole("button", { name: "Share", exact: true }).click();
     await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
