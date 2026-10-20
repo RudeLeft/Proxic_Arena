@@ -57,43 +57,31 @@ internal class RoomStore(private val dataSource: DataSource) {
     }
 
     /**
-     * The room a user is in for §5.5's "one room at a time" and for a
-     * refresh (§5.139): an open room, one ready for a match, or one
-     * whose match is being played. [activeRoomOf] leaves the
-     * last out on purpose -- deck-access changes must not touch a room
-     * mid-match (P6-BC) -- and using it here let a player in a running
-     * match host or join another room, and told a refreshed page it
-     * had none (found on the live-site check, 2026-10-20).
+     * The room a user is in: open, or ready for a match -- and, with
+     * [includeInMatch], one whose match is being played.
+     *
+     * §5.5's "one room at a time" and a refresh (§5.139) need the match
+     * case: without it a player in a running match could host or join
+     * another room, and a refreshed page was told it had none (found
+     * on the live-site check, 2026-10-20). The deck-access watch leaves
+     * it out on purpose: a share revoked mid-match must not touch the
+     * room the match was launched from (P6-BC).
      */
-    fun occupiedRoomOf(
-        connection: Connection,
-        userId: UUID,
-    ): UUID? =
-        connection.prepareStatement(
-            """
-            SELECT m.room_id FROM room_member m
-              JOIN room r ON r.room_id = m.room_id
-             WHERE m.user_id = ? AND r.status IN ('OPEN', 'READY_FOR_MATCH', 'IN_MATCH')
-            """.trimIndent(),
-        ).use { statement ->
-            statement.setObject(1, userId)
-            statement.executeQuery().use { rows ->
-                if (rows.next()) rows.getObject(1, UUID::class.java) else null
-            }
-        }
-
     fun activeRoomOf(
         connection: Connection,
         userId: UUID,
+        includeInMatch: Boolean = false,
     ): UUID? =
         connection.prepareStatement(
             """
             SELECT m.room_id FROM room_member m
               JOIN room r ON r.room_id = m.room_id
-             WHERE m.user_id = ? AND r.status IN ('OPEN', 'READY_FOR_MATCH')
+             WHERE m.user_id = ?
+               AND (r.status IN ('OPEN', 'READY_FOR_MATCH') OR (? AND r.status = 'IN_MATCH'))
             """.trimIndent(),
         ).use { statement ->
             statement.setObject(1, userId)
+            statement.setBoolean(2, includeInMatch)
             statement.executeQuery().use { rows ->
                 if (rows.next()) rows.getObject(1, UUID::class.java) else null
             }

@@ -89,7 +89,7 @@ class RoomService(
      */
     fun create(hostUserId: UUID): RoomResult =
         store.inTransaction { connection ->
-            if (store.occupiedRoomOf(connection, hostUserId) != null) {
+            if (store.activeRoomOf(connection, hostUserId, includeInMatch = true) != null) {
                 return@inTransaction RoomResult.Refused(RoomError.AlreadyInARoom)
             }
 
@@ -130,7 +130,7 @@ class RoomService(
                 room.isMember(userId) ->
                     RoomResult.Refused(RoomError.AlreadyMember)
 
-                store.occupiedRoomOf(connection, userId) != null ->
+                store.activeRoomOf(connection, userId, includeInMatch = true) != null ->
                     RoomResult.Refused(RoomError.AlreadyInARoom)
 
                 room.isFull() ->
