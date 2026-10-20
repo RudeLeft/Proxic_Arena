@@ -228,6 +228,191 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         return chosen == null ? null : decide(counterTable(chosen, counter, toRemove));
     }
 
+    /**
+     * Exile something to pay for it — §6.91, §6.105.
+     *
+     * A graveyard ability whose cost is "exile this card", flashback-style
+     * self-exile, "exile a card from your hand", "exile two cards
+     * from your graveyard". A PORT of Forge's human path for the
+     * branches that cover those; Forge builds every list, and the
+     * player chooses from it.
+     *
+     * The rarer variants — a total mana value, a count of mana
+     * symbols or card types, cards that share a type, the top of a
+     * graveyard or library, any player's zone — are refused LOUDLY,
+     * by name. Each is its own selection rule in Forge, and paying
+     * one with the plain chooser would accept selections Forge
+     * would refuse.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostExile cost) {
+        String type = cost.getType();
+        Card onlyPayable = cost.payCostFromSource() ? source : null;
+        if ("OriginalHost".equals(type)) {
+            onlyPayable = ability.getOriginalHost();
+        }
+        if (onlyPayable != null) {
+            // Forge asks even here: the human path confirms before
+            // exiling the card the cost names.
+            if (onlyPayable.canExiledBy(ability, isEffect())
+                    && onlyPayable.getZone() == player.getZone(cost.from.get(0))
+                    && confirm("Exile " + onlyPayable.getName() + "?")) {
+                return PaymentDecision.card(onlyPayable);
+            }
+            return null;
+        }
+
+        for (String variant : new String[] {
+                "FromTopGrave", "+withTotalCMCEQ", "+withTotalCMCGE",
+                "+withTotalManaSymbols_", "+withSharedCardType", "+withTypesGE"}) {
+            if (type.contains(variant)) {
+                return loud("CostExile " + variant);
+            }
+        }
+
+        final forge.game.Game game = player.getGame();
+        forge.game.card.CardCollection list =
+                new forge.game.card.CardCollection(
+                        cost.zoneRestriction != 1 ? game.getCardsIn(cost.from) : player.getCardsIn(cost.from));
+
+        if ("All".equals(type)) {
+            if (confirm("Exile all " + list.size() + " cards from " + cost.from.get(0) + "?")) {
+                return PaymentDecision.card(list);
+            }
+            return null;
+        }
+        list = new forge.game.card.CardCollection(
+                forge.game.card.CardLists.getValidCards(list, type.split(";"), player, source, ability));
+        list = new forge.game.card.CardCollection(
+                forge.game.card.CardLists.filter(
+                        list, forge.game.card.CardPredicates.canExiledBy(ability, isEffect())));
+
+        final int needed = cost.getAbilityAmount(ability);
+        if (list.size() < needed) {
+            return null;
+        }
+        if (needed == 0) {
+            return PaymentDecision.number(0);
+        }
+
+        if (cost.from.size() == 1) {
+            forge.game.zone.ZoneType zone = cost.from.get(0);
+            if (zone == forge.game.zone.ZoneType.Battlefield || zone == forge.game.zone.ZoneType.Hand) {
+                java.util.List<Card> chosen =
+                        pickCards(list, needed, "CostExile", "Exile " + needed + " from your " + zone + ".");
+                return chosen == null ? null : PaymentDecision.card(chosen);
+            }
+            if (zone == forge.game.zone.ZoneType.Library) {
+                return loud("CostExile from the top of a library");
+            }
+        }
+
+        if (cost.zoneRestriction == 0) {
+            // Forge first asks WHOSE zone, then which cards in it.
+            return loud("CostExile from any player's zone");
+        }
+
+        // exileFromMiscZone: a triggered ability exiling its one
+        // card confirms rather than offering a list of one.
+        if (cost.zoneRestriction == -1 && ability.isTrigger() && needed == 1 && list.size() == 1) {
+            return confirm("Exile " + list.getFirst().getName() + "?")
+                    ? PaymentDecision.card(list.getFirst())
+                    : null;
+        }
+        java.util.List<Card> chosen =
+                player.getController().chooseCardsForZoneChange(
+                        forge.game.zone.ZoneType.Exile,
+                        new java.util.ArrayList<>(cost.from),
+                        ability, list, 0, needed, null, cost.toString(needed), null);
+        if (chosen == null || chosen.size() < needed) {
+            return null;
+        }
+        return PaymentDecision.card(chosen);
+    }
+
+    /**
+     * Sacrifice something to pay for it.
+     *
+     * Village Rites, Evolving Wilds, Deadly Dispute. A port of
+     * Forge's human path: a cost that names its own card confirms
+     * (Forge asks "sacrifice this?" even after the ability was
+     * chosen); otherwise the player chooses which permanents, from
+     * the list FORGE builds of what may legally be sacrificed.
+     * "+WithDifferentNames" is refused loudly — it is a different
+     * selection rule.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostSacrifice cost) {
+        final String amount = cost.getAmount();
+        final String type = cost.getType();
+
+        if (cost.payCostFromSource()) {
+            if (source.getController() == ability.getActivatingPlayer()
+                    && source.canBeSacrificedBy(ability, isEffect())
+                    && confirm("Sacrifice " + source.getName() + "?")) {
+                return PaymentDecision.card(source);
+            }
+            return null;
+        }
+        if ("OriginalHost".equals(type)) {
+            Card original = ability.getOriginalHost();
+            if (original.getController() == ability.getActivatingPlayer()
+                    && original.canBeSacrificedBy(ability, isEffect())
+                    && confirm("Sacrifice " + original.getName() + "?")) {
+                return PaymentDecision.card(original);
+            }
+            return null;
+        }
+        if (type.contains("+WithDifferentNames")) {
+            return loud("CostSacrifice +WithDifferentNames");
+        }
+
+        forge.game.card.CardCollectionView list =
+                forge.game.card.CardLists.filter(
+                        player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                        forge.game.card.CardPredicates.canBeSacrificedBy(ability, isEffect()));
+        list = forge.game.card.CardLists.getValidCards(list, type.split(";"), player, source, ability);
+
+        if ("All".equals(amount)) {
+            return PaymentDecision.card(list);
+        }
+        final int needed = cost.getAbilityAmount(ability);
+        if (needed == 0) {
+            return PaymentDecision.number(0);
+        }
+        if (list.size() < needed) {
+            return null;
+        }
+        java.util.List<Card> chosen =
+                pickCards(list, needed, "CostSacrifice",
+                        "Sacrifice " + needed + " " + cost.getDescriptiveType() + ".");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
+     * Exactly N cards out of a list Forge built, one question each.
+     *
+     * One at a time for the same reason every multi-select is
+     * (§6.105): each answer is one option the gate can check. A
+     * pass at any point cancels the cost, as Forge's own input
+     * allows.
+     */
+    private java.util.List<Card> pickCards(
+            forge.game.card.CardCollectionView cards, int needed, String kind, String prompt) {
+        forge.game.card.CardCollection left = new forge.game.card.CardCollection(cards);
+        java.util.List<Card> chosen = new java.util.ArrayList<>();
+        while (chosen.size() < needed) {
+            String remaining = needed > 1 ? " (" + (chosen.size() + 1) + " of " + needed + ")" : "";
+            Card next = pickOne(left, kind, prompt + remaining);
+            if (next == null) {
+                return null;
+            }
+            chosen.add(next);
+            left.remove(next);
+        }
+        return chosen;
+    }
+
     /** An empty table is "could not pay", not "paid nothing". */
     private static PaymentDecision decide(forge.game.GameEntityCounterTable table) {
         return table.isEmpty() ? null : PaymentDecision.counters(table);

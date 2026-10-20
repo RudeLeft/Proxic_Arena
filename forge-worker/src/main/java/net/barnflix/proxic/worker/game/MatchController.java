@@ -2336,7 +2336,12 @@ public final class MatchController extends GeneratedControllerBase {
         if (costs != null) {
             String text = costs.toString();
             if (text != null && !text.isBlank() && !"".equals(text.trim())) {
-                return text.trim();
+                // Cost text is Forge's TEMPLATE: a cost that names its
+                // own card says "CARDNAME", which Forge substitutes
+                // when it shows it. Seen on a graveyard ability as
+                // "{3}{U}, Exile CARDNAME from your graveyard".
+                return forge.util.TextUtil.fastReplace(
+                        text.trim(), "CARDNAME", sa.getHostCard().getName());
             }
         }
         forge.card.mana.ManaCost mana = sa.getHostCard().getManaCost();
