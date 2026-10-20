@@ -294,7 +294,9 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AL, §6.85",
-      "scenario": "Artifacts shown as creatures with P/T equal to mana value."
+      "scenario": "Artifacts shown as creatures with P/T equal to mana value.",
+      "result": "PASSED",
+      "evidence": "scripts/check-text-effects.py march (worker, in CI), 2026-10-20. Mind Stone (mana value 2) shown as a 2/2 artifact creature to both players."
     },
     "Control Magic": {
       "owner": "P6_REQUIRED",
@@ -308,20 +310,25 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AL, §6.85",
-      "scenario": "Text change: a colour or land-type word replaced."
+      "scenario": "Text change: a colour or land-type word replaced.",
+      "result": "PASSED",
+      "evidence": "scripts/check-text-effects.py mind-bend (worker, in CI), 2026-10-20. The player chose a land type, Forest -> Island; Shanodin Dryads shows islandwalk to both players. Found: the colour-or-type choice was a loud stub (chooseSpellAbilitiesForEffect), and the two land-type questions read the same ('Choose a basic land type.'); they now say which is replaced and which replaces it."
     },
     "Krark, the Thumbless": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AM, §6.89",
       "scenario": "Coin flip decided by Forge; the result reaches the player; reconnect and duplicates cannot reroll.",
-      "notes": "The property is MET on Mana Clash (not a Lab card); not yet run on this one."
+      "result": "PASSED",
+      "evidence": "scripts/check-coin-flip.py krark (worker, in CI), 2026-10-20. Four calls (heads or tails), each answered twice and the second refused -- no reroll; Forge's outcome told to both players ('You win the flip' / 'Alice wins the flip'); each won flip copied the spell and asked for the copy's new target. Found: the copy stopped the match (chooseNewTargetsFor stub), and the notice read 'Krark, the Thumbless: lose'."
     },
     "Aetherworks Marvel": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "Energy counters carried as player state."
+      "scenario": "Energy counters carried as player state.",
+      "result": "PASSED",
+      "evidence": "scripts/check-tracked-state.py marvel (worker, in CI), 2026-10-20. Energy shown to both players; six paid; Shivan Dragon cast from the top six with no mana asked; the rest went back. Found: Harnessed Lightning's 'pay any amount of energy' (chooseNumber) and paying it (payCostToPreventEffect) were loud stubs -- each stopped the match; both ported."
     },
     "Aether Hub": {
       "owner": "P6_REQUIRED",
@@ -344,7 +351,9 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "Experience counters."
+      "scenario": "Experience counters.",
+      "result": "PASSED",
+      "evidence": "scripts/check-tracked-state.py meren (worker, in CI), 2026-10-20. An Elf sacrificed to Bone Splinters gave one experience counter, shown to both players; at the end step Meren returned it (mana value 1) to the battlefield."
     },
     "Palace Jailer": {
       "owner": "P6_REQUIRED",
@@ -358,25 +367,33 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "The initiative and the Undercity dungeon."
+      "scenario": "The initiative and the Undercity dungeon.",
+      "result": "PASSED",
+      "evidence": "scripts/check-tracked-state.py initiative (worker, in CI), 2026-10-20. The initiative and the Undercity shown to both players with the room its marker is in; the next room the player's choice (Lost Well); its scry 2 asked. Found: taking the initiative stopped the match (chooseSingleCardFace stub), and so would the next room (chooseSingleSpellForEffect), its search (chooseCardsForEffect) and Lost Well (arrangeForScry) -- all ported; the room is now on the board."
     },
     "Call of the Ring": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "The Ring tempts you; a Ring-bearer is chosen."
+      "scenario": "The Ring tempts you; a Ring-bearer is chosen.",
+      "result": "PASSED",
+      "evidence": "scripts/check-tracked-state.py ring (worker, in CI), 2026-10-20. Tempted 1 then 2, counted; the chosen Ring-bearer (not the default) marked for both players; 'pay 2 life to draw' asked each time, taken then declined. Found: neither the Ring-bearer nor the Ring nor the count reached the board; all three now do."
     },
     "Platinum Angel": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AP",
-      "scenario": "You can't lose the game: the result is Forge's, never inferred from life."
+      "scenario": "You can't lose the game: the result is Forge's, never inferred from life.",
+      "result": "PASSED",
+      "evidence": "scripts/check-results.py platinum (worker, in CI), 2026-10-20. Seat 1 at -1 life with the Angel out played on for two turns; Doom Blade on the Angel and Forge ended the game. Never inferred from life."
     },
     "Angel's Grace": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AP",
-      "scenario": "Can't lose this turn; life restored."
+      "scenario": "Can't lose this turn; life restored.",
+      "result": "PASSED",
+      "evidence": "scripts/check-results.py grace (worker, in CI), 2026-10-20. Split second: with it on the stack neither player was offered anything but mana abilities (the opponent held a castable Bolt); a lethal Bolt then left its caster on 1 life, still playing."
     },
     "Laboratory Maniac": {
       "owner": "P6_REQUIRED",
@@ -390,7 +407,9 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AP",
-      "scenario": "Win at 40 life in the upkeep."
+      "scenario": "Win at 40 life in the upkeep.",
+      "result": "PASSED",
+      "evidence": "scripts/check-results.py felidar (worker, in CI), 2026-10-20. Won in seat 1's upkeep on 41 life with the opponent on 20; Forge's reason names Felidar Sovereign."
     },
     "Professor of Symbology": {
       "owner": "P8_COVERAGE",

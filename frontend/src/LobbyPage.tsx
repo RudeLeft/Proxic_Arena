@@ -1124,6 +1124,17 @@ function headingFor(kind: string): string {
       return "Name a card";
     case "chooseBinary":
       return "Call it";
+    case "chooseNumber":
+      return "Choose a number";
+    case "chooseSingleCardFace":
+    case "chooseSingleSpellForEffect":
+      return "Choose one";
+    case "chooseSpellAbilitiesForEffect":
+      return "Choose what it does";
+    case "arrangeForScry":
+      return "Order the top of your library";
+    case "willPutCardOnTop":
+      return "Top or bottom";
     case "CostPutCounter":
       return "Choose where the counter goes";
     case "CostRemoveCounter":
@@ -1228,6 +1239,13 @@ function hintFor(kind: string, options: number): string {
     case "CostPutCounter":
     case "CostRemoveCounter":
       return "This is part of paying for what you are doing. Pass to cancel it.";
+    case "arrangeForScry":
+    case "willPutCardOnTop":
+      // A scry names library cards: worth saying they are shown to
+      // this player alone, as Forge shows them.
+      return "Only you can see these cards. This cannot be skipped.";
+    case "chooseNumber":
+      return "Forge allows these numbers. This cannot be skipped.";
     default:
       return "These are the actions Forge says you can take.";
   }
@@ -1445,6 +1463,12 @@ function PlayerSide({
             .join("")}
           {player.designations.map((designation) => ` · ${designation}`).join("")}
           {player.command.length > 0 ? ` · command zone: ${player.command.join(", ")}` : ""}
+          {player.ringTempted > 0
+            ? ` · the Ring has tempted ${mine ? "you" : player.name} ${player.ringTempted}×`
+            : ""}
+          {player.dungeonsCompleted.length > 0
+            ? ` · dungeons completed: ${player.dungeonsCompleted.join(", ")}`
+            : ""}
         </span>
       </div>
 
@@ -1580,6 +1604,7 @@ function CardChip({
           only names it to a viewer Forge lets identify it) and said
           to be face down; the opponent's chip just says Face-down. */}
       {card.faceDown && card.known && <span className="card-note">face down</span>}
+      {card.ringBearer && <span className="card-note">Ring-bearer</span>}
       {card.sick && <span className="card-note">summoning sick</span>}
       {card.attacking && <span className="card-note">attacking</span>}
       {card.blocking && <span className="card-note">blocking</span>}

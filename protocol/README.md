@@ -145,3 +145,45 @@ CostDiscard               the card(s) to discard as a cost (escalate)
 
 Delve and discarding from a hand by an effect use the existing
 `chooseEntitiesForEffect` ("up to N", pass when done).
+
+## Questions during resolution (Phase 6, the last required lab cards)
+
+Added 2026-10-20, each a port of Forge's own human controller:
+
+```text
+chooseNumber              a number Forge allows, "number:N" (Harnessed
+                          Lightning's "pay any amount of energy")
+chooseSingleCardFace      one face from Forge's list (which dungeon);
+                          one face alone is not asked
+chooseSingleSpellForEffect   one of several abilities (which room of
+                          a dungeon next)
+chooseSpellAbilitiesForEffect   N different abilities, one at a time
+                          (Mind Bend: a colour word or a land type)
+chooseTargetsFor          also NEW targets for a copy (Krark): the
+                          prompt starts "New target for"; passing
+                          keeps the targets it has
+arrangeForScry            scry N: first the cards for the BOTTOM via
+                          chooseEntitiesForEffect (pass when done),
+                          then "which goes on top" one at a time
+willPutCardOnTop          one card: "Top" or "Bottom"
+```
+
+A cost paid while something resolves ("unless you pay", paying
+energy) and choosing several cards for an effect go through the
+existing confirm, mana and `chooseEntitiesForEffect` questions.
+
+Snapshot additions:
+
+```text
+player.ringTempted        how many times the Ring has tempted the
+                          player; absent for never
+player.dungeonsCompleted  one dungeon name per completion
+player.command            a dungeon carries its room:
+                          "Undercity (room: Lost Well)"; "The Ring"
+                          once the Ring has tempted the player
+card.ringBearer           true on the Ring-bearer, for every viewer
+```
+
+Value notices use Forge's own wording, per viewer: "Krark, the
+Thumbless: You win the flip" to the flipper, "...: Alice wins the
+flip" to the opponent.

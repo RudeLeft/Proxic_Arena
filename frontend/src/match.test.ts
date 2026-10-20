@@ -413,6 +413,13 @@ describe("board detail", () => {
     const card = state.board?.battlefield[0];
     expect(card?.counters).toEqual([{ name: "P1P1", count: 2 }]);
     expect(card?.attachedTo).toBe("card:9");
+    expect(card?.ringBearer).toBe(false);
+  });
+
+  it("reads the Ring-bearer mark, and only an explicit true", () => {
+    const base = { id: "card:8", seat: 1, name: "Bear", kind: "creature", power: 2, toughness: 2, known: true };
+    expect(apply([withCreature({ ...base, ringBearer: true })]).board?.battlefield[0]?.ringBearer).toBe(true);
+    expect(apply([withCreature({ ...base, ringBearer: "yes" })]).board?.battlefield[0]?.ringBearer).toBe(false);
   });
 
   /**
@@ -641,7 +648,9 @@ describe("player and global state", () => {
           name: "Bob",
           life: 20,
           counters: [{ name: "POISON", count: 3 }],
-          command: ["Undercity"],
+          command: ["Undercity (room: Lost Well)", "The Ring"],
+          ringTempted: 2,
+          dungeonsCompleted: ["Undercity"],
         },
       ],
     },
@@ -652,8 +661,16 @@ describe("player and global state", () => {
     expect(alice?.designations).toEqual(["monarch"]);
     expect(alice?.counters).toEqual([{ name: "ENERGY", count: 2 }]);
     expect(bob?.counters).toEqual([{ name: "POISON", count: 3 }]);
-    expect(bob?.command).toEqual(["Undercity"]);
+    expect(bob?.command).toEqual(["Undercity (room: Lost Well)", "The Ring"]);
     expect(bob?.designations).toEqual([]);
+  });
+
+  it("reads the Ring's temptations and completed dungeons, zero and none when absent", () => {
+    const [alice, bob] = apply([BOARD]).board!.players;
+    expect(bob?.ringTempted).toBe(2);
+    expect(bob?.dungeonsCompleted).toEqual(["Undercity"]);
+    expect(alice?.ringTempted).toBe(0);
+    expect(alice?.dungeonsCompleted).toEqual([]);
   });
 
   it("reads day or night, and nothing before either", () => {

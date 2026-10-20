@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 60 |
-| PARTIAL | 1 |
+| MET | 61 |
+| PARTIAL | 0 |
 | NOT MET | 2 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -71,9 +71,34 @@ record, with the owner-approved Forge patch that resolves it.
 
 Where it stands now (2026-10-20): 60 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
-server, so they are the owner's to schedule), and one
-partial -- project integrity (BM), which runs clean except for a file
-deleted from Proxic_Arena_OLD's working tree, left for the owner.
+server, so they are the owner's to schedule), and project
+integrity (BM), MET 2026-10-20 once the deleted plan file was restored.
+
+**Updated 2026-10-20, Mechanics Lab.** The exit also needs evidence
+for the 48 Phase-6-required lab cards (§6.5). **All 48 are PASSED**,
+each by a scenario that asserts the mechanic from the board, in CI
+(`check-costs`, `check-modes`, `check-shapes`, `check-results`,
+`check-tracked-state`, `check-text-effects`, `check-coin-flip`, and
+the earlier per-card scripts). They found and fixed real faults:
+counterspells could not target a spell; no Phyrexian life payment;
+half-cards offered at the whole card's name and cost; a Room unlocked
+at the wrong price; day and night shown the wrong way round; the
+Ring-bearer, the Ring and dungeon rooms not on the board; two
+identical "choose a land type" questions in Mind Bend; and **eleven
+Forge questions that ended the match when reached** -- divided
+damage, delve, convoke/improvise, optional costs, static-ability
+order, discard-from, a number, a dungeon, a dungeon room, a copy's
+new targets, scry, a cost paid during resolution and choosing cards
+for an effect.
+
+**Still unbuilt: 42 Forge questions** (`GeneratedControllerBase`
+loud stubs not overridden in `MatchController`). AGENTS STUB-001
+builds them when a real game reaches one, and no required card does;
+but some are common in the full card pool and will end a match when
+reached -- notably "each player sacrifices" (`choosePermanentsToSacrifice`:
+Diabolic Edict), surveil, voting, exert, and cost-reduction numbers.
+That is Phase 8 coverage work (the lab's Exploratory cards), recorded
+here so it is not mistaken for done.
 
 ---
 
@@ -272,7 +297,7 @@ restarted under a live match outside a unit test.
 | P6-AJ | Composite / multi-representation | MET | **Run 2026-10-20** (`check-multiface.py`, `e2e/match-multiface.spec.ts`): Delver of Secrets // Insectile Aberration is one object id whose face changes; the snapshot carries Forge's `face` and every face name (§6.79), and the art follows the face shown -- the front's picture, then none for the back rather than the front's. Mutate, Rooms and battles are still untested (ledger) |
 | P6-AK | Attachment relationships | MET | **Run 2026-10-20**, `scripts/check-attachments.py` (in CI) and `e2e/match-attachments.spec.ts`. From both seats' snapshots: Bonesplitter equipped to one creature then another (the relationship moves); Pacifism, seat 1's Aura on seat 2's creature; Control Magic on a creature whose seat goes 2 → 1 under the same id; Rabbit Battery reconfigured -- no longer a creature, `Artifact - Equipment`, attached. Every `attachedTo` names a card on that viewer's battlefield. In the browser each attachment is drawn on what it modifies, whoever controls it ("Pacifism (yours)" / "Pacifism (RudeLeft's)"). **Found and fixed:** an Aura on an opponent's creature was drawn nowhere -- attachments were looked for among their controller's own cards only. Mutate is P6-AJ's (Gemrazer) |
 | P6-AL | Effective characteristics | MET | **Run 2026-10-20**, `scripts/check-characteristics.py` (in CI). Humility: Serra Angel 4/4 Flying Vigilance -> the same object 1/1 with no keywords. Blood Moon: Evolving Wilds `Land` with its search ability -> `Land - Mountain` offering only `{T}: Add {R}`. All Forge's current values; the snapshot now carries current KEYWORDS (it had none), shown on the card chip -- seen in the browser ("Defender") |
-| P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
+| P6-AM | Forge RNG authority | MET | **Krark, the Thumbless run 2026-10-20** (`scripts/check-coin-flip.py`, in CI): four calls, each answered twice and the second refused (no reroll); Forge's outcome told to both players in Forge's own words ("You win the flip" / "Alice wins the flip"); a won flip's copy asks for new targets. **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
 | P6-AO | Player / global state | MET | **Run 2026-10-20**, `scripts/check-player-state.py` (in CI) and `e2e/match-state.spec.ts`. Generic, per §6.96: every Forge counter on a player, Forge's designations, emblems/dungeons in the command zone, and day/night. Energy (Aether Hub), poison (Glistener Elf, life unchanged), monarch (Palace Jailer), day (Reckless Stormseeker) -- all seen on the board. **Found and fixed:** paying energy was an unimplemented cost that ended the match, and declining "which mana ability?" eight times ended it too (`check-mana-choice.py`; mutation-tested) |
 | P6-AP | Alternate Forge result | MET | **Run 2026-10-20**, `scripts/check-alternate-win.py` (in CI; trace `docs/testing/evidence/p6-ap-laboratory-maniac.trace.json`) and `e2e/match-alternate-win.spec.ts`. Laboratory Maniac: seat 1's library empties and its next draw wins; nobody attacks, both players end on **20 life**, so life could not have decided it. GAME_ENDED carries WINNER seat 1 and Forge's own reason ("has won due to effect of 'Laboratory Maniac'", the winner's PlayerOutcome, alternate wins only); the match record keeps it (`an alternate win is recorded with Forge's reason`) and both players read it on the result line. **Found and fixed:** the final board was never sent -- snapshots went out only with a question, so what happened after the last one (the mill that emptied the library; combat damage taking a player to 0) never reached the players. The worker now publishes the board before GAME_ENDED, to every registered player -- Forge drops a player who has lost from `getPlayers()`, so the first fix sent the final board to the winner alone, showing the winner alone. The check fails without either fix |
@@ -308,7 +333,7 @@ restarted under a live match outside a unit test.
 | P6-BJ | 2HG guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI): a ROOM rewritten to TWO_HEADED_GIANT cannot be prepared (422 INVALID_ROOM_CONFIGURATION), and a SETUP rewritten to it after preparation cannot be launched (422 LAUNCH_REVALIDATION_FAILED, no match row, so no worker). Mutation-tested: disabling either guard fails its tests |
 | P6-BK | Production end-to-end | NOT MET | Everything has been run against the local Docker stack |
 | P6-BL | Production worker privacy | NOT MET | No external network test |
-| P6-BM | Project integrity | PARTIAL | **Run 2026-10-20**, `scripts/check-integrity.py` (local; CI has no sibling checkouts), read-only. Holds: Proxic_Deck_Builder at its recorded HEAD and clean; the Test Deck TXT and CSV byte-identical to their only commit (815af59) and their recorded SHA-256; the vendored Forge tree at exactly the pinned 4ec5f1a2 with no change of any kind. **Finding, owner's call:** Proxic_Arena_OLD is at its recorded HEAD but its working tree has `Proxic_Arena_Complete_Build_Plan.docx` DELETED. The committed copy is intact (OLD commit 6247e97); nothing in this project writes to OLD (ISO-001), and restoring it would be a write, so it is left as found |
+| P6-BM | Project integrity | MET | **Re-run 2026-10-20 after the owner had the deleted Proxic_Arena_Complete_Build_Plan.docx restored from its last commit** (the only change in that tree; owner-authorised exception to ISO-001, one file, `git checkout --`): every line OK -- Proxic_Arena_OLD and Proxic_Deck_Builder at their recorded HEADs and clean, Test Deck TXT/CSV as committed, Forge at the pin. **Run 2026-10-20**, `scripts/check-integrity.py` (local; CI has no sibling checkouts), read-only. Holds: Proxic_Deck_Builder at its recorded HEAD and clean; the Test Deck TXT and CSV byte-identical to their only commit (815af59) and their recorded SHA-256; the vendored Forge tree at exactly the pinned 4ec5f1a2 with no change of any kind. **Finding, owner's call:** Proxic_Arena_OLD is at its recorded HEAD but its working tree has `Proxic_Arena_Complete_Build_Plan.docx` DELETED. The committed copy is intact (OLD commit 6247e97); nothing in this project writes to OLD (ISO-001), and restoring it would be a write, so it is left as found |
 
 ---
 
@@ -322,9 +347,8 @@ In rough order of how many tests each unblocks:
    production run).
 2. ~~**The Mechanics Lab corpus**~~ — done 2026-10-20: it existed
    all along in `Test Deck/Testing Deck/`. P6-AS, P6-AA and P6-AE
-   met; the ledger is `docs/testing/MECHANICS_LAB_COVERAGE.md`,
-   where 43 of the 48 Phase-6-required cards are still not yet
-   tested one by one.
+   met; the ledger is `docs/testing/MECHANICS_LAB_COVERAGE.md`.
+   All 48 Phase-6-required cards PASSED one by one, 2026-10-20.
 3. ~~**Semantic non-object choices**~~ — done 2026-10-19; P6-AG
    done 2026-10-20 by searching (owner decision).
 4. ~~**Pregame**~~ — done 2026-10-19; Leyline-style 2026-10-20.

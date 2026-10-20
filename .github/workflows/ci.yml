@@ -199,7 +199,8 @@ jobs:
           printf '%s\n' \
               agent-of-kotis panglacial-wurm card-name leyline karn multiface \
               mindslaver characteristics player-state mana-choice alternate-win \
-              attachments printings face-down costs modes shapes \
+              attachments printings face-down costs modes shapes results \
+              tracked-state text-effects coin-flip \
             | xargs -n 1 -P 3 sh -c \
               'python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
                s=$?; echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
@@ -335,6 +336,11 @@ jobs:
       - name: Build the morph deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/morph-deck.zip" protocol/fixtures/morph-deck
+
+      # And the Ring and a dungeon (P6-AO): the Ring-bearer, the room.
+      - name: Build the ring deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/ring-deck.zip" protocol/fixtures/ring-deck
 
       - run: npm ci
         working-directory: frontend

@@ -143,7 +143,11 @@ final class ViewerSnapshot {
                 // Regeneration" or "The Monarch" (already a designation
                 // above). Seen on the board as "command zone: Blight
                 // Mamba (62)'s Regeneration", which no player put there.
-                if (card.isImmutable() && !card.isEmblem() && !card.getType().isDungeon()) {
+                // The Ring is one of those pieces to Forge, but to the
+                // rules it is an emblem the player has (701.54a), and
+                // it is public (Call of the Ring, 2026-10-20).
+                if (card.isImmutable() && !card.isEmblem() && !card.getType().isDungeon()
+                        && card != player.getTheRing()) {
                     continue;
                 }
                 // A dungeon with the room its venture marker is in:

@@ -331,7 +331,7 @@ def improvise():
 
 def affinity():
     g = game("affinity", [("Island", 20), ("Ornithopter", 20), ("Thoughtcast", 20)])
-    done = {"cast": False, "hand_before": None, "untapped_before": None}
+    done = {"card": None, "hand_before": None}
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
@@ -345,17 +345,24 @@ def affinity():
                     return o
             if not g.mine(1, name="Island"):
                 return g.play_land(f)
-            if len(thopters) >= 4 and not done["cast"] and g.untapped_lands(1):
-                done["cast"], done["hand_before"] = True, g.player(1, 1).get("handCount")
-                return cast(g, f, "Thoughtcast")
+            o = cast(g, f, "Thoughtcast")
+            if o and len(thopters) >= 4 and cast_again(g, done["card"]) and g.untapped_lands(1):
+                done["card"], done["hand_before"] = card_of(o), g.player(1, 1).get("handCount")
+                return o
             return None
         if kind == "chooseCardsForConvokeOrImprovise":
             return None  # affinity is not improvise: nothing is tapped
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            return discard_spare(f, "Island")
         return DEFAULT
 
-    g.run(policy, until=lambda g: done["cast"] and graveyard(g, 1, "Thoughtcast")
-          and not g.state.get(1, {}).get("stack"), max_turn=28)
-    found = {"resolved": bool(graveyard(g, 1, "Thoughtcast")),
+    # The copy that was cast, not any copy: a discarded one is in the
+    # graveyard too.
+    resolved = lambda g: any(c["id"] == done["card"] for c in graveyard(g, 1))  # noqa: E731
+    g.run(policy, until=lambda g: done["card"] and resolved(g)
+          and not g.state.get(1, {}).get("stack"), max_turn=36)
+    done["cast"] = bool(done["card"])
+    found = {"resolved": bool(done["card"] and resolved(g)),
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
              "islands": len(g.mine(1, name="Island")),
              "thopters_tapped": [c.get("tapped") for c in g.mine(1, name="Ornithopter")]}

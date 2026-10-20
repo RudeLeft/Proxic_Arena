@@ -186,7 +186,9 @@ for line in proc.stdout:
         if pick is None and splitter and lands_total >= 1:
             host = splitter[0].get("attachedTo")
             others = [c for c in mine_creatures if c["id"] != host and c.get("name") != "Rabbit Battery"]
-            if (moved == 0 and mine_creatures) or (moved == 1 and others):
+            # Only with a creature to equip that is not the Battery: an
+            # equip with no legal target is cancelled and offered again.
+            if (moved == 0 and others) or (moved == 1 and others):
                 pick = offered("Bonesplitter", "Equip", zone="battlefield")
                 intent = ("equip", host)
         if pick is None and mountains >= 1 and len([c for c in mine_creatures if c["name"] == "Raging Goblin"]) < 2:
@@ -230,8 +232,13 @@ for line in proc.stdout:
             pick = options[0]
     elif dkind in ("declareAttackers", "declareBlockers"):
         pick = None
-    elif dkind in ("applyManaToCost", "mulliganKeepHand", "chooseStartingPlayer", "confirmPayment",
-                   "chooseCardsToDiscardToMaximumHandSize"):
+    elif dkind == "chooseCardsToDiscardToMaximumHandSize":
+        # A land, not a card the scenario still needs.
+        in_hand = {c["id"]: c.get("name") for c in state.get(seat, {}).get("hand", [])}
+        lands = ("Island", "Plains", "Mountain", "Forest")
+        pick = next((o for o in options if in_hand.get(card_of(o["actionId"])) in lands), None) \
+            or (options[0] if options else None)
+    elif dkind in ("applyManaToCost", "mulliganKeepHand", "chooseStartingPlayer", "confirmPayment"):
         pick = options[0] if options else None
     else:
         pick = options[0] if (options and frame.get("mandatory")) else None

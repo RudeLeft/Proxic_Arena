@@ -576,6 +576,45 @@ public final class MatchController extends GeneratedControllerBase {
      */
     @Override
     public boolean chooseTargetsFor(SpellAbility ability) {
+        return selectTargets(ability, null, null);
+    }
+
+    /**
+     * New targets for a copy -- Krark, the Thumbless's "you may choose
+     * new targets for the copy" (rule 707.10c). A port of Forge's human
+     * controller: the targets are cleared and chosen again through the
+     * same question as casting, from Forge's candidates and its
+     * `filter`; passing before enough are chosen keeps the OLD targets
+     * (Forge returns null for "unchanged"). Was a loud stub: the first
+     * copy Krark made stopped the match (found 2026-10-20).
+     *
+     * Known limit (STUB-005): a DIVIDED copy keeps its targets and its
+     * division -- Forge carries the old division over, and re-dividing
+     * it here would be a second, different question. No required card
+     * reaches it.
+     */
+    @Override
+    public forge.game.spellability.TargetChoices chooseNewTargetsFor(
+            SpellAbility ability, java.util.function.Predicate<forge.game.GameObject> filter, boolean optional) {
+        SpellAbility sa = ability.isWrapper()
+                ? ((forge.game.trigger.WrappedAbility) ability).getWrappedAbility() : ability;
+        if (!sa.usesTargeting() || sa.isDividedAsYouChoose()) {
+            return null;
+        }
+        forge.game.spellability.TargetChoices old = sa.getTargets();
+        sa.clearTargets();
+        String prompt = "New target for " + sa.getHostCard().getName()
+                + " (now: " + old.toString() + ")" + (optional ? " -- pass to keep the targets it has." : "");
+        if (selectTargets(sa, filter, prompt)) {
+            return sa.getTargets();
+        }
+        sa.setTargets(old);
+        return null;
+    }
+
+    private boolean selectTargets(SpellAbility ability,
+                                  java.util.function.Predicate<forge.game.GameObject> filter,
+                                  String prompt) {
         if (!ability.usesTargeting()) {
             return true;
         }
@@ -599,7 +638,8 @@ public final class MatchController extends GeneratedControllerBase {
                     restrictions.getAllCandidates(ability);
             // Already chosen ones are not offered again: a target
             // list is a set, and Forge rejects a repeat anyway.
-            candidates.removeIf(entity -> ability.getTargets().contains(entity));
+            candidates.removeIf(entity -> ability.getTargets().contains(entity)
+                    || (filter != null && !filter.test(entity)));
 
             // SPELLS ON THE STACK (Counterspell, Force of Will). Forge's
             // getAllCandidates covers players and cards in the target
@@ -613,7 +653,8 @@ public final class MatchController extends GeneratedControllerBase {
             if (restrictions.getZone() != null && restrictions.getZone().contains(forge.game.zone.ZoneType.Stack)) {
                 for (forge.game.spellability.SpellAbilityStackInstance instance : player.getGame().getStack()) {
                     SpellAbility there = instance.getSpellAbility();
-                    if (ability.canTargetSpellAbility(there) && !ability.getTargets().contains(there)) {
+                    if (ability.canTargetSpellAbility(there) && !ability.getTargets().contains(there)
+                            && (filter == null || filter.test(there))) {
                         // The snapshot's own id for it, so a page can match them.
                         onStack.put("target:stack:" + instance.getId(), there);
                     }
@@ -647,6 +688,8 @@ public final class MatchController extends GeneratedControllerBase {
                                 authorisedSeat,
                                 "chooseTargetsFor",
                                 new java.util.ArrayList<>(labels.keySet()),
+                                false,
+                                prompt,
                                 pending -> host.publishDecision(pending, labels));
 
                 if (DecisionGate.PASS.equals(choice)) {
@@ -1505,6 +1548,210 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * A number during resolution -- Harnessed Lightning's "pay any
+     * amount of energy". A port of Forge's human controller: min when
+     * there is only one answer, otherwise every value from min to max,
+     * with the same ceiling as an announced X when max is unbounded
+     * (see {@link #ceilingFor}). Forge's prompt cannot be cancelled,
+     * so neither can this one. Was a loud stub: the first Harnessed
+     * Lightning stopped the match (found 2026-10-20).
+     */
+    @Override
+    public int chooseNumber(SpellAbility sa, String title, int min, int max) {
+        if (min >= max) {
+            return min;
+        }
+        java.util.List<Integer> values = new java.util.ArrayList<>();
+        for (int value = min, ceiling = ceilingFor(min, max); value <= ceiling; value++) {
+            values.add(value);
+        }
+        return pickNumber(title, values);
+    }
+
+    /** A number from Forge's own list of allowed ones. */
+    @Override
+    public int chooseNumber(SpellAbility sa, String title, java.util.List<Integer> choices, Player relatedPlayer) {
+        return pickNumber(title, choices);
+    }
+
+    private int pickNumber(String title, java.util.List<Integer> values) {
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        values.forEach(value -> labels.put("number:" + value, String.valueOf(value)));
+        String answer = askOne("chooseNumber", title, labels, true);
+        return answer == null ? values.get(0) : Integer.parseInt(answer.substring("number:".length()));
+    }
+
+    /**
+     * One card face out of a list Forge supplies -- which dungeon to
+     * venture into (White Plume Adventurer takes the initiative, so
+     * Forge offers the Undercity alone). A port of Forge's human
+     * controller; one face is not a question. Was a loud stub: taking
+     * the initiative stopped the match (found 2026-10-20).
+     */
+    @Override
+    public forge.card.ICardFace chooseSingleCardFace(
+            SpellAbility sa, java.util.List<forge.card.ICardFace> faces, String message) {
+        if (faces == null || faces.isEmpty()) {
+            return null;
+        }
+        if (faces.size() == 1) {
+            return faces.get(0);
+        }
+        java.util.List<String> names = new java.util.ArrayList<>();
+        faces.forEach(face -> names.add(face.getName()));
+        int picked = askIndex("chooseSingleCardFace", names, true, message);
+        return faces.get(Math.max(picked, 0));
+    }
+
+    /**
+     * One ability out of several Forge offers for an effect -- which
+     * room of a dungeon to enter next. A port of Forge's human
+     * controller: fewer than two is not a question.
+     */
+    @Override
+    public SpellAbility chooseSingleSpellForEffect(
+            java.util.List<SpellAbility> spells, SpellAbility sa, String title, java.util.Map<String, Object> params) {
+        if (spells.size() < 2) {
+            return spells.isEmpty() ? null : spells.get(0);
+        }
+        int picked = askIndex("chooseSingleSpellForEffect", describe(spells), true, title);
+        return spells.get(Math.max(picked, 0));
+    }
+
+    /**
+     * `num` abilities out of several, all different -- Mind Bend's
+     * "a colour word or a basic land type", Forge's GenericChoice. A
+     * port of Forge's human controller (exactly `num`), asked one at a
+     * time. Was a loud stub: Mind Bend stopped the match (found
+     * 2026-10-20).
+     */
+    @Override
+    public java.util.List<SpellAbility> chooseSpellAbilitiesForEffect(
+            java.util.List<SpellAbility> spells, SpellAbility sa, String title, int num,
+            java.util.Map<String, Object> params) {
+        java.util.List<SpellAbility> remaining = new java.util.ArrayList<>(spells);
+        java.util.List<SpellAbility> chosen = new java.util.ArrayList<>();
+        while (chosen.size() < num && !remaining.isEmpty()) {
+            if (remaining.size() == 1 || remaining.size() == num - chosen.size()) {
+                chosen.add(remaining.remove(0));
+                continue;
+            }
+            int picked = askIndex("chooseSpellAbilitiesForEffect", describe(remaining), true, title);
+            chosen.add(remaining.remove(Math.max(picked, 0)));
+        }
+        return chosen;
+    }
+
+    /**
+     * A cost paid while something resolves -- Harnessed Lightning's
+     * "pay any amount of {E}", "unless its controller pays", echo,
+     * cumulative upkeep. Forge's human controller hands this to
+     * PlaySpellAbility.payCostDuringAbilityResolve, which is in
+     * forge-game and takes any PlayerController, so this is the same
+     * delegation: every confirm and every choice in it comes back to
+     * this controller as a question. Was a loud stub: the first
+     * Harnessed Lightning stopped the match (found 2026-10-20).
+     */
+    @Override
+    public boolean payCostToPreventEffect(
+            forge.game.cost.Cost cost, SpellAbility sa, boolean alreadyPaid,
+            forge.util.collect.FCollectionView<Player> allPayers) {
+        String prompt = null;
+        if (sa.isKeyword(forge.game.keyword.Keyword.ECHO)) {
+            prompt = "Pay Echo?";
+        } else if (sa.isKeyword(forge.game.keyword.Keyword.CUMULATIVE_UPKEEP)) {
+            prompt = "Cumulative upkeep for " + sa.getHostCard();
+        }
+        return forge.game.player.PlaySpellAbility.payCostDuringAbilityResolve(this, player, cost, sa, prompt);
+    }
+
+    /** The same, for a cost paid during a die roll. */
+    @Override
+    public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {
+        return forge.game.player.PlaySpellAbility.payCostDuringAbilityResolve(this, player, cost, sa, null);
+    }
+
+    /**
+     * Some cards for an effect, between min and max -- the Undercity's
+     * rooms, "choose up to two". A port of Forge's human controller:
+     * exactly one is the single-card question; otherwise one at a time
+     * through chooseEntitiesForEffect, and an optional choice may be
+     * none at all (Forge's cancel returns an empty selection). Was a
+     * loud stub (found by White Plume Adventurer, 2026-10-20).
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsForEffect(
+            forge.game.card.CardCollectionView sourceList, SpellAbility sa, String title,
+            int min, int max, boolean isOptional, java.util.Map<String, Object> params) {
+        if (min == 1 && max == 1) {
+            forge.game.card.Card one = chooseSingleEntityForEffect(sourceList, sa, title, isOptional, params);
+            return one == null ? forge.game.card.CardCollection.EMPTY : new forge.game.card.CardCollection(one);
+        }
+        if (sourceList.isEmpty()) {
+            return new forge.game.card.CardCollection();
+        }
+        return new forge.game.card.CardCollection(chooseEntitiesForEffect(
+                sourceList, isOptional ? 0 : min, max, null, sa, title, null, params));
+    }
+
+    /**
+     * Scry -- a port of Forge's human controller. One card: top or
+     * bottom. Several: which go to the BOTTOM (any number, none
+     * included), then the order of the rest on top, first chosen =
+     * top card (Forge's GameAction.scry reverses the list it gets
+     * back for exactly that reading). The cards are named in the
+     * question, which goes to the scrying player alone. Was a loud
+     * stub, reached by the Undercity's Lost Well (White Plume
+     * Adventurer, 2026-10-20) -- and by every scry card there is.
+     */
+    @Override
+    public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection>
+            arrangeForScry(forge.game.card.CardCollection topN) {
+        if (topN.size() == 1) {
+            return willPutCardOnTop(topN.get(0))
+                    ? org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null)
+                    : org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN);
+        }
+        forge.game.card.CardCollection toBottom = new forge.game.card.CardCollection(chooseEntitiesForEffect(
+                topN, 0, topN.size(), null, null,
+                "Scry " + topN.size() + ": choose the cards to put on the BOTTOM of your library", null, null));
+        java.util.List<forge.game.card.Card> remaining = new java.util.ArrayList<>(topN);
+        remaining.removeAll(toBottom);
+        forge.game.card.CardCollection toTop = new forge.game.card.CardCollection();
+        while (remaining.size() > 1) {
+            java.util.List<String> names = new java.util.ArrayList<>();
+            remaining.forEach(card -> names.add(String.valueOf(card)));
+            int picked = askIndex("arrangeForScry", names, true,
+                    "Which goes on TOP of your library" + (toTop.isEmpty() ? "" : ", under " + toTop.get(toTop.size() - 1)) + "?");
+            toTop.add(remaining.remove(Math.max(picked, 0)));
+        }
+        toTop.addAll(remaining);
+        return org.apache.commons.lang3.tuple.ImmutablePair.of(toTop.isEmpty() ? null : toTop,
+                toBottom.isEmpty() ? null : toBottom);
+    }
+
+    /** Top or bottom of the library, for one card -- Forge's own question. */
+    @Override
+    public boolean willPutCardOnTop(forge.game.card.Card card) {
+        int picked = askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
+                "Put " + card + " on the top or the bottom of your library?");
+        return picked != 1;
+    }
+
+    /** What a player reads for each ability: its own description. */
+    private static java.util.List<String> describe(java.util.List<SpellAbility> spells) {
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        for (SpellAbility spell : spells) {
+            String text = spell.getDescription();
+            texts.add(text == null || text.isBlank() ? spell.toString() : text);
+        }
+        return texts;
+    }
+
+    /**
      * Discard from a hand (Three Steps Ahead's "then discard a card") --
      * a port of Forge's human controller: from `valid`, between min
      * and max, one at a time. From another player's hand the chooser
@@ -1853,13 +2100,25 @@ public final class MatchController extends GeneratedControllerBase {
         if (!isOptional && types.size() == 1) {
             return types.get(0);
         }
-        return pickValue(
-                "chooseSomeType",
-                "Choose a " + kindOfType.toLowerCase(java.util.Locale.ROOT) + " type.",
-                types,
-                isOptional,
-                types.get(0));
+        String kind = kindOfType.toLowerCase(java.util.Locale.ROOT);
+        String prompt = "Choose a " + kind + " type.";
+        // A text change (Mind Bend) asks TWICE with the same words --
+        // the type to replace, then its replacement -- and Forge's own
+        // prompt cannot tell them apart. Which one this is follows
+        // ChangeTextEffect's order: the first question of a resolution
+        // is the word to replace (found 2026-10-20, check-text-effects).
+        if (sa != null && sa.getApi() == forge.game.ability.ApiType.ChangeText) {
+            boolean second = sa == changeTextAsked;
+            changeTextAsked = second ? null : sa;
+            prompt = sa.getHostCard().getName() + ": "
+                    + (second ? "choose the new " + kind + " type to put in its place."
+                              : "choose the " + kind + " type to replace.");
+        }
+        return pickValue("chooseSomeType", prompt, types, isOptional, types.get(0));
     }
+
+    /** The text change whose first type question has been asked. */
+    private SpellAbility changeTextAsked;
 
     /** Which kind of protection — the same shape, Forge's list. */
     @Override
@@ -2922,10 +3181,15 @@ public final class MatchController extends GeneratedControllerBase {
     public void notifyOfValue(
             forge.game.spellability.SpellAbility sa, forge.game.GameObject realtimeTarget,
             String value) {
-        String about = sa == null || sa.getHostCard() == null
+        // Forge's own wording (forge-game's MessageUtil, which its
+        // human controller uses): "You win the flip." / "Alice loses
+        // the flip." rather than "Krark, the Thumbless: lose", which
+        // did not say who flipped or that it was a flip (2026-10-20).
+        String message = forge.util.MessageUtil.formatNotificationMessage(sa, player, realtimeTarget, value);
+        String about = sa == null || sa.getHostCard() == null || message.contains(sa.getHostCard().getName())
                 ? ""
                 : sa.getHostCard().getName() + ": ";
-        host.note(actedForSeat, about + value);
+        host.note(actedForSeat, about + message);
     }
 
     /** How many times this seat was offered priority. Diagnostics. */

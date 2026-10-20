@@ -140,6 +140,8 @@ export interface SnapshotCard {
   keywords: string[];
   /** The card this is attached to, for auras and equipment. */
   attachedTo: string | null;
+  /** The Ring-bearer (the Ring's abilities are its alone). Public. */
+  ringBearer: boolean;
 }
 
 export interface SnapshotPlayer {
@@ -159,6 +161,10 @@ export interface SnapshotPlayer {
   counters: SnapshotCounter[];
   designations: string[];
   command: string[];
+  /** How many times the Ring has tempted this player; 0 for never. */
+  ringTempted: number;
+  /** Dungeons this player has completed, one entry each time. */
+  dungeonsCompleted: string[];
 }
 
 /** §6.40 — the board as one seat may see it. */
@@ -398,6 +404,8 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       counters: asCounters(row["counters"]),
       designations: asNotices(row["designations"]),
       command: asNotices(row["command"]),
+      ringTempted: asNumber(row["ringTempted"]) ?? 0,
+      dungeonsCompleted: asNotices(row["dungeonsCompleted"]),
     });
   }
   return players;
@@ -438,6 +446,7 @@ function asCards(value: unknown): SnapshotCard[] {
       counters: asCounters(row["counters"]),
       keywords: asNotices(row["keywords"]),
       attachedTo: asString(row["attachedTo"]),
+      ringBearer: row["ringBearer"] === true,
       // §6.123 — a content hash or nothing.
       //
       // Validated to the same shape the server validates, so a

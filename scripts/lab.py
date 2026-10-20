@@ -46,6 +46,7 @@ class Game:
         self.error = None          # an ERROR frame that stopped the game
         self.notices = {1: [], 2: []}
         self.asked = []            # (seat, kind, prompt, labels) for every question
+        self.refused = 0           # answers the worker refused (DECISION_REFUSED)
         self.turn = 0
         self.proc = subprocess.Popen(
             ["java", *jvm, "-jar", self.jar, self.res],
@@ -186,7 +187,10 @@ class Game:
             if kind == "GAME_ENDED":
                 self.ended = frame
                 break
-            if kind == "ERROR" and frame.get("errorCode") != "DECISION_REFUSED":
+            if kind == "ERROR" and frame.get("errorCode") == "DECISION_REFUSED":
+                self.refused += 1
+                continue
+            if kind == "ERROR":
                 self.error = frame
                 break
             if kind != "DECISION_REQUEST":
