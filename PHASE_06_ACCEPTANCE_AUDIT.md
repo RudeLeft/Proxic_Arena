@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 59 |
+| MET | 60 |
 | PARTIAL | 1 |
-| NOT MET | 3 |
+| NOT MET | 2 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -66,12 +66,12 @@ what they modify. P6-BD → MET: every card is the exact printing its
 deck asked for, at runtime. P6-I → MET: a real morph, hidden from
 the opponent in every frame and named for its controller. P6-G →
 MET: no seat is sent a card from another's hand that Forge did not
-show it, over every regression game.
+show it, over every regression game. P6-AF → MET: the Leyline rules
+record, with the owner-approved Forge patch that resolves it.
 
-Where it stands now (2026-10-20): 59 of 65 met. What is left is
+Where it stands now (2026-10-20): 60 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
-server, so they are the owner's to schedule), a **rules-version
-regression** scenario nobody has chosen yet (P6-AF), and one
+server, so they are the owner's to schedule), and one
 partial -- project integrity (BM), which runs clean except for a file
 deleted from Proxic_Arena_OLD's working tree, left for the owner.
 
@@ -262,10 +262,10 @@ restarted under a live match outside a unit test.
 |---|---|---|---|
 | P6-AA | Agent of Kotis renew regression | MET | **Run 2026-10-20**, `scripts/check-agent-of-kotis.py`, in CI. A creature on the battlefield with nothing offered for it there; attacking only via declareAttackers; sacrificed by real play, same id in the graveyard; Forge offers Renew as its own action, chosen, paid, exiled, two +1/+1 counters. No source names the card. Trace: `docs/testing/evidence/p6-aa-agent-of-kotis.trace.json`. Found and fixed: CostExile and CostSacrifice were stubs; the action label showed Forge's `CARDNAME` placeholder |
 | P6-AB | Multiple actions discoverable | MET | Action ids are `action:<n>:card:<id>`, distinct per ability; Hellspark Elemental offers cast and unearth, Sensei's Divining Top two abilities |
-| P6-AC | Pregame decisions | MET | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **Leyline-style added 2026-10-20** (`scripts/check-leyline.py`, `e2e/match-leyline.spec.ts`, both in CI): asked before turn one, one pick per question, the chosen cards begin on the battlefield uncast, a declined one stays in hand. Was a loud stub. **A Forge defect was found** -- if nobody acts before the first card moves to a graveyard, the Leyline's replacement is skipped (last-known battlefield not refreshed); confirmed by experiment, owner decision pending under VEND-002 |
+| P6-AC | Pregame decisions | MET | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **Leyline-style added 2026-10-20** (`scripts/check-leyline.py`, `e2e/match-leyline.spec.ts`, both in CI): asked before turn one, one pick per question, the chosen cards begin on the battlefield uncast, a declined one stays in hand. Was a loud stub. **A Forge defect was found** -- if nobody acts before the first card moves to a graveyard, the Leyline's replacement is skipped (last-known battlefield not refreshed). **Fixed 2026-10-20** by owner-approved Forge patch `forge_patches/0001-leyline-last-known-state.patch` (VEND-002); `check-leyline.py` now forces that case every run and fails without the patch |
 | P6-AD | Karn / game restart | MET | **Run 2026-10-20**, `scripts/check-karn.py` (in CI) and `e2e/match-karn.spec.ts`. Karn's -14 through real play; Forge restarts in place, keeping card id numbers, so a game EPOCH (from Forge's `GameEventGameRestarted`) goes on every snapshot and question; game 2 starts at turn 1 and 20 life, the Karn-exiled cards return under the caster, both players are told in words; game 1's last answer is refused as DUPLICATE and a game-1 action id against a game-2 question as STALE_DECISION. Trace: `docs/testing/evidence/p6-ad-karn-liberated.trace.json` |
 | P6-AE | Nested interaction / Panglacial Wurm | MET | **Run 2026-10-20**, `scripts/check-panglacial-wurm.py`, in CI. Evolving Wilds' search on the stack; Forge offers the Wurm; seven mana decisions pay for it and it goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves. Trace: `docs/testing/evidence/p6-ae-panglacial-wurm.trace.json` |
-| P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
+| P6-AF | Rules-version regression | MET | **Recorded 2026-10-20**, `docs/testing/evidence/p6-af-rules-record.md`; scenario chosen by the owner. Leyline of the Void begun on the battlefield, a discard before anyone has acted, on Forge `4ec5f1a2` (forge-2.0.15). Unmodified Forge CONFLICTS with the rules -- the card reaches the graveyard (trace `p6-af-leyline-unpatched.trace.json`). Not worked around in Proxic (ARCH-002); fixed by owner-approved Forge patch 0001, after which it is exiled (`p6-af-leyline-patched.trace.json`). `check-leyline.py` forces the case in CI |
 | P6-AG | Card-name choice | MET | **Built 2026-10-20, owner decision: search, then pick** (`protocol/README.md`). The question arrives searchable with Forge's count (34,334 for Pithing Needle, 33,067 for Phyrexian Revoker's nonland list) and no options; the player searches, the server sends the best 50 from FORGE's list, and only a name it sent can be the answer. Worker run `scripts/check-card-name.py` (in CI): accents ignored, a guessed id refused, the named card's ability refused on activation. Browser `e2e/match-card-name.spec.ts` (in CI): search box, Mountain first for the Needle, absent for the Revoker; screenshots `seen/name-a-card-*.png` |
 | P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
 | P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |

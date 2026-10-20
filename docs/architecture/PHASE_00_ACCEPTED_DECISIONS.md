@@ -38,6 +38,13 @@ the Forge tree. A patch requires owner approval, lives in
 `forge_patches/`, and carries a regression test (AGENTS VEND-001/002).
 Phase 0A required **no patches and no reflection**.
 
+**Amended 2026-10-20 (owner decision):** one patch is approved --
+`forge_patches/0001-leyline-last-known-state.patch`, a single
+`game.copyLastState()` after opening-hand actions, so Leyline of the
+Void works before anyone has acted. The vendored checkout stays
+unmodified; the Docker build applies the patch to a fresh clone of the
+pin. See `forge_patches/README.md`.
+
 ## Forge adapter strategy
 
 **Strategy A — a Proxic-owned `PlayerController`**, on `forge-core` +

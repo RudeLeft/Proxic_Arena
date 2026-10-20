@@ -1,0 +1,188 @@
+[
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 12,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseCardsToDiscardToMaximumHandSize",
+   "stateVersion": 12,
+   "gameEpoch": 1,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "discard:card:67",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:65",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:111",
+     "label": "Swamp"
+    },
+    {
+     "actionId": "discard:card:74",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:77",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:98",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:90",
+     "label": "Leyline of the Void"
+    },
+    {
+     "actionId": "discard:card:107",
+     "label": "Swamp"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "292d4208-a60f-4b4f-b8a7-0c1b5f01ebf4",
+   "decisionId": 12,
+   "seat": 2,
+   "stateVersion": 12,
+   "actionId": "discard:card:67"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "292d4208-a60f-4b4f-b8a7-0c1b5f01ebf4",
+   "decisionId": 12
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 3,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 52,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 52,
+      "graveyardCount": 1
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:5",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     },
+     {
+      "id": "card:21",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:16",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     },
+     {
+      "id": "card:37",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     },
+     {
+      "id": "card:29",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     },
+     {
+      "id": "card:18",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:67",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Leyline of the Void",
+      "printing": "DSK/106",
+      "kind": "other",
+      "types": "Enchantment"
+     }
+    ]
+   }
+  }
+ }
+]

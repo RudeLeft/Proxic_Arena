@@ -1,0 +1,17 @@
+diff --git a/forge-game/src/main/java/forge/game/GameAction.java b/forge-game/src/main/java/forge/game/GameAction.java
+index 0a7ca0f7..40bd50cd 100644
+--- a/forge-game/src/main/java/forge/game/GameAction.java
++++ b/forge-game/src/main/java/forge/game/GameAction.java
+@@ -2520,6 +2520,12 @@ public class GameAction {
+             }
+             takesAction = game.getNextPlayerAfter(takesAction);
+         } while (takesAction != first);
++        // Proxic Arena patch 0001: refresh the last-known state now that
++        // opening-hand permanents (Leyline of the Void) are on the
++        // battlefield. Otherwise their replacement effects are missing from
++        // it until a player first acts, and a card that goes to a graveyard
++        // before then is not exiled.
++        game.copyLastState();
+         // state effects are checked only when someone gets priority
+         return newFirst;
+     }

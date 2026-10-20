@@ -28,19 +28,21 @@ opening hand holds several -- the first version used half and half,
 and seat 1 was dealt exactly one, which cannot show "two, then stop". It is not Open Format -- the worker does
 not check format, the server does -- and does not need to be.
 
-KNOWN FORGE DEFECT (found by this check, 2026-10-20). Forge applies
-a "moved to a graveyard" replacement only for permanents in its LAST-
-KNOWN-STATE copy of the battlefield, and refreshes that copy when a
-player DOES something -- plays a land, casts, resolves. Placing the
-opening-hand Leylines does not refresh it. So if nobody acts at all
-before the first card is discarded, the Leylines are skipped and the
-card reaches the graveyard. Forge's own desktop client takes the
-same path. AGENTS VEND-001/002 and ARCH-002 forbid patching it
-without the owner, so this reports it BY NAME in exactly that
-condition and fails in any other.
+THE CASE THAT USED TO FAIL, forced every run. Forge applies a "moved
+to a graveyard" replacement only for permanents in its LAST-KNOWN-STATE
+copy of the battlefield, and refreshes that copy when a player DOES
+something -- plays a land, casts, resolves. Placing the opening-hand
+Leylines did not refresh it, so if nobody acted before the first
+discard, the Leylines were skipped and the card reached the graveyard
+(found 2026-10-20; Forge's desktop client takes the same path).
+The owner approved a Forge patch for it the same day:
+forge_patches/0001-leyline-last-known-state.patch (AGENTS VEND-002).
+So nobody here plays anything: seat 2's first discard comes before
+any action at all, and it must be exiled. This is the patch's
+regression test -- without it, it fails.
 
-Exit 0 when every property held (or only the known defect showed),
-1 when one did not, 2 when the game never reached the scenario.
+Exit 0 when every property held, 1 when one did not, 2 when the game
+never reached the scenario.
 """
 import json
 import re
@@ -157,11 +159,9 @@ for line in proc.stdout:
             }
             found["at_start"]["2"]["leylines_in_hand"] = len(
                 [c for c in state.get(2, {}).get("hand", []) if c.get("name") == LEYLINE])
-        # Seat 1 plays Swamps; seat 2 plays nothing at all.
-        if seat == 1:
-            lands = [o for o in options if "Play land" in (o.get("label") or "")]
-            pick = lands[0]["actionId"] if lands else None
-            acted = acted or pick is not None
+        # Nobody plays anything: the discard must come before any
+        # action, the condition patch 0001 exists for.
+        pick = None
     elif dkind == "chooseCardsToDiscardToMaximumHandSize":
         if seat == 2 and discarding is None:
             me = player(2, 2)
@@ -214,18 +214,13 @@ discard = found["discard"]
 if discard is None:
     print("INCONCLUSIVE: seat 2 never discarded" + (f" ({problems})" if problems else ""))
     sys.exit(2)
-known_defect = False
+if acted:
+    problems.append("somebody acted before the discard, so this run did not test the patched case")
 if discard["graveyard_after"] != discard["graveyard_before"]:
-    if acted:
-        problems.append(f"seat 2's discard reached its graveyard under seat 1's Leyline: {discard}")
-    else:
-        known_defect = True
+    problems.append(f"seat 2's discard reached its graveyard under seat 1's Leyline, before anyone "
+                    f"acted -- is forge_patches/0001 applied? {discard}")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)
-if known_defect:
-    print("KNOWN FORGE DEFECT: nobody acted before the discard, Forge's last-known battlefield")
-    print("  did not yet hold the opening-hand Leylines, and the discard reached the graveyard.")
-    print("OK (Proxic's part): chosen from the opening hand and begun on the battlefield uncast")
-    sys.exit(0)
-print("OK: chosen from the opening hand, begun on the battlefield uncast, and Forge's replacement applies")
+print("OK: chosen from the opening hand, begun on the battlefield uncast, and Forge's replacement "
+      "applies even before anyone has acted (patch 0001)")

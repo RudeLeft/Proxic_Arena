@@ -76,6 +76,17 @@ RUN set -eu; \
         exit 1; \
     fi
 
+# Owner-approved patches, in order, against that exact commit
+# (forge_patches/README.md, AGENTS VEND-002). `git apply` refuses a
+# patch that does not apply cleanly, so a Forge update that moves the
+# code fails the build rather than shipping unpatched.
+COPY forge_patches/ /forge_patches/
+RUN set -eu; cd /forge; \
+    for patch in /forge_patches/*.patch; do \
+        echo "applying $patch"; git apply --whitespace=nowarn "$patch"; \
+    done; \
+    git diff --stat
+
 # forge-core and forge-game only (Strategy A). forge-gui is
 # Swing-coupled and a browser cannot speak it.
 RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game -am
