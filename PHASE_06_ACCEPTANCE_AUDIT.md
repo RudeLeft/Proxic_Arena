@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 57 |
-| PARTIAL | 3 |
+| MET | 58 |
+| PARTIAL | 2 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -63,14 +63,15 @@ stopped and nothing per-match is left but its log. P6-BC → MET:
 deck storage is unchanged across a match, rows and artwork. P6-AK
 → MET: attachments, including an Aura across the table, drawn with
 what they modify. P6-BD → MET: every card is the exact printing its
-deck asked for, at runtime.
+deck asked for, at runtime. P6-I → MET: a real morph, hidden from
+the opponent in every frame and named for its controller.
 
-Where it stands now (2026-10-20): 57 of 65 met. What is left is
+Where it stands now (2026-10-20): 58 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
 server, so they are the owner's to schedule), a **rules-version
-regression** scenario nobody has chosen yet (P6-AF), and three
-partials -- hidden-hand logs (G), face-down cards actually played
-(I) and a formal project-integrity comparison (BM).
+regression** scenario nobody has chosen yet (P6-AF), and two
+partials -- hidden-hand logs (G) and a formal project-integrity
+comparison (BM).
 
 ---
 
@@ -224,7 +225,7 @@ restarted under a live match outside a unit test.
 | P6-F | Viewer-safe state | MET | `check-hidden-information.py` on burn/green/blue/black/counters; two-browser e2e |
 | P6-G | Hidden hand | PARTIAL | Snapshot and decision payloads covered. **Asset URLs N/A (no assets). "Logs returned to browser" never checked.** |
 | P6-H | Library privacy | MET | No library in any snapshot; search options go to one seat; delayed reveal is the authorised exposure |
-| P6-I | Face-down safety | PARTIAL | Both §6.44 checks implemented and exercised **only by deliberately breaking them** — no morph/manifest card has ever been played |
+| P6-I | Face-down safety | MET | **Run 2026-10-20**, `scripts/check-face-down.py` (in CI) and `e2e/match-face-down.spec.ts`. A real morph (Willbender) cast face down, attacking, then turned face up. Seat 2 is shown only "Face-down", `known` false, with no printing, power, toughness, keywords, types or faces -- and across every frame it is sent while the card is face down (70 in the recorded run: snapshots, questions, notices) nothing names it; once Forge turns it up, seat 2 sees Willbender under the same id. No art: the server attaches a picture only to `known` cards and serves only what a seat was shown. Mutation-tested: letting every viewer identify it fails the check. **Found and fixed:** the CONTROLLER was shown "Face-down" for its own card, and its questions began with a blank name (" — {1}{U} — Morph"), because a face-down card's current state has no name. Now named for a viewer Forge lets identify it -- "Echo Tracer", marked face down on the board, "Willbender (face down) — …" in questions |
 | P6-J | Revealed / known information | MET | **Run 2026-10-20**, `scripts/check-multiface.py` (in CI). Delver's "look at the top card" reaches its controller before "Reveal?" is asked; the controller reveals only an instant; the opponent is told of every reveal and of nothing declined. **Found and fixed: `reveal()` was a no-op**, so that question had been answered about a card nobody was shown, and no opponent ever saw a reveal. Now a notice to each player Forge calls it for, which is exactly the entitled set |
 | P6-K | Stable object identity | MET | Typed ids asserted by `check-hidden-information.py`; a searched card followed by id from library to battlefield |
 | P6-L | Snapshot before interaction | MET | **Run 2026-10-20**, `scripts/check-snapshot-first.py` over the protocol traces of every Mechanics Lab regression (in CI): 3,362 questions in 11 games -- graveyard casting, library search, Mindslaver, a game restart, revealed and two-faced cards -- each sent after a snapshot for the same seat published after the question was asked (`stateRevision > stateVersion`), and all 17,648 card references in their options either in that snapshot or, for the 35 in a hidden zone (a library being searched, cards being ordered onto a library), named by the option's own label. The checker was itself checked on doctored traces -- one snapshot moved after its question, and an unlabelled option naming a card nobody was shown -- and fails both. The server's socket sends state before any pending question on connect (§6.110) |

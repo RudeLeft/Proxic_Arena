@@ -242,6 +242,25 @@ final class ViewerSnapshot {
      * it would misrepresent the board rather than protect
      * anything.
      */
+    /**
+     * A card's name as [viewer] may know it, for question labels --
+     * P6-I. Face up, its name. Face down, its real name and how it
+     * lies for a viewer Forge lets identify it (its controller), and
+     * "Face-down" for anybody else: a label is as much on the wire as
+     * a snapshot.
+     */
+    static String nameFor(Card card, PlayerView viewer) {
+        if (!card.isFaceDown()) {
+            return card.getName();
+        }
+        CardView view = card.getView();
+        if (viewer == null || !(view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer))) {
+            return "Face-down";
+        }
+        String real = card.getState(forge.card.CardStateName.Original).getName();
+        return real == null || real.isEmpty() ? "Face-down" : real + " (face down)";
+    }
+
     private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         CardView view = card.getView();
         JsonObject entry = new JsonObject();
@@ -275,6 +294,18 @@ final class ViewerSnapshot {
         // name as "hidden" blanked cards for their OWN
         // controller 650 times. The visibility answer above
         // decides; the name is only read afterwards.
+        //
+        // P6-I, measured with a real morph: the CURRENT state of a
+        // face-down card is the nameless 2/2, so its controller was
+        // shown "Face-down" for its own Willbender. Someone allowed
+        // to know (above) is told what it is; `faceDown` says how it
+        // is lying, and power and toughness stay the 2/2's.
+        if (view.isFaceDown()) {
+            String real = card.getState(forge.card.CardStateName.Original).getName();
+            if (real != null && !real.isEmpty()) {
+                name = real;
+            }
+        }
         entry.addProperty("name", name == null || name.isEmpty() ? "Face-down" : name);
 
         // P6-BD, §6.33 — the PRINTING Forge built this card from: the

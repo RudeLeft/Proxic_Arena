@@ -1557,6 +1557,10 @@ function CardChip({
           {card.counters.map((counter) => `${counter.count} ${counter.name}`).join(", ")}
         </span>
       )}
+      {/* P6-I — your own face-down card, named for you (the worker
+          only names it to a viewer Forge lets identify it) and said
+          to be face down; the opponent's chip just says Face-down. */}
+      {card.faceDown && card.known && <span className="card-note">face down</span>}
       {card.sick && <span className="card-note">summoning sick</span>}
       {card.attacking && <span className="card-note">attacking</span>}
       {card.blocking && <span className="card-note">blocking</span>}

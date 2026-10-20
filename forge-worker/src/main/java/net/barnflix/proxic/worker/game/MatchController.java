@@ -2329,7 +2329,7 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public void declareAttackers(Player attacker, forge.game.combat.Combat combat) {
         try {
-            new CombatChoices(host, actedForSeat, authorisedSeat)
+            new CombatChoices(host, actedForSeat, authorisedSeat, player.getView())
                     .declareAttackers(attacker, combat);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -2345,7 +2345,7 @@ public final class MatchController extends GeneratedControllerBase {
             forge.game.GameEntity defender,
             boolean overrideOrder) {
         try {
-            return new CombatChoices(host, actedForSeat, authorisedSeat)
+            return new CombatChoices(host, actedForSeat, authorisedSeat, player.getView())
                     .assignCombatDamage(attacker, blockers, damageDealt, defender, overrideOrder);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -2360,7 +2360,7 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public void declareBlockers(Player defender, forge.game.combat.Combat combat) {
         try {
-            new CombatChoices(host, actedForSeat, authorisedSeat)
+            new CombatChoices(host, actedForSeat, authorisedSeat, player.getView())
                     .declareBlockers(defender, combat);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -2403,7 +2403,10 @@ public final class MatchController extends GeneratedControllerBase {
      * judge.
      */
     private String describe(SpellAbility sa) {
-        String name = sa.getHostCard().getName();
+        // P6-I — as THIS player may know it: a face-down card's own
+        // name is empty, which left its controller choosing between
+        // options that began " — {1}{U} — Morph".
+        String name = ViewerSnapshot.nameFor(sa.getHostCard(), player.getView());
         String cost = costOf(sa);
         String what = String.valueOf(sa).trim();
 

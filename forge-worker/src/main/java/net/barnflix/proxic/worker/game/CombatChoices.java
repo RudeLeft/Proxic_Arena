@@ -38,11 +38,14 @@ final class CombatChoices {
     private final GameHost host;
     private final int actedForSeat;
     private final int authorisedSeat;
+    /** Whose question it is: names follow what THEY may know (P6-I). */
+    private final forge.game.player.PlayerView viewer;
 
-    CombatChoices(GameHost host, int actedForSeat, int authorisedSeat) {
+    CombatChoices(GameHost host, int actedForSeat, int authorisedSeat, forge.game.player.PlayerView viewer) {
         this.host = host;
         this.actedForSeat = actedForSeat;
         this.authorisedSeat = authorisedSeat;
+        this.viewer = viewer;
     }
 
     /**
@@ -321,8 +324,8 @@ final class CombatChoices {
     }
 
     /** A creature, as a player needs to see it in combat. */
-    private static String describe(Card creature) {
-        return creature.getName() + " — " + creature.getNetPower() + "/"
+    private String describe(Card creature) {
+        return ViewerSnapshot.nameFor(creature, viewer) + " — " + creature.getNetPower() + "/"
                 + creature.getNetToughness()
                 + (creature.isTapped() ? " (tapped)" : "");
     }
