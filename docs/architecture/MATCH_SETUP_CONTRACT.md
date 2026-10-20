@@ -248,6 +248,12 @@ revision agreeing.
    `stack:3` — per the Phase 0A binding constraint. A bare integer is
    ambiguous between card and stack-instance id spaces.
 
+**Done, 2026-10-20.** All five, as built: `MATCH_RUNTIME.md` (the launch
+transaction, revalidation, the claim, seat mapping) and
+`MATCH_PROTOCOL.md` (typed ids). Two concurrent launches create exactly
+one match (P6-B); a revoked deck or a disabled player stops the launch
+(P6-C).
+
 ---
 
 ## See also

@@ -75,6 +75,13 @@ you were asked to do, stop and say so.
 | `docs/architecture/AUTHORIZATION.md` | What an identity may do at the HTTP level. |
 | `docs/architecture/DECK_DEPOT.md` | Deck ownership, private libraries and sharing. |
 | `docs/architecture/DECK_AUTHORIZATION.md` | **The deck access rules.** The reference the lobby and match phases are told to use — `canUseDeck`, not a client's claim. |
+| `docs/architecture/MATCH_RUNTIME.md` | How a match launches, runs, ends and fails; restarts; cleanup. |
+| `docs/architecture/MATCH_PROTOCOL.md` | The browser ↔ server match wire. Field detail in `protocol/README.md`. |
+| `docs/architecture/FORGE_WORKER_RUNTIME.md` | The Forge process: pin, build, launch, handshake, internal protocol, resources. |
+| `docs/architecture/MATCH_STATE_VISIBILITY.md` | **Who may see what, decided by Forge.** Read before touching `ViewerSnapshot`. |
+| `docs/architecture/MATCH_ACTION_MODEL.md` | How a player acts; selection vs action; what Phase 7 must keep. |
+| `docs/architecture/MATCH_ASSET_AUTHORIZATION.md` | Card pictures during a match: identity, authorization, retrieval. |
+| `docs/testing/MECHANICS_LAB_COVERAGE.md` | The card-by-card regression ledger (generated; edit `mechanics-lab-status.json`). |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
 | `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
 

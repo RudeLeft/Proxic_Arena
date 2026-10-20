@@ -12,10 +12,13 @@ have all passed their gates — `PHASE_01_EXIT_GATE.md` through
 `PHASE_05_EXIT_GATE.md` list exactly what is proven — including two
 players reaching a prepared match on the live host.
 
-There is still **no gameplay**. Phase 5 takes two players all the
-way to a validated, frozen match setup and deliberately stops: no
-Forge match is started, no game state exists, no card is drawn.
-Phase 6 is what turns a setup into a match.
+**Phase 6 is built: two players play a real game of Magic, run by
+Forge, in the browser** -- each seeing only what Forge lets them see,
+answering every decision Forge asks a player. Every Phase 6 acceptance
+test is met or classified, including a full game played on the live
+site (`PHASE_06_ACCEPTANCE_AUDIT.md`); `PHASE_06_EXIT_GATE.md` awaits
+the owner's sign-off. The board is functional, not final: the graphical
+battlefield is Phase 7.
 
 **Everything except health, version and the status page requires a
 session.** Accounts are created by an administrator with
