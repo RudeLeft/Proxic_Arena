@@ -133,37 +133,6 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP, P6-AK, P6-BD, P6-I, P6-L and P6-G:
-      # Mechanics Lab regressions,
-      # each a focused deck played against the worker taken from this
-      # image. Exit 2 means the game never reached the scenario,
-      # which proves nothing, so it fails too.
-      - name: Mechanics Lab regressions
-        run: |
-          res=spikes/forge-phase0a/forge-upstream/forge-gui/res
-          jar=forge-worker/target/forge-worker-0.1.0.jar
-          traces=$(mktemp -d)
-          python3 -I scripts/check-agent-of-kotis.py "$jar" "$res" "$traces/agent-of-kotis.jsonl"
-          python3 -I scripts/check-panglacial-wurm.py "$jar" "$res" "$traces/panglacial-wurm.jsonl"
-          python3 -I scripts/check-card-name.py "$jar" "$res" "$traces/card-name.jsonl"
-          python3 -I scripts/check-leyline.py "$jar" "$res" "$traces/leyline.jsonl"
-          python3 -I scripts/check-karn.py "$jar" "$res" "$traces/karn.jsonl"
-          python3 -I scripts/check-multiface.py "$jar" "$res" "$traces/multiface.jsonl"
-          python3 -I scripts/check-mindslaver.py "$jar" "$res" "$traces/mindslaver.jsonl"
-          python3 -I scripts/check-characteristics.py "$jar" "$res" "$traces/characteristics.jsonl"
-          python3 -I scripts/check-player-state.py "$jar" "$res" "$traces/player-state.jsonl"
-          python3 -I scripts/check-mana-choice.py "$jar" "$res" "$traces/mana-choice.jsonl"
-          python3 -I scripts/check-alternate-win.py "$jar" "$res" "$traces/alternate-win.jsonl"
-          python3 -I scripts/check-attachments.py "$jar" "$res" "$traces/attachments.jsonl"
-          python3 -I scripts/check-printings.py "$jar" "$res" "$traces/printings.jsonl"
-          python3 -I scripts/check-face-down.py "$jar" "$res" "$traces/face-down.jsonl"
-          # P6-L, over every game above: no question reaches a seat before
-          # the state it refers to.
-          python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
-          # P6-G, over the same games: no seat is sent a card from another
-          # seat's hand that Forge did not show it.
-          python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
-
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
       # wearing CI clothes, where nobody is watching the console.
@@ -176,6 +145,70 @@ jobs:
         if: always()
         run: sh ci/check-skips.sh server/build/test-results/test
 
+
+  mechanics-lab:
+    name: Mechanics Lab
+    runs-on: ubuntu-latest
+    needs: build
+    # Its own job since 2026-10-20: fifteen scenario games after the
+    # server suite ran the Server tests job into its 45-minute limit.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-java@v4.5.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Forge is gitignored, so without this the Forge-dependent
+      # tests call assumeTrue and SKIP -- a green gate that never ran
+      # card resolution or deck import. Rather than compile Forge a
+      # second time, take the worker and the resource tree out of the
+      # image that was just built with them.
+      - name: Take the Forge worker and resources from the image
+        run: |
+          docker pull "$IMAGE:$CANDIDATE_TAG"
+          id=$(docker create "$IMAGE:$CANDIDATE_TAG")
+          mkdir -p forge-worker/target spikes/forge-phase0a/forge-upstream/forge-gui
+          docker cp "$id:/app/forge/forge-worker.jar" \
+            forge-worker/target/forge-worker-0.1.0.jar
+          docker cp "$id:/app/forge/res" \
+            spikes/forge-phase0a/forge-upstream/forge-gui/res
+          docker rm "$id" > /dev/null
+          ls -la forge-worker/target/
+
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL,
+      # P6-AO, P6-AP, P6-AK, P6-BD, P6-I, P6-L and P6-G: Mechanics Lab
+      # regressions, each a focused deck played against the worker taken
+      # from this image. Exit 2 means the game never reached the scenario,
+      # which proves nothing, so it fails too. Three at a time: each is
+      # its own worker process and none depends on timing. Each prints its
+      # whole output when it finishes, so the log stays readable.
+      - name: Mechanics Lab regressions
+        env:
+          res: spikes/forge-phase0a/forge-upstream/forge-gui/res
+          jar: forge-worker/target/forge-worker-0.1.0.jar
+        run: |
+          traces=$(mktemp -d)
+          export traces
+          printf '%s\n' \
+              agent-of-kotis panglacial-wurm card-name leyline karn multiface \
+              mindslaver characteristics player-state mana-choice alternate-win \
+              attachments printings face-down \
+            | xargs -n 1 -P 3 sh -c \
+              'python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
+               s=$?; echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
+          # P6-L, over every game above: no question reaches a seat before
+          # the state it refers to.
+          python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
+          # P6-G, over the same games: no seat is sent a card from another
+          # seat's hand that Forge did not show it.
+          python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
 
   browser-tests:
     name: Browser tests
@@ -328,7 +361,7 @@ jobs:
   publish:
     name: Promote to latest
     runs-on: ubuntu-latest
-    needs: [build, checks, server-tests, browser-tests]
+    needs: [build, checks, server-tests, mechanics-lab, browser-tests]
     # Only main publishes. A pull request gets the full gate and
     # changes nothing anyone can deploy.
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
