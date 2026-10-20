@@ -9,7 +9,7 @@
 
 import { expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const testUser = process.env.PROXIC_E2E_USER ?? "RudeLeft";
 export const testPassword = process.env.PROXIC_E2E_PASSWORD ?? "a perfectly fine local passphrase";
@@ -51,7 +51,9 @@ export async function signIn(page: Page): Promise<void> {
  * CI also reads to create them, so the passwords live in one place.
  */
 export const extraPlayers: { username: string; password: string }[] = (
-  JSON.parse(readFileSync(join(__dirname, "match-accounts.json"), "utf-8")) as {
+  JSON.parse(
+    readFileSync(fileURLToPath(new URL("match-accounts.json", import.meta.url)), "utf-8"),
+  ) as {
     accounts: { username: string; password: string }[];
   }
 ).accounts;
