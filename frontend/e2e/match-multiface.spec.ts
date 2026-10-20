@@ -69,7 +69,7 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").textContent()) ?? "";
+      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
       const options = panel.getByRole("listitem").getByRole("button");
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));

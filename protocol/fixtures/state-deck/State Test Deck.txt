@@ -1,0 +1,8 @@
+20 Forest
+16 Plains
+4 Aether Hub
+4 Glistener Elf
+4 Blight Mamba
+4 Servant of the Conduit
+4 Palace Jailer
+4 Palace Sentinels

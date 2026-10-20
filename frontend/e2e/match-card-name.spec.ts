@@ -53,7 +53,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
 
     /** The question on `page`, checked, looked at, and answered. */
     const answerNaming = async (page: Page, panel: Locator) => {
-      const prompt = (await panel.locator(".decision-prompt").textContent()) ?? "";
+      const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
       const nonland = /nonland/i.test(prompt);
 
       // Searchable: a box, and no list of thirty thousand buttons.

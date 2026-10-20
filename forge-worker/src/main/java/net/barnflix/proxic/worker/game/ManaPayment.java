@@ -115,9 +115,17 @@ final class ManaPayment {
             if (tapped == null) {
                 return false;
             }
-            activate(tapped, toPay, paidFor);
+            if (!activate(tapped, toPay, paidFor)) {
+                // The player declined which ability, or Forge would
+                // not activate the one chosen. Their choice, and it
+                // waited for them: NOT a stall. Counting it as one
+                // ended a match after a player said "never mind" to
+                // Aether Hub's ability choice eight times -- the guard
+                // treating a person as a runaway loop.
+                continue;
+            }
 
-            // §6.189 — did that change anything?
+            // §6.189 — an ability really activated: did it change anything?
             String nowRemaining = toPay.toString();
             stalled = nowRemaining.equals(lastRemaining) ? stalled + 1 : 0;
             lastRemaining = nowRemaining;
@@ -214,7 +222,8 @@ final class ManaPayment {
      * desktop client to hop off the UI thread, and there is no UI
      * thread here.
      */
-    private void activate(Card card, ManaCostBeingPaid toPay, SpellAbility paidFor)
+    /** True when an ability was really activated; false when nothing was. */
+    private boolean activate(Card card, ManaCostBeingPaid toPay, SpellAbility paidFor)
             throws InterruptedException {
         byte canUse = acceptableColors(toPay);
         byte needed = neededColors(toPay);
@@ -226,12 +235,12 @@ final class ManaPayment {
             }
         }
         if (usable.isEmpty()) {
-            return;
+            return false;
         }
 
         SpellAbility chosen = usable.size() == 1 ? usable.get(0) : chooseAbility(card, usable);
         if (chosen == null) {
-            return;
+            return false;
         }
 
         // Which colours this ability may produce for this payment.
@@ -246,7 +255,7 @@ final class ManaPayment {
         chosen.setManaExpressChoice(ColorSet.fromMask(producible));
 
         if (!PlaySpellAbility.playSpellAbility(controller, player, chosen)) {
-            return;
+            return false;
         }
 
         List<AbilityManaPart> parts = chosen.getAllManaParts();
@@ -254,10 +263,11 @@ final class ManaPayment {
             if (!part.meetsManaRestrictions(paidFor)) {
                 // Produced, but not usable for THIS. It stays in
                 // the pool, which is what Forge does too.
-                return;
+                return true;
             }
         }
         player.getManaPool().payManaFromAbility(paidFor, toPay, chosen);
+        return true;
     }
 
     /**

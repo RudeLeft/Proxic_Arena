@@ -500,6 +500,7 @@ button:disabled {
 }
 
 .card-counters,
+.card-keywords,
 .card-note,
 .card-attached {
   font-size: 0.7rem;

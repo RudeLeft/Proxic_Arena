@@ -1246,6 +1246,7 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
         {/* §6.70 — after a restart, say which game this is, or "turn 1"
             reads as the game having gone backwards. */}
         {board.gameEpoch > 1 && `Game ${board.gameEpoch} · `}
+        {board.dayTime && `It is ${board.dayTime} · `}
         {board.phase ? (
           <>
             Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
@@ -1377,6 +1378,13 @@ function PlayerSide({
         <span className="state">
           {player.life} life · {player.handCount} in hand · {player.libraryCount} in library
           {player.graveyardCount > 0 ? ` · ${player.graveyardCount} in graveyard` : ""}
+          {/* §6.96 — Forge's player state, as sent: poison, energy,
+              the monarch, a dungeon or emblem in the command zone. */}
+          {player.counters
+            .map((counter) => ` · ${counter.count} ${counter.name.toLowerCase()}`)
+            .join("")}
+          {player.designations.map((designation) => ` · ${designation}`).join("")}
+          {player.command.length > 0 ? ` · command zone: ${player.command.join(", ")}` : ""}
         </span>
       </div>
 
@@ -1499,6 +1507,9 @@ function CardChip({
           {card.power}/{remaining}
           {card.damage > 0 ? ` (${card.damage} damage)` : ""}
         </span>
+      )}
+      {card.keywords.length > 0 && (
+        <span className="card-keywords">{card.keywords.join(" · ")}</span>
       )}
       {card.counters.length > 0 && (
         <span className="card-counters">

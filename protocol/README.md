@@ -83,6 +83,15 @@ card.faces   every face name, Forge's, front first
              e.g. ["Delver of Secrets", "Insectile Aberration"]
 gameEpoch    which Forge game of the match: 1, then 2 after Karn
              Liberated restarts it. Also on every DECISION_REQUEST.
+card.keywords  the keywords a card has NOW, Forge's titles, after every
+             continuous effect -- under Humility a Serra Angel has none.
+             Never derive them from printed text.
+player.counters      every counter Forge keeps on a player: POISON, ENERGY,
+                     EXPERIENCE... as {name, count}
+player.designations  "monarch", "initiative", "city's blessing"
+player.command       emblems, dungeons and cards in the command zone --
+                     not Forge's internal effect pieces
+dayTime      "day" or "night" once a daybound card has made it one
 otherHands   OTHER players' hand cards Forge lets this viewer see --
              under Mindslaver the controlled player's hand, with a
              "play with your hand revealed" effect an opponent's.

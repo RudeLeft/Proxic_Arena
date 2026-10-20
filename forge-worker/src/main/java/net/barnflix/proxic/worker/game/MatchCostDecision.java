@@ -390,6 +390,43 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Pay energy — Aether Hub's "{T}, Pay {E}: Add one mana of any
+     * colour", Aetherworks Marvel. A port of Forge's human path: if
+     * the player has the energy, confirm, and pay. It was a loud stub,
+     * so the first time a player tapped Aether Hub for a colour the
+     * match ended (found by the P6-AO check).
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostPayEnergy cost) {
+        int amount = cost.getAbilityAmount(ability);
+        int have = player.getCounters(forge.game.card.CounterEnumType.ENERGY);
+        if (player.canPayEnergy(amount)
+                && confirm("Pay " + amount + " energy? You have " + have + ".")) {
+            return PaymentDecision.number(amount);
+        }
+        return null;
+    }
+
+    /**
+     * Pay life — every fetch land, Dismember's Phyrexian cousins
+     * outside the mana cost, Toxic Deluge. A port of Forge's human
+     * path: a mandatory cost is simply paid; otherwise, if the player
+     * can pay it, they confirm.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostPayLife cost) {
+        int amount = cost.getAbilityAmount(ability);
+        if (ability.getPayCosts() != null && ability.getPayCosts().isMandatory()) {
+            return PaymentDecision.number(amount);
+        }
+        if (player.canPayLife(amount, isEffect(), ability)
+                && confirm("Pay " + amount + " life? You have " + player.getLife() + ".")) {
+            return PaymentDecision.number(amount);
+        }
+        return null;
+    }
+
+    /**
      * Exactly N cards out of a list Forge built, one question each.
      *
      * One at a time for the same reason every multi-select is

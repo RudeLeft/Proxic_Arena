@@ -105,9 +105,62 @@ final class ViewerSnapshot {
             entry.addProperty("handCount", player.getCardsIn(ZoneType.Hand).size());
             entry.addProperty("libraryCount", player.getCardsIn(ZoneType.Library).size());
             entry.addProperty("graveyardCount", player.getCardsIn(ZoneType.Graveyard).size());
+
+            // §6.96, P6-AO — Forge's PLAYER state beyond the zones,
+            // carried generically rather than one field per rule:
+            // every counter Forge keeps on the player (poison, energy,
+            // experience, rad, tickets...), the designations Forge
+            // assigns (monarch, initiative, the city's blessing), and
+            // what sits in the command zone (a dungeon, an emblem, the
+            // Ring). All public information.
+            JsonArray playerCounters = new JsonArray();
+            player.getCounters().entrySet().forEach(counter -> {
+                JsonObject kind = new JsonObject();
+                kind.addProperty("name", String.valueOf(counter.getElement()));
+                kind.addProperty("count", counter.getCount());
+                playerCounters.add(kind);
+            });
+            if (playerCounters.size() > 0) {
+                entry.add("counters", playerCounters);
+            }
+            JsonArray designations = new JsonArray();
+            if (game.getMonarch() == player) {
+                designations.add("monarch");
+            }
+            if (game.getHasInitiative() == player) {
+                designations.add("initiative");
+            }
+            if (player.hasBlessing()) {
+                designations.add("city's blessing");
+            }
+            if (designations.size() > 0) {
+                entry.add("designations", designations);
+            }
+            JsonArray command = new JsonArray();
+            for (Card card : player.getCardsIn(ZoneType.Command)) {
+                // Emblems, dungeons and real cards -- not Forge's own
+                // EFFECT pieces, which are how it keeps "Blight Mamba's
+                // Regeneration" or "The Monarch" (already a designation
+                // above). Seen on the board as "command zone: Blight
+                // Mamba (62)'s Regeneration", which no player put there.
+                if (card.isImmutable() && !card.isEmblem() && !card.getType().isDungeon()) {
+                    continue;
+                }
+                command.add(card.getName());
+            }
+            if (command.size() > 0) {
+                entry.add("command", command);
+            }
             players.add(entry);
         }
         snapshot.add("players", players);
+
+        // §6.96 — global state: day or night, once a daybound card has
+        // made it one (Forge's null means neither yet).
+        Boolean day = game.getDayTime();
+        if (day != null) {
+            snapshot.addProperty("dayTime", day ? "day" : "night");
+        }
 
         JsonArray battlefield = new JsonArray();
         for (Player player : game.getPlayers()) {
@@ -263,6 +316,23 @@ final class ViewerSnapshot {
             entry.addProperty("sick", view.isSick());
             entry.addProperty("attacking", view.isAttacking());
             entry.addProperty("blocking", view.isBlocking());
+        }
+
+        // §6.85, P6-AL — the keywords it has NOW, from Forge, after
+        // every continuous effect: Humility takes Serra Angel's flying
+        // away, an equipment gives one. The board shows these rather
+        // than reading printed text, which is wrong exactly when it
+        // matters (§6.83). Forge's own titles ("Flying", "Protection
+        // from red").
+        JsonArray keywords = new JsonArray();
+        for (forge.game.keyword.KeywordInterface keyword : card.getUnhiddenKeywords()) {
+            String title = keyword.getTitle();
+            if (title != null && !title.isBlank()) {
+                keywords.add(title);
+            }
+        }
+        if (keywords.size() > 0) {
+            entry.add("keywords", keywords);
         }
 
         JsonArray counters = new JsonArray();

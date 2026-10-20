@@ -132,6 +132,12 @@ export interface SnapshotCard {
   attacking: boolean;
   blocking: boolean;
   counters: SnapshotCounter[];
+  /**
+   * §6.85 — the keywords it has NOW, as Forge reports them after every
+   * continuous effect. Not the printed text: under Humility a Serra
+   * Angel has none, and the page must not say it flies.
+   */
+  keywords: string[];
   /** The card this is attached to, for auras and equipment. */
   attachedTo: string | null;
 }
@@ -144,6 +150,15 @@ export interface SnapshotPlayer {
   handCount: number;
   libraryCount: number;
   graveyardCount: number;
+  /**
+   * §6.96 — Forge's state on the player, carried generically: every
+   * counter (poison, energy, experience...), every designation
+   * (monarch, initiative, the city's blessing), and what is in the
+   * command zone (a dungeon, an emblem, the Ring). Shown as sent.
+   */
+  counters: SnapshotCounter[];
+  designations: string[];
+  command: string[];
 }
 
 /** §6.40 — the board as one seat may see it. */
@@ -157,6 +172,8 @@ export interface Snapshot {
    * a rearranged one: the turn starts again from 1.
    */
   gameEpoch: number;
+  /** §6.96 — "day" or "night" once a daybound card has made it one; null before. */
+  dayTime: string | null;
   turn: number;
   phase: string;
   activeSeat: number;
@@ -349,6 +366,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     seat,
     // Absent means the first game: an older worker never restarts.
     gameEpoch: asNumber(row["gameEpoch"]) ?? 1,
+    dayTime: asString(row["dayTime"]),
     turn: asNumber(row["turn"]) ?? 0,
     phase: asString(row["phase"]) ?? "",
     activeSeat: asNumber(row["activeSeat"]) ?? 0,
@@ -377,6 +395,9 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       handCount: asNumber(row["handCount"]) ?? 0,
       libraryCount: asNumber(row["libraryCount"]) ?? 0,
       graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
+      counters: asCounters(row["counters"]),
+      designations: asNotices(row["designations"]),
+      command: asNotices(row["command"]),
     });
   }
   return players;
@@ -415,6 +436,7 @@ function asCards(value: unknown): SnapshotCard[] {
       attacking: row["attacking"] === true,
       blocking: row["blocking"] === true,
       counters: asCounters(row["counters"]),
+      keywords: asNotices(row["keywords"]),
       attachedTo: asString(row["attachedTo"]),
       // §6.123 — a content hash or nothing.
       //

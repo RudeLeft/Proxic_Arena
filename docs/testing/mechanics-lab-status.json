@@ -192,7 +192,7 @@
       "required": "Required",
       "tests": "P6-AJ, P6-BF, P6-AO, §6.82, §6.97",
       "scenario": "Daybound/nightbound: day/night is global state, and the card transforms with it.",
-      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card."
+      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. Day/night: entering makes it day, carried as the snapshot's dayTime (check-player-state.py); the night transform itself is not yet run."
     },
     "Studious First-Year": {
       "owner": "P6_REQUIRED",
@@ -234,13 +234,18 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AL, §6.85",
-      "scenario": "Creatures shown as 1/1 with no abilities: current, not printed, characteristics."
+      "scenario": "Creatures shown as 1/1 with no abilities: current, not printed, characteristics.",
+      "result": "PASSED",
+      "evidence": "scripts/check-characteristics.py (worker, in CI), 2026-10-20. Serra Angel is 4/4 with Flying and Vigilance; under Humility the same object is 1/1 with no keywords -- power, toughness and keywords all Forge's current values, sent on the snapshot.",
+      "notes": "The snapshot had no keywords at all until this; they are now Forge's getUnhiddenKeywords titles, shown on the card chip."
     },
     "Blood Moon": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AL, §6.85",
-      "scenario": "Nonbasic lands shown as Mountains."
+      "scenario": "Nonbasic lands shown as Mountains.",
+      "result": "PASSED",
+      "evidence": "scripts/check-characteristics.py (worker, in CI), 2026-10-20. Evolving Wilds is 'Land' with its sacrifice-and-search ability; under Blood Moon it is 'Land - Mountain' and Forge offers only '{T}: Add {R}'."
     },
     "March of the Machines": {
       "owner": "P6_REQUIRED",
@@ -277,13 +282,18 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "Energy, paid as a cost."
+      "scenario": "Energy, paid as a cost.",
+      "result": "PASSED",
+      "evidence": "scripts/check-player-state.py (worker, in CI) and frontend/e2e/match-state.spec.ts (browser), 2026-10-20. Entering gives an ENERGY counter on its controller, shown as '1 energy'; tapping it for a colour pays {E} (CostPayEnergy, newly ported).",
+      "notes": "Found: CostPayEnergy was a stub, so tapping Aether Hub for a colour ended the match; and declining 'which mana ability?' eight times ended it too (scripts/check-mana-choice.py)."
     },
     "Glistener Elf": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "Poison counters carried as player state."
+      "scenario": "Poison counters carried as player state.",
+      "result": "PASSED",
+      "evidence": "scripts/check-player-state.py (worker, in CI) and frontend/e2e/match-state.spec.ts (browser), 2026-10-20. Infect damage arrives as POISON on the defending player, whose life stays 20; shown as '1 poison' on that player's line."
     },
     "Meren of Clan Nel Toth": {
       "owner": "P6_REQUIRED",
@@ -295,7 +305,9 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AO, §6.97",
-      "scenario": "The monarch designation."
+      "scenario": "The monarch designation.",
+      "result": "PASSED",
+      "evidence": "scripts/check-player-state.py (worker, in CI) and frontend/e2e/match-state.spec.ts (browser), 2026-10-20. Entering makes its controller the monarch, a Forge designation on the player, shown as 'monarch'."
     },
     "White Plume Adventurer": {
       "owner": "P6_REQUIRED",

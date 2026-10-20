@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 45 |
-| PARTIAL | 15 |
+| MET | 47 |
+| PARTIAL | 13 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -252,10 +252,10 @@ restarted under a live match outside a unit test.
 | P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |
 | P6-AJ | Composite / multi-representation | MET | **Run 2026-10-20** (`check-multiface.py`, `e2e/match-multiface.spec.ts`): Delver of Secrets // Insectile Aberration is one object id whose face changes; the snapshot carries Forge's `face` and every face name (§6.79), and the art follows the face shown -- the front's picture, then none for the back rather than the front's. Mutate, Rooms and battles are still untested (ledger) |
 | P6-AK | Attachment relationships | PARTIAL | Snapshot carries `attachedTo`; the artifacts deck equips Bonesplitter; **never seen in a browser, no aura or mutate** |
-| P6-AL | Effective characteristics | PARTIAL | Snapshot sends Forge's `getNetPower`/`getNetToughness` plus counters and damage; **no scenario proving a difference from printed values** |
+| P6-AL | Effective characteristics | MET | **Run 2026-10-20**, `scripts/check-characteristics.py` (in CI). Humility: Serra Angel 4/4 Flying Vigilance -> the same object 1/1 with no keywords. Blood Moon: Evolving Wilds `Land` with its search ability -> `Land - Mountain` offering only `{T}: Add {R}`. All Forge's current values; the snapshot now carries current KEYWORDS (it had none), shown on the card chip -- seen in the browser ("Defender") |
 | P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
-| P6-AO | Player / global state | PARTIAL | Life, hand/library/graveyard counts, turn, phase, active seat all carried; **no poison/energy/experience-style state tested** |
+| P6-AO | Player / global state | MET | **Run 2026-10-20**, `scripts/check-player-state.py` (in CI) and `e2e/match-state.spec.ts`. Generic, per §6.96: every Forge counter on a player, Forge's designations, emblems/dungeons in the command zone, and day/night. Energy (Aether Hub), poison (Glistener Elf, life unchanged), monarch (Palace Jailer), day (Reckless Stormseeker) -- all seen on the board. **Found and fixed:** paying energy was an unimplemented cost that ended the match, and declining "which mana ability?" eight times ended it too (`check-mana-choice.py`; mutation-tested) |
 | P6-AP | Alternate Forge result | PARTIAL | Result is read from Forge's outcome, never inferred from life; **no deterministic alternate-win scenario run** |
 | P6-AQ | Multiplayer sequential decision | CLASSIFIED | Open Format is two players (FMT-001); the test permits classification. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md`: the six Multiplayer-category Lab cards are BLOCKED_BY_UNSUPPORTED_PRESET |
 | P6-AR | Learn / outside-game capability | CLASSIFIED | `sideboard` returns null citing FMT-002 — `OUT_OF_ACCEPTED_SCOPE`. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md` (Professor of Symbology, CLASSIFIED) |

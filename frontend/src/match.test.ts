@@ -587,3 +587,78 @@ describe("other players' hands", () => {
     expect(state.board?.otherHands).toEqual([]);
   });
 });
+
+// §6.85 — keywords are Forge's current ones, and a card with none
+// says nothing rather than something printed.
+describe("a card's current keywords", () => {
+  const card = (extra: Record<string, unknown>) => ({
+    type: "MATCH_SNAPSHOT",
+    state: {
+      stateRevision: 4,
+      seat: 1,
+      turn: 6,
+      phase: "MAIN1",
+      activeSeat: 1,
+      players: [],
+      battlefield: [
+        { id: "card:35", seat: 1, known: true, name: "Serra Angel", kind: "creature", ...extra },
+      ],
+    },
+  });
+
+  it("are read as Forge sent them", () => {
+    const state = apply([card({ keywords: ["Flying", "Vigilance"] })]);
+    expect(state.board?.battlefield[0]?.keywords).toEqual(["Flying", "Vigilance"]);
+  });
+
+  it("are none when Forge sends none, as under Humility", () => {
+    const state = apply([card({})]);
+    expect(state.board?.battlefield[0]?.keywords).toEqual([]);
+  });
+});
+
+// §6.96 — player and global state, carried as Forge sent it.
+describe("player and global state", () => {
+  const BOARD = {
+    type: "MATCH_SNAPSHOT",
+    state: {
+      stateRevision: 5,
+      seat: 1,
+      turn: 7,
+      phase: "MAIN1",
+      activeSeat: 1,
+      dayTime: "day",
+      players: [
+        {
+          seat: 1,
+          name: "Alice",
+          life: 20,
+          designations: ["monarch"],
+          counters: [{ name: "ENERGY", count: 2 }],
+        },
+        {
+          seat: 2,
+          name: "Bob",
+          life: 20,
+          counters: [{ name: "POISON", count: 3 }],
+          command: ["Undercity"],
+        },
+      ],
+    },
+  };
+
+  it("reads counters, designations and the command zone per player", () => {
+    const [alice, bob] = apply([BOARD]).board!.players;
+    expect(alice?.designations).toEqual(["monarch"]);
+    expect(alice?.counters).toEqual([{ name: "ENERGY", count: 2 }]);
+    expect(bob?.counters).toEqual([{ name: "POISON", count: 3 }]);
+    expect(bob?.command).toEqual(["Undercity"]);
+    expect(bob?.designations).toEqual([]);
+  });
+
+  it("reads day or night, and nothing before either", () => {
+    expect(apply([BOARD]).board?.dayTime).toBe("day");
+    const before = { ...BOARD, state: { ...BOARD.state, dayTime: undefined } };
+    expect(apply([before]).board?.dayTime).toBeNull();
+  });
+});
