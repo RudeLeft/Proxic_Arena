@@ -56,8 +56,9 @@
       "required": "Required",
       "tests": "P6-U, §6.37",
       "scenario": "The controlling player answers the controlled player's decisions; the controlled player cannot.",
-      "result": "NOT_YET_TESTED",
-      "notes": "actedForSeat/authorisedSeat are carried end to end and unit-tested both ways; no real control effect has been played."
+      "result": "PASSED",
+      "notes": "Found and fixed: seats were mapped by Player.getLobbyPlayer(), which is the CURRENT controller's, so under Mindslaver the controlled player was filed under the master's seat -- the master got two snapshots a round (one from the controlled player's view) and the controlled player none. Now getOriginalLobbyPlayer(); a mutation run confirms the check catches the old mapping. Other players' hand cards Forge lets the viewer see now travel as otherHands.",
+      "evidence": "scripts/check-mindslaver.py (worker, in CI) and frontend/e2e/match-mindslaver.spec.ts (browser), 2026-10-20. During the controlled turn every question for seat 2 is actedForSeat 2, authorisedSeat 1; seat 2 answering one is refused WRONG_SEAT; seat 1 sees seat 2's hand then and not before; each seat gets exactly one snapshot per round, its own; seat 2 answers again afterwards. In the browser: the host is asked under 'Playing for seat 2' and shown 'Pat's hand -- you can see it', the guest is asked nothing. Screenshots seen/mindslaver-*.png."
     },
     "Pithing Needle": {
       "owner": "P6_REQUIRED",

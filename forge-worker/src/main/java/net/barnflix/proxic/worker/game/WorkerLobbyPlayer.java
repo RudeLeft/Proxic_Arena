@@ -68,6 +68,7 @@ final class WorkerLobbyPlayer extends LobbyPlayer implements IGameEntitiesFactor
         // resolved away here.
         return new MatchController(
                 slave.getGame(), slave, this, host,
-                host.seatOf(slave.getLobbyPlayer()), seatNumber);
+                // ORIGINAL: the slave's own seat, whoever controls it.
+                host.seatOf(slave.getOriginalLobbyPlayer()), seatNumber);
     }
 }

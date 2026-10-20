@@ -83,6 +83,11 @@ card.faces   every face name, Forge's, front first
              e.g. ["Delver of Secrets", "Insectile Aberration"]
 gameEpoch    which Forge game of the match: 1, then 2 after Karn
              Liberated restarts it. Also on every DECISION_REQUEST.
+otherHands   OTHER players' hand cards Forge lets this viewer see --
+             under Mindslaver the controlled player's hand, with a
+             "play with your hand revealed" effect an opponent's.
+             `seat` says whose. Hidden cards are never sent, not even
+             as blanks.
 ```
 
 - `face`/`faces` are sent only for a card this viewer may identify;

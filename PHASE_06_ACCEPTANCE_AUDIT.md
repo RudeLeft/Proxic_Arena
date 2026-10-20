@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 44 |
-| PARTIAL | 16 |
+| MET | 45 |
+| PARTIAL | 15 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -225,7 +225,7 @@ restarted under a live match outside a unit test.
 | P6-R | Multiple browser tabs | MET | **Built 2026-10-19.** Same player, two tabs, both click the same decision at once: both answers are sent, exactly one is accepted and the other tab is told it was refused — asserted on the WebSocket frames, six runs in six. **Found a defect on the way**: before the fix both tabs were told DECISION_ACCEPTED. Forge applied the answer once (its gate refused the duplicate, measured directly), but the server reported "forwarded" as "accepted" and the worker's refusal reached nobody. The server now claims a decision atomically on first forward |
 | P6-S | Disconnect during decision | MET | **Built 2026-10-19.** The page leaves, the socket closes, the match stays LAUNCHING/RUNNING and the question stays pending; on return the frames show a snapshot BEFORE the re-sent question (§6.110) and the question is unchanged |
 | P6-T | Browser refresh | MET | **Built 2026-10-19.** A refresh keeps the same match id, the same participants and the same pending question, compared option for option |
-| P6-U | Control-another-player | PARTIAL | `actedForSeat`/`authorisedSeat` carried end to end and unit-tested both ways; **no real control-changing card has ever been played** |
+| P6-U | Control-another-player | MET | **Run 2026-10-20**, `scripts/check-mindslaver.py` (in CI) and `e2e/match-mindslaver.spec.ts`. Mindslaver by real play: the controlled player's questions carry actedForSeat 2 / authorisedSeat 1 and reach the master's page ("Playing for seat 2"); the controlled player answering is refused WRONG_SEAT and their page is asked nothing; the master sees their hand (`otherHands`, Forge's `canBeShownTo`) during control only. **Found and fixed a hidden-information defect**: seats were mapped by the CURRENT controller's lobby player, so the master received a second snapshot built from the controlled player's view and the controlled player received none |
 | P6-V | Combat | MET | Attack/block/order/damage all from `CombatUtil`; creature decks run combat to a winner; gate refuses un-offered candidates |
 | P6-W | Targeting | MET | `chooseTargetsFor` answered 1,600+ times across decks; candidates are Forge's; injection refused by the gate |
 

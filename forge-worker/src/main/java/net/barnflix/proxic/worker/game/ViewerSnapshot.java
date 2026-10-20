@@ -125,6 +125,35 @@ final class ViewerSnapshot {
         }
         snapshot.add("hand", hand);
 
+        // §6.37, §6.38 — OTHER players' hand cards, only those Forge
+        // says this viewer may see. Under Mindslaver the controller
+        // "sees all cards that player could see and makes all
+        // decisions for the player"; with only the viewer's own hand
+        // here, the controller answered every question about the
+        // controlled player's turn without seeing their hand. Also
+        // Telepathy-style "play with your hand revealed".
+        //
+        // Hidden cards are NOT sent as unknowns: a hidden card's id
+        // is stable across zones, and an id on the wire is a card
+        // that can be followed. The count is already public.
+        JsonArray otherHands = new JsonArray();
+        for (Player player : game.getPlayers()) {
+            if (player == viewer) {
+                continue;
+            }
+            for (Card card : player.getCardsIn(ZoneType.Hand)) {
+                CardView view = card.getView();
+                if (view.canBeShownTo(viewing) && view.canFaceDownBeShownTo(viewing)) {
+                    JsonObject entry = describe(card, viewing, seatOf);
+                    // `seat` above is the CONTROLLER; for a hand card
+                    // say whose hand it is.
+                    entry.addProperty("owner", seatOf.getOrDefault(player, 0));
+                    otherHands.add(entry);
+                }
+            }
+        }
+        snapshot.add("otherHands", otherHands);
+
         JsonArray graveyard = new JsonArray();
         for (Player player : game.getPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Graveyard)) {

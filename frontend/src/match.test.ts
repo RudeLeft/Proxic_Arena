@@ -557,3 +557,33 @@ describe("the game epoch", () => {
     expect(state.board?.turn).toBe(1);
   });
 });
+
+// §6.37 — under Mindslaver the controller sees the controlled
+// player's hand, because Forge says so; the page shows what it was
+// sent and nothing else.
+describe("other players' hands", () => {
+  const BOARD = {
+    type: "MATCH_SNAPSHOT",
+    state: {
+      stateRevision: 3,
+      seat: 1,
+      turn: 5,
+      phase: "MAIN1",
+      activeSeat: 2,
+      players: [],
+      otherHands: [{ id: "card:61", seat: 2, known: true, name: "Mountain", kind: "land" }],
+    },
+  };
+
+  it("are the cards Forge let this viewer see, with whose they are", () => {
+    const state = apply([BOARD]);
+    expect(state.board?.otherHands.map((card) => [card.id, card.seat, card.name])).toEqual([
+      ["card:61", 2, "Mountain"],
+    ]);
+  });
+
+  it("are empty when nothing is shared, as in an ordinary game", () => {
+    const state = apply([{ ...BOARD, state: { ...BOARD.state, otherHands: undefined } }]);
+    expect(state.board?.otherHands).toEqual([]);
+  });
+});

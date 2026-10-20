@@ -408,7 +408,13 @@ public final class GameHost {
         }
         long revision = gate.bumpStateVersion();
         for (Player player : current.getPlayers()) {
-            Integer seat = seatOf.get(player.getLobbyPlayer());
+            // The player's OWN seat, by its ORIGINAL lobby player.
+            // getLobbyPlayer() is the CURRENT controller's: under
+            // Mindslaver the controlled player was filed under the
+            // master's seat, so the master got two snapshots per
+            // round -- one built from the controlled player's view --
+            // and the controlled player got none. Measured, P6-U.
+            Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
             if (seat == null) {
                 continue;
             }
@@ -433,7 +439,7 @@ public final class GameHost {
     private java.util.Map<Player, Integer> seatsByPlayer(Game current) {
         java.util.Map<Player, Integer> map = new java.util.IdentityHashMap<>();
         for (Player player : current.getPlayers()) {
-            Integer seat = seatOf.get(player.getLobbyPlayer());
+            Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
             if (seat != null) {
                 map.put(player, seat);
             }

@@ -173,6 +173,13 @@ export interface Snapshot {
   notices: string[];
   battlefield: SnapshotCard[];
   hand: SnapshotCard[];
+  /**
+   * §6.37, §6.38 — other players' hand cards that FORGE says this
+   * viewer may see: under Mindslaver, the controlled player's hand;
+   * with Telepathy, an opponent's. Never a hidden card, not even as
+   * a blank: the page has nothing to hide.
+   */
+  otherHands: SnapshotCard[];
   graveyard: SnapshotCard[];
   stack: { id: string; description: string }[];
 }
@@ -349,6 +356,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     notices: asNotices(row["notices"]),
     battlefield: asCards(row["battlefield"]),
     hand: asCards(row["hand"]),
+    otherHands: asCards(row["otherHands"]),
     graveyard: asCards(row["graveyard"]),
     stack: asStack(row["stack"]),
   };

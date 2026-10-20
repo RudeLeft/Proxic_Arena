@@ -1272,15 +1272,39 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
         </ul>
       )}
 
-      {opponents.map((player) => (
-        <PlayerSide
-          key={player.seat}
-          player={player}
-          cards={board.battlefield.filter((card) => card.seat === player.seat)}
-          mine={false}
-          matchId={matchId}
-        />
-      ))}
+      {opponents.map((player) => {
+        const seen = board.otherHands.filter((card) => card.seat === player.seat);
+        return (
+          <div key={player.seat}>
+            <PlayerSide
+              player={player}
+              cards={board.battlefield.filter((card) => card.seat === player.seat)}
+              mine={false}
+              matchId={matchId}
+            />
+            {seen.length > 0 && (
+              // Only ever what Forge let this viewer see -- Mindslaver's
+              // controller, or an effect that reveals a hand.
+              <div className="board-zone board-other-hand">
+                <h4>
+                  {player.name}’s hand — you can see it ({seen.length})
+                </h4>
+                <ul className="board-cards">
+                  {seen.map((card) => (
+                    <CardChip
+                      key={card.id}
+                      card={card}
+                      mine={false}
+                      attachments={[]}
+                      matchId={matchId}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {board.stack.length > 0 && (
         <div className="board-stack">

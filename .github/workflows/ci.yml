@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF and P6-J: Mechanics Lab regressions,
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J and P6-U: Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
       # which proves nothing, so it fails too.
@@ -147,6 +147,7 @@ jobs:
           python3 -I scripts/check-leyline.py "$jar" "$res"
           python3 -I scripts/check-karn.py "$jar" "$res"
           python3 -I scripts/check-multiface.py "$jar" "$res"
+          python3 -I scripts/check-mindslaver.py "$jar" "$res"
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
@@ -259,6 +260,11 @@ jobs:
       - name: Build the Delver deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/delver-deck.zip" protocol/fixtures/delver-deck
+
+      # And Mindslaver (P6-U): one player answering for another.
+      - name: Build the Mindslaver deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/mindslaver-deck.zip" protocol/fixtures/mindslaver-deck
 
       - run: npm ci
         working-directory: frontend
