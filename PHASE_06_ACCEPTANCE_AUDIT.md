@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 58 |
-| PARTIAL | 2 |
+| MET | 59 |
+| PARTIAL | 1 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -64,14 +64,16 @@ deck storage is unchanged across a match, rows and artwork. P6-AK
 → MET: attachments, including an Aura across the table, drawn with
 what they modify. P6-BD → MET: every card is the exact printing its
 deck asked for, at runtime. P6-I → MET: a real morph, hidden from
-the opponent in every frame and named for its controller.
+the opponent in every frame and named for its controller. P6-G →
+MET: no seat is sent a card from another's hand that Forge did not
+show it, over every regression game.
 
-Where it stands now (2026-10-20): 58 of 65 met. What is left is
+Where it stands now (2026-10-20): 59 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
 server, so they are the owner's to schedule), a **rules-version
-regression** scenario nobody has chosen yet (P6-AF), and two
-partials -- hidden-hand logs (G) and a formal project-integrity
-comparison (BM).
+regression** scenario nobody has chosen yet (P6-AF), and one
+partial -- project integrity (BM), which runs clean except for a file
+deleted from Proxic_Arena_OLD's working tree, left for the owner.
 
 ---
 
@@ -223,7 +225,7 @@ restarted under a live match outside a unit test.
 | ID | Test | Status | Evidence |
 |---|---|---|---|
 | P6-F | Viewer-safe state | MET | `check-hidden-information.py` on burn/green/blue/black/counters; two-browser e2e |
-| P6-G | Hidden hand | PARTIAL | Snapshot and decision payloads covered. **Asset URLs N/A (no assets). "Logs returned to browser" never checked.** |
+| P6-G | Hidden hand | MET | **Run 2026-10-20**, `scripts/check-hidden-hands.py` over the protocol traces of every Mechanics Lab regression (in CI): round by round, what each seat is sent is compared with every other seat's hand as that seat's own snapshot of the same revision lists it -- 3,013 hand-card sightings across 14 games, including Mindslaver's master and Karn's hand exile. No snapshot (any zone but Forge's own `otherHands` permission) and no question option carries such a card, and no notice names a card that is only in an opponent's hand. Checked on doctored traces (a hand card planted in the opponent's battlefield; an option naming one): both caught. Asset URLs: the server attaches art only to cards a viewer's snapshot names as `known` and serves only what a seat was shown (`MatchArtTest`). Logs: the worker's stderr is written to match-logs and never served, and a failure's detail goes to the server log only -- players get a code |
 | P6-H | Library privacy | MET | No library in any snapshot; search options go to one seat; delayed reveal is the authorised exposure |
 | P6-I | Face-down safety | MET | **Run 2026-10-20**, `scripts/check-face-down.py` (in CI) and `e2e/match-face-down.spec.ts`. A real morph (Willbender) cast face down, attacking, then turned face up. Seat 2 is shown only "Face-down", `known` false, with no printing, power, toughness, keywords, types or faces -- and across every frame it is sent while the card is face down (70 in the recorded run: snapshots, questions, notices) nothing names it; once Forge turns it up, seat 2 sees Willbender under the same id. No art: the server attaches a picture only to `known` cards and serves only what a seat was shown. Mutation-tested: letting every viewer identify it fails the check. **Found and fixed:** the CONTROLLER was shown "Face-down" for its own card, and its questions began with a blank name (" — {1}{U} — Morph"), because a face-down card's current state has no name. Now named for a viewer Forge lets identify it -- "Echo Tracer", marked face down on the board, "Willbender (face down) — …" in questions |
 | P6-J | Revealed / known information | MET | **Run 2026-10-20**, `scripts/check-multiface.py` (in CI). Delver's "look at the top card" reaches its controller before "Reveal?" is asked; the controller reveals only an instant; the opponent is told of every reveal and of nothing declined. **Found and fixed: `reveal()` was a no-op**, so that question had been answered about a card nobody was shown, and no opponent ever saw a reveal. Now a notice to each player Forge calls it for, which is exactly the entitled set |
@@ -306,7 +308,7 @@ restarted under a live match outside a unit test.
 | P6-BJ | 2HG guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI): a ROOM rewritten to TWO_HEADED_GIANT cannot be prepared (422 INVALID_ROOM_CONFIGURATION), and a SETUP rewritten to it after preparation cannot be launched (422 LAUNCH_REVALIDATION_FAILED, no match row, so no worker). Mutation-tested: disabling either guard fails its tests |
 | P6-BK | Production end-to-end | NOT MET | Everything has been run against the local Docker stack |
 | P6-BL | Production worker privacy | NOT MET | No external network test |
-| P6-BM | Project integrity | PARTIAL | ISO-001/ISO-002 respected throughout and GIT-001 holds (no artwork committed); **no formal integrity comparison has been run** |
+| P6-BM | Project integrity | PARTIAL | **Run 2026-10-20**, `scripts/check-integrity.py` (local; CI has no sibling checkouts), read-only. Holds: Proxic_Deck_Builder at its recorded HEAD and clean; the Test Deck TXT and CSV byte-identical to their only commit (815af59) and their recorded SHA-256; the vendored Forge tree at exactly the pinned 4ec5f1a2 with no change of any kind. **Finding, owner's call:** Proxic_Arena_OLD is at its recorded HEAD but its working tree has `Proxic_Arena_Complete_Build_Plan.docx` DELETED. The committed copy is intact (OLD commit 6247e97); nothing in this project writes to OLD (ISO-001), and restoring it would be a write, so it is left as found |
 
 ---
 

@@ -1,0 +1,10 @@
+{
+  "siblings": {
+    "Proxic_Arena_OLD": "0b29dd89819d2ffe372c2e0375552f950a6f887d",
+    "Proxic_Deck_Builder": "71a2f933ca47b550e650147ffec940c999731339"
+  },
+  "corpus": {
+    "Test Deck/Testing Deck/Proxic_Arena_Mechanics_Lab_SOURCE.txt": "0014207daf374f927612721a0475dc507317b007b6a11935aa72e5ee64494041",
+    "Test Deck/Testing Deck/Proxic_Arena_Mechanics_Lab_Coverage.csv": "aa102208a9cb719f4f3415a55abb19b7f8477df416dc626f63cd55365b906ac0"
+  }
+}

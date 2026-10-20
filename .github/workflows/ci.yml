@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP, P6-AK, P6-BD, P6-I and P6-L:
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP, P6-AK, P6-BD, P6-I, P6-L and P6-G:
       # Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
@@ -160,6 +160,9 @@ jobs:
           # P6-L, over every game above: no question reaches a seat before
           # the state it refers to.
           python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
+          # P6-G, over the same games: no seat is sent a card from another
+          # seat's hand that Forge did not show it.
+          python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
