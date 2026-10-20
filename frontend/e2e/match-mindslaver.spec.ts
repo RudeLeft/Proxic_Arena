@@ -51,6 +51,7 @@ test("under Mindslaver the controller answers for the other player and sees thei
 
     let sawHandBefore = false;
     let used = false;
+    let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
     while (Date.now() < deadline) {
       if ((await controlling.count()) > 0) break;
@@ -70,7 +71,12 @@ test("under Mindslaver the controller answers for the other player and sees thei
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
         const hand = await panel.locator(".board-hand .card-chip").allTextContents();
-        const keep = live !== host || hand.some((name) => name.includes("Mindslaver"));
+        // At most two mulligans, then keep and draw into it: each
+        // mulligan shrinks the hand, an EMPTY hand can never hold the
+        // card, and "keep only with it" then mulligans for ever.
+        const keep =
+          live !== host || mulligans >= 2 || hand.some((name) => name.includes("Mindslaver"));
+        if (!keep) mulligans += 1;
         pick = find(keep ? /Keep/ : /Mulligan/);
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Mountain/);

@@ -396,10 +396,23 @@ public final class MatchController extends GeneratedControllerBase {
         // §6.50 — THE OPTIONS COME FROM FORGE. Not from card type,
         // not from zone, not from mana cost, not from card text.
         // Whatever Forge says is playable right now is what the
-        // player may do, and nothing here filters or reorders it.
+        // player may do; nothing here reorders it, and the only
+        // filter is Forge's own (below).
         java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
         for (forge.game.card.Card card : player.getAllCards()) {
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
+                // Owner decision 2026-10-20: do not offer what the RULES
+                // forbid right now. These are the two checks Forge itself
+                // makes the moment an action is chosen (its
+                // HumanPlaySpellAbility), and refuses it on: "can't be
+                // cast / activated" effects -- Pithing Needle, Silence --
+                // and casting timing. getAllPossibleAbilities consults
+                // neither, so a Needled ability was offered, clicked,
+                // and rolled back. Still Forge's answer, asked earlier.
+                // COST is deliberately not screened (see describe()).
+                if (!sa.checkRestrictions(player) || !sa.canCastTiming(player)) {
+                    continue;
+                }
                 // §6.46 — TYPED ids, because card ids and
                 // stack-instance ids share a number space and a bare
                 // integer cannot say which it means. The index keeps

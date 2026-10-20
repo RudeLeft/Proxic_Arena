@@ -53,6 +53,14 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
 
     let sawFront = false;
     let sawLook = false;
+    // What both screens say, for a failure that has to explain itself:
+    // CI once spent the whole budget here with nothing on record.
+    const screens = async () =>
+      `host: ${(await matchPanel(host).innerText()).slice(0, 600)}
+---
+guest: ${(await matchPanel(guest).innerText()).slice(0, 600)}`;
+    let quietSince = Date.now();
+    let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
     while (Date.now() < deadline) {
       if ((await back.count()) > 0) break;
@@ -65,9 +73,14 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
 
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
+        if (Date.now() - quietSince > 60_000) {
+          throw new Error(`nobody was asked anything for a minute:
+${await screens()}`);
+        }
         await host.waitForTimeout(100);
         continue;
       }
+      quietSince = Date.now();
       const panel = matchPanel(live);
       const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
       const options = panel.getByRole("listitem").getByRole("button");
@@ -77,7 +90,15 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
         const hand = await panel.locator(".board-hand .card-chip").allTextContents();
-        const keep = live !== host || hand.some((name) => name.includes("Delver of Secrets"));
+        // At most two mulligans, then keep and draw into it: each
+        // mulligan shrinks the hand, an EMPTY hand can never hold the
+        // card, and "keep only with it" then mulligans for ever. CI
+        // hit exactly that (2026-10-20).
+        const keep =
+          live !== host ||
+          mulligans >= 2 ||
+          hand.some((name) => name.includes("Delver of Secrets"));
+        if (!keep) mulligans += 1;
         pick = find(keep ? /Keep/ : /Mulligan/);
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Island/);
@@ -111,8 +132,17 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
       await live.waitForTimeout(40);
     }
 
-    expect(sawFront, "Delver never reached the battlefield").toBe(true);
-    expect(sawLook, "never asked to reveal the top card").toBe(true);
+    const said = (await back.count()) > 0 ? "" : await screens();
+    expect(
+      sawFront,
+      `Delver never reached the battlefield
+${said}`,
+    ).toBe(true);
+    expect(
+      sawLook,
+      `never asked to reveal the top card
+${said}`,
+    ).toBe(true);
     // The same card, turned over: the back face's name and numbers,
     // and no picture borrowed from the front.
     await expect(back.first()).toBeVisible({ timeout: 60_000 });

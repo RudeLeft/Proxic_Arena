@@ -52,8 +52,18 @@ class MatchArt(
      * wrong card.
      */
     private val bySeat: Map<Int, Map<String, String>> =
-        decks.mapValues { (_, names) ->
-            names + names.mapKeys { (name, _) -> frontFaceOf(name) }.filterKeys { it !in names }
+        decks.mapValues { (_, entries) ->
+            val names = entries.filterKeys { !it.startsWith(PRINTING) }
+            // P6-BD, owner decision 2026-10-20 -- each PRINTING its own
+            // picture. Filed as "printing:SET/NUM|front name", so a
+            // printing only matches while its FRONT face is up: a
+            // two-faced card has one printing for both faces, and a
+            // transformed one must not wear its front's picture.
+            val printings =
+                entries.filterKeys { it.startsWith(PRINTING) }.mapKeys { (key, _) ->
+                    key.substringBefore("|") + "|" + frontFaceOf(key.substringAfter("|"))
+                }
+            names + names.mapKeys { (name, _) -> frontFaceOf(name) }.filterKeys { it !in names } + printings
         }
 
     /**
@@ -99,7 +109,12 @@ class MatchArt(
             // not the viewer: that is the whole reason §6.122 exists
             // as a match-scoped route rather than a Deck Depot one.
             val owner = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
-            val asset = bySeat[owner]?.let { it[name] } ?: return entry
+            // The exact printing first, when the deck carried art for
+            // it; the name otherwise, as before.
+            val printing = entry["printing"]?.jsonPrimitive?.content
+            val asset =
+                bySeat[owner]?.let { art -> printing?.let { art["$PRINTING$it|$name"] } ?: art[name] }
+                    ?: return entry
 
             allowed.add(asset)
             return buildJsonObject {
@@ -135,7 +150,10 @@ class MatchArt(
         assetId: String,
     ): Boolean = shown[viewerSeat]?.contains(assetId) == true
 
-    private companion object {
-        fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
+    companion object {
+        /** The key prefix [MatchRecords] files a printing's art under. */
+        const val PRINTING = "printing:"
+
+        private fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
     }
 }

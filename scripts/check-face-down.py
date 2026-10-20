@@ -17,9 +17,12 @@ protocol, for that one card id:
                board and in its own questions ("Willbender (face
                down)"), never a blank name
   opponent     seat 2 is shown "Face-down", unknown, and NOTHING that
-               identifies it: no printing, power, toughness, keywords,
-               types or faces -- in every snapshot, and no question or
-               notice sent to seat 2 while it is face down names it
+               identifies it: no printing, keywords or faces -- in every
+               snapshot, and no question or notice sent to seat 2 while
+               it is face down names it. What the rules make public it
+               IS shown (owner decision 2026-10-20): a creature, with the
+               same power and toughness its controller sees for the
+               face-down 2/2 -- never the real card's 1/2
   turned up    once Forge turns it face up, seat 2 is shown Willbender
                under the SAME id
 
@@ -40,7 +43,7 @@ TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 SEAT1 = [("Island", 30), ("Willbender", 30)]
 SEAT2 = [("Forest", 30), ("Grizzly Bears", 30)]
 NAME = "Willbender"
-IDENTIFYING = ("printing", "power", "toughness", "keywords", "types", "faces", "face")
+IDENTIFYING = ("printing", "keywords", "faces", "face")
 MAX_TURN = 24
 
 proc = subprocess.Popen(
@@ -216,6 +219,12 @@ if not found["controller_view"] or not found["opponent_view"] or not found["turn
     sys.exit(2)
 problems = list(found["leaks"])
 ctl = found["controller_view"]
+opp = found["opponent_view"]
+if opp.get("kind") != "creature" or (opp.get("power"), opp.get("toughness")) != (ctl.get("power"), ctl.get("toughness")):
+    problems.append(f"the opponent is not shown the public face-down creature its controller sees: "
+                    f"{opp} vs {ctl.get('power')}/{ctl.get('toughness')}")
+if (opp.get("power"), opp.get("toughness")) == (1, 2):
+    problems.append("the opponent was shown Willbender's real 1/2")
 if ctl.get("name") != NAME or not ctl.get("known"):
     problems.append(f"the controller is not shown its own face-down card: {ctl}")
 labels = found["controller_labels"]

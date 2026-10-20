@@ -345,12 +345,36 @@ public final class WorkerMain {
                     final String startId = messageId;
                     Thread announce = new Thread(() -> {
                         try {
-                            boolean running =
-                                    GAME.awaitRunning(120, java.util.concurrent.TimeUnit.SECONDS);
+                            // §6.29: "Human gameplay decisions do not use
+                            // this startup timeout." The budget is FORGE's
+                            // time: it runs only while nobody is being
+                            // asked anything. A player thinking over a
+                            // mulligan for three minutes is a player, not a
+                            // hung start -- and counting it once failed a
+                            // real match mid-mulligan (CI, Delver spec,
+                            // 2026-10-20). Configurable for tests.
+                            long budget = java.util.concurrent.TimeUnit.SECONDS.toNanos(
+                                    Long.getLong("proxic.startBudgetSeconds", 120L));
+                            long last = System.nanoTime();
+                            boolean running;
+                            while (!(running = GAME.awaitRunning(250,
+                                    java.util.concurrent.TimeUnit.MILLISECONDS))) {
+                                if (GAME.failure() != null) {
+                                    break;
+                                }
+                                long now = System.nanoTime();
+                                if (GAME.gate().pending() == null) {
+                                    budget -= now - last;
+                                }
+                                last = now;
+                                if (budget <= 0) {
+                                    break;
+                                }
+                            }
                             if (!running) {
                                 Throwable failure = GAME.failure();
                                 send(error("GAME_START_FAILED", failure == null
-                                        ? "no priority window within 120s"
+                                        ? "no priority window within the start budget"
                                         : failure.getClass().getSimpleName()));
                                 return;
                             }

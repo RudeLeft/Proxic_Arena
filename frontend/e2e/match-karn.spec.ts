@@ -45,6 +45,7 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
 
     // Bounded by the clock: the host needs seven lands, then three
     // of its own turns with Karn out.
+    let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
     let answered = 0;
     while (Date.now() < deadline) {
@@ -65,7 +66,13 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
       if (/Keep or mulligan/.test(heading)) {
         // The host keeps only a hand with Karn in it.
         const hand = await panel.locator(".board-hand .card-chip").allTextContents();
-        const keep = live !== host || hand.some((name) => name.includes("Karn Liberated"));
+        // At most two mulligans, then keep and draw into it: each
+        // mulligan shrinks the hand, an EMPTY hand can never hold the
+        // card, and "keep only with it" then mulligans for ever. CI
+        // hit exactly that (2026-10-20).
+        const keep =
+          live !== host || mulligans >= 2 || hand.some((name) => name.includes("Karn Liberated"));
+        if (!keep) mulligans += 1;
         pick = find(keep ? /Keep/ : /Mulligan/);
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Plains/);

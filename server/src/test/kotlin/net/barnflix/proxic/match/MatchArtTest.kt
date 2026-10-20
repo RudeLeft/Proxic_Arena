@@ -209,6 +209,75 @@ class MatchArtTest {
     }
 
     /**
+     * P6-BD, owner decision 2026-10-20 — two printings of one card,
+     * two pictures. Each copy carries the printing Forge built it from,
+     * and the deck filed each printing's art under it.
+     */
+    @Test
+    fun `each printing of a card shows its own picture`() {
+        val m10 = "e".repeat(64)
+        val a25 = "f".repeat(64)
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to
+                        mapOf(
+                            "Lightning Bolt" to a25,
+                            "${MatchArt.PRINTING}M10/146|Lightning Bolt" to m10,
+                            "${MatchArt.PRINTING}A25/141|Lightning Bolt" to a25,
+                        ),
+                ),
+            )
+
+        val seen =
+            art.annotate(
+                snapshot(
+                    printed("card:1", alice, "Lightning Bolt", "M10/146"),
+                    printed("card:2", alice, "Lightning Bolt", "A25/141"),
+                    // A printing the deck carried no art for falls back to the name.
+                    printed("card:3", alice, "Lightning Bolt", "2XM/129"),
+                ),
+                alice,
+            )
+
+        assertEquals(m10, artOf(seen, 0))
+        assertEquals(a25, artOf(seen, 1))
+        assertEquals(a25, artOf(seen, 2))
+    }
+
+    /**
+     * And a printing is never a back door to a front face: a two-faced
+     * card has ONE printing for both faces, so a transformed card does
+     * not wear its front's picture through it.
+     */
+    @Test
+    fun `a transformed card does not borrow its front's art by printing`() {
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to
+                        mapOf(
+                            "Reckless Stormseeker // Storm-Charged Slasher" to bolt,
+                            "${MatchArt.PRINTING}MID/157|Reckless Stormseeker // Storm-Charged Slasher" to bolt,
+                        ),
+                ),
+            )
+
+        val front = art.annotate(snapshot(printed("card:1", alice, "Reckless Stormseeker", "MID/157")), alice)
+        val back = art.annotate(snapshot(printed("card:1", alice, "Storm-Charged Slasher", "MID/157")), alice)
+
+        assertEquals(bolt, artOf(front))
+        assertNull(artOf(back))
+    }
+
+    private fun printed(
+        id: String,
+        seat: Int,
+        name: String,
+        printing: String,
+    ) = """{"id":"$id","seat":$seat,"name":"$name","known":true,"printing":"$printing"}"""
+
+    /**
      * And not by its back. The stored image is the FRONT, so a
      * transformed card showing it would be showing the wrong card;
      * no art is the honest answer until the package carries backs.

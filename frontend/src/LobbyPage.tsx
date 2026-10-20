@@ -842,12 +842,16 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
         </p>
       )}
 
-      {game.board && <Board board={game.board} matchId={match.matchId} />}
+      {game.board && <Board board={game.board} matchId={match.matchId} finished={finished} />}
 
       {game.notice && <p className="error-text">{game.notice}</p>}
       {abandonFailure && <p className="error-text">{abandonFailure}</p>}
 
-      {game.decision ? (
+      {/* Not once the match is over: a question from a game that has
+          ended cannot be answered (the socket is closed), and CI found a
+          test clicking a failed match's mulligan for eighteen minutes.
+          A player would have done the same, to no effect. */}
+      {game.decision && !finished ? (
         <div className="decision">
           <h3>
             {game.decision.actedForSeat === mine?.seatNumber
@@ -1243,7 +1247,15 @@ function hintFor(kind: string, options: number): string {
  * name is a card whose name never arrived; a developer console
  * shows exactly what this does.
  */
-function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
+function Board({
+  board,
+  matchId,
+  finished,
+}: {
+  board: Snapshot;
+  matchId: string;
+  finished: boolean;
+}) {
   const me = board.players.find((player) => player.seat === board.seat);
   const opponents = board.players.filter((player) => player.seat !== board.seat);
   const nameOf = (seat: number) =>
@@ -1256,7 +1268,14 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
             reads as the game having gone backwards. */}
         {board.gameEpoch > 1 && `Game ${board.gameEpoch} · `}
         {board.dayTime && `It is ${board.dayTime} · `}
-        {board.phase ? (
+        {finished && board.phase ? (
+          // The board is the final position; nobody's turn is going
+          // on any more, and "draw · opponent's turn" said one was.
+          <>
+            Game over · it ended on turn {board.turn}, in the{" "}
+            {board.phase.toLowerCase().replace(/_/g, " ")} step.
+          </>
+        ) : board.phase ? (
           <>
             Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
             {board.activeSeat === board.seat ? "your turn" : "opponent’s turn"}

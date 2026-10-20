@@ -96,6 +96,14 @@ test("a face-down creature is named for its controller and hidden from the oppon
     const hidden = theirs.locator(".card-chip").filter({ hasText: "Face-down" });
     await expect(hidden.first()).toBeVisible({ timeout: 30_000 });
     await expect(hidden.first().locator(".card-art")).toHaveCount(0);
+    // What the rules make public (owner decision 2026-10-20): a 2/2
+    // creature, drawn among the creatures.
+    await expect(hidden.first()).toContainText("2/2");
+    await expect(
+      theirs.locator(".board-row").filter({ hasText: "Creatures" }).locator(".card-chip", {
+        hasText: "Face-down",
+      }),
+    ).toHaveCount(1);
     await expect(hidden.first()).not.toContainText("face down");
     for (const morph of MORPHS) {
       await expect(theirs, `the opponent's board names ${morph}`).not.toContainText(morph);

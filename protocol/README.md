@@ -92,6 +92,15 @@ player.designations  "monarch", "initiative", "city's blessing"
 player.command       emblems, dungeons and cards in the command zone --
                      not Forge's internal effect pieces
 dayTime      "day" or "night" once a daybound card has made it one
+card.printing  "SET/NUMBER" Forge built the card from, e.g. "M10/242"
+             (P6-BD). Only for a card this viewer may identify; a
+             token has none. Art is chosen by it first, then by name.
+card.faceDown  true for a face-down permanent. For its controller it
+             carries the REAL name (and `known`); for anyone else
+             `name` is "Face-down", `known` false, and only what the
+             rules make public: kind "creature", types, power,
+             toughness, damage, sick/attacking/blocking, counters --
+             the face-down 2/2's, never the real card's (P6-I).
 otherHands   OTHER players' hand cards Forge lets this viewer see --
              under Mindslaver the controlled player's hand, with a
              "play with your hand revealed" effect an opponent's.

@@ -18,7 +18,10 @@ activated unless they're mana abilities." Checked off the protocol:
   the gate       an answer that is not one of Forge's names is
                  refused
   the effect     the named card's ability is offered BEFORE the
-                 Needle and not after -- Forge applied the name
+                 Needle and NOT AFTER: Forge applied the name, and
+                 the worker does not offer what Forge's "can't be
+                 activated" check forbids (owner decision 2026-10-20;
+                 it used to be offered, clicked, and rolled back)
 
 A focused deck: Mountains, Evolving Wilds and Pithing Needles. Each
 player plays an Evolving Wilds and never cracks it, casts a Needle,
@@ -113,7 +116,7 @@ for line in proc.stdout:
         s = frame.get("state") or {}
         state[s.get("seat")] = s
         turn = s.get("turn") or turn
-        if turn > MAX_TURN or found["wilds_ability_after"] is not None:
+        if turn > MAX_TURN or (found["wilds_ability_after"] or {}).get("questions", 0) >= 6:
             break
         continue
 
@@ -175,32 +178,15 @@ for line in proc.stdout:
         if found["named"] is None:
             if offered_wilds:
                 found["wilds_ability_before"] = True
-        elif attempt is not None and seat == attempt["seat"]:
-            # Back at THIS player's priority after trying the named
-            # card's ability. Forge refuses it AT ACTIVATION
-            # (PlaySpellAbility's checkRestrictions) and rolls back: no
-            # sacrifice, no search, the Wilds still on the battlefield.
-            #
-            # This player's: the first version judged at the next
-            # priority of EITHER seat, and when that was the opponent's
-            # it looked for this Wilds on the opponent's battlefield --
-            # passing locally, failing on CI, on a game that was right.
-            found["wilds_ability_after"] = {
-                "attempted": True,
-                "sacrifice_asked": attempt["sacrifice_asked"],
-                "searched": attempt["searched"],
-                "still_on_battlefield": attempt["card"] in wilds_on_board,
-            }
-            attempt = None
-        elif attempt is None and offered_wilds and found["wilds_ability_after"] is None:
-            # STILL OFFERED -- as Forge's own desktop client offers it:
-            # both list abilities with getAllPossibleAbilities, which
-            # does not consult "can't be activated" effects. So TRY
-            # it, and see whether Forge lets it happen.
-            attempt = {"card": card_of(offered_wilds[0]["actionId"]), "seat": seat,
-                       "sacrifice_asked": False, "searched": False}
-            respond(frame, offered_wilds[0]["actionId"])
-            continue
+        elif wilds_on_board:
+            # Either player's priority with a Wilds on the battlefield,
+            # after Forge applied the name -- a Needle stops EVERY source
+            # with that name: the ability must not be on offer. Counted,
+            # so "never asked" cannot pass for "not offered".
+            after = found["wilds_ability_after"] or {"questions": 0, "offered": []}
+            after["questions"] += 1
+            after["offered"] += [label for o, label in zip(options, labels) if o in offered_wilds]
+            found["wilds_ability_after"] = after
 
         play = [o for o, label in zip(options, labels) if "Play land" in label]
         wilds_play = [o for o in play if card_of(o["actionId"]) in own("hand", WILDS)]
@@ -264,11 +250,11 @@ if found["bogus_refused"] != "STALE_DECISION":
 if not found["wilds_ability_before"]:
     problems.append("the Wilds' ability was never offered before naming (no control)")
 after = found["wilds_ability_after"]
-if after is None:
-    print("INCONCLUSIVE: never tried the Wilds' ability after naming it")
+if after is None or after["questions"] < 3:
+    print(f"INCONCLUSIVE: too few chances to offer the Wilds' ability after naming it: {after}")
     sys.exit(2)
-if after["sacrifice_asked"] or after["searched"] or not after["still_on_battlefield"]:
-    problems.append(f"Evolving Wilds was named, and its ability still went ahead: {after}")
+if after["offered"]:
+    problems.append(f"Evolving Wilds was named, and its ability was still offered: {after['offered'][:2]}")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)

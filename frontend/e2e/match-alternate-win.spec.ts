@@ -80,6 +80,7 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
       (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
+    let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
     let answered = 0;
     while (Date.now() < deadline) {
@@ -101,7 +102,12 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
       if (/Keep or mulligan/.test(heading)) {
         // The host keeps only a hand with the Maniac in it.
         const hand = await panel.locator(".board-hand .card-chip").allTextContents();
-        const keep = live !== host || hand.some((name) => name.includes(MANIAC));
+        // At most two mulligans, then keep and draw into it: each
+        // mulligan shrinks the hand, an EMPTY hand can never hold the
+        // card, and "keep only with it" then mulligans for ever. CI
+        // hit exactly that (2026-10-20).
+        const keep = live !== host || mulligans >= 2 || hand.some((name) => name.includes(MANIAC));
+        if (!keep) mulligans += 1;
         pick = find(keep ? /Keep/ : /Mulligan/);
       } else if (/Put a card back/.test(heading)) {
         // Never the Maniac the hand was kept for. With too few Islands
@@ -162,6 +168,8 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
       `after ${answered} decisions; the page said: ${await said()}`,
     ).toBeVisible({ timeout: 120_000 });
     await expect(matchPanel(host).getByText(why)).toBeVisible();
+    // The turn line says the game is over, not whose turn it is.
+    await expect(matchPanel(host).getByText(/Game over · it ended on turn \d+/)).toBeVisible();
     await expect(matchPanel(guest).getByText(/Your opponent won on turn \d+\./)).toBeVisible({
       timeout: 30_000,
     });

@@ -59,6 +59,12 @@ class MatchWorker(
     private val config: ServerConfig,
     private val matchId: UUID,
     /**
+     * §6.29 — how long a start may go with the worker saying NOTHING
+     * while no player is being asked anything. Not a cap on the start:
+     * the worker owns the real budget, counted in Forge's time only.
+     */
+    private val startSilenceSeconds: Long = START_TIMEOUT_SECONDS,
+    /**
      * Where a decision goes.
      *
      * Called from the pump thread, so it must return quickly: the
@@ -90,6 +96,11 @@ class MatchWorker(
      * The pump reads everything and files it by type instead.
      */
     private val startResult = java.util.concurrent.ArrayBlockingQueue<WorkerStart>(1)
+
+    /** When the worker last said anything, and whether that was a question to a player. */
+    @Volatile private var lastHeard = System.nanoTime()
+
+    @Volatile private var waitingOnPlayer = false
 
     /**
      * Spawn, handshake, and start the game.
@@ -183,8 +194,18 @@ class MatchWorker(
 
         send(startGameFrame(matchId, seats))
 
-        return startResult.poll(START_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            ?: WorkerStart.Failed("GAME_START_TIMEOUT", "Forge did not start a game in time.")
+        // §6.29: "Human gameplay decisions do not use this startup
+        // timeout." A fixed 180 seconds counted a player's mulligan
+        // against Forge and failed a real match mid-decision; now a
+        // start fails here only on SILENCE with nobody being asked.
+        val silence = TimeUnit.SECONDS.toNanos(startSilenceSeconds)
+        lastHeard = System.nanoTime()
+        while (true) {
+            startResult.poll(1, TimeUnit.SECONDS)?.let { return it }
+            if (!waitingOnPlayer && System.nanoTime() - lastHeard > silence) {
+                return WorkerStart.Failed("GAME_START_TIMEOUT", "Forge did not start a game in time.")
+            }
+        }
     }
 
     /**
@@ -224,7 +245,14 @@ class MatchWorker(
         val frame =
             runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: return
 
-        when (frame["type"]?.jsonPrimitive?.content) {
+        val type = frame["type"]?.jsonPrimitive?.content
+        lastHeard = System.nanoTime()
+        when (type) {
+            "DECISION_REQUEST" -> waitingOnPlayer = true
+            // Not ERROR: a refused answer leaves the question open.
+            "DECISION_ACCEPTED", "GAME_STARTED", "GAME_ENDED" -> waitingOnPlayer = false
+        }
+        when (type) {
             "GAME_STARTED" ->
                 startResult.offer(WorkerStart.Running(frame["turn"]?.jsonPrimitive?.int ?: 0))
 

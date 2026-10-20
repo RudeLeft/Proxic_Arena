@@ -283,7 +283,36 @@ final class ViewerSnapshot {
             // as hidden as its name, and sending them would let
             // anybody work out what it is.
             entry.addProperty("name", "Face-down");
-            entry.addProperty("kind", "unknown");
+            // Owner decision 2026-10-20: a face-down CREATURE is shown
+            // as what the rules make public -- a nameless 2/2 creature,
+            // with whatever has visibly happened to it (pumps, damage,
+            // counters, combat). Forge's CURRENT state of a face-down
+            // card is exactly that face-down state, so nothing of the
+            // real card is read here: no name, printing, keywords or
+            // faces, and no real power or toughness.
+            CardView.CardStateView down = view.getCurrentState();
+            if (view.isFaceDown() && down != null && down.isCreature()) {
+                entry.addProperty("kind", "creature");
+                entry.addProperty("types", String.valueOf(down.getType()));
+                entry.addProperty("power", down.getPower());
+                entry.addProperty("toughness", down.getToughness());
+                entry.addProperty("damage", view.getDamage());
+                entry.addProperty("sick", view.isSick());
+                entry.addProperty("attacking", view.isAttacking());
+                entry.addProperty("blocking", view.isBlocking());
+                JsonArray counters = new JsonArray();
+                card.getCounters().entrySet().forEach(counter -> {
+                    JsonObject kind = new JsonObject();
+                    kind.addProperty("name", String.valueOf(counter.getElement()));
+                    kind.addProperty("count", counter.getCount());
+                    counters.add(kind);
+                });
+                if (counters.size() > 0) {
+                    entry.add("counters", counters);
+                }
+            } else {
+                entry.addProperty("kind", "unknown");
+            }
             return entry;
         }
 

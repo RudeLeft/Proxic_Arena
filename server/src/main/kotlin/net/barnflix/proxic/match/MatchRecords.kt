@@ -272,7 +272,7 @@ private fun artOf(
 ): Map<String, String> =
     connection.prepareStatement(
         """
-        SELECT card_name, art_sha256
+        SELECT card_name, art_sha256, resolved_set, resolved_number
           FROM deck_entry
          WHERE deck_id = ? AND art_sha256 IS NOT NULL
         """.trimIndent(),
@@ -282,6 +282,14 @@ private fun artOf(
             buildMap {
                 while (rows.next()) {
                     put(rows.getString(1), rows.getString(2))
+                    // P6-BD -- and by the printing Forge resolved, which
+                    // is what a snapshot names ("M10/242"), so two
+                    // printings of one card keep their own pictures.
+                    val set = rows.getString(3)
+                    val number = rows.getString(4)
+                    if (set != null && number != null) {
+                        put("${MatchArt.PRINTING}$set/$number|${rows.getString(1)}", rows.getString(2))
+                    }
                 }
             }
         }
