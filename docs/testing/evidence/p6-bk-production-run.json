@@ -1,0 +1,23 @@
+{
+  "site": "https://proxic.barnflix.net",
+  "decks": {
+    "RudeLeft": "Basic_Mono_Red_65_Card_Deck",
+    "Pat": "Basic_Mono_Red_65_Card_Deck"
+  },
+  "matchId": "66236fdf-6262-413e-acb2-89f0dc30b1e9",
+  "picturesRendered": 7,
+  "hiddenArt": {
+    "forHost": 200,
+    "forGuest": 404
+  },
+  "reloadedOnTurn": 4,
+  "clicks": 413,
+  "result": {
+    "RudeLeft": "Your opponent won on turn 11.",
+    "Pat": "You won on turn 11."
+  },
+  "snapshots": {
+    "RudeLeft": 417,
+    "Pat": 418
+  }
+}

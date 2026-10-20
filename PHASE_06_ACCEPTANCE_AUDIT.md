@@ -27,11 +27,13 @@ green unit tests sat underneath four shipped faults.
 
 ## Where it stands
 
+**2026-10-20, end of day: every acceptance test is met or classified** (63 MET, 2 CLASSIFIED), and all 48 Phase-6-required Mechanics Lab cards are PASSED. The last three closed today on the live server: project integrity (P6-BM), the production end-to-end game (P6-BK) and worker privacy from outside the network (P6-BL). Closing the phase is the owner's decision, through an exit gate like Phases 1-5's.
+
 | Status | Count |
 |---|---|
-| MET | 61 |
+| MET | 63 |
 | PARTIAL | 0 |
-| NOT MET | 2 |
+| NOT MET | 0 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -331,8 +333,8 @@ restarted under a live match outside a unit test.
 | P6-BH | Zone coverage | MET | **Hellspark Elemental's Unearth offered from the graveyard and performed three times.** Enumerator uses `getAllCards()` + Forge's `getAllPossibleAbilities`, so it is not hand/battlefield-bound |
 | P6-BI | Unsupported preset guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI), through the real HTTP routes: a preset named in the launch body is ignored (`extra fields in the launch body are ignored`), and a setup rewritten in the database to COMMANDER is refused at `POST /api/matches` (422) with no match row created. Mutation-tested |
 | P6-BJ | 2HG guard | MET | **Run 2026-10-20**, `MatchRoutesTest` (in CI): a ROOM rewritten to TWO_HEADED_GIANT cannot be prepared (422 INVALID_ROOM_CONFIGURATION), and a SETUP rewritten to it after preparation cannot be launched (422 LAUNCH_REVALIDATION_FAILED, no match row, so no worker). Mutation-tested: disabling either guard fails its tests |
-| P6-BK | Production end-to-end | NOT MET | Everything has been run against the local Docker stack |
-| P6-BL | Production worker privacy | NOT MET | No external network test |
+| P6-BK | Production end-to-end | MET | **Run 2026-10-20 on https://proxic.barnflix.net** (build 21d3fa1), `frontend/e2e/production.spec.ts` via `scripts/run-production-check.ps1`, run by the owner, 2.4 min, passed; report `docs/testing/evidence/p6-bk-production-run.json` (screenshots kept locally, never committed: card art). RudeLeft and Pat in two independent browser contexts: room prepared and launched; RUNNING on both pages; every one of 835 snapshots held only that player's own hand, and the two views differed; 413 real decisions answered by clicking; 7 hand pictures rendered; a picture shown only to the host was served to it (200) and refused to the guest (404) while the match was live; the guest's page reloaded on turn 4 was back in the same match; Forge ended it on turn 11 and both pages agreed on the winner. **Found on the way and fixed:** a page refreshed mid-game lost its room and a player in a running match could host or join another (IN_MATCH missing from the room lookup; `RoomServiceTest`) |
+| P6-BL | Production worker privacy | MET | **Run 2026-10-20**, `docs/testing/evidence/p6-bl-worker-privacy.md`. Inside the production container the only listener is the web server (8080, published as 8765); the database is not published; the Forge worker opens no socket (stdin/stdout child, none in its code). From a different network (phone hotspot): the site answers through Cloudflare; the home address refuses 8765, 5432, 80 and 443, including the site's own name forced to it -- no public path but the tunnel |
 | P6-BM | Project integrity | MET | **Re-run 2026-10-20 after the owner had the deleted Proxic_Arena_Complete_Build_Plan.docx restored from its last commit** (the only change in that tree; owner-authorised exception to ISO-001, one file, `git checkout --`): every line OK -- Proxic_Arena_OLD and Proxic_Deck_Builder at their recorded HEADs and clean, Test Deck TXT/CSV as committed, Forge at the pin. **Run 2026-10-20**, `scripts/check-integrity.py` (local; CI has no sibling checkouts), read-only. Holds: Proxic_Deck_Builder at its recorded HEAD and clean; the Test Deck TXT and CSV byte-identical to their only commit (815af59) and their recorded SHA-256; the vendored Forge tree at exactly the pinned 4ec5f1a2 with no change of any kind. **Finding, owner's call:** Proxic_Arena_OLD is at its recorded HEAD but its working tree has `Proxic_Arena_Complete_Build_Plan.docx` DELETED. The committed copy is intact (OLD commit 6247e97); nothing in this project writes to OLD (ISO-001), and restoring it would be a write, so it is left as found |
 
 ---
