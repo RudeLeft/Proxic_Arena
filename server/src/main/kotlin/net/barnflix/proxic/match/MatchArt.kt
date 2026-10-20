@@ -40,8 +40,22 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MatchArt(
     /** Seat → (card name → content hash), from each seat's own deck. */
-    private val bySeat: Map<Int, Map<String, String>>,
+    decks: Map<Int, Map<String, String>>,
 ) {
+    /**
+     * The same, findable by the name FORGE uses.
+     *
+     * A double-faced card is stored as written, "A // B", and Forge
+     * names only the face that is up (§2.42). So each "A // B" is
+     * also filed under "A". Not under "B": the stored image is the
+     * front, and a transformed card wearing it would be showing the
+     * wrong card.
+     */
+    private val bySeat: Map<Int, Map<String, String>> =
+        decks.mapValues { (_, names) ->
+            names + names.mapKeys { (name, _) -> frontFaceOf(name) }.filterKeys { it !in names }
+        }
+
     /**
      * Seat → the assets that seat has actually been shown.
      *
@@ -85,7 +99,7 @@ class MatchArt(
             // not the viewer: that is the whole reason §6.122 exists
             // as a match-scoped route rather than a Deck Depot one.
             val owner = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
-            val asset = bySeat[owner]?.let { it[name] ?: it[frontFaceOf(name)] } ?: return entry
+            val asset = bySeat[owner]?.let { it[name] } ?: return entry
 
             allowed.add(asset)
             return buildJsonObject {
@@ -122,12 +136,6 @@ class MatchArt(
     ): Boolean = shown[viewerSeat]?.contains(assetId) == true
 
     private companion object {
-        /**
-         * A double-faced card is stored as written, "A // B", and
-         * Forge names only the front (§2.42). Matching the whole
-         * string first means a single-faced card never pays for
-         * this.
-         */
         fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
     }
 }

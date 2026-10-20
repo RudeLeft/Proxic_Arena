@@ -188,4 +188,37 @@ class MatchArtTest {
             seen["battlefield"]!!.jsonArray[0].jsonObject["id"]?.jsonPrimitive?.content,
         )
     }
+
+    /**
+     * A two-faced card: the deck stores "A // B", Forge names "A".
+     *
+     * Found by LOOKING at a running match: Reckless Stormseeker sat
+     * in hand as a blank tile while every other card had its art.
+     * The lookup trimmed the name Forge sent, which is already the
+     * front face, instead of the name the deck stored.
+     */
+    @Test
+    fun `a two-faced card is matched by its front face`() {
+        val slasher = "d".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("Reckless Stormseeker // Storm-Charged Slasher" to slasher)))
+
+        val seen = art.annotate(snapshot(card("card:1", alice, "Reckless Stormseeker")), alice)
+
+        assertEquals(slasher, artOf(seen))
+        assertTrue(art.mayFetch(alice, slasher))
+    }
+
+    /**
+     * And not by its back. The stored image is the FRONT, so a
+     * transformed card showing it would be showing the wrong card;
+     * no art is the honest answer until the package carries backs.
+     */
+    @Test
+    fun `a transformed card does not borrow its front's art`() {
+        val art = MatchArt(mapOf(alice to mapOf("Reckless Stormseeker // Storm-Charged Slasher" to bolt)))
+
+        val seen = art.annotate(snapshot(card("card:1", alice, "Storm-Charged Slasher")), alice)
+
+        assertNull(artOf(seen))
+    }
 }
