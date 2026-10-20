@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL and P6-AO:
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO and P6-AP:
       # Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
@@ -152,6 +152,7 @@ jobs:
           python3 -I scripts/check-characteristics.py "$jar" "$res"
           python3 -I scripts/check-player-state.py "$jar" "$res"
           python3 -I scripts/check-mana-choice.py "$jar" "$res"
+          python3 -I scripts/check-alternate-win.py "$jar" "$res"
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
@@ -274,6 +275,11 @@ jobs:
       - name: Build the player-state deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/state-deck.zip" protocol/fixtures/state-deck
+
+      # And an alternate win (P6-AP): Laboratory Maniac.
+      - name: Build the Maniac deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/maniac-deck.zip" protocol/fixtures/maniac-deck
 
       - run: npm ci
         working-directory: frontend

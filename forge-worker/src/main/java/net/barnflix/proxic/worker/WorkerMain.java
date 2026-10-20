@@ -317,6 +317,10 @@ public final class WorkerMain {
                         if (result.detail() != null) {
                             ended.addProperty("detail", result.detail());
                         }
+                        // P6-AP — Forge's own words for why it ended.
+                        if (result.reason() != null) {
+                            ended.addProperty("reason", result.reason());
+                        }
                         send(ended);
                     });
                     GAME.start(seats, request.has("matchId")

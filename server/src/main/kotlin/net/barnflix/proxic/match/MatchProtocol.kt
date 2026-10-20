@@ -121,6 +121,14 @@ data class GameOutcome(
      * needed to implement it.
      */
     val detail: String? = null,
+    /**
+     * §6.149, P6-AP — why Forge says the winner won, in Forge's
+     * words: the winner's PlayerOutcome, e.g. "has won due to
+     * effect of 'Laboratory Maniac'". Carried, never composed --
+     * an alternate win is a rule Forge applied, and the players
+     * are owed the name of it. Null when there is no winner.
+     */
+    val reason: String? = null,
 ) {
     companion object {
         const val WINNER = "WINNER"

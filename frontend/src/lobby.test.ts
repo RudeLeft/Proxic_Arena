@@ -454,6 +454,24 @@ describe("a finished match", () => {
     expect(state.match?.outcome?.kind).toBe("WINNER");
     expect(state.match?.outcome?.winningSeat).toBe(2);
     expect(state.match?.outcome?.endedOnTurn).toBe(11);
+    // No reason sent, none invented.
+    expect(state.match?.outcome?.reason).toBeNull();
+  });
+
+  it("keeps Forge's reason for an alternate win", () => {
+    const state = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "ENDED",
+        outcome: "WINNER",
+        winningSeat: 1,
+        endedOnTurn: 8,
+        reason: "has won due to effect of 'Laboratory Maniac'",
+        participants: seats,
+      },
+    ]);
+    expect(state.match?.outcome?.reason).toBe("has won due to effect of 'Laboratory Maniac'");
   });
 
   it("takes a draw with no winning seat", () => {

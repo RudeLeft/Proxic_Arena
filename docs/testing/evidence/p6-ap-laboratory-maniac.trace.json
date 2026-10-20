@@ -1,0 +1,8236 @@
+[
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:4",
+      "description": "Laboratory Maniac (1)->Laboratory Maniac - Creature 2 / 2"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:4",
+      "description": "Laboratory Maniac (1)->Laboratory Maniac - Creature 2 / 2"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 69,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 69,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "d1feb4bb-52e0-411b-b17e-7744d3f594e5",
+   "decisionId": 69,
+   "seat": 2,
+   "stateVersion": 69,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "d1feb4bb-52e0-411b-b17e-7744d3f594e5",
+   "decisionId": 69
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 70,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 70,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "0e278dd1-cec4-4369-86b3-aeb4e6a1e1f0",
+   "decisionId": 70,
+   "seat": 2,
+   "stateVersion": 70,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "0e278dd1-cec4-4369-86b3-aeb4e6a1e1f0",
+   "decisionId": 70
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 71,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 71,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "d231e2ee-a125-47b2-9e5d-a1a12b7f5b3a",
+   "decisionId": 71,
+   "seat": 2,
+   "stateVersion": 71,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "d231e2ee-a125-47b2-9e5d-a1a12b7f5b3a",
+   "decisionId": 71
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 72,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 72,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "2b7d9725-27fa-47c6-9ee8-5b31d5e5451a",
+   "decisionId": 72,
+   "seat": 2,
+   "stateVersion": 72,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "2b7d9725-27fa-47c6-9ee8-5b31d5e5451a",
+   "decisionId": 72
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 73,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 73,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "454bc21c-5b44-444e-b003-d2f2868aeb16",
+   "decisionId": 73,
+   "seat": 2,
+   "stateVersion": 73,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "454bc21c-5b44-444e-b003-d2f2868aeb16",
+   "decisionId": 73
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 74,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 74,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "9e7b3e88-fc2e-4487-af48-03da3966fb99",
+   "decisionId": 74,
+   "seat": 2,
+   "stateVersion": 74,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "9e7b3e88-fc2e-4487-af48-03da3966fb99",
+   "decisionId": 74
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 5,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 75,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 75,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "5e2f5cf9-f2a3-42f8-b0d7-0f0805c6dee2",
+   "decisionId": 75,
+   "seat": 2,
+   "stateVersion": 75,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "5e2f5cf9-f2a3-42f8-b0d7-0f0805c6dee2",
+   "decisionId": 75
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 76,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 76,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "9616edea-6c1c-4d2a-bd13-acaf818effd9",
+   "decisionId": 76,
+   "seat": 2,
+   "stateVersion": 76,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "9616edea-6c1c-4d2a-bd13-acaf818effd9",
+   "decisionId": 76
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 77,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 77,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "0ebe5df7-e6c2-4e7d-8d7d-8ff65199f1b7",
+   "decisionId": 77,
+   "seat": 2,
+   "stateVersion": 77,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "0ebe5df7-e6c2-4e7d-8d7d-8ff65199f1b7",
+   "decisionId": 77
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 78,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 78,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:4:card:40",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:5:card:19",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:6:card:46",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:7:card:67",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:8:card:39",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:9:card:43",
+     "label": "Island — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "66347c22-7fb7-4cb9-b3a9-c134cf915e78",
+   "decisionId": 78,
+   "seat": 2,
+   "stateVersion": 78,
+   "actionId": "action:2:card:27"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "66347c22-7fb7-4cb9-b3a9-c134cf915e78",
+   "decisionId": 78
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 79,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 79,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "178bc3d5-9171-433b-bc9b-c821020a2ac5",
+   "decisionId": 79,
+   "seat": 2,
+   "stateVersion": 79,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "178bc3d5-9171-433b-bc9b-c821020a2ac5",
+   "decisionId": 79
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 80,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 80,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "89ded099-de3d-49a5-9e5f-b1b2a499fbdb",
+   "decisionId": 80,
+   "seat": 2,
+   "stateVersion": 80,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "89ded099-de3d-49a5-9e5f-b1b2a499fbdb",
+   "decisionId": 80
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 81,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 81,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "4f919759-a7e9-4c82-87f9-e527e39b45c8",
+   "decisionId": 81,
+   "seat": 2,
+   "stateVersion": 81,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "4f919759-a7e9-4c82-87f9-e527e39b45c8",
+   "decisionId": 81
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 82,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 82,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3ea99029-f254-4493-9072-a1d28abe8ebc",
+   "decisionId": 82,
+   "seat": 2,
+   "stateVersion": 82,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3ea99029-f254-4493-9072-a1d28abe8ebc",
+   "decisionId": 82
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 83,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 83,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3ddb0ba1-3612-4c37-82b5-418e99a2658e",
+   "decisionId": 83,
+   "seat": 2,
+   "stateVersion": 83,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3ddb0ba1-3612-4c37-82b5-418e99a2658e",
+   "decisionId": 83
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 6,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 84,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 84,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "847d6441-9506-4678-8ef9-2566f13c0c63",
+   "decisionId": 84,
+   "seat": 2,
+   "stateVersion": 84,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "847d6441-9506-4678-8ef9-2566f13c0c63",
+   "decisionId": 84
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 85,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 85,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "23812d69-6223-44c8-a926-6249528dba44",
+   "decisionId": 85,
+   "seat": 1,
+   "stateVersion": 85,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "23812d69-6223-44c8-a926-6249528dba44",
+   "decisionId": 85
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 1,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 86,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 86,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "887d77a8-51bf-4481-bba3-d1b54dd52693",
+   "decisionId": 86,
+   "seat": 2,
+   "stateVersion": 86,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "887d77a8-51bf-4481-bba3-d1b54dd52693",
+   "decisionId": 86
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "DRAW",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "DRAW",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 87,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 87,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "9d650284-8ffe-4a26-b7bb-5b3fa78521a6",
+   "decisionId": 87,
+   "seat": 1,
+   "stateVersion": 87,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "9d650284-8ffe-4a26-b7bb-5b3fa78521a6",
+   "decisionId": 87
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "DRAW",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "DRAW",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 88,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 88,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c69767bd-b722-418d-8f7f-d85c54540f97",
+   "decisionId": 88,
+   "seat": 2,
+   "stateVersion": 88,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c69767bd-b722-418d-8f7f-d85c54540f97",
+   "decisionId": 88
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 89,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 89,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:4:card:10",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:5:card:3",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:6:card:9",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:7:card:2",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:8:card:8",
+     "label": "Island — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "bb8e9f80-cc6f-456d-a531-690fa160a898",
+   "decisionId": 89,
+   "seat": 1,
+   "stateVersion": 89,
+   "actionId": "action:3:card:7"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "bb8e9f80-cc6f-456d-a531-690fa160a898",
+   "decisionId": 89
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 90,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 90,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "a2080901-6545-49b4-9fb7-c37f34834cb0",
+   "decisionId": 90,
+   "seat": 1,
+   "stateVersion": 90,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "a2080901-6545-49b4-9fb7-c37f34834cb0",
+   "decisionId": 90
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 91,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 91,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "69a53bf2-74ba-48d3-b0a6-fbb4caf3a911",
+   "decisionId": 91,
+   "seat": 2,
+   "stateVersion": 91,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "69a53bf2-74ba-48d3-b0a6-fbb4caf3a911",
+   "decisionId": 91
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 92,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 92,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c5765291-011a-4051-9e8f-c6bb5641cb30",
+   "decisionId": 92,
+   "seat": 1,
+   "stateVersion": 92,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c5765291-011a-4051-9e8f-c6bb5641cb30",
+   "decisionId": 92
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 93,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 93,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "27f1171c-b3a5-4a26-9096-06bc7f5e4d3f",
+   "decisionId": 93,
+   "seat": 2,
+   "stateVersion": 93,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "27f1171c-b3a5-4a26-9096-06bc7f5e4d3f",
+   "decisionId": 93
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 94,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "declareAttackers",
+   "stateVersion": 94,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "prompt": "Choose a creature to attack with, or pass to stop attacking.",
+   "options": [
+    {
+     "actionId": "attacker:card:1",
+     "label": "Laboratory Maniac — 2/2"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "bf175f9b-bca9-498b-8c82-e8f2c7fd35ff",
+   "decisionId": 94,
+   "seat": 1,
+   "stateVersion": 94,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "bf175f9b-bca9-498b-8c82-e8f2c7fd35ff",
+   "decisionId": 94
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 95,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 95,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "1cc1fce8-0dde-4596-a6ed-735f754a3db5",
+   "decisionId": 95,
+   "seat": 1,
+   "stateVersion": 95,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "1cc1fce8-0dde-4596-a6ed-735f754a3db5",
+   "decisionId": 95
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 96,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 96,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "11bb4e63-1e60-448b-a51e-60fdfb089daa",
+   "decisionId": 96,
+   "seat": 2,
+   "stateVersion": 96,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "11bb4e63-1e60-448b-a51e-60fdfb089daa",
+   "decisionId": 96
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 97,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 97,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "7814a065-cdb8-4112-9f74-fb3437a61f4e",
+   "decisionId": 97,
+   "seat": 1,
+   "stateVersion": 97,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "7814a065-cdb8-4112-9f74-fb3437a61f4e",
+   "decisionId": 97
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "COMBAT_END",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 98,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 98,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "315af501-2169-4d96-adb3-a4e0360f9ce7",
+   "decisionId": 98,
+   "seat": 2,
+   "stateVersion": 98,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "315af501-2169-4d96-adb3-a4e0360f9ce7",
+   "decisionId": 98
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 99,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 99,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3c5063d0-3ac2-4c23-98d2-ef941b4ae7bd",
+   "decisionId": 99,
+   "seat": 1,
+   "stateVersion": 99,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3c5063d0-3ac2-4c23-98d2-ef941b4ae7bd",
+   "decisionId": 99
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "MAIN2",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 100,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 100,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "9dbb0bd9-a913-4fc3-8a9d-f04fd0c375c8",
+   "decisionId": 100,
+   "seat": 2,
+   "stateVersion": 100,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "9dbb0bd9-a913-4fc3-8a9d-f04fd0c375c8",
+   "decisionId": 100
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 101,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 101,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "948ef181-1fd1-4130-a6af-ba8a9cc22a92",
+   "decisionId": 101,
+   "seat": 1,
+   "stateVersion": 101,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "948ef181-1fd1-4130-a6af-ba8a9cc22a92",
+   "decisionId": 101
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 7,
+    "phase": "END_OF_TURN",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 102,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 102,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "a43d8ae1-5267-458b-88ed-f911ff0b93fb",
+   "decisionId": 102,
+   "seat": 2,
+   "stateVersion": 102,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "a43d8ae1-5267-458b-88ed-f911ff0b93fb",
+   "decisionId": 102
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 103,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 103,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f9f958f1-570a-4043-b51b-70a0b71f8aec",
+   "decisionId": 103,
+   "seat": 2,
+   "stateVersion": 103,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f9f958f1-570a-4043-b51b-70a0b71f8aec",
+   "decisionId": 103
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "UPKEEP",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 50,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 104,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 104,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "ed5b5a5a-0c22-4abc-b942-2ffcbbae7ff9",
+   "decisionId": 104,
+   "seat": 1,
+   "stateVersion": 104,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "ed5b5a5a-0c22-4abc-b942-2ffcbbae7ff9",
+   "decisionId": 104
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 105,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 105,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c59b1cc6-fdad-4e65-befc-b3ca050982fd",
+   "decisionId": 105,
+   "seat": 2,
+   "stateVersion": 105,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c59b1cc6-fdad-4e65-befc-b3ca050982fd",
+   "decisionId": 105
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "DRAW",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 106,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 106,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "54ebf863-cd0a-4d59-a7bc-6fd375351aa6",
+   "decisionId": 106,
+   "seat": 1,
+   "stateVersion": 106,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "54ebf863-cd0a-4d59-a7bc-6fd375351aa6",
+   "decisionId": 106
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 8,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 107,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 107,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:4:card:40",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:5:card:19",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:6:card:46",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:7:card:67",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:8:card:39",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:9:card:43",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:10:card:17",
+     "label": "Island — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "8eb55409-acc5-4e62-9341-9365dcb21614",
+   "decisionId": 107,
+   "seat": 2,
+   "stateVersion": 107,
+   "actionId": "action:3:card:49"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "8eb55409-acc5-4e62-9341-9365dcb21614",
+   "decisionId": 107
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 108,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 108,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "b1b04a69-9bd7-4a2e-a047-dde29d93c2aa",
+   "decisionId": 108,
+   "seat": 2,
+   "stateVersion": 108,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "b1b04a69-9bd7-4a2e-a047-dde29d93c2aa",
+   "decisionId": 108
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 109,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 109,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "86ea8326-9b03-4d97-a92e-dda47a755e5f",
+   "decisionId": 109,
+   "seat": 1,
+   "stateVersion": 109,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "86ea8326-9b03-4d97-a92e-dda47a755e5f",
+   "decisionId": 109
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 110,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 110,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "d5858300-236a-4591-9d65-1eb52cb9072d",
+   "decisionId": 110,
+   "seat": 2,
+   "stateVersion": 110,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "d5858300-236a-4591-9d65-1eb52cb9072d",
+   "decisionId": 110
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_BEGIN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 111,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 111,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "a747d749-2c9a-44ad-a2c4-ff92091181e0",
+   "decisionId": 111,
+   "seat": 1,
+   "stateVersion": 111,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "a747d749-2c9a-44ad-a2c4-ff92091181e0",
+   "decisionId": 111
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 112,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 112,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "35acf0e6-afd9-4e68-bfe2-1d081abd7a25",
+   "decisionId": 112,
+   "seat": 2,
+   "stateVersion": 112,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "35acf0e6-afd9-4e68-bfe2-1d081abd7a25",
+   "decisionId": 112
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_DECLARE_ATTACKERS",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 113,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 113,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f5b08362-ab1e-4ca5-86db-0ac55825885e",
+   "decisionId": 113,
+   "seat": 1,
+   "stateVersion": 113,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f5b08362-ab1e-4ca5-86db-0ac55825885e",
+   "decisionId": 113
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 114,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 114,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "2153b2bd-f1b0-4bea-91b3-e9ef76199ac6",
+   "decisionId": 114,
+   "seat": 2,
+   "stateVersion": 114,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "2153b2bd-f1b0-4bea-91b3-e9ef76199ac6",
+   "decisionId": 114
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "COMBAT_END",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 115,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 115,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "deccf978-61a4-4ec9-9daa-ba29f6872d94",
+   "decisionId": 115,
+   "seat": 1,
+   "stateVersion": 115,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "deccf978-61a4-4ec9-9daa-ba29f6872d94",
+   "decisionId": 115
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 116,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 116,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "eb27db5b-745f-412e-a2df-8ca2ee89c6b9",
+   "decisionId": 116,
+   "seat": 2,
+   "stateVersion": 116,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "eb27db5b-745f-412e-a2df-8ca2ee89c6b9",
+   "decisionId": 116
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "MAIN2",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 117,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 117,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "9d88e08c-9908-4fa0-834f-d4f85c194dc2",
+   "decisionId": 117,
+   "seat": 1,
+   "stateVersion": 117,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "9d88e08c-9908-4fa0-834f-d4f85c194dc2",
+   "decisionId": 117
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 118,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 118,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "6ee0f528-cd23-46fa-bd35-f761521bac13",
+   "decisionId": 118,
+   "seat": 2,
+   "stateVersion": 118,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "6ee0f528-cd23-46fa-bd35-f761521bac13",
+   "decisionId": 118
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 8,
+    "phase": "END_OF_TURN",
+    "activeSeat": 2,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 119,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 119,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "7d038edd-f52e-41f8-99dd-176cb0128aa0",
+   "decisionId": 119,
+   "seat": 1,
+   "stateVersion": 119,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "7d038edd-f52e-41f8-99dd-176cb0128aa0",
+   "decisionId": 119
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 9,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 9,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 120,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 120,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:6",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:5",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:4",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:7",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "8d25d773-3f6d-49cf-86ea-57e07dc4e4f4",
+   "decisionId": 120,
+   "seat": 1,
+   "stateVersion": 120,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "8d25d773-3f6d-49cf-86ea-57e07dc4e4f4",
+   "decisionId": 120
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 9,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 9,
+    "phase": "UPKEEP",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 0,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 49,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Laboratory Maniac",
+      "kind": "creature",
+      "types": "Creature - Human Wizard",
+      "power": 2,
+      "toughness": 2,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 121,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 121,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:22",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:27",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:49",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3cd8e0f0-2cbb-43d3-b014-51c91e5cdb47",
+   "decisionId": 121,
+   "seat": 2,
+   "stateVersion": 121,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3cd8e0f0-2cbb-43d3-b014-51c91e5cdb47",
+   "decisionId": 121
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "GAME_ENDED",
+   "outcome": "WINNER",
+   "winningSeat": 1,
+   "turn": 9,
+   "stubsReached": {},
+   "costsReached": {},
+   "asked": {
+    "chooseStartingPlayer": 1,
+    "mulliganKeepHand": 2,
+    "chooseSpellAbilityToPlay": 114,
+    "applyManaToCost": 3,
+    "declareAttackers": 1
+   },
+   "reason": "has won due to effect of 'Laboratory Maniac'"
+  }
+ }
+]

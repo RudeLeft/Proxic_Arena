@@ -323,7 +323,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
           // declared every game over during its first draw STEP --
           // four runs, fourteen to twenty-eight decisions each,
           // all reporting that the decision was never asked.
-          /The game is over|was a draw|ended without a result|You won|opponent won|won on turn|stopped before it finished/,
+          /The game is over|was a draw|ended without a result|You won on turn|You won\.|opponent won|won on turn|stopped before it finished/,
         )
         .count();
       if (over > 0) {

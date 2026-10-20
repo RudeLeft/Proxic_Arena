@@ -226,6 +226,25 @@ class WorkerFramesTest {
         assertNull(outcome?.detail)
     }
 
+    /**
+     * P6-AP — an alternate win says which rule won it, in Forge's
+     * words. Both players were on 20 life when Laboratory Maniac
+     * won; without this the result line could only say "You won".
+     */
+    @Test
+    fun `a winner carries Forge's reason`() {
+        val outcome =
+            readOutcomeFrame(
+                frame(
+                    "{\"outcome\":\"WINNER\",\"winningSeat\":1,\"turn\":8," +
+                        "\"reason\":\"has won due to effect of 'Laboratory Maniac'\"}",
+                ),
+            )
+
+        assertEquals("has won due to effect of 'Laboratory Maniac'", outcome?.reason)
+        assertNull(outcome?.detail)
+    }
+
     @Test
     fun `an outcome frame with no outcome is dropped`() {
         assertNull(readOutcomeFrame(frame("""{"turn":3}""")))

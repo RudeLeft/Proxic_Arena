@@ -337,7 +337,9 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AP",
-      "scenario": "Win instead of losing to an empty library."
+      "scenario": "Win instead of losing to an empty library.",
+      "result": "PASSED",
+      "evidence": "scripts/check-alternate-win.py (worker, in CI); trace docs/testing/evidence/p6-ap-laboratory-maniac.trace.json; frontend/e2e/match-alternate-win.spec.ts (browser), 2026-10-20. Seat 1's library empties with the Maniac out and its next draw wins; nobody attacks and both players end on 20 life; GAME_ENDED says WINNER seat 1 with Forge's reason \"has won due to effect of 'Laboratory Maniac'\", which both players read on the result line and the match record keeps."
     },
     "Felidar Sovereign": {
       "owner": "P6_REQUIRED",

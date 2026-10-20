@@ -1031,7 +1031,11 @@ function resultText(match: MatchView, mySeat: number | null): string {
   if (outcome.kind !== "WINNER" || outcome.winningSeat === null) {
     return `The game ended without a result${turn}.`;
   }
-  if (outcome.winningSeat === mySeat) return `You won${turn}.`;
+  // P6-AP — Forge's own sentence for why, when it gave one. Every
+  // PlayerOutcome reads "has won ...", so "The winner" is its
+  // subject; nothing about it is reworded.
+  const why = outcome.reason ? ` The winner ${outcome.reason}.` : "";
+  if (outcome.winningSeat === mySeat) return `You won${turn}.${why}`;
 
   // The match participant list carries seats, not names (§5.47
   // keeps other people's decks out of it, and names were never
@@ -1039,8 +1043,8 @@ function resultText(match: MatchView, mySeat: number | null): string {
   // more it would not be, so the seat is named instead. FMT-005
   // keeps that case representable even though Open Format is two.
   return match.participants.length === 2
-    ? `Your opponent won${turn}.`
-    : `Seat ${outcome.winningSeat} won${turn}.`;
+    ? `Your opponent won${turn}.${why}`
+    : `Seat ${outcome.winningSeat} won${turn}.${why}`;
 }
 
 /**

@@ -109,6 +109,11 @@ export interface MatchOutcome {
   kind: string;
   winningSeat: number | null;
   endedOnTurn: number;
+  /**
+   * P6-AP — why the winner won, in Forge's words ("has won due to
+   * effect of 'Laboratory Maniac'"). Shown, never composed.
+   */
+  reason: string | null;
 }
 
 export interface MatchView {
@@ -351,6 +356,7 @@ function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
     // Absent for a draw and for a failure. Absent is not seat zero.
     winningSeat: typeof seat === "number" ? seat : null,
     endedOnTurn: typeof turn === "number" ? turn : 0,
+    reason: asString(message["reason"]),
   };
 }
 

@@ -71,7 +71,19 @@ public final class GameHost {
      * nothing here is inferred from life totals or a dropped
      * connection.
      */
-    public record Result(String kind, int winningSeat, int turn, String detail) {}
+    /**
+     * `reason` — P6-AP: FORGE's own account of an ALTERNATE win, the
+     * winner's PlayerOutcome ("has won due to effect of 'Laboratory
+     * Maniac'"). Carried, never composed here: a result is Forge's,
+     * and so is its explanation. Null for an ordinary win, where
+     * Forge's sentence ("has won because all opponents have lost")
+     * tells the players nothing the result does not.
+     */
+    public record Result(String kind, int winningSeat, int turn, String detail, String reason) {
+        public Result(String kind, int winningSeat, int turn, String detail) {
+            this(kind, winningSeat, turn, detail, null);
+        }
+    }
 
     /** §6.36's chain, the worker's link: Forge lobby player → seat. */
     private final java.util.Map<LobbyPlayer, Integer> seatOf =
@@ -569,11 +581,19 @@ public final class GameHost {
         } else if (finishedGame.getOutcome().isDraw()) {
             result = new Result("DRAW", 0, turn(), null);
         } else {
+            String reason = null;
+            for (Player each : finishedGame.getRegisteredPlayers()) {
+                if (each.getOutcome() != null && each.getOutcome().hasWon()
+                        && each.getOutcome().altWinSourceName != null) {
+                    reason = String.valueOf(each.getOutcome());
+                }
+            }
             result = new Result(
                     "WINNER",
                     seatOf(finishedGame.getOutcome().getWinningLobbyPlayer()),
                     turn(),
-                    null);
+                    null,
+                    reason);
         }
         try {
             endSink.accept(result);

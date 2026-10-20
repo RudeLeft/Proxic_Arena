@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 47 |
-| PARTIAL | 13 |
+| MET | 48 |
+| PARTIAL | 12 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -49,6 +49,10 @@ Lab corpus exists. P6-AS, P6-AA and P6-AE → MET, with the coverage
 ledger §6.5 asks for. Two cost types the scenarios needed
 (CostExile, CostSacrifice) were stubs and are now ported. P6-AG
 → MET: naming any card is answered by searching Forge's names.
+
+**Updated 2026-10-20, last.** P6-AP → MET: Laboratory Maniac wins
+with both players on 20 life, and the players are told Forge's
+reason in Forge's words.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -256,7 +260,7 @@ restarted under a live match outside a unit test.
 | P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
 | P6-AO | Player / global state | MET | **Run 2026-10-20**, `scripts/check-player-state.py` (in CI) and `e2e/match-state.spec.ts`. Generic, per §6.96: every Forge counter on a player, Forge's designations, emblems/dungeons in the command zone, and day/night. Energy (Aether Hub), poison (Glistener Elf, life unchanged), monarch (Palace Jailer), day (Reckless Stormseeker) -- all seen on the board. **Found and fixed:** paying energy was an unimplemented cost that ended the match, and declining "which mana ability?" eight times ended it too (`check-mana-choice.py`; mutation-tested) |
-| P6-AP | Alternate Forge result | PARTIAL | Result is read from Forge's outcome, never inferred from life; **no deterministic alternate-win scenario run** |
+| P6-AP | Alternate Forge result | MET | **Run 2026-10-20**, `scripts/check-alternate-win.py` (in CI; trace `docs/testing/evidence/p6-ap-laboratory-maniac.trace.json`) and `e2e/match-alternate-win.spec.ts`. Laboratory Maniac: seat 1's library empties and its next draw wins; nobody attacks, both players end on **20 life**, so life could not have decided it. GAME_ENDED carries WINNER seat 1 and Forge's own reason ("has won due to effect of 'Laboratory Maniac'", the winner's PlayerOutcome, alternate wins only); the match record keeps it (`an alternate win is recorded with Forge's reason`) and both players read it on the result line |
 | P6-AQ | Multiplayer sequential decision | CLASSIFIED | Open Format is two players (FMT-001); the test permits classification. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md`: the six Multiplayer-category Lab cards are BLOCKED_BY_UNSUPPORTED_PRESET |
 | P6-AR | Learn / outside-game capability | CLASSIFIED | `sideboard` returns null citing FMT-002 — `OUT_OF_ACCEPTED_SCOPE`. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md` (Professor of Symbology, CLASSIFIED) |
 | P6-AS | Mechanics Lab full-corpus import | MET | **Run 2026-10-20**, `MechanicsLabCorpusTest` (CI) and `MechanicsLabArtTest` (local; the images are never committed). 275 entries / 390 cards parsed as written; **every card resolves to its TXT printing, none refused**; Forge builds the deck; a real game starts with it as both libraries; all 275 images valid and mapped, in the Depot and at match time; TXT/CSV SHA-256 pinned. The upload route refuses it — 390 cards is not Open Format, 289 MB exceeds the package limit — and that refusal is asserted. **Passing P6-AS does not mean all mechanics in the corpus are supported** |

@@ -109,7 +109,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
 
       const over = await matchPanel(host)
         .getByText(
-          /The game is over|was a draw|ended without a result|You won|opponent won|won on turn|stopped before it finished/,
+          /The game is over|was a draw|ended without a result|You won on turn|You won\.|opponent won|won on turn|stopped before it finished/,
         )
         .count();
       if (over > 0) break;
@@ -128,6 +128,20 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       // question. Mana is paid from the first source offered.
       const options = matchPanel(live).getByRole("listitem").getByRole("button");
       const labels = await options.allTextContents();
+      // Nobody attacks or blocks. Forge labels a Revoker in combat
+      // "Phyrexian Revoker — 2/1", which the cast pattern below also
+      // matches: CI once sent Revokers in until somebody died, before
+      // a Pithing Needle had been drawn, and the "any name" question
+      // never came. A game with no combat runs to the libraries.
+      const prompt = (await matchPanel(live).locator(".decision-prompt").allTextContents()).join(
+        " ",
+      );
+      if (/Choose a creature to (attack|block) with/.test(prompt)) {
+        await matchPanel(live).getByRole("button", { name: "Pass" }).click();
+        answered += 1;
+        await live.waitForTimeout(40);
+        continue;
+      }
       const namer = labels.findIndex((label) =>
         /^(Pithing Needle|Phyrexian Revoker) —/.test(label),
       );

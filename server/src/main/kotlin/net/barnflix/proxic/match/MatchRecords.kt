@@ -118,11 +118,14 @@ internal class MatchRecords(private val dataSource: DataSource) {
      *
      * By SEAT, because a display name is not an identity: two
      * players may share one, and "Pat won" would then be a record
-     * of nothing.
+     * of nothing. An alternate win (P6-AP) keeps Forge's sentence
+     * for it, so the record says WHICH rule ended the game.
      */
     private fun summaryOf(outcome: GameOutcome): String =
         when (outcome.kind) {
-            GameOutcome.WINNER -> "winner:seat ${outcome.winningSeat} on turn ${outcome.turn}"
+            GameOutcome.WINNER ->
+                "winner:seat ${outcome.winningSeat} on turn ${outcome.turn}" +
+                    (outcome.reason?.let { " ($it)" } ?: "")
             GameOutcome.DRAW -> "draw on turn ${outcome.turn}"
             else -> "no result on turn ${outcome.turn}"
         }

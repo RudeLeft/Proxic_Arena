@@ -205,6 +205,34 @@ class MatchLauncherTest {
     }
 
     /**
+     * P6-AP — an alternate win is recorded with Forge's reason.
+     *
+     * Laboratory Maniac won with both players on 20 life; a record
+     * that said only "seat 1 won" would look like a bug to anyone
+     * reading it later.
+     */
+    @Test
+    fun `an alternate win is recorded with Forge's reason`() {
+        val (room, setupId) = preparedRoom()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val records = MatchRecords(source())
+        records.recordRunning(launched.match.matchId, java.time.Instant.now())
+        records.recordEnded(
+            launched.match.matchId,
+            GameOutcome(
+                GameOutcome.WINNER,
+                winningSeat = 1,
+                turn = 8,
+                reason = "has won due to effect of 'Laboratory Maniac'",
+            ),
+            java.time.Instant.now(),
+        )
+
+        val (_, summary, _) = matchRow(launched.match.matchId)
+        assertEquals("winner:seat 1 on turn 8 (has won due to effect of 'Laboratory Maniac')", summary)
+    }
+
+    /**
      * §6.154 — a match that stopped records NO WINNER.
      *
      * The tempting version credits whoever was still connected.
