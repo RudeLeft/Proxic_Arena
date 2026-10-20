@@ -1,0 +1,26 @@
+{
+  "_comment": [
+    "Extra LOCAL test players for the concurrency specs (P6-AX, P6-AY, P6-AZ):",
+    "three matches at once need six seats. These exist only on a local or CI",
+    "stack, created by arena-admin; CI creates them from this file. Not real",
+    "accounts and not valid anywhere else."
+  ],
+  "accounts": [
+    {
+      "username": "Ash",
+      "password": "local-pLWh8Qdv5OVckxDBu5GZPTRE"
+    },
+    {
+      "username": "Bree",
+      "password": "local-33kH0DSlqSVefuD_B6EyFwri"
+    },
+    {
+      "username": "Cole",
+      "password": "local-lWUvhcrJV3BcFF3dKNPXn74E"
+    },
+    {
+      "username": "Dana",
+      "password": "local-oTjzFNjk-bXU7tSnOfMHuQQq"
+    }
+  ]
+}

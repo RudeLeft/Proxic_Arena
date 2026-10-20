@@ -190,6 +190,14 @@ jobs:
             | server /app/bin/arena-admin create RudeLeft --admin --password-stdin
           printf '%s' 'a perfectly ordinary player password' \
             | server /app/bin/arena-admin create Pat --password-stdin
+          # Four more, for the concurrency specs: three matches at once
+          # need six seats. Read from the file the tests read.
+          # One name per line, then its password piped by node itself,
+          # so no separator character has to survive the shell.
+          for name in $(node -p 'require("./frontend/e2e/match-accounts.json").accounts.map(a => a.username).join(" ")'); do
+            node -e 'process.stdout.write(require("./frontend/e2e/match-accounts.json").accounts.find(a => a.username === process.argv[1]).password)' "$name" \
+              | server /app/bin/arena-admin create "$name" --password-stdin
+          done
 
       # The real Deck Builder export is gitignored because it carries
       # Wizards of the Coast artwork, so CI builds a legal stand-in:

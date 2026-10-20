@@ -8,6 +8,8 @@
 // Credentials come from the environment, so no test file carries one.
 
 import { expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export const testUser = process.env.PROXIC_E2E_USER ?? "RudeLeft";
 export const testPassword = process.env.PROXIC_E2E_PASSWORD ?? "a perfectly fine local passphrase";
@@ -42,3 +44,14 @@ export async function signIn(page: Page): Promise<void> {
   // flow works perfectly by hand.
   await expect(page).not.toHaveURL(/\/login/);
 }
+
+/**
+ * Four more players, for tests that need more than one match at
+ * once (P6-AX, P6-AY, P6-AZ). Read from match-accounts.json, which
+ * CI also reads to create them, so the passwords live in one place.
+ */
+export const extraPlayers: { username: string; password: string }[] = (
+  JSON.parse(readFileSync(join(__dirname, "match-accounts.json"), "utf-8")) as {
+    accounts: { username: string; password: string }[];
+  }
+).accounts;
