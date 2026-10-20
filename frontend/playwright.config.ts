@@ -6,7 +6,7 @@
 // than a screenshot I looked at once.
 //
 // Override with PROXIC_E2E_URL to point at any deployment, including
-// https://arena.barnflix.net once the tunnel exists (P1-R).
+// https://proxic.barnflix.net (PHASE 1 AMENDMENT 1).
 
 import { defineConfig, devices } from "@playwright/test";
 
