@@ -13,7 +13,7 @@
 //
 // Every locator here was read off the running application.
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname } from "node:path";
 import { secondUser, testUser } from "./helpers";
 
@@ -65,6 +65,17 @@ export async function clearEverything(page: Page) {
 
 export const seatOf = (page: Page, name: string) =>
   page.getByRole("region", { name: "Your game" }).locator("li", { hasText: name });
+
+/**
+ * This seat shows READY -- and not "not ready", which also contains
+ * the word. `toContainText("ready")` passed on a seat that was not
+ * ready, so a Ready refused for a stale room revision went unseen
+ * until "Prepare match" never enabled, two runs in a dozen.
+ */
+export async function expectReady(seat: Locator) {
+  await expect(seat).toContainText("ready");
+  await expect(seat).not.toContainText("not ready");
+}
 
 /** The panel that shows a live match. */
 export const matchPanel = (page: Page) => page.getByRole("region", { name: "Your match" });
@@ -135,6 +146,7 @@ export async function startAMatch(
   await guest.getByRole("button", { name: "Accept" }).click();
   await expect(host.getByText("2 of 2")).toBeVisible();
 
+  const readied: string[] = [];
   for (const [page, who] of [
     [host, hostName],
     [guest, guestName],
@@ -168,8 +180,15 @@ export async function startAMatch(
     // deck, so waiting for this is what makes the next click
     // land at all.
     await expect(row.getByRole("button", { name: "Selected" })).toBeVisible();
+    // Click Ready only once THIS page has seen the seats already
+    // ready. Its Ready carries the room revision it holds, and one
+    // sent before the other seat's update arrived is refused as
+    // stale ("The room changed while you were deciding") -- the
+    // server being right, the test being early.
+    for (const earlier of readied) await expectReady(seatOf(page, earlier));
     await page.getByRole("button", { name: "Ready", exact: true }).click();
-    await expect(seatOf(page, who)).toContainText("ready");
+    await expectReady(seatOf(page, who));
+    readied.push(who);
   }
 
   const prepare = host.getByRole("button", { name: "Prepare match" });

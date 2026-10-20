@@ -73,9 +73,11 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       // Forge resolves every card in the list; on a cold stack
       // that is minutes, not seconds.
       await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
-      await expect.poll(async () => (await mine()).some((d) => d.displayName === deckName), {
-        timeout: 60_000,
-      }).toBe(true);
+      await expect
+        .poll(async () => (await mine()).some((d) => d.displayName === deckName), {
+          timeout: 60_000,
+        })
+        .toBe(true);
     }
 
     // Shared with the guest, checked through the API rather than
@@ -263,9 +265,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         }
         const on = (await matchPanel(host).getByRole("heading", { name: question.heading }).count())
           ? host
-          : (await matchPanel(guest)
-                .getByRole("heading", { name: question.heading })
-                .count())
+          : (await matchPanel(guest).getByRole("heading", { name: question.heading }).count())
             ? guest
             : null;
         if (!on) {
@@ -374,8 +374,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       // +1 — and with it the counter-type question — still
       // happens on all the others.
       const dig = labels.findIndex((label) => /Look at the top/i.test(label));
-      const elspeth =
-        dig >= 0 ? dig : labels.findIndex((label) => label.includes("Elspeth"));
+      const elspeth = dig >= 0 ? dig : labels.findIndex((label) => label.includes("Elspeth"));
       const land = labels.findIndex((label) => label.includes("Play land"));
       const action = labels.findIndex(
         (label) => !label.includes("Play land") && !label.includes("Add {"),

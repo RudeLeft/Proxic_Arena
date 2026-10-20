@@ -23,6 +23,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import { expectReady } from "./match-helpers";
 
 // Importing resolves every card through Forge, and preparation
 // spawns a worker per deck. The file default of 45s is right for
@@ -166,11 +167,14 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     // --- ready ----------------------------------------------------
     // §5.41 — the button was unusable until a deck was chosen, and
     // is usable now.
+    // One after the other, each once its page has seen the room as it
+    // now is: a Ready sent on a stale revision is refused, rightly.
     await host.getByRole("button", { name: "Ready", exact: true }).click();
+    await expectReady(seatOf(guest, testUser));
     await guest.getByRole("button", { name: "Ready", exact: true }).click();
 
-    await expect(seatOf(host, secondUser)).toContainText("ready");
-    await expect(seatOf(guest, testUser)).toContainText("ready");
+    await expectReady(seatOf(host, secondUser));
+    await expectReady(seatOf(guest, testUser));
 
     // --- prepare --------------------------------------------------
     const prepare = host.getByRole("button", { name: "Prepare match" });

@@ -112,31 +112,29 @@ async function player(browser: Browser, name: string, password: string): Promise
   return page;
 }
 
-async function pairs(browser: Browser): Promise<Pair[]> {
+/**
+ * `count` pairs, signed in. Only as many as asked: the restart test
+ * once built all three and closed one, and the other four sessions
+ * stayed signed in for every spec that ran after it.
+ */
+async function pairs(browser: Browser, count = 3): Promise<Pair[]> {
   const [ash, bree, cole, dana] = extraPlayers;
-  return [
-    {
-      host: await player(browser, testUser, testPassword),
-      guest: await player(browser, secondUser, secondPassword),
-      hostName: testUser,
-      guestName: secondUser,
-      label: `${testUser}/${secondUser}`,
-    },
-    {
-      host: await player(browser, ash!.username, ash!.password),
-      guest: await player(browser, bree!.username, bree!.password),
-      hostName: ash!.username,
-      guestName: bree!.username,
-      label: `${ash!.username}/${bree!.username}`,
-    },
-    {
-      host: await player(browser, cole!.username, cole!.password),
-      guest: await player(browser, dana!.username, dana!.password),
-      hostName: cole!.username,
-      guestName: dana!.username,
-      label: `${cole!.username}/${dana!.username}`,
-    },
+  const seats: [string, string, string, string][] = [
+    [testUser, testPassword, secondUser, secondPassword],
+    [ash!.username, ash!.password, bree!.username, bree!.password],
+    [cole!.username, cole!.password, dana!.username, dana!.password],
   ];
+  const made: Pair[] = [];
+  for (const [hostName, hostPassword, guestName, guestPassword] of seats.slice(0, count)) {
+    made.push({
+      host: await player(browser, hostName, hostPassword),
+      guest: await player(browser, guestName, guestPassword),
+      hostName,
+      guestName,
+      label: `${hostName}/${guestName}`,
+    });
+  }
+  return made;
 }
 
 async function asked(pair: Pair): Promise<Page | null> {
@@ -341,7 +339,7 @@ test("a server restart during a match follows the documented policy", async ({ b
   // FAILED_RUNTIME with SERVER_RESTARTED, its room is given back,
   // and no worker survives — a JVM orphaned by a restart is a
   // match nobody can reach.
-  const [pair] = (await pairs(browser)).slice(0, 1);
+  const [pair] = await pairs(browser, 1);
   const all = [pair!];
   try {
     const deck = await sharedDeck(pair!.host, pair!.guest, anyPackage()!, pair!.guestName);
