@@ -142,6 +142,30 @@ class MatchLauncherTest {
         return rooms.find(room.roomId)!! to UUID.fromString(setup.setup.setupId)
     }
 
+    /**
+     * P6-BC -- imported deck storage, as one comparable value: every
+     * column of every row in the four tables an import writes, in a
+     * fixed order.
+     */
+    private fun deckStorage(): String =
+        source().connection.use { connection ->
+            listOf(
+                "SELECT * FROM imported_deck ORDER BY deck_id",
+                "SELECT * FROM deck_entry ORDER BY entry_id",
+                "SELECT * FROM deck_share ORDER BY 1, 2",
+                "SELECT * FROM art_asset ORDER BY 1",
+            ).joinToString("\n") { query ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(query).use { rows ->
+                        val columns = rows.metaData.columnCount
+                        buildList {
+                            while (rows.next()) add((1..columns).joinToString("|") { rows.getString(it) ?: "NULL" })
+                        }.joinToString("\n", prefix = "$query\n")
+                    }
+                }
+            }
+        }
+
     private fun matchCount(): Int =
         source().connection.use { connection ->
             connection.prepareStatement("SELECT count(*) FROM match").use {
@@ -539,6 +563,112 @@ class MatchLauncherTest {
             listOf("MATCH FAILED_STARTUP DECK_UNAVAILABLE", "ROOM OPEN"),
             told,
         )
+    }
+
+    /**
+     * P6-BA, P6-BC — a match that ENDS leaves nothing behind, and
+     * the decks it was played with exactly as they were imported.
+     *
+     * The real runtime, a real process: an impostor worker (see
+     * [ImpostorWorker]) that starts a game, reports Forge's result
+     * a moment later, and then refuses to exit on its own -- so if
+     * its process is gone afterwards, the server ended it. Checked:
+     *
+     *   match ENDED, result persisted, room back to OPEN with
+     *   readiness cleared (the owner's D4 amendment to "room
+     *   closes"), the runtime no longer holding it, the worker
+     *   process gone, and nothing per-match left on disk but the
+     *   worker log §6.155 keeps on purpose -- the runtime creates no
+     *   other per-match files (§6.30), and this holds it to that.
+     *
+     * The pause before the result is the impostor's, not the
+     * server's: a real game cannot end before its first priority
+     * window, and the result arriving while the start is still
+     * being recorded is not a state Forge produces.
+     */
+    @Test
+    fun `a finished match stops its worker and leaves nothing behind`() {
+        val (room, setupId) = preparedRoom()
+        source().connection.use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO deck_entry (deck_id, line_number, quantity, card_name, source_text, " +
+                    "resolution_status) SELECT deck_id, 1, 60, 'Mountain', '60 Mountain', 'RESOLVED' " +
+                    "FROM imported_deck",
+            ).use { it.executeUpdate() }
+        }
+        // P6-BC -- the imported decks, every row, before anything runs.
+        val decksBefore = deckStorage()
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+        val matchId = launched.match.matchId
+
+        val scratch = java.nio.file.Files.createTempDirectory("proxic-end").toFile()
+        val dataRoot = java.io.File(scratch, "data")
+        val heard = java.io.File(scratch, "heard.txt")
+        val version = net.barnflix.proxic.BuildInfo.PROTOCOL_VERSION
+        val jar =
+            ImpostorWorker.jar(
+                scratch,
+                greeting =
+                    "{\"protocolVersion\":$version,\"type\":\"WORKER_READY\"," +
+                        "\"forgeCommit\":\"${net.barnflix.proxic.BuildInfo.FORGE_COMMIT}\"}",
+                afterStart =
+                    listOf(
+                        "{\"protocolVersion\":$version,\"type\":\"GAME_STARTED\",\"turn\":1}",
+                        "{\"protocolVersion\":$version,\"type\":\"GAME_ENDED\",\"outcome\":\"WINNER\"," +
+                            "\"winningSeat\":1,\"turn\":1}",
+                    ),
+                pauseMillis = 2_000,
+            )
+        val rooms = RoomService(source(), DeckAuthorization(source()))
+        val runtime =
+            MatchRuntime(
+                source(),
+                config().copy(
+                    forgeWorkerJar = jar.path,
+                    forgeResRoot = heard.path,
+                    dataRoot = dataRoot.path,
+                ),
+                rooms = rooms,
+            )
+
+        try {
+            assertIs<WorkerStart.Running>(runtime.beginBlocking(launched.match))
+            val pid = ImpostorWorker.pidOf(heard)
+            kotlin.test.assertNotNull(pid, "the impostor never started")
+
+            // The result is the worker's to send and the server's to
+            // act on; wait for it, bounded.
+            val deadline = System.currentTimeMillis() + 30_000
+            while (System.currentTimeMillis() < deadline && matchRow(matchId).first != "ENDED") {
+                Thread.sleep(50)
+            }
+
+            val (status, summary, failure) = matchRow(matchId)
+            assertEquals("ENDED", status)
+            assertEquals("winner:seat 1 on turn 1", summary)
+            assertEquals(null, failure)
+
+            val after = rooms.find(room.roomId)!!
+            assertEquals(RoomStatus.OPEN, after.status)
+            assertTrue(after.members.none { it.ready }, "somebody was left ready")
+            assertEquals(false, runtime.isRunning(matchId), "the runtime still holds the match")
+
+            val stillThere = ProcessHandle.of(pid).map { it.isAlive }.orElse(false)
+            assertEquals(false, stillThere, "the worker process $pid outlived its match")
+
+            val left =
+                dataRoot.walkTopDown().filter { it.isFile }.map { it.relativeTo(dataRoot).invariantSeparatorsPath }
+                    .toList()
+            assertEquals(listOf("match-logs/$matchId.log"), left, "per-match files left behind")
+
+            // P6-BC -- and the decks the match was played with are
+            // exactly as imported: every column of every deck, entry,
+            // share and art row.
+            assertEquals(decksBefore, deckStorage(), "a match changed imported deck storage")
+        } finally {
+            runtime.stopAll()
+            scratch.deleteRecursively()
+        }
     }
 
     /** The same path must not disturb a room that is not in a match. */

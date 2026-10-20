@@ -6,17 +6,11 @@ import net.barnflix.proxic.deck.DeckEntry
 import java.io.File
 import java.nio.file.Files
 import java.util.UUID
-import java.util.jar.Attributes
-import java.util.jar.JarEntry
-import java.util.jar.JarOutputStream
-import java.util.jar.Manifest
-import javax.tools.ToolProvider
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -115,61 +109,22 @@ class WorkerIdentityTest {
                 ),
             )
         worker.stop()
-        return result to (if (heard.isFile) heard.readLines() else emptyList())
+        return result to ImpostorWorker.linesHeard(heard)
     }
 
     private fun impostor(
         protocol: Int?,
         commit: String,
     ): File {
-        val version = protocol?.let { "\\\"protocolVersion\\\":$it," } ?: ""
-        val greeting = "{$version\\\"type\\\":\\\"WORKER_READY\\\",\\\"forgeCommit\\\":\\\"$commit\\\"}"
-        val error =
-            "{\\\"protocolVersion\\\":${BuildInfo.PROTOCOL_VERSION},\\\"type\\\":\\\"ERROR\\\"," +
-                "\\\"errorCode\\\":\\\"IMPOSTOR_HEARD_START\\\",\\\"detail\\\":\\\"impostor\\\"}"
-        val source =
-            """
-            import java.io.*;
-            import java.nio.file.*;
-
-            public class Impostor {
-                public static void main(String[] args) throws Exception {
-                    try (Writer heard = Files.newBufferedWriter(Paths.get(args[0]))) {
-                        System.out.println("Read cards: 0 files");
-                        System.out.println("$greeting");
-                        System.out.flush();
-                        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-                        String line;
-                        while ((line = in.readLine()) != null) {
-                            heard.write(line);
-                            heard.write("\n");
-                            heard.flush();
-                            if (line.contains("START_GAME")) {
-                                System.out.println("$error");
-                                System.out.flush();
-                            }
-                        }
-                    }
-                }
-            }
-            """.trimIndent()
-
-        val dir = File(scratch, "impostor-${UUID.randomUUID()}").apply { mkdirs() }
-        val java = File(dir, "Impostor.java").apply { writeText(source) }
-        val compiler = assertNotNull(ToolProvider.getSystemJavaCompiler(), "tests need a JDK, not a JRE")
-        assertEquals(0, compiler.run(null, null, null, "-d", dir.path, java.path), "the impostor did not compile")
-
-        val manifest =
-            Manifest().apply {
-                mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
-                mainAttributes[Attributes.Name.MAIN_CLASS] = "Impostor"
-            }
-        val jar = File(dir, "impostor.jar")
-        JarOutputStream(jar.outputStream(), manifest).use { out ->
-            out.putNextEntry(JarEntry("Impostor.class"))
-            out.write(File(dir, "Impostor.class").readBytes())
-            out.closeEntry()
-        }
-        return jar
+        val version = protocol?.let { "\"protocolVersion\":$it," } ?: ""
+        return ImpostorWorker.jar(
+            scratch,
+            greeting = "{$version\"type\":\"WORKER_READY\",\"forgeCommit\":\"$commit\"}",
+            afterStart =
+                listOf(
+                    "{\"protocolVersion\":${BuildInfo.PROTOCOL_VERSION},\"type\":\"ERROR\"," +
+                        "\"errorCode\":\"IMPOSTOR_HEARD_START\",\"detail\":\"impostor\"}",
+                ),
+        )
     }
 }

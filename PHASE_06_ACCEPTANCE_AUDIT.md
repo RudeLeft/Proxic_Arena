@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 53 |
-| PARTIAL | 7 |
+| MET | 55 |
+| PARTIAL | 5 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -58,13 +58,17 @@ refused before it is asked to play, run against a real impostor.
 P6-BI, P6-BJ → MET: a room or setup rewritten to Two-Headed Giant or
 Commander cannot be prepared or launched through the API. P6-L →
 MET: every question in every regression game reached its seat after
-the state it refers to.
+the state it refers to. P6-BA → MET: a finished match's worker is
+stopped and nothing per-match is left but its log. P6-BC → MET:
+deck storage is unchanged across a match, rows and artwork.
 
-Roughly a third done, a third started, a third untouched. The
-untouched third is not evenly spread: it is almost entirely
-**assets**, **semantic non-object choices**, and **production /
-scale**, which are three coherent pieces of work rather than
-twenty-one scattered ones.
+Where it stands now (2026-10-20): 55 of 65 met. What is left is
+narrow: **production** (P6-BK, P6-BL — they need the deployed
+server, so they are the owner's to schedule), a **rules-version
+regression** scenario nobody has chosen yet (P6-AF), and five
+partials -- hidden-hand logs (G), face-down cards actually played
+(I), attachments seen in a browser (AK), exact printings inspected
+at runtime (BD) and a formal project-integrity comparison (BM).
 
 ---
 
@@ -287,9 +291,9 @@ restarted under a live match outside a unit test.
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| P6-BA | Normal Forge match end | PARTIAL | `a finished game records Forge's result and gives the room back`; games end naturally in harness runs. **Worker exit and runtime-directory cleanup not verified** |
+| P6-BA | Normal Forge match end | MET | **Run 2026-10-20**, `MatchLauncherTest` `a finished match stops its worker and leaves nothing behind` (in CI): the real runtime and a real process -- an impostor worker that reports Forge's result and then refuses to exit -- give match ENDED, the result persisted, the room OPEN with readiness cleared (D4's amendment to "room closes"), the runtime no longer holding it, the worker process gone, and nothing per-match on disk but the worker log §6.155 keeps; the runtime creates no other per-match files (§6.30). Mutation-tested: without `worker.stop()` the process outlives its match and the test fails. Real games end this way in `match-alternate-win.spec.ts`; after a full browser suite the container holds no worker process |
 | P6-BB | Browser close is not concede | MET | **Built 2026-10-19.** The other player's whole browser context is closed; the match stays LAUNCHING/RUNNING with no result, and on signing in again they are returned to the same match |
-| P6-BC | Imported deck immutability | PARTIAL | `a deck can be deleted after the match that used it` is adjacent; **no before/after integrity comparison** |
+| P6-BC | Imported deck immutability | MET | **Integrity comparison 2026-10-20**, two ways. In CI, `MatchLauncherTest` `a finished match stops its worker and leaves nothing behind` compares every column of every `imported_deck`, `deck_entry`, `deck_share` and `art_asset` row before launch and after the match ends, through the real runtime and a real worker process: identical. Mutation-tested -- one space appended to an entry's source text in the end-of-match path fails it. On the real stack, `e2e/match-alternate-win.spec.ts` (with the container) fingerprints the same rows plus every artwork file under /data/art after import and again after a whole real game: unchanged (`4d76b182…`, `3ad66a45…`) |
 | P6-BD | Exact printing runtime | PARTIAL | Import resolves exact printings (`CardResolverTest`); **runtime preservation not inspected** |
 | P6-BE | Basic land runtime | MET | Every deck in `harness-decks.json` runs on basics through real games |
 | P6-BF | Multi-face runtime | MET | **Run 2026-10-20**: Delver transforms by real play -- same id, `face` Original -> Backside, 1/1 -> 3/2 and Human Wizard -> Human Insect from Forge. Viewer-safe asset mapping: front art from the package, none for the back (packages carry fronts only; never the wrong face). Browser screenshots `seen/delver-*.png` |

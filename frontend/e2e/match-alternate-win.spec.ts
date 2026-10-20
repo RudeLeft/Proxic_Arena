@@ -11,6 +11,7 @@
 //   node scripts/make-ci-deck.mjs "Test Deck/maniac-deck.zip" protocol/fixtures/maniac-deck
 
 import { test, expect, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
@@ -36,6 +37,30 @@ const MILLS: [RegExp, number][] = [
   [/^Thought Scour — \{U\}/, 1],
 ];
 
+/**
+ * P6-BC — imported deck storage, fingerprinted: every row of the four
+ * tables an import writes, and every artwork file. Only with the
+ * container (PROXIC_E2E_CONTAINER, as match-concurrency uses), and
+ * null without it; the server test `a finished match stops its worker
+ * and leaves nothing behind` holds the rows to the same rule in CI.
+ */
+const container = process.env.PROXIC_E2E_CONTAINER;
+function deckStorage(): string | null {
+  if (!container) return null;
+  const sh = (name: string, script: string) =>
+    execFileSync("docker", ["exec", name, "sh", "-c", script], { encoding: "utf-8" }).trim();
+  const rows = sh(
+    container.replace("arena-server", "postgres"),
+    'psql -U "$POSTGRES_USER" -d proxic -Atc "SELECT md5(string_agg(t, \'|\' ORDER BY t)) FROM (' +
+      "SELECT 'd'||row(d.*)::text t FROM imported_deck d UNION ALL " +
+      "SELECT 'e'||row(e.*)::text FROM deck_entry e UNION ALL " +
+      "SELECT 's'||row(s.*)::text FROM deck_share s UNION ALL " +
+      "SELECT 'a'||row(a.*)::text FROM art_asset a) x\"",
+  );
+  const art = sh(container, "cd /data/art && find . -type f | sort | xargs sha256sum | sha256sum");
+  return `${rows} ${art}`;
+}
+
 test("Laboratory Maniac wins the game, and both players are told why", async ({ browser }) => {
   test.skip(!existsSync(maniacPackage), "no Maniac deck package built");
 
@@ -48,6 +73,7 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
 
   try {
     const deckName = await sharedDeck(host, guest, maniacPackage);
+    const decksBefore = deckStorage();
     await startAMatch(host, guest, deckName, { settle: false });
 
     const asking = async (page: Page) =>
@@ -144,6 +170,10 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         .locator(".board-side.mine .board-totals")
         .filter({ hasText: /\s0 in library/ }),
     ).toHaveCount(1);
+    // P6-BC — a whole real game later, the deck storage it was played
+    // from is unchanged, rows and artwork alike.
+    expect(deckStorage(), "a match changed imported deck storage").toBe(decksBefore);
+    if (decksBefore) console.log(`deck storage unchanged across the match: ${decksBefore}`);
     await host.screenshot({ path: "test-results/seen/alternate-win-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/alternate-win-guest.png", fullPage: true });
   } finally {
