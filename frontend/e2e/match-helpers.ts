@@ -152,7 +152,14 @@ export async function startAMatch(
     // Tolerant of a seat that already has this deck: the suite
     // runs against a stack that keeps its data, and "Use this
     // deck" simply does not exist once it is chosen.
+    //
+    // WAIT for the row before asking which state it is in. Counting
+    // at once raced the deck list rendering: on CI's slower runner
+    // the guest's list was not there yet, the count was 0, the click
+    // was skipped, and the test waited for a "Selected" that nobody
+    // had asked for. It failed two CI runs in three and never locally.
     const use = row.getByRole("button", { name: "Use this deck" });
+    await expect(row.getByRole("button", { name: /^(Use this deck|Selected)$/ })).toBeVisible();
     if ((await use.count()) > 0) {
       await use.click();
     }
