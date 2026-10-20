@@ -205,6 +205,17 @@ class MatchRuntime(
         return running.answer(userId, decisionId, actionId)
     }
 
+    /** P6-AG — a search, authorised by [LiveMatch] like an answer. */
+    fun search(
+        matchId: UUID,
+        userId: UUID,
+        decisionId: Long,
+        query: String,
+    ): DecisionRefusal? {
+        val running = live[matchId] ?: return DecisionRefusal.UNREACHABLE
+        return running.search(userId, decisionId, query)
+    }
+
     /**
      * §6.110, §6.111 — the board, before any decision.
      *
@@ -247,9 +258,6 @@ class MatchRuntime(
     }
 
     fun isRunning(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true
-
-    /** How many matches this process is running. §6.159's number. */
-    fun liveCount(): Int = live.size
 
     /** Stop everything. Called when the application stops. */
     fun stopAll() {

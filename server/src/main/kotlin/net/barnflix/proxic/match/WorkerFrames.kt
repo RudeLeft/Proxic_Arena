@@ -46,6 +46,20 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             // accidentally make a decision unrefusable.
             mandatory = frame["mandatory"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
             prompt = frame["prompt"]?.jsonPrimitive?.contentOrNull,
+            searchable = frame["searchable"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
+            optionCount = frame["optionCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+        )
+    }.getOrNull()
+
+/** P6-AG — what a search found, for the seat that searched. */
+fun readOptionsFrame(frame: JsonObject): WorkerEvent.Options? =
+    runCatching {
+        WorkerEvent.Options(
+            decisionId = frame.getValue("decisionId").jsonPrimitive.content.toLong(),
+            seat = frame.getValue("seat").jsonPrimitive.int,
+            query = frame["query"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            options = readOptions(frame["options"]),
+            total = frame["total"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
         )
     }.getOrNull()
 
@@ -125,6 +139,27 @@ private fun cardsOf(seat: WorkerSeat): JsonArray =
                 },
             )
         }
+    }
+
+/**
+ * P6-AG — a search, for the seat the SERVER authorised.
+ *
+ * Not an answer: the gate is not touched and nothing in the game
+ * moves. The seat is the server's for the same reason an answer's
+ * is.
+ */
+fun decisionSearchFrame(
+    decisionId: Long,
+    seat: Int,
+    query: String,
+): JsonObject =
+    buildJsonObject {
+        put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
+        put("type", "DECISION_SEARCH")
+        put("messageId", UUID.randomUUID().toString())
+        put("decisionId", decisionId)
+        put("seat", seat)
+        put("query", query)
     }
 
 /**

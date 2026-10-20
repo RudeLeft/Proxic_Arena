@@ -5,6 +5,7 @@ import net.barnflix.proxic.match.MatchWorker
 import net.barnflix.proxic.match.WorkerEvent
 import net.barnflix.proxic.match.WorkerSeat
 import net.barnflix.proxic.match.WorkerStart
+import net.barnflix.proxic.match.answer
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import java.security.MessageDigest

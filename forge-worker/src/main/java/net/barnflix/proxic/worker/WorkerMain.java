@@ -264,6 +264,16 @@ public final class WorkerMain {
                             ask.addProperty("prompt", pending.prompt());
                         }
                         JsonArray options = new JsonArray();
+                        if (pending.searchable()) {
+                            // Too many to send (naming any card is
+                            // ~30,000). The player searches them with
+                            // DECISION_SEARCH; the gate holds them all.
+                            ask.addProperty("searchable", true);
+                            ask.addProperty("optionCount", pending.options().size());
+                            ask.add("options", options);
+                            send(ask);
+                            return;
+                        }
                         for (String id : pending.options()) {
                             JsonObject option = new JsonObject();
                             option.addProperty("actionId", id);
@@ -380,6 +390,40 @@ public final class WorkerMain {
                     no.addProperty("decisionId", answer.decisionId());
                     send(no);
                 }
+            }
+            case "DECISION_SEARCH" -> {
+                // P6-AG — search a question's options rather than
+                // send them all. NOT an answer: it changes nothing in
+                // the game and the gate is not touched. `seat` is the
+                // server's, resolved from the authenticated user.
+                if (GAME == null) {
+                    send(error("NO_GAME", "no game has been started"));
+                    break;
+                }
+                long decisionId = request.get("decisionId").getAsLong();
+                net.barnflix.proxic.worker.game.GameHost.Found found =
+                        GAME.search(decisionId, request.get("seat").getAsInt(),
+                                request.has("query") ? request.get("query").getAsString() : "");
+                if (found == null) {
+                    JsonObject no = error("SEARCH_REFUSED", "not the searchable question outstanding");
+                    no.addProperty("decisionId", decisionId);
+                    send(no);
+                    break;
+                }
+                JsonObject reply = frame("DECISION_OPTIONS", messageId);
+                reply.addProperty("decisionId", decisionId);
+                reply.addProperty("seat", request.get("seat").getAsInt());
+                reply.addProperty("query", request.has("query") ? request.get("query").getAsString() : "");
+                reply.addProperty("total", found.total());
+                JsonArray options = new JsonArray();
+                found.options().forEach((id, label) -> {
+                    JsonObject option = new JsonObject();
+                    option.addProperty("actionId", id);
+                    option.addProperty("label", label);
+                    options.add(option);
+                });
+                reply.add("options", options);
+                send(reply);
             }
             case "GAME_RESULT" -> {
                 // Diagnostics for this slice: wait for the game to

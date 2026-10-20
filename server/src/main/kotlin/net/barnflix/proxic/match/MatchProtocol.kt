@@ -51,6 +51,18 @@ data class DecisionRequest(
      * everything. Null when the kind is self-explanatory.
      */
     val prompt: String? = null,
+    /**
+     * P6-AG — too many options to send, so the player searches.
+     *
+     * Naming any card offers ~30,000 names. The question arrives
+     * with [optionCount] and no options; the browser sends
+     * DECISION_SEARCH and is sent what matched. [options] then
+     * grows with every result shown, because an answer is accepted
+     * only if it is one this player was SHOWN (§6.101) -- never a
+     * name guessed from outside the results.
+     */
+    val searchable: Boolean = false,
+    val optionCount: Int = 0,
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */
@@ -69,6 +81,9 @@ enum class DecisionRefusal {
 
     /** There was no "no" to choose. */
     PASS_NOT_ALLOWED,
+
+    /** A search, for a question that is not answered by searching. */
+    NOT_SEARCHABLE,
 }
 
 /**
@@ -123,6 +138,20 @@ sealed interface WorkerEvent {
 
     /** The gate refused one, and this is the reason it gave. */
     data class Refused(val decisionId: Long, val reason: DecisionRefusal) : WorkerEvent
+
+    /**
+     * P6-AG — what a search of a searchable question found.
+     *
+     * `seat` is the one the server sent, echoed: results go to the
+     * user authorised to answer, and to nobody else.
+     */
+    data class Options(
+        val decisionId: Long,
+        val seat: Int,
+        val query: String,
+        val options: List<DecisionOption>,
+        val total: Int,
+    ) : WorkerEvent
 
     /** §6.151 — the game is over, and this is what Forge said. */
     data class Ended(val outcome: GameOutcome) : WorkerEvent
@@ -203,6 +232,18 @@ interface DecisionAnnouncer {
         decisionId: Long,
         reason: DecisionRefusal,
     )
+
+    /**
+     * P6-AG — search results, to the user who searched.
+     *
+     * A default rather than abstract: most announcers in tests do
+     * not care, and nothing is lost by a result that goes nowhere.
+     */
+    suspend fun options(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        found: WorkerEvent.Options,
+    ) = Unit
 
     companion object {
         val NONE =

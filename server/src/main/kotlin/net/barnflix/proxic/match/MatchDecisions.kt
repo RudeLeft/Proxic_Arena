@@ -55,6 +55,22 @@ class MatchDecisions(
             // decide where it belongs.
             is WorkerEvent.Ended, WorkerEvent.Stopped -> Unit
 
+            // P6-AG — shown to the asked player, and only what was
+            // shown may then be answered.
+            // Dropped entirely unless they are for the seat being
+            // asked: results nobody was shown must not become
+            // answerable.
+            is WorkerEvent.Options -> {
+                val asked =
+                    live.match.participants
+                        .firstOrNull { it.seatNumber == event.seat }
+                        ?.takeIf { it.userId == live.authorisedUser() }
+                if (asked != null) {
+                    live.offered(event.decisionId, event.options)
+                    tell { announcer.options(live.match.matchId, asked.userId, event) }
+                }
+            }
+
             is WorkerEvent.Refused -> {
                 live.release(event.decisionId)
                 // Whoever got this far WAS the authorised user:

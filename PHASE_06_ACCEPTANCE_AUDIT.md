@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 38 |
-| PARTIAL | 19 |
+| MET | 39 |
+| PARTIAL | 18 |
 | NOT MET | 6 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -47,7 +47,8 @@ at once, a crashed worker and a server restart have all been run
 **Updated 2026-10-20, later.** Finding 5 was wrong: the Mechanics
 Lab corpus exists. P6-AS, P6-AA and P6-AE → MET, with the coverage
 ledger §6.5 asks for. Two cost types the scenarios needed
-(CostExile, CostSacrifice) were stubs and are now ported.
+(CostExile, CostSacrifice) were stubs and are now ported. P6-AG
+→ MET: naming any card is answered by searching Forge's names.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -148,7 +149,7 @@ game acted on flips nobody saw. Outcomes now travel per seat on the
 snapshot — measured: "Mana Clash: tails", "Goblin Archaeologist:
 win", "Alchor's Tomb: White".
 
-**P6-AG is blocked, and not on effort.** Pithing Needle names any
+**P6-AG — BUILT 2026-10-20 (owner decision: search, then pick); this paragraph is the history.** Was: blocked, and not on effort. Pithing Needle names any
 card in or out of the game. Forge answers it by listing every face
 in the database and letting the player search — thirty-four
 thousand of them, which is not a list this protocol can carry as
@@ -246,7 +247,7 @@ restarted under a live match outside a unit test.
 | P6-AD | Karn / game restart | NOT MET | Not attempted; no classification recorded |
 | P6-AE | Nested interaction / Panglacial Wurm | MET | **Run 2026-10-20**, `scripts/check-panglacial-wurm.py`, in CI. Evolving Wilds' search on the stack; Forge offers the Wurm; seven mana decisions pay for it and it goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves. Trace: `docs/testing/evidence/p6-ae-panglacial-wurm.trace.json` |
 | P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
-| P6-AG | Card-name choice | PARTIAL | The bounded form (Forge supplies the faces) is implemented. **The open form — name any card — needs a typed answer the protocol does not carry**, and fails loudly saying so rather than guessing |
+| P6-AG | Card-name choice | MET | **Built 2026-10-20, owner decision: search, then pick** (`protocol/README.md`). The question arrives searchable with Forge's count (34,334 for Pithing Needle, 33,067 for Phyrexian Revoker's nonland list) and no options; the player searches, the server sends the best 50 from FORGE's list, and only a name it sent can be the answer. Worker run `scripts/check-card-name.py` (in CI): accents ignored, a guessed id refused, the named card's ability refused on activation. Browser `e2e/match-card-name.spec.ts` (in CI): search box, Mountain first for the Needle, absent for the Revoker; screenshots `seen/name-a-card-*.png` |
 | P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
 | P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |
 | P6-AJ | Composite / multi-representation | NOT MET | No multi-face card has been run |
@@ -305,9 +306,8 @@ In rough order of how many tests each unblocks:
    met; the ledger is `docs/testing/MECHANICS_LAB_COVERAGE.md`,
    where 43 of the 48 Phase-6-required cards are still not yet
    tested one by one.
-3. ~~**Semantic non-object choices**~~ — done 2026-10-19 except
-   P6-AG, which needs a typed-answer protocol shape rather than
-   more adapter work.
+3. ~~**Semantic non-object choices**~~ — done 2026-10-19; P6-AG
+   done 2026-10-20 by searching (owner decision).
 4. ~~**Pregame**~~ — done 2026-10-19. Only Leyline-style coverage
    is left on P6-AC.
 5. ~~**Browser-session tests**~~ — done 2026-10-19: P6-R, P6-S, P6-T

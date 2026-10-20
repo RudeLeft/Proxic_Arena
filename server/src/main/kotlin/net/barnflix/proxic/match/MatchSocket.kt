@@ -138,6 +138,17 @@ private fun handle(
             }
         }
 
+        // P6-AG — search a question's options. Only the decision id
+        // and the text are read; who is searching is the session's.
+        // Results come back later, as DECISION_OPTIONS.
+        "DECISION_SEARCH" -> {
+            val decisionId =
+                runCatching { message.getValue("decisionId").jsonPrimitive.long }.getOrNull()
+                    ?: return searchRefusedMessage(0, DecisionRefusal.STALE_DECISION)
+            val query = message["query"]?.jsonPrimitive?.contentOrNullSafe().orEmpty()
+            runtime.search(matchId, userId, decisionId, query)?.let { searchRefusedMessage(decisionId, it) }
+        }
+
         // A newer client saying something this server has not
         // heard of is ignored rather than disconnected.
         else -> null

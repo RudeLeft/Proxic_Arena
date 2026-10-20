@@ -22,6 +22,7 @@ import { EMPTY_LIBRARY, listDecks, type DeckLibrary, type DeckSummary } from "./
 import {
   EMPTY_MATCH,
   connectMatch,
+  type Decision,
   type MatchSocket,
   type MatchState,
   type Snapshot,
@@ -792,6 +793,14 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
     socketRef.current?.answer(decision.decisionId, actionId);
   };
 
+  const decisionId = game.decision?.decisionId ?? null;
+  const search = useCallback(
+    (query: string) => {
+      if (decisionId !== null) socketRef.current?.search(decisionId, query);
+    },
+    [decisionId],
+  );
+
   return (
     <section className="panel" aria-label="Your match">
       <h2>Your match</h2>
@@ -847,19 +856,29 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               the kind, so it goes above the options rather than
               replacing the heading. */}
           {game.decision.prompt && <p className="decision-prompt">{game.decision.prompt}</p>}
-          <ul className="actions-list">
-            {game.decision.options.map((option) => (
-              <li key={option.actionId}>
-                <button
-                  type="button"
-                  disabled={game.awaiting !== null}
-                  onClick={() => answer(option.actionId)}
-                >
-                  {option.label ?? option.actionId}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {game.decision.searchable ? (
+            <NameSearch
+              key={game.decision.decisionId}
+              decision={game.decision}
+              disabled={game.awaiting !== null}
+              onSearch={search}
+              onChoose={answer}
+            />
+          ) : (
+            <ul className="actions-list">
+              {game.decision.options.map((option) => (
+                <li key={option.actionId}>
+                  <button
+                    type="button"
+                    disabled={game.awaiting !== null}
+                    onClick={() => answer(option.actionId)}
+                  >
+                    {option.label ?? option.actionId}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {/* No Pass when the rules do not allow one. Offering a
               button that is always refused is worse than offering
               nothing: it reads as the game being broken. */}
@@ -877,7 +896,9 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               to it, remove from it or reorder it, because an
               option Forge offered and a browser hid is a rules
               disagreement the player cannot see. */}
-          <p className="hint">{hintFor(game.decision.kind, game.decision.options.length)}</p>
+          {!game.decision.searchable && (
+            <p className="hint">{hintFor(game.decision.kind, game.decision.options.length)}</p>
+          )}
         </div>
       ) : (
         live && <p className="hint">Waiting for the game.</p>
@@ -913,6 +934,78 @@ function MatchPanel({ match, me }: { match: MatchView; me: string }) {
           </div>
         ))}
     </section>
+  );
+}
+
+/**
+ * P6-AG — naming a card: search, then pick.
+ *
+ * Forge allows tens of thousands of names, so they are never sent.
+ * The player types; the server returns what matched, from FORGE's
+ * list, best match first; the player picks one of those. The page
+ * never invents a name and never accepts typed text as the answer:
+ * the answer is always one of the results it was sent.
+ *
+ * Results are shown only for the text currently in the box. A
+ * reply for an older keystroke arriving late would otherwise
+ * replace the list under the player's cursor.
+ */
+function NameSearch({
+  decision,
+  disabled,
+  onSearch,
+  onChoose,
+}: {
+  decision: Decision;
+  disabled: boolean;
+  onSearch: (query: string) => void;
+  onChoose: (actionId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  // The server trims and caps what it searches for; compare like with like.
+  const asked = query.trim().slice(0, 64);
+
+  useEffect(() => {
+    if (!asked) return;
+    // Wait for a pause in typing rather than searching every key.
+    const timer = window.setTimeout(() => onSearch(asked), 200);
+    return () => window.clearTimeout(timer);
+  }, [asked, onSearch]);
+
+  const results = decision.results?.query === asked ? decision.results : null;
+
+  return (
+    <div className="name-search">
+      <label>
+        Card name
+        <input
+          type="search"
+          value={query}
+          autoFocus
+          autoComplete="off"
+          placeholder="Start typing a card's name"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      {asked && !results && <p className="hint">Searching…</p>}
+      {results && results.total === 0 && <p className="hint">No card is called that.</p>}
+      {results && results.options.length > 0 && (
+        <ul className="actions-list" aria-label="Matching names">
+          {results.options.map((option) => (
+            <li key={option.actionId}>
+              <button type="button" disabled={disabled} onClick={() => onChoose(option.actionId)}>
+                {option.label ?? option.actionId}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="hint">
+        {results && results.total > results.options.length
+          ? `Showing ${results.options.length} of ${results.total.toLocaleString()} matches — type more to narrow it down.`
+          : `Any of ${decision.optionCount.toLocaleString()} names Forge allows here. The list is Forge's, not this page's.`}
+      </p>
+    </div>
   );
 }
 

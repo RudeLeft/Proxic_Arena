@@ -473,3 +473,65 @@ describe("a decision's prompt", () => {
     expect(state.decision?.prompt).toBeNull();
   });
 });
+
+// P6-AG — naming a card is answered by searching, and only a
+// name the server SENT can be chosen. These are the moments the
+// page could show the wrong list.
+describe("a question answered by searching", () => {
+  const NAMING = {
+    type: "DECISION_REQUEST",
+    decisionId: 9,
+    actedForSeat: 1,
+    kind: "chooseCardName",
+    stateVersion: 50,
+    mandatory: true,
+    searchable: true,
+    optionCount: 34334,
+    options: [],
+  };
+  const BOLT = {
+    type: "DECISION_OPTIONS",
+    decisionId: 9,
+    query: "bolt",
+    total: 1,
+    options: [{ actionId: "name:4410", label: "Lightning Bolt" }],
+  };
+
+  it("arrives searchable, with how many names are allowed and none sent", () => {
+    const state = apply([NAMING]);
+    expect(state.decision?.searchable).toBe(true);
+    expect(state.decision?.optionCount).toBe(34334);
+    expect(state.decision?.options).toEqual([]);
+    expect(state.decision?.results).toBeNull();
+  });
+
+  it("shows what a search matched", () => {
+    const state = apply([NAMING, BOLT]);
+    expect(state.decision?.results?.query).toBe("bolt");
+    expect(state.decision?.results?.options.map((o) => o.label)).toEqual(["Lightning Bolt"]);
+  });
+
+  it("drops results for a question that is no longer on screen", () => {
+    const state = apply([NAMING, { ...BOLT, decisionId: 8 }]);
+    expect(state.decision?.results).toBeNull();
+  });
+
+  it("starts a new question with no results from the last one", () => {
+    const state = apply([NAMING, BOLT, { ...NAMING, decisionId: 10 }]);
+    expect(state.decision?.results).toBeNull();
+  });
+
+  it("says why a search was refused, and keeps the question", () => {
+    const state = apply([
+      NAMING,
+      { type: "DECISION_SEARCH_REFUSED", decisionId: 9, reason: "NOT_YOURS" },
+    ]);
+    expect(state.decision?.decisionId).toBe(9);
+    expect(state.notice).toMatch(/not yours/i);
+  });
+
+  it("treats an ordinary question as not searchable", () => {
+    const state = apply([QUESTION]);
+    expect(state.decision?.searchable).toBe(false);
+  });
+});

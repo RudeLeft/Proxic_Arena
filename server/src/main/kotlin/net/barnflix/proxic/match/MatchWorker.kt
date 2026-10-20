@@ -226,6 +226,8 @@ class MatchWorker(
             "DECISION_ACCEPTED" ->
                 readDecisionId(frame)?.let { raise(WorkerEvent.Answered(it)) }
 
+            "DECISION_OPTIONS" -> readOptionsFrame(frame)?.let { raise(it) }
+
             "ERROR" -> onError(frame)
 
             else -> Unit
@@ -265,17 +267,22 @@ class MatchWorker(
             .onFailure { log.warn("match $matchId: event not delivered", it) }
     }
 
-    fun answer(
-        decisionId: Long,
-        seat: Int,
-        stateVersion: Long,
-        actionId: String?,
+    /**
+     * Send one frame the server has already authorised.
+     *
+     * False rather than a throw when the pipe is gone: the caller
+     * tells the player "the game did not receive that", which is
+     * the truth. [answer] and [search] are the two frames.
+     */
+    internal fun forward(
+        frame: JsonObject,
+        what: String,
     ): Boolean =
         runCatching {
-            send(decisionResponseFrame(decisionId, seat, stateVersion, actionId))
+            send(frame)
             true
         }.getOrElse {
-            log.warn("match $matchId: could not send an answer", it)
+            log.warn("match $matchId: could not send $what", it)
             false
         }
 
@@ -380,3 +387,18 @@ private fun readSnapshot(frame: JsonObject): WorkerEvent.Snapshot? {
     val state = frame["state"] as? JsonObject ?: return null
     return WorkerEvent.Snapshot(seat, state)
 }
+
+/** §6.100 — forward an answer the server authorised. */
+fun MatchWorker.answer(
+    decisionId: Long,
+    seat: Int,
+    stateVersion: Long,
+    actionId: String?,
+): Boolean = forward(decisionResponseFrame(decisionId, seat, stateVersion, actionId), "an answer")
+
+/** P6-AG — ask the worker what matches; the reply is a [WorkerEvent.Options]. */
+fun MatchWorker.search(
+    decisionId: Long,
+    seat: Int,
+    query: String,
+): Boolean = forward(decisionSearchFrame(decisionId, seat, query), "a search")

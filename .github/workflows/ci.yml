@@ -133,16 +133,17 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA and P6-AE: the two Mechanics Lab regressions
-      # the phase calls mandatory, each a focused deck played against
-      # the worker taken from this image. Exit 2 means the game never
-      # reached the scenario, which proves nothing, so it fails too.
+      # PHASE_06 P6-AA, P6-AE and P6-AG: Mechanics Lab regressions,
+      # each a focused deck played against the worker taken from this
+      # image. Exit 2 means the game never reached the scenario,
+      # which proves nothing, so it fails too.
       - name: Mechanics Lab regressions
         run: |
           res=spikes/forge-phase0a/forge-upstream/forge-gui/res
           jar=forge-worker/target/forge-worker-0.1.0.jar
           python3 -I scripts/check-agent-of-kotis.py "$jar" "$res"
           python3 -I scripts/check-panglacial-wurm.py "$jar" "$res"
+          python3 -I scripts/check-card-name.py "$jar" "$res"
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
@@ -234,6 +235,12 @@ jobs:
       - name: Build the loyalty deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/loyalty-deck.zip" protocol/fixtures/planeswalker-deck
+
+      # And one that names cards (P6-AG): without it
+      # match-card-name.spec.ts skips and the search is never seen.
+      - name: Build the card-name deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/card-name-deck.zip" protocol/fixtures/card-name-deck
 
       - run: npm ci
         working-directory: frontend

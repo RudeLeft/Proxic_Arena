@@ -30,7 +30,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 
 ## Phase 6 required scenarios (Layer B)
 
-48 cards. 1 BLOCKED_BY_PROTOCOL, 43 NOT_YET_TESTED, 4 PASSED.
+48 cards. 43 NOT_YET_TESTED, 5 PASSED.
 
 | Card / Scenario | Source printing | Category | Mechanic / stress case | Tests | Focused test scenario | Forge support | Proxic support | Current result | Evidence | Known issue / blocker | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -69,7 +69,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 | Mindslaver | SOM:176 | Advanced rules | Control another player's next turn; decision-controller separation | P6-U, §6.37 | The controlling player answers the controlled player's decisions; the controlled player cannot. | Resolves | Not proven | NOT_YET_TESTED |  |  | actedForSeat/authorisedSeat are carried end to end and unit-tested both ways; no real control effect has been played. |
 | Palace Jailer | CMM:47 | Actions & choices | Monarch; exile linked to monarch state | P6-AO, §6.97 | The monarch designation. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Panglacial Wurm | CSP:116 | Zones & information | Cast while searching library; unusual casting window | P6-AE, §6.63 | During a library search, Forge offers casting the Wurm from the library; the protocol carries that action inside the search instead of flattening it away. | Resolves | Supported | PASSED | scripts/check-panglacial-wurm.py, run in CI; trace docs/testing/evidence/p6-ae-panglacial-wurm.trace.json (2026-10-20). Evolving Wilds' search is on the stack; Forge asks whether to play the Wurm; it is paid for (seven mana decisions) and goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves. |  | Forge offers every Wurm in the library in turn; with the mana spent the rest are declined. |
-| Pithing Needle | RVR:463 | Advanced rules | Choose card name; prohibit activated abilities | P6-AG, §6.73-§6.74 | Choose any card name. | Resolves | Not proven | BLOCKED_BY_PROTOCOL |  | The open form of chooseCardName needs a typed answer the protocol does not carry. It fails loudly rather than guessing. Owner decision pending. | The bounded form (Forge supplies the names) is implemented. |
+| Pithing Needle | RVR:463 | Advanced rules | Choose card name; prohibit activated abilities | P6-AG, §6.73-§6.74 | Choose any card name. | Resolves | Supported | PASSED | scripts/check-card-name.py (worker, in CI) and frontend/e2e/match-card-name.spec.ts (browser, in CI), 2026-10-20. The question arrives searchable with 34,334 allowed names and none sent; search ranks the exact name first and ignores accents; a guessed id is refused; the server accepts only names it sent; Evolving Wilds named, its ability is then refused at activation (no sacrifice asked, still on the battlefield). In the browser: a search box, Mountain first for the Needle, no Mountain for Phyrexian Revoker's nonland list. |  | Owner decision 2026-10-20: search, then pick. Forge offers the named card's ability anyway -- its own desktop client does too (getAllPossibleAbilities does not consult CantBeActivated) -- and refuses it on activation. |
 | Platinum Angel | CN2:214 | Advanced rules | Player can't lose; opponents can't win | P6-AP | You can't lose the game: the result is Forge's, never inferred from life. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Reckless Stormseeker // Storm-Charged Slasher | MID:157 | Card structures | Daybound/nightbound; day/night global designation; transform | P6-AJ, P6-BF, P6-AO, §6.82, §6.97 | Daybound/nightbound: day/night is global state, and the card transforms with it. | Resolves | Not proven | NOT_YET_TESTED |  |  | Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. |
 | Reverse Engineer | CMM:116 | Casting & costs | Improvise; tap artifacts to pay generic mana | P6-AN, §6.92 | Improvise: tap artifacts to pay. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
@@ -268,7 +268,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Phage the Untouchable | CNS:120 | 1 | Advanced rules | Lose-game trigger based on how it entered | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Phyrexian Arena | FDN:180 | 1 | Advanced rules | Upkeep trigger; draw; life loss | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Phyrexian Fleshgorger | BRO:121 | 1 | Card structures | Prototype; alternative characteristics/cost; ward; lifelink; menace | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Pithing Needle | RVR:463 | 1 | Advanced rules | Choose card name; prohibit activated abilities | P6_REQUIRED | Required | BLOCKED_BY_PROTOCOL |
+| Pithing Needle | RVR:463 | 1 | Advanced rules | Choose card name; prohibit activated abilities | P6_REQUIRED | Required | PASSED |
 | Plains | FRA:281 | 20 | Mana & lands | Basic land; mana ability; land play; tapped-for-mana UI | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Platinum Angel | CN2:214 | 1 | Advanced rules | Player can't lose; opponents can't win | P6_REQUIRED | Required | NOT_YET_TESTED |
 | Platinum Emperion | UMA:233 | 1 | Advanced rules | Life total can't change | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

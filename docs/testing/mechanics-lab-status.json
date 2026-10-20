@@ -59,9 +59,9 @@
       "required": "Required",
       "tests": "P6-AG, §6.73-§6.74",
       "scenario": "Choose any card name.",
-      "result": "BLOCKED_BY_PROTOCOL",
-      "blocker": "The open form of chooseCardName needs a typed answer the protocol does not carry. It fails loudly rather than guessing. Owner decision pending.",
-      "notes": "The bounded form (Forge supplies the names) is implemented."
+      "result": "PASSED",
+      "notes": "Owner decision 2026-10-20: search, then pick. Forge offers the named card's ability anyway -- its own desktop client does too (getAllPossibleAbilities does not consult CantBeActivated) -- and refuses it on activation.",
+      "evidence": "scripts/check-card-name.py (worker, in CI) and frontend/e2e/match-card-name.spec.ts (browser, in CI), 2026-10-20. The question arrives searchable with 34,334 allowed names and none sent; search ranks the exact name first and ignores accents; a guessed id is refused; the server accepts only names it sent; Evolving Wilds named, its ability is then refused at activation (no sacrifice asked, still on the battlefield). In the browser: a search box, Mountain first for the Needle, no Mountain for Phyrexian Revoker's nonland list."
     },
     "Adaptive Automaton": {
       "owner": "P6_REQUIRED",

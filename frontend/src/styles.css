@@ -546,3 +546,23 @@ button:disabled {
   margin: 0 0 8px;
   font-size: 0.9rem;
 }
+
+/* P6-AG — naming a card: a search box over Forge's names. Styled
+   like the app's other inputs; Phase 7 owns how it finally looks. */
+.name-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.name-search input {
+  background: #0f141a;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 7px 9px;
+  font-size: 14px;
+  max-width: 420px;
+}

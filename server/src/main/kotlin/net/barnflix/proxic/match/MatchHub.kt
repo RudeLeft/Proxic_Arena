@@ -105,6 +105,14 @@ class MatchHub : DecisionAnnouncer {
     ) {
         sendTo(matchId, userId, refusalMessage(decisionId, reason))
     }
+
+    override suspend fun options(
+        matchId: UUID,
+        userId: UUID,
+        found: WorkerEvent.Options,
+    ) {
+        sendTo(matchId, userId, decisionOptionsMessage(found))
+    }
 }
 
 private fun envelope(
@@ -137,6 +145,10 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         put("stateVersion", request.stateVersion)
         put("mandatory", request.mandatory)
         request.prompt?.let { put("prompt", it) }
+        if (request.searchable) {
+            put("searchable", true)
+            put("optionCount", request.optionCount)
+        }
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(
@@ -147,6 +159,39 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
                 )
             }
         }
+    }
+
+/**
+ * P6-AG — what a search matched.
+ *
+ * `total` is how many names matched, of which `options` are the
+ * best few: "and 212 more" tells the player to type more.
+ */
+fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
+    envelope("DECISION_OPTIONS") {
+        put("decisionId", found.decisionId)
+        put("query", found.query)
+        put("total", found.total)
+        putJsonArray("options") {
+            found.options.forEach { option ->
+                add(
+                    buildJsonObject {
+                        put("actionId", option.actionId)
+                        put("label", option.label)
+                    },
+                )
+            }
+        }
+    }
+
+/** A search that could not be made. Not an answer refused: nothing was answered. */
+fun searchRefusedMessage(
+    decisionId: Long,
+    reason: DecisionRefusal,
+): JsonObject =
+    envelope("DECISION_SEARCH_REFUSED") {
+        put("decisionId", decisionId)
+        put("reason", reason.name)
     }
 
 fun refusalMessage(

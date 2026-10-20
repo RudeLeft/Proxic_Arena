@@ -55,6 +55,14 @@ class MatchDecisionsTest {
             ) {
                 told += "${name(userId)}/REFUSED:$reason"
             }
+
+            override suspend fun options(
+                matchId: UUID,
+                userId: UUID,
+                found: WorkerEvent.Options,
+            ) {
+                told += "${name(userId)}/OPTIONS:${found.options.size}"
+            }
         }
 
     private fun name(userId: UUID) = if (userId == alice) "alice" else "bob"
@@ -197,5 +205,45 @@ class MatchDecisionsTest {
                 ),
                 UUID.randomUUID(),
             )
+    }
+
+    /**
+     * P6-AG — search results go to the player being asked, and
+     * become answerable. A name in a result is a name that player
+     * has now been shown; nobody else is told what they searched.
+     */
+    @Test
+    fun `search results reach only the asked player and become answerable`() {
+        val decisions = MatchDecisions(announcer)
+        val live = live()
+        decisions.handle(
+            live,
+            WorkerEvent.Decision(question(5, authorised = 1).copy(options = emptyList(), searchable = true)),
+        )
+        told.clear()
+
+        val bolt = DecisionOption("name:4410", "Lightning Bolt")
+        decisions.handle(live, WorkerEvent.Options(5, seat = 1, query = "bolt", options = listOf(bolt), total = 1))
+
+        assertEquals(listOf("alice/OPTIONS:1"), told)
+        assertEquals(listOf(bolt), live.pending()?.options)
+    }
+
+    /** Results for a seat that is not the one asked are dropped, not delivered. */
+    @Test
+    fun `results echoed for the wrong seat reach nobody`() {
+        val decisions = MatchDecisions(announcer)
+        val live = live()
+        decisions.handle(
+            live,
+            WorkerEvent.Decision(question(5, authorised = 1).copy(options = emptyList(), searchable = true)),
+        )
+        told.clear()
+
+        val stray = listOf(DecisionOption("name:1", "x"))
+        decisions.handle(live, WorkerEvent.Options(5, seat = 2, query = "bolt", options = stray, total = 1))
+
+        assertTrue(told.isEmpty(), "results went to $told")
+        assertEquals(emptyList(), live.pending()?.options, "results nobody was shown became answerable")
     }
 }

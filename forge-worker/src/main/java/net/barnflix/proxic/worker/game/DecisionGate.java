@@ -77,10 +77,17 @@ public final class DecisionGate {
         PASS_NOT_ALLOWED,
     }
 
-    /** One outstanding question. */
+    /**
+     * One outstanding question.
+     *
+     * `searchable` — the options are too many to send (naming any
+     * card: ~30,000), so the question goes out without them and the
+     * player searches. The gate still holds EVERY option, and an
+     * answer is checked against them exactly as for any question.
+     */
     public record Pending(long decisionId, int actedForSeat, int authorisedSeat, String kind,
                           long stateVersion, java.util.List<String> options,
-                          boolean mandatory, String prompt) {}
+                          boolean mandatory, String prompt, boolean searchable) {}
 
     /**
      * A client's answer.
@@ -155,10 +162,18 @@ public final class DecisionGate {
                       java.util.List<String> options, boolean mandatory, String prompt,
                       Consumer<Pending> deliver)
             throws InterruptedException {
+        return ask(actedForSeat, authorisedSeat, kind, options, mandatory, prompt, false, deliver);
+    }
+
+    /** As above, for a question answered by searching its options. */
+    public String ask(int actedForSeat, int authorisedSeat, String kind,
+                      java.util.List<String> options, boolean mandatory, String prompt,
+                      boolean searchable, Consumer<Pending> deliver)
+            throws InterruptedException {
         long id = nextDecisionId.getAndIncrement();
         Pending question =
                 new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options,
-                        mandatory, prompt);
+                        mandatory, prompt, searchable);
 
         // Clear BEFORE publishing the question. An answer left over
         // from the previous one would otherwise be waiting in the

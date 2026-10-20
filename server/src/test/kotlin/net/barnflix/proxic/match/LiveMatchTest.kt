@@ -259,6 +259,93 @@ class LiveMatchTest {
         assertEquals(bob, live.authorisedUser())
     }
 
+    // --- P6-AG: naming a card, by searching ---------------------------
+
+    /** What reached the worker as a search, if anything. */
+    private val searched = mutableListOf<String>()
+
+    private fun searchable(): LiveMatch {
+        val live =
+            LiveMatch(
+                match(),
+                worker = NO_WORKER,
+                find = { decisionId, seat, query ->
+                    searched += "$decisionId/$seat/$query"
+                    true
+                },
+            ) { decisionId, seat, version, actionId ->
+                sent += "$decisionId/$seat/$version/$actionId"
+                true
+            }
+        live.nowAsking(question().copy(kind = "chooseCardName", options = emptyList(), searchable = true))
+        return live
+    }
+
+    /** The asked player may search; nobody else may, and nothing reaches Forge for them. */
+    @Test
+    fun `only the asked player can search`() {
+        val live = searchable()
+
+        assertEquals(DecisionRefusal.NOT_YOURS, live.search(bob, 7, "bolt"))
+        assertEquals(DecisionRefusal.NOT_YOURS, live.search(stranger, 7, "bolt"))
+        assertNull(live.search(alice, 7, " bolt "))
+        assertEquals(listOf("7/1/bolt"), searched)
+    }
+
+    @Test
+    fun `an ordinary question cannot be searched`() {
+        val live = live()
+        live.nowAsking(question())
+
+        assertEquals(DecisionRefusal.NOT_SEARCHABLE, live.search(alice, 7, "bolt"))
+    }
+
+    @Test
+    fun `a search for an old question is refused`() {
+        val live = searchable()
+
+        assertEquals(DecisionRefusal.STALE_DECISION, live.search(alice, 6, "bolt"))
+        assertTrue(searched.isEmpty())
+    }
+
+    /** A card name is short; a megabyte of query is not forwarded. */
+    @Test
+    fun `a long query is cut, not forwarded whole`() {
+        val live = searchable()
+
+        live.search(alice, 7, "x".repeat(100_000))
+
+        assertEquals("7/1/" + "x".repeat(64), searched.single())
+    }
+
+    /**
+     * §6.101 for a searchable question: the answer must be a name
+     * this player was SHOWN. Forge would accept any of ~30,000; a
+     * client that guesses an id it never received is refused here,
+     * before the worker is asked.
+     */
+    @Test
+    fun `only a name the player was shown can be the answer`() {
+        val live = searchable()
+
+        assertEquals(DecisionRefusal.STALE_DECISION, live.answer(alice, 7, "name:4410"))
+        assertTrue(sent.isEmpty(), "an unshown name was forwarded")
+
+        live.offered(7, listOf(DecisionOption("name:4410", "Lightning Bolt")))
+        assertNull(live.answer(alice, 7, "name:4410"))
+        assertEquals(listOf("7/1/42/name:4410"), sent)
+    }
+
+    /** Results that arrive for a question already gone are not carried into the next. */
+    @Test
+    fun `results for an old question do not become answers to a new one`() {
+        val live = searchable()
+
+        live.offered(6, listOf(DecisionOption("name:4410", "Lightning Bolt")))
+
+        assertEquals(DecisionRefusal.STALE_DECISION, live.answer(alice, 7, "name:4410"))
+    }
+
     private companion object {
         /**
          * Never started, never spoken to.

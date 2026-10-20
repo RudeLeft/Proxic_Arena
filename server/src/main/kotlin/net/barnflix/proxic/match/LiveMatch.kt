@@ -41,6 +41,11 @@ class LiveMatch(
      */
     val art: MatchArt = MatchArt(emptyMap()),
     /**
+     * How an authorised SEARCH reaches the worker (P6-AG). Before
+     * `send`, so a test's trailing lambda still means `send`.
+     */
+    private val find: (Long, Int, String) -> Boolean = worker::search,
+    /**
      * How an authorised answer reaches the worker.
      *
      * A seam, defaulting to the real worker, so the
@@ -126,9 +131,6 @@ class LiveMatch(
         }
     }
 
-    /** §6.36's chain, read backwards: Arena user → seat. */
-    fun seatOf(userId: UUID): Int? = match.participants.firstOrNull { it.userId == userId }?.seatNumber
-
     /**
      * Who may answer the question outstanding right now.
      *
@@ -197,6 +199,51 @@ class LiveMatch(
     }
 
     /**
+     * Search a searchable question's options — P6-AG.
+     *
+     * The same authorisation as an answer: the question must be
+     * outstanding, this one, searchable, and the caller the user
+     * authorised to answer it. Results arrive later as a
+     * [WorkerEvent.Options] and go to [offered].
+     */
+    fun search(
+        userId: UUID,
+        decisionId: Long,
+        query: String,
+    ): DecisionRefusal? {
+        val question = pending.get() ?: return DecisionRefusal.NOT_PENDING
+        if (question.decisionId != decisionId) return DecisionRefusal.STALE_DECISION
+        val seat = seatOf(userId) ?: return DecisionRefusal.NOT_YOURS
+        if (seat != question.authorisedSeat) return DecisionRefusal.NOT_YOURS
+        if (!question.searchable) return DecisionRefusal.NOT_SEARCHABLE
+        // A card name is short. A megabyte of "query" is not a search.
+        val trimmed = query.trim().take(MAX_QUERY)
+        return if (find(decisionId, seat, trimmed)) null else DecisionRefusal.UNREACHABLE
+    }
+
+    /**
+     * Results that were shown, added to what may be answered.
+     *
+     * §6.101 says the answer must be one THIS decision offered, and
+     * for a searchable question that means offered to this player:
+     * a name they were never shown is refused here, even if Forge
+     * would allow it. By id, like [answered], so results for an
+     * old question cannot leak into a new one.
+     */
+    fun offered(
+        decisionId: Long,
+        options: List<DecisionOption>,
+    ) {
+        pending.getAndUpdate { current ->
+            if (current?.decisionId != decisionId) {
+                current
+            } else {
+                current.copy(options = (current.options + options).distinctBy { it.actionId })
+            }
+        }
+    }
+
+    /**
      * The worker refused what was forwarded, so the question is
      * answerable again — a stale state version is a reason to try
      * once more, not to be locked out of the decision.
@@ -204,4 +251,16 @@ class LiveMatch(
     fun release(decisionId: Long) {
         forwarded.compareAndSet(decisionId, null)
     }
+
+    private companion object {
+        const val MAX_QUERY = 64
+    }
 }
+
+/**
+ * §6.36's chain, read backwards: Arena user → seat.
+ *
+ * An extension rather than a member: it reads only the participant
+ * list, and the class is at detekt's function ceiling.
+ */
+fun LiveMatch.seatOf(userId: UUID): Int? = match.participants.firstOrNull { it.userId == userId }?.seatNumber

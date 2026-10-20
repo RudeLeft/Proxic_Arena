@@ -59,6 +59,24 @@ export interface Decision {
    * one to sacrifice" or "choose one to save".
    */
   prompt: string | null;
+  /**
+   * P6-AG — answered by SEARCHING, not by choosing from a list.
+   *
+   * Naming any card allows ~30,000 names. The question arrives
+   * with `optionCount` and no options; the page sends what the
+   * player types and is sent what matched (`results`). Only a name
+   * the server has sent can be the answer.
+   */
+  searchable: boolean;
+  optionCount: number;
+  results: SearchResults | null;
+}
+
+/** What one search matched: the best few, and how many there were. */
+export interface SearchResults {
+  query: string;
+  options: DecisionOption[];
+  total: number;
 }
 
 /**
@@ -238,6 +256,26 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return { ...state, decision: null, awaiting: null, notice: null };
     }
 
+    case "DECISION_OPTIONS": {
+      const decisionId = asNumber(message["decisionId"]);
+      const decision = state.decision;
+      // Only for the question on screen: results for one that has
+      // gone must not appear under the next.
+      if (decisionId === null || decision?.decisionId !== decisionId) return state;
+      const results: SearchResults = {
+        query: asString(message["query"]) ?? "",
+        options: asOptions(message["options"]),
+        total: asNumber(message["total"]) ?? 0,
+      };
+      return { ...state, decision: { ...decision, results } };
+    }
+
+    case "DECISION_SEARCH_REFUSED": {
+      const decisionId = asNumber(message["decisionId"]);
+      if (decisionId === null || state.decision?.decisionId !== decisionId) return state;
+      return { ...state, notice: refusalText(asString(message["reason"])) };
+    }
+
     case "DECISION_REFUSED": {
       const decisionId = asNumber(message["decisionId"]);
       if (decisionId === null) return state;
@@ -273,6 +311,8 @@ function refusalText(reason: string | null): string {
       return "This one cannot be skipped — the rules require a choice.";
     case "UNREACHABLE":
       return "The game did not receive that. It may have stopped.";
+    case "NOT_SEARCHABLE":
+      return "That question is answered from the list, not by searching.";
     default:
       return "That answer was not accepted.";
   }
@@ -414,6 +454,9 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     // server cannot accidentally make a decision unrefusable.
     mandatory: message["mandatory"] === true,
     prompt: asString(message["prompt"]),
+    searchable: message["searchable"] === true,
+    optionCount: asNumber(message["optionCount"]) ?? 0,
+    results: null,
   };
 }
 
@@ -450,6 +493,8 @@ function asString(value: unknown): string | null {
 export interface MatchSocket {
   /** §6.100 — the decision and the action. Nothing else. */
   answer(decisionId: number, actionId: string | null): void;
+  /** P6-AG — search a searchable question. Results arrive as DECISION_OPTIONS. */
+  search(decisionId: number, query: string): void;
   close(): void;
 }
 
@@ -491,6 +536,10 @@ export function connectMatch(
           { type: "DECISION_RESPONSE", decisionId, actionId },
         ),
       );
+    },
+    search(decisionId, query) {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "DECISION_SEARCH", decisionId, query }));
     },
     close() {
       socket.close();

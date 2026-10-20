@@ -1640,24 +1640,26 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
-     * Name a card out of the WHOLE POOL — and this one cannot be
-     * asked yet.
+     * Name a card out of the WHOLE POOL — P6-AG.
      *
-     * Pithing Needle names any card, in or out of the game. Forge
-     * answers it by listing every face in the database that matches
-     * a predicate and letting the player search: thirty-four
-     * thousand of them, which is not a list and not something this
-     * protocol can carry as options.
+     * Pithing Needle, Meddling Mage, Cabal Therapy: any card name,
+     * in the game or not. Forge's human path lists every face in
+     * the database that its predicate accepts and lets the player
+     * search them; this is that, faithfully, with the search done
+     * over the protocol (owner decision 2026-10-20: search, then
+     * pick).
      *
-     * So it fails LOUDLY and says exactly that, which is §6.105's
-     * rule and better than the alternatives. Picking one would be
-     * inventing an answer; offering a "sensible" subset would be
-     * this adapter deciding which cards are worth naming, which is
-     * the same thing wearing a hat.
+     * EVERY allowed name is an option, held by the gate, so an
+     * answer is checked exactly as any other: it must be one of the
+     * names Forge allowed. The question goes out marked searchable
+     * and without them -- ~30,000 names is not a list to send -- and
+     * the player is sent what they search for, fifty at a time.
+     * Nothing here decides which cards are worth naming.
      *
-     * What it needs is a protocol shape that does not exist yet: a
-     * typed-and-searched answer rather than a chosen one. That is a
-     * decision about the protocol, not a gap in this method.
+     * Then Forge's own second check, also ported: the name must
+     * also satisfy the effect's `valid` restriction ("a nonland
+     * card name"), tested on a real card instance, and a name that
+     * fails is asked for again -- Forge's loop, not a guess.
      */
     @Override
     public String chooseCardName(
@@ -1665,10 +1667,56 @@ public final class MatchController extends GeneratedControllerBase {
             java.util.function.Predicate<forge.card.ICardFace> faces,
             String valid,
             String message) {
-        host.failUnsupported("chooseCardName over the whole card pool (needs a typed answer)");
-        throw new UnsupportedOperationException(
-                "naming any card needs a typed answer, which the decision protocol "
-                        + "does not carry yet");
+        forge.StaticData data = forge.StaticData.instance();
+        data.ensureAllCardsLoaded();
+        java.util.List<String> names =
+                data.getCommonCards().streamAllFaces()
+                        .filter(faces)
+                        .map(forge.card.ICardFace::getName)
+                        .distinct()
+                        .sorted()
+                        .collect(java.util.stream.Collectors.toList());
+        if (names.isEmpty()) {
+            return "";
+        }
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (String name : names) {
+            labels.put("name:" + labels.size(), name);
+        }
+
+        while (true) {
+            String choice;
+            try {
+                // Mandatory: Forge's chooser has no cancel here.
+                choice = host.gate().ask(
+                        actedForSeat, authorisedSeat, "chooseCardName",
+                        new java.util.ArrayList<>(labels.keySet()),
+                        true, message, true,
+                        pending -> host.publishDecision(pending, labels));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return "";
+            }
+            String name = labels.get(choice);
+            if (name == null) {
+                return "";
+            }
+            if (valid == null || valid.isBlank()) {
+                return name;
+            }
+            forge.item.PaperCard paper = data.getCommonCards().getCard(name);
+            if (paper == null) {
+                return name;
+            }
+            forge.game.card.Card instance = forge.game.card.Card.fromPaperCard(paper, player);
+            forge.game.card.CardUtil.turnToRightFace(name, instance);
+            if (instance.isValid(valid.split(","), sa.getHostCard().getController(),
+                    sa.getHostCard(), sa)) {
+                return name;
+            }
+            // Not a name this effect accepts. Forge asks again.
+            host.note(actedForSeat, name + " cannot be named here.");
+        }
     }
 
     /**

@@ -398,7 +398,96 @@ public final class GameHost {
         return map;
     }
 
+    /**
+     * The options of the searchable question outstanding, if any.
+     *
+     * Kept here rather than sent: naming a card offers ~30,000
+     * names, and the player is shown only what they search for.
+     */
+    private volatile Searchable searchable;
+
+    private record Searchable(long decisionId, int authorisedSeat,
+                              java.util.List<String> ids, java.util.List<String> labels,
+                              java.util.List<String> folded) {}
+
+    /** What a search found: at most {@link #SEARCH_LIMIT}, and how many there were. */
+    public record Found(java.util.LinkedHashMap<String, String> options, int total) {}
+
+    public static final int SEARCH_LIMIT = 50;
+
+    /**
+     * Search the outstanding question's options — P6-AG.
+     *
+     * Null when there is nothing to search: no such question, or
+     * the seat asking is not the one authorised to answer it. The
+     * server checks both first; this is the gate's side of it, for
+     * the same reason the gate re-checks every answer.
+     *
+     * Ranked as a person expects a card search to rank: the exact
+     * name, then names that START with the text, then a word in
+     * the name that starts with it, then anywhere. Case and accents
+     * are ignored, so "mjolnir" finds Mjölnir and "oin" finds Óin.
+     */
+    public Found search(long decisionId, int seat, String query) {
+        Searchable current = searchable;
+        DecisionGate.Pending pending = gate.pending();
+        if (current == null || pending == null
+                || current.decisionId() != decisionId || pending.decisionId() != decisionId
+                || current.authorisedSeat() != seat) {
+            return null;
+        }
+        String needle = fold(query == null ? "" : query.trim());
+        java.util.LinkedHashMap<String, String> found = new java.util.LinkedHashMap<>();
+        if (needle.isEmpty()) {
+            return new Found(found, 0);
+        }
+        java.util.List<java.util.List<Integer>> tiers = new java.util.ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            tiers.add(new java.util.ArrayList<>());
+        }
+        for (int i = 0; i < current.folded().size(); i++) {
+            String name = current.folded().get(i);
+            int at = name.indexOf(needle);
+            if (at < 0) {
+                continue;
+            }
+            int tier = name.equals(needle) ? 0
+                    : at == 0 ? 1
+                    : !Character.isLetterOrDigit(name.charAt(at - 1)) ? 2
+                    : 3;
+            tiers.get(tier).add(i);
+        }
+        int total = 0;
+        for (java.util.List<Integer> tier : tiers) {
+            total += tier.size();
+            for (int i : tier) {
+                if (found.size() < SEARCH_LIMIT) {
+                    found.put(current.ids().get(i), current.labels().get(i));
+                }
+            }
+        }
+        return new Found(found, total);
+    }
+
+    /** Lower case, accents removed: what a search compares. */
+    static String fold(String text) {
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(java.util.Locale.ROOT);
+    }
+
     void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
+        if (pending.searchable()) {
+            java.util.List<String> ids = new java.util.ArrayList<>(pending.options());
+            java.util.List<String> names = new java.util.ArrayList<>(ids.size());
+            java.util.List<String> folded = new java.util.ArrayList<>(ids.size());
+            for (String id : ids) {
+                String label = labels.get(id);
+                names.add(label);
+                folded.add(fold(label == null ? "" : label));
+            }
+            searchable = new Searchable(pending.decisionId(), pending.authorisedSeat(), ids, names, folded);
+        }
         decisionCounts.merge(pending.kind(), 1, Integer::sum);
         // §6.48 — the state the question refers to, before it.
         publishSnapshots();
