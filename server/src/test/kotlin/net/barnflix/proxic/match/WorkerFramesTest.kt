@@ -2,6 +2,7 @@ package net.barnflix.proxic.match
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import net.barnflix.proxic.deck.DeckEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -133,6 +134,49 @@ class WorkerFramesTest {
         val seats =
             players.map { (it as JsonObject).getValue("seatNumber").toString().toInt() }
         assertEquals(listOf(1, 2), seats)
+    }
+
+    /**
+     * §6.33, P6-BD — the PRINTING travels, not just the name: two
+     * printings of one card stay two entries, each with its own set
+     * and collector number, which the worker builds exactly
+     * (scripts/check-printings.py). A name with no printing sends
+     * none rather than an empty one.
+     */
+    @Test
+    fun `the start frame carries each entry's printing`() {
+        val built =
+            startGameFrame(
+                java.util.UUID.randomUUID(),
+                listOf(
+                    WorkerSeat(
+                        "Pat",
+                        1,
+                        listOf(
+                            DeckEntry(15, "Lightning Bolt", "M10", "146", "15 Lightning Bolt (M10) 146", 1),
+                            DeckEntry(15, "Lightning Bolt", "A25", "141", "15 Lightning Bolt (A25) 141", 2),
+                            DeckEntry(30, "Mountain", null, null, "30 Mountain", 3),
+                        ),
+                    ),
+                ),
+            )
+
+        val cards =
+            ((built["players"] as kotlinx.serialization.json.JsonArray)[0] as JsonObject)
+                .getValue("cards") as kotlinx.serialization.json.JsonArray
+        val printings =
+            cards.map {
+                val card = it as JsonObject
+                listOf("name", "set", "number").map { key -> card[key]?.toString()?.trim('"') }
+            }
+        assertEquals(
+            listOf(
+                listOf("Lightning Bolt", "M10", "146"),
+                listOf("Lightning Bolt", "A25", "141"),
+                listOf("Mountain", null, null),
+            ),
+            printings,
+        )
     }
 
     /**

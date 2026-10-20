@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 56 |
-| PARTIAL | 4 |
+| MET | 57 |
+| PARTIAL | 3 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -62,15 +62,15 @@ the state it refers to. P6-BA → MET: a finished match's worker is
 stopped and nothing per-match is left but its log. P6-BC → MET:
 deck storage is unchanged across a match, rows and artwork. P6-AK
 → MET: attachments, including an Aura across the table, drawn with
-what they modify.
+what they modify. P6-BD → MET: every card is the exact printing its
+deck asked for, at runtime.
 
-Where it stands now (2026-10-20): 56 of 65 met. What is left is
+Where it stands now (2026-10-20): 57 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
 server, so they are the owner's to schedule), a **rules-version
-regression** scenario nobody has chosen yet (P6-AF), and four
+regression** scenario nobody has chosen yet (P6-AF), and three
 partials -- hidden-hand logs (G), face-down cards actually played
-(I), exact printings inspected at runtime (BD) and a formal
-project-integrity comparison (BM).
+(I) and a formal project-integrity comparison (BM).
 
 ---
 
@@ -296,7 +296,7 @@ restarted under a live match outside a unit test.
 | P6-BA | Normal Forge match end | MET | **Run 2026-10-20**, `MatchLauncherTest` `a finished match stops its worker and leaves nothing behind` (in CI): the real runtime and a real process -- an impostor worker that reports Forge's result and then refuses to exit -- give match ENDED, the result persisted, the room OPEN with readiness cleared (D4's amendment to "room closes"), the runtime no longer holding it, the worker process gone, and nothing per-match on disk but the worker log §6.155 keeps; the runtime creates no other per-match files (§6.30). Mutation-tested: without `worker.stop()` the process outlives its match and the test fails. Real games end this way in `match-alternate-win.spec.ts`; after a full browser suite the container holds no worker process |
 | P6-BB | Browser close is not concede | MET | **Built 2026-10-19.** The other player's whole browser context is closed; the match stays LAUNCHING/RUNNING with no result, and on signing in again they are returned to the same match |
 | P6-BC | Imported deck immutability | MET | **Integrity comparison 2026-10-20**, two ways. In CI, `MatchLauncherTest` `a finished match stops its worker and leaves nothing behind` compares every column of every `imported_deck`, `deck_entry`, `deck_share` and `art_asset` row before launch and after the match ends, through the real runtime and a real worker process: identical. Mutation-tested -- one space appended to an entry's source text in the end-of-match path fails it. On the real stack, `e2e/match-alternate-win.spec.ts` (with the container) fingerprints the same rows plus every artwork file under /data/art after import and again after a whole real game: unchanged (`4d76b182…`, `3ad66a45…`) |
-| P6-BD | Exact printing runtime | PARTIAL | Import resolves exact printings (`CardResolverTest`); **runtime preservation not inspected** |
+| P6-BD | Exact printing runtime | MET | **Run 2026-10-20**, `scripts/check-printings.py` (in CI). The snapshot now carries each visible card's `printing` as Forge built it (identity, so only for a card the viewer may identify). A deck of Lightning Bolt M10/146 + A25/141 and Mountain M10/242 + M10/245 -- two sets, and two collector numbers in one set -- comes out exactly so: every printing seen is one the deck asked for, every requested printing is seen, and the opponent is shown the same printing. Mutation-tested: a worker that builds by name alone fails it. Server side: `the start frame carries each entry's printing` and `a match is built from the printing the import resolved` (the resolved set/number, not the package's). Artwork is still chosen by card NAME, so two printings of one card in one deck show one picture -- an asset question, not construction |
 | P6-BE | Basic land runtime | MET | Every deck in `harness-decks.json` runs on basics through real games |
 | P6-BF | Multi-face runtime | MET | **Run 2026-10-20**: Delver transforms by real play -- same id, `face` Original -> Backside, 1/1 -> 3/2 and Human Wizard -> Human Insect from Forge. Viewer-safe asset mapping: front art from the package, none for the back (packages carry fronts only; never the wrong face). Browser screenshots `seen/delver-*.png` |
 | P6-BG | Token runtime | MET | Legion Warboss creates Goblin tokens; they appear in snapshots, attack and block; no token art exists and nothing crashes |

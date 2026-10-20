@@ -20,8 +20,10 @@ import kotlin.test.assertNotNull
  *    named by its one argument (the slot where the real worker takes
  *    its resource root);
  *  - prints [greeting] as its first frame;
- *  - when START_GAME arrives, waits [pauseMillis] and prints each of
- *    [afterStart];
+ *  - when START_GAME arrives, prints each of [afterStart], waiting
+ *    [pauseMillis] before every one after the first: a result must
+ *    not land while the start it follows is still being recorded,
+ *    which real Forge -- with a game in between -- never does;
  *  - never exits on its own, even when its stdin closes -- so if it
  *    is gone, the server stopped it.
  *
@@ -36,7 +38,10 @@ object ImpostorWorker {
         afterStart: List<String> = emptyList(),
         pauseMillis: Long = 0,
     ): File {
-        val replies = afterStart.joinToString("\n") { "System.out.println(\"${frame(it)}\");" }
+        val replies =
+            afterStart.joinToString(" Thread.sleep(${pauseMillis}L); ") {
+                "System.out.println(\"${frame(it)}\"); System.out.flush();"
+            }
         val source =
             """
             import java.io.*;
@@ -57,7 +62,6 @@ object ImpostorWorker {
                         heard.write("\n");
                         heard.flush();
                         if (line.contains("START_GAME")) {
-                            Thread.sleep(${pauseMillis}L);
                             $replies
                             System.out.flush();
                         }

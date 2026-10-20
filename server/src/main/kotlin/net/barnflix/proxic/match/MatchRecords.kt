@@ -60,7 +60,11 @@ internal class MatchRecords(private val dataSource: DataSource) {
      * second launch.
      */
     fun releaseRoom(roomId: UUID) {
-        dataSource.connection.use { connection ->
+        // ONE transaction. As two auto-committed statements there was
+        // a moment with the room OPEN and its players still ready --
+        // a state nothing else allows, and one a Prepare could have
+        // acted on. CI's slower runner caught a test reading it.
+        net.barnflix.proxic.room.MatchSetupStore(dataSource).inTransaction { connection ->
             val released =
                 connection.prepareStatement(
                     "UPDATE room SET status = 'OPEN', revision = revision + 1 " +
@@ -74,7 +78,7 @@ internal class MatchRecords(private val dataSource: DataSource) {
             // otherwise un-ready a room that is merely prepared --
             // a release arriving late for a room that had already
             // moved on would quietly undo everybody's tick.
-            if (released == 0) return@use
+            if (released == 0) return@inTransaction
             connection.prepareStatement(
                 "UPDATE room_member SET ready = FALSE WHERE room_id = ?",
             ).use {

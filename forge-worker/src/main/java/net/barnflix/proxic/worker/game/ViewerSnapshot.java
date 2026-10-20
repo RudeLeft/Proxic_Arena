@@ -277,6 +277,16 @@ final class ViewerSnapshot {
         // decides; the name is only read afterwards.
         entry.addProperty("name", name == null || name.isEmpty() ? "Face-down" : name);
 
+        // P6-BD, §6.33 — the PRINTING Forge built this card from: the
+        // set and collector number the import resolved, carried as
+        // Forge holds it ("M10/242"). Identity, like the name, so only
+        // for a card this viewer may identify (above). A token has no
+        // printing and gets none.
+        forge.item.IPaperCard paper = card.getPaperCard();
+        if (paper != null && paper.getEdition() != null && !paper.getEdition().isEmpty()) {
+            entry.addProperty("printing", paper.getEdition() + "/" + paper.getCollectorNumber());
+        }
+
         // §6.79, P6-BF — WHICH face is up, and which faces the card
         // has, for a card with more than one: a transforming card, a
         // split card, an adventurer, a Room. Forge's own state names

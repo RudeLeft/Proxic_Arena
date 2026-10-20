@@ -637,9 +637,12 @@ class MatchLauncherTest {
             kotlin.test.assertNotNull(pid, "the impostor never started")
 
             // The result is the worker's to send and the server's to
-            // act on; wait for it, bounded.
+            // act on; wait for it, bounded. For the LAST step of the
+            // ending -- the room coming back, after the row is written
+            // and the worker stopped -- not the first: waiting on the
+            // ENDED row raced the rest on CI's slower runner.
             val deadline = System.currentTimeMillis() + 30_000
-            while (System.currentTimeMillis() < deadline && matchRow(matchId).first != "ENDED") {
+            while (System.currentTimeMillis() < deadline && rooms.find(room.roomId)?.status != RoomStatus.OPEN) {
                 Thread.sleep(50)
             }
 
@@ -668,6 +671,33 @@ class MatchLauncherTest {
         } finally {
             runtime.stopAll()
             scratch.deleteRecursively()
+        }
+    }
+
+    /**
+     * §6.33, P6-BD — the printing a match is built from is the one
+     * the import RESOLVED, not the one the package wrote. A package
+     * line can name a printing Forge resolves differently; the import
+     * stored both, and the match uses Forge's answer so it is played
+     * with the printing import agreed on.
+     */
+    @Test
+    fun `a match is built from the printing the import resolved`() {
+        val (room, setupId) = preparedRoom()
+        source().connection.use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO deck_entry (deck_id, line_number, quantity, card_name, set_code, " +
+                    "collector_number, source_text, resolution_status, resolved_set, resolved_number) " +
+                    "SELECT deck_id, 1, 60, 'Lightning Bolt', 'LEA', '161', '60 Lightning Bolt (LEA) 161', " +
+                    "'RESOLVED', 'A25', '141' FROM imported_deck",
+            ).use { it.executeUpdate() }
+        }
+        val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
+
+        val seats = kotlin.test.assertNotNull(MatchRecords(source()).seatsFor(launched.match))
+        for (seat in seats) {
+            val bolt = seat.cards.single()
+            assertEquals("A25" to "141", bolt.setCode to bolt.collectorNumber, "seat ${seat.seatNumber}")
         }
     }
 
