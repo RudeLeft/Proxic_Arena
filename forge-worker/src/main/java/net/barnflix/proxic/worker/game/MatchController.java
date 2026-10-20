@@ -2698,7 +2698,7 @@ public final class MatchController extends GeneratedControllerBase {
         // P6-I — as THIS player may know it: a face-down card's own
         // name is empty, which left its controller choosing between
         // options that began " — {1}{U} — Morph".
-        String name = ViewerSnapshot.nameFor(sa.getHostCard(), player.getView());
+        String name = spellName(sa);
         String cost = costOf(sa);
         String what = String.valueOf(sa).trim();
 
@@ -2746,9 +2746,42 @@ public final class MatchController extends GeneratedControllerBase {
                 return forge.util.TextUtil.fastReplace(
                         text.trim(), "CARDNAME", sa.getHostCard().getName());
             }
+            // Some abilities carry a mana cost whose TEXT is blank -- a
+            // Room's "Unlock Locker Room" costs {4}{U}, and fell through to
+            // the card's open door, {U} (found 2026-10-20, P6-AJ).
+            if (costs.hasManaCost()) {
+                String mana = costs.getTotalMana().toString().trim();
+                if (!mana.isEmpty()) {
+                    return mana;
+                }
+            }
         }
-        forge.card.mana.ManaCost mana = sa.getHostCard().getManaCost();
+        // The FACE this spell is cast from, when it has one: Fire's {1}{R},
+        // Stomp's {1}{R}, a Room door's own cost. The card's mana cost is
+        // the combined one ({2}{R}{U} for Fire // Ice), which put the
+        // wrong price on every half (found by the P6-AJ scenarios,
+        // 2026-10-20). A fused cast's state is the whole card, so it keeps
+        // the combined cost, which is what fusing costs.
+        forge.card.mana.ManaCost mana = sa.isSpell() && sa.getCardState() != null
+                ? sa.getCardState().getManaCost()
+                : sa.getHostCard().getManaCost();
         return mana == null ? "" : mana.toString().trim();
+    }
+
+    /**
+     * The name a spell is cast UNDER: its face's ("Fire", "Stomp", "Locker
+     * Room") rather than the whole card's. Face-down cards keep
+     * {@link ViewerSnapshot#nameFor}'s rules.
+     */
+    private String spellName(SpellAbility sa) {
+        forge.game.card.Card host = sa.getHostCard();
+        if (sa.isSpell() && !host.isFaceDown() && sa.getCardState() != null) {
+            String face = sa.getCardState().getName();
+            if (face != null && !face.isBlank()) {
+                return face;
+            }
+        }
+        return ViewerSnapshot.nameFor(host, player.getView());
     }
 
     // ---- notifications, not decisions ------------------------------------

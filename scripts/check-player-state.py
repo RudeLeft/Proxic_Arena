@@ -110,7 +110,8 @@ for line in proc.stdout:
                 found["poisoned_life"] = p2.get("life")
             if "monarch" in (p1.get("designations") or []):
                 found["monarch"] = "seat 1"
-            if s.get("dayTime"):
+            # The FIRST value seen: the Stormseeker entering makes it day.
+            if s.get("dayTime") and not found["dayTime"]:
                 found["dayTime"] = s["dayTime"]
         if all(found[k] for k in ("energy", "poison", "monarch", "dayTime")) or s.get("turn", 0) > MAX_TURN:
             break
@@ -189,8 +190,10 @@ if missing:
 problems = []
 if found["poisoned_life"] != 20:
     problems.append(f"infect damage took life instead of only giving poison: life {found['poisoned_life']}")
-if found["dayTime"] not in ("day", "night"):
-    problems.append(f"dayTime is not day or night: {found['dayTime']}")
+# The first daybound permanent makes it DAY (rule 726.2). Checking only
+# "day or night" let an inverted reading of Forge's flag through.
+if found["dayTime"] != "day":
+    problems.append(f"a daybound permanent entering should make it day, not {found['dayTime']!r}")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)

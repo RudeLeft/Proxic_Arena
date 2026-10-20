@@ -94,7 +94,7 @@ def dismember():
             return bool(graveyard(g, 2, "Grizzly Bears")) or g.turn > done["turn"] + 1
         return False
 
-    g.run(policy, until=until, max_turn=12)
+    g.run(policy, until=until, max_turn=24)
     found = {"life_before": done["life_before"], "life_after": g.player(1, 1).get("life"),
              "bears_dead": len(graveyard(g, 2, "Grizzly Bears")), "dismember_resolved": bool(graveyard(g, 1, "Dismember")),
              "lands_tapped": [c.get("tapped") for c in g.mine(1, name="Swamp")]}
@@ -144,7 +144,7 @@ def force_of_will():
     # were there when it was cast.
     g.run(policy, until=lambda g: done["cast"]
           and len(graveyard(g, 1, "Force of Will")) > done.get("fow_in_grave", 99)
-          and not g.state.get(1, {}).get("stack"), max_turn=10)
+          and not g.state.get(1, {}).get("stack"), max_turn=24)
     exiled = [c for c in g.zone(1, "exile", owner=1) if c.get("name") == "Force of Will"]
     found = {"bears_cast": done["bears_cast"], "fow_cast": done["cast"],
              "bears_countered": bool(g.zone(1, "graveyard", owner=2, name="Grizzly Bears")),
@@ -192,7 +192,7 @@ def delve():
 
     g.run(policy, until=lambda g: done["cast"]
           and len(g.zone(1, "exile", owner=1)) > done["before"]["exile"]
-          and not g.state.get(1, {}).get("stack"), max_turn=24)
+          and not g.state.get(1, {}).get("stack"), max_turn=40)
     found = {"before": done["before"], "delved": done["delved"],
              "after": {"grave": len(graveyard(g, 1)), "hand": g.player(1, 1).get("handCount"),
                        "exile": len(g.zone(1, "exile", owner=1))}}
@@ -211,9 +211,20 @@ def delve():
         ("ok", "four graveyard cards exiled for {4} of {7}{U}, four Islands paid the rest, three drawn", found)
 
 
+def discard_spare(f, spare):
+    """At hand size, a spare land goes first, not the card under test."""
+    o = next((o["actionId"] for o in f["options"] if spare in o["label"]), None)
+    return o or f["options"][0]["actionId"]
+
+
+def cast_again(g, card):
+    """Not yet cast, or Forge undid the cast (the card is back in hand)."""
+    return card is None or any(c["id"] == card for c in g.zone(1, "hand", owner=1))
+
+
 def convoke():
     g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)])
-    done = {"cast": False, "tapped": []}
+    done = {"card": None, "tapped": []}
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
@@ -222,10 +233,12 @@ def convoke():
         if kind == "chooseSpellAbilityToPlay":
             lions = g.mine(1, name="Savannah Lions")
             if len(g.mine(1, name="Plains")) < 2:
-                return g.play_land(f)
+                land = g.play_land(f)
+                if land:
+                    return land
             o = cast(g, f, "Venerated Loxodon")
-            if o and len(lions) >= 3 and not done["cast"] and len(g.untapped_lands(1)) >= 2:
-                done["cast"] = True
+            if o and len(lions) >= 3 and cast_again(g, done["card"]) and len(g.untapped_lands(1)) >= 2:
+                done["card"], done["tapped"] = card_of(o), []
                 return o
             if len(lions) < 3 and g.untapped_lands(1):
                 return cast(g, f, "Savannah Lions")
@@ -237,14 +250,16 @@ def convoke():
                 done["tapped"].append(card_of(lions[0]["actionId"]))
                 return lions[0]["actionId"]
             return None
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            return discard_spare(f, "Plains")
         return DEFAULT
 
-    g.run(policy, until=lambda g: done["cast"] and g.mine(1, name="Venerated Loxodon")
-          and not g.state.get(1, {}).get("stack"), max_turn=16)
+    g.run(policy, until=lambda g: done["card"] and any(c["id"] == done["card"] for c in g.mine(1))
+          and not g.state.get(1, {}).get("stack"), max_turn=40)
     lions = {c["id"]: c for c in g.mine(1, name="Savannah Lions")}
-    found = {"convoked": done["tapped"], "loxodon": bool(g.mine(1, name="Venerated Loxodon")),
+    found = {"convoked": done["tapped"], "loxodon": any(c["id"] == done["card"] for c in g.mine(1)),
              "lions": {i: {"tapped": c.get("tapped"), "counters": c.get("counters")} for i, c in lions.items()}}
-    if not done["cast"]:
+    if not done["card"]:
         return "inconclusive", "never had three Lions and two Plains", found
     problems = []
     if not found["loxodon"]:
@@ -263,7 +278,7 @@ def convoke():
 
 def improvise():
     g = game("improvise", [("Island", 20), ("Ornithopter", 20), ("Reverse Engineer", 20)])
-    done = {"cast": False, "tapped": [], "hand_before": None}
+    done = {"card": None, "tapped": [], "hand_before": None}
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
@@ -278,8 +293,9 @@ def improvise():
             if len(g.mine(1, name="Island")) < 2:
                 return g.play_land(f)
             o = cast(g, f, "Reverse Engineer")
-            if o and len(thopters) >= 3 and not done["cast"] and len(g.untapped_lands(1)) >= 2:
-                done["cast"], done["hand_before"] = True, g.player(1, 1).get("handCount")
+            if o and len(thopters) >= 3 and cast_again(g, done["card"]) and len(g.untapped_lands(1)) >= 2:
+                done["card"], done["tapped"] = card_of(o), []
+                done["hand_before"] = g.player(1, 1).get("handCount")
                 return o
             return None
         if kind == "chooseCardsForConvokeOrImprovise":
@@ -287,15 +303,20 @@ def improvise():
                 done["tapped"].append(card_of(f["options"][0]["actionId"]))
                 return f["options"][0]["actionId"]
             return None
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            return discard_spare(f, "Island")
         return DEFAULT
 
-    g.run(policy, until=lambda g: done["cast"] and graveyard(g, 1, "Reverse Engineer")
-          and not g.state.get(1, {}).get("stack"), max_turn=14)
+    # The copy that was cast, not any copy: a discarded one is in the
+    # graveyard too.
+    resolved = lambda g: any(c["id"] == done["card"] for c in graveyard(g, 1))  # noqa: E731
+    g.run(policy, until=lambda g: done["card"] and resolved(g)
+          and not g.state.get(1, {}).get("stack"), max_turn=28)
     thopters = {c["id"]: c.get("tapped") for c in g.mine(1, name="Ornithopter")}
     found = {"improvised": done["tapped"], "thopters_tapped": thopters,
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
-             "resolved": bool(graveyard(g, 1, "Reverse Engineer"))}
-    if not done["cast"]:
+             "resolved": bool(done["card"] and resolved(g))}
+    if not done["card"]:
         return "inconclusive", "never had three Ornithopters and two Islands", found
     problems = []
     if not found["resolved"]:
@@ -333,7 +354,7 @@ def affinity():
         return DEFAULT
 
     g.run(policy, until=lambda g: done["cast"] and graveyard(g, 1, "Thoughtcast")
-          and not g.state.get(1, {}).get("stack"), max_turn=14)
+          and not g.state.get(1, {}).get("stack"), max_turn=28)
     found = {"resolved": bool(graveyard(g, 1, "Thoughtcast")),
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
              "islands": len(g.mine(1, name="Island")),

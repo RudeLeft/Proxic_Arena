@@ -179,25 +179,33 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, §6.82",
-      "scenario": "Mutate onto a creature: one object, two cards."
+      "scenario": "Mutate onto a creature: one object, two cards.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py mutate (worker, in CI), 2026-10-20. Cast for its mutate cost onto a non-Human creature: still one creature, now Gemrazer's 4/4."
     },
     "Bottomless Pool // Locker Room": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Room: cast one door, unlock the other."
+      "scenario": "Room: cast one door, unlock the other.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py rooms (worker, in CI), 2026-10-20. Cast by one door ({U}); the other door unlocked for its own {4}{U}. Found: the unlock was offered at the open door's price, {U} -- labels now use the ability's own mana cost."
     },
     "Dollmaker's Shop // Porcelain Gallery": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Room: cast one door, unlock the other."
+      "scenario": "Room: cast one door, unlock the other.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py rooms (worker, in CI), 2026-10-20. Cast by one door ({1}{W}); Porcelain Gallery unlocked for its own {4}{W}{W}."
     },
     "Invasion of Zendikar // Awakened Skyclave": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Battle: protected by an opponent, defeated, transforms."
+      "scenario": "Battle: protected by an opponent, defeated, transforms.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py battle (worker, in CI), 2026-10-20. The Siege enters protected by the opponent, with defense counters; attacked to defeat; exiled and cast transformed as Awakened Skyclave."
     },
     "Delver of Secrets // Insectile Aberration": {
       "owner": "P6_REQUIRED",
@@ -213,43 +221,57 @@
       "required": "Required",
       "tests": "P6-AJ, P6-BF, P6-AO, §6.82, §6.97",
       "scenario": "Daybound/nightbound: day/night is global state, and the card transforms with it.",
-      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. Day/night: entering makes it day, carried as the snapshot's dayTime (check-player-state.py); the night transform itself is not yet run."
+      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. Day/night: entering makes it day, carried as the snapshot's dayTime (check-player-state.py); the night transform itself is not yet run.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py daybound (worker, in CI), 2026-10-20. Day becomes night and the card shows Storm-Charged Slasher; day returns and it turns back. Found: the board showed day at night and night by day -- Forge's day/night flag is TRUE FOR NIGHT and was read the other way; check-player-state.py now requires 'day' after a daybound card enters."
     },
     "Studious First-Year": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, §6.82",
-      "scenario": "Prepare: enters prepared; the prepared spell is copied from exile."
+      "scenario": "Prepare: enters prepared; the prepared spell is copied from exile.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py prepare (worker, in CI), 2026-10-20. Enters prepared; a copy of Rampant Growth is cast (a land fetched); the creature stays."
     },
     "Emeritus of Ideation // Ancestral Recall": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, §6.82",
-      "scenario": "Prepare."
+      "scenario": "Prepare.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py prepare (worker, in CI), 2026-10-20. Enters prepared; a copy of Ancestral Recall is cast (three drawn); the creature stays."
     },
     "Bonecrusher Giant // Stomp": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Adventure: cast Stomp, then the Giant from exile."
+      "scenario": "Adventure: cast Stomp, then the Giant from exile.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py adventure (worker, in CI), 2026-10-20. Stomp offered as 'Stomp -- {1}{R}', kills a creature; the Giant waits in exile (now in the snapshot) and is cast from there, the same card. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
     },
     "Fire // Ice": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Split card: two castable halves, one object."
+      "scenario": "Split card: two castable halves, one object.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py split (worker, in CI), 2026-10-20. Fire's 2 damage divided as the player chooses (1 to the opponent, 1 to a creature); Ice taps and draws. Found: divided damage was a loud stub -- ported from Forge's InputSelectTargets. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
     },
     "Commit // Memory": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Aftermath: one half from hand, the other from the graveyard."
+      "scenario": "Aftermath: one half from hand, the other from the graveyard.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py aftermath (worker, in CI), 2026-10-20. Commit cast from hand; Memory later from the graveyard (each player to seven), after which the card is exiled. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
     },
     "Wear // Tear": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Fuse: both halves at once."
+      "scenario": "Fuse: both halves at once.",
+      "result": "PASSED",
+      "evidence": "scripts/check-shapes.py fuse (worker, in CI), 2026-10-20. Fused for {1}{R}{W}: one cast destroys an artifact and an enchantment; each half also offered alone at its own cost. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
     },
     "Humility": {
       "owner": "P6_REQUIRED",

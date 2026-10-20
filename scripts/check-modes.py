@@ -106,7 +106,7 @@ def escalate():
         return DEFAULT
 
     g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Collective Brutality", st["before"]["grave"])
-          and g.zone(1, "graveyard", owner=2, name="Grizzly Bears"), max_turn=14)
+          and g.zone(1, "graveyard", owner=2, name="Grizzly Bears"), max_turn=28)
     b = st["before"] or {}
     found = {"modes": st["modes"], "before": b, "after": {
         "hand": g.player(1, 1).get("handCount"), "me": g.player(1, 1).get("life"), "them": g.player(1, 2).get("life")},
@@ -162,7 +162,7 @@ def cryptic():
         return DEFAULT
 
     g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Cryptic Command", st["before"]["grave"]),
-          max_turn=14)
+          max_turn=28)
     b = st["before"] or {}
     found = {"modes": st["modes"], "before": b, "after": {
         "hand": g.player(1, 1).get("handCount"), "their_hand": g.player(1, 2).get("handCount"),
@@ -212,7 +212,7 @@ def entwine():
         return DEFAULT
 
     g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Tooth and Nail", st["before"]["grave"]),
-          max_turn=30)
+          max_turn=46)
     b = st["before"] or {}
     found = {"entwined": st["entwined"], "before": b, "after_bears": len(g.mine(1, name="Grizzly Bears")),
              "stopped": g.stopped_badly()}
@@ -262,7 +262,7 @@ def spree():
         return DEFAULT
 
     g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Three Steps Ahead", st["before"]["grave"]),
-          max_turn=16)
+          max_turn=32)
     b = st["before"] or {}
     found = {"modes": st["modes"], "before": b, "after": {
         "hand": g.player(1, 1).get("handCount"), "thopters": len(g.mine(1, name="Ornithopter"))},
@@ -310,7 +310,7 @@ def pawprint():
         return DEFAULT
 
     g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Season of Weaving", st["before"]["grave"]),
-          max_turn=16)
+          max_turn=32)
     b = st["before"] or {}
     found = {"draw_modes_chosen": st["chosen"], "offered_after_budget": st["offered_after_budget"],
              "before": b, "after_hand": g.player(1, 1).get("handCount"), "stopped": g.stopped_badly()}

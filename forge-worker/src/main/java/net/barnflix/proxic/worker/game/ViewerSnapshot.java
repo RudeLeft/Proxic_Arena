@@ -146,10 +146,28 @@ final class ViewerSnapshot {
                 if (card.isImmutable() && !card.isEmblem() && !card.getType().isDungeon()) {
                     continue;
                 }
-                command.add(card.getName());
+                // A dungeon with the room its venture marker is in:
+                // "Undercity" alone does not say what the next venture
+                // does (found by the White Plume Adventurer scenario,
+                // check-tracked-state.py, 2026-10-20).
+                String room = card.getType().isDungeon() ? card.getCurrentRoom() : null;
+                command.add(room == null || room.isBlank() ? card.getName() : card.getName() + " (room: " + room + ")");
             }
             if (command.size() > 0) {
                 entry.add("command", command);
+            }
+            // The Ring: how many times it has tempted this player,
+            // which decides what the Ring-bearer has (Call of the
+            // Ring). The bearer itself is marked on its card.
+            if (player.getNumRingTemptedYou() > 0) {
+                entry.addProperty("ringTempted", player.getNumRingTemptedYou());
+            }
+            JsonArray completed = new JsonArray();
+            for (Card dungeon : player.getCompletedDungeons()) {
+                completed.add(dungeon.getName());
+            }
+            if (completed.size() > 0) {
+                entry.add("dungeonsCompleted", completed);
             }
             players.add(entry);
         }
@@ -157,9 +175,13 @@ final class ViewerSnapshot {
 
         // §6.96 — global state: day or night, once a daybound card has
         // made it one (Forge's null means neither yet).
-        Boolean day = game.getDayTime();
-        if (day != null) {
-            snapshot.addProperty("dayTime", day ? "day" : "night");
+        //
+        // Forge's own isDay()/isNight(), NOT getDayTime(): its field is
+        // TRUE FOR NIGHT, and reading it as "true = day" showed every
+        // player day at night and night by day (found by the daybound
+        // scenario, check-shapes.py, 2026-10-20).
+        if (!game.isNeitherDayNorNight()) {
+            snapshot.addProperty("dayTime", game.isDay() ? "day" : "night");
         }
 
         JsonArray battlefield = new JsonArray();
@@ -428,6 +450,12 @@ final class ViewerSnapshot {
         });
         if (counters.size() > 0) {
             entry.add("counters", counters);
+        }
+
+        // Public, and the Ring's abilities belong to this creature
+        // alone (legendary, can't be blocked by greater power...).
+        if (card.isRingBearer()) {
+            entry.addProperty("ringBearer", true);
         }
 
         // Auras and equipment are drawn WITH what they modify,
