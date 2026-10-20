@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 35 |
+| MET | 38 |
 | PARTIAL | 19 |
-| NOT MET | 9 |
+| NOT MET | 6 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -43,6 +43,11 @@ pregame decisions (Finding 2, P6-AC → PARTIAL), match-time artwork
 **Updated 2026-10-20.** Finding 6 is closed: two and three matches
 at once, a crashed worker and a server restart have all been run
 (P6-AX, P6-AY → MET; P6-AZ PARTIAL → MET).
+
+**Updated 2026-10-20, later.** Finding 5 was wrong: the Mechanics
+Lab corpus exists. P6-AS, P6-AA and P6-AE → MET, with the coverage
+ledger §6.5 asks for. Two cost types the scenarios needed
+(CostExile, CostSacrifice) were stubs and are now ported.
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -161,14 +166,16 @@ external network test. Everything in this session ran against the
 local Docker stack. The production deployment exists, but no Phase
 6 acceptance evidence has been gathered through it.
 
-### 5. The Mechanics Lab corpus does not exist in this project
+### 5. ~~The Mechanics Lab corpus does not exist in this project~~ — WRONG; it does. Built on 2026-10-20
 
-P6-AS requires importing "the canonical project-local Mechanics
-Lab source/package". There is no such corpus in `Proxic_Arena`.
-§6.4 and §6.5 of the locked spec describe it as a required
-artefact; it has not been created. P6-AA (Agent of Kotis) and
-P6-AE (Panglacial Wurm) both draw their scenarios from it, so this
-blocks three tests rather than one.
+**This finding was wrong.** The corpus has been in the project all
+along, at `Test Deck/Testing Deck/` (TXT, CSV and 275 images),
+one folder below where this audit looked. The spec names the
+parent folder and says to use the filenames actually present.
+
+Now: `docs/testing/MECHANICS_LAB_COVERAGE.md` exists (§6.5),
+generated from the read-only TXT/CSV plus a hand-maintained status
+file and checked in CI. P6-AS, P6-AA and P6-AE are MET.
 
 ### 6. ~~Several failure paths are implemented but never actually triggered~~ — RUN 2026-10-20
 
@@ -233,11 +240,11 @@ restarted under a live match outside a unit test.
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| P6-AA | Agent of Kotis renew regression | NOT MET | The *mechanism* it asks for is demonstrated (see P6-BH), but the named regression has never been run; card not in any deck |
+| P6-AA | Agent of Kotis renew regression | MET | **Run 2026-10-20**, `scripts/check-agent-of-kotis.py`, in CI. A creature on the battlefield with nothing offered for it there; attacking only via declareAttackers; sacrificed by real play, same id in the graveyard; Forge offers Renew as its own action, chosen, paid, exiled, two +1/+1 counters. No source names the card. Trace: `docs/testing/evidence/p6-aa-agent-of-kotis.trace.json`. Found and fixed: CostExile and CostSacrifice were stubs; the action label showed Forge's `CARDNAME` placeholder |
 | P6-AB | Multiple actions discoverable | MET | Action ids are `action:<n>:card:<id>`, distinct per ability; Hellspark Elemental offers cast and unearth, Sensei's Divining Top two abilities |
 | P6-AC | Pregame decisions | PARTIAL | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **No Leyline-style coverage** |
 | P6-AD | Karn / game restart | NOT MET | Not attempted; no classification recorded |
-| P6-AE | Nested interaction / Panglacial Wurm | NOT MET | Not attempted; card is in the absent Mechanics Lab corpus |
+| P6-AE | Nested interaction / Panglacial Wurm | MET | **Run 2026-10-20**, `scripts/check-panglacial-wurm.py`, in CI. Evolving Wilds' search on the stack; Forge offers the Wurm; seven mana decisions pay for it and it goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves. Trace: `docs/testing/evidence/p6-ae-panglacial-wurm.trace.json` |
 | P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
 | P6-AG | Card-name choice | PARTIAL | The bounded form (Forge supplies the faces) is implemented. **The open form — name any card — needs a typed answer the protocol does not carry**, and fails loudly saying so rather than guessing |
 | P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
@@ -249,9 +256,9 @@ restarted under a live match outside a unit test.
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |
 | P6-AO | Player / global state | PARTIAL | Life, hand/library/graveyard counts, turn, phase, active seat all carried; **no poison/energy/experience-style state tested** |
 | P6-AP | Alternate Forge result | PARTIAL | Result is read from Forge's outcome, never inferred from life; **no deterministic alternate-win scenario run** |
-| P6-AQ | Multiplayer sequential decision | CLASSIFIED | Open Format is two players (FMT-001); the test permits classification. **Not formally recorded anywhere** |
-| P6-AR | Learn / outside-game capability | CLASSIFIED | `sideboard` returns null citing FMT-002 — effectively `OUT_OF_ACCEPTED_SCOPE`. **The classification lives in a code comment, not in a recorded result** |
-| P6-AS | Mechanics Lab full-corpus import | NOT MET | **The corpus does not exist in this project** |
+| P6-AQ | Multiplayer sequential decision | CLASSIFIED | Open Format is two players (FMT-001); the test permits classification. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md`: the six Multiplayer-category Lab cards are BLOCKED_BY_UNSUPPORTED_PRESET |
+| P6-AR | Learn / outside-game capability | CLASSIFIED | `sideboard` returns null citing FMT-002 — `OUT_OF_ACCEPTED_SCOPE`. Recorded 2026-10-20 in `docs/testing/MECHANICS_LAB_COVERAGE.md` (Professor of Symbology, CLASSIFIED) |
+| P6-AS | Mechanics Lab full-corpus import | MET | **Run 2026-10-20**, `MechanicsLabCorpusTest` (CI) and `MechanicsLabArtTest` (local; the images are never committed). 275 entries / 390 cards parsed as written; **every card resolves to its TXT printing, none refused**; Forge builds the deck; a real game starts with it as both libraries; all 275 images valid and mapped, in the Depot and at match time; TXT/CSV SHA-256 pinned. The upload route refuses it — 390 cards is not Open Format, 289 MB exceeds the package limit — and that refusal is asserted. **Passing P6-AS does not mean all mechanics in the corpus are supported** |
 
 ### Failure handling and scale
 
@@ -293,8 +300,11 @@ In rough order of how many tests each unblocks:
    and P6-Z are met; the artwork halves of P6-BF and P6-BK remain,
    and both are blocked on other things (a multi-face card, and a
    production run).
-2. **The Mechanics Lab corpus** (§6.4, §6.5) — closes P6-AS and
-   unblocks P6-AA and P6-AE, which draw their scenarios from it.
+2. ~~**The Mechanics Lab corpus**~~ — done 2026-10-20: it existed
+   all along in `Test Deck/Testing Deck/`. P6-AS, P6-AA and P6-AE
+   met; the ledger is `docs/testing/MECHANICS_LAB_COVERAGE.md`,
+   where 43 of the 48 Phase-6-required cards are still not yet
+   tested one by one.
 3. ~~**Semantic non-object choices**~~ — done 2026-10-19 except
    P6-AG, which needs a typed-answer protocol shape rather than
    more adapter work.

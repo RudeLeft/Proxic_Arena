@@ -82,6 +82,11 @@ jobs:
 
       - run: ./gradlew :server:ktlintCheck :server:detekt --no-daemon
 
+      # The Mechanics Lab ledger is generated from the read-only
+      # corpus and a hand-maintained status file. Stale means one was
+      # edited without regenerating, and the ledger is lying.
+      - run: python3 scripts/mechanics-lab-ledger.py --check
+
       - run: npm ci
         working-directory: frontend
       - run: npx tsc --noEmit
@@ -127,6 +132,17 @@ jobs:
           ls -la forge-worker/target/
 
       - run: ./gradlew :server:test --no-daemon
+
+      # PHASE_06 P6-AA and P6-AE: the two Mechanics Lab regressions
+      # the phase calls mandatory, each a focused deck played against
+      # the worker taken from this image. Exit 2 means the game never
+      # reached the scenario, which proves nothing, so it fails too.
+      - name: Mechanics Lab regressions
+        run: |
+          res=spikes/forge-phase0a/forge-upstream/forge-gui/res
+          jar=forge-worker/target/forge-worker-0.1.0.jar
+          python3 -I scripts/check-agent-of-kotis.py "$jar" "$res"
+          python3 -I scripts/check-panglacial-wurm.py "$jar" "$res"
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure

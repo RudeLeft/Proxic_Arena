@@ -383,18 +383,22 @@ class DeckImporter(
         }
         return null
     }
-
-    /**
-     * `real_cards/Reckless Stormseeker [MID].png` -> `reckless stormseeker`
-     *
-     * The art is filed under the FRONT face name with the set
-     * stripped, which is how the exporter writes it and how a deck
-     * entry finds its image.
-     */
-    private fun frontNameOf(member: String): String =
-        member.removePrefix("real_cards/")
-            .removeSuffix(".png")
-            .substringBeforeLast(" [")
-            .trim()
-            .lowercase(Locale.ROOT)
 }
+
+/**
+ * `real_cards/Reckless Stormseeker [MID].png` -> `reckless stormseeker`
+ *
+ * The art is filed under the FRONT face name with the set
+ * stripped, which is how the exporter writes it and how a deck
+ * entry finds its image.
+ *
+ * Internal rather than private so the Mechanics Lab corpus check
+ * (P6-AS) maps art by THIS rule, not by a copy of it that could
+ * drift.
+ */
+internal fun frontNameOf(member: String): String =
+    member.removePrefix("real_cards/")
+        .removeSuffix(".png")
+        .substringBeforeLast(" [")
+        .trim()
+        .lowercase(Locale.ROOT)

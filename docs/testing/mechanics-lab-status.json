@@ -1,0 +1,381 @@
+{
+  "_comment": [
+    "The HAND-MAINTAINED half of docs/testing/MECHANICS_LAB_COVERAGE.md.",
+    "The card list, printings, categories and mechanics come from the read-only TXT and CSV in Test Deck/Testing Deck (PHASE_06 §6.4) and are never copied here.",
+    "This file says only what Proxic has DONE with a card: who owns it, what scenario tests it, and what happened.",
+    "Edit this, then run: python scripts/mechanics-lab-ledger.py   (CI runs it with --check).",
+    "A card not listed here is P8_COVERAGE, Exploratory, NOT_YET_TESTED.",
+    "result is one of PASSED, FAILED, NOT_YET_TESTED, BLOCKED_BY_FORGE, BLOCKED_BY_DECK_PACKAGE, BLOCKED_BY_PROTOCOL, BLOCKED_BY_UNSUPPORTED_PRESET, CLASSIFIED.",
+    "PASSED needs evidence that ASSERTS the mechanic. A card that merely appeared in a game is not PASSED."
+  ],
+  "defaults": {
+    "owner": "P8_COVERAGE",
+    "required": "Exploratory",
+    "result": "NOT_YET_TESTED"
+  },
+  "cards": {
+    "Agent of Kotis": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AA, §6.60",
+      "scenario": "Battlefield: a creature object, no invented Renew, selecting it is not attacking. Graveyard: Renew offered by Forge as its own action, chosen, resolved by Forge.",
+      "result": "PASSED",
+      "evidence": "scripts/check-agent-of-kotis.py, run in CI; trace docs/testing/evidence/p6-aa-agent-of-kotis.trace.json (2026-10-20). On the battlefield: a creature, nothing offered for it, attacking only in declareAttackers. Sacrificed to Village Rites, it is in the graveyard under the same id; Forge offers Renew as its own action, it is chosen, paid, the card exiled and two +1/+1 counters placed. No source names the card.",
+      "notes": "Forge offers Renew before it is affordable (costs are shown, not pre-filtered); choosing it then rolls back cleanly and the card stays in the graveyard -- seen twice in the trace. Required porting CostExile and CostSacrifice, which were stubs."
+    },
+    "Panglacial Wurm": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AE, §6.63",
+      "scenario": "During a library search, Forge offers casting the Wurm from the library; the protocol carries that action inside the search instead of flattening it away.",
+      "result": "PASSED",
+      "evidence": "scripts/check-panglacial-wurm.py, run in CI; trace docs/testing/evidence/p6-ae-panglacial-wurm.trace.json (2026-10-20). Evolving Wilds' search is on the stack; Forge asks whether to play the Wurm; it is paid for (seven mana decisions) and goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves.",
+      "notes": "Forge offers every Wurm in the library in turn; with the mana spent the rest are declined."
+    },
+    "Leyline of the Void": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AC, §6.68",
+      "scenario": "In the opening hand, Forge offers beginning the game with it on the battlefield; it arrives without being cast.",
+      "result": "NOT_YET_TESTED"
+    },
+    "Karn Liberated": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AD, §6.72",
+      "scenario": "The -14 restarts the game; the Arena match id stays coherent while Forge starts a new game.",
+      "result": "NOT_YET_TESTED"
+    },
+    "Mindslaver": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-U, §6.37",
+      "scenario": "The controlling player answers the controlled player's decisions; the controlled player cannot.",
+      "result": "NOT_YET_TESTED",
+      "notes": "actedForSeat/authorisedSeat are carried end to end and unit-tested both ways; no real control effect has been played."
+    },
+    "Pithing Needle": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AG, §6.73-§6.74",
+      "scenario": "Choose any card name.",
+      "result": "BLOCKED_BY_PROTOCOL",
+      "blocker": "The open form of chooseCardName needs a typed answer the protocol does not carry. It fails loudly rather than guessing. Owner decision pending.",
+      "notes": "The bounded form (Forge supplies the names) is implemented."
+    },
+    "Adaptive Automaton": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AH",
+      "scenario": "Choose a creature type from Forge's own list.",
+      "result": "PASSED",
+      "evidence": "scripts/check-semantic-choices.py (2026-10-19): asked with 356 options, Forge's valid-type list."
+    },
+    "Fireball": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Announce X from enumerated options; X is paid and the damage dealt.",
+      "result": "PASSED",
+      "evidence": "scripts/check-x-announcement.py (2026-10-19): X announced, paid and dealt.",
+      "notes": "Dividing damage among several targets is a separate decision and not covered here."
+    },
+    "Cryptic Command": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Choose two modes, then targets for each.",
+      "notes": "Mode choice is MET on Alley Evasion and Abrade; not yet run on this card."
+    },
+    "Collective Brutality": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Escalate: modes chosen, an extra cost per extra mode."
+    },
+    "Three Steps Ahead": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Spree: optional additional costs per mode."
+    },
+    "Season of Weaving": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Pawprint modes within a budget.",
+      "notes": "The Pawprint budget is ported from Forge's own human path; not yet run on this card."
+    },
+    "Tooth and Nail": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Entwine: both modes for an extra cost."
+    },
+    "Dismember": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Phyrexian mana: pay life or mana per symbol."
+    },
+    "Force of Will": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Alternative cost: exile a blue card and pay life."
+    },
+    "Venerated Loxodon": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Convoke: tap creatures to pay."
+    },
+    "Reverse Engineer": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Improvise: tap artifacts to pay."
+    },
+    "Treasure Cruise": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Delve: exile graveyard cards to pay."
+    },
+    "Thoughtcast": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AN, §6.92",
+      "scenario": "Affinity: cost reduced by artifacts."
+    },
+    "Gemrazer": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, §6.82",
+      "scenario": "Mutate onto a creature: one object, two cards."
+    },
+    "Bottomless Pool // Locker Room": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Room: cast one door, unlock the other."
+    },
+    "Dollmaker's Shop // Porcelain Gallery": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Room: cast one door, unlock the other."
+    },
+    "Invasion of Zendikar // Awakened Skyclave": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Battle: protected by an opponent, defeated, transforms."
+    },
+    "Delver of Secrets // Insectile Aberration": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Transform: the same object, the other face."
+    },
+    "Reckless Stormseeker // Storm-Charged Slasher": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, P6-AO, §6.82, §6.97",
+      "scenario": "Daybound/nightbound: day/night is global state, and the card transforms with it.",
+      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card."
+    },
+    "Studious First-Year": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, §6.82",
+      "scenario": "Prepare: enters prepared; the prepared spell is copied from exile."
+    },
+    "Emeritus of Ideation // Ancestral Recall": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, §6.82",
+      "scenario": "Prepare."
+    },
+    "Bonecrusher Giant // Stomp": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Adventure: cast Stomp, then the Giant from exile."
+    },
+    "Fire // Ice": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Split card: two castable halves, one object."
+    },
+    "Commit // Memory": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Aftermath: one half from hand, the other from the graveyard."
+    },
+    "Wear // Tear": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AJ, P6-BF, §6.82",
+      "scenario": "Fuse: both halves at once."
+    },
+    "Humility": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AL, §6.85",
+      "scenario": "Creatures shown as 1/1 with no abilities: current, not printed, characteristics."
+    },
+    "Blood Moon": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AL, §6.85",
+      "scenario": "Nonbasic lands shown as Mountains."
+    },
+    "March of the Machines": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AL, §6.85",
+      "scenario": "Artifacts shown as creatures with P/T equal to mana value."
+    },
+    "Control Magic": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AL, P6-U, §6.85",
+      "scenario": "Control changes; the object stays the same object."
+    },
+    "Mind Bend": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AL, §6.85",
+      "scenario": "Text change: a colour or land-type word replaced."
+    },
+    "Krark, the Thumbless": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AM, §6.89",
+      "scenario": "Coin flip decided by Forge; the result reaches the player; reconnect and duplicates cannot reroll.",
+      "notes": "The property is MET on Mana Clash (not a Lab card); not yet run on this one."
+    },
+    "Aetherworks Marvel": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "Energy counters carried as player state."
+    },
+    "Aether Hub": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "Energy, paid as a cost."
+    },
+    "Glistener Elf": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "Poison counters carried as player state."
+    },
+    "Meren of Clan Nel Toth": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "Experience counters."
+    },
+    "Palace Jailer": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "The monarch designation."
+    },
+    "White Plume Adventurer": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "The initiative and the Undercity dungeon."
+    },
+    "Call of the Ring": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AO, §6.97",
+      "scenario": "The Ring tempts you; a Ring-bearer is chosen."
+    },
+    "Platinum Angel": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AP",
+      "scenario": "You can't lose the game: the result is Forge's, never inferred from life."
+    },
+    "Angel's Grace": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AP",
+      "scenario": "Can't lose this turn; life restored."
+    },
+    "Laboratory Maniac": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AP",
+      "scenario": "Win instead of losing to an empty library."
+    },
+    "Felidar Sovereign": {
+      "owner": "P6_REQUIRED",
+      "required": "Required",
+      "tests": "P6-AP",
+      "scenario": "Win at 40 life in the upkeep."
+    },
+    "Professor of Symbology": {
+      "owner": "P8_COVERAGE",
+      "required": "Required",
+      "tests": "P6-AR",
+      "result": "CLASSIFIED",
+      "notes": "OUT_OF_ACCEPTED_SCOPE, recorded here for P6-AR. Learn fetches a Lesson from outside the game; Open Format has no sideboard (§2.45, FMT-002) and the adapter's sideboard is null, so there is nothing to fetch. Which option Forge then offers has not been run."
+    },
+    "Creative Technique": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Multiplayer: Open Format seats two (FMT-001)."
+    },
+    "Curtains' Call": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Multiplayer: Open Format seats two (FMT-001)."
+    },
+    "Expropriate": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Voting is meaningful with more than two players; Open Format seats two (FMT-001)."
+    },
+    "Kardur, Doomscourge": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Multiplayer: Open Format seats two (FMT-001)."
+    },
+    "Minds Aglow": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Join forces is sequential multiplayer; Open Format seats two (FMT-001)."
+    },
+    "Stunt Double": {
+      "owner": "P8_COVERAGE",
+      "tests": "P6-AQ",
+      "result": "BLOCKED_BY_UNSUPPORTED_PRESET",
+      "blocker": "Multiplayer: Open Format seats two (FMT-001)."
+    },
+    "Village Rites": {
+      "tests": "P6-AA (supporting)",
+      "result": "NOT_YET_TESTED",
+      "notes": "Its sacrifice cost is exercised by the P6-AA scenario (CostSacrifice); the card's own draw is not asserted."
+    },
+    "Evolving Wilds": {
+      "tests": "P6-AE (supporting)",
+      "result": "NOT_YET_TESTED",
+      "notes": "Its search is the surrounding interaction in the P6-AE scenario; the land arriving tapped is not asserted."
+    }
+  }
+}

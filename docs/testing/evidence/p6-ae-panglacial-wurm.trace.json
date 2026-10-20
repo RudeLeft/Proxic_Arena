@@ -1,0 +1,4860 @@
+[
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 235,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 235,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:87",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:1:card:119",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:2:card:81",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:3:card:116",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:4:card:96",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:5:card:113",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:6:card:105",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:7:card:72",
+     "label": "Evolving Wilds — {T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+    },
+    {
+     "actionId": "action:8:card:68",
+     "label": "Panglacial Wurm — {5}{G}{G} — Creature 9 / 5"
+    },
+    {
+     "actionId": "action:9:card:64",
+     "label": "Panglacial Wurm — {5}{G}{G} — Creature 9 / 5"
+    },
+    {
+     "actionId": "action:10:card:69",
+     "label": "Panglacial Wurm — {5}{G}{G} — Creature 9 / 5"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "0fafd53f-aadf-4457-b324-f4172e159814",
+   "decisionId": 235,
+   "seat": 2,
+   "stateVersion": 235,
+   "actionId": "action:7:card:72"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "0fafd53f-aadf-4457-b324-f4172e159814",
+   "decisionId": 235
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "battlefield": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": true,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "battlefield": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": true,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 236,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmPayment",
+   "stateVersion": 236,
+   "mandatory": false,
+   "prompt": "Sacrifice Evolving Wilds?",
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Pay the cost"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "4cc5762c-68ad-4273-8bb1-1a0589b6270b",
+   "decisionId": 236,
+   "seat": 2,
+   "stateVersion": 236,
+   "actionId": "confirm:yes"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "4cc5762c-68ad-4273-8bb1-1a0589b6270b",
+   "decisionId": 236
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 237,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 237,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:87",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:1:card:119",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:2:card:81",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:3:card:116",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:4:card:96",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:5:card:113",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:6:card:105",
+     "label": "Forest — {T}: Add {G}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "fc4720b2-c9e5-4ce7-9c0c-8ec284449f57",
+   "decisionId": 237,
+   "seat": 2,
+   "stateVersion": 237,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "fc4720b2-c9e5-4ce7-9c0c-8ec284449f57",
+   "decisionId": 237
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 238,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 238,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:55",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:2:card:35",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:3:card:38",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:4:card:47",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:5:card:54",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:6:card:59",
+     "label": "Forest — {T}: Add {G}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f34d7061-06f1-423a-886f-928565bc6ca4",
+   "decisionId": 238,
+   "seat": 1,
+   "stateVersion": 238,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f34d7061-06f1-423a-886f-928565bc6ca4",
+   "decisionId": 238
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 239,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 239,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "58057481-b5a9-421a-9594-12d554be0171",
+   "decisionId": 239,
+   "seat": 2,
+   "stateVersion": 239,
+   "actionId": "confirm:yes"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "58057481-b5a9-421a-9594-12d554be0171",
+   "decisionId": 239
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 240,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 240,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:87",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:119",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:81",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:116",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:96",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {5}{G}{G}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {5}{G}{G}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "19eac633-7a80-45c7-99e1-ddd8de08ee74",
+   "decisionId": 240,
+   "seat": 2,
+   "stateVersion": 240,
+   "actionId": "mana:card:87"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "19eac633-7a80-45c7-99e1-ddd8de08ee74",
+   "decisionId": 240
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 241,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 241,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:119",
+     "label": "Forest — still owing {5}{G}"
+    },
+    {
+     "actionId": "mana:card:81",
+     "label": "Forest — still owing {5}{G}"
+    },
+    {
+     "actionId": "mana:card:116",
+     "label": "Forest — still owing {5}{G}"
+    },
+    {
+     "actionId": "mana:card:96",
+     "label": "Forest — still owing {5}{G}"
+    },
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {5}{G}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {5}{G}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "ee63a102-96e8-4d40-8575-a6da7ed301e0",
+   "decisionId": 241,
+   "seat": 2,
+   "stateVersion": 241,
+   "actionId": "mana:card:119"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "ee63a102-96e8-4d40-8575-a6da7ed301e0",
+   "decisionId": 241
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 242,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 242,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:81",
+     "label": "Forest — still owing {5}"
+    },
+    {
+     "actionId": "mana:card:116",
+     "label": "Forest — still owing {5}"
+    },
+    {
+     "actionId": "mana:card:96",
+     "label": "Forest — still owing {5}"
+    },
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {5}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {5}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "b5bc3224-087b-490b-a0ac-56c6525c185b",
+   "decisionId": 242,
+   "seat": 2,
+   "stateVersion": 242,
+   "actionId": "mana:card:81"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "b5bc3224-087b-490b-a0ac-56c6525c185b",
+   "decisionId": 242
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 243,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 243,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:116",
+     "label": "Forest — still owing {4}"
+    },
+    {
+     "actionId": "mana:card:96",
+     "label": "Forest — still owing {4}"
+    },
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {4}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {4}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "5a0aa762-e0a0-4de8-be8d-9a674b12ed46",
+   "decisionId": 243,
+   "seat": 2,
+   "stateVersion": 243,
+   "actionId": "mana:card:116"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "5a0aa762-e0a0-4de8-be8d-9a674b12ed46",
+   "decisionId": 243
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 244,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 244,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:96",
+     "label": "Forest — still owing {3}"
+    },
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {3}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {3}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f5e63687-1867-4dce-b1a2-6c527c255cff",
+   "decisionId": 244,
+   "seat": 2,
+   "stateVersion": 244,
+   "actionId": "mana:card:96"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f5e63687-1867-4dce-b1a2-6c527c255cff",
+   "decisionId": 244
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 245,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 245,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:113",
+     "label": "Forest — still owing {2}"
+    },
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {2}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "0659ba22-cfff-4b5d-8a32-3e8b5bee2d4f",
+   "decisionId": 245,
+   "seat": 2,
+   "stateVersion": 245,
+   "actionId": "mana:card:113"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "0659ba22-cfff-4b5d-8a32-3e8b5bee2d4f",
+   "decisionId": 245
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 246,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "applyManaToCost",
+   "stateVersion": 246,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:105",
+     "label": "Forest — still owing {1}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c46baf19-72c9-4f2c-9ba9-af664e3f603b",
+   "decisionId": 246,
+   "seat": 2,
+   "stateVersion": 246,
+   "actionId": "mana:card:105"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c46baf19-72c9-4f2c-9ba9-af664e3f603b",
+   "decisionId": 246
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 247,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 247,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c6aed9cd-9d5e-4103-9834-a6d6f94e6cee",
+   "decisionId": 247,
+   "seat": 2,
+   "stateVersion": 247,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c6aed9cd-9d5e-4103-9834-a6d6f94e6cee",
+   "decisionId": 247
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 248,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 248,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "0c2134cb-6042-4ff5-8c81-a5d13a2c0c79",
+   "decisionId": 248,
+   "seat": 2,
+   "stateVersion": 248,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "0c2134cb-6042-4ff5-8c81-a5d13a2c0c79",
+   "decisionId": 248
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 249,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 249,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "53516af3-d197-4c53-8100-e0b140e36a38",
+   "decisionId": 249,
+   "seat": 2,
+   "stateVersion": 249,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "53516af3-d197-4c53-8100-e0b140e36a38",
+   "decisionId": 249
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 250,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 250,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f16ad1ba-f145-4e0a-9e48-f26d9fcf7cbd",
+   "decisionId": 250,
+   "seat": 2,
+   "stateVersion": 250,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f16ad1ba-f145-4e0a-9e48-f26d9fcf7cbd",
+   "decisionId": 250
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 251,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 251,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "a2a73b78-e54f-4595-9b6c-338156806ba9",
+   "decisionId": 251,
+   "seat": 2,
+   "stateVersion": 251,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "a2a73b78-e54f-4595-9b6c-338156806ba9",
+   "decisionId": 251
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 252,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "confirmAction",
+   "stateVersion": 252,
+   "mandatory": true,
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Yes — Do you want to play Panglacial Wurm?"
+    },
+    {
+     "actionId": "confirm:no",
+     "label": "No"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f950567e-ace9-4a6d-8546-0593a7e28250",
+   "decisionId": 252,
+   "seat": 2,
+   "stateVersion": 252,
+   "actionId": "confirm:no"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f950567e-ace9-4a6d-8546-0593a7e28250",
+   "decisionId": 252
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     },
+     {
+      "id": "stack:1",
+      "description": "Evolving Wilds (72)->Evolving Wilds (72) - Bob searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 253,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSingleEntityForEffect",
+   "stateVersion": 253,
+   "mandatory": false,
+   "prompt": "Select a card from your library Evolving Wilds - Looking at cards in Forest (101), Forest (91), Forest (93), Forest (94), Panglacial Wurm (62), Panglacial Wurm (61), Forest (99), Forest (85), Panglacial Wurm (65), Forest (114), Forest (112), Forest (92), and 34 more.",
+   "options": [
+    {
+     "actionId": "card:100",
+     "label": "Forest (100)"
+    },
+    {
+     "actionId": "card:101",
+     "label": "Forest (101)"
+    },
+    {
+     "actionId": "card:102",
+     "label": "Forest (102)"
+    },
+    {
+     "actionId": "card:103",
+     "label": "Forest (103)"
+    },
+    {
+     "actionId": "card:104",
+     "label": "Forest (104)"
+    },
+    {
+     "actionId": "card:106",
+     "label": "Forest (106)"
+    },
+    {
+     "actionId": "card:107",
+     "label": "Forest (107)"
+    },
+    {
+     "actionId": "card:108",
+     "label": "Forest (108)"
+    },
+    {
+     "actionId": "card:109",
+     "label": "Forest (109)"
+    },
+    {
+     "actionId": "card:111",
+     "label": "Forest (111)"
+    },
+    {
+     "actionId": "card:112",
+     "label": "Forest (112)"
+    },
+    {
+     "actionId": "card:114",
+     "label": "Forest (114)"
+    },
+    {
+     "actionId": "card:115",
+     "label": "Forest (115)"
+    },
+    {
+     "actionId": "card:117",
+     "label": "Forest (117)"
+    },
+    {
+     "actionId": "card:118",
+     "label": "Forest (118)"
+    },
+    {
+     "actionId": "card:120",
+     "label": "Forest (120)"
+    },
+    {
+     "actionId": "card:82",
+     "label": "Forest (82)"
+    },
+    {
+     "actionId": "card:83",
+     "label": "Forest (83)"
+    },
+    {
+     "actionId": "card:84",
+     "label": "Forest (84)"
+    },
+    {
+     "actionId": "card:85",
+     "label": "Forest (85)"
+    },
+    {
+     "actionId": "card:86",
+     "label": "Forest (86)"
+    },
+    {
+     "actionId": "card:88",
+     "label": "Forest (88)"
+    },
+    {
+     "actionId": "card:89",
+     "label": "Forest (89)"
+    },
+    {
+     "actionId": "card:90",
+     "label": "Forest (90)"
+    },
+    {
+     "actionId": "card:91",
+     "label": "Forest (91)"
+    },
+    {
+     "actionId": "card:92",
+     "label": "Forest (92)"
+    },
+    {
+     "actionId": "card:93",
+     "label": "Forest (93)"
+    },
+    {
+     "actionId": "card:94",
+     "label": "Forest (94)"
+    },
+    {
+     "actionId": "card:95",
+     "label": "Forest (95)"
+    },
+    {
+     "actionId": "card:97",
+     "label": "Forest (97)"
+    },
+    {
+     "actionId": "card:98",
+     "label": "Forest (98)"
+    },
+    {
+     "actionId": "card:99",
+     "label": "Forest (99)"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c431d9ea-c2c8-4614-bb5f-f6433b7a6590",
+   "decisionId": 253,
+   "seat": 2,
+   "stateVersion": 253,
+   "actionId": "card:100"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c431d9ea-c2c8-4614-bb5f-f6433b7a6590",
+   "decisionId": 253
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:9",
+      "description": "Panglacial Wurm (62)->Panglacial Wurm - Creature 9 / 5"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 254,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 254,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:55",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:1:card:25",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:2:card:35",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:3:card:38",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:4:card:47",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:5:card:54",
+     "label": "Forest — {T}: Add {G}."
+    },
+    {
+     "actionId": "action:6:card:59",
+     "label": "Forest — {T}: Add {G}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "b105a6e3-62d2-4a8a-963f-f95c4d64de8c",
+   "decisionId": 254,
+   "seat": 1,
+   "stateVersion": 254,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "b105a6e3-62d2-4a8a-963f-f95c4d64de8c",
+   "decisionId": 254
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "battlefield": [
+     {
+      "id": "card:62",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:6",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:17",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 15,
+    "phase": "MAIN1",
+    "activeSeat": 2,
+    "battlefield": [
+     {
+      "id": "card:62",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": true,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:73",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:68",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     },
+     {
+      "id": "card:64",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Panglacial Wurm",
+      "kind": "creature",
+      "types": "Creature - Wurm",
+      "power": 9,
+      "toughness": 5,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:72",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Evolving Wilds",
+      "kind": "land",
+      "types": "Land"
+     }
+    ]
+   }
+  }
+ }
+]

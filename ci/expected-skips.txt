@@ -32,3 +32,8 @@ net.barnflix.proxic.deck.PackageInspectorTest
 # like. The checker finding a class I had missed is the checker
 # working -- a hand-counted allowlist would have been wrong quietly.
 net.barnflix.proxic.deck.DeckListTest
+
+# The Mechanics Lab's 275 images are Wizards artwork (AGENTS
+# GIT-001); its TXT and CSV are versioned and MechanicsLabCorpusTest
+# runs on CI. Only the artwork half needs the images.
+net.barnflix.proxic.deck.MechanicsLabArtTest

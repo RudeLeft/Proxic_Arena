@@ -1,0 +1,3293 @@
+[
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 181,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 181,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:14",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:8",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:32",
+     "label": "Swamp — {T}: Add {B}."
+    },
+    {
+     "actionId": "action:3:card:45",
+     "label": "Agent of Kotis — {3}{U}, Exile Agent of Kotis from your graveyard — Renew — {3}{U}, Exile Agent of Kotis from your graveyard: Put two +1/+1 counters on target creature. Activate only as a sorcery."
+    },
+    {
+     "actionId": "action:4:card:43",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:5:card:37",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:6:card:35",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:7:card:25",
+     "label": "Swamp — no cost — Play land"
+    },
+    {
+     "actionId": "action:8:card:13",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:9:card:26",
+     "label": "Swamp — no cost — Play land"
+    },
+    {
+     "actionId": "action:10:card:24",
+     "label": "Swamp — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "6acedfe2-0c81-4408-8809-266f43186aef",
+   "decisionId": 181,
+   "seat": 1,
+   "stateVersion": 181,
+   "actionId": "action:3:card:45"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "6acedfe2-0c81-4408-8809-266f43186aef",
+   "decisionId": 181
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 182,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseTargetsFor",
+   "stateVersion": 182,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "target:card:48",
+     "label": "Agent of Kotis (48)"
+    },
+    {
+     "actionId": "target:card:113",
+     "label": "Agent of Kotis (113)"
+    },
+    {
+     "actionId": "target:card:112",
+     "label": "Agent of Kotis (112)"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "89dd8a12-5285-4b73-9fe9-5f2655253bcc",
+   "decisionId": 182,
+   "seat": 1,
+   "stateVersion": 182,
+   "actionId": "target:card:48"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "89dd8a12-5285-4b73-9fe9-5f2655253bcc",
+   "decisionId": 182
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 183,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 183,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:14",
+     "label": "Island — still owing {3}{U}"
+    },
+    {
+     "actionId": "mana:card:8",
+     "label": "Island — still owing {3}{U}"
+    },
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {3}{U}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "a33d05d4-d99d-45cf-8c6c-a9391157c1cc",
+   "decisionId": 183,
+   "seat": 1,
+   "stateVersion": 183,
+   "actionId": "mana:card:14"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "a33d05d4-d99d-45cf-8c6c-a9391157c1cc",
+   "decisionId": 183
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 184,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 184,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:8",
+     "label": "Island — still owing {3}"
+    },
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {3}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "fee3ac19-9d18-4106-bf9b-ce30170745b5",
+   "decisionId": 184,
+   "seat": 1,
+   "stateVersion": 184,
+   "actionId": "mana:card:8"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "fee3ac19-9d18-4106-bf9b-ce30170745b5",
+   "decisionId": 184
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 185,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 185,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {2}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "ffb5d53d-d14a-4536-bbfc-8e66f4da064f",
+   "decisionId": 185,
+   "seat": 1,
+   "stateVersion": 185,
+   "actionId": "mana:card:32"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "ffb5d53d-d14a-4536-bbfc-8e66f4da064f",
+   "decisionId": 185
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 186,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 186,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:14",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:8",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:32",
+     "label": "Swamp — {T}: Add {B}."
+    },
+    {
+     "actionId": "action:4:card:43",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:5:card:37",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:6:card:35",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:7:card:25",
+     "label": "Swamp — no cost — Play land"
+    },
+    {
+     "actionId": "action:8:card:13",
+     "label": "Island — no cost — Play land"
+    },
+    {
+     "actionId": "action:9:card:26",
+     "label": "Swamp — no cost — Play land"
+    },
+    {
+     "actionId": "action:10:card:24",
+     "label": "Swamp — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "4d6de232-7ccb-4f48-8957-3f09daf2715d",
+   "decisionId": 186,
+   "seat": 1,
+   "stateVersion": 186,
+   "actionId": "action:8:card:13"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "4d6de232-7ccb-4f48-8957-3f09daf2715d",
+   "decisionId": 186
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 187,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 187,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:14",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:8",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:32",
+     "label": "Swamp — {T}: Add {B}."
+    },
+    {
+     "actionId": "action:3:card:13",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:4:card:45",
+     "label": "Agent of Kotis — {3}{U}, Exile Agent of Kotis from your graveyard — Renew — {3}{U}, Exile Agent of Kotis from your graveyard: Put two +1/+1 counters on target creature. Activate only as a sorcery."
+    },
+    {
+     "actionId": "action:5:card:43",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:6:card:37",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:7:card:35",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "f8c58df3-f062-4a99-b13f-68eb8778af50",
+   "decisionId": 187,
+   "seat": 1,
+   "stateVersion": 187,
+   "actionId": "action:4:card:45"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "f8c58df3-f062-4a99-b13f-68eb8778af50",
+   "decisionId": 187
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 188,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseTargetsFor",
+   "stateVersion": 188,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "target:card:48",
+     "label": "Agent of Kotis (48)"
+    },
+    {
+     "actionId": "target:card:113",
+     "label": "Agent of Kotis (113)"
+    },
+    {
+     "actionId": "target:card:112",
+     "label": "Agent of Kotis (112)"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "4ff7cace-1e92-4ce7-8560-512e8a7fe1e1",
+   "decisionId": 188,
+   "seat": 1,
+   "stateVersion": 188,
+   "actionId": "target:card:48"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "4ff7cace-1e92-4ce7-8560-512e8a7fe1e1",
+   "decisionId": 188
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 189,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 189,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:14",
+     "label": "Island — still owing {3}{U}"
+    },
+    {
+     "actionId": "mana:card:8",
+     "label": "Island — still owing {3}{U}"
+    },
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {3}{U}"
+    },
+    {
+     "actionId": "mana:card:13",
+     "label": "Island — still owing {3}{U}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "5fe64dd5-bd00-40f1-abfb-e57483ff8fd9",
+   "decisionId": 189,
+   "seat": 1,
+   "stateVersion": 189,
+   "actionId": "mana:card:14"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "5fe64dd5-bd00-40f1-abfb-e57483ff8fd9",
+   "decisionId": 189
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 190,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 190,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:8",
+     "label": "Island — still owing {3}"
+    },
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {3}"
+    },
+    {
+     "actionId": "mana:card:13",
+     "label": "Island — still owing {3}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "718be7dc-f8e6-4f77-b778-78c05abde0ee",
+   "decisionId": 190,
+   "seat": 1,
+   "stateVersion": 190,
+   "actionId": "mana:card:8"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "718be7dc-f8e6-4f77-b778-78c05abde0ee",
+   "decisionId": 190
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 191,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 191,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:32",
+     "label": "Swamp — still owing {2}"
+    },
+    {
+     "actionId": "mana:card:13",
+     "label": "Island — still owing {2}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "07339e37-8a6c-4d53-82f6-da96d63f2188",
+   "decisionId": 191,
+   "seat": 1,
+   "stateVersion": 191,
+   "actionId": "mana:card:32"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "07339e37-8a6c-4d53-82f6-da96d63f2188",
+   "decisionId": 191
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 192,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "applyManaToCost",
+   "stateVersion": 192,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "mana:card:13",
+     "label": "Island — still owing {1}"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "199b0fc4-c5fc-478c-921a-7399a71387fc",
+   "decisionId": 192,
+   "seat": 1,
+   "stateVersion": 192,
+   "actionId": "mana:card:13"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "199b0fc4-c5fc-478c-921a-7399a71387fc",
+   "decisionId": 192
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:45",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 193,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "confirmPayment",
+   "stateVersion": 193,
+   "mandatory": false,
+   "prompt": "Exile Agent of Kotis?",
+   "options": [
+    {
+     "actionId": "confirm:yes",
+     "label": "Pay the cost"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "86a9dd0c-afaf-487b-9303-93540919c364",
+   "decisionId": 193,
+   "seat": 1,
+   "stateVersion": 193,
+   "actionId": "confirm:yes"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "86a9dd0c-afaf-487b-9303-93540919c364",
+   "decisionId": 193
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 194,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 194,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:43",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:1:card:37",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    },
+    {
+     "actionId": "action:2:card:35",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "c4722f81-5eb3-4380-a46f-bf70b30f0675",
+   "decisionId": 194,
+   "seat": 1,
+   "stateVersion": 194,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "c4722f81-5eb3-4380-a46f-bf70b30f0675",
+   "decisionId": 194
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 195,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 195,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:66",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:62",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:77",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:72",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:4:card:101",
+     "label": "Village Rites — As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "25dfa352-c6eb-40d4-9fed-17bc730da4d2",
+   "decisionId": 195,
+   "seat": 2,
+   "stateVersion": 195,
+   "actionId": "action:4:card:101"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "25dfa352-c6eb-40d4-9fed-17bc730da4d2",
+   "decisionId": 195
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:26",
+      "description": "Agent of Kotis (45)->Agent of Kotis (45) - Alice puts two +1/+1 counters on Agent of Kotis (48)."
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 196,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 196,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:66",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:1:card:62",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:2:card:77",
+     "label": "Island — {T}: Add {U}."
+    },
+    {
+     "actionId": "action:3:card:72",
+     "label": "Island — {T}: Add {U}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "dc5ce033-74b0-4791-8ce8-b9d253fa31c9",
+   "decisionId": 196,
+   "seat": 2,
+   "stateVersion": 196,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "dc5ce033-74b0-4791-8ce8-b9d253fa31c9",
+   "decisionId": 196
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "turn": 8,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "battlefield": [
+     {
+      "id": "card:48",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 4,
+      "toughness": 3,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false,
+      "counters": [
+       {
+        "name": "P1P1",
+        "count": 2
+       }
+      ]
+     },
+     {
+      "id": "card:113",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     },
+     {
+      "id": "card:112",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Agent of Kotis",
+      "kind": "creature",
+      "types": "Creature - Human Rogue",
+      "power": 2,
+      "toughness": 1,
+      "damage": 0,
+      "sick": false,
+      "attacking": false,
+      "blocking": false
+     }
+    ]
+   }
+  }
+ }
+]
