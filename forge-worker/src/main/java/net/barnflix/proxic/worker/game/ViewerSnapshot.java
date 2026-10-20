@@ -67,11 +67,14 @@ final class ViewerSnapshot {
             Player viewer,
             Map<Player, Integer> seatOf,
             long revision,
-            java.util.List<String> notices) {
+            java.util.List<String> notices,
+            int gameEpoch) {
         PlayerView viewing = viewer.getView();
 
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("stateRevision", revision);
+        // §6.70 — which game of the match this board belongs to.
+        snapshot.addProperty("gameEpoch", gameEpoch);
 
         // P6-AM — what Forge told THIS viewer, most recent last.
         // Only this seat's own, because a notice can be private.

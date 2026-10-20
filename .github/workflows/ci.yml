@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE and P6-AG: Mechanics Lab regressions,
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC and P6-AD: Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
       # which proves nothing, so it fails too.
@@ -144,6 +144,8 @@ jobs:
           python3 -I scripts/check-agent-of-kotis.py "$jar" "$res"
           python3 -I scripts/check-panglacial-wurm.py "$jar" "$res"
           python3 -I scripts/check-card-name.py "$jar" "$res"
+          python3 -I scripts/check-leyline.py "$jar" "$res"
+          python3 -I scripts/check-karn.py "$jar" "$res"
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
@@ -241,6 +243,16 @@ jobs:
       - name: Build the card-name deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/card-name-deck.zip" protocol/fixtures/card-name-deck
+
+      # And Leylines (P6-AC): a pregame action that is not a cast.
+      - name: Build the Leyline deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/leyline-deck.zip" protocol/fixtures/leyline-deck
+
+      # And Karn Liberated (P6-AD): the game restarting inside a match.
+      - name: Build the Karn deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/karn-deck.zip" protocol/fixtures/karn-deck
 
       - run: npm ci
         working-directory: frontend

@@ -210,7 +210,7 @@ export async function startAMatch(
  * be asked several times: each mulligan asks again.
  */
 export async function settlePregame(host: Page, guest: Page) {
-  const pregame = /Keep or mulligan|Play or draw|Put a card back/;
+  const pregame = /Keep or mulligan|Play or draw|Put a card back|Begin with it on the battlefield/;
   const deadline = Date.now() + 300_000;
 
   while (Date.now() < deadline) {

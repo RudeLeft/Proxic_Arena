@@ -255,6 +255,8 @@ public final class WorkerMain {
                         ask.addProperty("authorisedSeat", pending.authorisedSeat());
                         ask.addProperty("kind", pending.kind());
                         ask.addProperty("stateVersion", pending.stateVersion());
+                        // §6.70 — which game of the match this question is in.
+                        ask.addProperty("gameEpoch", GAME.epoch());
                         // Some decisions have no "no" -- discarding
                         // to hand size is the plain case. The client
                         // must not offer a Pass the gate will refuse.

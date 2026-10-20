@@ -1,0 +1,1507 @@
+[
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 500,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 500,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:48",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:1:card:28",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:2:card:22",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:3:card:60",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:4:card:33",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:5:card:26",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:6:card:55",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:7:card:14",
+     "label": "Karn Liberated — +4: Target player exiles a card from their hand."
+    },
+    {
+     "actionId": "action:8:card:14",
+     "label": "Karn Liberated — -3: Exile target permanent."
+    },
+    {
+     "actionId": "action:9:card:14",
+     "label": "Karn Liberated — -14: Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control."
+    },
+    {
+     "actionId": "action:10:card:59",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:11:card:13",
+     "label": "Karn Liberated — {7}"
+    },
+    {
+     "actionId": "action:12:card:16",
+     "label": "Karn Liberated — {7}"
+    },
+    {
+     "actionId": "action:13:card:1",
+     "label": "Karn Liberated — {7}"
+    },
+    {
+     "actionId": "action:14:card:3",
+     "label": "Karn Liberated — {7}"
+    },
+    {
+     "actionId": "action:15:card:20",
+     "label": "Karn Liberated — {7}"
+    },
+    {
+     "actionId": "action:16:card:39",
+     "label": "Plains — no cost — Play land"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "58dd276f-dba6-4bd2-8ec9-b4b704098e92",
+   "decisionId": 500,
+   "seat": 1,
+   "stateVersion": 500,
+   "actionId": "action:9:card:14"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "58dd276f-dba6-4bd2-8ec9-b4b704098e92",
+   "decisionId": 500
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 17,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 45,
+      "graveyardCount": 1
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 45,
+      "graveyardCount": 0
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:13",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:16",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:189",
+      "description": "Karn Liberated (14)->Karn Liberated (14) - Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control. "
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 17,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 45,
+      "graveyardCount": 1
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 45,
+      "graveyardCount": 0
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:80",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:189",
+      "description": "Karn Liberated (14)->Karn Liberated (14) - Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control. "
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 501,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 501,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:48",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:1:card:28",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:2:card:22",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:3:card:60",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:4:card:33",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:5:card:26",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:6:card:55",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:7:card:59",
+     "label": "Plains — {T}: Add {W}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3361bea0-a40b-40f2-827b-a5c3c1982fd7",
+   "decisionId": 501,
+   "seat": 1,
+   "stateVersion": 501,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3361bea0-a40b-40f2-827b-a5c3c1982fd7",
+   "decisionId": 501
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 17,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 45,
+      "graveyardCount": 1
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 45,
+      "graveyardCount": 0
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:13",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:16",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:20",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:189",
+      "description": "Karn Liberated (14)->Karn Liberated (14) - Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control. "
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 17,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 6,
+      "libraryCount": 45,
+      "graveyardCount": 1
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 5,
+      "libraryCount": 45,
+      "graveyardCount": 0
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:80",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:71",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:14",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "stack": [
+     {
+      "id": "stack:189",
+      "description": "Karn Liberated (14)->Karn Liberated (14) - Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control. "
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 502,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "chooseSpellAbilityToPlay",
+   "stateVersion": 502,
+   "gameEpoch": 1,
+   "mandatory": false,
+   "options": [
+    {
+     "actionId": "action:0:card:118",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:1:card:88",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:2:card:100",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:3:card:87",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:4:card:119",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:5:card:96",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:6:card:108",
+     "label": "Plains — {T}: Add {W}."
+    },
+    {
+     "actionId": "action:7:card:90",
+     "label": "Plains — {T}: Add {W}."
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "3f09f401-3831-4545-bdff-ab5158646cec",
+   "decisionId": 502,
+   "seat": 2,
+   "stateVersion": 502,
+   "actionId": null
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "3f09f401-3831-4545-bdff-ab5158646cec",
+   "decisionId": 502
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 1,
+    "turn": 0,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 0,
+      "libraryCount": 60,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 0,
+      "libraryCount": 58,
+      "graveyardCount": 0
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 1,
+    "turn": 0,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 0,
+      "libraryCount": 60,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 0,
+      "libraryCount": 58,
+      "graveyardCount": 0
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 503,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "orderMoveToZoneList",
+   "stateVersion": 503,
+   "gameEpoch": 1,
+   "mandatory": true,
+   "prompt": "Which goes first? (2 left)",
+   "options": [
+    {
+     "actionId": "order:card:61",
+     "label": "Karn Liberated (61)"
+    },
+    {
+     "actionId": "order:card:65",
+     "label": "Karn Liberated (65)"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "68c8c814-ce76-4bc3-a218-97c3dc7a2f02",
+   "decisionId": 503,
+   "seat": 1,
+   "stateVersion": 503,
+   "actionId": "order:card:61"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "68c8c814-ce76-4bc3-a218-97c3dc7a2f02",
+   "decisionId": 503
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 504,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "mulliganKeepHand",
+   "stateVersion": 504,
+   "gameEpoch": 2,
+   "mandatory": true,
+   "prompt": "Keep this hand of 7, or mulligan?",
+   "options": [
+    {
+     "actionId": "mulligan:keep",
+     "label": "Keep this hand"
+    },
+    {
+     "actionId": "mulligan:again",
+     "label": "Mulligan"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "83c16c91-9da1-472f-af58-a6c321c96f42",
+   "decisionId": 500,
+   "seat": 1,
+   "stateVersion": 500,
+   "actionId": "action:9:card:14"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "ERROR",
+   "errorCode": "DECISION_REFUSED",
+   "detail": "DUPLICATE",
+   "decisionId": 500
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "78dab69b-01ed-434e-b414-3b68adf8e65b",
+   "decisionId": 504,
+   "seat": 1,
+   "stateVersion": 504,
+   "actionId": "action:9:card:14"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "ERROR",
+   "errorCode": "DECISION_REFUSED",
+   "detail": "STALE_DECISION",
+   "decisionId": 504
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "643ab80b-4eac-4e55-82fd-1b335447b878",
+   "decisionId": 504,
+   "seat": 1,
+   "stateVersion": 504,
+   "actionId": "mulligan:keep"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "643ab80b-4eac-4e55-82fd-1b335447b878",
+   "decisionId": 504
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 505,
+   "actedForSeat": 2,
+   "authorisedSeat": 2,
+   "kind": "mulliganKeepHand",
+   "stateVersion": 505,
+   "gameEpoch": 2,
+   "mandatory": true,
+   "prompt": "Keep this hand of 7, or mulligan?",
+   "options": [
+    {
+     "actionId": "mulligan:keep",
+     "label": "Keep this hand"
+    },
+    {
+     "actionId": "mulligan:again",
+     "label": "Mulligan"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "e8282f56-3b5b-41a1-af5d-bf1f459b20a3",
+   "decisionId": 505,
+   "seat": 2,
+   "stateVersion": 505,
+   "actionId": "mulligan:keep"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "e8282f56-3b5b-41a1-af5d-bf1f459b20a3",
+   "decisionId": 505
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 2,
+   "state": {
+    "seat": 2,
+    "gameEpoch": 2,
+    "turn": 0,
+    "phase": "",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 0
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     },
+     {
+      "id": "card:65",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:69",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_REQUEST",
+   "decisionId": 506,
+   "actedForSeat": 1,
+   "authorisedSeat": 1,
+   "kind": "chooseSingleEntityForEffect",
+   "stateVersion": 506,
+   "gameEpoch": 2,
+   "mandatory": true,
+   "prompt": "You have multiple legendary permanents named \"Karn Liberated\" in play.\n\nChoose the one to stay on battlefield (the rest will be moved to graveyard)",
+   "options": [
+    {
+     "actionId": "card:61",
+     "label": "Karn Liberated (61)"
+    },
+    {
+     "actionId": "card:65",
+     "label": "Karn Liberated (65)"
+    }
+   ]
+  }
+ },
+ {
+  "dir": "out",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_RESPONSE",
+   "messageId": "76678c27-102f-4001-b94c-293309c5f377",
+   "decisionId": 506,
+   "seat": 1,
+   "stateVersion": 506,
+   "actionId": "card:61"
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "DECISION_ACCEPTED",
+   "messageId": "76678c27-102f-4001-b94c-293309c5f377",
+   "decisionId": 506
+  }
+ },
+ {
+  "dir": "in",
+  "frame": {
+   "protocolVersion": 1,
+   "type": "MATCH_SNAPSHOT",
+   "seat": 1,
+   "state": {
+    "seat": 1,
+    "gameEpoch": 2,
+    "turn": 1,
+    "phase": "MAIN1",
+    "activeSeat": 1,
+    "notices": [
+     "The game restarted. This is game 2 of the match."
+    ],
+    "players": [
+     {
+      "seat": 1,
+      "name": "Alice",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 53,
+      "graveyardCount": 0
+     },
+     {
+      "seat": 2,
+      "name": "Bob",
+      "life": 20,
+      "handCount": 7,
+      "libraryCount": 51,
+      "graveyardCount": 1
+     }
+    ],
+    "battlefield": [
+     {
+      "id": "card:61",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn",
+      "counters": [
+       {
+        "name": "LOYALTY",
+        "count": 6
+       }
+      ]
+     }
+    ],
+    "hand": [
+     {
+      "id": "card:3",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     },
+     {
+      "id": "card:1",
+      "seat": 1,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ],
+    "graveyard": [
+     {
+      "id": "card:65",
+      "seat": 2,
+      "tapped": false,
+      "faceDown": false,
+      "known": true,
+      "name": "Karn Liberated",
+      "kind": "other",
+      "types": "Legendary Planeswalker - Karn"
+     }
+    ]
+   }
+  }
+ }
+]

@@ -20,7 +20,7 @@ wanted = set(names)
 
 
 def trim(state):
-    out = {k: state.get(k) for k in ("seat", "turn", "phase", "activeSeat")}
+    out = {k: state.get(k) for k in ("seat", "gameEpoch", "turn", "phase", "activeSeat", "notices", "players")}
     for zone in ("battlefield", "hand", "graveyard", "stack"):
         cards = [c for c in state.get(zone, []) if c.get("name") in wanted or zone == "stack"]
         if cards:

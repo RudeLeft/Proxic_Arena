@@ -125,6 +125,11 @@ public final class GameHost {
         Match match = new Match(rules, registered, matchName);
         Game created = match.createGame();
         this.game = created;
+        // §6.70 — the game epoch, counted by FORGE's own event,
+        // GameEventGameRestarted, which PhaseHandler fires when Karn
+        // Liberated's ultimate resolves. Nothing here decides a
+        // restart happened.
+        created.subscribeToEvents(new EpochCounter());
 
         // NOTHING installs controllers here, deliberately. Forge
         // builds its own Player objects during createGame through
@@ -359,6 +364,43 @@ public final class GameHost {
      * place a decision leaves this class, and the state goes out
      * of it first.
      */
+    /**
+     * §6.70, §6.71 — which Forge game this is, within one match.
+     *
+     * Forge restarts IN PLACE (RestartGameEffect): the same Game
+     * object, and card id numbers carried over -- its own
+     * Card.resetUniqueNumber() call is commented out. So `card:45`
+     * after a restart can be the same physical card in a different
+     * game. The epoch is what tells the two apart, on every snapshot
+     * and every question; decision ids keep rising across it, so no
+     * question or answer from before a restart can match one after.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger epoch =
+            new java.util.concurrent.atomic.AtomicInteger(1);
+
+    public int epoch() {
+        return epoch.get();
+    }
+
+    /** Forge's event bus calls this; Guava finds it by the annotation. */
+    private final class EpochCounter {
+        @com.google.common.eventbus.Subscribe
+        public void on(forge.game.event.GameEvent event) {
+            // The RESTART event, not GameEventGameStarted: the first
+            // version counted starts, and the play-or-draw question
+            // is asked (with a snapshot) before Forge fires the first
+            // one, so the opening board said "game 0".
+            if (event instanceof forge.game.event.GameEventGameRestarted) {
+                int now = epoch.incrementAndGet();
+                // Both players are told, in words: the board they were
+                // looking at is gone, not rearranged.
+                for (Integer seat : seatOf.values()) {
+                    note(seat, "The game restarted. This is game " + now + " of the match.");
+                }
+            }
+        }
+    }
+
     public void publishSnapshots() {
         Game current = game;
         if (current == null) {
@@ -376,7 +418,8 @@ public final class GameHost {
                             player,
                             seatsByPlayer(current),
                             revision,
-                            noticesFor(seat));
+                            noticesFor(seat),
+                            epoch.get());
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {

@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 39 |
-| PARTIAL | 18 |
-| NOT MET | 6 |
+| MET | 41 |
+| PARTIAL | 17 |
+| NOT MET | 5 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -243,8 +243,8 @@ restarted under a live match outside a unit test.
 |---|---|---|---|
 | P6-AA | Agent of Kotis renew regression | MET | **Run 2026-10-20**, `scripts/check-agent-of-kotis.py`, in CI. A creature on the battlefield with nothing offered for it there; attacking only via declareAttackers; sacrificed by real play, same id in the graveyard; Forge offers Renew as its own action, chosen, paid, exiled, two +1/+1 counters. No source names the card. Trace: `docs/testing/evidence/p6-aa-agent-of-kotis.trace.json`. Found and fixed: CostExile and CostSacrifice were stubs; the action label showed Forge's `CARDNAME` placeholder |
 | P6-AB | Multiple actions discoverable | MET | Action ids are `action:<n>:card:<id>`, distinct per ability; Hellspark Elemental offers cast and unearth, Sensei's Divining Top two abilities |
-| P6-AC | Pregame decisions | PARTIAL | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **No Leyline-style coverage** |
-| P6-AD | Karn / game restart | NOT MET | Not attempted; no classification recorded |
+| P6-AC | Pregame decisions | MET | **Fixed 2026-10-19.** Opening hand, mulligan, London putback and play-or-draw are all asked and answered, through two browsers and the worker harness; transition to the first turn verified. **Leyline-style added 2026-10-20** (`scripts/check-leyline.py`, `e2e/match-leyline.spec.ts`, both in CI): asked before turn one, one pick per question, the chosen cards begin on the battlefield uncast, a declined one stays in hand. Was a loud stub. **A Forge defect was found** -- if nobody acts before the first card moves to a graveyard, the Leyline's replacement is skipped (last-known battlefield not refreshed); confirmed by experiment, owner decision pending under VEND-002 |
+| P6-AD | Karn / game restart | MET | **Run 2026-10-20**, `scripts/check-karn.py` (in CI) and `e2e/match-karn.spec.ts`. Karn's -14 through real play; Forge restarts in place, keeping card id numbers, so a game EPOCH (from Forge's `GameEventGameRestarted`) goes on every snapshot and question; game 2 starts at turn 1 and 20 life, the Karn-exiled cards return under the caster, both players are told in words; game 1's last answer is refused as DUPLICATE and a game-1 action id against a game-2 question as STALE_DECISION. Trace: `docs/testing/evidence/p6-ad-karn-liberated.trace.json` |
 | P6-AE | Nested interaction / Panglacial Wurm | MET | **Run 2026-10-20**, `scripts/check-panglacial-wurm.py`, in CI. Evolving Wilds' search on the stack; Forge offers the Wurm; seven mana decisions pay for it and it goes on the stack ABOVE the search; the search then resumes and a Forest is chosen; the Wurm resolves. Trace: `docs/testing/evidence/p6-ae-panglacial-wurm.trace.json` |
 | P6-AF | Rules-version regression | NOT MET | No scenario selected or recorded |
 | P6-AG | Card-name choice | MET | **Built 2026-10-20, owner decision: search, then pick** (`protocol/README.md`). The question arrives searchable with Forge's count (34,334 for Pithing Needle, 33,067 for Phyrexian Revoker's nonland list) and no options; the player searches, the server sends the best 50 from FORGE's list, and only a name it sent can be the answer. Worker run `scripts/check-card-name.py` (in CI): accents ignored, a guessed id refused, the named card's ability refused on activation. Browser `e2e/match-card-name.spec.ts` (in CI): search box, Mountain first for the Needle, absent for the Revoker; screenshots `seen/name-a-card-*.png` |
@@ -308,8 +308,7 @@ In rough order of how many tests each unblocks:
    tested one by one.
 3. ~~**Semantic non-object choices**~~ — done 2026-10-19; P6-AG
    done 2026-10-20 by searching (owner decision).
-4. ~~**Pregame**~~ — done 2026-10-19. Only Leyline-style coverage
-   is left on P6-AC.
+4. ~~**Pregame**~~ — done 2026-10-19; Leyline-style 2026-10-20.
 5. ~~**Browser-session tests**~~ — done 2026-10-19: P6-R, P6-S, P6-T
    and P6-BB met, in one match (`e2e/match-session.spec.ts`).
    P6-R found a real server defect, fixed in the same change.

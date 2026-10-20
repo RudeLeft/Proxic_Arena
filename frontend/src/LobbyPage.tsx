@@ -1100,6 +1100,8 @@ function headingFor(kind: string): string {
       return "Put a card back";
     case "chooseStartingPlayer":
       return "Play or draw";
+    case "chooseSaToActivateFromOpeningHand":
+      return "Begin with it on the battlefield";
     case "chooseSomeType":
       return "Choose a type";
     case "chooseColor":
@@ -1177,6 +1179,10 @@ function hintFor(kind: string, options: number): string {
       return "These go to the bottom of your library. This cannot be skipped.";
     case "chooseStartingPlayer":
       return "On the play you are a turn ahead; on the draw you are a card ahead.";
+    case "chooseSaToActivateFromOpeningHand":
+      // §6.68 — it is NOT cast: no mana, no stack, nothing to respond
+      // to. Saying so stops the page reading like a free spell.
+      return "These start the game already on the battlefield — not cast, nothing paid. Choose them one at a time in the order they happen, then pass when you have the ones you want.";
     case "chooseSomeType":
     case "chooseColor":
     case "chooseColors":
@@ -1237,6 +1243,9 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
   return (
     <div className="board">
       <p className="hint board-turn">
+        {/* §6.70 — after a restart, say which game this is, or "turn 1"
+            reads as the game having gone backwards. */}
+        {board.gameEpoch > 1 && `Game ${board.gameEpoch} · `}
         {board.phase ? (
           <>
             Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}

@@ -63,6 +63,16 @@ data class DecisionRequest(
      */
     val searchable: Boolean = false,
     val optionCount: Int = 0,
+    /**
+     * §6.70 — which Forge game of this match the question is in.
+     *
+     * Karn Liberated restarts the game inside the same match, and
+     * Forge keeps card id numbers across it, so `card:45` may name
+     * a card in either game. Decision ids keep rising across a
+     * restart, which is what makes an old answer unacceptable; the
+     * epoch is what lets a client tell the boards apart.
+     */
+    val gameEpoch: Int = 1,
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */

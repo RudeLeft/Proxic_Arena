@@ -185,6 +185,66 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Begin the game with it on the battlefield — §6.68, P6-AC.
+     *
+     * Leyline of the Void, Gemstone Caverns, Chancellor of the
+     * Annex: "if this is in your opening hand, you MAY...". Forge
+     * gathers every such effect in the hand and asks the player which
+     * to use AND IN WHAT ORDER (rule 103.5); then it performs them
+     * itself, without the stack -- the card is not cast.
+     *
+     * A port of Forge's human path, asked one card at a time as every
+     * multi-pick here is: each question offers the cards not yet
+     * chosen, and a pass means "no more". Choosing none is a legal
+     * answer to a "may", so the first question can be passed too.
+     *
+     * This was a loud stub, so any deck with a Leyline stopped the
+     * match before turn one.
+     */
+    @Override
+    public java.util.List<SpellAbility> chooseSaToActivateFromOpeningHand(
+            java.util.List<SpellAbility> usable) {
+        java.util.List<SpellAbility> chosen = new java.util.ArrayList<>();
+        java.util.List<SpellAbility> remaining = new java.util.ArrayList<>(usable);
+        while (!remaining.isEmpty()) {
+            java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (SpellAbility sa : remaining) {
+                // §6.46 — typed. One effect per card, as Forge's own
+                // chooser assumes (it maps each card to its first).
+                String id = "opening:card:" + sa.getHostCard().getId();
+                if (byId.containsKey(id)) {
+                    continue;
+                }
+                byId.put(id, sa);
+                labels.put(id, sa.getHostCard().getName() + " — "
+                        + forge.util.TextUtil.fastReplace(
+                                String.valueOf(sa.getDescription()), "CARDNAME", sa.getHostCard().getName()));
+            }
+            String prompt = chosen.isEmpty()
+                    ? "Begin the game with any of these on the battlefield? Choose them in the order they happen."
+                    : "Any more? " + chosen.size() + " chosen so far.";
+            String choice;
+            try {
+                choice = host.gate().ask(
+                        actedForSeat, authorisedSeat, "chooseSaToActivateFromOpeningHand",
+                        new java.util.ArrayList<>(byId.keySet()), false, prompt,
+                        pending -> host.publishDecision(pending, labels));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            SpellAbility picked = byId.get(choice);
+            if (picked == null) {
+                break;
+            }
+            chosen.add(picked);
+            remaining.removeIf(sa -> sa.getHostCard() == picked.getHostCard());
+        }
+        return chosen;
+    }
+
+    /**
      * Play first, or draw first — §6.105, FORGE-RULE.
      *
      * Won the die roll, and the choice that follows it is a real

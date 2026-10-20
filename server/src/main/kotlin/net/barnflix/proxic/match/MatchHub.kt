@@ -143,6 +143,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         put("actedForSeat", request.actedForSeat)
         put("kind", request.kind)
         put("stateVersion", request.stateVersion)
+        put("gameEpoch", request.gameEpoch)
         put("mandatory", request.mandatory)
         request.prompt?.let { put("prompt", it) }
         if (request.searchable) {

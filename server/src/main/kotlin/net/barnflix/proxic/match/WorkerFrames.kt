@@ -48,6 +48,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             prompt = frame["prompt"]?.jsonPrimitive?.contentOrNull,
             searchable = frame["searchable"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
             optionCount = frame["optionCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+            gameEpoch = frame["gameEpoch"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1,
         )
     }.getOrNull()
 

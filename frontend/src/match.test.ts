@@ -535,3 +535,25 @@ describe("a question answered by searching", () => {
     expect(state.decision?.searchable).toBe(false);
   });
 });
+
+// §6.70 — a restarted game is a different game, and the board says so.
+describe("the game epoch", () => {
+  const BOARD = {
+    type: "MATCH_SNAPSHOT",
+    state: { stateRevision: 1, seat: 1, turn: 9, phase: "MAIN1", activeSeat: 1, players: [] },
+  };
+
+  it("is the first game when the worker does not say", () => {
+    expect(apply([BOARD]).board?.gameEpoch).toBe(1);
+  });
+
+  it("follows the worker into a restarted game", () => {
+    const restarted = {
+      ...BOARD,
+      state: { ...BOARD.state, stateRevision: 2, gameEpoch: 2, turn: 1 },
+    };
+    const state = apply([BOARD, restarted]);
+    expect(state.board?.gameEpoch).toBe(2);
+    expect(state.board?.turn).toBe(1);
+  });
+});

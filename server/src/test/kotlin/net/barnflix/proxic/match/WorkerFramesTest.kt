@@ -235,4 +235,19 @@ class WorkerFramesTest {
         name: String,
         quantity: Int,
     ) = net.barnflix.proxic.deck.DeckEntry(quantity, name, null, null, "$quantity $name", 1)
+
+    /**
+     * §6.70 — a question says which game of the match it is in,
+     * and the browser is told. An older worker that never restarts
+     * sends nothing, which is the first game.
+     */
+    @Test
+    fun `the game epoch is read and passed on, and absence means the first game`() {
+        val base = """"decisionId":"9","actedForSeat":1,"authorisedSeat":1,"stateVersion":"9","options":[]"""
+        val second = readDecisionFrame(frame("{$base,\"gameEpoch\":2}"))
+        assertEquals(2, second?.gameEpoch)
+        assertEquals("2", decisionMessage(second!!)["gameEpoch"].toString())
+
+        assertEquals(1, readDecisionFrame(frame("{$base}"))?.gameEpoch)
+    }
 }

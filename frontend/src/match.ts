@@ -149,6 +149,14 @@ export interface SnapshotPlayer {
 /** §6.40 — the board as one seat may see it. */
 export interface Snapshot {
   stateRevision: number;
+  /**
+   * §6.70 — which Forge game of the match this board is from.
+   *
+   * 1 for an ordinary match. Karn Liberated restarts the game inside
+   * the same match, and the board after it is a different game, not
+   * a rearranged one: the turn starts again from 1.
+   */
+  gameEpoch: number;
   turn: number;
   phase: string;
   activeSeat: number;
@@ -332,6 +340,8 @@ function asSnapshot(value: unknown): Snapshot | null {
   return {
     stateRevision: revision,
     seat,
+    // Absent means the first game: an older worker never restarts.
+    gameEpoch: asNumber(row["gameEpoch"]) ?? 1,
     turn: asNumber(row["turn"]) ?? 0,
     phase: asString(row["phase"]) ?? "",
     activeSeat: asNumber(row["activeSeat"]) ?? 0,
