@@ -2,20 +2,30 @@
 
 # Phase 7 — Battlefield Presentation & Interaction
 
-**Status:** DRAFT — not locked. Requires owner review.
-**Phase Type:** Presentation, interaction, rendering
-**Depends on:** Phase 6 accepted (match protocol, action model, object identity)
+**Status:** DRAFT — reviewed against Phase 6 as built and every owner
+decision recorded (2026-10-20, §7.52); **ready to lock on the owner's
+approval.**
+**Phase Type:** Presentation, interaction, rendering — and, since
+2026-10-20, the redesigned application pages (PART X)
+**Depends on:** Phase 6 — COMPLETE 2026-10-20 (match protocol, action
+model, object identity, visibility, assets)
+**Review:** `docs/research/phase-07/PHASE_07_REVIEW.md`
 **Next Phase:** Phase 8 — Mechanics Coverage
 
 ---
 
 > **SCOPE AMENDMENT — 2026-10-15 (owner decision).**
-> Proxic Arena supports **one play mode: Open Format** — 65-card deck
-> maximum, no more than 4 copies of a specific card, unrestricted card
+> Proxic Arena supports **one play mode: Open Format** — 60–65 card
+> deck, no more than 4 copies of a specific card, unrestricted card
 > pool, 2 players. **Commander and Two-Headed Giant are out of scope.**
 > Wherever this document describes a format choice, a preset catalog,
-> a command zone, teams or shared life, that content is **void**.
-> See `docs/architecture/OPEN_FORMAT.md`.
+> Commander's command zone, teams or shared life, that content is
+> **void**. See `docs/architecture/OPEN_FORMAT.md`.
+>
+> **Correction 2026-10-20:** Open Format still has a command zone as a
+> game zone -- the initiative's dungeon, the Ring, planeswalker emblems
+> -- and Phase 6 sends it. The board must show it (§7.23). The design
+> canvas's note "No command zone: Open Format has none" is wrong.
 
 ## 7.0 Purpose
 
@@ -30,20 +40,21 @@ one of them explicitly, and nothing in Phase 7 may quietly drop one.
 Phase 7 does **not** decide what is legal, what actions exist, or who may
 see what. Those are Forge's and Phase 6's, permanently.
 
+**Widened 2026-10-20 (owner decision):** Phase 7 also builds every page
+on the private UI design canvas -- Sign in, Lobby, Deck Depot, Account
+and Admin (PART X). Where those pages change a rule a locked phase made,
+the change is recorded as an amendment there (§7.69).
+
 ---
 
-## 7.1 Why this phase is DRAFT and the others are LOCKED
+## 7.1 Why this phase was DRAFT, and why it can now be locked
 
-Phases 0–6 are marked LOCKED. Phase 7 is deliberately not, for two
-reasons:
-
-1. Phase 0 has not been executed. A locked specification downstream of an
-   unexecuted research phase is a guess wearing a lock.
-2. §7.10's zone-membership questions are genuine product decisions that
-   only the project owner can make, and they change the layout model.
-
-Phase 7 should be locked when §7.53's open questions are answered and
-Phase 6 is accepted — not before.
+It was drafted before Phase 0A ran and before Phase 6 existed, with
+open product questions. All three are resolved: Phase 0A was accepted
+(2026-10-15), Phase 6 is complete (2026-10-20), and every owner
+question is answered (§7.51, §7.52). The 2026-10-20 review found the
+corrections and protocol needs folded in below. It is locked when the
+owner approves it.
 
 ---
 
@@ -126,6 +137,9 @@ phase's definition of done for inherited scope.
 | 6.142 | Convenience gestures only under four stated conditions | §7.32 |
 | 1.19 | Responsive foundation at 1366×768 and up | §7.39 |
 | 6.49 | Events are presentation hints; snapshot wins | §7.35 |
+| P6 action model | `docs/architecture/MATCH_ACTION_MODEL.md` "Phase 7 contract": every option reachable, generic fallback, inspect separate from action | §7.28–§7.33 |
+| P6 live game | every priority stop asked; unpayable spells offered; refused attack gives no reason | §7.53, §7.54, §7.61 (B7) |
+| P6 visibility | the command zone, the Ring-bearer, dungeon rooms, day/night, player counters are on the wire and must be shown | §7.23 |
 
 ---
 
@@ -524,12 +538,22 @@ and was invisible for weeks.
 
 ```text
 life totals            both players, change clearly signalled
-turn / phase / step
-priority holder        distinct from active player
-mana available
-counters (poison, energy, experience)
+turn / phase / step    and day/night once it exists
+priority holder        distinct from active player -- needs §7.61 B1
+mana available         the floating pool -- needs §7.61 B6
+counters               whatever Forge reports on a player (poison,
+                       energy, experience, rad...), never a fixed list
+designations           monarch, initiative, the city's blessing
+command zone           the dungeon and its current room, the Ring (and
+                       how many times it has tempted), emblems
+library / graveyard / exile counts, each opening a viewer
 connection status
 ```
+
+There is **no player-facing game log** (owner decision 2026-10-20,
+§7.52): what a player needs to notice reaches them through the board
+itself -- animation, the stack, short messages (§7.57). The verbose
+record is server-side (§7.56).
 
 Priority and active player are different facts (Phase 6, and old
 `StateSnapshot` sends them separately). Do not conflate them in the UI.
@@ -578,7 +602,8 @@ have to guess what clicking will do.
 
 **Old project precedent:** interaction modes were introduced precisely so
 the client stopped reading English prompts to decide what a click meant.
-Keep the mode concept; derive it from `choice_type`, never from prose.
+Keep the mode concept; derive it from the question's `kind` (Phase 6's
+field name), never from prose.
 
 ---
 
@@ -649,30 +674,13 @@ convenient it is.
 
 ---
 
-## 7.32a Open findings from the first live game (2026-10-20)
+## 7.32a Findings from the first live game (2026-10-20) — decided
 
-Found by the owner playing on proxic.barnflix.net (P6-BK run). Both are
-presentation and interaction, so they belong here; neither is decided
-yet -- each needs an owner decision before it is built.
-
-1. **Every priority stop is asked.** The page stops at each step where
-   Forge gives priority -- the upkeep of turn 1 asked "Staggershock or
-   Fiery Temper?" before a land could be played. Forge's own desktop
-   client passes through steps the player has not set a stop on. Decide
-   which steps stop by default and how a player changes that, without
-   ever passing for a player who could act (FORGE-RULE).
-2. **Spells that cannot be paid for are offered.** Forge offers them
-   and undoes the cast when payment fails, which is safe but reads as
-   a choice that does nothing. Decide how they are shown (dimmed,
-   grouped, or a note) -- never hidden by a client guess, since an
-   alternative cost or a mana ability may pay for one (§6.142).
-3. **A refused attack does not say why.** Forge refused a declaration
-   that left a must-attack Goblin token (Legion Warboss) at home; the
-   page said only "Attack declaration invalid", once per try, and two
-   tokens labelled "Goblin Token — 1/1" could not be told apart. The
-   reason is Forge's (its combat requirements) and must be shown from
-   Forge, not re-derived; identical labels need something that tells
-   the objects apart (found by the live-site test's dry run).
+The three findings the owner's live game raised are decided in §7.52
+and specified in §7.53 (priority stops), §7.54 (unpayable spells) and
+§7.61 B7 (why a choice was refused). Identical tokens stop being a
+problem once a token is chosen by clicking it on the board (§7.61 B5)
+rather than from a list of same-named labels.
 
 ## 7.33 Unknown Action Kinds Must Still Render
 
@@ -850,6 +858,16 @@ filtering hidden information in the UI after transmitting it
 | P7-O | Owner has seen and accepted the board | `USER` |
 | P7-P | *(added 2026-10-19)* For a seeded board, every card's `getBoundingClientRect()` equals `layout()`'s Box — the renderer obeys the maths through the real path (`BATTLEFIELD_RENDERING.md` §6 tier 2) | `RUN` |
 | P7-Q | *(added 2026-10-19)* The `BATTLEFIELD_RENDERING.md` §6 performance budget is met on the synthetic 80-permanent / 60-face board, numbers committed; a miss is the only thing that opens the §7.15 PixiJS contingency | `BENCHMARK` |
+| P7-R | *(added 2026-10-20)* Default stops: a turn with nothing to respond to passes without asking; a spell on the stack always stops; a player's added stop is honoured; no non-priority question is ever answered automatically | `RUN` |
+| P7-S | An unpayable spell is shown dimmed, is still clickable, and Forge decides; a Force of Will is not dimmed when its alternative cost can be paid | `RUN` |
+| P7-T | Concede ends the match with the opponent as Forge's winner; Abandon still ends it with none | `RUN` |
+| P7-U | The game record holds every question, answer and refusal of a real match, and only an administrator can read it | `RUN` |
+| P7-V | Identical untapped basics pile from the start; a tapped one leaves the pile | `RUN` |
+| P7-W | A back-face picture in a package is shown for the back face; without one, a text frame -- never the front's picture | `RUN` |
+| P7-X | Every §7.61 addition reaches both seats correctly, and none carries hidden information (both seats, as P6-G) | `RUN` |
+| P7-Y | The pages (PART X) work through real clicks; a player cannot reach any admin route; the last administrator cannot be disabled or demoted through the API | `RUN` |
+| P7-Z | Force close of a room mid-match ends it with no winner and both players are told | `RUN` |
+| P7-AA | Deck names: a duplicate import or rename is refused; renaming a deck selected in a room works and the other seat sees the new name | `RUN` |
 
 ## 7.49 Escalation
 
@@ -898,6 +916,266 @@ Consequences carried into the implementation:
 - (6) stores nothing per player, which keeps §7.13's "no stored
   coordinates" intact — a player-arranged front/rear would have
   required persisted arrangement state and contradicted it.
+
+---
+
+## 7.52 Owner Decisions — RESOLVED 2026-10-20
+
+Asked after the Phase 6 review, in plain English with game examples.
+
+| # | Question | Decision |
+| --- | --- | --- |
+| 7 | Stopping at every step | **Skip steps by default, adjustable** -- Forge-desktop style (§7.53) |
+| 8 | Spells that cannot be paid for | **Dimmed, still clickable**; Proxic asks Forge, never guesses (§7.54) |
+| 9 | A game log | **A very verbose server-side record for a future bug button; players do not see it.** What players need comes through animation and short messages (§7.56, §7.57) |
+| 10 | Concede | **Add Concede (a real loss), keep Abandon (no winner)** (§7.55) |
+| 11 | Piling basic lands | **Pile from the start**; tapped ones leave the pile (§7.58) |
+| 12 | Back faces have no picture | **Deck Builder will export back-face pictures** (owner's change in that project); Arena maps them; a text frame until a deck has them (§7.59) |
+| 13 | The game screen | **Full window, chat in a drawer** (§7.60) |
+| 14 | Scope | **Everything on the UI design canvas**, Admin page included (PART X) |
+| 15 | Admin safety | **The last admin cannot be disabled or demoted; every admin action is recorded.** No password re-entry and no home-network restriction -- owner's call, trade-off in §7.67 |
+| 16 | Force close mid-game | **The game ends with no winner and both players are told** (§7.67) |
+| 17 | Renaming a selected deck | **Allowed** (§7.65) |
+| 18 | Two decks with one name | **Not allowed** (§7.65) |
+| 19 | The room list | **Every room is visible; taking a seat still needs an invitation** (§7.64) |
+
+---
+
+# PART IX — PLAY, AS DECIDED 2026-10-20
+
+## 7.53 Priority stops
+
+The board stops for a player's decision only at **stops**. Defaults:
+
+```text
+your precombat and postcombat main phases
+declare blockers, when you are attacked
+any moment a spell or ability is on the stack -- always, so a
+  response is never skipped
+any question that is not a priority pass (targets, modes, choices,
+  combat declarations, pregame) -- always
+```
+
+Everywhere else the client answers "pass priority" for the player. A
+small settings panel lets a player add or remove stops per step (for
+example, the opponent's end step for an instant); stored per player,
+server-side, defaulting as above.
+
+Two rules keep this inside FORGE-RULE:
+
+1. Only a **priority pass** is ever automatic -- never a target, mode,
+   payment, or combat choice.
+2. It is the **player's** setting, visible and changeable. Turning every
+   stop on gives today's behaviour exactly.
+
+Forge's own desktop client works this way (phase stops), which is the
+precedent; nothing here decides legality.
+
+## 7.54 Spells that cannot be paid for
+
+Forge offers some spells it cannot pay for and undoes the cast when
+payment fails (Phase 6). The worker asks **Forge's own payment check**
+whether each offered spell or ability can currently be paid and marks the
+option (`payable: false`, §7.61 B8). The board shows it **dimmed, with a
+short "not enough mana right now" note, still clickable**: Forge has the
+final word, because an alternative cost (Force of Will), convoke, or an
+overlooked mana ability can pay what looks unpayable. Never hidden.
+
+## 7.55 Concede
+
+A participant may **concede**: Forge's concession, so Forge declares the
+opponent the winner; the match is `ENDED` with that result and reason
+("conceded"). **Abandon** stays, for stuck or broken games: no winner
+(Phase 6). Concede asks for confirmation; it cannot be undone.
+
+## 7.56 The game record (server-side)
+
+Every match keeps a **verbose record**, for diagnosing problems and for
+the owner's planned bug-report button:
+
+```text
+every question asked, to whom, with every option
+every answer, accepted or refused, and why
+every snapshot sent to each player (or a digest plus the changes)
+Forge's own game log
+the worker's stderr (already kept, Phase 6)
+timings
+```
+
+Not shown to players. It contains **both players' hidden information**,
+so it is readable only by an administrator (and by whatever the bug
+button sends, which is the owner's later design). Kept for a bounded,
+configurable period per match, beside the existing match log. It is
+the production equivalent of the Mechanics Lab traces that found most of
+Phase 6's bugs.
+
+## 7.57 What a player is told
+
+Instead of a log: the opponent's actions **animate** (a card moving to
+the stack, a creature stepping into combat, damage landing), the stack
+shows what is pending (§7.22, §7.61 B2), and **short messages** carry
+what an animation cannot -- a reveal, a coin flip, a game restart,
+Forge's notices (Phase 6 already sends them per player). Messages fade;
+a missed one costs nothing, because the board is the truth (§7.34).
+
+## 7.58 Basic lands pile from the start
+
+Identical **untapped basic lands** of one controller always form one
+counted pile ("Forest ×5"), like a physical table -- not only under
+overflow pressure (resolves the canvas's open question). A tapped land
+leaves the pile and shows separately; an untap returns it. Nonbasic
+lands and anything with counters, attachments or a changed state are
+never piled. The pile is one clickable object whose actions are the
+lands' own (§7.29: tapping "a Forest" is choosing one of them).
+
+## 7.59 Back faces
+
+Deck packages carry front images only today, so a transformed card has
+no picture (Phase 6, correct rather than wrong). Owner decision: **Proxic
+Deck Builder will also export back-face pictures**, named like any other
+face (`DECK_PACKAGE_FORMAT.md` §5.3):
+
+```text
+real_cards/<back face name> [<SET>].png
+```
+
+Arena imports and maps them by face name; a package without them stays
+valid. Until a deck has one, the back face renders as a clean text frame
+(name, type line, power/toughness) -- never the front's picture.
+
+## 7.60 The game screen
+
+During a match the battlefield takes **the whole window** (the canvas's
+Battlefield artboard: board plus the right-hand rail). Chat is a
+**drawer** that slides out and back; the lobby returns when the game
+ends. A refresh or a new tab lands on the board while the match is
+live.
+
+## 7.61 Protocol additions Phase 7 needs
+
+The design shows things Phase 6 does not send yet. Each is additive (no
+breaking change, `protocolVersion` stays 1), recorded as a Phase 6
+protocol amendment in `MATCH_PROTOCOL.md`, built in Phase 7, and tested
+like Phase 6's fields (both seats, hidden information checked).
+
+| # | For | Addition |
+| --- | --- | --- |
+| B1 | who may act (canvas: priority dot, "Bob to act") | `prioritySeat` in the snapshot |
+| B2 | stack items as cards ("resolves next") | per entry: source object id and name, controller seat, spell or ability |
+| B3 | targeting arrows from the stack | per entry: its targets (object or player ids) |
+| B4 | combat lines | blocker → attacker, attacker → player / planeswalker / battle |
+| B5 | choosing by clicking the board | an explicit `objectId` on each option (the client never parses ids) |
+| B6 | mana available | each player's floating mana pool |
+| B7 | why a choice was refused | Forge's own reason text where Forge gives one |
+| B8 | dimmed unpayable options (§7.54) | `payable` on each option, from Forge's payment check |
+| B9 | concede (§7.55) | a `CONCEDE` message and Forge's result |
+| B10 | stops (§7.53) | the player's stop settings, and which questions are priority passes |
+
+---
+
+# PART X — THE APPLICATION PAGES (added 2026-10-20)
+
+The private UI design canvas (artboards Login, Lobby, Deck Depot,
+Account, Admin, Battlefield) is the design source for these pages. As
+for the battlefield, the canvas is the look; this part is the rules.
+Where the canvas and a rule here disagree, the rule wins and the canvas
+is updated.
+
+## 7.62 Shared shell
+
+One header on every signed-in page: the logo (back to the Lobby), Deck
+Depot, Lobby, Account, **Admin only for an administrator**, connection
+status, Sign out. The server re-reads the role from the session on every
+request; hiding Admin is the courtesy, not the protection (Phase 3
+§3.19).
+
+## 7.63 Sign in
+
+The canvas's Login page over the existing Phase 3 sign-in: the notice
+slot (session ended, wrong password, throttled) and every state the page
+already has. No new rule.
+
+## 7.64 Lobby
+
+The canvas's Lobby: players online, the room list, lobby chat, and the
+room you are in opened in place.
+
+- **Every room is visible to every signed-in player** -- name, seats,
+  who is in them. **Taking a seat still requires an invitation**:
+  there is no Join for an uninvited player (owner decision 19).
+  Amends Phase 5's "no directory of rooms" (§7.69).
+- Invitations, one at a time, withdraw after a short delay, declined
+  and withdrawn states: as the canvas's notes specify.
+- **Start match** is one button: preparing and launching are one step
+  for the player; the server still freezes, validates and claims as
+  Phases 5 and 6 require, and the button says what the wait is for.
+- Seat dots carry readiness, not presence (canvas notes s4, s5).
+- The canvas shows a fixed set of rooms ("all five rooms always
+  exist") -- **to confirm at build** whether rooms are a fixed set or
+  created on demand as today; either keeps Phase 5's one-room-per-player
+  rule.
+
+## 7.65 Deck Depot
+
+The canvas's Depot over Phase 4: import, my decks and decks shared with
+me as two lists, open a deck, share and revoke.
+
+- **Rename** a deck you own (new). Allowed while the deck is selected in
+  a room: everything refers to the deck id (owner decision 17).
+- **Deck names are unique per owner** (owner decision 18): an import or
+  rename that would duplicate one of your names is refused and asks for
+  another name. Existing duplicates, if any, are left as they are but
+  cannot be renamed into another duplicate. Amends Phase 4 (§7.69).
+- A deck shared with you shows no Rename or Delete (Phase 4 §4.59).
+
+## 7.66 Account
+
+The canvas's Account page over existing Phase 3 features: identity
+(username, role), change display name, change password (ends every
+session, said before the button), sign out everywhere. No new rule.
+
+## 7.67 Admin
+
+The canvas's Admin page: accounts (list, create, enable/disable, reset a
+password, role), rooms (with force close), the server's state (version,
+database, Forge worker, uptime) and recent sign-in activity. **Amends
+Phase 3**, which kept account administration on the host only (§7.69).
+
+Rules (owner decisions 15, 16):
+
+- **The last active administrator cannot be disabled or demoted**, by
+  anyone, including themselves; the control is not offered and the
+  server refuses it.
+- **Every admin action is recorded**: who, what, to which account or
+  room, when -- in the server log and the game-record store (§7.56).
+- **Force close** of a room with a running match ends the match with
+  **no winner** (as Abandon) and tells both players "An administrator
+  closed this game"; the room closes.
+- The admin tool `arena-admin` stays; the page does not replace it.
+- **Accepted trade-off (owner decision 15):** no password re-entry and
+  no home-network restriction, so a browser left signed in as an
+  administrator can change accounts. Recorded so it is a decision, not a
+  discovery.
+
+## 7.68 Testing the pages
+
+Each page gets Playwright tests through real clicks (§7.44), the
+hidden-information discipline where a page shows other players' data
+(the room list shows seats, never decks), and the owner's look (§7.46).
+Admin tests prove a player cannot reach any admin route and that the
+last-admin rule holds against the API, not only the page.
+
+## 7.69 Amendments to locked phases
+
+| Phase | Was | Now |
+| --- | --- | --- |
+| 3 | account administration only through `arena-admin` on the host | also the Admin page, with §7.67's rules |
+| 4 | deck names may repeat; no rename | rename your own decks; names unique per owner |
+| 5 | no directory of rooms; invitation-only | rooms visible to all; seats still by invitation; Start match is one step for the player |
+| 6 | protocol as built | §7.61's additive fields and messages |
+
+Each is written into the locked phase's amendment record when Phase 7 is
+locked.
 
 ---
 

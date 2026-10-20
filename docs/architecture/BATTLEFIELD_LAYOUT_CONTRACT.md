@@ -1,6 +1,8 @@
 # Battlefield Layout Contract
 
-**Status:** DRAFT — awaiting owner approval
+**Status:** ACCEPTED — its open questions were answered by the owner 2026-10-15
+(Phase 7 §7.51); resolved values below. Placement within a zone is
+centre-out (`BATTLEFIELD_RENDERING.md` §4, owner decision 2026-10-19).
 **Supersedes:** `designer-blueprint.json` as a source of coordinates
 **Preserves:** every proportion the owner tuned in that file
 **Date:** 2026-10-14
@@ -115,8 +117,8 @@ these steps **in order**, stopping as soon as the contents fit:
    exposed sliver of each card's left edge so every card stays
    individually identifiable and clickable. Minimum sliver is an owner
    decision; a fan of lands is the normal case this serves.
-4. **Scale down** — shrink cards uniformly toward a floor (proposed: 70%
-   of fixture size; below that, art is unreadable).
+4. **Scale down** — shrink cards uniformly toward a floor: **75% of the
+   reference card size** (owner decision 2026-10-15); below that, pile.
 5. **Pile** — group identical, non-distinct permanents into a counted
    stack. The existing `PILE` constants in `layout.mjs`
    (`clearance: 5.5, overhang: 14, hoverVertical: 3`) already describe
@@ -222,7 +224,17 @@ Unlock the generated pixel coordinates, which are an output, not an input.
 
 ---
 
-## 7. Open questions for the owner
+## 7. Open questions for the owner — ANSWERED 2026-10-15 (Phase 7 §7.51)
+
+Sliver 33% of card width; floor 75%; one noncreature row for
+enchantments, planeswalkers and battles with a visible fallback; a
+permanent that changes type moves rows at once; per-viewer layout for
+face-down permanents; front/rear automatic by overflow. Basic lands pile
+from the start (Phase 7 §7.58, 2026-10-20). Steps 1 and 2 of §3 are one
+step: fixture pitch equals card width plus the minimum gap
+(`BATTLEFIELD_RENDERING.md` §4).
+
+As originally asked:
 
 1. Minimum exposed sliver when cards must overlap (§3 step 3).
 2. Card scale floor before piling (§3 step 4, proposed 70%).

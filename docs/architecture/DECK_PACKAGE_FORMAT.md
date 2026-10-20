@@ -141,14 +141,39 @@ real_cards/<front face name> [<SET>].png
 
 - **One image per distinct card NAME**, not per printing and not per
   copy. 11 images for a 65-card deck.
-- **Front faces only.** A transforming card ships no image of its
-  back.
+- **Front faces only** in packages exported before 2026-10-20. A
+  transforming card's back face is being added (§5.0).
 - The set code appears in the filename without the collector number,
   so the deck line and the image name are not interchangeable.
 - Illegal filename characters `<>:"/\|?*` are stripped. **Accents
   are preserved**, because matching is by name as printed,
   case-folded only.
 - Observed sizes: 745×1040, 370 KB–1.77 MB.
+
+### 5.0 Back faces (added 2026-10-20, owner decision — Phase 7 §7.59)
+
+Deck Builder **will also** export the back face of a card that turns
+over (a transforming card, a daybound/nightbound card, a modal
+double-faced card), named exactly like any other face:
+
+```text
+real_cards/<back face name> [<SET>].png
+e.g. real_cards/Storm-Charged Slasher [MID].png
+     real_cards/Insectile Aberration [ISD].png
+```
+
+- Same member shape as a front image, so packages stay structurally
+  valid (§6's `UNEXPECTED_ENTRY` is unaffected) and older packages
+  without back faces stay valid.
+- Arena maps an image to a face **by that face's name**, case-folded,
+  so a back-face image is used only while Forge shows that face.
+- Split, adventure, aftermath, fuse and Room cards are one picture
+  (both halves are on the front) and need nothing extra.
+- Until a package carries it, a back face renders as a text frame,
+  never with the front's picture.
+
+Implemented by the owner in Proxic Deck Builder; Arena's import change
+is Phase 7 work.
 
 ### 5.1 Artwork is optional
 
