@@ -86,12 +86,27 @@ final class ManaPayment {
      * their mind has not done anything wrong. Forge unwinds it.
      */
     boolean pay(ManaCostBeingPaid toPay, SpellAbility paidFor) throws InterruptedException {
+        return pay(toPay, paidFor, false);
+    }
+
+    /** The life id: "pay 2 life" for one Phyrexian symbol. */
+    private static final String PHYREXIAN = "mana:life:phyrexian";
+
+    boolean pay(ManaCostBeingPaid toPay, SpellAbility paidFor, boolean effect) throws InterruptedException {
         String lastRemaining = toPay.toString();
         int stalled = 0;
+        // P6-AN, Dismember: a Phyrexian symbol may be paid with 2 life
+        // instead of its colour -- a port of Forge's own human input,
+        // where clicking your life total does it. The life is LOST only
+        // when the whole cost is paid (Forge's done()), so cancelling
+        // halfway costs nothing.
+        int lifeToLose = 0;
 
         while (!toPay.isPaid()) {
             LinkedHashMap<String, Card> sources = usableSources(toPay, paidFor);
-            if (sources.isEmpty()) {
+            boolean lifeForMana = toPay.containsPhyrexianMana()
+                    && player.canPayLife(lifeToLose + 2, effect, paidFor);
+            if (sources.isEmpty() && !lifeForMana) {
                 // Nothing left that could pay. Not an error: it is
                 // how "you cannot afford this" ends.
                 return false;
@@ -99,17 +114,30 @@ final class ManaPayment {
 
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
             sources.forEach((id, card) -> labels.put(id, card.getName() + " — " + remaining(toPay)));
+            if (lifeForMana) {
+                labels.put(PHYREXIAN, "Pay 2 life for a Phyrexian symbol — you have "
+                        + (player.getLife() - lifeToLose) + " life — " + remaining(toPay));
+            }
 
             String choice =
                     host.gate().ask(
                             actedForSeat,
                             authorisedSeat,
                             "applyManaToCost",
-                            new ArrayList<>(sources.keySet()),
+                            new ArrayList<>(labels.keySet()),
                             pending -> host.publishDecision(pending, labels));
 
             if (DecisionGate.PASS.equals(choice)) {
                 return false;
+            }
+            if (PHYREXIAN.equals(choice)) {
+                if (toPay.payPhyrexian()) {
+                    paidFor.setSpendPhyrexianMana(true);
+                    lifeToLose += 2;
+                    lastRemaining = toPay.toString();
+                    stalled = 0;
+                }
+                continue;
             }
             Card tapped = sources.get(choice);
             if (tapped == null) {
@@ -135,6 +163,9 @@ final class ManaPayment {
                                 + " choices; still owing " + nowRemaining);
                 throw new IllegalStateException("mana payment is not progressing");
             }
+        }
+        if (lifeToLose > 0) {
+            player.payLife(lifeToLose, paidFor, effect);
         }
         return true;
     }

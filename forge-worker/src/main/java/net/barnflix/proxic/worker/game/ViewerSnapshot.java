@@ -215,6 +215,20 @@ final class ViewerSnapshot {
         }
         snapshot.add("graveyard", graveyard);
 
+        // Exile is public, and it is where cards GO and WAIT: delve's
+        // and Force of Will's payments, an Adventure creature to cast
+        // later, a Karn-exiled card. It was missing from the snapshot,
+        // so a player was never told (P6-AN, P6-AJ). Same rule as every
+        // zone: describe() names only what this viewer may identify, so
+        // a face-down exiled card (foretell) stays "Face-down".
+        JsonArray exile = new JsonArray();
+        for (Player player : game.getRegisteredPlayers()) {
+            for (Card card : player.getCardsIn(ZoneType.Exile)) {
+                exile.add(describe(card, viewing, seatOf));
+            }
+        }
+        snapshot.add("exile", exile);
+
         JsonArray stack = new JsonArray();
         game.getStack().forEach(instance -> {
             JsonObject entry = new JsonObject();

@@ -90,68 +90,90 @@
       "required": "Required",
       "tests": "P6-AN, §6.92",
       "scenario": "Choose two modes, then targets for each.",
-      "notes": "Mode choice is MET on Alley Evasion and Abrade; not yet run on this card."
+      "notes": "Mode choice is MET on Alley Evasion and Abrade; not yet run on this card.",
+      "result": "PASSED",
+      "evidence": "scripts/check-modes.py cryptic (worker, in CI), 2026-10-20. Choose two: the creature returns to its owner's hand and a card is drawn."
     },
     "Collective Brutality": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Escalate: modes chosen, an extra cost per extra mode."
+      "scenario": "Escalate: modes chosen, an extra cost per extra mode.",
+      "result": "PASSED",
+      "evidence": "scripts/check-modes.py escalate (worker, in CI), 2026-10-20. Two modes chosen one at a time; escalate's discard paid; the creature dies to -2/-2 and 2 life moves. Found: the discard cost (CostDiscard) was a loud stub -- ported from Forge's HumanCostDecision."
     },
     "Three Steps Ahead": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Spree: optional additional costs per mode."
+      "scenario": "Spree: optional additional costs per mode.",
+      "result": "PASSED",
+      "evidence": "scripts/check-modes.py spree (worker, in CI), 2026-10-20. Two spree modes, each with its extra cost: a token copy, two drawn and one discarded. Found: discarding from a hand by an effect was a loud stub -- ported."
     },
     "Season of Weaving": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
       "scenario": "Pawprint modes within a budget.",
-      "notes": "The Pawprint budget is ported from Forge's own human path; not yet run on this card."
+      "notes": "The Pawprint budget is ported from Forge's own human path; not yet run on this card.",
+      "result": "PASSED",
+      "evidence": "scripts/check-modes.py pawprint (worker, in CI), 2026-10-20. Five one-pawprint modes fit the budget, none offered past it; five drawn."
     },
     "Tooth and Nail": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Entwine: both modes for an extra cost."
+      "scenario": "Entwine: both modes for an extra cost.",
+      "result": "PASSED",
+      "evidence": "scripts/check-modes.py entwine (worker, in CI), 2026-10-20. Entwine offered as an optional cost and paid; creatures searched for and two put onto the battlefield from hand. Found: optional costs were a loud stub -- ported."
     },
     "Dismember": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Phyrexian mana: pay life or mana per symbol."
+      "scenario": "Phyrexian mana: pay life or mana per symbol.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py dismember (worker, in CI), 2026-10-20. One Swamp pays {1}; {B/P}{B/P} are paid with 4 life (offered as 'Pay 2 life for a Phyrexian symbol'); the creature dies. Found: Phyrexian life payment was not offered at all -- ported from Forge's own input."
     },
     "Force of Will": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Alternative cost: exile a blue card and pay life."
+      "scenario": "Alternative cost: exile a blue card and pay life.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py force-of-will (worker, in CI), 2026-10-20. With no lands, cast for its alternative cost -- a blue card exiled and 1 life paid -- countering a spell on the stack. Found: NO counterspell could be cast: spells on the stack were never offered as targets (Forge's getAllCandidates excludes the stack); stack targeting ported from Forge's TargetSelection. Also found: exile was missing from the snapshot."
     },
     "Venerated Loxodon": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Convoke: tap creatures to pay."
+      "scenario": "Convoke: tap creatures to pay.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py convoke (worker, in CI), 2026-10-20. Three creatures tapped to convoke {4}{W}; each then gets its +1/+1 counter. Found: convoke/improvise was a loud stub -- ported from Forge's InputSelectCardsForConvokeOrImprovise."
     },
     "Reverse Engineer": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Improvise: tap artifacts to pay."
+      "scenario": "Improvise: tap artifacts to pay.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py improvise (worker, in CI), 2026-10-20. Three artifacts tapped for {3}, two Islands for {U}{U}; three drawn."
     },
     "Treasure Cruise": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Delve: exile graveyard cards to pay."
+      "scenario": "Delve: exile graveyard cards to pay.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py delve (worker, in CI), 2026-10-20. Four graveyard cards exiled pay {4} of {7}{U}; four Islands pay the rest; three drawn. Found: delve was a loud stub (match stopped) -- implemented."
     },
     "Thoughtcast": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AN, §6.92",
-      "scenario": "Affinity: cost reduced by artifacts."
+      "scenario": "Affinity: cost reduced by artifacts.",
+      "result": "PASSED",
+      "evidence": "scripts/check-costs.py affinity (worker, in CI), 2026-10-20. {4}{U} costs {U} with four artifacts out, none tapped; two drawn. Found: Forge's choice among static abilities was a loud stub -- ported."
     },
     "Gemrazer": {
       "owner": "P6_REQUIRED",

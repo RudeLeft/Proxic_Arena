@@ -587,20 +587,39 @@ public final class MatchController extends GeneratedControllerBase {
             return true;
         }
 
-        // §6.105 — divided damage is a SECOND question ("how much
-        // to each?") that this protocol cannot yet carry. Refuse
-        // loudly rather than splitting it arbitrarily.
-        if (ability.isDividedAsYouChoose()) {
-            loud("chooseTargetsFor:dividedAsYouChoose");
-        }
+        // Divided as you choose (Fire // Ice, P6-AJ): a SECOND question
+        // after each target -- "how much to this one?" -- as Forge's own
+        // InputSelectTargets asks it. Every target gets at least 1, all
+        // of it must be assigned, and targeting ends when none is left.
+        // Was refused loudly; this is Forge's shape, one answer each.
+        boolean divided = ability.isDividedAsYouChoose();
 
-        while (ability.getTargets().size() < max) {
+        while (ability.getTargets().size() < max && (!divided || ability.getStillToDivide() > 0)) {
             java.util.List<forge.game.GameEntity> candidates =
                     restrictions.getAllCandidates(ability);
             // Already chosen ones are not offered again: a target
             // list is a set, and Forge rejects a repeat anyway.
             candidates.removeIf(entity -> ability.getTargets().contains(entity));
-            if (candidates.isEmpty()) {
+
+            // SPELLS ON THE STACK (Counterspell, Force of Will). Forge's
+            // getAllCandidates covers players and cards in the target
+            // zone, never the stack: its own human client handles stack
+            // targets separately (TargetSelection.chooseCardFromStack),
+            // asking canTargetSpellAbility of each stack instance. Ported
+            // here; until now no counterspell could be cast at all -- the
+            // target list was empty and the cast rolled back silently
+            // (found by check-costs.py, 2026-10-20).
+            java.util.LinkedHashMap<String, SpellAbility> onStack = new java.util.LinkedHashMap<>();
+            if (restrictions.getZone() != null && restrictions.getZone().contains(forge.game.zone.ZoneType.Stack)) {
+                for (forge.game.spellability.SpellAbilityStackInstance instance : player.getGame().getStack()) {
+                    SpellAbility there = instance.getSpellAbility();
+                    if (ability.canTargetSpellAbility(there) && !ability.getTargets().contains(there)) {
+                        // The snapshot's own id for it, so a page can match them.
+                        onStack.put("target:stack:" + instance.getId(), there);
+                    }
+                }
+            }
+            if (candidates.isEmpty() && onStack.isEmpty()) {
                 break;
             }
 
@@ -619,6 +638,7 @@ public final class MatchController extends GeneratedControllerBase {
                 byId.put(id, candidate);
                 labels.put(id, candidate.toString());
             }
+            onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
 
             try {
                 String choice =
@@ -626,27 +646,98 @@ public final class MatchController extends GeneratedControllerBase {
                                 actedForSeat,
                                 authorisedSeat,
                                 "chooseTargetsFor",
-                                new java.util.ArrayList<>(byId.keySet()),
+                                new java.util.ArrayList<>(labels.keySet()),
                                 pending -> host.publishDecision(pending, labels));
 
                 if (DecisionGate.PASS.equals(choice)) {
                     // Stop. With enough targets that is "no more";
                     // without them it is "cancel", and Forge reads
                     // false as the player changing their mind.
-                    return enough;
+                    return enough && finishDivision(ability);
+                }
+                SpellAbility spell = onStack.get(choice);
+                if (spell != null) {
+                    ability.getTargets().add(spell);
+                    continue;
                 }
                 forge.game.GameEntity chosen = byId.get(choice);
                 if (chosen == null) {
-                    return enough;
+                    return enough && finishDivision(ability);
                 }
                 ability.getTargets().add(chosen);
+                if (divided && !divide(ability, chosen, candidates.size() == 1
+                        || ability.getTargets().size() >= max)) {
+                    return false;
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;
             }
         }
 
-        return ability.getTargets().size() >= min;
+        return ability.getTargets().size() >= min && finishDivision(ability);
+    }
+
+    /**
+     * How much of a divided amount goes to `target` -- Forge's own
+     * question ("Select how much damage to deal to ..."), with the
+     * amounts Forge allows: 1 up to what is left. The last possible
+     * target takes the rest without asking, because there is no
+     * other answer. Returns false if the player backs out.
+     */
+    private boolean divide(SpellAbility ability, forge.game.GameEntity target, boolean last) {
+        int left = ability.getStillToDivide();
+        if (left <= 0) {
+            return true;
+        }
+        if (last || left == 1) {
+            ability.addDividedAllocation(target, left);
+            return true;
+        }
+        String verb = switch (String.valueOf(ability.getApi())) {
+            case "DealDamage" -> "damage to deal to ";
+            case "PreventDamage" -> "damage to prevent to ";
+            case "PutCounter" -> "counters to put on ";
+            default -> "to distribute to ";
+        };
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int amount = 1; amount <= left; amount++) {
+            labels.put("divide:" + amount, String.valueOf(amount));
+        }
+        try {
+            String choice = host.gate().ask(
+                    actedForSeat,
+                    authorisedSeat,
+                    "divideAsYouChoose",
+                    new java.util.ArrayList<>(labels.keySet()),
+                    true,
+                    "How much " + verb + target + "? (" + left + " left to assign)",
+                    pending -> host.publishDecision(pending, labels));
+            ability.addDividedAllocation(target, Integer.parseInt(choice.substring("divide:".length())));
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * Whatever is still undivided when targeting stops goes to the last
+     * target chosen: all of it must be assigned (rule 601.2d), and with
+     * no more targets there is nowhere else for it.
+     */
+    private static boolean finishDivision(SpellAbility ability) {
+        if (!ability.isDividedAsYouChoose() || ability.getStillToDivide() <= 0) {
+            return true;
+        }
+        java.util.List<forge.game.GameObject> chosen = new java.util.ArrayList<>(ability.getTargets());
+        if (chosen.isEmpty()) {
+            return true;
+        }
+        forge.game.GameObject last = chosen.get(chosen.size() - 1);
+        Integer already = ability.getDividedValue(last);
+        ability.addDividedAllocation(last, (already == null ? 0 : already) + ability.getStillToDivide());
+        return true;
     }
 
     /**
@@ -700,7 +791,7 @@ public final class MatchController extends GeneratedControllerBase {
             boolean effect) {
         try {
             return new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
-                    .pay(toPay, ability);
+                    .pay(toPay, ability, effect);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
@@ -1365,6 +1456,194 @@ public final class MatchController extends GeneratedControllerBase {
             }
             remaining.remove(picked);
             chosen.add(picked);
+        }
+        return chosen;
+    }
+
+    /**
+     * One of several labelled choices, by index, or -1 for a pass --
+     * the shape the three ports below share.
+     */
+    private int askIndex(String kind, java.util.List<String> texts, boolean mandatory, String prompt) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < texts.size(); i++) {
+            labels.put(kind + ":" + i, texts.get(i));
+        }
+        try {
+            String choice = host.gate().ask(
+                    actedForSeat, authorisedSeat, kind,
+                    new java.util.ArrayList<>(labels.keySet()), mandatory, prompt,
+                    pending -> host.publishDecision(pending, labels));
+            if (choice == null || DecisionGate.PASS.equals(choice)) {
+                return -1;
+            }
+            return Integer.parseInt(choice.substring(kind.length() + 1));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return -1;
+        }
+    }
+
+    /**
+     * Which of several static abilities applies -- a port of Forge's
+     * own human controller: one, or a cost reduction (Thoughtcast's
+     * affinity), needs no question and takes the first; otherwise the
+     * player chooses. Was a loud stub: Thoughtcast stopped the match.
+     */
+    @Override
+    public forge.game.staticability.StaticAbility chooseSingleStaticAbility(
+            java.util.List<forge.game.staticability.StaticAbility> possible) {
+        forge.game.staticability.StaticAbility first = possible.get(0);
+        boolean costReduction = first.getMode().contains(forge.game.staticability.StaticAbilityMode.ReduceCost);
+        if (possible.size() == 1 || costReduction) {
+            return first;
+        }
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        possible.forEach(st -> texts.add(st.getHostCard() + " — " + st));
+        int picked = askIndex("chooseSingleStaticAbility", texts, true, "Which applies first?");
+        return picked < 0 ? first : possible.get(picked);
+    }
+
+    /**
+     * Discard from a hand (Three Steps Ahead's "then discard a card") --
+     * a port of Forge's human controller: from `valid`, between min
+     * and max, one at a time. From another player's hand the chooser
+     * is choosing among cards Forge has shown them. Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsToDiscardFrom(
+            Player discarder,
+            SpellAbility sa,
+            forge.game.card.CardCollection valid,
+            int min,
+            int max,
+            forge.game.card.CardCollectionView visibleToChooser) {
+        String whose = discarder == player ? "your hand" : discarder.getName() + "'s hand";
+        String title = (min == max ? "Discard " + max : "Discard up to " + max) + " from " + whose;
+        return new forge.game.card.CardCollection(
+                chooseEntitiesForEffect(valid, min, max, null, sa, title, discarder, null));
+    }
+
+    /**
+     * Optional additional costs (Entwine, Spree, Kicker, Buyback...) --
+     * a port of Forge's human controller, which offers any number of
+     * them: one at a time here, pass when done. Was a loud stub: Tooth
+     * and Nail stopped the match.
+     */
+    @Override
+    public java.util.List<forge.game.spellability.OptionalCostValue> chooseOptionalCosts(
+            SpellAbility chosen, java.util.List<forge.game.spellability.OptionalCostValue> values) {
+        java.util.List<forge.game.spellability.OptionalCostValue> left = new java.util.ArrayList<>(values);
+        java.util.List<forge.game.spellability.OptionalCostValue> taken = new java.util.ArrayList<>();
+        while (!left.isEmpty()) {
+            java.util.List<String> texts = new java.util.ArrayList<>();
+            left.forEach(v -> texts.add(String.valueOf(v)));
+            int picked = askIndex("chooseOptionalCosts", texts, false,
+                    "Pay any optional costs for " + chosen.getHostCard().getName()
+                            + (taken.isEmpty() ? "?" : "? (" + taken.size() + " chosen; pass when done)"));
+            if (picked < 0) {
+                break;
+            }
+            taken.add(left.remove(picked));
+        }
+        return taken;
+    }
+
+    /**
+     * Delve (Treasure Cruise) — PHASE_06 §6.92, P6-AN.
+     *
+     * Each card exiled from the graveyard pays {1} of the generic
+     * cost; how many, and which, is the player's. Forge's own human
+     * controller asks for "up to" that many from the graveyard; so
+     * does this, one at a time, and passing is "no more". Was a loud
+     * stub: any delve spell stopped the match.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsToDelve(
+            int genericAmount, forge.game.card.CardCollection grave) {
+        int most = Math.min(genericAmount, grave.size());
+        if (most == 0) {
+            return forge.game.card.CardCollection.EMPTY;
+        }
+        return new forge.game.card.CardCollection(chooseEntitiesForEffect(
+                grave, 0, most, null, null,
+                "Delve: exile cards from your graveyard, each paying {1}", player, null));
+    }
+
+    /**
+     * Convoke and Improvise — PHASE_06 §6.92, P6-AN.
+     *
+     * A port of Forge's own InputSelectCardsForConvokeOrImprovise:
+     * tap creatures (Convoke) or artifacts (Improvise) to pay, one at
+     * a time, pass when done. What each tap pays is Forge's
+     * ManaCostBeingPaid: an artifact pays generic; a creature pays a
+     * colour it has, and only a creature that could pay more than one
+     * remaining colour asks which. A tap that cannot pay anything still
+     * owed is not offered again. Was a loud stub.
+     */
+    @Override
+    public java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> chooseCardsForConvokeOrImprovise(
+            SpellAbility sa,
+            forge.card.mana.ManaCost manaCost,
+            forge.game.card.CardCollectionView untappedCards,
+            boolean artifacts,
+            boolean creatures,
+            Integer maxReduction) {
+        java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> chosen = new java.util.LinkedHashMap<>();
+        forge.game.mana.ManaCostBeingPaid remaining = new forge.game.mana.ManaCostBeingPaid(manaCost);
+        java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
+        untappedCards.forEach(left::add);
+        int most = Math.min(manaCost.getCMC(), left.size());
+        if (maxReduction != null) {
+            most = Math.min(most, maxReduction);
+        }
+        String what = artifacts && creatures ? "an artifact or creature" : creatures ? "a creature" : "an artifact";
+        String keyword = artifacts && creatures ? "Waterbend" : creatures ? "Convoke" : "Improvise";
+
+        while (chosen.size() < most && !left.isEmpty() && !remaining.isPaid()) {
+            java.util.LinkedHashMap<String, forge.game.card.Card> byId = new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (forge.game.card.Card card : left) {
+                String id = "card:" + card.getId();
+                byId.put(id, card);
+                labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
+            }
+            String choice;
+            try {
+                choice = host.gate().ask(
+                        actedForSeat,
+                        authorisedSeat,
+                        "chooseCardsForConvokeOrImprovise",
+                        new java.util.ArrayList<>(byId.keySet()),
+                        false,
+                        "Choose " + what + " to tap for " + keyword + ". Still owed: " + remaining
+                                + " (or pass when done).",
+                        pending -> host.publishDecision(pending, labels));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            forge.game.card.Card picked = byId.get(choice);
+            if (picked == null) {
+                break;
+            }
+            left.remove(picked);
+            byte colour;
+            if (artifacts) {
+                colour = forge.card.mana.ManaCostShard.COLORLESS.getColorMask();
+            } else {
+                forge.card.ColorSet colours = picked.getColor();
+                if (colours.isMulticolor()) {
+                    colours = forge.card.ColorSet.fromMask(colours.getColor() & remaining.getUnpaidColors());
+                }
+                colour = colours.isMulticolor()
+                        ? chooseColorAllowColorless(keyword + " " + picked + " for which colour?", picked, colours)
+                        : colours.getColor();
+            }
+            forge.card.mana.ManaCostShard shard = remaining.payManaViaConvoke(colour);
+            if (shard != null) {
+                chosen.put(picked, shard);
+            }
         }
         return chosen;
     }

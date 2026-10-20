@@ -552,6 +552,61 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         }
     }
 
+    /**
+     * "Discard a card" as a cost -- escalate (Collective Brutality),
+     * looting, rummaging. A port of Forge's own HumanCostDecision:
+     * the card itself; the whole hand (confirmed); the last drawn;
+     * at random (Forge's randomness, not the player's); cards with
+     * different names; or N of a type, chosen one at a time. Was a
+     * loud stub: Collective Brutality's second mode stopped the match.
+     * "+WithSameName" still refuses loudly, by name.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostDiscard cost) {
+        forge.game.card.CardCollectionView hand = player.getCardsIn(forge.game.zone.ZoneType.Hand);
+        String type = cost.getType();
+        if (cost.payCostFromSource()) {
+            return hand.contains(source) ? PaymentDecision.card(source) : null;
+        }
+        if (type.equals("Hand")) {
+            return confirm("Discard your hand (" + hand.size() + " cards)?") ? PaymentDecision.card(hand) : null;
+        }
+        if (type.equals("LastDrawn")) {
+            Card last = player.getLastDrawnCard();
+            return hand.contains(last) ? PaymentDecision.card(last) : null;
+        }
+        int count = cost.getAbilityAmount(ability);
+        if (type.equals("Random")) {
+            return PaymentDecision.card(new forge.game.card.CardCollection(forge.util.Aggregates.random(hand, count)));
+        }
+        if (type.contains("+WithSameName")) {
+            return loud("CostDiscard+WithSameName");
+        }
+        if (type.contains("+WithDifferentNames")) {
+            forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+            forge.game.card.CardCollectionView left = hand;
+            for (int i = 0; i < count; i++) {
+                Card next = pickOne(left, "CostDiscard",
+                        "Discard a card with a name not yet discarded (" + (i + 1) + " of " + count + ").");
+                if (next == null) {
+                    return null;
+                }
+                chosen.add(next);
+                left = forge.game.card.CardLists.filter(left,
+                        forge.game.card.CardPredicates.sharesNameWith(next).negate());
+            }
+            return PaymentDecision.card(chosen);
+        }
+        forge.game.card.CardCollectionView valid =
+                forge.game.card.CardLists.getValidCards(hand, type.split(";"), player, source, ability);
+        if (valid.isEmpty()) {
+            return null;
+        }
+        java.util.List<Card> picked = pickCards(valid, count, "CostDiscard",
+                "Discard " + count + " " + cost.getDescriptiveType() + " to pay the cost.");
+        return picked == null ? null : PaymentDecision.card(picked);
+    }
+
     /** A yes/no the player actually answers. */
     private boolean confirm(String prompt) {
         try {

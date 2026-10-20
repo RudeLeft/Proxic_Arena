@@ -37,7 +37,7 @@ TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 SEAT1 = [("Island", 14), ("Plains", 10), ("Mountain", 14), ("Raging Goblin", 6),
          ("Rabbit Battery", 6), ("Bonesplitter", 6), ("Pacifism", 6), ("Control Magic", 6)]
 SEAT2 = [("Forest", 30), ("Grizzly Bears", 30)]
-MAX_TURN = 40
+MAX_TURN = 60  # draw-dependent: 40 left about one run in three short of the battery
 
 proc = subprocess.Popen(
     ["java", "-jar", JAR, RES],

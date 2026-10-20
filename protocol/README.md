@@ -101,6 +101,10 @@ card.faceDown  true for a face-down permanent. For its controller it
              rules make public: kind "creature", types, power,
              toughness, damage, sick/attacking/blocking, counters --
              the face-down 2/2's, never the real card's (P6-I).
+exile        every player's exiled cards, described like any zone (a
+             face-down exiled card stays "Face-down"). Where delve and
+             Force of Will's payments go, and where an Adventure
+             creature waits to be cast.
 otherHands   OTHER players' hand cards Forge lets this viewer see --
              under Mindslaver the controlled player's hand, with a
              "play with your hand revealed" effect an opponent's.
@@ -117,3 +121,27 @@ otherHands   OTHER players' hand cards Forge lets this viewer see --
   keep rising across a restart, so no answer from game 1 is
   accepted in game 2; `gameEpoch` is what tells a client the board
   it holds is from a game that no longer exists.
+
+## Costs and modes (Phase 6, P6-AN)
+
+Questions added 2026-10-20, each one at a time like every other:
+
+```text
+chooseTargetsFor          also offers spells ON THE STACK, as
+                          "target:stack:N" -- the snapshot's own id
+                          for that stack entry (counterspells)
+divideAsYouChoose         after each target of a divided spell (Fire):
+                          "divide:N", 1 up to what is left
+applyManaToCost           also "mana:life:phyrexian" -- pay 2 life for
+                          a Phyrexian symbol; the life is paid only
+                          when the whole cost is
+chooseCardsForConvokeOrImprovise   a creature or artifact to tap, or
+                          pass when done; Forge decides what it pays
+chooseOptionalCosts       entwine, kicker, spree...: any number, pass
+                          when done
+chooseSingleStaticAbility which of several effects applies first
+CostDiscard               the card(s) to discard as a cost (escalate)
+```
+
+Delve and discarding from a hand by an effect use the existing
+`chooseEntitiesForEffect` ("up to N", pass when done).

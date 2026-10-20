@@ -20,6 +20,7 @@ Run with `python -I`: the harness puts its own directory on the path, so
 a scenario finds it.
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -49,7 +50,10 @@ class Game:
         self.proc = subprocess.Popen(
             ["java", *jvm, "-jar", self.jar, self.res],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
+            # LAB_STDERR keeps the worker's own log (Forge's messages) for
+            # a scenario being debugged; otherwise it is discarded.
+            stderr=open(os.environ["LAB_STDERR"], "w") if os.environ.get("LAB_STDERR") else subprocess.DEVNULL,
+            text=True, encoding="utf-8", bufsize=1)
         self.trace = open(trace, "w", encoding="utf-8") if trace else None
 
     # --- the wire ------------------------------------------------------
@@ -132,8 +136,11 @@ class Game:
             return self.play_land(frame)
         if kind in ("declareAttackers", "declareBlockers"):
             return None
+        # A target question is not "mandatory" (passing cancels the
+        # spell), so it must be named here: a scenario that cast
+        # something wants it to go ahead.
         if kind in ("mulliganKeepHand", "chooseStartingPlayer", "applyManaToCost", "confirmPayment",
-                    "chooseCardsToDiscardToMaximumHandSize", "chooseManaAbility"):
+                    "chooseCardsToDiscardToMaximumHandSize", "chooseManaAbility", "chooseTargetsFor"):
             return options[0]["actionId"] if options else None
         return options[0]["actionId"] if (options and frame.get("mandatory")) else None
 
