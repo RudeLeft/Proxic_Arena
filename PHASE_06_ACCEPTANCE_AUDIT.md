@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 32 |
-| PARTIAL | 20 |
-| NOT MET | 11 |
+| MET | 35 |
+| PARTIAL | 19 |
+| NOT MET | 9 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -39,6 +39,10 @@ green unit tests sat underneath four shipped faults.
 pregame decisions (Finding 2, P6-AC → PARTIAL), match-time artwork
 (Finding 1, P6-X/Y/Z → MET) and semantic non-object choices
 (Finding 3, P6-AH/AI/AM → MET, P6-AG blocked on the protocol).
+
+**Updated 2026-10-20.** Finding 6 is closed: two and three matches
+at once, a crashed worker and a server restart have all been run
+(P6-AX, P6-AY → MET; P6-AZ PARTIAL → MET).
 
 Roughly a third done, a third started, a third untouched. The
 untouched third is not evenly spread: it is almost entirely
@@ -166,7 +170,7 @@ artefact; it has not been created. P6-AA (Agent of Kotis) and
 P6-AE (Panglacial Wurm) both draw their scenarios from it, so this
 blocks three tests rather than one.
 
-### 6. Several failure paths are implemented but never actually triggered
+### 6. ~~Several failure paths are implemented but never actually triggered~~ — RUN 2026-10-20
 
 P6-AX (failure isolation), P6-AY (three concurrent matches) and
 P6-AZ (Ktor restart during a live match) are all "crash it and
@@ -221,7 +225,7 @@ restarted under a live match outside a unit test.
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| P6-X | Asset plumbing | MET | **Built 2026-10-19.** Forge object → visible identity → imported asset → match-scoped route → image on screen, asserted end to end in the browser: 16 assets served in one match, the reference matched `/api/matches/{uuid}/assets/{sha256}`, and the response was a 200 image |
+| P6-X | Asset plumbing | MET | **Built 2026-10-19.** Forge object → visible identity → imported asset → match-scoped route → image on screen, asserted end to end in the browser: 16 assets served in one match, the reference matched `/api/matches/{uuid}/assets/{sha256}`, and the response was a 200 image. Two-faced cards (stored "A // B", named "A" by Forge) had none until 2026-10-20 — seen in a screenshot, now unit-tested |
 | P6-Y | Hidden asset protection | MET | A card with `known: false` is never given a reference, so there is nothing to retrieve; proven by a test that fails when the `known` check is removed (mutation run) |
 | P6-Z | No asset enumeration | MET | Being shown one card of an opponent's deck authorises that asset and no other — unit-tested both ways, and a well-formed unshown reference returns 404 in the browser suite |
 
@@ -257,9 +261,9 @@ restarted under a live match outside a unit test.
 | P6-AU | Worker protocol mismatch | PARTIAL | The **browser** protocol version is checked (`PROTOCOL_VERSION_MISMATCH`). The **worker's** is sent but never validated, and nothing tests it |
 | P6-AV | Forge revision mismatch | PARTIAL | `MatchWorker` refuses on mismatch; **no test covers it** |
 | P6-AW | Worker runtime crash | MET | `a runtime failure records no winner`, `a late failure cannot overwrite a real result`; `WorkerEvent.Stopped` → FAILED |
-| P6-AX | Failure isolation | NOT MET | Two matches have never run at once |
-| P6-AY | Three concurrent matches | NOT MET | No benchmark of any kind |
-| P6-AZ | Ktor restart | PARTIAL | `MatchRecovery` implemented and unit-tested three ways; **the server has never been restarted under a live match** |
+| P6-AX | Failure isolation | MET | **Run 2026-10-20** (`e2e/match-concurrency.spec.ts`). Three matches; one worker found by its stderr file descriptor and killed with SIGKILL. Both of its players were told "The game stopped before it finished. Nobody won it.", its room reopened, and the other two matches answered their pregame questions and reached RUNNING afterwards. Screenshots `seen/crashed.png`, `seen/survivor.png` |
+| P6-AY | Three concurrent matches | MET | **Run 2026-10-20**, six players, three matches launched together. Startup (room setup to first question) 12.9–13.9 s; worker memory 824–940 MiB each, 2.66 GiB for three, server 498 MiB; 19–21 CPU-seconds per worker to the first question. Routing: exactly one player asked per match. State: three match ids, each pair sharing one. Assets: one match's image refused (404) through another match's route and to a non-participant. Shutdown: no worker left after abandoning. Numbers in `seen/concurrency.json` |
+| P6-AZ | Ktor restart | MET | **Run 2026-10-20**: the server container restarted under a RUNNING match. Observed exactly the documented policy (`MatchRecovery`, §6.157): status FAILED_RUNTIME, `failure_code` SERVER_RESTARTED, no current match, room OPEN, no worker survived, and the player is back in the room (`seen/after-restart.png`) |
 
 ### Ending, integrity and production
 
@@ -299,8 +303,10 @@ In rough order of how many tests each unblocks:
 5. ~~**Browser-session tests**~~ — done 2026-10-19: P6-R, P6-S, P6-T
    and P6-BB met, in one match (`e2e/match-session.spec.ts`).
    P6-R found a real server defect, fixed in the same change.
-6. **Concurrency and restart** — two matches, three matches, a
-   restart under load. Three tests (P6-AX, P6-AY, P6-AZ).
+6. ~~**Concurrency and restart**~~ — done 2026-10-20: P6-AX, P6-AY
+   and P6-AZ met (`e2e/match-concurrency.spec.ts`, run on demand
+   with `PROXIC_E2E_CONTAINER`). Looking at its screenshots found
+   two-faced cards had no artwork; fixed in the same change.
 7. **Production evidence** — P6-BK and P6-BL, once the above make a
    production run worth gathering evidence from.
 

@@ -115,26 +115,40 @@ export async function startAMatch(
   deckName: string,
   // false stops at the first pregame question instead of answering
   // it -- for tests whose subject IS a question nobody has answered.
-  { settle = true }: { settle?: boolean } = {},
+  // Who is in the two seats, for the tests that seat somebody
+  // other than RudeLeft and Pat.
+  {
+    settle = true,
+    hostName = testUser,
+    guestName = secondUser,
+  }: { settle?: boolean; hostName?: string; guestName?: string } = {},
 ) {
   await host.goto("/play");
   await guest.goto("/play");
   await host.getByRole("button", { name: "Host a game" }).click();
   await host
     .getByRole("region", { name: "Who is here" })
-    .locator("li", { hasText: secondUser })
+    .locator("li", { hasText: guestName })
     .getByRole("button", { name: "Invite" })
     .click();
   await guest.getByRole("button", { name: "Accept" }).click();
   await expect(host.getByText("2 of 2")).toBeVisible();
 
   for (const [page, who] of [
-    [host, testUser],
-    [guest, secondUser],
+    [host, hostName],
+    [guest, guestName],
   ] as const) {
-    const row = page.getByRole("region", { name: "My decks" }).locator("li", {
+    // The host's OWN copy, and the guest's copy shared by THIS
+    // host. With more than two players on one stack the same
+    // package can reach a player from several people, under one
+    // name, and "the row that says the name" is then two rows.
+    const named = page.getByRole("region", { name: "My decks" }).locator("li", {
       hasText: deckName,
     });
+    const row =
+      page === host
+        ? named.filter({ hasNotText: "shared by" })
+        : named.filter({ hasText: `shared by ${hostName}` });
     // Tolerant of a seat that already has this deck: the suite
     // runs against a stack that keeps its data, and "Use this
     // deck" simply does not exist once it is chosen.
@@ -236,28 +250,37 @@ export async function settlePregame(host: Page, guest: Page) {
  * Checked through the API rather than page wording: what matters is
  * that the guest CAN select it, which is the server's fact.
  */
-export async function sharedDeck(host: Page, guest: Page, pkg: string): Promise<string> {
+export async function sharedDeck(
+  host: Page,
+  guest: Page,
+  pkg: string,
+  guestName: string = secondUser,
+): Promise<string> {
   await host.goto("/decks");
   const mine = async () =>
     (
       (await (await host.request.get("/api/decks")).json()) as {
-        mine: { displayName: string }[];
+        mine: { deckId: string; displayName: string }[];
       }
     ).mine;
   if ((await mine()).length === 0) {
     await host.locator('input[type="file"]').setInputFiles(pkg);
     await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
   }
-  const deckName = (await mine())[0]!.displayName;
+  const { deckId, displayName: deckName } = (await mine())[0]!;
+  // By ID, not by name. With several hosts on one stack the guest
+  // may already hold a same-named deck from somebody else, and a
+  // name check would then decide THIS deck was shared and skip
+  // sharing it.
   const guestCanSee = async () =>
     (
       (await (await guest.request.get("/api/decks")).json()) as {
-        sharedWithMe: { displayName: string }[];
+        sharedWithMe: { deckId: string }[];
       }
-    ).sharedWithMe.some((deck) => deck.displayName === deckName);
+    ).sharedWithMe.some((deck) => deck.deckId === deckId);
   if (!(await guestCanSee())) {
     await host.getByRole("button", { name: "view" }).first().click();
-    await host.getByLabel("Username").fill(secondUser);
+    await host.getByLabel("Username").fill(guestName);
     await host.getByRole("button", { name: "Share", exact: true }).click();
     await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
   }
