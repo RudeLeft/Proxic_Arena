@@ -29,8 +29,8 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 55 |
-| PARTIAL | 5 |
+| MET | 56 |
+| PARTIAL | 4 |
 | NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
@@ -60,15 +60,17 @@ Commander cannot be prepared or launched through the API. P6-L →
 MET: every question in every regression game reached its seat after
 the state it refers to. P6-BA → MET: a finished match's worker is
 stopped and nothing per-match is left but its log. P6-BC → MET:
-deck storage is unchanged across a match, rows and artwork.
+deck storage is unchanged across a match, rows and artwork. P6-AK
+→ MET: attachments, including an Aura across the table, drawn with
+what they modify.
 
-Where it stands now (2026-10-20): 55 of 65 met. What is left is
+Where it stands now (2026-10-20): 56 of 65 met. What is left is
 narrow: **production** (P6-BK, P6-BL — they need the deployed
 server, so they are the owner's to schedule), a **rules-version
-regression** scenario nobody has chosen yet (P6-AF), and five
+regression** scenario nobody has chosen yet (P6-AF), and four
 partials -- hidden-hand logs (G), face-down cards actually played
-(I), attachments seen in a browser (AK), exact printings inspected
-at runtime (BD) and a formal project-integrity comparison (BM).
+(I), exact printings inspected at runtime (BD) and a formal
+project-integrity comparison (BM).
 
 ---
 
@@ -265,7 +267,7 @@ restarted under a live match outside a unit test.
 | P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
 | P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |
 | P6-AJ | Composite / multi-representation | MET | **Run 2026-10-20** (`check-multiface.py`, `e2e/match-multiface.spec.ts`): Delver of Secrets // Insectile Aberration is one object id whose face changes; the snapshot carries Forge's `face` and every face name (§6.79), and the art follows the face shown -- the front's picture, then none for the back rather than the front's. Mutate, Rooms and battles are still untested (ledger) |
-| P6-AK | Attachment relationships | PARTIAL | Snapshot carries `attachedTo`; the artifacts deck equips Bonesplitter; **never seen in a browser, no aura or mutate** |
+| P6-AK | Attachment relationships | MET | **Run 2026-10-20**, `scripts/check-attachments.py` (in CI) and `e2e/match-attachments.spec.ts`. From both seats' snapshots: Bonesplitter equipped to one creature then another (the relationship moves); Pacifism, seat 1's Aura on seat 2's creature; Control Magic on a creature whose seat goes 2 → 1 under the same id; Rabbit Battery reconfigured -- no longer a creature, `Artifact - Equipment`, attached. Every `attachedTo` names a card on that viewer's battlefield. In the browser each attachment is drawn on what it modifies, whoever controls it ("Pacifism (yours)" / "Pacifism (RudeLeft's)"). **Found and fixed:** an Aura on an opponent's creature was drawn nowhere -- attachments were looked for among their controller's own cards only. Mutate is P6-AJ's (Gemrazer) |
 | P6-AL | Effective characteristics | MET | **Run 2026-10-20**, `scripts/check-characteristics.py` (in CI). Humility: Serra Angel 4/4 Flying Vigilance -> the same object 1/1 with no keywords. Blood Moon: Evolving Wilds `Land` with its search ability -> `Land - Mountain` offering only `{T}: Add {R}`. All Forge's current values; the snapshot now carries current KEYWORDS (it had none), shown on the card chip -- seen in the browser ("Defender") |
 | P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
 | P6-AN | Complex modes / costs | MET | Modes (Abrade, Alley Evasion), X (`announceRequirements`, verified paid and dealt), costs (`CostPutCounter`, `CostRemoveCounter`, `CostTap`, mana) |

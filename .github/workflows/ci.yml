@@ -133,7 +133,7 @@ jobs:
 
       - run: ./gradlew :server:test --no-daemon
 
-      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP and P6-L:
+      # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL, P6-AO, P6-AP, P6-AK and P6-L:
       # Mechanics Lab regressions,
       # each a focused deck played against the worker taken from this
       # image. Exit 2 means the game never reached the scenario,
@@ -154,6 +154,7 @@ jobs:
           python3 -I scripts/check-player-state.py "$jar" "$res" "$traces/player-state.jsonl"
           python3 -I scripts/check-mana-choice.py "$jar" "$res" "$traces/mana-choice.jsonl"
           python3 -I scripts/check-alternate-win.py "$jar" "$res" "$traces/alternate-win.jsonl"
+          python3 -I scripts/check-attachments.py "$jar" "$res" "$traces/attachments.jsonl"
           # P6-L, over every game above: no question reaches a seat before
           # the state it refers to.
           python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
@@ -284,6 +285,11 @@ jobs:
       - name: Build the Maniac deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/maniac-deck.zip" protocol/fixtures/maniac-deck
+
+      # And attachments (P6-AK): equipment, Auras across the table.
+      - name: Build the attachment deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/attachment-deck.zip" protocol/fixtures/attachment-deck
 
       - run: npm ci
         working-directory: frontend

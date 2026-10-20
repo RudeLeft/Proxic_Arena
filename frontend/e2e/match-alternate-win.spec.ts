@@ -104,7 +104,10 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         const keep = live !== host || hand.some((name) => name.includes(MANIAC));
         pick = find(keep ? /Keep/ : /Mulligan/);
       } else if (/Put a card back/.test(heading)) {
+        // Never the Maniac the hand was kept for. With too few Islands
+        // to put back, Forge's first option could have been it.
         pick = find(/^Island/);
+        if (pick < 0) pick = labels.findIndex((label) => !label.startsWith(MANIAC));
       } else if (/Choose a creature to attack/.test(prompt)) {
         // Nobody attacks: life must not move.
         pick = -1;
@@ -149,9 +152,14 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     // The result, as each player sees it: Forge's winner, and Forge's
     // reason, word for word.
     const why = "The winner has won due to effect of 'Laboratory Maniac'.";
+    // What the page said, so a failure names how the game DID end.
+    const said = async () =>
+      (await matchPanel(host).locator(".board-totals, p").allTextContents())
+        .filter((text) => /won|draw|stopped|life/.test(text))
+        .join(" | ");
     await expect(
       matchPanel(host).getByText(/You won on turn \d+\./),
-      `after ${answered} decisions`,
+      `after ${answered} decisions; the page said: ${await said()}`,
     ).toBeVisible({ timeout: 120_000 });
     await expect(matchPanel(host).getByText(why)).toBeVisible();
     await expect(matchPanel(guest).getByText(/Your opponent won on turn \d+\./)).toBeVisible({

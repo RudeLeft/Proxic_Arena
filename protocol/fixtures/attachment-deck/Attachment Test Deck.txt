@@ -1,0 +1,8 @@
+12 Plains
+18 Mountain
+10 Forest
+4 Raging Goblin
+4 Grizzly Bears
+4 Bonesplitter
+4 Pacifism
+4 Rabbit Battery

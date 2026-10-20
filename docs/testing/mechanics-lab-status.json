@@ -256,8 +256,10 @@
     "Control Magic": {
       "owner": "P6_REQUIRED",
       "required": "Required",
-      "tests": "P6-AL, P6-U, §6.85",
-      "scenario": "Control changes; the object stays the same object."
+      "tests": "P6-AK, P6-AL, P6-U, §6.85",
+      "scenario": "Control changes; the object stays the same object.",
+      "result": "PASSED",
+      "evidence": "scripts/check-attachments.py (worker, in CI), 2026-10-20. Seat 1's Aura on seat 2's Grizzly Bears: the creature's seat goes 2 -> 1 under the same card id, and Control Magic stays attached to it in both seats' snapshots."
     },
     "Mind Bend": {
       "owner": "P6_REQUIRED",
@@ -399,6 +401,30 @@
       "tests": "P6-AE (supporting)",
       "result": "NOT_YET_TESTED",
       "notes": "Its search is the surrounding interaction in the P6-AE scenario; the land arriving tapped is not asserted."
+    },
+    "Bonesplitter": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "P6-AK",
+      "scenario": "Equip, then equip to another creature: the attachment moves.",
+      "result": "PASSED",
+      "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Equipped to one creature, then another: attachedTo follows it in both seats' views; the browser draws it on the equipped Goblin (4/2)."
+    },
+    "Pacifism": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "P6-AK",
+      "scenario": "An Aura on the opponent's creature, drawn on that creature.",
+      "result": "PASSED",
+      "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Seat 1's Aura attached to seat 2's creature in both views; the browser draws it on the opponent's creature as 'Pacifism (yours)' and, for the opponent, 'Pacifism (RudeLeft's)'. Found: the board had drawn it nowhere -- attachments were looked for among their own controller's cards only."
+    },
+    "Rabbit Battery": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "P6-AK",
+      "scenario": "Reconfigure onto a creature: it becomes Equipment.",
+      "result": "PASSED",
+      "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Reconfigured onto a creature: kind no longer creature, types Artifact - Equipment, attachedTo the creature; the browser draws it on the creature and not as a creature of its own."
     }
   }
 }

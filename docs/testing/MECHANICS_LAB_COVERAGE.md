@@ -30,7 +30,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 
 ## Phase 6 required scenarios (Layer B)
 
-48 cards. 33 NOT_YET_TESTED, 15 PASSED.
+48 cards. 32 NOT_YET_TESTED, 16 PASSED.
 
 | Card / Scenario | Source printing | Category | Mechanic / stress case | Tests | Focused test scenario | Forge support | Proxic support | Current result | Evidence | Known issue / blocker | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -45,7 +45,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 | Call of the Ring | LTR:530 | Actions & choices | The Ring tempts you; Ring-bearer designation; emblem progression | P6-AO, §6.97 | The Ring tempts you; a Ring-bearer is chosen. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Collective Brutality | INR:101 | Casting & costs | Escalate; modal spell; discard as additional cost | P6-AN, §6.92 | Escalate: modes chosen, an extra cost per extra mode. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Commit // Memory | LCC:147 | Card structures | Aftermath; split card; graveyard half | P6-AJ, P6-BF, §6.82 | Aftermath: one half from hand, the other from the graveyard. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
-| Control Magic | EMA:42 | Advanced rules | Continuous control-changing Aura | P6-AL, P6-U, §6.85 | Control changes; the object stays the same object. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
+| Control Magic | EMA:42 | Advanced rules | Continuous control-changing Aura | P6-AK, P6-AL, P6-U, §6.85 | Control changes; the object stays the same object. | Resolves | Supported | PASSED | scripts/check-attachments.py (worker, in CI), 2026-10-20. Seat 1's Aura on seat 2's Grizzly Bears: the creature's seat goes 2 -> 1 under the same card id, and Control Magic stays attached to it in both seats' snapshots. |  |  |
 | Cryptic Command | IMA:48 | Casting & costs | Modal spell; multiple mode selection; counter; bounce; tap; draw | P6-AN, §6.92 | Choose two modes, then targets for each. | Resolves | Not proven | NOT_YET_TESTED |  |  | Mode choice is MET on Alley Evasion and Abrade; not yet run on this card. |
 | Delver of Secrets // Insectile Aberration | INR:60 | Card structures | Transforming double-faced card | P6-AJ, P6-BF, §6.82 | Transform: the same object, the other face. | Resolves | Supported | PASSED | scripts/check-multiface.py (worker, in CI) and frontend/e2e/match-multiface.spec.ts (browser, in CI), 2026-10-20. One object id throughout; face Original -> Backside with both face names (Forge's); 1/1 Human Wizard -> 3/2 Human Insect from Forge, not printed text. The top card is shown to its controller before 'Reveal?'; the opponent is told of every reveal and of nothing declined. In the browser: front with its imported picture; back as Insectile Aberration 3/2 with no picture borrowed from the front. Screenshots seen/delver-*.png. |  | Found: Forge's 'look at' and 'reveal' (PlayerController.reveal) were no-ops in the adapter, so the reveal question was answered blind and opponents never saw reveals; now a private notice to each entitled player. Packages carry front images only, so a transformed card shows no picture rather than the wrong one. |
 | Dismember | TSR:322 | Casting & costs | Phyrexian mana; pay life instead of mana | P6-AN, §6.92 | Phyrexian mana: pay life or mana per symbol. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
@@ -115,7 +115,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Boggart Mischief | ECL:92 | 1 | Recent mechanics 2024-2026 | Kindred permanent; creature subtype on a noncreature card | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Boggart Ram-Gang | SHM:203 | 1 | Counters & tokens | Wither; -1/-1 counters from damage | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Bonecrusher Giant // Stomp | CLB:781 | 1 | Card structures | Adventure; cast Adventure then creature from exile | P6_REQUIRED | Required | NOT_YET_TESTED |
-| Bonesplitter | CMR:458 | 1 | Attachments & artifacts | Equipment; equip; attachment movement | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Bonesplitter | CMR:458 | 1 | Attachments & artifacts | Equipment; equip; attachment movement | P8_COVERAGE | Exploratory | PASSED |
 | Boon Satyr | THS:152 | 1 | Card structures | Bestow; creature/Aura mode; illegal target during resolution fallback | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Boon-Bringer Valkyrie | MOM:9 | 1 | Combat & evergreen | Backup; flying; first strike; lifelink | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Bottomless Pool // Locker Room | DSK:43 | 1 | Card structures | Room; doors/unlock; shared type line | P6_REQUIRED | Required | NOT_YET_TESTED |
@@ -138,7 +138,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Commit // Memory | LCC:147 | 1 | Card structures | Aftermath; split card; graveyard half | P6_REQUIRED | Required | NOT_YET_TESTED |
 | Conciliator's Duelist | SOS:182 | 1 | Recent mechanics 2024-2026 | Repartee; cast instant/sorcery targeting a creature trigger | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Contagion Clasp | TSR:391 | 1 | Counters & tokens | Proliferate; -1/-1 counter; activated ability | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Control Magic | EMA:42 | 1 | Advanced rules | Continuous control-changing Aura | P6_REQUIRED | Required | NOT_YET_TESTED |
+| Control Magic | EMA:42 | 1 | Advanced rules | Continuous control-changing Aura | P6_REQUIRED | Required | PASSED |
 | Council's Judgment | 2XM:11 | 1 | Actions & choices | Will of the council; multiplayer voting; exile | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Counterspell | MB2:158 | 1 | Advanced rules | Counter target spell; stack targeting | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Craw Giant | TSB:76 | 1 | Combat & evergreen | Rampage; trample; multiple blockers | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
@@ -261,7 +261,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Osteomancer Adept | BLB:103 | 1 | Recent mechanics 2024-2026 | Forage keyword action; exile graveyard cards or sacrifice Food as a cost; cast creatures from graveyard | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Overlord of the Hauntwoods | DSK:194 | 1 | Recent mechanics 2024-2026 | Impending; alternative cost; time counters; temporarily not a creature; delayed state change | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Ox of Agonas | THB:147 | 1 | Casting & costs | Escape; cast from graveyard; exile cards as additional cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Pacifism | J25:234 | 1 | Attachments & artifacts | Aura; enchant creature; attack/block restriction | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Pacifism | J25:234 | 1 | Attachments & artifacts | Aura; enchant creature; attack/block restriction | P8_COVERAGE | Exploratory | PASSED |
 | Pact of Negation | PLST:A25-68 | 1 | Casting & costs | Zero-mana spell; delayed upkeep payment; lose-game consequence | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Palace Jailer | CMM:47 | 1 | Actions & choices | Monarch; exile linked to monarch state | P6_REQUIRED | Required | PASSED |
 | Panglacial Wurm | CSP:116 | 1 | Zones & information | Cast while searching library; unusual casting window | P6_REQUIRED | Required | PASSED |
@@ -278,7 +278,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Propaganda | CLB:730 | 1 | Combat & evergreen | Attack tax; declare-attacker cost legality | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Protege's Awakening | FRA:37 | 1 | Card structures | Empower Jace; create/select Jace planeswalker token and add loyalty | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Questing Beast | ELD:171 | 1 | Combat & evergreen | Vigilance; deathtouch; haste; blocking restriction; damage-prevention exception; combat-damage trigger | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Rabbit Battery | NEO:157 | 1 | Attachments & artifacts | Reconfigure; creature/Equipment type change; attachment | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Rabbit Battery | NEO:157 | 1 | Attachments & artifacts | Reconfigure; creature/Equipment type change; attachment | P8_COVERAGE | Exploratory | PASSED |
 | Rabid Bite | BLB:394 | 1 | Combat & evergreen | One-way creature damage ('bite') | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Radical Idea | RVR:58 | 1 | Casting & costs | Jump-start; cast from graveyard; discard additional cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Raffine, Scheming Seer | SNC:213 | 1 | Actions & choices | Connive X; draw/discard; counters; attack trigger | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

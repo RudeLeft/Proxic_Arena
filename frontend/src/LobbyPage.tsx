@@ -1246,6 +1246,8 @@ function hintFor(kind: string, options: number): string {
 function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
   const me = board.players.find((player) => player.seat === board.seat);
   const opponents = board.players.filter((player) => player.seat !== board.seat);
+  const nameOf = (seat: number) =>
+    board.players.find((player) => player.seat === seat)?.name ?? `Seat ${seat}`;
 
   return (
     <div className="board">
@@ -1287,6 +1289,9 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
             <PlayerSide
               player={player}
               cards={board.battlefield.filter((card) => card.seat === player.seat)}
+              battlefield={board.battlefield}
+              viewerSeat={board.seat}
+              nameOf={nameOf}
               mine={false}
               matchId={matchId}
             />
@@ -1331,6 +1336,9 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
         <PlayerSide
           player={me}
           cards={board.battlefield.filter((card) => card.seat === me.seat)}
+          battlefield={board.battlefield}
+          viewerSeat={board.seat}
+          nameOf={nameOf}
           mine
           matchId={matchId}
         />
@@ -1356,20 +1364,46 @@ function Board({ board, matchId }: { board: Snapshot; matchId: string }) {
 function PlayerSide({
   player,
   cards,
+  battlefield,
+  viewerSeat,
+  nameOf,
   mine,
   matchId,
 }: {
   player: SnapshotPlayer;
   cards: SnapshotCard[];
+  battlefield: SnapshotCard[];
+  viewerSeat: number;
+  nameOf: (seat: number) => string;
   mine: boolean;
   matchId: string;
 }) {
   // Auras and equipment are drawn WITH what they modify. An
   // equipment in its own row tells you nothing about which
   // creature is now a 5/5.
-  const attachments = cards.filter((card) => card.attachedTo !== null);
-  const standalone = cards.filter((card) => card.attachedTo === null);
-  const attachedTo = (id: string) => attachments.filter((card) => card.attachedTo === id);
+  //
+  // WHOEVER controls them (P6-AK). They were looked for among this
+  // side's own cards only, so your Pacifism on an opponent's creature
+  // was drawn nowhere at all: an attachment on your side, its host on
+  // theirs. One whose host is not on the battlefield stays a card of
+  // its own rather than vanishing.
+  const present = new Set(battlefield.map((card) => card.id));
+  const standalone = cards.filter(
+    (card) => card.attachedTo === null || !present.has(card.attachedTo),
+  );
+  const attachedTo = (id: string) => {
+    const host = battlefield.find((card) => card.id === id);
+    return battlefield
+      .filter((card) => card.attachedTo === id)
+      .map((attached) =>
+        !host || attached.seat === host.seat
+          ? attached
+          : {
+              ...attached,
+              name: `${attached.name} (${attached.seat === viewerSeat ? "yours" : `${nameOf(attached.seat)}'s`})`,
+            },
+      );
+  };
 
   const creatures = standalone.filter((card) => card.kind === "creature");
   const lands = standalone.filter((card) => card.kind === "land");
