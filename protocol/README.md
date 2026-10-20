@@ -70,3 +70,27 @@ Rules the server enforces, so a client cannot get round them:
 The worker holds every allowed name in its decision gate and checks
 the answer against them as it checks any answer; the list itself is
 Forge's (`streamAllFaces` filtered by the effect's own predicate).
+
+## Faces and games (Phase 6, P6-BF, P6-AD)
+
+Two snapshot fields a board must not derive for itself:
+
+```text
+card.face    Forge's state for a card with more than one face:
+             Original, Backside (transformed), LeftSplit, RightSplit,
+             Secondary (adventure), Meld, ...      absent for one face
+card.faces   every face name, Forge's, front first
+             e.g. ["Delver of Secrets", "Insectile Aberration"]
+gameEpoch    which Forge game of the match: 1, then 2 after Karn
+             Liberated restarts it. Also on every DECISION_REQUEST.
+```
+
+- `face`/`faces` are sent only for a card this viewer may identify;
+  a hidden card carries neither.
+- Art follows the face SHOWN. Packages carry front images only, so a
+  transformed card has no `art` rather than the front's.
+- Forge restarts in place and keeps card id numbers, so `card:45` in
+  game 2 may be the same physical card as in game 1. Decision ids
+  keep rising across a restart, so no answer from game 1 is
+  accepted in game 2; `gameEpoch` is what tells a client the board
+  it holds is from a game that no longer exists.

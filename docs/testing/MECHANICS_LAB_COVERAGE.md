@@ -30,7 +30,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 
 ## Phase 6 required scenarios (Layer B)
 
-48 cards. 41 NOT_YET_TESTED, 7 PASSED.
+48 cards. 40 NOT_YET_TESTED, 8 PASSED.
 
 | Card / Scenario | Source printing | Category | Mechanic / stress case | Tests | Focused test scenario | Forge support | Proxic support | Current result | Evidence | Known issue / blocker | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -47,7 +47,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 | Commit // Memory | LCC:147 | Card structures | Aftermath; split card; graveyard half | P6-AJ, P6-BF, §6.82 | Aftermath: one half from hand, the other from the graveyard. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Control Magic | EMA:42 | Advanced rules | Continuous control-changing Aura | P6-AL, P6-U, §6.85 | Control changes; the object stays the same object. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Cryptic Command | IMA:48 | Casting & costs | Modal spell; multiple mode selection; counter; bounce; tap; draw | P6-AN, §6.92 | Choose two modes, then targets for each. | Resolves | Not proven | NOT_YET_TESTED |  |  | Mode choice is MET on Alley Evasion and Abrade; not yet run on this card. |
-| Delver of Secrets // Insectile Aberration | INR:60 | Card structures | Transforming double-faced card | P6-AJ, P6-BF, §6.82 | Transform: the same object, the other face. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
+| Delver of Secrets // Insectile Aberration | INR:60 | Card structures | Transforming double-faced card | P6-AJ, P6-BF, §6.82 | Transform: the same object, the other face. | Resolves | Supported | PASSED | scripts/check-multiface.py (worker, in CI) and frontend/e2e/match-multiface.spec.ts (browser, in CI), 2026-10-20. One object id throughout; face Original -> Backside with both face names (Forge's); 1/1 Human Wizard -> 3/2 Human Insect from Forge, not printed text. The top card is shown to its controller before 'Reveal?'; the opponent is told of every reveal and of nothing declined. In the browser: front with its imported picture; back as Insectile Aberration 3/2 with no picture borrowed from the front. Screenshots seen/delver-*.png. |  | Found: Forge's 'look at' and 'reveal' (PlayerController.reveal) were no-ops in the adapter, so the reveal question was answered blind and opponents never saw reveals; now a private notice to each entitled player. Packages carry front images only, so a transformed card shows no picture rather than the wrong one. |
 | Dismember | TSR:322 | Casting & costs | Phyrexian mana; pay life instead of mana | P6-AN, §6.92 | Phyrexian mana: pay life or mana per symbol. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Dollmaker's Shop // Porcelain Gallery | DSK:4 | Recent mechanics 2024-2026 | Room; split permanent; locked/unlocked doors; unlock special action; changing characteristics | P6-AJ, P6-BF, §6.82 | Room: cast one door, unlock the other. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
 | Emeritus of Ideation // Ancestral Recall | SOS:45 | Card structures | Preparation card; prepared designation; create/cast spell copy from exile | P6-AJ, §6.82 | Prepare. | Resolves | Not proven | NOT_YET_TESTED |  |  |  |
@@ -157,7 +157,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Deadly Dispute | J25:115 | 1 | Counters & tokens | Treasure token; sacrifice as additional cost; draw | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Deflecting Swat | CMM:214 | 1 | Advanced rules | Change targets; alternative free-cast condition | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Delina, Wild Mage | AFR:138 | 1 | Actions & choices | Roll d20; token copies; repeated roll | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Delver of Secrets // Insectile Aberration | INR:60 | 1 | Card structures | Transforming double-faced card | P6_REQUIRED | Required | NOT_YET_TESTED |
+| Delver of Secrets // Insectile Aberration | INR:60 | 1 | Card structures | Transforming double-faced card | P6_REQUIRED | Required | PASSED |
 | Demonic Tutor | CMM:150 | 1 | Zones & information | Search hidden library; reveal/no reveal; shuffle | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Den Protector | DTK:181 | 1 | Casting & costs | Megamorph; face-up special action; +1/+1 counter; recursion | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Devoted Duelist | TDM:104 | 1 | Actions & choices | Flurry ability word; second-spell trigger | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

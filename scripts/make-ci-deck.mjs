@@ -144,6 +144,10 @@ const cardNames = [
       .filter((line) => line && !line.startsWith("//"))
       // "4 Elspeth Resplendent [SNC:12]" -> "Elspeth Resplendent"
       .map((line) => line.replace(/^\d+\s+/, "").replace(/\s*\[[^\]]*\]\s*$/, ""))
+      // A two-faced card's image is filed under its FRONT face, as
+      // the real exporter does ("Reckless Stormseeker [MID].png");
+      // the full "A // B" would put a slash in the member path.
+      .map((name) => name.split(" // ")[0].trim())
       .filter(Boolean),
   ),
 ];

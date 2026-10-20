@@ -195,6 +195,31 @@ final class ViewerSnapshot {
         // decides; the name is only read afterwards.
         entry.addProperty("name", name == null || name.isEmpty() ? "Face-down" : name);
 
+        // §6.79, P6-BF — WHICH face is up, and which faces the card
+        // has, for a card with more than one: a transforming card, a
+        // split card, an adventurer, a Room. Forge's own state names
+        // (Original, Backside, LeftSplit, Secondary...), so the
+        // browser never works out a face from printed text, and
+        // nothing about one object implies one picture. Only ever
+        // reached for a card this viewer may identify (above); the
+        // face-down state is not a face anybody is shown.
+        java.util.List<String> faces = new java.util.ArrayList<>();
+        for (forge.card.CardStateName each : card.getStates()) {
+            if (each == forge.card.CardStateName.FaceDown) {
+                continue;
+            }
+            String faceName = card.getState(each).getName();
+            if (faceName != null && !faceName.isEmpty() && !faces.contains(faceName)) {
+                faces.add(faceName);
+            }
+        }
+        if (faces.size() > 1) {
+            entry.addProperty("face", String.valueOf(state.getState()));
+            JsonArray named = new JsonArray();
+            faces.forEach(named::add);
+            entry.add("faces", named);
+        }
+
         // What SORT of thing it is, so a board can group lands
         // away from creatures instead of showing one long row.
         entry.addProperty("kind", kindOf(state));

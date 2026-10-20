@@ -2482,13 +2482,24 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
-     * A reveal is presentation, not a decision.
+     * Forge SHOWS this player some cards — §6.42, P6-J.
      *
-     * Deliberately nothing in THIS slice. When viewer state exists
-     * (§6.39-§6.49) a reveal becomes a snapshot change the server
-     * sends to whoever is entitled to see it, and that is where the
-     * hidden-information rules live. Doing something ad hoc here
-     * would be building a second, weaker visibility path.
+     * "Look at the top card of your library" (Delver of Secrets),
+     * "reveal your hand", a card revealed to every player: Forge calls
+     * this on the controller of EACH player entitled to see them, and
+     * only those. So telling this player alone is the hidden-
+     * information rule, followed rather than re-derived.
+     *
+     * This was a no-op, on the reasoning that viewer snapshots would
+     * carry reveals. They do not carry libraries, so a player who
+     * "looked at" a card never saw it: Delver's controller was asked
+     * "Reveal cards to other players?" about a card nobody had shown
+     * them, and an opponent never saw what was revealed to them.
+     * Found while building the multi-face check (P6-BF).
+     *
+     * A NOTICE, in Forge's own wording -- the per-seat list every
+     * snapshot already carries. How a reveal finally looks is
+     * Phase 7's; that it reaches the right player is this phase's.
      */
     @Override
     public void reveal(
@@ -2497,7 +2508,11 @@ public final class MatchController extends GeneratedControllerBase {
             Player to,
             String message,
             boolean addSuffix) {
-        // see above
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (forge.game.card.Card card : cards) {
+            names.add(card.getName());
+        }
+        tellRevealed(names, zone, to == null ? null : to.getName(), to == player, message, addSuffix);
     }
 
     @Override
@@ -2507,7 +2522,34 @@ public final class MatchController extends GeneratedControllerBase {
             forge.game.player.PlayerView to,
             String message,
             boolean addSuffix) {
-        // see above
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (forge.game.card.CardView card : cards) {
+            names.add(card.getName());
+        }
+        tellRevealed(names, zone, to == null ? null : to.getName(),
+                to != null && to.equals(player.getView()), message, addSuffix);
+    }
+
+    /** Forge's human wording, as a notice to this player only. */
+    private void tellRevealed(
+            java.util.List<String> names,
+            forge.game.zone.ZoneType zone,
+            String ownerName,
+            boolean own,
+            String message,
+            boolean addSuffix) {
+        String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
+        String where = whose + " " + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
+        String text;
+        if (names.isEmpty()) {
+            text = "There are no cards in " + where + ".";
+        } else {
+            String said = message == null || message.isBlank()
+                    ? "Looking at " + where
+                    : (addSuffix ? message + " " + where : message);
+            text = said + ": " + String.join(", ", names);
+        }
+        host.note(actedForSeat, text);
     }
 
     /**

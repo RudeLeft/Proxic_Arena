@@ -29,9 +29,9 @@ green unit tests sat underneath four shipped faults.
 
 | Status | Count |
 |---|---|
-| MET | 41 |
-| PARTIAL | 17 |
-| NOT MET | 5 |
+| MET | 44 |
+| PARTIAL | 16 |
+| NOT MET | 3 |
 | CLASSIFIED | 2 |
 | **Total** | **65** |
 
@@ -209,7 +209,7 @@ restarted under a live match outside a unit test.
 | P6-G | Hidden hand | PARTIAL | Snapshot and decision payloads covered. **Asset URLs N/A (no assets). "Logs returned to browser" never checked.** |
 | P6-H | Library privacy | MET | No library in any snapshot; search options go to one seat; delayed reveal is the authorised exposure |
 | P6-I | Face-down safety | PARTIAL | Both §6.44 checks implemented and exercised **only by deliberately breaking them** — no morph/manifest card has ever been played |
-| P6-J | Revealed / known information | PARTIAL | `known` flag and delayed reveal implemented; no deliberate Forge-authorised reveal scenario run |
+| P6-J | Revealed / known information | MET | **Run 2026-10-20**, `scripts/check-multiface.py` (in CI). Delver's "look at the top card" reaches its controller before "Reveal?" is asked; the controller reveals only an instant; the opponent is told of every reveal and of nothing declined. **Found and fixed: `reveal()` was a no-op**, so that question had been answered about a card nobody was shown, and no opponent ever saw a reveal. Now a notice to each player Forge calls it for, which is exactly the entitled set |
 | P6-K | Stable object identity | MET | Typed ids asserted by `check-hidden-information.py`; a searched card followed by id from library to battlefield |
 | P6-L | Snapshot before interaction | PARTIAL | §6.48 enforced in code (`publishSnapshots()` inside `publishDecision`) and in the socket's hello order; **no automated assertion** |
 
@@ -250,7 +250,7 @@ restarted under a live match outside a unit test.
 | P6-AG | Card-name choice | MET | **Built 2026-10-20, owner decision: search, then pick** (`protocol/README.md`). The question arrives searchable with Forge's count (34,334 for Pithing Needle, 33,067 for Phyrexian Revoker's nonland list) and no options; the player searches, the server sends the best 50 from FORGE's list, and only a name it sent can be the answer. Worker run `scripts/check-card-name.py` (in CI): accents ignored, a guessed id refused, the named card's ability refused on activation. Browser `e2e/match-card-name.spec.ts` (in CI): search box, Mountain first for the Needle, absent for the Revoker; screenshots `seen/name-a-card-*.png` |
 | P6-AH | Creature-type choice | MET | **Built 2026-10-19.** Adaptive Automaton asks with **356 options — Forge's own valid-type list**, which is exactly the "authoritative allowed values rather than a hand-maintained frontend rules list" the test asks for |
 | P6-AI | Colour / land-type choice | MET | **Built 2026-10-19.** Alchor's Tomb asks for a colour from Forge's `ColorSet`; `chooseColor`, `chooseColorAllowColorless` and `chooseColors` all ported, including Forge's own short-circuits |
-| P6-AJ | Composite / multi-representation | NOT MET | No multi-face card has been run |
+| P6-AJ | Composite / multi-representation | MET | **Run 2026-10-20** (`check-multiface.py`, `e2e/match-multiface.spec.ts`): Delver of Secrets // Insectile Aberration is one object id whose face changes; the snapshot carries Forge's `face` and every face name (§6.79), and the art follows the face shown -- the front's picture, then none for the back rather than the front's. Mutate, Rooms and battles are still untested (ledger) |
 | P6-AK | Attachment relationships | PARTIAL | Snapshot carries `attachedTo`; the artifacts deck equips Bonesplitter; **never seen in a browser, no aura or mutate** |
 | P6-AL | Effective characteristics | PARTIAL | Snapshot sends Forge's `getNetPower`/`getNetToughness` plus counters and damage; **no scenario proving a difference from printed values** |
 | P6-AM | Forge RNG authority | MET | **Built 2026-10-19.** Forge produces the outcome (`MyRandom` inside `FlipCoinEffect`); the player only CALLS it (`chooseBinary`); and the outcome now reaches them, which it did not before — `notifyOfValue` was a no-op. Reconnect and duplicate answers cannot reroll because the flip is not a decision |
@@ -282,7 +282,7 @@ restarted under a live match outside a unit test.
 | P6-BC | Imported deck immutability | PARTIAL | `a deck can be deleted after the match that used it` is adjacent; **no before/after integrity comparison** |
 | P6-BD | Exact printing runtime | PARTIAL | Import resolves exact printings (`CardResolverTest`); **runtime preservation not inspected** |
 | P6-BE | Basic land runtime | MET | Every deck in `harness-decks.json` runs on basics through real games |
-| P6-BF | Multi-face runtime | NOT MET | No multi-face card has been run |
+| P6-BF | Multi-face runtime | MET | **Run 2026-10-20**: Delver transforms by real play -- same id, `face` Original -> Backside, 1/1 -> 3/2 and Human Wizard -> Human Insect from Forge. Viewer-safe asset mapping: front art from the package, none for the back (packages carry fronts only; never the wrong face). Browser screenshots `seen/delver-*.png` |
 | P6-BG | Token runtime | MET | Legion Warboss creates Goblin tokens; they appear in snapshots, attack and block; no token art exists and nothing crashes |
 | P6-BH | Zone coverage | MET | **Hellspark Elemental's Unearth offered from the graveyard and performed three times.** Enumerator uses `getAllCards()` + Forge's `getAllPossibleAbilities`, so it is not hand/battlefield-bound |
 | P6-BI | Unsupported preset guard | PARTIAL | `MatchSetupService` rejects an unavailable preset; **no test asserts a direct API request cannot launch one** |

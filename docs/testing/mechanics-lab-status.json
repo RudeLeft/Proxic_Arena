@@ -181,7 +181,10 @@
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, §6.82",
-      "scenario": "Transform: the same object, the other face."
+      "scenario": "Transform: the same object, the other face.",
+      "result": "PASSED",
+      "evidence": "scripts/check-multiface.py (worker, in CI) and frontend/e2e/match-multiface.spec.ts (browser, in CI), 2026-10-20. One object id throughout; face Original -> Backside with both face names (Forge's); 1/1 Human Wizard -> 3/2 Human Insect from Forge, not printed text. The top card is shown to its controller before 'Reveal?'; the opponent is told of every reveal and of nothing declined. In the browser: front with its imported picture; back as Insectile Aberration 3/2 with no picture borrowed from the front. Screenshots seen/delver-*.png.",
+      "notes": "Found: Forge's 'look at' and 'reveal' (PlayerController.reveal) were no-ops in the adapter, so the reveal question was answered blind and opponents never saw reveals; now a private notice to each entitled player. Packages carry front images only, so a transformed card shows no picture rather than the wrong one."
     },
     "Reckless Stormseeker // Storm-Charged Slasher": {
       "owner": "P6_REQUIRED",
