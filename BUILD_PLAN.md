@@ -18,7 +18,7 @@ See `docs/architecture/OPEN_FORMAT.md`.
 | 3 | Accounts & Authentication | **COMPLETE** 2026-10-16 — gate PASSED, deployed and signed into at `https://proxic.barnflix.net` | `PHASE_03_ACCOUNTS_AUTHENTICATION_LOCKED.md` |
 | 4 | Deck Depot | **COMPLETE** 2026-10-16 — gate PASSED, deployed; a deck shared and revoked between two accounts on the live host | `PHASE_04_DECK_DEPOT_LOCKED.md` |
 | 5 | Lobby, Game Rooms, Match Setup | **COMPLETE** 2026-10-17 — gate PASSED, 26/26 acceptance including the production run. 4 amendments: no join codes, presence, invitations, ephemeral chat | `PHASE_05_EXIT_GATE.md` |
-| 6 | Forge Match Runtime & Game Protocol | **LOCKED** 2026-10-17 — two-pass review, 7 owner decisions. **ACTIVE** — 2026-10-20: all 65 acceptance tests met or classified, 48/48 required lab cards, production run passed; exit gate **awaiting owner sign-off** (`PHASE_06_EXIT_GATE.md`) | `PHASE_06_FORGE_MATCH_RUNTIME_AUTHORITATIVE_GAME_PROTOCOL_LOCKED.md` |
+| 6 | Forge Match Runtime & Game Protocol | **COMPLETE** 2026-10-20 — gate PASSED (owner approved), 65/65 acceptance (63 met, 2 classified) including the production run; 48/48 required lab cards; one approved Forge patch | `PHASE_06_EXIT_GATE.md` |
 | 7 | Battlefield Presentation & Interaction | DRAFT — §7.51's six questions RESOLVED 2026-10-15; **renderer decided 2026-10-19: React DOM + SVG overlays, PixiJS a measured contingency** (`docs/architecture/BATTLEFIELD_RENDERING.md`, Phase 1 Amendment 3) | `PHASE_07_BATTLEFIELD_PRESENTATION_INTERACTION_DRAFT.md` |
 | 8+ | Commander | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |
 | 8+ | Two-Headed Giant | **INTENDED** — owner decision 2026-10-17. Not scoped, not scheduled. | — |

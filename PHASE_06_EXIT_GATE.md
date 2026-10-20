@@ -1,7 +1,7 @@
 # Phase 6 Exit Gate
 
-**Status: READY FOR OWNER SIGN-OFF — 2026-10-20.** Not PASSED until the
-owner approves it. Every acceptance test is met or classified, and the
+**Status: PASSED — 2026-10-20, approved by the owner.** Every
+acceptance test is met or classified, and the
 production run was made by the owner on the live host against build
 `21d3fa1`.
 
@@ -243,8 +243,8 @@ and the home address refuses 8765, 5432, 80 and 443
 
 ## Next
 
-On sign-off: Phase 6 is marked COMPLETE in `CLAUDE.md`, `AGENTS.md`,
-`BUILD_PLAN.md` and `README.md`.
+Phase 6 is marked COMPLETE in `CLAUDE.md`, `AGENTS.md`, `BUILD_PLAN.md`
+and `README.md`.
 
 Phase 7 (Battlefield Presentation & Interaction) is a **DRAFT** and is
 **not** started automatically: it needs locking first.
