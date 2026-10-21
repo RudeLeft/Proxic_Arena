@@ -264,3 +264,17 @@ class LiveMatch(
  * list, and the class is at detekt's function ceiling.
  */
 fun LiveMatch.seatOf(userId: UUID): Int? = match.participants.firstOrNull { it.userId == userId }?.seatNumber
+
+/**
+ * PHASE_07 §7.55 — [userId] concedes. Null when it went to Forge, or why
+ * not. Only a seated participant, and only for their OWN seat: under
+ * Mindslaver the controller still concedes for themselves, not for the
+ * player they are controlling.
+ */
+fun LiveMatch.concede(
+    userId: UUID,
+    send: (Int) -> Boolean = worker::concede,
+): String? {
+    val seat = seatOf(userId) ?: return "NOT_A_PLAYER"
+    return if (send(seat)) null else "UNREACHABLE"
+}

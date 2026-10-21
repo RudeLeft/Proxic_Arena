@@ -149,6 +149,14 @@ private fun handle(
             runtime.search(matchId, userId, decisionId, query)?.let { searchRefusedMessage(decisionId, it) }
         }
 
+        // PHASE_07 §7.55 — nothing is read from it at all: who
+        // concedes is the session's, and for their own seat only.
+        "CONCEDE" ->
+            when (val refusal = runtime.concede(matchId, userId)) {
+                null -> concedeAcceptedMessage()
+                else -> concedeRefusedMessage(refusal)
+            }
+
         // A newer client saying something this server has not
         // heard of is ignored rather than disconnected.
         else -> null

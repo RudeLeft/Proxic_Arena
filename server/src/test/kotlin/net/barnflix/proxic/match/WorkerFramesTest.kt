@@ -341,4 +341,19 @@ class WorkerFramesTest {
 
         assertEquals(1, readDecisionFrame(frame("{$base}"))?.gameEpoch)
     }
+
+    /** PHASE_07 §7.55 — who conceded, by seat, as Forge recorded it; absent is nobody. */
+    @Test
+    fun `a concession names the seat that conceded`() {
+        val conceded =
+            readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"concededSeat":1,"turn":6}"""))
+        assertEquals(2, conceded?.winningSeat)
+        assertEquals(1, conceded?.concededSeat)
+
+        assertNull(readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"turn":6}"""))?.concededSeat)
+
+        val sent = concedeFrame(2)
+        assertEquals("\"CONCEDE\"", sent["type"].toString())
+        assertEquals("2", sent["seat"].toString())
+    }
 }

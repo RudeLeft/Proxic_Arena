@@ -283,6 +283,11 @@ export interface MatchState {
   notice: string | null;
   /** The board, or null before the first snapshot arrives. */
   board: Snapshot | null;
+  /**
+   * PHASE_07 §7.55 — a concession: "SENT" once the server has passed
+   * it to Forge (the game's end follows), or why it was not taken.
+   */
+  concession: string | null;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -292,6 +297,7 @@ export const EMPTY_MATCH: MatchState = {
   awaiting: null,
   notice: null,
   board: null,
+  concession: null,
 };
 
 /**
@@ -370,6 +376,12 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return { ...state, notice: refusalText(asString(message["reason"])) };
     }
 
+    case "CONCEDE_ACCEPTED":
+      return { ...state, concession: "SENT" };
+
+    case "CONCEDE_REFUSED":
+      return { ...state, concession: asString(message["reason"]) ?? "REFUSED" };
+
     case "DECISION_REFUSED": {
       const decisionId = asNumber(message["decisionId"]);
       if (decisionId === null) return state;
@@ -385,6 +397,26 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
 
     default:
       return state;
+  }
+}
+
+/** §7.55 — where a concession stands, in words; null when there is none. */
+export function concessionText(concession: string | null): string | null {
+  switch (concession) {
+    case null:
+      return null;
+    case "SENT":
+      return "You conceded. Forge is ending the game.";
+    case "NOT_STARTED":
+      return "You can concede once the game has begun. Before that, Abandon ends it with no winner.";
+    case "GAME_OVER":
+      return "The game is already over.";
+    case "NOT_A_PLAYER":
+      return "Only a player in this game can concede.";
+    case "UNREACHABLE":
+      return "The game did not receive that. It may have stopped.";
+    default:
+      return "That concession was not accepted.";
   }
 }
 
@@ -682,6 +714,8 @@ export interface MatchSocket {
   answer(decisionId: number, actionId: string | null): void;
   /** P6-AG — search a searchable question. Results arrive as DECISION_OPTIONS. */
   search(decisionId: number, query: string): void;
+  /** §7.55 — concede. Nothing else is sent: who concedes is the session's. */
+  concede(): void;
   close(): void;
 }
 
@@ -727,6 +761,10 @@ export function connectMatch(
     search(decisionId, query) {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({ type: "DECISION_SEARCH", decisionId, query }));
+    },
+    concede() {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "CONCEDE" }));
     },
     close() {
       socket.close();

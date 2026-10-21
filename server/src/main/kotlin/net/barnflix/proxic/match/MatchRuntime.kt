@@ -205,16 +205,11 @@ class MatchRuntime(
         return running.answer(userId, decisionId, actionId)
     }
 
-    /** P6-AG — a search, authorised by [LiveMatch] like an answer. */
-    fun search(
-        matchId: UUID,
-        userId: UUID,
-        decisionId: Long,
-        query: String,
-    ): DecisionRefusal? {
-        val running = live[matchId] ?: return DecisionRefusal.UNREACHABLE
-        return running.search(userId, decisionId, query)
-    }
+    /**
+     * The match this process is running, for the requests that only
+     * route to it (a search, a concession: MatchRequests.kt).
+     */
+    internal fun liveMatch(matchId: UUID): LiveMatch? = live[matchId]
 
     /**
      * §6.110, §6.111 — the board, before any decision.

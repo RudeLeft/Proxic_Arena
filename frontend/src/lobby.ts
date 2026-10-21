@@ -121,6 +121,12 @@ export interface Notice {
   kind: "error" | "info";
   errorCode: string;
   detail: string;
+  /**
+   * Why the room came back: a match ended or failed. Such a notice
+   * survives the ROOM message that follows it -- that room is the
+   * consequence it explains, not news that makes it stale.
+   */
+  aboutMatch?: true;
 }
 
 /**
@@ -157,6 +163,8 @@ export interface MatchOutcome {
    * effect of 'Laboratory Maniac'"). Shown, never composed.
    */
   reason: string | null;
+  /** PHASE_07 §7.55 — the seat that conceded, as Forge recorded it; null when nobody did. */
+  concededSeat: number | null;
 }
 
 export interface MatchView {
@@ -267,7 +275,15 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       // refusal — so once the room itself arrives, the notice is
       // describing the past. Seen on screen: "Invited Pat." sat
       // above a room Pat had already joined.
-      return { ...state, room, invitation: null, notice: null };
+      // Except why a match ended or failed: the room arrives BECAUSE
+      // of it, right after, and wiping it left both players looking
+      // at their room with no word of what happened to the game.
+      return {
+        ...state,
+        room,
+        invitation: null,
+        notice: state.notice?.aboutMatch ? state.notice : null,
+      };
     }
 
     case "ROOM_CLOSED":
@@ -385,6 +401,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
             kind: "info",
             errorCode: status,
             detail: "The match was abandoned. Nobody won it, and the room is open again.",
+            aboutMatch: true,
           },
         };
       }
@@ -400,6 +417,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
             kind: "error",
             errorCode: failureCode ?? status,
             detail: matchFailed(failureCode),
+            aboutMatch: true,
           },
         };
       }
@@ -461,6 +479,7 @@ function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
     winningSeat: typeof seat === "number" ? seat : null,
     endedOnTurn: typeof turn === "number" ? turn : 0,
     reason: asString(message["reason"]),
+    concededSeat: typeof message["concededSeat"] === "number" ? message["concededSeat"] : null,
   };
 }
 

@@ -66,6 +66,8 @@ DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
 DECISION_OPTIONS        decisionId, query, total, options   (search results)
 DECISION_SEARCH_REFUSED decisionId, reason
+CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
+CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER
 ```
 
 A `DECISION_REQUEST` reaches only the player Forge is waiting on.
@@ -78,6 +80,7 @@ else's); who is *authorised* is the server's conclusion and is not sent
 ```text
 DECISION_RESPONSE   decisionId, actionId     actionId null = pass
 DECISION_SEARCH     decisionId, query        searchable questions only
+CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
 ```
 
 **Only `decisionId` and `actionId` are read.** Not a seat, not a user,
@@ -168,3 +171,14 @@ then shows its result through the lobby (`ENDED` with the winner, or
 `FAILED_*`/`TERMINATED` with no winner) and the question area is
 cleared; a question from a finished match is never shown
 (MATCH_RUNTIME.md).
+
+**Concede (PHASE_07 §7.55)** is Forge's concession, not Arena's: the
+server sends the worker `CONCEDE {seat}` for the authenticated user's own
+seat; the worker queues it onto Forge's game thread (`DecisionGate.
+interject`), where `Player.concede` and `checkGameOverCondition` run as in
+Forge's own client, and every question still open is withdrawn. The game
+then ends like any other, `ENDED` with Forge's winner, and the lobby's
+`MATCH` message carries `concededSeat`. Refused with `NOT_STARTED` before
+the game proper (the mulligan), as Forge's client refuses it; Abandon,
+which has no winner, is the way out then. Proved against Forge by
+`scripts/check-concede.py` and in the browser by `e2e/match-concede.spec.ts`.

@@ -15,6 +15,7 @@ import logo from "../assets/logo-header.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import {
   EMPTY_MATCH,
+  concessionText,
   connectMatch,
   type DecisionOption,
   type MatchSocket,
@@ -204,6 +205,7 @@ export function GameScreen({
               onPick={pick}
               onPass={() => answer(null)}
               onView={setViewer}
+              finished={finished}
             />
           }
           overlay={(at) =>
@@ -252,6 +254,11 @@ export function GameScreen({
           choices={decision ? decision.options.length : null}
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
+          concession={finished ? null : concessionText(game.concession)}
+          onConcede={() => {
+            setGame((previous) => ({ ...previous, concession: null }));
+            socketRef.current?.concede();
+          }}
         />
       </div>
 
@@ -496,6 +503,7 @@ function Rail({
   onPick,
   onPass,
   onView,
+  finished,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -505,6 +513,8 @@ function Rail({
   onPick: (id: string) => void;
   onPass: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "hand" }) => void;
+  /** The game is over: nobody holds priority any more. */
+  finished: boolean;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -572,7 +582,12 @@ function Rail({
       </section>
 
       {/* Directly under the stack, because that is what it acts on (canvas). */}
-      {myPriority ? (
+      {finished ? (
+        <div className="gs-waiting" role="status">
+          <span className="gs-waiting-word">Game over</span>
+          <span className="gs-waiting-sub">Nobody holds priority now</span>
+        </div>
+      ) : myPriority ? (
         <button type="button" className="gs-act" disabled={busy} onClick={onPass}>
           <span className="gs-act-word">Pass</span>
           <span className="gs-act-sub">
@@ -957,6 +972,8 @@ function GameMenu({
   choices,
   listOpen,
   onList,
+  concession,
+  onConcede,
 }: {
   match: MatchView;
   live: boolean;
@@ -966,15 +983,21 @@ function GameMenu({
   choices: number | null;
   listOpen: boolean;
   onList: () => void;
+  /** Where a concession stands, in words (§7.55). */
+  concession: string | null;
+  onConcede: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
+  // §7.55: Concede is a real loss, Forge's; Abandon is for a stuck or
+  // broken game and has no winner. Each asks first, and only one asks
+  // at a time.
+  const [confirming, setConfirming] = useState<"concede" | "abandon" | null>(null);
   const [abandoning, setAbandoning] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const abandon = async () => {
     setAbandoning(true);
     const result = await abandonMatch(match.matchId);
     setAbandoning(false);
-    setConfirming(false);
+    setConfirming(null);
     if (!result.ok) setFailure(result.failure.detail);
   };
   return (
@@ -990,7 +1013,24 @@ function GameMenu({
         </button>
       )}
       {live &&
-        (confirming ? (
+        (confirming === "concede" ? (
+          <span className="gs-menu-confirm" role="alert">
+            Concede this game? Your opponent wins it, and it cannot be undone.
+            <button
+              type="button"
+              className="gs-menu-button gs-menu-warn"
+              onClick={() => {
+                setConfirming(null);
+                onConcede();
+              }}
+            >
+              Yes, concede
+            </button>
+            <button type="button" className="gs-menu-button" onClick={() => setConfirming(null)}>
+              Keep playing
+            </button>
+          </span>
+        ) : confirming === "abandon" ? (
           <span className="gs-menu-confirm" role="alert">
             End this match for both players? Nobody wins it, and it cannot be resumed.
             <button
@@ -1005,16 +1045,34 @@ function GameMenu({
               type="button"
               className="gs-menu-button"
               disabled={abandoning}
-              onClick={() => setConfirming(false)}
+              onClick={() => setConfirming(null)}
             >
               Keep playing
             </button>
           </span>
         ) : (
-          <button type="button" className="gs-menu-button" onClick={() => setConfirming(true)}>
-            Abandon match
-          </button>
+          <>
+            <button
+              type="button"
+              className="gs-menu-button"
+              onClick={() => setConfirming("concede")}
+            >
+              Concede
+            </button>
+            <button
+              type="button"
+              className="gs-menu-button"
+              onClick={() => setConfirming("abandon")}
+            >
+              Abandon match
+            </button>
+          </>
         ))}
+      {concession && (
+        <span className="gs-menu-failure" role="status">
+          {concession}
+        </span>
+      )}
       {failure && (
         <span className="gs-menu-failure" role="alert">
           {failure}

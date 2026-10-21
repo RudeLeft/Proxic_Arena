@@ -138,6 +138,11 @@ data class GameOutcome(
      * are owed the name of it. Null when there is no winner.
      */
     val reason: String? = null,
+    /**
+     * PHASE_07 §7.55 — the seat that conceded, from Forge's own record
+     * of why that player lost. Null when nobody conceded.
+     */
+    val concededSeat: Int? = null,
 ) {
     companion object {
         const val WINNER = "WINNER"
@@ -165,6 +170,9 @@ sealed interface WorkerEvent {
 
     /** The gate refused one, and this is the reason it gave. */
     data class Refused(val decisionId: Long, val reason: DecisionRefusal) : WorkerEvent
+
+    /** §7.55 — the worker refused a concession (e.g. NOT_STARTED), for [seat]. */
+    data class ConcedeRefused(val seat: Int, val reason: String) : WorkerEvent
 
     /**
      * P6-AG — what a search of a searchable question found.
@@ -270,6 +278,13 @@ interface DecisionAnnouncer {
         matchId: java.util.UUID,
         userId: java.util.UUID,
         found: WorkerEvent.Options,
+    ) = Unit
+
+    /** §7.55 — Forge would not take this player's concession, and why. A default, like [options]. */
+    suspend fun concedeRefused(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        reason: String,
     ) = Unit
 
     companion object {

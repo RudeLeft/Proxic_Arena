@@ -346,6 +346,35 @@ class LiveMatchTest {
         assertEquals(DecisionRefusal.STALE_DECISION, live.answer(alice, 7, "name:4410"))
     }
 
+    /**
+     * PHASE_07 §7.55 — a concession is for the player's OWN seat, the
+     * one the session says they hold. Nothing the browser sends can
+     * name another, and a stranger to the match concedes nothing.
+     */
+    @Test
+    fun `a player concedes only for their own seat, and a stranger not at all`() {
+        val conceded = mutableListOf<Int>()
+        val match = live()
+
+        assertNull(
+            match.concede(bob) { seat ->
+                conceded += seat
+                true
+            },
+        )
+        assertEquals(
+            "NOT_A_PLAYER",
+            match.concede(stranger) { seat ->
+                conceded += seat
+                true
+            },
+        )
+        assertEquals(listOf(2), conceded)
+
+        // A worker that cannot be reached is said so, not pretended.
+        assertEquals("UNREACHABLE", match.concede(alice) { false })
+    }
+
     private companion object {
         /**
          * Never started, never spoken to.

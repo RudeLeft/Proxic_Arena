@@ -334,6 +334,10 @@ public final class WorkerMain {
                         if (result.reason() != null) {
                             ended.addProperty("reason", result.reason());
                         }
+                        // §7.55 — the seat that conceded, from Forge.
+                        if (result.concededSeat() > 0) {
+                            ended.addProperty("concededSeat", result.concededSeat());
+                        }
                         send(ended);
                     });
                     GAME.start(seats, request.has("matchId")
@@ -467,6 +471,26 @@ public final class WorkerMain {
                 });
                 reply.add("options", options);
                 send(reply);
+            }
+            case "CONCEDE" -> {
+                // PHASE_07 §7.55 — `seat` is the server's, resolved
+                // from the authenticated user. Forge's concession;
+                // the game then ends through GAME_ENDED as any other.
+                if (GAME == null) {
+                    send(error("NO_GAME", "no game has been started"));
+                    break;
+                }
+                int seat = request.get("seat").getAsInt();
+                String refused = GAME.concede(seat);
+                if (refused == null) {
+                    JsonObject ok = frame("CONCEDE_ACCEPTED", messageId);
+                    ok.addProperty("seat", seat);
+                    send(ok);
+                } else {
+                    JsonObject no = error("CONCEDE_REFUSED", refused);
+                    no.addProperty("seat", seat);
+                    send(no);
+                }
             }
             case "GAME_RESULT" -> {
                 // Diagnostics for this slice: wait for the game to

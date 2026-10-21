@@ -337,6 +337,11 @@ export function resultText(match: MatchView, mySeat: number | null): string {
   // P6-AP — Forge's own sentence for why, when it gave one. Every
   // PlayerOutcome reads "has won ...", so "The winner" is its
   // subject; nothing about it is reworded.
+  // §7.55 — a concession, said as one: Forge's result, and who gave up.
+  if (outcome.concededSeat !== null) {
+    if (outcome.concededSeat === mySeat) return `You conceded${turn}. Your opponent won.`;
+    if (outcome.winningSeat === mySeat) return `Your opponent conceded${turn}. You won.`;
+  }
   const why = outcome.reason ? ` The winner ${outcome.reason}.` : "";
   if (outcome.winningSeat === mySeat) return `You won${turn}.${why}`;
 

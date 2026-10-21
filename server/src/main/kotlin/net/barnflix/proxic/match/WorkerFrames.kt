@@ -88,6 +88,7 @@ fun readOutcomeFrame(frame: JsonObject): GameOutcome? =
             turn = frame["turn"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
             detail = frame["detail"]?.jsonPrimitive?.contentOrNull,
             reason = frame["reason"]?.jsonPrimitive?.contentOrNull,
+            concededSeat = frame["concededSeat"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
         )
     }.getOrNull()
 

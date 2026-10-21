@@ -124,6 +124,8 @@ fun matchMessage(
             it.winningSeat?.let { seat -> put("winningSeat", seat) }
             put("endedOnTurn", it.turn)
             it.reason?.let { reason -> put("reason", reason) }
+            // §7.55 — who conceded, by seat, as Forge recorded it.
+            it.concededSeat?.let { seat -> put("concededSeat", seat) }
         }
         putJsonArray("participants") {
             seats.forEach { (userId, seat, deckName) ->

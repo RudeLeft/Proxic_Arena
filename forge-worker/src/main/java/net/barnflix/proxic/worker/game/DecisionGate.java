@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -118,6 +119,37 @@ public final class DecisionGate {
     /** Defence two: room for exactly one answer, cleared on every ask. */
     private final BlockingQueue<String> accepted = new ArrayBlockingQueue<>(1);
 
+    /**
+     * PHASE_07 §7.55 — work that must run on FORGE's thread, at the
+     * question it is waiting on. A concession changes the game, and
+     * the game belongs to the thread blocked in `ask`: doing it from
+     * the worker's reader thread would be a second thread mutating
+     * Forge's state while the first reads it.
+     */
+    private final BlockingQueue<Runnable> interjections = new LinkedBlockingQueue<>();
+
+    /**
+     * The game is over (a concession ended it). From here on every
+     * question Forge still asks while it unwinds is answered "no" at
+     * once, never shown: Forge's own client does the same with its
+     * input queues (PlayerControllerHuman.concede, onGameOver).
+     */
+    private volatile boolean closed;
+
+    /** Run `task` on Forge's thread at its current or next question (§7.55). */
+    public void interject(Runnable task) {
+        interjections.add(task);
+    }
+
+    /** Nothing more is asked: the game is over (§7.55). */
+    public void close() {
+        closed = true;
+    }
+
+    public boolean closed() {
+        return closed;
+    }
+
     public long bumpStateVersion() {
         return stateVersion.incrementAndGet();
     }
@@ -170,6 +202,10 @@ public final class DecisionGate {
                       java.util.List<String> options, boolean mandatory, String prompt,
                       boolean searchable, Consumer<Pending> deliver)
             throws InterruptedException {
+        runInterjections();
+        if (closed) {
+            return PASS;
+        }
         long id = nextDecisionId.getAndIncrement();
         Pending question =
                 new Pending(id, actedForSeat, authorisedSeat, kind, stateVersion.get(), options,
@@ -190,6 +226,16 @@ public final class DecisionGate {
         while ((answer = accepted.poll(20, TimeUnit.MILLISECONDS)) == null) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException("decision wait interrupted");
+            }
+            runInterjections();
+            if (closed) {
+                // The question is withdrawn, not answered: nobody
+                // may answer it now, and Forge is told "no".
+                synchronized (this) {
+                    answered.add(id);
+                    pending = null;
+                }
+                return PASS;
             }
         }
         synchronized (this) {
@@ -251,6 +297,13 @@ public final class DecisionGate {
         // Lab's coin-flip check caught one in about six runs).
         answered.add(question.decisionId());
         return null;
+    }
+
+    private void runInterjections() {
+        Runnable task;
+        while ((task = interjections.poll()) != null) {
+            task.run();
+        }
     }
 
     /** What a pass looks like in the slot, since null cannot be queued. */

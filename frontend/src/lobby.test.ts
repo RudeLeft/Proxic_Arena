@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { EMPTY_LOBBY, MAX_CHAT_LINES, reduceLobby, type LobbyState, type RoomView } from "./lobby";
+import { resultText } from "./MatchPanel";
 
 const pat = { userId: "u-pat", username: "Pat", displayName: "Pat" };
 const sam = { userId: "u-sam", username: "Sam", displayName: "Sam" };
@@ -475,6 +476,39 @@ describe("a finished match", () => {
     expect(state.match?.outcome?.reason).toBe("has won due to effect of 'Laboratory Maniac'");
   });
 
+  /** PHASE_07 §7.55 — a concession: Forge's winner, and who conceded, both by seat. */
+  it("says who conceded, and the result reads as a concession", () => {
+    const state = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "ENDED",
+        outcome: "WINNER",
+        winningSeat: 2,
+        concededSeat: 1,
+        endedOnTurn: 6,
+        participants: seats,
+      },
+    ]);
+    expect(state.match?.outcome?.concededSeat).toBe(1);
+    expect(resultText(state.match!, 1)).toBe("You conceded on turn 6. Your opponent won.");
+    expect(resultText(state.match!, 2)).toBe("Your opponent conceded on turn 6. You won.");
+    // Not sent, not invented.
+    const plain = apply([
+      {
+        type: "MATCH",
+        matchId: "m-1",
+        status: "ENDED",
+        outcome: "WINNER",
+        winningSeat: 2,
+        endedOnTurn: 6,
+        participants: seats,
+      },
+    ]);
+    expect(plain.match?.outcome?.concededSeat).toBeNull();
+    expect(resultText(plain.match!, 2)).toBe("You won on turn 6.");
+  });
+
   it("takes a draw with no winning seat", () => {
     const state = apply([
       {
@@ -551,6 +585,17 @@ describe("an abandoned match", () => {
    * wording that implied a crash would send people looking for
    * a fault that is not there.
    */
+  /** Seen in the browser (PHASE_07 P7-T): the room that follows wiped it. */
+  it("keeps saying so when the room comes back", () => {
+    const state = apply([
+      { type: "MATCH", matchId: "m-1", status: "RUNNING", participants: seats },
+      { type: "MATCH", matchId: "m-1", status: "TERMINATED", participants: seats },
+      { type: "ROOM", room: room() },
+    ]);
+    expect(state.room).not.toBeNull();
+    expect(state.notice?.detail).toContain("Nobody won it");
+  });
+
   it("reads as deliberate, not as a fault", () => {
     const state = apply([
       { type: "MATCH", matchId: "m-1", status: "TERMINATED", participants: seats },

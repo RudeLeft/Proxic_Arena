@@ -106,6 +106,14 @@ class MatchHub : DecisionAnnouncer {
         sendTo(matchId, userId, refusalMessage(decisionId, reason))
     }
 
+    override suspend fun concedeRefused(
+        matchId: UUID,
+        userId: UUID,
+        reason: String,
+    ) {
+        sendTo(matchId, userId, concedeRefusedMessage(reason))
+    }
+
     override suspend fun options(
         matchId: UUID,
         userId: UUID,

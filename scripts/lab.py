@@ -13,8 +13,9 @@ particular to its card.
     game.run(policy, until=lambda g: ..., max_turn=20)
 
 A policy is called with (game, frame) for every DECISION_REQUEST and
-returns an actionId, None (pass / decline), or DEFAULT to let the
-harness answer.
+returns an actionId, None (pass / decline), DEFAULT to let the
+harness answer, or HOLD to leave the question unanswered (a scenario that
+ends the game another way, e.g. a concession, PHASE_07 §7.55).
 
 Run with `python -I`: the harness puts its own directory on the path, so
 a scenario finds it.
@@ -30,6 +31,7 @@ import threading
 import uuid
 
 DEFAULT = object()
+HOLD = object()
 
 # A worker that says nothing for this long has stopped: the game ends with
 # WORKER_SILENT instead of hanging until CI kills the whole check, and the
@@ -96,6 +98,11 @@ class Game:
                    "messageId": str(uuid.uuid4()), "decisionId": frame["decisionId"],
                    "seat": frame["authorisedSeat"], "stateVersion": frame["stateVersion"],
                    "actionId": action_id})
+
+    def concede(self, seat):
+        """PHASE_07 §7.55 -- `seat` concedes, as the server would send it."""
+        self.send({"protocolVersion": 1, "type": "CONCEDE",
+                   "messageId": str(uuid.uuid4()), "seat": seat})
 
     # --- what a seat can see -----------------------------------------------
 
@@ -248,6 +255,8 @@ class Game:
                 continue
             self.asked.append((frame["authorisedSeat"], frame.get("kind"), frame.get("prompt"), self.labels(frame)))
             choice = policy(self, frame)
+            if choice is HOLD:
+                continue
             if choice is DEFAULT or (choice is None and frame.get("mandatory")):
                 # No pass on a question the rules make you answer.
                 choice = self.default(frame)

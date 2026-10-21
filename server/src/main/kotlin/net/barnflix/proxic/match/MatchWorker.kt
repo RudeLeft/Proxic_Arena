@@ -277,6 +277,11 @@ class MatchWorker(
 
     private fun onError(frame: JsonObject) {
         val code = frame["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED"
+        if (code == "CONCEDE_REFUSED") {
+            val seat = frame["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return
+            raise(WorkerEvent.ConcedeRefused(seat, frame["detail"]?.jsonPrimitive?.content ?: "REFUSED"))
+            return
+        }
         if (code == "DECISION_REFUSED") {
             // The GATE's verdict, which outranks the server's
             // pre-filter: only the gate can see whether this is
@@ -436,6 +441,9 @@ fun MatchWorker.answer(
     stateVersion: Long,
     actionId: String?,
 ): Boolean = forward(decisionResponseFrame(decisionId, seat, stateVersion, actionId), "an answer")
+
+/** §7.55 — forward a concession the server authorised. Forge ends the game. */
+fun MatchWorker.concede(seat: Int): Boolean = forward(concedeFrame(seat), "a concession")
 
 /** P6-AG — ask the worker what matches; the reply is a [WorkerEvent.Options]. */
 fun MatchWorker.search(

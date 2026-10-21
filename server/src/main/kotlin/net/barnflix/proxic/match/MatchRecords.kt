@@ -129,7 +129,8 @@ internal class MatchRecords(private val dataSource: DataSource) {
         when (outcome.kind) {
             GameOutcome.WINNER ->
                 "winner:seat ${outcome.winningSeat} on turn ${outcome.turn}" +
-                    (outcome.reason?.let { " ($it)" } ?: "")
+                    (outcome.reason?.let { " ($it)" } ?: "") +
+                    (outcome.concededSeat?.let { " (seat $it conceded)" } ?: "")
             GameOutcome.DRAW -> "draw on turn ${outcome.turn}"
             else -> "no result on turn ${outcome.turn}"
         }

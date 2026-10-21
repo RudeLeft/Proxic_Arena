@@ -4,6 +4,7 @@ import forge.LobbyPlayer;
 import forge.deck.Deck;
 import forge.game.Game;
 import forge.game.GameRules;
+import forge.game.GameStage;
 import forge.game.GameType;
 import forge.game.Match;
 import forge.game.player.Player;
@@ -79,9 +80,10 @@ public final class GameHost {
      * Forge's sentence ("has won because all opponents have lost")
      * tells the players nothing the result does not.
      */
-    public record Result(String kind, int winningSeat, int turn, String detail, String reason) {
+    public record Result(String kind, int winningSeat, int turn, String detail, String reason,
+                         int concededSeat) {
         public Result(String kind, int winningSeat, int turn, String detail) {
-            this(kind, winningSeat, turn, detail, null);
+            this(kind, winningSeat, turn, detail, null, 0);
         }
     }
 
@@ -691,6 +693,15 @@ public final class GameHost {
      */
     private void publishEnd(Game finishedGame) {
         Result result;
+        if (failure.get() != null && conceded && finishedGame.isGameOver()) {
+            // §7.55 — Forge had already ended the game when something
+            // threw on the way out (a question answered "no" while
+            // the game unwound). The result is Forge's; the throw is
+            // evidence, kept in stderr, not a reason to call a
+            // finished game FAILED.
+            System.err.println("proxic: after the concession: " + describeFailure());
+            failure.set(null);
+        }
         if (failure.get() != null) {
             // §6.154 — a crashed RUNNING game is FAILED_RUNTIME,
             // not a loss for anybody. Do not record a fake winner.
@@ -709,10 +720,16 @@ public final class GameHost {
             result = new Result("DRAW", 0, turn(), null);
         } else {
             String reason = null;
+            int concededSeat = 0;
             for (Player each : finishedGame.getRegisteredPlayers()) {
                 if (each.getOutcome() != null && each.getOutcome().hasWon()
                         && each.getOutcome().altWinSourceName != null) {
                     reason = String.valueOf(each.getOutcome());
+                }
+                // §7.55 — by SEAT, from Forge's own record of why
+                // this player lost.
+                if (each.conceded()) {
+                    concededSeat = seatOf(each.getLobbyPlayer());
                 }
             }
             result = new Result(
@@ -720,7 +737,8 @@ public final class GameHost {
                     seatOf(finishedGame.getOutcome().getWinningLobbyPlayer()),
                     turn(),
                     null,
-                    reason);
+                    reason,
+                    concededSeat);
         }
         if (failure.get() == null) {
             // The board as the game ENDED, before the result. Snapshots
@@ -814,6 +832,58 @@ public final class GameHost {
     public int turn() {
         Game g = game;
         return g == null ? 0 : g.getPhaseHandler().getTurn();
+    }
+
+    /** Whether a concession ended this game (§7.55). */
+    private volatile boolean conceded;
+
+    /**
+     * PHASE_07 §7.55 — `seat` concedes: FORGE's concession, so Forge
+     * declares the winner.
+     *
+     * What Forge's own client does (PlayerControllerHuman.concede):
+     * Player.concede, then checkGameOverCondition, then release every
+     * input still waiting. Here it runs on Forge's thread, at the
+     * question that thread is blocked on (DecisionGate.interject), and
+     * the release is the gate closing.
+     *
+     * Returns null when it will happen, or why not. Refused before
+     * the game proper starts, as Forge's client refuses it during the
+     * mulligan: Abandon is the way out of a game that has not begun.
+     */
+    public String concede(int seat) {
+        Game g = game;
+        if (g == null) {
+            return "NO_GAME";
+        }
+        if (g.isGameOver()) {
+            return "GAME_OVER";
+        }
+        if (g.getAge() != GameStage.Play) {
+            return "NOT_STARTED";
+        }
+        Player player = null;
+        for (Player each : g.getRegisteredPlayers()) {
+            if (seatOf(each.getLobbyPlayer()) == seat) {
+                player = each;
+            }
+        }
+        if (player == null) {
+            return "NO_SEAT";
+        }
+        Player conceding = player;
+        gate.interject(() -> {
+            if (g.isGameOver()) {
+                return;
+            }
+            conceding.concede();
+            g.getAction().checkGameOverCondition();
+            if (g.isGameOver()) {
+                conceded = true;
+                gate.close();
+            }
+        });
+        return null;
     }
 
     /** Stop the game thread. Used when a match is terminated. */

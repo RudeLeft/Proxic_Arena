@@ -374,4 +374,45 @@ class DecisionGateTest {
         assertTrue(asker.done.await(5, TimeUnit.SECONDS));
         assertEquals(DecisionGate.PASS, asker.answer.get());
     }
+
+    /**
+     * PHASE_07 §7.55 — a concession runs on the WAITING thread, and
+     * closing withdraws the question: Forge is told "no", and the
+     * answer the player was about to send is refused.
+     */
+    @Test
+    void an_interjection_runs_on_the_asking_thread_and_closing_withdraws_the_question()
+            throws Exception {
+        DecisionGate gate = new DecisionGate();
+        Asker asker = new Asker(gate, ALICE);
+        asker.awaitAsked();
+
+        AtomicReference<Thread> ranOn = new AtomicReference<>();
+        gate.interject(() -> {
+            ranOn.set(Thread.currentThread());
+            gate.close();
+        });
+
+        assertTrue(asker.done.await(5, TimeUnit.SECONDS), "closing never released the waiter");
+        assertEquals(asker.thread, ranOn.get(), "the interjection ran on the wrong thread");
+        assertEquals(DecisionGate.PASS, asker.answer.get());
+        assertNull(gate.pending());
+        assertEquals(
+                DecisionGate.Reject.NOT_PENDING,
+                gate.submit(new DecisionGate.Response(
+                        asker.pending.decisionId(), ALICE, asker.pending.stateVersion(),
+                        "action:0:card:7")));
+    }
+
+    /** Once closed, nothing more is asked of anybody. */
+    @Test
+    void a_closed_gate_answers_no_at_once_and_publishes_nothing() throws Exception {
+        DecisionGate gate = new DecisionGate();
+        gate.close();
+        AtomicReference<DecisionGate.Pending> published = new AtomicReference<>();
+
+        assertEquals(DecisionGate.PASS,
+                gate.ask(ALICE, ALICE, "chooseSingleEntity", OPTIONS, true, published::set));
+        assertNull(published.get(), "a closed gate still published a question");
+    }
 }

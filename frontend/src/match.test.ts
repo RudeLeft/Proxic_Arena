@@ -8,7 +8,7 @@
 // in a player being passed for.
 
 import { describe, expect, it } from "vitest";
-import { EMPTY_MATCH, reduceMatch, type MatchState } from "./match";
+import { EMPTY_MATCH, concessionText, reduceMatch, type MatchState } from "./match";
 
 function apply(messages: Record<string, unknown>[], from: MatchState = EMPTY_MATCH): MatchState {
   return messages.reduce(reduceMatch, from);
@@ -689,5 +689,20 @@ describe("player and global state", () => {
     expect(apply([BOARD]).board?.dayTime).toBe("day");
     const before = { ...BOARD, state: { ...BOARD.state, dayTime: undefined } };
     expect(apply([before]).board?.dayTime).toBeNull();
+  });
+});
+
+describe("concede (PHASE_07 §7.55)", () => {
+  it("records the server's answer and words it for the player", () => {
+    const sent = reduceMatch(EMPTY_MATCH, { type: "CONCEDE_ACCEPTED" });
+    expect(sent.concession).toBe("SENT");
+    expect(concessionText(sent.concession)).toBe("You conceded. Forge is ending the game.");
+
+    const early = reduceMatch(EMPTY_MATCH, { type: "CONCEDE_REFUSED", reason: "NOT_STARTED" });
+    expect(early.concession).toBe("NOT_STARTED");
+    expect(concessionText(early.concession)).toMatch(/Abandon ends it with no winner/);
+
+    expect(concessionText(null)).toBeNull();
+    expect(concessionText("SOMETHING_NEW")).toBe("That concession was not accepted.");
   });
 });

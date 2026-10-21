@@ -71,6 +71,12 @@ class MatchDecisions(
                 }
             }
 
+            // §7.55 — to the player who conceded, and nobody else.
+            is WorkerEvent.ConcedeRefused ->
+                live.match.participants
+                    .firstOrNull { it.seatNumber == event.seat }
+                    ?.let { seat -> tell { announcer.concedeRefused(live.match.matchId, seat.userId, event.reason) } }
+
             is WorkerEvent.Refused -> {
                 live.release(event.decisionId)
                 // Whoever got this far WAS the authorised user:
