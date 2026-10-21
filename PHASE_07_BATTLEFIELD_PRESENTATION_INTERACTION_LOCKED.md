@@ -1131,6 +1131,27 @@ smaller cards so tilted cards fit).
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 5
+
+**Reason:** On the drawn board, the canvas's card text measured about
+8px tall at 1920x1080 and 6px at 1366x768.
+
+**Affected requirements:** the card face's type sizes as taken from the
+canvas (§7.52a, owner decision "canvas frame + art crop").
+
+**Old decision:** name and type text 0.062 of the card's height; badges
+and tags 0.058.
+
+**New decision:** about a fifth larger: name and type text **0.075** of
+the card's height (still inside the 0.132 bars), state and pile badges
+and Aura/Equipment tags **0.070**, tags 0.12 tall. Everything else on
+the card face is unchanged.
+
+**Evidence:** owner decision 2026-10-20 ("yes make the text bigger").
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20

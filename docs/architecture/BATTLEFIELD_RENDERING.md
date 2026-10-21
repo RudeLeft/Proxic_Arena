@@ -202,7 +202,7 @@ rather than teleports.
 | Tier | Tool | Asserts | Evidence class |
 | --- | --- | --- | --- |
 | 1 | Vitest on `layout()` | §7.42 properties across (state × viewport × viewer × card count 0/1/8/9/23/31/60), both seats | `RUN` |
-| 2 | **one** Playwright test | for a seeded board, every card's `getBoundingClientRect()` equals `layout()`'s Box | `RUN` |
+| 2 | **one** Playwright test (`frontend/e2e/battlefield.spec.ts`) | for seeded boards (0-200 permanents) at four window sizes, every card's `getBoundingClientRect()` equals `layout()`'s Box; and PHASE 7 AMENDMENT 4 on what was drawn: no card covers another row, nothing crosses the divider, tilted corners are really clipped (hit-tested) | `RUN` |
 | 3 | Playwright, real events | a dispatched click sends the expected `action_id` (§7.44); the arrow never takes a click | `RUN` |
 | 4 | Playwright, both seats | opponent view's DOM text lacks every face-down identity; controller's has it (§7.45) | `RUN` |
 | 5 | screenshot regression | fixed viewports, pinned fonts, documented tight tolerance (§7.43, §7.47) | `RUN` |

@@ -156,7 +156,7 @@
   gap: 0.3em;
   padding: 0 calc(var(--card-h) * 0.035);
   background: var(--bar);
-  font-size: calc(var(--card-h) * 0.062);
+  font-size: calc(var(--card-h) * 0.075); /* canvas 0.062, +21% (PHASE 7 AMENDMENT 5) */
   line-height: 1;
   white-space: nowrap;
 }
@@ -243,7 +243,7 @@
 .bf-state,
 .bf-pile {
   position: absolute;
-  font-size: calc(var(--card-h) * 0.058);
+  font-size: calc(var(--card-h) * 0.07);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.06em;
@@ -290,7 +290,7 @@
   align-items: center;
   gap: 0.25em;
   max-width: 100%;
-  height: calc(var(--card-h) * 0.1);
+  height: calc(var(--card-h) * 0.12);
   margin: 0;
   padding: 0 0.4em 0 0.25em;
   border: 1px solid color-mix(in srgb, var(--bar-text) 45%, transparent);
@@ -298,7 +298,7 @@
   background: var(--bar);
   color: var(--bar-text);
   font: inherit;
-  font-size: calc(var(--card-h) * 0.058);
+  font-size: calc(var(--card-h) * 0.07);
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
