@@ -62,6 +62,19 @@ def pick(frame, text):
     return next((o["actionId"] for o in frame.get("options", []) if text in (o.get("label") or "")), None)
 
 
+def discard_spare(frame, keep):
+    """At hand size: the card with the most copies beyond what the scenario
+    still needs (`keep`: name -> copies worth holding). Discarding the
+    first card threw away exactly the cards scenarios were waiting for --
+    every Harnessed Lightning in one game, every Llanowar Elves in another."""
+    labels = [(o["actionId"], o.get("label") or "") for o in frame["options"]]
+    names = [next((n for n in keep if label.startswith(n)), label) for _, label in labels]
+    held = {n: names.count(n) for n in names}
+    surplus = [(held[n] - keep.get(n, 0), i) for i, n in enumerate(names)]
+    _, best = max(surplus, key=lambda s: (s[0], -s[1]))
+    return labels[best][0]
+
+
 def counter(g, seat, name, viewer=1):
     for c in g.player(viewer, seat).get("counters") or []:
         if c.get("name") == name:
@@ -77,8 +90,10 @@ def result(problems, ok, found):
 
 
 def marvel():
-    g = game("marvel", [("Mountain", 22), ("Aetherworks Marvel", 6), ("Harnessed Lightning", 14),
-                        ("Shivan Dragon", 18)])
+    # Marvel-heavy: with 6 of 60 it was sometimes never drawn by turn 40
+    # (energy piled up to 30, unused).
+    g = game("marvel", [("Mountain", 22), ("Aetherworks Marvel", 10), ("Harnessed Lightning", 12),
+                        ("Shivan Dragon", 16)])
     st = {"paid": [], "activated": None, "chosen": None, "mana_asked_after": 0, "offered": None}
 
     def policy(g, f):
@@ -102,6 +117,11 @@ def marvel():
             if st["activated"] is None and g.zone(1, "battlefield", owner=2, name="Grizzly Bears"):
                 return cast(g, f, "Harnessed Lightning")
             return None
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            # Lightning is the only energy; a Dragon in hand is never cast.
+            have_marvel = bool(g.mine(1, name="Aetherworks Marvel"))
+            return discard_spare(f, {"Harnessed Lightning": 4, "Mountain": 1,
+                                     "Aetherworks Marvel": 0 if have_marvel else 1, "Shivan Dragon": 0})
         if kind == "chooseNumber":
             # "Pay any amount of {E}": none -- the player's choice, kept.
             st["paid"].append([o.get("label") for o in f["options"]])
@@ -112,17 +132,26 @@ def marvel():
             if o:
                 st["chosen"] = card_of(o)
                 return o
-            st["chosen"] = "none"
+            # No Dragon in this top six (about one game in eight): decline,
+            # and activate again on a later turn with six more energy.
+            st["activated"] = None
+            st["offered"] = None
             return None
         if kind == "applyManaToCost" and st["chosen"] not in (None, "none"):
             st["mana_asked_after"] += 1
         return DEFAULT
 
     def until(g):
+        # An activation that never showed its six cards (Forge undid it) is
+        # tried again later, rather than waited on until the turn limit.
+        a = st["activated"]
+        if a and st["chosen"] is None and st["offered"] is None and g.turn > a["turn"] + 1:
+            st["activated"] = None
         return st["chosen"] not in (None, "none") and not g.state.get(1, {}).get("stack") \
             and any(c["id"] == st["chosen"] for c in g.mine(1))
 
-    g.run(policy, until=until, max_turn=40)
+    # Room for a second activation when the first top six had no Dragon.
+    g.run(policy, until=until, max_turn=60)
     a = st["activated"] or {}
     found = {"pay_choices": st["paid"][:3], "activated": a, "offered": st["offered"], "chosen": st["chosen"],
              "energy_after": counter(g, 1, "ENERGY"), "energy_seen_by_opponent": counter(g, 1, "ENERGY", viewer=2),
@@ -149,7 +178,7 @@ def marvel():
 
 
 def ring():
-    g = game("ring", [("Swamp", 26), ("Call of the Ring", 10), ("Walking Corpse", 24)])
+    g = game("ring", [("Swamp", 24), ("Call of the Ring", 14), ("Walking Corpse", 22)])
     st = {"bearer_questions": [], "bearer": None, "pay": [], "tempted": []}
 
     def policy(g, f):
@@ -161,12 +190,13 @@ def ring():
             land = g.play_land(f)
             if land:
                 return land
-            if not g.mine(1, name="Call of the Ring"):
-                o = cast(g, f, "Call of the Ring")
-                if o:
-                    return o
+            # Two creatures FIRST: with one, Forge makes it the Ring-bearer
+            # without asking (nothing to choose), and the check that the
+            # player chooses had nothing to see (one run in 30).
             if len(g.mine(1, name="Walking Corpse")) < 2:
                 return cast(g, f, "Walking Corpse")
+            if not g.mine(1, name="Call of the Ring"):
+                return cast(g, f, "Call of the Ring")
             return None
         if "Ring-bearer" in prompt:
             st["bearer_questions"].append([o.get("label") for o in f["options"]])
@@ -189,7 +219,9 @@ def ring():
             st["tempted"].append((g.turn, t))
         return t >= 2 and len(st["pay"]) >= 2 and not g.state.get(1, {}).get("stack")
 
-    g.run(policy, until=until, max_turn=30)
+    # Room for a late Call of the Ring: it waits for two creatures, then
+    # tempts only from the next upkeep.
+    g.run(policy, until=until, max_turn=50)
     marked = [c["id"] for c in g.mine(1) if c.get("ringBearer")]
     marked_for_opponent = [c["id"] for c in g.zone(2, "battlefield", owner=1) if c.get("ringBearer")]
     me = g.player(1, 1)
@@ -220,8 +252,9 @@ def ring():
 
 
 def meren():
-    g = game("meren", [("Swamp", 14), ("Forest", 14), ("Meren of Clan Nel Toth", 8), ("Llanowar Elves", 12),
-                       ("Bone Splinters", 12)])
+    # Meren-heavy: with 8 of 60 it was once never drawn by the turn limit.
+    g = game("meren", [("Swamp", 13), ("Forest", 13), ("Meren of Clan Nel Toth", 12), ("Llanowar Elves", 12),
+                       ("Bone Splinters", 10)])
     st = {"splinters": False, "sacrificed": None, "experience_after": None, "meren_target": None,
           "asked": []}
 
@@ -257,6 +290,11 @@ def meren():
                     return o
             o = pick(f, "Grizzly Bears")
             return o or DEFAULT
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            have_meren = bool(g.mine(1, name="Meren of Clan Nel Toth"))
+            return discard_spare(f, {"Llanowar Elves": 2, "Bone Splinters": 2,
+                                     "Meren of Clan Nel Toth": 0 if have_meren else 1,
+                                     "Swamp": 1, "Forest": 1})
         if kind == "CostSacrifice" and st["sacrificed"] is None and pick(f, "Llanowar Elves"):
             o = pick(f, "Llanowar Elves")
             st["sacrificed"] = card_of(o)

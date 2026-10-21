@@ -21,12 +21,20 @@ a scenario finds it.
 """
 import json
 import os
+import queue
 import re
 import subprocess
 import sys
+import tempfile
+import threading
 import uuid
 
 DEFAULT = object()
+
+# A worker that says nothing for this long has stopped: the game ends with
+# WORKER_SILENT instead of hanging until CI kills the whole check, and the
+# worker's own log is kept beside the trace.
+SILENCE_S = 120
 CARD = re.compile(r"card:(\d+)")
 
 
@@ -48,14 +56,32 @@ class Game:
         self.asked = []            # (seat, kind, prompt, labels) for every question
         self.refused = 0           # answers the worker refused (DECISION_REFUSED)
         self.turn = 0
+        # The worker's own log (Forge's messages): LAB_STDERR names a file
+        # for a scenario being debugged; otherwise it goes beside the trace
+        # (or to a temporary file) and is kept only if the game goes silent.
+        if os.environ.get("LAB_STDERR"):
+            self.stderr_path = os.environ["LAB_STDERR"]
+        elif trace:
+            self.stderr_path = trace[: -len(".jsonl")] + ".stderr.log" if trace.endswith(".jsonl") else trace + ".stderr.log"
+        else:
+            self.stderr_path = tempfile.mktemp(suffix=".stderr.log")
+        self.stderr_file = open(self.stderr_path, "w", encoding="utf-8")
         self.proc = subprocess.Popen(
             ["java", *jvm, "-jar", self.jar, self.res],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            # LAB_STDERR keeps the worker's own log (Forge's messages) for
-            # a scenario being debugged; otherwise it is discarded.
-            stderr=open(os.environ["LAB_STDERR"], "w") if os.environ.get("LAB_STDERR") else subprocess.DEVNULL,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr_file,
             text=True, encoding="utf-8", bufsize=1)
-        self.trace = open(trace, "w", encoding="utf-8") if trace else None
+        # Lines arrive through a queue so the loop can notice silence.
+        self.lines = queue.Queue()
+
+        def pump(out, q):
+            for line in out:
+                q.put(line)
+            q.put(None)  # end of output
+
+        threading.Thread(target=pump, args=(self.proc.stdout, self.lines), daemon=True).start()
+        # Line-buffered: a scenario killed for hanging keeps every frame it
+        # saw, which is the only account of what it was waiting on.
+        self.trace = open(trace, "w", encoding="utf-8", buffering=1) if trace else None
 
     # --- the wire ------------------------------------------------------
 
@@ -147,8 +173,22 @@ class Game:
 
     # --- the loop -------------------------------------------------------------
 
+    def _lines(self):
+        while True:
+            try:
+                line = self.lines.get(timeout=SILENCE_S)
+            except queue.Empty:
+                self.error = {"errorCode": "WORKER_SILENT",
+                              "detail": f"no frame for {SILENCE_S} s; worker log: {self.stderr_path}"}
+                return
+            if line is None:
+                return
+            yield line
+
     def run(self, policy, until=lambda g: False, max_turn=20):
-        for line in self.proc.stdout:
+        last_question = None
+        retried = set()  # questions whose refused pass was answered again
+        for line in self._lines():
             line = line.strip()
             if not line.startswith("{"):
                 continue
@@ -189,6 +229,17 @@ class Game:
                 break
             if kind == "ERROR" and frame.get("errorCode") == "DECISION_REFUSED":
                 self.refused += 1
+                # The worker refuses a pass where the rules leave no "no"
+                # and goes on waiting; answer it properly rather than wait
+                # with it (a marvel game passed on the legend rule's
+                # "keep which one?" and both sides waited).
+                # Once per question, with its first option: never a loop of
+                # refused answers.
+                if frame.get("detail") == "PASS_NOT_ALLOWED" and last_question \
+                        and frame.get("decisionId") == last_question["decisionId"] \
+                        and last_question["decisionId"] not in retried and last_question.get("options"):
+                    retried.add(last_question["decisionId"])
+                    self.answer(last_question, last_question["options"][0]["actionId"])
                 continue
             if kind == "ERROR":
                 self.error = frame
@@ -197,12 +248,24 @@ class Game:
                 continue
             self.asked.append((frame["authorisedSeat"], frame.get("kind"), frame.get("prompt"), self.labels(frame)))
             choice = policy(self, frame)
-            if choice is DEFAULT:
+            if choice is DEFAULT or (choice is None and frame.get("mandatory")):
+                # No pass on a question the rules make you answer.
                 choice = self.default(frame)
+            last_question = frame
             self.answer(frame, choice)
         self.proc.kill()
+        try:
+            self.proc.wait(timeout=10)  # Windows keeps a live process's files
+        except subprocess.TimeoutExpired:
+            pass
+        self.stderr_file.close()
         if self.trace:
             self.trace.close()
+        if not self.error and not os.environ.get("LAB_STDERR"):
+            try:
+                os.remove(self.stderr_path)
+            except OSError:
+                pass
         return self
 
     def stopped_badly(self):

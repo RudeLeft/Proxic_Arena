@@ -197,7 +197,10 @@ jobs:
           res: spikes/forge-phase0a/forge-upstream/forge-gui/res
           jar: forge-worker/target/forge-worker-0.1.0.jar
         run: |
-          traces=$(mktemp -d)
+          # Kept, and uploaded when the job fails: a hung scenario prints
+          # nothing, and its trace is the only account of what it waited on.
+          traces="$RUNNER_TEMP/lab-traces"
+          mkdir -p "$traces"
           export traces
           printf '%s\n' \
               agent-of-kotis panglacial-wurm card-name leyline karn multiface \
@@ -216,6 +219,13 @@ jobs:
           # P6-G, over the same games: no seat is sent a card from another
           # seat's hand that Forge did not show it.
           python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
+
+      - uses: actions/upload-artifact@v4.4.3
+        if: failure()
+        with:
+          name: mechanics-lab-traces
+          path: ${{ runner.temp }}/lab-traces/
+          retention-days: 7
 
   browser-tests:
     name: Browser tests
