@@ -1254,6 +1254,41 @@ Knight blocked by Goblin Guide).
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 8
+
+**Reason:** Build step 6 measured the performance budget
+(BATTLEFIELD_RENDERING.md §6; evidence
+`docs/testing/evidence/p7-benchmark.json`). First paint, a new face and
+60 fps through a full re-centre all pass with wide margins. Decoded-image
+memory does not: with 60 different pictures at 4K, pictures served at a
+scan's full 745 x 1040 hold about 175 MB (budget 150); served at the size
+the table draws them, about 33 MB. The miss is the pictures' size, not
+the renderer's -- any renderer keeps full-size pictures decoded -- so it
+does not open the PixiJS contingency.
+
+**Affected requirements:** BATTLEFIELD_RENDERING.md §5.4 (sized pictures
+offered as `srcset`, until now a refinement); PHASE_04's stored deck
+images and PHASE_06's match-scoped asset route (§6, P6 asset
+authorization), which today store and serve one full-size picture.
+
+**Old decision:** each imported picture is stored and served at its own
+size; the table draws it scaled down.
+
+**New decision:** **table-sized copies.** When a deck's pictures are
+imported, the server also keeps smaller copies of each; the asset route
+serves a picture at a requested size, under exactly the same match-scoped
+authorization as today (a copy is no more visible than its original).
+The table asks for the size it draws; zooming a hand card and inspecting
+a card ask for the full scan. The look at table size is unchanged; the
+memory budget is then met (about 33 MB at 4K with 60 pictures). Listed
+with the protocol additions as **B14**.
+
+**Evidence:** owner decision 2026-10-21, asked with the measured numbers
+and the alternative (keep full size and raise the budget to about 200 MB).
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
@@ -1388,6 +1423,7 @@ like Phase 6's fields (both seats, hidden information checked).
 | B11 | arrival order within a row (§7.52a L6) | each permanent's entry timestamp, Forge's `getGameTimestamp()` |
 | B12 | identical tokens pile (§7.52a L5) | `token: true` on a token (Forge's `isToken()`) |
 | B13 | damage numbers at impact (AMENDMENT 4) | per combat damage wave: source, recipient (object or player) and the amount Forge dealt |
+| B14 | table-sized pictures (AMENDMENT 8) | the asset route serves each picture at a requested size, from smaller copies kept at import; same authorization |
 
 ---
 
