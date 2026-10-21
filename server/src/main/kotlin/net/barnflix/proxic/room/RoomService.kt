@@ -62,6 +62,9 @@ class RoomService(
     /** PHASE_07 §7.64 — the room list everybody sees (RoomDirectory). */
     val list = RoomList(store)
 
+    /** PHASE_07 §7.67 — what an administrator may do to any room. */
+    val admin = RoomAdmin(store)
+
     /** §5.5 — the one room this user is in, if any. */
     fun roomOf(userId: UUID): Room? =
         store.withConnection { connection ->

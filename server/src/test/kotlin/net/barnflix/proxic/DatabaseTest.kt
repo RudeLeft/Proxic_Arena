@@ -140,10 +140,15 @@ class DatabaseTest {
                         // says what is running and what ran, and
                         // §6.186 still forbids a history UI, a
                         // replay system and ratings.
+                        // Phase 7 (§7.67, Amendment 9): sign_in_event
+                        // and admin_action, what the Admin page reads.
+                        // Records of attempts and of administrators'
+                        // actions, not of play.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
                             listOf(
+                                "admin_action",
                                 "app_user",
                                 "art_asset",
                                 "deck_entry",
@@ -155,6 +160,7 @@ class DatabaseTest {
                                 "match_setup_player",
                                 "room",
                                 "room_member",
+                                "sign_in_event",
                                 "user_session",
                             ),
                             tables.sorted(),

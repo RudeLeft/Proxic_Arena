@@ -1487,6 +1487,276 @@ main.pa-main {
   }
 }
 
+/* --- Admin (§7.67) -------------------------------------------------------- */
+
+.pa-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 20px 32px;
+}
+.pa-admin-message {
+  align-items: center;
+}
+.pa-admin-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 20px;
+}
+.pa-admin-accounts {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-admin-account-list {
+  flex: 1 1 0;
+  min-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pa-admin-account {
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-account-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  min-height: 58px;
+  padding: 9px 16px;
+  box-sizing: border-box;
+}
+.pa-admin-account-text {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.pa-admin-account-name {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pa-admin-username {
+  font-weight: 400;
+  color: var(--pa-muted);
+}
+.pa-admin-account-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--pa-faint);
+  font-variant-numeric: tabular-nums;
+}
+.pa-admin-account-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pa-admin-account-buttons .pa-small-button {
+  min-width: 96px;
+  min-height: 40px;
+}
+.pa-admin-dead,
+.pa-admin-dead:disabled {
+  border-style: dashed;
+  color: #4c5563;
+  cursor: not-allowed;
+}
+.pa-small-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.pa-admin-password {
+  padding: 0 16px 14px;
+  border-top: 0;
+}
+.pa-chip-tag {
+  flex: none;
+  width: 84px;
+  box-sizing: border-box;
+  padding: 3px 0;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 2px;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a9b0ba;
+}
+.pa-chip-admin {
+  border-color: #6b5b36;
+  background: #2b2518;
+  color: #f0dcb6;
+}
+.pa-chip-player {
+  color: var(--pa-muted);
+}
+.pa-chip-off,
+.pa-kind-failed {
+  border-color: #6b5450;
+  background: #2a1a18;
+  color: var(--pa-bad);
+}
+.pa-kind-throttled {
+  border-color: #6b6450;
+  background: #1c1b18;
+  color: #eee2c4;
+}
+.pa-admin-side {
+  flex: 1 1 320px;
+  max-width: 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pa-admin-side .pa-form .pa-input {
+  margin-bottom: 14px;
+}
+.pa-admin-role {
+  margin-bottom: 18px;
+}
+.pa-admin-server {
+  margin: 0;
+}
+.pa-admin-server-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--pa-line-soft);
+  font-size: 13px;
+}
+.pa-admin-server-row dt {
+  flex: 1;
+  min-width: 0;
+  color: #b4bbc4;
+}
+.pa-admin-server-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.pa-admin-rooms,
+.pa-admin-signins {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pa-admin-room {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  min-height: 58px;
+  padding: 9px 16px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-room-name {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+}
+.pa-admin-room .pa-room-clears {
+  display: block;
+}
+.pa-admin-room .pa-room-clears-key,
+.pa-admin-room .pa-room-clears-value {
+  display: block;
+}
+.pa-admin-close {
+  min-width: 124px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.pa-admin-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #f4cdc6;
+}
+.pa-admin-window {
+  font-size: 11px;
+  color: var(--pa-faint);
+}
+.pa-admin-signin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  min-height: 48px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-signin .pa-chip-tag {
+  width: 108px;
+}
+.pa-admin-signin-at {
+  flex: none;
+  width: 54px;
+  font-size: 12px;
+  color: var(--pa-faint);
+  font-variant-numeric: tabular-nums;
+}
+.pa-admin-signin-who {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-admin-signin-detail {
+  flex: none;
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-admin-signin-address {
+  flex: none;
+  min-width: 120px;
+  text-align: right;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--pa-faint);
+}
+
+.pa-admin-more {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+/* A typed password is spaced out; the hint in the empty box is not. */
+.pa-input[type="password"]::placeholder {
+  letter-spacing: normal;
+}
+
+@media (max-width: 1000px) {
+  .pa-admin-side {
+    max-width: none;
+  }
+  /* Stacked, the page scrolls: a list scrolling inside it is a trap. */
+  .pa-admin-account-list {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
 @media (max-width: 560px) {
   .pa-header {
     padding: 10px 16px;

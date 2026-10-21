@@ -482,6 +482,10 @@ function closedBecause(reason: string | null): string {
   switch (reason) {
     case "HOST_LEFT":
       return "The host left, so the room closed.";
+    case "CLOSED_BY_ADMIN":
+      // PHASE_07 §7.67 — said plainly, and the match it ended (if any)
+      // had no winner.
+      return "An administrator closed this game. Nobody won it.";
     case "CLOSED_BY_HOST":
       return "The host closed the room.";
     case "EXPIRED":

@@ -32,6 +32,8 @@ class SessionMaintenance(
     private val throttle: LoginThrottle,
     private val log: Logger,
     private val intervalHours: Long = DEFAULT_INTERVAL_HOURS,
+    /** PHASE_07 §7.67 — old sign-in records ride this tick too. */
+    private val alsoSweep: () -> Unit = {},
 ) {
     private val executor: ScheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor { runnable ->
@@ -64,6 +66,7 @@ class SessionMaintenance(
     internal fun sweep(): Int {
         val purged = sessions.purgeExpiredSessions()
         throttle.evictExpired()
+        alsoSweep()
         return purged
     }
 

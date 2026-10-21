@@ -81,6 +81,22 @@ class RoomList internal constructor(private val store: RoomStore) {
         }
 }
 
+/**
+ * PHASE_07 §7.67 — an administrator's force close: any room, no host
+ * check. Refused while a match is still recorded as running, so the
+ * caller ends the match first (with no winner) rather than orphaning
+ * a worker and a game (§6.152's reason).
+ */
+class RoomAdmin internal constructor(private val store: RoomStore) {
+    fun forceClose(roomId: java.util.UUID): Boolean =
+        store.inTransaction { connection ->
+            val room = store.lockedRoom(connection, roomId) ?: return@inTransaction false
+            if (room.status !in setOf(RoomStatus.OPEN, RoomStatus.READY_FOR_MATCH)) return@inTransaction false
+            store.close(connection, roomId)
+            true
+        }
+}
+
 /** The lifetime the maintenance sweep applies, said once for the list too. */
 val ROOM_LIFETIME: Duration = Duration.ofHours(24)
 

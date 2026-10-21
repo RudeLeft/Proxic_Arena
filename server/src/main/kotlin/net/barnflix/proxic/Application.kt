@@ -17,6 +17,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
+import net.barnflix.proxic.admin.adminRoutes
 import net.barnflix.proxic.auth.Principal
 import net.barnflix.proxic.auth.authRoutes
 import net.barnflix.proxic.auth.csrfOk
@@ -321,7 +322,7 @@ private fun Application.installRoutes(
         // Its own function because detekt was right that
         // installRoutes had grown past readable -- for the third
         // time, which is the point at which the seam is real.
-        dependencies.database?.let { databaseRoutes(config, it) }
+        dependencies.database?.let { databaseRoutes(config, it, health) }
 
         // §1.27 — production static serving. In development Vite
         // serves the app and proxies here (§1.28), so this directory
@@ -430,26 +431,17 @@ internal fun resolveStaticFile(
 private fun Route.databaseRoutes(
     config: ServerConfig,
     database: Database,
+    health: HealthChecks,
 ) {
     val sessions = net.barnflix.proxic.auth.Sessions(database.dataSource())
     val accounts = net.barnflix.proxic.auth.Accounts(database.dataSource(), sessions)
     val throttle = net.barnflix.proxic.auth.LoginThrottle()
-
-    // §3.90 -- expired rows are swept on a timer. The gate
-    // audit found the purge existed and was never called.
-    val maintenance =
-        net.barnflix.proxic.auth.SessionMaintenance(
-            sessions,
-            throttle,
-            application.log,
-        )
-    maintenance.start()
-    application.environment.monitor.subscribe(ApplicationStopped) {
-        maintenance.stop()
-    }
+    // PHASE_07 §7.67 — sign-in attempts an administrator can read.
+    val signIns = net.barnflix.proxic.auth.SignInLog(database.dataSource())
+    startSessionMaintenance(sessions, throttle, signIns)
 
     route("/api") {
-        authRoutes(config, accounts, sessions, throttle)
+        authRoutes(config, accounts, sessions, throttle, signIns)
     }
 
     // §3.77-§3.82 — the authenticated WebSocket. Outside
@@ -622,6 +614,10 @@ private fun Route.databaseRoutes(
             assets = matchRuntime,
             artStore = ArtStore(File(config.dataRoot)),
         )
+
+        // PHASE_07 §7.67 — the Admin page's API, administrators only.
+        val parts = AdminParts(sessions, accounts, signIns, roomService, matchRuntime, lobby)
+        adminRoutes(adminServices(config, database, health, parts))
 
         // §5.37, §5.94 — the server says which presets
         // exist; a browser holding a stale list is

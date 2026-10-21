@@ -58,6 +58,8 @@ fun Route.authRoutes(
     accounts: Accounts,
     sessions: Sessions,
     throttle: LoginThrottle,
+    // PHASE_07 §7.67 — the copy of each attempt the Admin page reads.
+    signIns: SignInLog? = null,
 ) {
     route("/auth") {
         post("/login") {
@@ -90,6 +92,7 @@ fun Route.authRoutes(
                     AuthResult.REFUSED,
                     username = body.username.trim().lowercase(),
                 )
+                signIns?.record(SignInKind.THROTTLED, body.username, source)
                 call.response.headers.append("Retry-After", seconds.toString())
                 return@post call.respond(
                     HttpStatusCode.TooManyRequests,
@@ -111,6 +114,7 @@ fun Route.authRoutes(
                         userId = result.principal.user.userId,
                         sessionId = result.principal.sessionId,
                     )
+                    signIns?.record(SignInKind.SIGNED_IN, result.principal.user.username, source)
                     call.issueSession(config, result)
                     call.respond(HttpStatusCode.OK, MeResponse(true, result.principal.user.view()))
                 }
@@ -125,6 +129,7 @@ fun Route.authRoutes(
                         AuthResult.FAILURE,
                         username = body.username.trim().lowercase(),
                     )
+                    signIns?.record(SignInKind.FAILED, body.username, source)
                     // §3.42, §3.43 — one message, one status, every
                     // time. 401 and nothing that distinguishes an
                     // unknown user from a wrong password.

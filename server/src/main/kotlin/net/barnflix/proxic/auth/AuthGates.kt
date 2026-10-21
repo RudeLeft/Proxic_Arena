@@ -55,12 +55,8 @@ suspend fun ApplicationCall.requireAuth(sessions: Sessions): Principal? {
  * known and signing in again will not help. 401 for nobody, because
  * signing in might.
  *
- * No route uses this yet, and that is deliberate rather than an
- * oversight: Phase 3 keeps account administration in `arena-admin`,
- * behind host access, so there is no admin HTTP surface to guard
- * (see docs/architecture/AUTHORIZATION.md). The gate exists, and is
- * tested, so that the first admin endpoint cannot be written without
- * one.
+ * PHASE_07 §7.67's Admin API is built on this: every /api/admin route
+ * calls it (see docs/architecture/AUTHORIZATION.md).
  */
 suspend fun ApplicationCall.requireAdmin(sessions: Sessions): Principal? {
     val principal = requireAuth(sessions) ?: return null

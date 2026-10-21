@@ -32,12 +32,11 @@ import kotlin.test.assertTrue
 /**
  * The admin gate — PHASE_03 §3.19, §3.155 ("add admin-route helper").
  *
- * `requireAdmin` guards no production route: Phase 3 keeps account
- * administration in `arena-admin`, behind host access, so there is no
- * admin HTTP surface (see docs/architecture/AUTHORIZATION.md). It is
- * therefore tested against a route mounted here for the purpose — a
- * gate nobody has exercised is a gate nobody knows the shape of, and
- * the first admin endpoint should not be the place that finds out.
+ * Tested against a route mounted here for the purpose, so the gate's
+ * own shape is pinned apart from any one route. Phase 3 had no admin
+ * HTTP surface at all; PHASE_07 §7.67's Admin API now stands on this
+ * gate, and AdminApiTest proves every one of its routes refuses a
+ * player.
  *
  * Its own file because `io.ktor.server.routing.get` and
  * `io.ktor.client.request.get` cannot both be imported, and the rest

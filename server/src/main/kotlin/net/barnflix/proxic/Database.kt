@@ -72,6 +72,18 @@ class Database private constructor(
             "unreachable"
         }
 
+    /** PHASE_07 §7.67 — "PostgreSQL 16.4" for the Admin page, or null. */
+    fun serverVersion(): String? =
+        runCatching {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery("SHOW server_version").use { rows ->
+                        if (rows.next()) "PostgreSQL ${rows.getString(1).substringBefore(' ')}" else null
+                    }
+                }
+            }
+        }.getOrNull()
+
     /** Exposed for later phases; Phase 1 itself stores nothing. */
     fun dataSource(): DataSource = dataSource
 

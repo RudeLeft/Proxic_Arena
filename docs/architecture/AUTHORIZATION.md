@@ -12,7 +12,8 @@ exist yet, it says so rather than describing an intention.
 
 ```text
 PLAYER   the ordinary account. Everything the game needs.
-ADMIN    PLAYER, plus account administration via arena-admin.
+ADMIN    PLAYER, plus account administration: arena-admin on the host,
+         and since PHASE_07 §7.67 the Admin page (/api/admin/*).
 ```
 
 Two roles, because two is what the product currently distinguishes.
@@ -88,19 +89,32 @@ not separation: nothing reaches the deck API without a session.
 
 ## Admin-only operations
 
-Account administration — create, list, disable, enable,
-set-password, revoke-sessions — exists **only in `arena-admin`**, run inside the container by someone with
-shell access to the host. There is no admin HTTP API and no admin
-page.
+Account administration — create, list, disable, enable, set a
+password, revoke sessions, and (PHASE_07) change a role — is in two
+places:
 
-That is a deliberate boundary: an operation that can lock everyone
-out should require host access, not a browser session that might be
-left open. It also means the ADMIN role currently grants nothing
-extra **over HTTP** — an admin and a player are equally permitted at
-every endpoint above.
+- **`arena-admin`**, run inside the container by someone with shell
+  access to the host. It stays (§7.67) and is the recovery tool.
+- **The Admin page**, `/api/admin/*` (PHASE_07 §7.67, amending Phase
+  3's "host only"). Every route calls `requireAdmin` — 401 for nobody,
+  403 for a player — and CSRF on every change. It also shows the open
+  rooms with **force close** (a running match ends with no winner, as
+  Abandon), the server's state, and the last day of **sign-in
+  activity** with each attempt's address (`sign_in_event`, Amendment
+  9). Every admin action is written to the server log and to
+  `admin_action` (who, what, to which account or room, when); never a
+  password.
 
-The one rule the tool enforces itself: the **last active
-administrator cannot be disabled** (§3.110).
+**Accepted trade-off (owner decision 15):** no password re-entry and no
+home-network restriction, so a browser left signed in as an
+administrator can change accounts. Recorded so it is a decision, not a
+discovery.
+
+The rule both enforce: the **last active administrator cannot be
+disabled or demoted**, by anyone, themselves included (§3.110, §7.67).
+The page checks it inside the transaction that makes the change, with
+every active administrator's row locked, so two administrators
+disabling each other at once cannot leave none.
 
 ---
 
@@ -127,11 +141,8 @@ Where a later phase would attach, and what already exists for it:
 - **Per-deck or per-match ownership.** `Principal` carries `userId`;
   nothing stores it against a deck yet. This is the schema change
   that unowned decks defer.
-- **Admin HTTP surface.** `call.requireAdmin(sessions)` exists and is
-  tested — 401 for nobody, 403 for a signed-in player, through for an
-  admin — but **no route uses it**, because account administration
-  lives in `arena-admin` behind host access. The gate is written so
-  that the first admin endpoint cannot be added without one.
+- **Admin HTTP surface.** Built in PHASE_07 (§7.67) on
+  `call.requireAdmin(sessions)`; see "Admin-only operations" above.
 - **Per-match authorization** (Phase 6). Seat and priority rules
   belong to the match, not to the role. The rule that holds now —
   the server decides, the client never asserts — is what those rules

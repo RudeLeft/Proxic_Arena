@@ -13,10 +13,6 @@ import { LobbyConnectionProvider, useLobbyConnection } from "./LobbyConnection";
 import logo from "../assets/logo-header.webp";
 import "./app.css";
 
-/** Whether the Admin page exists yet: the link appears with the page,
- * never before it (§1.105: no placeholders that look like features). */
-export const ADMIN_PAGE_READY = false;
-
 function ConnectionState() {
   const { lobby } = useLobbyConnection();
   const label =
@@ -53,7 +49,7 @@ function Header() {
         <NavLink to="/account" className={tab}>
           Account
         </NavLink>
-        {admin && ADMIN_PAGE_READY && (
+        {admin && (
           <NavLink to="/admin" className={tab}>
             Admin
           </NavLink>

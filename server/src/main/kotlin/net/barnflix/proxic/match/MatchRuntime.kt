@@ -259,6 +259,9 @@ class MatchRuntime(
 
     fun isRunning(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true
 
+    /** PHASE_07 §7.67 — how many games this server is playing right now. */
+    val runningCount: Int get() = live.values.count { it.worker?.isAlive() == true }
+
     /** Stop everything. Called when the application stops. */
     fun stopAll() {
         live.keys.toList().forEach { matchId ->

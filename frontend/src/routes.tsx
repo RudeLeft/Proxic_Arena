@@ -13,6 +13,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
+import AdminPage from "./AdminPage";
 import DecksPage from "./DecksPage";
 import LobbyPage from "./LobbyPage";
 import { AccountPage, LoginPage } from "./LoginPage";
@@ -77,6 +78,9 @@ export function AppRoutes() {
         <Route path="/play" element={<LobbyPage />} />
         <Route path="/decks" element={<DecksPage />} />
         <Route path="/account" element={<AccountPage />} />
+        {/* PHASE_07 §7.67 — the page says so to a player; the API
+            refuses them whatever they do. */}
+        <Route path="/admin" element={<AdminPage />} />
       </Route>
       {/* Unlinked, signed-in only, and labelled synthetic on screen
           (BATTLEFIELD_RENDERING.md §6). Not a game: no match, no
