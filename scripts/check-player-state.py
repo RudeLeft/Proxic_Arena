@@ -165,8 +165,11 @@ for line in proc.stdout:
             pick = next((o for o in options if card_of(o["actionId"]) in elf), None)
     elif dkind in ("declareAttackers", "declareBlockers"):
         pick = None
+    # chooseManaAbility too: Aether Hub asks which of its two abilities,
+    # and "no" cancels the spell -- which this script then cast again, for
+    # ever (1.1 million questions in one CI run, 2026-10-21).
     elif dkind in ("applyManaToCost", "mulliganKeepHand", "chooseStartingPlayer", "confirmPayment",
-                   "chooseCardsToDiscardToMaximumHandSize"):
+                   "chooseCardsToDiscardToMaximumHandSize", "chooseManaAbility"):
         pick = options[0] if options else None
     else:
         pick = options[0] if (options and frame.get("mandatory")) else None

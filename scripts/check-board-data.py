@@ -489,7 +489,10 @@ def afford():
                             st["checked"][name][0 if can else 1] += 1
                             if shown != can:
                                 st["wrong"].append((s.get("turn"), name, mountains, len(creatures), shown))
-            land = g.play_land(f)
+            # No seventh Mountain before the Dragon: casting it must tap
+            # out, or Fling (needing two) was never seen unaffordable with
+            # a creature to sacrifice -- inconclusive in CI, 2026-10-21.
+            land = g.play_land(f) if st["cast"] or len(g.mine(1, name="Mountain")) < 6 else None
             if land:
                 return land
             # Cast the first Dragon once it can be paid, so Fling then has
