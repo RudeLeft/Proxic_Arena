@@ -374,6 +374,39 @@ public final class GameHost {
         this.snapshotSink = sink;
     }
 
+    /** Where a step change goes (MATCH_STEP). Set by the worker's protocol. */
+    private volatile java.util.function.Consumer<com.google.gson.JsonObject> stepSink = step -> { };
+
+    public void onStep(java.util.function.Consumer<com.google.gson.JsonObject> sink) {
+        this.stepSink = sink;
+    }
+
+    /**
+     * PHASE_07 AMENDMENT 13 — the game moved to another step, and nobody is
+     * asked anything there (stops). Only what the step bar shows: turn,
+     * step, whose turn, who holds priority -- all public, the same for
+     * every seat. A whole board per step cost a full snapshot per viewer
+     * per step, and with thousands of tokens (Krenko, Mob Boss) each one
+     * is large; the board itself goes out when something asks.
+     */
+    private void publishStep(Game current) {
+        com.google.gson.JsonObject step = new com.google.gson.JsonObject();
+        forge.game.phase.PhaseHandler ph = current.getPhaseHandler();
+        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
+        step.addProperty("turn", ph.getTurn());
+        step.addProperty("phase", ph.getPhase() == null ? "" : ph.getPhase().toString());
+        Player active = ph.getPlayerTurn();
+        step.addProperty("activeSeat", active == null ? 0 : seats.getOrDefault(active, 0));
+        Player priority = ph.getPriorityPlayer();
+        step.addProperty("prioritySeat", priority == null ? 0 : seats.getOrDefault(priority, 0));
+        step.addProperty("gameEpoch", epoch.get());
+        try {
+            stepSink.accept(step);
+        } catch (RuntimeException e) {
+            System.err.println("proxic: step not delivered: " + e);
+        }
+    }
+
     /**
      * §6.48 — STATE FIRST, THEN THE QUESTION.
      *
@@ -429,11 +462,17 @@ public final class GameHost {
                 boolean combatStep = phase == forge.game.phase.PhaseType.COMBAT_FIRST_STRIKE_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_END;
-                // AMENDMENT 13: with stops, most steps ask nobody, so every
-                // step sends the board -- the step bar walks through them
-                // instead of jumping from one question to the next.
-                if (combatStep || !damageDealt.isEmpty() || stops.active()) {
+                if (combatStep || !damageDealt.isEmpty()) {
                     publishSnapshots();
+                } else if (stops.active()) {
+                    // AMENDMENT 13: with stops, most steps ask nobody, so each
+                    // step is announced -- the step bar walks through them
+                    // instead of jumping from one question to the next. Just
+                    // the step, not the whole board (publishStep).
+                    Game current = game;
+                    if (current != null) {
+                        publishStep(current);
+                    }
                 }
                 return;
             }

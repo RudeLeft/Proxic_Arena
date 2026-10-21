@@ -308,6 +308,12 @@ public final class WorkerMain {
                     // §6.40 — one snapshot per viewer, and the
                     // seat it is for is on the frame. The server
                     // routes it to that seat and nobody else.
+                    // AMENDMENT 13 — a step nobody is asked at: public, small.
+                    GAME.onStep(step -> {
+                        JsonObject frame = frame("MATCH_STEP", null);
+                        frame.add("state", step);
+                        send(frame);
+                    });
                     GAME.onSnapshot((seat, snapshot) -> {
                         JsonObject frame = frame("MATCH_SNAPSHOT", null);
                         frame.addProperty("seat", seat);

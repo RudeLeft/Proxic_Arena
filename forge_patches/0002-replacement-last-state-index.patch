@@ -1,0 +1,35 @@
+diff --git a/forge-game/src/main/java/forge/game/replacement/ReplacementHandler.java b/forge-game/src/main/java/forge/game/replacement/ReplacementHandler.java
+index 4d9877fb..4af8cf3b 100644
+--- a/forge-game/src/main/java/forge/game/replacement/ReplacementHandler.java
++++ b/forge-game/src/main/java/forge/game/replacement/ReplacementHandler.java
+@@ -100,6 +100,21 @@ public class ReplacementHandler {
+ 
+         final List<ReplacementEffect> possibleReplacers = Lists.newArrayList();
+ 
++        // Proxic Arena patch 0002: the last-known battlefield, indexed once per
++        // call. CardCollectionView.get(card) is a linear scan, and every card in
++        // the game was looked up in it, so each moved card cost O(n^2) -- a
++        // Krenko, Mob Boss making thousands of Goblin tokens took minutes. Same
++        // answer: the first element equal to the card (equal = same id and
++        // class, GameEntity.equals), or the card itself when there is none.
++        final CardCollectionView lastStateBattlefield =
++                (CardCollectionView) runParams.get(AbilityKey.LastStateBattlefield);
++        final Map<Card, Card> lastStateIndex = new HashMap<>();
++        if (ReplacementType.Moved.equals(event) && lastStateBattlefield != null) {
++            for (final Card known : lastStateBattlefield) {
++                lastStateIndex.putIfAbsent(known, known);
++            }
++        }
++
+         // Round up Static replacement effects
+         game.forEachCardInGame(crd -> {
+             Card c = preList.get(crd);
+@@ -122,7 +137,7 @@ public class ReplacementHandler {
+             // only when not prelist
+             boolean noLKIstate = c != crd || event != ReplacementType.Moved || c.isImmutable() || runParams.get(AbilityKey.LastStateBattlefield) == null;
+             if (!noLKIstate) {
+-                Card lastState = ((CardCollectionView) runParams.get(AbilityKey.LastStateBattlefield)).get(c);
++                Card lastState = lastStateIndex.getOrDefault(c, c);
+                 if (lastState != c) {
+                     // use LKI because it has the right RE from the state before the effect started
+                     c = lastState;

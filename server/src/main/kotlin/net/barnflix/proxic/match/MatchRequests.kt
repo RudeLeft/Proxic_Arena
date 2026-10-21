@@ -62,3 +62,12 @@ private fun concedeMessage(
         put("messageId", UUID.randomUUID().toString())
         reason?.let { put("reason", it) }
     }
+
+/** AMENDMENT 13 — a step nobody is asked at, for the step bar (public). */
+fun stepMessage(state: JsonObject): JsonObject =
+    buildJsonObject {
+        put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
+        put("type", "MATCH_STEP")
+        put("messageId", UUID.randomUUID().toString())
+        put("state", state)
+    }

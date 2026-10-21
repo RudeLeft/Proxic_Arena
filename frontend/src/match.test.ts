@@ -706,3 +706,33 @@ describe("concede (PHASE_07 §7.55)", () => {
     expect(concessionText("SOMETHING_NEW")).toBe("That concession was not accepted.");
   });
 });
+
+describe("a step nobody is asked at (PHASE_07 AMENDMENT 13)", () => {
+  const BOARD = {
+    type: "MATCH_SNAPSHOT",
+    state: { stateRevision: 1, seat: 1, turn: 4, phase: "MAIN1", activeSeat: 1, players: [] },
+  };
+  it("moves the step bar and keeps the cards", () => {
+    const before = apply([BOARD]);
+    const after = reduceMatch(before, {
+      type: "MATCH_STEP",
+      state: { turn: 5, phase: "END_OF_TURN", activeSeat: 2, prioritySeat: 2, gameEpoch: 1 },
+    });
+    expect(after.board?.phase).toBe("END_OF_TURN");
+    expect(after.board?.turn).toBe(5);
+    expect(after.board?.activeSeat).toBe(2);
+    expect(after.board?.battlefield).toBe(before.board?.battlefield);
+  });
+
+  it("is ignored with no board yet, or from another game of the match", () => {
+    expect(
+      reduceMatch(EMPTY_MATCH, { type: "MATCH_STEP", state: { phase: "UPKEEP" } }).board,
+    ).toBeNull();
+    const before = apply([BOARD]);
+    const other = reduceMatch(before, {
+      type: "MATCH_STEP",
+      state: { phase: "UPKEEP", gameEpoch: 2 },
+    });
+    expect(other.board?.phase).toBe(before.board?.phase);
+  });
+});

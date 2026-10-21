@@ -329,6 +329,28 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return { ...state, board };
     }
 
+    case "MATCH_STEP": {
+      // PHASE_07 AMENDMENT 13 — the game passed through a step nobody is
+      // asked at: the step bar moves; the cards stay as the last board
+      // has them (the next board comes with the next question).
+      const step = message["state"];
+      if (!state.board || typeof step !== "object" || step === null) return state;
+      const row = step as Record<string, unknown>;
+      const epoch = asNumber(row["gameEpoch"]);
+      if (epoch !== null && epoch !== state.board.gameEpoch) return state;
+      const phase = asString(row["phase"]);
+      return {
+        ...state,
+        board: {
+          ...state.board,
+          turn: asNumber(row["turn"]) ?? state.board.turn,
+          phase: phase ?? state.board.phase,
+          activeSeat: asNumber(row["activeSeat"]) ?? state.board.activeSeat,
+          prioritySeat: asNumber(row["prioritySeat"]) ?? state.board.prioritySeat,
+        },
+      };
+    }
+
     case "DECISION_REQUEST": {
       const decision = asDecision(message);
       if (!decision) return state;

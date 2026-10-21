@@ -211,6 +211,10 @@ jobs:
               'timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
                s=$?; [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
                echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
+          # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
+          # stay playable. A benchmark: 110 s without the patch, ~41 s with it
+          # on a development machine; the CI budget is generous.
+          timeout 900 python3 -I scripts/check-token-speed.py "$jar" "$res" 100
           # §6.29: a player's pregame thinking time is not Forge's start budget.
           python3 -I scripts/check-start-budget.py "$jar" "$res"
           # P6-L, over every game above: no question reaches a seat before

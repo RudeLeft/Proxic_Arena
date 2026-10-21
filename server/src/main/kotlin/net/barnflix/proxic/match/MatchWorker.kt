@@ -261,7 +261,8 @@ class MatchWorker(
             "DECISION_REQUEST" ->
                 readDecisionFrame(frame)?.let { raise(WorkerEvent.Decision(it)) }
 
-            "MATCH_SNAPSHOT" -> readSnapshot(frame)?.let { raise(it) }
+            // A board for one seat, or (AMENDMENT 13) a step for everyone.
+            "MATCH_SNAPSHOT", "MATCH_STEP" -> readState(frame)?.let { raise(it) }
 
             "GAME_ENDED" ->
                 readOutcomeFrame(frame)?.let { raise(WorkerEvent.Ended(it)) }
@@ -430,6 +431,13 @@ private fun stderrTarget(
     }
 
 /** §6.40 — one seat's view, carried through unchanged. */
+private fun readState(frame: JsonObject): WorkerEvent? =
+    if (frame["type"]?.jsonPrimitive?.content == "MATCH_STEP") {
+        (frame["state"] as? JsonObject)?.let { WorkerEvent.Step(it) }
+    } else {
+        readSnapshot(frame)
+    }
+
 private fun readSnapshot(frame: JsonObject): WorkerEvent.Snapshot? {
     val seat = frame["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return null
     val state = frame["state"] as? JsonObject ?: return null

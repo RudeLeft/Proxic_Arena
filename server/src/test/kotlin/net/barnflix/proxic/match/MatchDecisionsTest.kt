@@ -63,6 +63,14 @@ class MatchDecisionsTest {
             ) {
                 told += "${name(userId)}/OPTIONS:${found.options.size}"
             }
+
+            override suspend fun step(
+                matchId: UUID,
+                userId: UUID,
+                state: kotlinx.serialization.json.JsonObject,
+            ) {
+                told += "${name(userId)}/STEP:${state["phase"]}"
+            }
         }
 
     private fun name(userId: UUID) = if (userId == alice) "alice" else "bob"
@@ -122,6 +130,20 @@ class MatchDecisionsTest {
             ),
             told,
         )
+    }
+
+    /** PHASE_07 AMENDMENT 13 — a step nobody is asked at is public: everybody's bar moves. */
+    @Test
+    fun `a step change reaches every player`() {
+        val decisions = MatchDecisions(announcer)
+        val state =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement("""{"turn":3,"phase":"UPKEEP","activeSeat":1,"prioritySeat":1}""")
+                as kotlinx.serialization.json.JsonObject
+
+        decisions.handle(live(), WorkerEvent.Step(state))
+
+        assertEquals(listOf("alice/STEP:\"UPKEEP\"", "bob/STEP:\"UPKEEP\""), told)
     }
 
     /** The one being asked is never also told it is not theirs. */

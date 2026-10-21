@@ -175,6 +175,12 @@ sealed interface WorkerEvent {
     data class ConcedeRefused(val seat: Int, val reason: String) : WorkerEvent
 
     /**
+     * AMENDMENT 13 — the game moved to a step nobody is asked at: turn,
+     * step, active and priority seat. Public, the same for every seat.
+     */
+    data class Step(val state: kotlinx.serialization.json.JsonObject) : WorkerEvent
+
+    /**
      * P6-AG — what a search of a searchable question found.
      *
      * `seat` is the one the server sent, echoed: results go to the
@@ -278,6 +284,13 @@ interface DecisionAnnouncer {
         matchId: java.util.UUID,
         userId: java.util.UUID,
         found: WorkerEvent.Options,
+    ) = Unit
+
+    /** AMENDMENT 13 — a step change, to every participant. A default, like [options]. */
+    suspend fun step(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        state: kotlinx.serialization.json.JsonObject,
     ) = Unit
 
     /** §7.55 — Forge would not take this player's concession, and why. A default, like [options]. */

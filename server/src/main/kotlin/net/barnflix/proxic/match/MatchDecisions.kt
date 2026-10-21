@@ -71,6 +71,12 @@ class MatchDecisions(
                 }
             }
 
+            // AMENDMENT 13 — public: everybody's step bar moves.
+            is WorkerEvent.Step ->
+                live.match.participants.map { it.userId }.distinct().forEach { user ->
+                    tell { announcer.step(live.match.matchId, user, event.state) }
+                }
+
             // §7.55 — to the player who conceded, and nobody else.
             is WorkerEvent.ConcedeRefused ->
                 live.match.participants

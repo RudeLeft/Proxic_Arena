@@ -1,6 +1,6 @@
 # Forge patches
 
-**One local Forge patch is approved.** Each one below is a patch file
+**Two local Forge patches are approved.** Each one below is a patch file
 in this directory, applied by the Docker build to a fresh clone of the
 pinned commit in `../forge-pin.properties`. The vendored checkout under
 `spikes/` is never edited (`scripts/check-integrity.py` holds it to the
@@ -54,3 +54,40 @@ discard must be exiled. Run against a worker built WITHOUT this patch
 it fails ("seat 2's discard reached its graveyard ... is
 forge_patches/0001 applied?") -- measured 2026-10-20, three runs of
 each.
+
+---
+
+## 0002 — Replacement effects: index the last-known battlefield once per check
+
+| | |
+|---|---|
+| File | `0002-replacement-last-state-index.patch` |
+| Applies to | Forge `4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676` (forge-2.0.15), `forge-game/src/main/java/forge/game/replacement/ReplacementHandler.java` |
+| Change | In `getReplacementList`, the last-known battlefield is put in a `HashMap` once per call, and each card is looked up there instead of with `CardCollectionView.get(card)` |
+| Approved | By the owner, 2026-10-21 ("Patch Forge + slim our updates"), after the measurement below |
+| Regression test | `scripts/check-token-speed.py` (in CI) |
+
+**The defect.** Krenko, Mob Boss with a few thousand Goblins took 10-15
+minutes per activation on the live server (owner report). Sampled
+against the worker: half the time was in one line. For every card moved
+(each token entering), `getReplacementList` visits every card in the
+game, and for each one looks it up in the last-known battlefield with
+`FCollection.get(card)` -- a linear scan. So each token cost
+(cards in game) x (cards on the battlefield): making N tokens grows with
+N cubed.
+
+**Why not outside Forge.** The lookup is inside Forge's replacement-
+effect machinery; nothing the worker controls is on the path.
+
+**Why it changes nothing else.** `FCollection.get(card)` returns the
+first element equal to `card` (equal: same id and class,
+`GameEntity.equals`), or `card` itself. The index is built with
+`putIfAbsent` in iteration order and read with `getOrDefault(card,
+card)`: the same element, every time. The whole Mechanics Lab passes
+with it.
+
+**Measured** (development machine, Krenko doubling, the activation that
+makes 2,048 Goblin tokens): **110 s without, 41 s with**; 1,024 tokens
+3.2 s -> 1.8 s. What remains is Forge recomputing static abilities
+(devotion and the layer system) for each token entering -- quadratic, and
+inherent to its design; not patched.

@@ -442,7 +442,17 @@ public final class MatchController extends GeneratedControllerBase {
                 // two abilities of ONE card distinct, which is
                 // §6.51's invariant: an object can expose zero, one
                 // or several actions.
-                byId.put("action:" + byId.size() + ":card:" + card.getId(), sa);
+                // The ability's own id, Forge's: one action keeps one id
+                // across questions, and two never share one. A position in
+                // this list did both by chance -- a card's ability from the
+                // graveyard could land where its cast from hand had been
+                // (a Mechanics Lab check, CI 2026-10-21).
+                // (The card stays last: the board reads the object from it.)
+                String key = "action:" + sa.getId() + ":card:" + card.getId();
+                if (byId.containsKey(key)) {
+                    key = "action:" + sa.getId() + "-" + byId.size() + ":card:" + card.getId();
+                }
+                byId.put(key, sa);
             }
         }
 
