@@ -135,8 +135,13 @@ def split():
             return seat2(g, f)
         kind = f.get("kind")
         if kind == "chooseSpellAbilityToPlay":
-            if len(g.mine(1)) < 4:
-                return g.play_land(f, prefer="Mountain" if len(g.mine(1, name="Mountain")) < 2 else "Island")
+            # Two of each: stopping at any four lands left seat 1 with
+            # four Islands and no way to cast Fire about one game in 20.
+            mountains = len(g.mine(1, name="Mountain"))
+            if mountains < 2 or len(g.mine(1, name="Island")) < 2:
+                land = g.play_land(f, prefer="Mountain" if mountains < 2 else "Island")
+                if land:
+                    return land
             if not st["fire"] and g.zone(1, "battlefield", owner=2, name="Grizzly Bears") \
                     and len(g.untapped_lands(1, "Mountain")) >= 1 and len(g.untapped_lands(1)) >= 2:
                 o = starts(f, "Fire — {1}{R}")
