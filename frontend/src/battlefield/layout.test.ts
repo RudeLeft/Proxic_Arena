@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  tiltOverhang,
   geometry,
   layout,
   type Box,
@@ -47,12 +48,19 @@ function card(over: Partial<LayoutCard> & { seat: number }): LayoutCard {
   };
 }
 
-/** n distinct (never-piling) permanents of one kind for a seat. */
-function many(n: number, seat: number, kind: "creature" | "land" | "other"): LayoutCard[] {
+/** n distinct (never-piling) permanents of one kind for a seat; every
+ * `tappedEvery`-th one tapped (0 = none). */
+function many(
+  n: number,
+  seat: number,
+  kind: "creature" | "land" | "other",
+  tappedEvery = 0,
+): LayoutCard[] {
   return Array.from({ length: n }, (_, i) =>
     card({
       seat,
       kind,
+      tapped: tappedEvery > 0 && i % tappedEvery === 0,
       name: `${kind} ${i}`,
       types: kind === "land" ? "Land" : kind === "creature" ? "Creature — Test" : "Artifact",
       power: kind === "creature" ? 2 : null,
@@ -66,17 +74,19 @@ function board(n: number, seat = 1): LayoutInput {
     viewerSeat: seat,
     hand: [],
     battlefield: [
-      ...many(n, 1, "creature"),
-      ...many(n, 1, "land"),
-      ...many(n, 1, "other"),
-      ...many(n, 2, "creature"),
-      ...many(n, 2, "land"),
-      ...many(n, 2, "other"),
+      ...many(n, 1, "creature", 3),
+      ...many(n, 1, "land", 2),
+      ...many(n, 1, "other", 4),
+      ...many(n, 2, "creature", 3),
+      ...many(n, 2, "land", 2),
+      ...many(n, 2, "other", 4),
     ],
   };
 }
 
 const right = (b: Box) => b.x + b.w;
+/** The card's outline as drawn: a tilted card reaches past its box. */
+const reach = (b: Box) => (b.rotation === 15 ? tiltOverhang(b.w, b.h) : { left: 0, right: 0 });
 
 describe("geometry", () => {
   it("reproduces the contract's rectangles at 16:9 (§2 Verification)", () => {
@@ -158,9 +168,11 @@ describe("§7.42 properties, across viewports × counts × both seats", () => {
             const mine = c.seat === seat;
             expect(mine ? b.y >= vp.height / 2 : b.y + b.h <= vp.height / 2).toBe(true);
             // No card escapes its row (§7.42), nor runs into the rail.
-            expect(b.x).toBeGreaterThanOrEqual(row.x - EPS);
-            expect(right(b)).toBeLessThanOrEqual(row.x + row.w + EPS);
-            expect(right(b)).toBeLessThanOrEqual(g.rail.x + EPS);
+            // Tilt included: a tapped card's drawn outline stays in its row.
+            const r = reach(b);
+            expect(b.x - r.left).toBeGreaterThanOrEqual(row.x - EPS);
+            expect(right(b) + r.right).toBeLessThanOrEqual(row.x + row.w + EPS);
+            expect(right(b) + r.right).toBeLessThanOrEqual(g.rail.x + EPS);
             expect(b.y).toBeGreaterThanOrEqual(row.y - EPS);
             expect(b.y + b.h).toBeLessThanOrEqual(row.y + row.h + EPS);
             // Never smaller than the floor.
@@ -519,6 +531,63 @@ describe("attachments (§7.52a L7)", () => {
     const out = layout({ viewerSeat: 1, hand: [], battlefield: [curse] }, vp);
     expect(out.slots).toHaveLength(1);
     expect(out.rowOf.get(curse.id)).toBe("viewer:other-front");
+  });
+});
+
+describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
+  const vp = { width: 1920, height: 1080 };
+
+  it("the overhang is computed from the rotation: ~1% left, ~32% right at 15 degrees", () => {
+    const { left, right: r } = tiltOverhang(100, 140);
+    expect(left).toBeGreaterThan(0.5);
+    expect(left).toBeLessThan(2);
+    expect(r).toBeGreaterThan(30);
+    expect(r).toBeLessThan(33);
+  });
+
+  it("a tapped card overlaps nothing while its row is not overflowing", () => {
+    for (const viewport of VIEWPORTS) {
+      for (const every of [1, 2, 3]) {
+        const lands = many(6, 1, "land", every);
+        const out = layout({ viewerSeat: 1, hand: [], battlefield: lands }, viewport);
+        const g = out.geometry;
+        expect(out.overcrowded).toEqual([]);
+        for (const rowId of new Set(out.slots.map((s) => s.row))) {
+          const list = out.slots
+            .filter((s) => s.row === rowId)
+            .map((s) => s.box)
+            .sort((a, b) => a.x - b.x);
+          for (let i = 1; i < list.length; i++) {
+            const prev = list[i - 1]!;
+            const cur = list[i]!;
+            const gap = cur.x - reach(cur).left - (right(prev) + reach(prev).right);
+            expect(gap).toBeGreaterThanOrEqual(g.inset - EPS);
+          }
+        }
+      }
+    }
+  });
+
+  it("tapped cards take more room, so a row holds fewer of them", () => {
+    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(8, 1, "land") }, vp);
+    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(8, 1, "land", 1) }, vp);
+    const inBack = (o: typeof upright) =>
+      o.slots.filter((s) => s.row === "viewer:land-back").length;
+    expect(inBack(upright)).toBe(8);
+    expect(inBack(tapped)).toBeLessThan(8);
+    expect(tapped.overcrowded).toEqual([]);
+  });
+
+  it("tapping one card re-centres its row: neighbours glide a little, nothing jumps", () => {
+    const lands = many(5, 1, "land");
+    const before = layout({ viewerSeat: 1, hand: [], battlefield: lands }, vp);
+    const withTap = lands.map((c, i) => (i === 2 ? { ...c, tapped: true } : c));
+    const after = layout({ viewerSeat: 1, hand: [], battlefield: withTap }, vp);
+    const { right: r } = tiltOverhang(before.geometry.cardW, before.geometry.cardH);
+    for (const c of lands) {
+      const moved = Math.abs(before.boxes.get(c.id)!.x - after.boxes.get(c.id)!.x);
+      expect(moved).toBeLessThanOrEqual(r + EPS);
+    }
   });
 });
 

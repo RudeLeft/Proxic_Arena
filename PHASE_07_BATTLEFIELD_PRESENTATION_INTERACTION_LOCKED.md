@@ -1012,6 +1012,36 @@ windows).
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 3
+
+**Reason:** Drawing `layout()`'s output showed a tapped card's 15-degree
+tilt (taken from the canvas) leaning its top onto the next card and
+covering that card's name. The owner chose to keep 15 degrees and not
+overlap.
+
+**Affected requirements:** §7.52a's "a tapped card tilts 15 degrees" as
+the canvas drew it (overlapping its neighbour).
+
+**Old decision:** tapped cards tilt in place, at the normal spacing,
+over their neighbour.
+
+**New decision:** a tapped card gets **tilt room** -- the extra width its
+tilt reaches past its upright box, computed from the rotation (about 1%
+of a card on the left, 32% on the right at 15 degrees) -- **only while it
+is tapped**. While a row is not overflowing, a tapped card overlaps
+nothing. Tapping or untapping re-centres the row, so its neighbours glide
+a little (animated). When a row overflows, every gap in it is squeezed by
+one factor, tilt room included, so squeezing starts exactly where the
+spaced layout stops and nothing jumps; tilted cards then overlap like
+everything else, and no card's drawn outline leaves its row. Rows hold
+fewer cards when many are tapped.
+
+**Evidence:** owner decision 2026-10-20, asked with the alternative of
+always leaving tilt room (no movement on tap, fewer cards per row).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20

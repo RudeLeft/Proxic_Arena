@@ -249,101 +249,150 @@ function pileKey(card: LayoutCard, attachedHosts: ReadonlySet<string>): string |
 
 // --- the overflow ladder ----------------------------------------------------
 
-interface RowPlan {
-  row: Rect;
-  count: number;
-  scale: number;
-  pitch: number;
+/**
+ * How far a tilted card reaches past its upright box, left and right,
+ * for a card of size w x h tilted TAPPED_TILT degrees about
+ * TAPPED_ORIGIN. Computed from the rotation, not estimated: at 15 degrees
+ * it is ~1% of a card on the left and ~32% on the right.
+ */
+export function tiltOverhang(w: number, h: number): { left: number; right: number } {
+  const t = (TAPPED_TILT * Math.PI) / 180;
+  const px = TAPPED_ORIGIN.x * w;
+  const py = TAPPED_ORIGIN.y * h;
+  const xs = [
+    [0, 0],
+    [w, 0],
+    [0, h],
+    [w, h],
+  ].map(([x, y]) => px + (x! - px) * Math.cos(t) - (y! - py) * Math.sin(t));
+  return { left: Math.max(0, -Math.min(...xs)), right: Math.max(0, Math.max(...xs) - w) };
 }
 
-/** How many cards of width `cardW` fit in a row at `pitch`. */
-function capacity(row: Rect, cardW: number, pitch: number, inset: number): number {
-  const room = row.w - 2 * inset - cardW;
-  if (room < 0) return row.w >= cardW ? 1 : 0;
-  return 1 + Math.floor(room / pitch + 1e-9);
+/** One row's share of a kind group: which slots, at what scale, where. */
+interface RowPlan {
+  row: Rect;
+  /** Indices into the group's slots, in order. */
+  slots: number[];
+  scale: number;
+  /** Each slot's upright box's left edge. */
+  xs: number[];
 }
 
 /**
- * Split `n` slots between a kind's two rows and pick a pitch and scale
- * (contract §3, §7.9, §7.51):
+ * Lay a kind's slots into its two rows (contract §3, §7.9, §7.51, §7.52a):
  *
- *   1. fill the first row at the reference pitch;
- *   2. then the second row;
- *   3. past both, split between the rows by width and overlap, down to
- *      the minimum sliver (33% of a card);
+ *   1. fill the first row, each card one reference pitch from the last
+ *      plus the TILT ROOM a tapped card needs (PHASE 7 AMENDMENT 3: while
+ *      a row is not overflowing, a tapped card overlaps nothing);
+ *   2. then the second row the same way;
+ *   3. past both, split the slots between the rows by width and squeeze
+ *      every gap in a row by the same factor -- tilt room included, so
+ *      squeezing starts from exactly where step 2 stopped and nothing
+ *      jumps -- down to the minimum sliver (33% of a card);
  *   4. then shrink both rows uniformly, down to the 75% floor;
- *   5. past that the cards overlap more than the sliver, and the group
- *      is reported overcrowded.
+ *   5. past that the cards overlap more than the sliver, and the group is
+ *      reported overcrowded.
  *
- * Piling (step 5 of the contract) already happened before this: a pile
- * is one slot. Steps 1 and 2 of the contract are one step here
- * (BATTLEFIELD_RENDERING.md §4: the reference pitch IS card width plus
- * the minimum gap, so there is no spare width to spread).
+ * Piling (step 5 of the contract) already happened before this: a pile is
+ * one slot. Steps 1 and 2 of the contract are one step here
+ * (BATTLEFIELD_RENDERING.md §4: the reference pitch IS card width plus the
+ * minimum gap, so there is no spare width to spread).
+ *
+ * Every length here is proportional to the scale, so a row is described at
+ * scale 1 and scaled: `gaps` are the distances between consecutive left
+ * edges, `ends` the first card plus the tilt hanging off either end.
  */
 function planRows(
-  n: number,
+  tapped: readonly boolean[],
   first: Rect,
   second: Rect,
   g: Geometry,
 ): { plans: [RowPlan, RowPlan]; overcrowded: boolean } {
-  const { cardW, inset, referencePitch } = g;
-  const capFirst = capacity(first, cardW, referencePitch, inset);
-  const capSecond = capacity(second, cardW, referencePitch, inset);
-  const reference = (row: Rect, count: number): RowPlan => ({
-    row,
-    count,
-    scale: 1,
-    pitch: referencePitch,
-  });
+  const { cardW, cardH, inset, referencePitch } = g;
+  const n = tapped.length;
+  const { left: L, right: R } = tiltOverhang(cardW, cardH);
 
-  if (n <= capFirst) {
-    return { plans: [reference(first, n), reference(second, 0)], overcrowded: false };
-  }
-  if (n <= capFirst + capSecond) {
-    return {
-      plans: [reference(first, capFirst), reference(second, n - capFirst)],
-      overcrowded: false,
-    };
-  }
-
-  // Both rows full: share the slots by width, never fewer than a row's
-  // own capacity would have held (so the split moves smoothly on from
-  // step 2), and overlap.
-  const share = Math.round((n * first.w) / (first.w + second.w));
-  const inFirst = Math.min(n - 1, Math.max(capFirst, share));
-  const counts: [number, number] = [inFirst, n - inFirst];
-  const rows: [Rect, Rect] = [first, second];
-
-  // The largest scale (<= 1) at which every row fits at the sliver.
-  let scale = 1;
-  for (let i = 0; i < 2; i++) {
-    const k = counts[i]!;
-    if (k <= 1) continue;
-    const fit = (rows[i]!.w - 2 * inset) / (cardW * (1 + SLIVER * (k - 1)));
-    scale = Math.min(scale, fit);
-  }
-  const overcrowded = scale < SCALE_FLOOR;
-  scale = Math.max(SCALE_FLOOR, scale);
-
-  const plan = (i: number): RowPlan => {
-    const k = counts[i]!;
-    const row = rows[i]!;
-    const w = cardW * scale;
-    const pitch =
-      k > 1 ? Math.min(referencePitch * scale, (row.w - 2 * inset - w) / (k - 1)) : referencePitch;
-    return { row, count: k, scale, pitch };
+  /** A run of slots [from, to) at scale 1. */
+  /**
+   * A run of slots [from, to) at scale 1: where each card's left edge is
+   * (`at`, from the first card's), how far each reaches to the right
+   * (`reach`: the card, plus its tilt if tapped), and the tilt hanging off
+   * the left end (`lead`). Squeezing multiplies every `at` by one factor.
+   */
+  const measure = (from: number, to: number) => {
+    const at: number[] = [];
+    const reach: number[] = [];
+    let offset = 0;
+    let min = Infinity;
+    for (let i = from; i < to; i++) {
+      if (i > from) {
+        const gap = referencePitch + (tapped[i - 1] ? R : 0) + (tapped[i] ? L : 0);
+        offset += gap;
+        min = Math.min(min, gap);
+      }
+      at.push(offset);
+      reach.push(cardW + (tapped[i] ? R : 0));
+    }
+    const lead = to > from && tapped[from] ? L : 0;
+    return { at, reach, lead, min };
   };
-  return { plans: [plan(0), plan(1)], overcrowded };
-}
+  type Run = ReturnType<typeof measure>;
+  /** The run's drawn width at a squeeze: its furthest-reaching card,
+   * which in a tight squeeze need not be the last one. */
+  const extent = (m: Run, squeeze: number) =>
+    m.at.length === 0 ? 0 : m.lead + Math.max(...m.at.map((a, i) => a * squeeze + m.reach[i]!));
+  const avail = (row: Rect) => row.w - 2 * inset;
+  const fits = (row: Rect, from: number, to: number) =>
+    extent(measure(from, to), 1) <= avail(row) + 1e-9;
 
-/** Centre-out placement (BATTLEFIELD_RENDERING.md §4): the group is
- * centred in its row, clamped to the row's inset. */
-function placeRow(plan: RowPlan, g: Geometry): { left: number; top: number; w: number; h: number } {
-  const w = g.cardW * plan.scale;
-  const h = g.cardH * plan.scale;
-  const groupW = plan.count > 0 ? (plan.count - 1) * plan.pitch + w : 0;
-  const left = Math.max(plan.row.x + g.inset, plan.row.x + (plan.row.w - groupW) / 2);
-  return { left, top: plan.row.y + (plan.row.h - h) / 2, w, h };
+  /** Place a run in a row at a scale, squeezing its gaps if it must: by
+   * the largest factor <= 1 at which no card's drawn edge leaves the row. */
+  const place = (row: Rect, from: number, to: number, scale: number): RowPlan => {
+    const m = measure(from, to);
+    let squeeze = 1;
+    m.at.forEach((a, i) => {
+      if (a > 0) squeeze = Math.min(squeeze, (avail(row) / scale - m.lead - m.reach[i]!) / a);
+    });
+    squeeze = Math.max(0, squeeze);
+    const used = extent(m, squeeze) * scale;
+    const left = Math.max(row.x + inset, row.x + (row.w - used) / 2) + m.lead * scale;
+    const slots = Array.from({ length: to - from }, (_, k) => from + k);
+    return { row, slots, scale, xs: m.at.map((a) => left + a * squeeze * scale) };
+  };
+
+  // Steps 1 and 2.
+  if (fits(first, 0, n)) {
+    return { plans: [place(first, 0, n, 1), place(second, n, n, 1)], overcrowded: false };
+  }
+  let k = 0;
+  while (k < n && fits(first, 0, k + 1)) k++;
+  if (fits(second, k, n)) {
+    return { plans: [place(first, 0, k, 1), place(second, k, n, 1)], overcrowded: false };
+  }
+
+  // Step 3 on: both rows full. Share the slots by width, never fewer in
+  // the first than it held at step 2 (so the split moves on smoothly).
+  const share = Math.round((n * first.w) / (first.w + second.w));
+  const inFirst = Math.min(n - 1, Math.max(k, share));
+  const runs: [Rect, number, number][] = [
+    [first, 0, inFirst],
+    [second, inFirst, n],
+  ];
+
+  // The largest scale (<= 1) at which every row still fits with its
+  // tightest gap squeezed no further than the sliver.
+  let scale = 1;
+  for (const [row, from, to] of runs) {
+    const m = measure(from, to);
+    if (m.at.length <= 1) continue;
+    scale = Math.min(scale, avail(row) / extent(m, (SLIVER * cardW) / m.min));
+  }
+  const overcrowded = scale < SCALE_FLOOR - 1e-9;
+  scale = Math.max(SCALE_FLOOR, scale);
+  return {
+    plans: [place(first, 0, inFirst, scale), place(second, inFirst, n, scale)],
+    overcrowded,
+  };
 }
 
 // --- layout -------------------------------------------------------------------
@@ -412,44 +461,52 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     const [firstName, secondName] = FILL_ORDER[group.kind];
     const first = g.rows[`${group.side}:${firstName}`];
     const second = g.rows[`${group.side}:${secondName}`];
-    const { plans, overcrowded: crowded } = planRows(group.slots.length, first, second, g);
+    const tapped = group.slots.map((members) => members[0]!.tapped);
+    const { plans, overcrowded: crowded } = planRows(tapped, first, second, g);
     if (crowded) overcrowded.push(groupKey);
 
-    let next = 0;
     plans.forEach((plan, rowIndex) => {
       const rowId: RowId = `${group.side}:${rowIndex === 0 ? firstName : secondName}`;
-      const place = placeRow(plan, g);
-      for (let i = 0; i < plan.count; i++) {
-        const members = group.slots[next++]!;
+      const w = g.cardW * plan.scale;
+      const h = g.cardH * plan.scale;
+      const top = plan.row.y + (plan.row.h - h) / 2;
+      plan.slots.forEach((slotIndex, i) => {
+        const members = group.slots[slotIndex]!;
         const lead = members[0]!;
         const towardDivider = group.side === "viewer" ? -1 : 1;
         const step = lead.attacking ? towardDivider * ATTACK_STEP * g.height : 0;
         const box: Box = {
-          x: place.left + i * plan.pitch,
-          y: place.top + step,
-          w: place.w,
-          h: place.h,
+          x: plan.xs[i]!,
+          y: top + step,
+          w,
+          h,
           scale: plan.scale,
           rotation: lead.tapped ? TAPPED_TILT : 0,
           // Left to right, so a card overlaps the one before it (§7.9).
           z: Z_BATTLEFIELD + (rowIndex * 100 + i) * 10,
         };
-        const attached = (attachmentsOf.get(lead.id) ?? []).map((card) => card.id);
+        const attachedCards = attachmentsOf.get(lead.id) ?? [];
         for (const member of members) {
           boxes.set(member.id, box);
           rowOf.set(member.id, rowId);
         }
-        attached.forEach((id, depth) => {
-          boxes.set(id, {
+        attachedCards.forEach((card, depth) => {
+          boxes.set(card.id, {
             ...box,
             y: box.y - (depth + 1) * ATTACHMENT_PEEK * box.h,
-            rotation: 0,
+            // Its own tapped state, not its host's.
+            rotation: card.tapped ? TAPPED_TILT : 0,
             z: box.z - (depth + 1),
           });
-          rowOf.set(id, rowId);
+          rowOf.set(card.id, rowId);
         });
-        slots.push({ row: rowId, ids: members.map((card) => card.id), attached, box });
-      }
+        slots.push({
+          row: rowId,
+          ids: members.map((card) => card.id),
+          attached: attachedCards.map((card) => card.id),
+          box,
+        });
+      });
     });
   }
 
