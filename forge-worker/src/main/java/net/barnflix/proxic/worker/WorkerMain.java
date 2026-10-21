@@ -280,6 +280,16 @@ public final class WorkerMain {
                             JsonObject option = new JsonObject();
                             option.addProperty("actionId", id);
                             option.addProperty("label", labels.get(id));
+                            // §7.61 B5 -- what this option is about.
+                            String object = GAME.objectIdOf(id);
+                            if (object != null) {
+                                option.addProperty("objectId", object);
+                            }
+                            // §7.61 B8 -- present only when Forge says it
+                            // cannot be paid now (dimmed, still choosable).
+                            if (!GAME.payable(id)) {
+                                option.addProperty("payable", false);
+                            }
                             options.add(option);
                         }
                         ask.add("options", options);

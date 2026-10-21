@@ -53,6 +53,16 @@
       <artifactId>forge-core</artifactId>
       <version>${forge.maven.version}</version>
     </dependency>
+    <!-- For ONE check: Forge's "can this be paid now?" (ComputerUtilMana,
+         in test mode), so the board can dim what cannot be afforded
+         (PHASE_07 §7.61 B8). No computer player is created or used.
+         Owner decision 2026-10-21; Strategy A's line was forge-gui
+         (Swing), and forge-ai has no GUI coupling. -->
+    <dependency>
+      <groupId>forge</groupId>
+      <artifactId>forge-ai</artifactId>
+      <version>${forge.maven.version}</version>
+    </dependency>
     <!-- Explicit rather than inherited from Forge: a transitive
          version can change when the pin moves, and the protocol
          codec is not something to discover a change in at runtime. -->

@@ -20,6 +20,11 @@ read from the snapshots both seats were sent, never inferred.
   facedown   a morph cast face down: on the stack the opponent is shown
              "Face-down", never its name -- in the entry's name or its
              description -- while its controller is shown the card.
+  afford     B8: Shivan Dragon is offered `payable: false` below six
+             Mountains, Fling without two Mountains AND a creature to
+             sacrifice -- exactly, on every offer.
+  options    B5 over every question above: each option's `objectId` is
+             the card, stack entry or player (by seat) it is about.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -55,15 +60,21 @@ def result(problems, ok, found):
     return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
 
 
+WATCHES = []
+
+
 class Watch:
     """Every snapshot each seat was sent, and every question, in order."""
 
     def __init__(self, g):
         self.g = g
+        WATCHES.append(self)
         self.revisions = {1: -1, 2: -1}
         self.snaps = {1: [], 2: []}
         self.priority_wrong = []
         self.priority_checked = 0
+        self.objects_checked = 0
+        self.objects_wrong = []
 
     def see(self):
         for seat in (1, 2):
@@ -80,6 +91,24 @@ class Watch:
         return next((s for s in self.snaps[2] if s.get("stateRevision") == rev), None)
 
     def asked(self, frame):
+        # B5, on every question: each option names what it is about --
+        # the card, stack entry or player in its id, a player by SEAT.
+        for o in frame.get("options", []):
+            want = None
+            for kind in ("card", "stack"):
+                tail = o["actionId"].rsplit(f"{kind}:", 1)
+                if len(tail) == 2 and tail[1].isdigit() and o["actionId"].endswith(f"{kind}:{tail[1]}"):
+                    want = f"{kind}:{tail[1]}"
+            if ":player:" in o["actionId"] or o["actionId"].startswith("player:"):
+                want = {"Alice": "player:1", "Bob": "player:2"}.get(o.get("label"), "player:?")
+            got = o.get("objectId")
+            if want == "player:?":
+                ok = isinstance(got, str) and got in ("player:1", "player:2")
+            else:
+                ok = got == want
+            self.objects_checked += 1
+            if not ok:
+                self.objects_wrong.append((frame.get("kind"), o["actionId"], o.get("label"), got))
         # B1: a priority question goes to the seat the snapshot says holds
         # priority (other questions -- targets, blocks -- need not).
         if frame.get("kind") != "chooseSpellAbilityToPlay":
@@ -226,6 +255,7 @@ def stack():
 
     def policy(g, f):
         w.see()
+        w.asked(f)
         kind = f.get("kind")
         seat = f["authorisedSeat"]
         on_stack = (g.state.get(seat) or {}).get("stack") or []
@@ -314,6 +344,7 @@ def tokens():
 
     def policy(g, f):
         w.see()
+        w.asked(f)
         kind = f.get("kind")
         if f["authorisedSeat"] == 2:
             return (g.play_land(f) if kind == "chooseSpellAbilityToPlay" else DEFAULT)
@@ -385,6 +416,7 @@ def facedown():
 
     def policy(g, f):
         w.see()
+        w.asked(f)
         kind = f.get("kind")
         seat = f["authorisedSeat"]
         if seat == 2:
@@ -424,7 +456,87 @@ def facedown():
                   found)
 
 
-SCENARIOS = {"combat": combat, "stack": stack, "tokens": tokens, "facedown": facedown}
+# --- what can be paid (B8) -----------------------------------------------------------
+
+
+def afford():
+    # Shivan Dragon: a mana cost ({4}{R}{R}). Fling: {1}{R} AND sacrifice a
+    # creature -- a cost that is not mana. Neither is ever cast here but
+    # the Dragon; the scenario only reads how each is offered.
+    g = game("afford", [("Mountain", 24), ("Shivan Dragon", 18), ("Fling", 18)],
+             [("Forest", 30), ("Grizzly Bears", 30)])
+    w = Watch(g)
+    st = {"checked": {"Shivan Dragon": [0, 0], "Fling": [0, 0]}, "wrong": [], "cast": False}
+
+    def policy(g, f):
+        w.see()
+        w.asked(f)
+        kind = f.get("kind")
+        seat = f["authorisedSeat"]
+        if seat == 2:
+            return g.play_land(f) if kind == "chooseSpellAbilityToPlay" else DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            s = g.state.get(1) or {}
+            if not s.get("stack"):
+                mountains = len(g.untapped_lands(1, name="Mountain"))
+                creatures = [c for c in g.mine(1) if c.get("kind") == "creature"]
+                rule = {"Shivan Dragon": mountains >= 6, "Fling": mountains >= 2 and bool(creatures)}
+                for o in f["options"]:
+                    label = o.get("label") or ""
+                    for name, can in rule.items():
+                        if label.startswith(name) and "Play land" not in label:
+                            shown = o.get("payable", True)
+                            st["checked"][name][0 if can else 1] += 1
+                            if shown != can:
+                                st["wrong"].append((s.get("turn"), name, mountains, len(creatures), shown))
+            land = g.play_land(f)
+            if land:
+                return land
+            # Cast the first Dragon once it can be paid, so Fling then has
+            # something to sacrifice.
+            if not st["cast"] and len(g.untapped_lands(1, name="Mountain")) >= 6:
+                o = cast(g, f, "Shivan Dragon")
+                if o:
+                    st["cast"] = True
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        c = st["checked"]
+        return all(c[name][0] >= 1 and c[name][1] >= 1 for name in c)
+
+    g.run(policy, until=until, max_turn=40)
+    found = {"checked": st["checked"], "wrong": st["wrong"][:6], "stopped": g.stopped_badly()}
+    c = st["checked"]
+    if not all(c[name][0] >= 1 and c[name][1] >= 1 for name in c):
+        return "inconclusive", "never saw each card both affordable and not", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if st["wrong"]:
+        problems.append(f"payable should be exactly what the costs allow: {st['wrong'][:4]}")
+    return result(problems, f"Shivan Dragon dimmed below six Mountains, Fling dimmed without a creature to "
+                            f"sacrifice or two Mountains -- exactly, on {sum(sum(v) for v in c.values())} offers", found)
+
+
+def options_everywhere():
+    """B5 and B1 over every question every scenario above was asked."""
+    checked = sum(w.objects_checked for w in WATCHES)
+    wrong = [x for w in WATCHES for x in w.objects_wrong]
+    prio = [x for w in WATCHES for x in w.priority_wrong]
+    found = {"objects_checked": checked, "objects_wrong": wrong[:6], "priority_wrong": prio[:6]}
+    if checked < 100:
+        return "inconclusive", f"too few options checked: {checked}", found
+    problems = []
+    if wrong:
+        problems.append(f"each option names its object (players by seat): {wrong[:4]}")
+    if prio:
+        problems.append(f"prioritySeat is the seat asked: {prio[:4]}")
+    return result(problems, f"objectId right on {checked} options in every scenario", found)
+
+
+SCENARIOS = {"combat": combat, "stack": stack, "tokens": tokens, "facedown": facedown,
+             "afford": afford, "options": options_everywhere}
 
 if __name__ == "__main__":
     worst = 0

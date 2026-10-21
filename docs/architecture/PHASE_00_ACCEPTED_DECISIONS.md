@@ -28,7 +28,13 @@ for no identified benefit. See `forge-pin-delta-review.md`.
 
 Build from a **complete, unmodified upstream checkout**, selecting
 modules (`-pl forge-core,forge-game -am`). Zero local edits, no
-patched POM. Ship only produced artifacts at runtime; no Forge source
+patched POM. **Since 2026-10-21 also `forge-ai`** (owner decision,
+PHASE_07 §7.61 B8), for one check alone: Forge's "can this be paid
+now?" (`ComputerUtilMana.canPayManaCost` in test mode), so the board
+can dim what cannot be afforded. No computer player is created or
+used, and Strategy A's line -- no `forge-gui`, which is Swing -- is
+unchanged: `forge-ai` has no GUI coupling. It brings one library,
+Apache Commons Math 3.6.1. Ship only produced artifacts at runtime; no Forge source
 and no Maven in the runtime image.
 
 ## Forge source preservation model

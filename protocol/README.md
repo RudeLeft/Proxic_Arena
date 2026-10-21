@@ -224,3 +224,20 @@ card.enteredAt      B11 Forge's game timestamp: arrival order
 card.token          B12 true on a token
 ```
 
+On every question's options (DECISION_REQUEST):
+
+```text
+option.objectId     B5  what the option is about: "card:N", "stack:N"
+                        or "player:SEAT" -- so a board answers by
+                        clicking the object. The worker derives it from
+                        its own option ids; a client never parses an
+                        actionId. Players by SEAT: Forge's number in
+                        "target:player:0" is not a seat. Several options
+                        may share an object (a card's abilities).
+option.payable      B8  false when Forge says the option cannot be paid
+                        right now (its mana solver in test mode, plus
+                        every other cost part); absent otherwise. Shown
+                        dimmed, still choosable (§7.54): Forge refuses
+                        an unpayable choice, as before.
+```
+

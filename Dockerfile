@@ -87,9 +87,11 @@ RUN set -eu; cd /forge; \
     done; \
     git diff --stat
 
-# forge-core and forge-game only (Strategy A). forge-gui is
-# Swing-coupled and a browser cannot speak it.
-RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game -am
+# forge-core and forge-game (Strategy A), and forge-ai for one check
+# alone: Forge's "can this be paid now?" (PHASE_07 §7.61 B8, owner
+# decision 2026-10-21). forge-gui is Swing-coupled and a browser cannot
+# speak it; forge-ai is not.
+RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game,forge-ai -am
 
 COPY forge-worker/ /build/forge-worker/
 COPY forge-pin.properties /build/forge-pin.properties

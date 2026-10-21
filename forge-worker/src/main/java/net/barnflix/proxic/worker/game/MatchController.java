@@ -327,6 +327,29 @@ public final class MatchController extends GeneratedControllerBase {
 
     // ---- the priority loop ---------------------------------------------
 
+    /**
+     * §7.61 B8 -- can [payer] pay for [sa] right now? FORGE's check: its
+     * mana solver (ComputerUtilMana, in forge-ai, the module added for
+     * this alone -- owner decision 2026-10-21) in test mode, which taps
+     * nothing, and forge-game's own check of every other cost part
+     * (sacrifice, discard, life, tapping). A land play or a mana ability
+     * costs nothing to offer. A check that throws on some unusual card
+     * reports payable: hiding a playable option would be a wrong move,
+     * dimming one is only a hint.
+     */
+    static boolean payable(SpellAbility sa, Player payer) {
+        if (sa.isLandAbility() || sa.isManaAbility()) {
+            return true;
+        }
+        try {
+            return forge.ai.ComputerUtilMana.canPayManaCost(sa, payer, 0, false)
+                    && forge.game.cost.CostPayment.canPayAdditionalCosts(sa.getPayCosts(), sa, false, payer);
+        } catch (RuntimeException e) {
+            System.err.println("proxic: payment check failed for " + sa + ": " + e);
+            return true;
+        }
+    }
+
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         // THE RUNNING MILESTONE. Reaching this means the game is
@@ -430,6 +453,18 @@ public final class MatchController extends GeneratedControllerBase {
             // Passing is the honest answer and ends the window.
             return null;
         }
+
+        // §7.61 B8 -- which of these Forge says cannot be paid right now,
+        // so the board can dim them (§7.54: dimmed, still clickable). Not a
+        // filter: COST stays unscreened (see describe()), and choosing an
+        // unpayable option still goes to Forge, which refuses it.
+        java.util.Set<String> unpayable = new java.util.HashSet<>();
+        for (java.util.Map.Entry<String, SpellAbility> option : byId.entrySet()) {
+            if (!payable(option.getValue(), player)) {
+                unpayable.add(option.getKey());
+            }
+        }
+        host.offerUnpayable(unpayable);
 
         try {
             String choice =

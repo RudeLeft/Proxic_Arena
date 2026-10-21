@@ -618,6 +618,51 @@ public final class GameHost {
                 .toLowerCase(java.util.Locale.ROOT);
     }
 
+    /** B8: the options of the question about to be asked that Forge says
+     *  cannot be paid now. Set on the game thread just before the ask,
+     *  read by the publisher on the same thread, cleared after. */
+    private volatile java.util.Set<String> unpayable = java.util.Set.of();
+
+    void offerUnpayable(java.util.Set<String> ids) {
+        unpayable = ids;
+    }
+
+    public boolean payable(String actionId) {
+        return !unpayable.contains(actionId);
+    }
+
+    private static final java.util.regex.Pattern OBJECT =
+            java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
+
+    /**
+     * §7.61 B5 -- the object an option is about, so a board can answer by
+     * clicking it: "card:N", "stack:N" or "player:SEAT". The worker owns
+     * its option ids, so reading them here is not the client parsing
+     * them (§1.34). A player is named by SEAT: Forge's own player number
+     * (in "target:player:0") is not one.
+     */
+    public String objectIdOf(String actionId) {
+        java.util.regex.Matcher m = OBJECT.matcher(actionId);
+        if (!m.find()) {
+            return null;
+        }
+        if (!"player".equals(m.group(1))) {
+            return m.group(1) + ":" + m.group(2);
+        }
+        Game current = game;
+        if (current == null) {
+            return null;
+        }
+        int forgeId = Integer.parseInt(m.group(2));
+        for (Player player : current.getRegisteredPlayers()) {
+            if (player.getId() == forgeId) {
+                Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
+                return seat == null ? null : "player:" + seat;
+            }
+        }
+        return null;
+    }
+
     void publishDecision(DecisionGate.Pending pending, java.util.Map<String, String> labels) {
         if (pending.searchable()) {
             java.util.List<String> ids = new java.util.ArrayList<>(pending.options());
@@ -634,6 +679,7 @@ public final class GameHost {
         // §6.48 — the state the question refers to, before it.
         publishSnapshots();
         publisher.accept(pending, labels);
+        unpayable = java.util.Set.of(); // only for the question it was set for
     }
 
     /**
