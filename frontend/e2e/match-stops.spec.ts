@@ -74,6 +74,19 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
               .click({ timeout: 5_000 })
               .catch(() => undefined);
             acted = true;
+          } else if (
+            (await matchPanel(page).locator(".gs-question").count()) > 0 &&
+            (await matchPanel(page).locator('.bf-cards button[data-choosable="true"]').count()) > 0
+          ) {
+            // A question answered on the board -- discarding down to seven
+            // at cleanup is one: click a highlighted card, as a player does.
+            await page.mouse.move(0, 0);
+            await matchPanel(page)
+              .locator('.bf-cards button[data-choosable="true"]')
+              .first()
+              .click({ timeout: 5_000 })
+              .catch(() => undefined);
+            acted = true;
           } else if ((await matchPanel(page).locator("button.gs-pass").count()) > 0) {
             await matchPanel(page)
               .locator("button.gs-pass")

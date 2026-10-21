@@ -93,7 +93,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       });
 
       // The pick is one of the server's results, and the game moves.
-      await results.first().click();
+      await results.first().click({ timeout: 15_000 });
       await expect(panel.getByRole("heading", { name: naming })).toHaveCount(0, {
         timeout: 60_000,
       });
@@ -144,7 +144,13 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
         " ",
       );
       if (/Choose a creature to (attack|block) with/.test(prompt)) {
-        await matchPanel(live).getByRole("button", { name: "Pass" }).click();
+        // Bounded, every click in this loop: an element that goes between
+        // finding and clicking otherwise waits out the whole test (CI,
+        // 2026-10-21 -- 15 minutes, no word of which one).
+        await matchPanel(live)
+          .getByRole("button", { name: "Pass" })
+          .click({ timeout: 10_000 })
+          .catch(() => undefined);
         answered += 1;
         await live.waitForTimeout(40);
         continue;
@@ -156,13 +162,19 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       const paying = labels.findIndex((label) => /still owing/.test(label));
       const pick = paying >= 0 ? paying : namer >= 0 ? namer : land;
       if (pick >= 0) {
-        await options.nth(pick).click();
+        await options
+          .nth(pick)
+          .click({ timeout: 10_000 })
+          .catch(() => undefined);
       } else {
         const pass = matchPanel(live).getByRole("button", { name: "Pass" });
         if ((await pass.count()) === 0) {
-          await options.first().click();
+          await options
+            .first()
+            .click({ timeout: 10_000 })
+            .catch(() => undefined);
         } else {
-          await pass.click();
+          await pass.click({ timeout: 10_000 }).catch(() => undefined);
         }
       }
       answered += 1;
