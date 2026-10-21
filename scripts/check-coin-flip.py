@@ -102,7 +102,10 @@ def krark():
 
     def until(g):
         follow(g)
-        return len(st["calls"]) >= 4 and not g.state.get(1, {}).get("stack") and len(TOLD[2]) >= len(st["calls"])
+        # The duplicate call's refusal can arrive after the next board,
+        # so wait for every refusal too, or the last one goes uncounted.
+        return (len(st["calls"]) >= 4 and not g.state.get(1, {}).get("stack")
+                and len(TOLD[2]) >= len(st["calls"]) and g.refused >= len(st["calls"]))
 
     g.run(policy, until=until, max_turn=40)
     told = {seat: flips(g, seat) for seat in (1, 2)}

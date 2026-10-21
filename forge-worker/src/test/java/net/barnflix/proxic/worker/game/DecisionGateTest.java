@@ -175,6 +175,39 @@ class DecisionGateTest {
     }
 
     /**
+     * §6.103 again, in the gap BETWEEN the two defences: the waiter
+     * has taken the first answer out of the slot (so the slot is
+     * empty again) but has not yet written the ledger. A second,
+     * different answer arriving then found nothing in its way and
+     * was ACCEPTED -- the Mechanics Lab's coin-flip check caught it,
+     * one run in six, as a second call to a coin flip that was not
+     * refused. Left there, it could answer the next question.
+     *
+     * The gap cannot be held open from outside, so this races it:
+     * answer, then immediately answer differently, many times. Every
+     * second answer must be refused and every waiter must get the
+     * first.
+     */
+    @Test
+    void a_second_answer_is_refused_while_the_waiter_wakes() throws Exception {
+        DecisionGate gate = new DecisionGate();
+        int accepted = 0;
+        for (int i = 0; i < 3000; i++) {
+            Asker asker = new Asker(gate, ALICE);
+            asker.awaitAsked();
+            long id = asker.pending.decisionId();
+            long version = asker.pending.stateVersion();
+            assertNull(gate.submit(new DecisionGate.Response(id, ALICE, version, "action:0:card:7")));
+            if (gate.submit(new DecisionGate.Response(id, ALICE, version, "action:1:card:9")) == null) {
+                accepted++;
+            }
+            assertTrue(asker.done.await(5, TimeUnit.SECONDS), "the waiter never resumed");
+            assertEquals("action:0:card:7", asker.answer.get(), "the second answer replaced the first");
+        }
+        assertEquals(0, accepted, "second answers accepted");
+    }
+
+    /**
      * And the LEDGER defence: an answer to a decision that has
      * already been answered and closed.
      */

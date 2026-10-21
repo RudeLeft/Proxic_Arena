@@ -177,9 +177,13 @@ public final class DecisionGate {
 
         // Clear BEFORE publishing the question. An answer left over
         // from the previous one would otherwise be waiting in the
-        // slot and be taken as the answer to this.
-        accepted.clear();
-        pending = question;
+        // slot and be taken as the answer to this. Under the gate's
+        // lock, so no `submit` can read the OLD question and then
+        // drop its answer into the slot of the new one.
+        synchronized (this) {
+            accepted.clear();
+            pending = question;
+        }
         deliver.accept(question);
 
         String answer;
@@ -188,8 +192,10 @@ public final class DecisionGate {
                 throw new InterruptedException("decision wait interrupted");
             }
         }
-        answered.add(id);
-        pending = null;
+        synchronized (this) {
+            answered.add(id);  // already there: `submit` wrote it on acceptance
+            pending = null;
+        }
         return answer;
     }
 
@@ -238,6 +244,12 @@ public final class DecisionGate {
             // The slot is full: this question already has an answer.
             return Reject.DUPLICATE;
         }
+        // The ledger is written HERE, the moment an answer is taken,
+        // not when the waiter wakes. Otherwise there is a gap: the
+        // waiter has emptied the slot but not yet written the ledger,
+        // and a second answer passes both defences (the Mechanics
+        // Lab's coin-flip check caught one in about six runs).
+        answered.add(question.decisionId());
         return null;
     }
 
