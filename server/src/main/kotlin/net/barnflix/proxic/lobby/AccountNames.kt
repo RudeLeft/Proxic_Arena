@@ -1,0 +1,35 @@
+package net.barnflix.proxic.lobby
+
+import java.util.UUID
+import javax.sql.DataSource
+
+// Everybody who could be in the lobby — PHASE_07 Amendment 11.
+//
+// The Players list shows every active account, offline ones greyed,
+// so a host can see that parsley exists and is not here. Names only:
+// the same two names the Deck Depot's share list already gives an
+// owner (Amendment 10). A disabled account is not listed -- it cannot
+// sign in, so it is nobody you could play.
+//
+// Read on each connect rather than cached: a handful of rows, and a
+// cache would be one more thing to forget to clear when the Admin
+// page creates an account.
+
+class AccountNames(private val dataSource: DataSource) {
+    fun active(): List<PresenceEntry> =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "SELECT user_id, username, display_name FROM app_user WHERE status = 'ACTIVE' " +
+                    "ORDER BY lower(display_name), username_normalized",
+            ).use { statement ->
+                statement.executeQuery().use { rows ->
+                    buildList {
+                        while (rows.next()) {
+                            val userId = rows.getObject(1, UUID::class.java)
+                            add(PresenceEntry(userId, rows.getString(2), rows.getString(3)))
+                        }
+                    }
+                }
+            }
+        }
+}

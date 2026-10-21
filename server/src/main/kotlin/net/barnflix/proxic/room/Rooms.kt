@@ -63,7 +63,18 @@ data class Room(
     val status: RoomStatus,
     val revision: Long,
     val members: List<RoomMember>,
+    /** PHASE_07 Amendment 9 — what the host called it, or null. */
+    val name: String? = null,
+    /** When somebody last did something here; a room clears 24 hours after (D4). */
+    val lastActivityAt: java.time.Instant = java.time.Instant.EPOCH,
 ) {
+    /**
+     * The name everybody sees: the host's choice, or "<host>'s room".
+     * Worked out here rather than stored, so a host who changes their
+     * display name does not leave a stale label behind.
+     */
+    fun displayName(): String = name ?: "${members.firstOrNull { it.isHost }?.displayName ?: "A"}'s room"
+
     fun isHost(userId: UUID): Boolean = hostUserId == userId
 
     fun member(userId: UUID): RoomMember? = members.firstOrNull { it.userId == userId }

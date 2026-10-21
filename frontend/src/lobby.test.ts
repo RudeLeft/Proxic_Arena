@@ -14,6 +14,7 @@ const sam = { userId: "u-sam", username: "Sam", displayName: "Sam" };
 function room(overrides: Partial<RoomView> = {}): RoomView {
   return {
     roomId: "r-1",
+    name: "Pat's room",
     hostUserId: "u-pat",
     presetId: "OPEN_FORMAT_1V1",
     desiredPlayerCount: 2,

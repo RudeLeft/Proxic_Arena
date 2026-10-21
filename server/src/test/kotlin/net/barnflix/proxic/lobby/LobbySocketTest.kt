@@ -253,9 +253,10 @@ class LobbySocketTest {
                 say("""{"type":"INVITE_ACCEPT","roomId":"$roomId"}""")
 
                 val error = await("ERROR")!!
-                // The same answer as a room that does not exist, so
-                // room ids cannot be probed (§4.65's lesson).
-                assertEquals("ROOM_NOT_FOUND", error["errorCode"]!!.jsonPrimitive.content)
+                // PHASE_07 §7.64 lists every room, so a room id is no
+                // secret any more; the consumed invitation is the only
+                // thing between a list and a seat, and it says so.
+                assertEquals("INVITATION_GONE", error["errorCode"]!!.jsonPrimitive.content)
             }
         }
 

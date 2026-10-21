@@ -1,4 +1,5 @@
-// Two players, one room — PHASE_05 AMENDMENTS 1–4.
+// Two players, one room — PHASE_05 AMENDMENTS 1–4, and the PHASE_07
+// Lobby (§7.64, Amendments 9 and 11) through real clicks (§7.68).
 //
 // The part of the lobby that cannot be faked from one browser. Two
 // contexts are two cookie jars and two sockets, which is the only
@@ -16,12 +17,13 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import { chooseDeck, inviteIn, openRoom, seatOf, yourRoom } from "./match-helpers";
 
 /**
  * Leave or close whatever room this user is in.
  *
  * §5.5 is one room at a time, so a run that left a room behind
- * would fail the NEXT run at "Host a game" — and it would fail
+ * would fail the NEXT run at "Open a room" — and it would fail
  * with ALREADY_IN_A_ROOM, which looks like a bug in the code
  * rather than in the fixture.
  */
@@ -39,15 +41,21 @@ async function leaveAnyRoom(page: Page) {
 
 async function openLobby(page: Page) {
   await page.goto("/play");
-  await expect(page.getByRole("heading", { name: "Who is here" })).toBeVisible();
-  // The heading renders before the lobby socket is open. Seeing
-  // yourself in the list means the server has the connection: the
-  // list arrives over it. Chat keeps no history, so a line sent
+  await expect(page.getByRole("heading", { name: "Players" })).toBeVisible();
+  // The heading renders before the lobby socket is open; the header's
+  // light says when it is. Chat keeps no history, so a line sent
   // before the other player is connected never reaches them.
-  await expect(page.getByRole("region", { name: "Who is here" }).getByText("(you)")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Connected" })).toBeVisible();
 }
 
-test("a host invites somebody who is online, and they take the empty seat", async ({ browser }) => {
+const players = (page: Page) => page.getByRole("region", { name: "Players" });
+const playerRow = (page: Page, name: string) =>
+  players(page).getByRole("listitem").filter({ hasText: name });
+
+async function twoPlayers(
+  browser: import("@playwright/test").Browser,
+  body: (host: Page, guest: Page) => Promise<void>,
+) {
   const hostContext = await browser.newContext();
   const host = await hostContext.newPage();
   await signIn(host);
@@ -61,187 +69,157 @@ test("a host invites somebody who is online, and they take the empty seat", asyn
   try {
     await openLobby(host);
     await openLobby(guest);
-
-    // AMENDMENT 2 — presence is the joining mechanism now, so the
-    // host must be able to SEE somebody to invite them.
-    const presence = host.getByRole("region", { name: "Who is here" });
-    await expect(presence.getByText(secondUser, { exact: false })).toBeVisible();
-
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await expect(host.getByRole("heading", { name: "Your game" })).toBeVisible();
-    await expect(host.getByText("1 of 2")).toBeVisible();
-
-    // AMENDMENT 1 — no code is typed anywhere. The host clicks a
-    // name, and that is the only door into the room.
-    await presence
-      .locator("li", { hasText: secondUser })
-      .getByRole("button", { name: "Invite" })
-      .click();
-
-    await expect(guest.getByText(`${testUser} invited you to a game`)).toBeVisible();
-    await guest.getByRole("button", { name: "Accept" }).click();
-
-    // BOTH sides learn, from one message with one source of truth.
-    await expect(guest.getByRole("heading", { name: "Your game" })).toBeVisible();
-    await expect(guest.getByText("2 of 2")).toBeVisible();
-    await expect(host.getByText("2 of 2")).toBeVisible();
-
-    // §5.141 — seats, names and who is host. Deck contents never.
-    await expect(host.getByText(`Seat 2: ${secondUser}`)).toBeVisible();
-
-    // §5.41 — nobody can be ready without a deck, and the page says
-    // so rather than letting a click fail.
-    await expect(host.getByRole("button", { name: "Ready" })).toBeDisabled();
-    await expect(host.getByRole("button", { name: "Prepare match" })).toBeDisabled();
-
-    // §5.18 — the host leaves, and the room goes with them. The
-    // guest finds out without touching anything.
-    await host.getByRole("button", { name: "Close room" }).click();
-    await expect(guest.getByText(/host closed the room/i)).toBeVisible();
-    await expect(guest.getByRole("heading", { name: "No game yet" })).toBeVisible();
+    await body(host, guest);
   } finally {
     await leaveAnyRoom(host);
     await leaveAnyRoom(guest);
     await hostContext.close();
     await guestContext.close();
   }
+}
+
+test("a host invites somebody who is online, and they take the empty seat", async ({ browser }) => {
+  await twoPlayers(browser, async (host, guest) => {
+    // Amendment 11 — the host can SEE somebody to invite them.
+    await expect(playerRow(host, secondUser)).toContainText("In the lobby");
+
+    // Amendment 9 — a room is opened on demand, and may be named.
+    await openRoom(host, "Kitchen Table");
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("1/2");
+
+    // AMENDMENT 1 — no code is typed anywhere. The host clicks a
+    // name, and that is the only door into the room.
+    await players(host)
+      .getByRole("button", { name: new RegExp(`^Invite ${secondUser}$`, "i") })
+      .click();
+    await expect(playerRow(host, secondUser)).toContainText("Invited to Kitchen Table");
+
+    // The guest is asked, and may put it aside: the invitation then
+    // waits on the room's row (canvas note).
+    const dialog = guest.getByRole("dialog");
+    await expect(dialog).toContainText(`${testUser} asked you into Kitchen Table`);
+    await dialog.getByRole("button", { name: "Put this aside for now" }).click();
+    await expect(dialog).toHaveCount(0);
+    const kitchen = guest.getByRole("article", { name: "Kitchen Table" });
+    await expect(kitchen).toContainText("Held for you");
+    await kitchen.getByRole("button", { name: "Accept" }).click();
+
+    // BOTH sides learn, from one message with one source of truth.
+    await expect(yourRoom(guest)).toBeVisible();
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
+    await expect(seatOf(host, secondUser)).toBeVisible();
+    await expect(playerRow(host, secondUser)).toContainText("In your room");
+
+    // §5.41 — nobody can be ready without a deck, and the page says
+    // so rather than letting a click fail.
+    await expect(host.getByRole("button", { name: "Mark yourself ready" })).toBeDisabled();
+    await expect(host.getByRole("button", { name: "Start match" })).toBeDisabled();
+
+    // §5.18 — the host closes, and the guest finds out without
+    // touching anything.
+    await host.getByRole("button", { name: "Close room" }).click();
+    await expect(guest.getByText(/host closed the room/i)).toBeVisible();
+    await expect(guest.getByRole("button", { name: "Open a room" })).toBeVisible();
+  });
 });
 
 test("a chat line reaches the other player", async ({ browser }) => {
-  const oneContext = await browser.newContext();
-  const one = await oneContext.newPage();
-  await signIn(one);
-
-  const twoContext = await browser.newContext();
-  const two = await twoContext.newPage();
-  await signInAs(two, secondUser, secondPassword);
-
-  try {
-    await openLobby(one);
-    await openLobby(two);
-
+  await twoPlayers(browser, async (one, two) => {
     // Distinct per run: the channel is shared and ephemeral, so a
-    // fixed string would match a line left by the previous run in
-    // the same browser session.
+    // fixed string would match a line left by the previous run.
     const line = `shall we play ${Date.now()}`;
-    await one.getByLabel("Say something").fill(line);
+    await one.getByLabel("Message the lobby").fill(line);
     await one.getByRole("button", { name: "Send" }).click();
 
     // AMENDMENT 3 — one channel, everybody signed in, no history.
     await expect(two.getByText(line)).toBeVisible();
     await expect(one.getByText(line)).toBeVisible();
-  } finally {
-    await oneContext.close();
-    await twoContext.close();
-  }
+  });
 });
 
-test("an invitation can be declined, and the seat stays empty", async ({ browser }) => {
-  const hostContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  await signIn(host);
-  await leaveAnyRoom(host);
-
-  const guestContext = await browser.newContext();
-  const guest = await guestContext.newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await leaveAnyRoom(guest);
-
-  try {
-    await openLobby(host);
-    await openLobby(guest);
-
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await host
-      .getByRole("region", { name: "Who is here" })
-      .locator("li", { hasText: secondUser })
-      .getByRole("button", { name: "Invite" })
+test("an invitation can be declined; the host is told and the seat stays open", async ({
+  browser,
+}) => {
+  await twoPlayers(browser, async (host, guest) => {
+    await openRoom(host);
+    await players(host)
+      .getByRole("button", { name: new RegExp(`^Invite ${secondUser}$`, "i") })
       .click();
 
-    await expect(guest.getByText(`${testUser} invited you to a game`)).toBeVisible();
-    await guest.getByRole("button", { name: "Decline" }).click();
+    const dialog = guest.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Decline" }).click();
 
     // The prompt goes, and nothing else does: declining is not
     // joining, and the host's room is untouched.
-    await expect(guest.getByText(`${testUser} invited you to a game`)).toBeHidden();
-    await expect(guest.getByRole("heading", { name: "No game yet" })).toBeVisible();
-    await expect(host.getByText("1 of 2")).toBeVisible();
-    await expect(host.getByText("Empty seat")).toBeVisible();
-  } finally {
-    await leaveAnyRoom(host);
-    await hostContext.close();
-    await guestContext.close();
-  }
+    await expect(dialog).toHaveCount(0);
+    await expect(guest.getByRole("button", { name: "Open a room" })).toBeVisible();
+    await expect(seatOf(host, "Open seat")).toBeVisible();
+    // Amendment 11 — the host hears it, and the note stays on the row.
+    await expect(playerRow(host, secondUser)).toContainText("Declined your invitation");
+  });
+});
+
+test("a host withdraws an invitation, and the player is told", async ({ browser }) => {
+  await twoPlayers(browser, async (host, guest) => {
+    await openRoom(host);
+    const invite = players(host).getByRole("button", {
+      name: new RegExp(`^Invite ${secondUser}$`, "i"),
+    });
+    await invite.click();
+    await expect(guest.getByRole("dialog")).toBeVisible();
+
+    // Straight after Invite the button is a statement, not an undo;
+    // it offers Withdraw once it has settled.
+    const withdraw = players(host).getByRole("button", {
+      name: new RegExp(`^Withdraw the invitation to ${secondUser}$`, "i"),
+    });
+    await withdraw.click();
+
+    const told = guest.getByRole("dialog");
+    await expect(told).toContainText(`${testUser} withdrew the invitation`);
+    await told.getByRole("button", { name: "OK" }).click();
+    await expect(told).toHaveCount(0);
+    // The host may ask again.
+    await expect(invite).toBeEnabled();
+  });
 });
 
 /**
  * Leaving gives you the lobby back, WITHOUT a refresh.
  *
- * Reported by the owner: after Leave room, "Host a game" did not
- * come back until the page was reloaded. The server answers a
+ * Reported by the owner: after leaving, the way to start again did
+ * not come back until the page was reloaded. The server answers a
  * leave with the room as it now is — correct for the members who
- * remain — and the page adopted it, so it kept showing a room the
- * player had just left.
- *
- * The socket did not cover it either: a leave is announced to the
- * REMAINING members, and the leaver is not one.
+ * remain — and the page adopted it.
  *
  * No reload anywhere in this test. A reload is exactly what hid
  * the bug.
  */
 test("leaving a room gives the lobby back without a refresh", async ({ browser }) => {
-  const hostContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  await signIn(host);
-  await leaveAnyRoom(host);
+  await twoPlayers(browser, async (host, guest) => {
+    await openRoom(host);
+    await inviteIn(host, guest, secondUser);
 
-  const guestContext = await browser.newContext();
-  const guest = await guestContext.newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await leaveAnyRoom(guest);
-
-  try {
-    await openLobby(host);
-    await openLobby(guest);
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await host
-      .getByRole("region", { name: "Who is here" })
-      .locator("li", { hasText: secondUser })
-      .getByRole("button", { name: "Invite" })
-      .click();
-    await guest.getByRole("button", { name: "Accept" }).click();
-    await expect(host.getByText("2 of 2")).toBeVisible();
-
-    // The GUEST leaves: the case with no socket message at all.
-    await guest.getByRole("button", { name: "Leave room" }).click();
-    await expect(guest.getByRole("heading", { name: "No game yet" })).toBeVisible();
-    await expect(guest.getByRole("button", { name: "Host a game" })).toBeEnabled();
+    // The GUEST leaves: the case with no socket message to the leaver.
+    await guest.getByRole("button", { name: "Leave seat" }).click();
+    await expect(guest.getByRole("button", { name: "Open a room" })).toBeEnabled();
 
     // And the host sees the seat free again, also without a reload.
-    await expect(host.getByText("1 of 2")).toBeVisible();
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("1/2");
 
-    // The HOST closes: this one does get a socket message, and the
-    // HTTP answer must not put the dead room back.
+    // The HOST closes: the HTTP answer must not put the dead room back.
     await host.getByRole("button", { name: "Close room" }).click();
-    await expect(host.getByRole("heading", { name: "No game yet" })).toBeVisible();
-    await expect(host.getByRole("button", { name: "Host a game" })).toBeEnabled();
+    await expect(host.getByRole("button", { name: "Open a room" })).toBeEnabled();
 
-    // The real proof that the lobby is usable again, not just
-    // rendering the right words.
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await expect(host.getByRole("heading", { name: "Your game" })).toBeVisible();
-  } finally {
-    await leaveAnyRoom(host);
-    await leaveAnyRoom(guest);
-    await hostContext.close();
-    await guestContext.close();
-  }
+    // The real proof that the lobby is usable again.
+    await openRoom(host);
+  });
 });
 
-test("the lobby survives a refresh", async ({ browser }) => {
-  // §5.119 — a persisted room is the reason a refresh does not
-  // destroy a lobby. The page asks GET /api/rooms/current on load,
-  // so this is the one test that proves that path is wired.
+test("the lobby survives a refresh, name and all", async ({ browser }) => {
+  // §5.119 — the page asks GET /api/rooms/current on load, so this is
+  // the one test that proves that path is wired.
   const context = await browser.newContext();
   const page = await context.newPage();
   await signIn(page);
@@ -249,13 +227,12 @@ test("the lobby survives a refresh", async ({ browser }) => {
 
   try {
     await openLobby(page);
-    await page.getByRole("button", { name: "Host a game" }).click();
-    await expect(page.getByRole("heading", { name: "Your game" })).toBeVisible();
+    await openRoom(page, "Refresh Proof");
 
     await page.reload();
 
-    await expect(page.getByRole("heading", { name: "Your game" })).toBeVisible();
-    await expect(page.getByText("1 of 2")).toBeVisible();
+    await expect(page.getByRole("article", { name: "Refresh Proof" })).toBeVisible();
+    await expect(yourRoom(page).locator(".pa-room-taken")).toHaveText("1/2");
   } finally {
     await leaveAnyRoom(page);
     await context.close();
@@ -263,16 +240,8 @@ test("the lobby survives a refresh", async ({ browser }) => {
 });
 
 /**
- * §5.228 "Add Play/lobby entry" — the lobby must be REACHABLE.
- *
- * There was no link to /play anywhere in the app. The page existed,
- * the routes worked, every test navigated to it directly, and a
- * signed-in player looking for it had no way to find it short of
- * typing the URL. Found by the owner on the production host,
- * signed in on two browsers, looking for the thing that had been
- * built.
- *
- * Navigating by URL is what hid it, so this test clicks.
+ * §5.228 "Add Play/lobby entry" — the lobby must be REACHABLE, and
+ * navigating by URL is what once hid that it was not, so this clicks.
  */
 test("a signed-in player can find the lobby by clicking", async ({ browser }) => {
   const context = await browser.newContext();
@@ -285,7 +254,7 @@ test("a signed-in player can find the lobby by clicking", async ({ browser }) =>
     const pages = page.getByRole("navigation", { name: "Pages" });
     await pages.getByRole("link", { name: "Lobby" }).click();
     await expect(page).toHaveURL(/\/play/);
-    await expect(page.getByRole("heading", { name: "Who is here" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Players" })).toBeVisible();
 
     // And back out again: a page with no way off it is a dead end.
     await pages.getByRole("link", { name: "Deck Depot" }).click();
@@ -303,9 +272,7 @@ test("a signed-in player can find the lobby by clicking", async ({ browser }) =>
 test("an anonymous visitor is sent to sign in rather than shown a broken lobby", async ({
   browser,
 }) => {
-  // Carry-forward C4: every room endpoint requires a session, so
-  // without this gate the page would render and then fill with
-  // 401s.
+  // Carry-forward C4: every room endpoint requires a session.
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
@@ -317,38 +284,31 @@ test("an anonymous visitor is sent to sign in rather than shown a broken lobby",
   }
 });
 
-test("the presence list is not a directory of rooms", async ({ browser }) => {
-  // AMENDMENT 2 kept this narrow and §5.13 survived amendment 1
-  // unchanged: a presence list shows who is SIGNED IN, never what
-  // games exist. A page that listed rooms would be the matchmaking
-  // the spec forbids.
-  const hostContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  await signIn(host);
-  await leaveAnyRoom(host);
+test("every room is listed for everybody, with seats, no decks and no way in uninvited", async ({
+  browser,
+}) => {
+  // §7.64 amends Phase 5's "no directory of rooms": rooms are visible
+  // to every signed-in player, and a seat still needs an invitation
+  // (owner decision 19). §7.68: the room list shows seats, never decks.
+  await twoPlayers(browser, async (host, other) => {
+    await openRoom(host, "Seen Not Entered");
 
-  const otherContext = await browser.newContext();
-  const other = await otherContext.newPage();
-  await signInAs(other, secondUser, secondPassword);
-  await leaveAnyRoom(other);
+    // If the host has a deck, choose it, so there is a name to leak.
+    const mine = (
+      (await (await host.request.get("/api/decks")).json()) as {
+        mine: { displayName: string }[];
+      }
+    ).mine;
+    const deck = mine[0]?.displayName ?? null;
+    if (deck) await chooseDeck(host, deck);
 
-  try {
-    await openLobby(host);
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await expect(host.getByRole("heading", { name: "Your game" })).toBeVisible();
-
-    await openLobby(other);
-    // The host is visible as a PERSON...
-    await expect(
-      other.getByRole("region", { name: "Who is here" }).getByText(testUser, { exact: false }),
-    ).toBeVisible();
-    // ...and their game is not visible at all, nor is there any
-    // control that would join one.
-    await expect(other.getByRole("heading", { name: "No game yet" })).toBeVisible();
+    const card = other.getByRole("article", { name: "Seen Not Entered" });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(testUser);
+    await expect(card).toContainText("By invitation");
+    // ...and no control that would take a seat without being asked.
+    await expect(card.getByRole("button")).toHaveCount(0);
     await expect(other.getByRole("button", { name: /join/i })).toHaveCount(0);
-  } finally {
-    await leaveAnyRoom(host);
-    await hostContext.close();
-    await otherContext.close();
-  }
+    if (deck) await expect(card).not.toContainText(deck);
+  });
 });

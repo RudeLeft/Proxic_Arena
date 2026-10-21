@@ -91,7 +91,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
 
     // §6.152 — and the lobby can no longer touch the room.
     await expect(host.getByRole("button", { name: "Close room" })).toHaveCount(0);
-    await expect(guest.getByRole("button", { name: "Leave room" })).toHaveCount(0);
+    await expect(guest.getByRole("button", { name: "Leave seat" })).toHaveCount(0);
 
     // --- A DECISION, FOR EXACTLY ONE OF THEM ----------------------
     const { asked, waiting } = await whoseTurn(host, guest);

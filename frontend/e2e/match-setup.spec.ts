@@ -30,7 +30,7 @@ import {
   signInAs,
   testUser,
 } from "./helpers";
-import { expectReady } from "./match-helpers";
+import { chooseDeck, expectReady, inviteIn, markReady, openRoom, seatOf } from "./match-helpers";
 
 // Importing resolves every card through Forge, and preparation
 // spawns a worker per deck. The file default of 45s is right for
@@ -81,11 +81,6 @@ async function clearEverything(page: Page) {
   }
 }
 
-/** The seat row for one player, whatever else is on the page. */
-function seatOf(page: Page, displayName: string) {
-  return page.locator("li.seat", { hasText: displayName });
-}
-
 test("two players choose decks, ready up, and the host prepares the match", async ({ browser }) => {
   const pkg = anyPackage();
   test.skip(!pkg, "no deck package available");
@@ -128,83 +123,64 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     // --- a room, with both players in it --------------------------
     await host.goto("/play");
     await guest.goto("/play");
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await host
-      .getByRole("region", { name: "Who is here" })
-      .locator("li", { hasText: secondUser })
-      .getByRole("button", { name: "Invite" })
-      .click();
-    await guest.getByRole("button", { name: "Accept" }).click();
-    await expect(host.getByText("2 of 2")).toBeVisible();
+    await openRoom(host);
+    await inviteIn(host, guest, secondUser);
 
-    // --- decks, chosen inline (AMENDMENT 4) -----------------------
+    // --- decks, chosen in the room (§7.64) ------------------------
     //
-    // Both players pick the deck BY NAME rather than by `.first()`.
-    // The suite shares two accounts across six files and runs in
-    // one order; "whatever is first in the list" is a dependency on
-    // what the previous file left behind, and the Phase 4 gate's
-    // worst finding started as exactly that kind of cross-file
-    // interference.
-    const hostDecks = host.getByRole("region", { name: "My decks" });
-    const deckRow = hostDecks.locator("li", { hasText: deckName });
-    await deckRow.getByRole("button", { name: "Use this deck" }).click();
-    await expect(deckRow.getByRole("button", { name: "Selected" })).toBeVisible();
-
+    // Both players pick the deck BY NAME, never "the first one": the
+    // suite shares accounts across files, and "whatever is first" is
+    // a dependency on what the previous file left behind.
+    //
     // §4.59 — the guest's copy says whose it is, and §5.41 says a
     // shared deck is selectable.
-    const guestDecks = guest.getByRole("region", { name: "My decks" });
-    const guestRow = guestDecks.locator("li", { hasText: deckName });
-    await expect(guestRow).toContainText(`shared by ${testUser}`);
-    await guestRow.getByRole("button", { name: "Use this deck" }).click();
-    await expect(guestRow.getByRole("button", { name: "Selected" })).toBeVisible();
+    await chooseDeck(host, deckName);
+    await chooseDeck(guest, deckName, testUser);
 
-    // §5.46, §5.47 — the host can see that the guest's seat is
-    // decided, and NOT what they decided on.
-    //
-    // This assertion used to read `not.toContainText("no deck yet")`
-    // and nothing else, which passed while the server was leaking
-    // every member's deck name to the whole table. The §5.228 audit
-    // caught the leak; this is the assertion that would have.
-    await expect(seatOf(host, secondUser)).toContainText("deck chosen");
+    // §5.46, §5.47 — the host's page does NOT carry what the guest
+    // chose. This assertion stands for the §5.228 audit's leak:
+    // every member's deck name once reached the whole table.
     await expect(seatOf(host, secondUser)).not.toContainText(deckName);
-    // The guest's own seat names it, on their own page.
-    await expect(seatOf(guest, secondUser)).toContainText(deckName);
+    // And the room list, which everybody sees, carries no deck at all (§7.68).
+    await expect(
+      host.locator("article.pa-room:not(.pa-room-mine)", { hasText: deckName }),
+    ).toHaveCount(0);
 
     // --- ready ----------------------------------------------------
     // §5.41 — the button was unusable until a deck was chosen, and
-    // is usable now.
-    // One after the other, each once its page has seen the room as it
-    // now is: a Ready sent on a stale revision is refused, rightly.
-    await host.getByRole("button", { name: "Ready", exact: true }).click();
+    // is usable now. One after the other, each once its page has seen
+    // the room as it now is: a Ready on a stale revision is refused.
+    await markReady(host);
     await expectReady(seatOf(guest, testUser));
-    await guest.getByRole("button", { name: "Ready", exact: true }).click();
+    await markReady(guest);
 
     await expectReady(seatOf(host, secondUser));
     await expectReady(seatOf(guest, testUser));
 
-    // --- prepare --------------------------------------------------
-    const prepare = host.getByRole("button", { name: "Prepare match" });
-    await expect(prepare).toBeEnabled();
-    await prepare.click();
-
-    // §5.91 — the room is frozen and NOTHING has started. The page
-    // says exactly that rather than implying a game is running.
-    await expect(host.getByText(/match is prepared/i)).toBeVisible();
-    // The guest learns over the socket, without touching anything.
-    await expect(guest.getByText(/match is prepared/i)).toBeVisible();
-
-    // §5.116 — ordinary configuration is blocked while prepared.
-    //
-    // Two halves, because they can fail independently. The page
-    // stops offering the controls...
-    await expect(host.getByRole("button", { name: "Ready", exact: true })).toHaveCount(0);
-    await expect(host.getByRole("button", { name: "Cancel preparation" })).toBeVisible();
-
+    // --- prepared, not started ------------------------------------
+    // Start match (§7.64) prepares and launches in one press, so the
+    // in-between state is reached through the API: a host whose tab
+    // died between the two steps leaves exactly this behind.
     const roomId = (
       (await (await host.request.get("/api/rooms/current")).json()) as {
         room: { roomId: string };
       }
     ).room.roomId;
+    const prepared = await host.request.post(`/api/rooms/${roomId}/prepare-match`, {
+      headers: { "X-CSRF-Token": await csrfOf(host) },
+    });
+    expect(prepared.status()).toBe(200);
+
+    // §5.91 — the room is frozen and NOTHING has started. The guest
+    // learns over the socket, without touching anything.
+    await expect(guest.getByText(/host is starting the match/i)).toBeVisible();
+
+    // §5.116 — ordinary configuration is blocked while prepared.
+    //
+    // Two halves, because they can fail independently. The page
+    // stops offering the controls...
+    await expect(host.getByRole("button", { name: /yourself ready|You are ready/ })).toBeDisabled();
+    await expect(host.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
 
     // ...and the SERVER refuses anyway, which is the rule. A page
     // that hides a button has not enforced anything: the request
@@ -227,10 +203,10 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
 
     // --- cancel ---------------------------------------------------
     // §5.117 — back to OPEN, readiness reset, deck choices kept.
-    await host.getByRole("button", { name: "Cancel preparation" }).click();
-    await expect(host.getByRole("button", { name: "Ready", exact: true })).toBeVisible();
+    await host.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(host.getByRole("button", { name: "Mark yourself ready" })).toBeEnabled();
     await expect(seatOf(host, secondUser)).toContainText("not ready");
-    await expect(seatOf(host, secondUser)).not.toContainText("no deck yet");
+    await expect(host.getByLabel("Your deck for this match")).not.toHaveValue("");
   } finally {
     await clearEverything(host);
     await clearEverything(guest);
@@ -267,14 +243,8 @@ test("the host is told which seat needs attention, and only that player is told 
   try {
     await host.goto("/play");
     await guest.goto("/play");
-    await host.getByRole("button", { name: "Host a game" }).click();
-    await host
-      .getByRole("region", { name: "Who is here" })
-      .locator("li", { hasText: secondUser })
-      .getByRole("button", { name: "Invite" })
-      .click();
-    await guest.getByRole("button", { name: "Accept" }).click();
-    await expect(host.getByText("2 of 2")).toBeVisible();
+    await openRoom(host);
+    await inviteIn(host, guest, secondUser);
 
     const current = (await (await host.request.get("/api/rooms/current")).json()) as {
       room: { roomId: string; revision: number };
@@ -301,8 +271,9 @@ test("the host is told which seat needs attention, and only that player is told 
 
     // And each player is told about their OWN deck, on their own
     // socket, without reloading.
-    await expect(guest.getByRole("heading", { name: "Your deck needs attention" })).toBeVisible();
-    await expect(guest.getByText(/Choose a deck/i).first()).toBeVisible();
+    const told = guest.getByRole("alert").filter({ hasText: "Your deck needs attention" });
+    await expect(told).toBeVisible();
+    await expect(told).toContainText(/Choose a deck/i);
   } finally {
     await clearEverything(host);
     await clearEverything(guest);

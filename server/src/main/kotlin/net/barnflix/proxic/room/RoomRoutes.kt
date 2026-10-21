@@ -3,6 +3,7 @@ package net.barnflix.proxic.room
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -56,6 +57,10 @@ data class ReadyRequest(
     val expectedRoomRevision: Long? = null,
 )
 
+/** PHASE_07 Amendment 9 — the body is optional, and so is the name. */
+@Serializable
+data class CreateRoomRequest(val name: String? = null)
+
 @Serializable
 data class PlayerCountRequest(
     val playerCount: Int = 0,
@@ -101,7 +106,18 @@ private fun Route.lifecycleRoutes(
     // §5.14 — create a room and sit down in it. The host is a player
     // (§5.16), so there is no separate "take a seat" step.
     post {
-        when (val result = rooms.create(callerId())) {
+        val name = RoomNames.typed(runCatching { call.receive<CreateRoomRequest>() }.getOrNull()?.name)
+        if (name != null && !RoomNames.valid(name)) {
+            return@post call.respond(
+                HttpStatusCode.UnprocessableEntity,
+                ErrorResponse(
+                    "INVALID_ROOM_NAME",
+                    "A room name is up to ${RoomNames.MAX_LENGTH} characters on one line.",
+                    null,
+                ),
+            )
+        }
+        when (val result = rooms.create(callerId(), name)) {
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)

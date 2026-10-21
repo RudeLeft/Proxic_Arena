@@ -1372,6 +1372,48 @@ one click.
 
 ---
 
+## PHASE 7 AMENDMENT 11
+
+**Reason:** Building the Lobby (§7.64) to the canvas found three things
+the canvas draws that no rule decided: offline players in the Players
+list, an invitation you can "deal with later", and no control for a
+host to remove a guest. One canvas element is overruled by an existing
+rule rather than amended: the canvas shows **Join** on rooms with a
+free seat, and §7.64 (owner decision 19) forbids it — a room you were
+not invited to says "By invitation" instead.
+
+**Affected requirements:** §7.64; Phase 5 AMENDMENT 1 (invitations, a
+five-minute lifetime and one per player) and AMENDMENT 2 (presence).
+
+**Old decision:** The presence list showed only who was online. An
+invitation expired after five minutes; a host could have several out,
+and a second invitation to a player replaced the first. The host could
+remove a guest from the old room panel.
+
+**New decision:**
+
+1. **The Players list shows every active account**, offline ones
+   greyed, with where each online player is (in the lobby, in a named
+   room, in a match). Names only, the same names the Deck Depot's
+   share list shows (Amendment 10). You cannot invite someone offline.
+2. **An invitation lasts until something ends it**: accepted, declined,
+   withdrawn by the host, the seat fills, the room closes, or either
+   player has been gone for a minute (a reload is not leaving). No
+   timer. Every ending is told to both sides; a decline stays on the
+   player's row until the host invites somebody else. **One at a time
+   both ways**: a host has one invitation out, a player holds one, and
+   a player already in a room cannot be invited into another.
+3. **The host keeps a Remove control** for the guest's seat, beside the
+   room's controls.
+
+**Evidence:** owner decisions 2026-10-21, asked with the alternatives
+(online only; five minutes as before; Close room as the only option).
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
+---
+
 # PART IX — PLAY, AS DECIDED 2026-10-20
 
 ## 7.53 Priority stops
@@ -1606,7 +1648,7 @@ last-admin rule holds against the API, not only the page.
 | --- | --- | --- |
 | 3 | account administration only through `arena-admin` on the host | also the Admin page, with §7.67's rules |
 | 4 | deck names may repeat; no rename; share by typed username; delete at one click | rename your own decks; names unique per owner; share from a list of players; delete asks first (Amendment 10) |
-| 5 | no directory of rooms; invitation-only | rooms visible to all; seats still by invitation; Start match is one step for the player |
+| 5 | no directory of rooms; invitation-only; presence shows who is online; invitations expire after five minutes | rooms visible to all; seats still by invitation; Start match is one step for the player; every account listed, offline greyed; invitations last until ended, one at a time both ways (Amendment 11) |
 | 6 | protocol as built | §7.61's additive fields and messages |
 
 Each is written into the locked phase's amendment record when Phase 7 is

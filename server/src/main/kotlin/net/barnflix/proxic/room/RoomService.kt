@@ -59,6 +59,9 @@ class RoomService(
      */
     fun find(roomId: UUID): Room? = store.withConnection { connection -> store.load(connection, roomId) }
 
+    /** PHASE_07 §7.64 — the room list everybody sees (RoomDirectory). */
+    val list = RoomList(store)
+
     /** §5.5 — the one room this user is in, if any. */
     fun roomOf(userId: UUID): Room? =
         store.withConnection { connection ->
@@ -86,8 +89,14 @@ class RoomService(
      * The host is a player too (§5.16), so creation is one
      * transaction that writes both rows: a room with a host who is
      * not seated is a state nothing else in this service expects.
+     *
+     * [name] is PHASE_07 Amendment 9's optional room name, already
+     * cleaned by [RoomNames.typed]; null for "<host>'s room".
      */
-    fun create(hostUserId: UUID): RoomResult =
+    fun create(
+        hostUserId: UUID,
+        name: String? = null,
+    ): RoomResult =
         store.inTransaction { connection ->
             if (store.activeRoomOf(connection, hostUserId, includeInMatch = true) != null) {
                 return@inTransaction RoomResult.Refused(RoomError.AlreadyInARoom)
@@ -96,14 +105,15 @@ class RoomService(
             val roomId = UUID.randomUUID()
             connection.prepareStatement(
                 """
-                INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status)
-                VALUES (?, ?, ?, ?, 'OPEN')
+                INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status, name)
+                VALUES (?, ?, ?, ?, 'OPEN', ?)
                 """.trimIndent(),
             ).use {
                 it.setObject(1, roomId)
                 it.setObject(2, hostUserId)
                 it.setString(3, PRESET_OPEN_FORMAT)
                 it.setInt(4, OPEN_FORMAT_PLAYERS)
+                it.setString(5, name)
                 it.executeUpdate()
             }
             store.seat(connection, roomId, hostUserId, seatNumber = 1)

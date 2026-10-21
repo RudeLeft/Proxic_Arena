@@ -227,7 +227,23 @@ class UserSocketTest {
         }
 
     private companion object {
-        /** Lobby traffic nobody asked for. Not an answer to anything. */
-        val UNPROMPTED = listOf("PRESENCE", "PRESENCE_JOINED", "PRESENCE_LEFT", "ROOM", "CHAT")
+        /**
+         * Lobby traffic nobody asked for. Not an answer to anything.
+         * PHASE_07 added the room list, the players, and invitations
+         * re-sent on connect (§7.64, Amendment 11).
+         */
+        val UNPROMPTED =
+            listOf(
+                "PRESENCE",
+                "PRESENCE_JOINED",
+                "PRESENCE_LEFT",
+                "ROOM",
+                "ROOMS",
+                "PLAYERS",
+                "INVITED",
+                "INVITATION_SENT",
+                "INVITATION_ENDED",
+                "CHAT",
+            )
     }
 }

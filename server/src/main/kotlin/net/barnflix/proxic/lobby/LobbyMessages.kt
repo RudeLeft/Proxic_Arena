@@ -74,9 +74,11 @@ fun presenceChange(
 fun inviteMessage(
     roomId: UUID,
     from: PresenceEntry,
+    roomName: String,
 ): JsonObject =
     envelope("INVITED") {
         put("roomId", roomId.toString())
+        put("roomName", roomName)
         putJsonObject("from") {
             put("userId", from.userId.toString())
             put("username", from.username)
@@ -117,8 +119,12 @@ fun errorMessage(
 fun errorMessage(error: RoomError): JsonObject = errorMessage(error.code, error.detail)
 
 /** The inviter's confirmation that it reached somebody. */
-fun invitationSentMessage(to: PresenceEntry): JsonObject =
+fun invitationSentMessage(
+    to: PresenceEntry,
+    roomId: UUID,
+): JsonObject =
     envelope("INVITATION_SENT") {
+        put("roomId", roomId.toString())
         putJsonObject("to") {
             put("userId", to.userId.toString())
             put("displayName", to.displayName)

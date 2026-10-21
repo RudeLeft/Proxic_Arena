@@ -110,7 +110,7 @@ class RoomMaintenance(
     private companion object {
         /** Owner decision D4: long enough that an interrupted
          *  evening survives the night. */
-        val DEFAULT_LIFETIME: Duration = Duration.ofHours(24)
+        val DEFAULT_LIFETIME: Duration = ROOM_LIFETIME
 
         /** §5.126 — a diagnostics window, not an archive. */
         val DEFAULT_RETENTION: Duration = Duration.ofDays(7)

@@ -38,7 +38,7 @@ All under `/api`. Every one requires a session.
 
 | Method | Path | Who | Answer |
 | --- | --- | --- | --- |
-| `POST` | `/rooms` | any | `201` + room |
+| `POST` | `/rooms` | any | `201` + room; optional body `{"name": "…"}` (PHASE_07 Amendment 9: one line, ≤ 40 characters, `422 INVALID_ROOM_NAME`) |
 | `GET` | `/rooms/current` | any | `200` + room **or `null`** |
 | `GET` | `/rooms/{roomId}` | members | `200` + room |
 | `POST` | `/rooms/{roomId}/leave` | members | `200` + room |
@@ -49,7 +49,9 @@ All under `/api`. Every one requires a session.
 | `PUT` | `/rooms/{roomId}/player-count` | host | `200` + room |
 
 **There is no join route.** AMENDMENT 1 removed join codes; an
-invitation over the socket is the only way in.
+invitation over the socket is the only way in. Since PHASE_07 §7.64
+every room is LISTED (`ROOMS` below), so a room id is no secret; the
+consumed invitation is what stands between the list and a seat.
 
 ### Match setup
 
@@ -89,6 +91,7 @@ cannot express it — and a body that adds one is ignored (§5.216).
 {
   "room": {
     "roomId": "…",
+    "name": "Kitchen Table",   // PHASE_07 Amendment 9; "<host>'s room" when unnamed
     "hostUserId": "…",
     "presetId": "OPEN_FORMAT_1V1",
     "desiredPlayerCount": 2,
@@ -165,7 +168,8 @@ A protocol-version mismatch fails loudly and is never interpreted
 | `PING` | — | answered `PONG` |
 | `INVITE` | `userId` | host only, into your own room |
 | `INVITE_ACCEPT` | `roomId` | spends the invitation |
-| `INVITE_DECLINE` | — | no answer is sent |
+| `INVITE_DECLINE` | — | the host is told (`INVITATION_ENDED`) |
+| `INVITE_WITHDRAW` | — | host only; the player is told (PHASE_07 Amendment 11) |
 | `CHAT` | `text` | ≤ 500 chars, rate limited |
 
 Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
@@ -181,8 +185,11 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `ROOM` | any room change | each member, **individually** |
 | `ROOM_CLOSED` | closed, host left, expired | former members |
 | `ROOM_REMOVED` | you were removed | that user |
-| `INVITED` | you were invited | that user |
-| `INVITATION_SENT` | your invitation reached somebody | the inviter |
+| `INVITED` | you were invited (`roomId`, `roomName`, `from`); again on reconnect | that user |
+| `INVITATION_SENT` | your invitation reached somebody (`roomId`, `to`); again on reconnect | the inviter |
+| `INVITATION_ENDED` | an invitation stopped being one (`reason`, `direction`, `other`) | **both** sides |
+| `ROOMS` | on connect, and on any room change | everyone |
+| `PLAYERS` | on connect | the connection |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
 | `CHAT` | somebody said something | everybody |
 | `ERROR` | a refusal | the asker |
@@ -197,6 +204,22 @@ per tab: §5.6 makes several sessions one player.
 `ROOM_CLOSED` carries a `reason`: `HOST_LEFT`, `CLOSED_BY_HOST`,
 `EXPIRED`. A client that meets an unfamiliar reason should say
 something true and vague rather than show the code.
+
+**PHASE_07 additions (§7.64, Amendments 9 and 11), additive only:**
+
+- `ROOMS` is every room that is open, starting or in a match:
+  `roomId`, `name` (the host's, or "<host>'s room"), `hostUserId`,
+  `status`, `desiredPlayerCount`, `seats` (`seatNumber`, `userId`,
+  `displayName`, `ready`, `isHost`) and `clearsAt` (null in a match).
+  The same for every viewer, which is safe only because it carries
+  **no deck and no invitation** (§7.68).
+- `PLAYERS` is every active account (`userId`, `username`,
+  `displayName`), online or not; presence says who is online.
+- Invitations are **one at a time both ways** and have **no timer**.
+  `INVITATION_ENDED.reason` is `ACCEPTED`, `DECLINED`, `WITHDRAWN`,
+  `ROOM_CLOSED`, `SEAT_FILLED` or `OFFLINE` (gone for a minute; a
+  reload is back inside it). `direction` is `FROM_YOU` for the host's
+  copy and `TO_YOU` for the player's.
 
 ---
 
@@ -238,6 +261,8 @@ has one way of showing a refusal regardless of which door it came
 through (§4.101).
 
 Socket-only codes: `USER_NOT_ONLINE`, `CANNOT_INVITE_YOURSELF`,
+`PLAYER_IN_A_ROOM`, `ONE_INVITATION_AT_A_TIME`, `PLAYER_ALREADY_INVITED`,
+`INVITATION_GONE` (accepting one that has ended),
 `MESSAGE_TOO_LONG`, `TOO_FAST`, `UNKNOWN_TYPE`.
 
 ### `SETUP_NOT_READY`, and who learns what

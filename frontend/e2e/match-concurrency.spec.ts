@@ -402,7 +402,7 @@ test("a server restart during a match follows the documented policy", async ({ b
     // And what the player sees on coming back: the lobby, not a
     // match that waits for ever.
     await pair!.host.goto("/play");
-    await expect(pair!.host.getByRole("button", { name: "Prepare match" })).toBeVisible({
+    await expect(pair!.host.getByRole("button", { name: "Start match" })).toBeVisible({
       timeout: 30_000,
     });
     await pair!.host.screenshot({ path: "test-results/seen/after-restart.png", fullPage: true });

@@ -53,6 +53,8 @@ export interface RoomMemberView {
 
 export interface RoomView {
   roomId: string;
+  /** PHASE_07 Amendment 9 — the host's name for it, or "<host>'s room". */
+  name: string;
   hostUserId: string;
   presetId: string;
   desiredPlayerCount: number;
@@ -64,7 +66,48 @@ export interface RoomView {
 
 export interface Invitation {
   roomId: string;
+  /** PHASE_07 Amendment 9 — which room, by the name the list shows. */
+  roomName: string;
   from: PresenceUser;
+}
+
+/** One seat on the room list — PHASE_07 §7.64: who and ready, never a deck. */
+export interface DirectorySeat {
+  seatNumber: number;
+  userId: string;
+  displayName: string;
+  ready: boolean;
+  isHost: boolean;
+}
+
+/** One room on the list everybody sees — PHASE_07 §7.64. */
+export interface DirectoryRoom {
+  roomId: string;
+  name: string;
+  hostUserId: string;
+  /** OPEN, READY_FOR_MATCH (starting) or IN_MATCH. */
+  status: string;
+  desiredPlayerCount: number;
+  seats: DirectorySeat[];
+  /** When it clears if nobody does anything; null during a match. */
+  clearsAt: string | null;
+}
+
+/** The invitation this host has out — PHASE_07 Amendment 11. */
+export interface OutgoingInvitation {
+  roomId: string;
+  to: PresenceUser;
+}
+
+/**
+ * Why an invitation to YOU stopped, when that needs saying: the host
+ * withdrew it, the room closed or filled, the host went away, or you
+ * accepted a moment too late. Your own accept or decline needs no
+ * telling and does not set this.
+ */
+export interface InvitationGone {
+  fromDisplayName: string | null;
+  reason: string;
 }
 
 /** §5.100 — about YOUR deck. Never about anybody else's. */
@@ -131,8 +174,21 @@ export interface LobbyState {
   presence: PresenceUser[];
   chat: ChatLine[];
   room: RoomView | null;
-  /** At most one: a second invitation replaces the first (§5.17). */
+  /** At most one: a player holds one invitation at a time (Amendment 11). */
   invitation: Invitation | null;
+  /** PHASE_07 §7.64 — every open room, for everybody. */
+  rooms: DirectoryRoom[];
+  /** PHASE_07 Amendment 11 — every active account, online or not. */
+  players: PresenceUser[];
+  /** The one invitation this player has out, as host. */
+  outgoing: OutgoingInvitation | null;
+  /**
+   * Who last declined this host's invitation. It stays on their row
+   * until the host invites somebody, rather than flashing past.
+   */
+  declinedBy: string | null;
+  /** An invitation to you that ended without your say. */
+  invitationGone: InvitationGone | null;
   setupProblem: SetupProblem | null;
   notice: Notice | null;
   /** Null until a match exists, and null again once one cannot. */
@@ -145,6 +201,11 @@ export const EMPTY_LOBBY: LobbyState = {
   chat: [],
   room: null,
   invitation: null,
+  rooms: [],
+  players: [],
+  outgoing: null,
+  declinedBy: null,
+  invitationGone: null,
   setupProblem: null,
   notice: null,
   match: null,
@@ -236,17 +297,48 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       // would have to leave to accept, and a dialog you cannot say
       // yes to is a dialog that should not appear.
       if (state.room) return state;
-      return { ...state, invitation: { roomId, from } };
+      const roomName = asString(message["roomName"]) ?? `${from.displayName}'s room`;
+      return { ...state, invitation: { roomId, roomName, from }, invitationGone: null };
     }
 
     case "INVITATION_SENT": {
+      // Amendment 11 — the Players list shows it on the row ("Invited"),
+      // so there is no notice; and a new invitation clears the last
+      // decline, which is what that note was waiting for.
       const to = asPresenceUser(message["to"]);
-      if (!to) return state;
+      const roomId = asString(message["roomId"]);
+      if (!to || !roomId) return state;
+      return { ...state, outgoing: { roomId, to }, declinedBy: null };
+    }
+
+    case "INVITATION_ENDED": {
+      const reason = asString(message["reason"]);
+      const direction = asString(message["direction"]);
+      const other = message["other"] as Record<string, unknown> | undefined;
+      if (!reason || !direction) return state;
+      if (direction === "FROM_YOU") {
+        return {
+          ...state,
+          outgoing: null,
+          declinedBy: reason === "DECLINED" ? asString(other?.["userId"]) : state.declinedBy,
+        };
+      }
+      // TO_YOU. Your own accept or decline needs no telling.
+      const quiet = reason === "ACCEPTED" || reason === "DECLINED";
       return {
         ...state,
-        notice: { kind: "info", errorCode: type, detail: `Invited ${to.displayName}.` },
+        invitation: null,
+        invitationGone: quiet
+          ? state.invitationGone
+          : { fromDisplayName: asString(other?.["displayName"]), reason },
       };
     }
+
+    case "ROOMS":
+      return { ...state, rooms: asDirectory(message["rooms"]) };
+
+    case "PLAYERS":
+      return { ...state, players: asPresenceList(message["players"]) };
 
     case "SETUP_PROBLEM": {
       const roomId = asString(message["roomId"]);
@@ -322,6 +414,18 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       const errorCode = asString(message["errorCode"]);
       const detail = asString(message["detail"]);
       if (!errorCode || !detail) return state;
+      // Accepting a moment too late: said the way a withdrawal is,
+      // because to the player it is one (canvas note on WITHDRAWN).
+      if (errorCode === "INVITATION_GONE") {
+        return {
+          ...state,
+          invitation: null,
+          invitationGone: {
+            fromDisplayName: state.invitation?.from.displayName ?? null,
+            reason: "GONE",
+          },
+        };
+      }
       return { ...state, notice: { kind: "error", errorCode, detail } };
     }
 
@@ -435,6 +539,43 @@ function asChatLine(message: Record<string, unknown>): ChatLine | null {
   };
 }
 
+function asDirectory(value: unknown): DirectoryRoom[] {
+  if (!Array.isArray(value)) return [];
+  const rooms: DirectoryRoom[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const v = entry as Record<string, unknown>;
+    const roomId = asString(v["roomId"]);
+    const hostUserId = asString(v["hostUserId"]);
+    if (!roomId || !hostUserId) continue;
+    const seats: DirectorySeat[] = [];
+    for (const seat of Array.isArray(v["seats"]) ? (v["seats"] as unknown[]) : []) {
+      if (typeof seat !== "object" || seat === null) continue;
+      const s = seat as Record<string, unknown>;
+      const userId = asString(s["userId"]);
+      const displayName = asString(s["displayName"]);
+      if (!userId || !displayName) continue;
+      seats.push({
+        seatNumber: typeof s["seatNumber"] === "number" ? s["seatNumber"] : 0,
+        userId,
+        displayName,
+        ready: s["ready"] === true,
+        isHost: s["isHost"] === true,
+      });
+    }
+    rooms.push({
+      roomId,
+      name: asString(v["name"]) ?? "A room",
+      hostUserId,
+      status: asString(v["status"]) ?? "OPEN",
+      desiredPlayerCount: typeof v["desiredPlayerCount"] === "number" ? v["desiredPlayerCount"] : 2,
+      seats: seats.sort((a, b) => a.seatNumber - b.seatNumber),
+      clearsAt: asString(v["clearsAt"]),
+    });
+  }
+  return rooms;
+}
+
 function asRoom(value: unknown): RoomView | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
@@ -446,6 +587,7 @@ function asRoom(value: unknown): RoomView | null {
     : [];
   return {
     roomId,
+    name: asString(v["name"]) ?? "Your room",
     hostUserId,
     presetId: asString(v["presetId"]) ?? "",
     desiredPlayerCount: typeof v["desiredPlayerCount"] === "number" ? v["desiredPlayerCount"] : 0,
@@ -600,8 +742,16 @@ async function roomCall(
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-export function createRoom(fetchFn: typeof fetch = fetch): Promise<RoomResult> {
-  return roomCall("/api/rooms", { method: "POST" }, fetchFn);
+/** PHASE_07 Amendment 9 — open a room, optionally named; blank is "<you>'s room". */
+export function createRoom(fetchFn: typeof fetch = fetch, name?: string): Promise<RoomResult> {
+  const trimmed = name?.trim();
+  return roomCall(
+    "/api/rooms",
+    trimmed
+      ? { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ name: trimmed }) }
+      : { method: "POST" },
+    fetchFn,
+  );
 }
 
 export function leaveRoom(roomId: string, fetchFn: typeof fetch = fetch): Promise<RoomResult> {

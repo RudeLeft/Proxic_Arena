@@ -467,7 +467,7 @@ private fun Route.databaseRoutes(
             net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
         )
     val lobbyHub = net.barnflix.proxic.lobby.LobbyHub()
-    val lobby = net.barnflix.proxic.lobby.LobbyService(lobbyHub, roomService)
+    val lobby = lobbyService(database, roomService, lobbyHub)
     // PHASE_06 §6.107-§6.109 — where a decision reaches a
     // human, and the runtime that publishes into it. Both live
     // out here with the other sockets rather than inside
@@ -658,6 +658,17 @@ private fun Route.databaseRoutes(
         )
     }
 }
+
+/** The lobby, with the account list its Players panel needs (PHASE_07 Amendment 11). */
+private fun lobbyService(
+    database: Database,
+    roomService: net.barnflix.proxic.room.RoomService,
+    hub: net.barnflix.proxic.lobby.LobbyHub,
+) = net.barnflix.proxic.lobby.LobbyService(
+    hub,
+    roomService,
+    accounts = net.barnflix.proxic.lobby.AccountNames(database.dataSource())::active,
+)
 
 /**
  * PHASE_07 Amendment 10 — decks imported before card categories

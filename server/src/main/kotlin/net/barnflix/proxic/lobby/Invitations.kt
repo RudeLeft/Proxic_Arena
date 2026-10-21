@@ -1,11 +1,9 @@
 package net.barnflix.proxic.lobby
 
-import java.time.Duration
-import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
-// Pending invitations — PHASE_05 AMENDMENT 1.
+// Pending invitations — PHASE_05 AMENDMENT 1, PHASE_07 §7.64 and
+// Amendment 11.
 //
 // Split from LobbyHub, which holds connections. The seam is real:
 // presence is plumbing that answers "who is connected", and this is
@@ -13,84 +11,119 @@ import java.util.concurrent.ConcurrentHashMap
 //
 // This class is the reason an invitation is not just a message.
 // Without a server-side record, accepting would need only a room id
-// — and a room id passed from one user to another is a join code
-// with extra steps, which is precisely what AMENDMENT 1 removed.
+// — and now that every room is listed (§7.64), a room id is public,
+// so the record is the ONLY thing standing between a list and a seat.
+//
+// Amendment 11 (owner decisions 2026-10-21) changed its shape:
+//
+// - ONE AT A TIME, both ways. A host has at most one invitation out,
+//   and a player holds at most one: two rooms asking at once is a
+//   choice nobody wanted to make, and chat sorts out the rest.
+// - NO TIMER. It lasts until it is accepted, declined or withdrawn,
+//   the seat fills, the room closes, or one of the two has been gone
+//   long enough to count as signed out. Nothing ends behind anybody's
+//   back, so every ending has a reason the other side is told.
 //
 // In memory, because owner decision D2 limits invitations to users
-// who are online. Nothing here survives a restart, and nothing
-// should: after a restart there are no connections, so there is
-// nobody an invitation could still be reaching.
+// who are online: after a restart there are no connections, so there
+// is nobody an invitation could still be reaching.
 
-class Invitations(private val clock: () -> Instant = Instant::now) {
-    private data class Pending(
-        val roomId: UUID,
-        val fromUserId: UUID,
-        val expiresAt: Instant,
-    )
+/** Why an invitation stopped being one; the other side is told which. */
+enum class InvitationEnd {
+    ACCEPTED,
+    DECLINED,
+    WITHDRAWN,
+    ROOM_CLOSED,
+    SEAT_FILLED,
 
-    /**
-     * Keyed by who the invitation is FOR, so a user holds at most
-     * one. A second invitation replaces the first: two rooms
-     * shouting at once is a problem for whoever has to choose.
-     */
-    private val pending = ConcurrentHashMap<UUID, Pending>()
+    /** One of the two has been gone long enough to count as signed out. */
+    OFFLINE,
+}
 
+data class Invitation(
+    val roomId: UUID,
+    val fromUserId: UUID,
+    val toUserId: UUID,
+)
+
+/** What [Invitations.offer] decided. */
+sealed interface OfferResult {
+    data class Sent(val invitation: Invitation) : OfferResult
+
+    /** The host already has one out (one at a time). */
+    data object HostHasOne : OfferResult
+
+    /** The player already holds one, from somebody else. */
+    data object PlayerHasOne : OfferResult
+}
+
+class Invitations {
+    // Guarded by `this`: an offer checks both directions and must not
+    // interleave with another offer doing the same.
+    private val byRecipient = HashMap<UUID, Invitation>()
+
+    @Synchronized
     fun offer(
         fromUserId: UUID,
         roomId: UUID,
         toUserId: UUID,
-    ) {
-        pending[toUserId] = Pending(roomId, fromUserId, clock().plus(LIFETIME))
+    ): OfferResult {
+        if (byRecipient.values.any { it.fromUserId == fromUserId }) return OfferResult.HostHasOne
+        if (byRecipient.containsKey(toUserId)) return OfferResult.PlayerHasOne
+        val invitation = Invitation(roomId, fromUserId, toUserId)
+        byRecipient[toUserId] = invitation
+        return OfferResult.Sent(invitation)
     }
 
     /**
-     * Spend an invitation, if there is a live one for this room.
+     * Spend an invitation, if there is one for this room.
      *
      * Consumed rather than merely checked: an invitation admits you
-     * once. Returning false is what stops a room id from working as
-     * a password.
+     * once. Null is what stops a listed room id from working as a
+     * key.
      */
+    @Synchronized
     fun consume(
         userId: UUID,
         roomId: UUID,
-    ): Boolean {
-        val invitation = pending[userId] ?: return false
-        if (invitation.roomId != roomId) return false
-        if (clock().isAfter(invitation.expiresAt)) {
-            pending.remove(userId)
-            return false
-        }
-        pending.remove(userId)
-        return true
+    ): Invitation? {
+        val invitation = byRecipient[userId] ?: return null
+        if (invitation.roomId != roomId) return null
+        byRecipient.remove(userId)
+        return invitation
     }
 
-    fun decline(userId: UUID) {
-        pending.remove(userId)
+    /** The invited player says no. */
+    @Synchronized
+    fun decline(userId: UUID): Invitation? = byRecipient.remove(userId)
+
+    /** The host takes it back. */
+    @Synchronized
+    fun withdraw(fromUserId: UUID): Invitation? {
+        val invitation = byRecipient.values.firstOrNull { it.fromUserId == fromUserId } ?: return null
+        byRecipient.remove(invitation.toUserId)
+        return invitation
     }
 
     /** A room that closed or filled is no longer inviting anybody. */
-    fun forgetRoom(roomId: UUID) {
-        pending.entries.removeIf { it.value.roomId == roomId }
-    }
+    @Synchronized
+    fun forgetRoom(roomId: UUID): List<Invitation> = removeWhere { it.roomId == roomId }
 
-    /**
-     * Forget everything to or from a user who has gone.
-     *
-     * D2 again: an invitation waiting for somebody who disconnected
-     * is not waiting for anything, and one sent by a host who has
-     * gone leads into a room that may no longer exist.
-     */
-    fun forgetUser(userId: UUID) {
-        pending.remove(userId)
-        pending.entries.removeIf { it.value.fromUserId == userId }
-    }
+    /** Everything to or from a user who has gone. */
+    @Synchronized
+    fun forgetUser(userId: UUID): List<Invitation> = removeWhere { it.toUserId == userId || it.fromUserId == userId }
 
-    private companion object {
-        /**
-         * Long enough to notice and decide; short enough that an
-         * ignored invitation cannot be accepted into a room that has
-         * since filled, closed or changed.
-         */
-        val LIFETIME: Duration = Duration.ofMinutes(5)
+    /** What this player has been asked, so a reload shows it again. */
+    @Synchronized
+    fun incomingFor(userId: UUID): Invitation? = byRecipient[userId]
+
+    /** What this host has out, so a reload shows it again. */
+    @Synchronized
+    fun outgoingFrom(userId: UUID): Invitation? = byRecipient.values.firstOrNull { it.fromUserId == userId }
+
+    private fun removeWhere(predicate: (Invitation) -> Boolean): List<Invitation> {
+        val gone = byRecipient.values.filter(predicate)
+        gone.forEach { byRecipient.remove(it.toUserId) }
+        return gone
     }
 }

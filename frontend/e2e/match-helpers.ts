@@ -63,8 +63,75 @@ export async function clearEverything(page: Page) {
     .toBe(true);
 }
 
+// --- the Lobby (PHASE_07 §7.64) -------------------------------------------
+//
+// The room you are in is the brass-edged card on the room list; its
+// seats are pills whose (visually hidden) words say ", ready" or
+// ", not ready". Read off the running page.
+
+/** The room card you are in, with your deck, ready and Start match inside it. */
+export const yourRoom = (page: Page) => page.locator("article.pa-room-mine");
+
 export const seatOf = (page: Page, name: string) =>
-  page.getByRole("region", { name: "Your game" }).locator("li", { hasText: name });
+  yourRoom(page).locator(".pa-seat", { hasText: name });
+
+/** Open a room from the Lobby (Amendment 9), optionally named. */
+export async function openRoom(page: Page, name?: string) {
+  if (name) await page.getByPlaceholder("Room name (optional)").fill(name);
+  await page.getByRole("button", { name: "Open a room" }).click();
+  await expect(yourRoom(page)).toBeVisible();
+}
+
+/**
+ * The host invites [guestName] from the Players list and the guest
+ * accepts in the invitation box; both seats are then filled.
+ */
+export async function inviteIn(host: Page, guest: Page, guestName: string) {
+  await host
+    .getByRole("region", { name: "Players" })
+    .getByRole("button", { name: new RegExp(`^Invite ${guestName}$`, "i") })
+    .click();
+  await guest.getByRole("dialog").getByRole("button", { name: "Accept" }).click();
+  await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
+  await expect(yourRoom(guest)).toBeVisible();
+}
+
+/**
+ * Choose [deckName] for this match: your own copy, or -- with
+ * [sharedBy] -- the copy that player shared with you. The same
+ * package can reach a player from several people under one name, so
+ * "the option that says the name" is not enough on its own.
+ */
+export async function chooseDeck(page: Page, deckName: string, sharedBy?: string) {
+  const select = page.getByLabel("Your deck for this match");
+  await expect(select.locator("option", { hasText: deckName }).first()).toBeAttached();
+  const value = await select
+    .locator("option")
+    .evaluateAll(
+      (options, [name, owner]) =>
+        options
+          .map((o) => o as HTMLOptionElement)
+          .find(
+            (o) =>
+              o.text.startsWith(`${name} — `) &&
+              (owner ? o.text.includes(`(shared by ${owner})`) : !o.text.includes("(shared by")),
+          )?.value ?? "",
+      [deckName, sharedBy ?? ""] as const,
+    );
+  expect(value, `no option for ${deckName}${sharedBy ? ` shared by ${sharedBy}` : ""}`).not.toBe(
+    "",
+  );
+  if ((await select.inputValue()) !== value) await select.selectOption(value);
+  // Adopted from the server's room, not predicted (§5.132): this is
+  // what makes the Ready that follows land.
+  await expect(select).toHaveValue(value);
+}
+
+/** Mark yourself ready, and wait until the server says you are. */
+export async function markReady(page: Page) {
+  await page.getByRole("button", { name: "Mark yourself ready" }).click();
+  await expect(page.getByRole("button", { name: "You are ready" })).toBeVisible();
+}
 
 /**
  * This seat shows READY -- and not "not ready", which also contains
@@ -137,66 +204,31 @@ export async function startAMatch(
 ) {
   await host.goto("/play");
   await guest.goto("/play");
-  await host.getByRole("button", { name: "Host a game" }).click();
-  await host
-    .getByRole("region", { name: "Who is here" })
-    .locator("li", { hasText: guestName })
-    .getByRole("button", { name: "Invite" })
-    .click();
-  await guest.getByRole("button", { name: "Accept" }).click();
-  await expect(host.getByText("2 of 2")).toBeVisible();
+  await openRoom(host);
+  await inviteIn(host, guest, guestName);
 
   const readied: string[] = [];
   for (const [page, who] of [
     [host, hostName],
     [guest, guestName],
   ] as const) {
-    // The host's OWN copy, and the guest's copy shared by THIS
-    // host. With more than two players on one stack the same
-    // package can reach a player from several people, under one
-    // name, and "the row that says the name" is then two rows.
-    const named = page.getByRole("region", { name: "My decks" }).locator("li", {
-      hasText: deckName,
-    });
-    const row =
-      page === host
-        ? named.filter({ hasNotText: "shared by" })
-        : named.filter({ hasText: `shared by ${hostName}` });
-    // Tolerant of a seat that already has this deck: the suite
-    // runs against a stack that keeps its data, and "Use this
-    // deck" simply does not exist once it is chosen.
-    //
-    // WAIT for the row before asking which state it is in. Counting
-    // at once raced the deck list rendering: on CI's slower runner
-    // the guest's list was not there yet, the count was 0, the click
-    // was skipped, and the test waited for a "Selected" that nobody
-    // had asked for. It failed two CI runs in three and never locally.
-    const use = row.getByRole("button", { name: "Use this deck" });
-    await expect(row.getByRole("button", { name: /^(Use this deck|Selected)$/ })).toBeVisible();
-    if ((await use.count()) > 0) {
-      await use.click();
-    }
-    // The Ready button stays disabled until the SERVER has the
-    // deck, so waiting for this is what makes the next click
-    // land at all.
-    await expect(row.getByRole("button", { name: "Selected" })).toBeVisible();
+    // The host's OWN copy, and the guest's copy shared by THIS host.
+    await chooseDeck(page, deckName, page === host ? undefined : hostName);
     // Click Ready only once THIS page has seen the seats already
     // ready. Its Ready carries the room revision it holds, and one
     // sent before the other seat's update arrived is refused as
     // stale ("The room changed while you were deciding") -- the
     // server being right, the test being early.
     for (const earlier of readied) await expectReady(seatOf(page, earlier));
-    await page.getByRole("button", { name: "Ready", exact: true }).click();
+    await markReady(page);
     await expectReady(seatOf(page, who));
     readied.push(who);
   }
 
-  const prepare = host.getByRole("button", { name: "Prepare match" });
-  await expect(prepare).toBeEnabled();
-  await prepare.click();
-  await expect(guest.getByText(/match is prepared/i)).toBeVisible();
-
-  await host.getByRole("button", { name: "Start match" }).click();
+  // §7.64 — one button: the server prepares and launches behind it.
+  const start = host.getByRole("button", { name: "Start match" });
+  await expect(start).toBeEnabled();
+  await start.click();
 
   // PREGAME COMES FIRST, and nobody else will answer it.
   //

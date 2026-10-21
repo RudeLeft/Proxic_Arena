@@ -59,6 +59,8 @@ data class RoomMemberView(
 @Serializable
 data class RoomView(
     val roomId: String,
+    /** PHASE_07 Amendment 9 — the host's name for it, or "<host>'s room". */
+    val name: String,
     val hostUserId: String,
     val presetId: String,
     val desiredPlayerCount: Int,
@@ -85,6 +87,7 @@ data class RoomView(
 fun Room.viewFor(viewerId: UUID): RoomView =
     RoomView(
         roomId = roomId.toString(),
+        name = displayName(),
         hostUserId = hostUserId.toString(),
         presetId = presetId,
         desiredPlayerCount = desiredPlayerCount,

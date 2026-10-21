@@ -1,41 +1,32 @@
-// The lobby — PHASE_05 AMENDMENT 4, §5.151–§5.160.
+// The Lobby — PHASE_07 §7.64, Amendments 9 and 11, over Phase 5 and 6.
 //
-// ONE page: presence and chat, a button to host, the room, and the
-// Deck Depot inline for picking a deck. Amendment 4 replaced a
-// layout built around displaying and entering a room code, because
-// amendment 1 deleted the codes.
+// The canvas's Lobby: the players on the left, every open room on the
+// right with the one you are in opened in place, and the lobby chat
+// across the bottom. While you are in a match, Phase 6's match view
+// sits on top of it all (MatchPanel), until the battlefield replaces
+// it on the game screen.
 //
-// §5.132 is the rule that shapes every handler here: the page does
-// not predict. It never edits a room locally, never flips a ready
-// flag before the server agrees, never removes a member from its
-// own list. Every action sends a request and waits for the ROOM
-// message. An optimistic lobby is how two players end up looking at
-// two different truths.
+// Two rules from Phase 5 still shape every handler. The page does not
+// predict (§5.132): it sends a request and draws the room the server
+// sends back. And what it shows about other people is the safe list
+// (§5.141): names, seats, readiness — the room list carries no deck at
+// all, and your own deck is the only one ever named.
 //
-// §5.141 governs what is rendered about other people: name, seat,
-// ready, and whether a deck is chosen — by NAME, never contents.
+// What is new is visibility, not access: every room is listed, but a
+// seat still needs an invitation, so there is no Join button. A room
+// you were not asked into says so instead of offering one.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLobbyConnection } from "./shell/LobbyConnection";
-import { EMPTY_LIBRARY, listDecks, type DeckLibrary, type DeckSummary } from "./decks";
-import {
-  EMPTY_MATCH,
-  connectMatch,
-  type Decision,
-  type MatchSocket,
-  type MatchState,
-  type Snapshot,
-  type SnapshotCard,
-  type SnapshotPlayer,
-} from "./match";
+import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
+import { MatchPanel } from "./MatchPanel";
 import {
   MAX_CHAT_LENGTH,
   cancelPreparation,
   closeRoom,
   createRoom,
-  abandonMatch,
   fetchCurrentMatch,
   fetchCurrentRoom,
   fetchMatchSetupId,
@@ -45,40 +36,43 @@ import {
   removeMember,
   selectDeck,
   setReady,
+  type DirectoryRoom,
   type LobbyState,
-  type MatchView,
-  type RoomMemberView,
   type RoomResult,
   type RoomView,
 } from "./lobby";
+import { clearsIn, orderRooms, playerRows, roomStateLabel, type PlayerRow } from "./lobbyView";
+
+/** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
+const SETTLE_MS = 2200;
 
 export default function LobbyPage() {
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
 
-  // The live connection is the shell's (PHASE_07 §7.62): it outlives this
-  // page, so presence and invitations reach a player on any page.
+  // The live connection is the shell's (§7.62): it outlives this page,
+  // so presence and invitations reach a player on any page.
   const { lobby, setLobby, send } = useLobbyConnection();
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // Page-owned prompts: closing the invitation box is "deal with it
+  // later", not an answer, so it is remembered here and nowhere else.
+  const [setAsideFor, setSetAsideFor] = useState<string | null>(null);
+  const [needRoomFor, setNeedRoomFor] = useState<PlayerRow | null>(null);
 
-  // §5.119 — a refresh should land you back in the room, not
-  // outside it. Asked over HTTP as well as awaited on the socket,
-  // because the socket only tells you once and this page may have
-  // been opened long after that.
+  // §5.119 — a refresh lands you back in the room, and §6.114 back in
+  // the match. Asked over HTTP as well as awaited on the socket,
+  // because the socket only tells you once.
   useEffect(() => {
     let cancelled = false;
     void fetchCurrentRoom().then((room) => {
       if (cancelled || !room) return;
       setLobby((previous) =>
-        // Not if the socket already delivered something newer.
         previous.room && previous.room.revision >= room.revision ? previous : { ...previous, room },
       );
     });
-    // §6.114 — and back into the MATCH, for the same reason. A
-    // page reloaded mid-game that showed a lobby would be telling
-    // the player they are not in the game they are in.
     void fetchCurrentMatch().then((match) => {
       if (cancelled || !match) return;
       setLobby((previous) => (previous.match ? previous : { ...previous, match }));
@@ -91,25 +85,32 @@ export default function LobbyPage() {
     };
   }, [setLobby]);
 
+  /** One place where every room call reports its refusal (§5.132: adopt, never predict). */
+  const run = useCallback(
+    async (call: () => Promise<RoomResult>) => {
+      setBusy(true);
+      setFailure(null);
+      const result = await call();
+      setBusy(false);
+      if (result.ok) {
+        setLobby((previous) => ({
+          ...previous,
+          room: result.room,
+          setupProblem: null,
+          notice: null,
+        }));
+      } else {
+        setFailure(result.failure.detail);
+      }
+      return result;
+    },
+    [setLobby],
+  );
+
   /**
-   * Leaving and closing: the room is no longer YOURS.
-   *
-   * These cannot go through `run`, and the reason is subtle enough
-   * that it shipped. The server answers both with the room AS IT
-   * NOW IS — correct, because the other members need it — but the
-   * caller has just stopped being a member. Adopting that response
-   * left the page showing "Your game" for a room the player had
-   * left, until they refreshed.
-   *
-   * The socket does not rescue it either: a leave is announced to
-   * the REMAINING members, and the leaver is not one. Closing
-   * happens to work only because the closer is still in the
-   * notified list, and even then the HTTP response can land after
-   * ROOM_CLOSED and put the dead room back.
-   *
-   * So this is explicit: whatever the server says about the room,
-   * my view of it is now empty. Reported by the owner, who had to
-   * refresh to get "Host a game" back.
+   * Leaving and closing: the room is no longer YOURS, whatever the
+   * server's answer says about it (it describes the room as the others
+   * now see it). Reported by the owner, who had to refresh to get out.
    */
   const runLeaving = useCallback(
     async (call: () => Promise<RoomResult>) => {
@@ -132,282 +133,830 @@ export default function LobbyPage() {
     [setLobby],
   );
 
+  const room = lobby.room;
+
   /**
-   * §6.10 — start the match the host already prepared.
-   *
-   * Two calls, because the launch takes a SETUP id and the page
-   * holds a room. Deliberately not cached from the prepare: see
-   * fetchMatchSetupId.
-   *
-   * Nothing optimistic happens here either. The 201 carries the
-   * match in LAUNCHING, and RUNNING arrives on the socket seconds
-   * later when Forge is up — which is the whole reason the MATCH
-   * message exists.
+   * §7.64 — Start match is ONE button. The server still freezes and
+   * validates (prepare) and then claims (launch), as Phases 5 and 6
+   * require; the player sees one step and is told what the wait is
+   * for. If the launch is refused, the preparation is undone so the
+   * room is editable again rather than stuck locked.
    */
-  const launch = useCallback(
-    async (roomId: string) => {
-      setBusy(true);
-      setFailure(null);
-      const setupId = await fetchMatchSetupId(roomId);
-      if (!setupId) {
-        setBusy(false);
-        setFailure("That match is no longer prepared. Prepare it again.");
+  const startMatch = useCallback(async () => {
+    if (!room) return;
+    setStarting(true);
+    setFailure(null);
+    if (room.status !== "READY_FOR_MATCH") {
+      const prepared = await prepareMatch(room.roomId, room.revision);
+      if (!prepared.ok) {
+        setStarting(false);
+        setFailure(prepared.failure.detail);
         return;
       }
-      const result = await launchMatch(setupId);
-      setBusy(false);
-      if (result.ok) {
-        setLobby((previous) => ({ ...previous, match: result.match, notice: null }));
-      } else {
-        setFailure(result.failure.detail);
+      setLobby((previous) => ({ ...previous, room: prepared.room }));
+    }
+    const setupId = await fetchMatchSetupId(room.roomId);
+    const launched = setupId ? await launchMatch(setupId) : null;
+    setStarting(false);
+    if (launched?.ok) {
+      setLobby((previous) => ({ ...previous, match: launched.match, notice: null }));
+      return;
+    }
+    setFailure(launched ? launched.failure.detail : "The match could not be started. Try again.");
+    const reopened = await cancelPreparation(room.roomId);
+    if (reopened.ok) setLobby((previous) => ({ ...previous, room: reopened.room }));
+  }, [room, setLobby]);
+
+  const invite = useCallback(
+    (row: PlayerRow) => {
+      if (row.control.kind !== "invite") return;
+      if (row.control.needsRoom) {
+        setNeedRoomFor(row);
+        return;
       }
+      send({ type: "INVITE", userId: row.user.userId });
     },
-    [setLobby],
+    [send],
   );
 
-  const room = lobby.room;
-  const myMember = useMemo(
-    () => (me ? (room?.members.find((m) => m.userId === me.userId) ?? null) : null),
-    [room, me],
-  );
-  const iAmHost = Boolean(me && room && room.hostUserId === me.userId);
-  const prepared = room?.status === "READY_FOR_MATCH";
-  /**
-   * §6.152 — while a match is on, the lobby does nothing.
-   *
-   * Not just a hidden button. Every room mutation is refused by
-   * the server for this status, because a browser action must not
-   * end somebody else's game. This is the page agreeing with that
-   * rather than offering controls that come back as refusals.
-   */
-  const inMatch = room?.status === "IN_MATCH";
-
-  /** One place where every room call reports its refusal. */
-  const run = useCallback(
-    async (call: () => Promise<RoomResult>) => {
-      setBusy(true);
-      setFailure(null);
-      const result = await call();
-      setBusy(false);
-      if (result.ok) {
-        // §5.132 — the server's room, not a guess at it. The socket
-        // will send the same thing to everyone else.
-        setLobby((previous) => ({
-          ...previous,
-          room: result.room,
-          setupProblem: null,
-          notice: null,
-        }));
-      } else {
-        setFailure(result.failure.detail);
-      }
-    },
-    [setLobby],
-  );
-
-  /**
-   * Declining clears the prompt here as well as on the server.
-   *
-   * Not a breach of §5.132. That rule forbids predicting what the
-   * SERVER will say about a room; an invitation is a prompt this
-   * page owns, and the server answers a decline with nothing at
-   * all. Without this the banner stayed on screen after the click,
-   * which an end-to-end test caught on the first run.
-   */
-  const decline = useCallback(() => {
-    send({ type: "INVITE_DECLINE" });
-    setLobby((previous) => ({ ...previous, invitation: null }));
-  }, [send, setLobby]);
+  /** "Open a room" from the need-a-room box: open one, then send the invitation it was for. */
+  const openRoomAndInvite = useCallback(async () => {
+    const row = needRoomFor;
+    setNeedRoomFor(null);
+    const result = await run(() => createRoom());
+    if (result.ok && row) send({ type: "INVITE", userId: row.user.userId });
+  }, [needRoomFor, run, send]);
 
   if (!me) return null;
 
+  const invitation = lobby.invitation;
+  const inviteBoxOpen = invitation !== null && setAsideFor !== invitation.roomId;
+
   return (
-    <main className="lobby">
-      <h1>PROXIC ARENA</h1>
-      <p className="sub">Lobby</p>
+    <main className="pa-main pa-lobby">
+      <h1 className="pa-visually-hidden">Lobby</h1>
 
-      {lobby.connection === "closed" && (
-        // §5.133 — a page that stopped being told must say so,
-        // rather than showing a lobby that looks live.
-        <section className="panel error">
-          <h2>Disconnected</h2>
-          <p>
-            You are no longer receiving updates. Reload the page to reconnect — your room is still
-            on the server.
-          </p>
-        </section>
-      )}
-
-      {lobby.notice && (
-        // Dismissible, because nothing else reliably clears it. A
-        // notice is cleared when a ROOM arrives, so "The host
-        // closed the room." sat on the page indefinitely for
-        // anybody who did not immediately host another one.
-        <section className={lobby.notice.kind === "error" ? "panel error" : "panel"}>
-          <p>{lobby.notice.detail}</p>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setLobby((previous) => ({ ...previous, notice: null }))}
+      <div className="pa-lobby-notices">
+        {lobby.connection === "closed" && (
+          // §5.133 — a page that stopped being told must say so.
+          <div className="pa-notice pa-notice-bad" role="alert">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">
+              <strong>Disconnected</strong>
+              <span className="pa-notice-sub">
+                You are no longer receiving updates. Reload the page to reconnect — your room is
+                still on the server.
+              </span>
+            </span>
+          </div>
+        )}
+        {lobby.notice && (
+          <div
+            className={`pa-notice ${lobby.notice.kind === "error" ? "pa-notice-bad" : "pa-notice-warn"}`}
+            role={lobby.notice.kind === "error" ? "alert" : "status"}
           >
-            Dismiss
-          </button>
-        </section>
-      )}
-
-      {failure && (
-        <section className="panel error">
-          <p className="error-text">{failure}</p>
-        </section>
-      )}
-
-      {lobby.invitation && !room && (
-        <section className="panel invitation">
-          <h2>{lobby.invitation.from.displayName} invited you to a game</h2>
-          <div className="actions">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">{lobby.notice.detail}</span>
             <button
               type="button"
-              onClick={() => send({ type: "INVITE_ACCEPT", roomId: lobby.invitation?.roomId })}
+              className="pa-small-button"
+              onClick={() => setLobby((previous) => ({ ...previous, notice: null }))}
             >
-              Accept
-            </button>
-            <button type="button" className="secondary" onClick={decline}>
-              Decline
+              Dismiss
             </button>
           </div>
-        </section>
-      )}
-
-      <div className="lobby-columns">
-        <div className="lobby-side">
-          <PresencePanel
-            lobby={lobby}
-            myUserId={me.userId}
-            canInvite={iAmHost && !prepared && !inMatch && !isFull(room)}
-            onInvite={(userId) => send({ type: "INVITE", userId })}
-          />
-          <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
-        </div>
-
-        <div className="lobby-main">
-          {lobby.match && <MatchPanel match={lobby.match} me={me.userId} />}
-
-          {room ? (
-            <RoomPanel
-              room={room}
-              me={me.userId}
-              iAmHost={iAmHost}
-              busy={busy}
-              onLeave={() => void runLeaving(() => leaveRoom(room.roomId))}
-              onClose={() => void runLeaving(() => closeRoom(room.roomId))}
-              onRemove={(userId) =>
-                void run(() => removeMember(room.roomId, userId, room.revision))
-              }
-              onReady={(ready) => void run(() => setReady(room.roomId, ready, room.revision))}
-              onPrepare={() => void run(() => prepareMatch(room.roomId, room.revision))}
-              onCancelPreparation={() => void run(() => cancelPreparation(room.roomId))}
-              onLaunch={() => void launch(room.roomId)}
-              launched={lobby.match !== null}
-              inMatch={inMatch}
-            />
-          ) : (
-            <section className="panel">
-              <h2>No game yet</h2>
-              <p className="hint">
-                Host a game, then invite somebody from the list. There is no public games list and
-                no join code — an invitation is the only way in.
-              </p>
-              <button type="button" disabled={busy} onClick={() => void run(createRoom)}>
-                Host a game
-              </button>
-            </section>
-          )}
-
-          {lobby.setupProblem && (
-            // §5.100 — about YOUR deck, sent only to you.
-            <section className="panel error">
-              <h2>Your deck needs attention</h2>
-              <p className="error-text">{lobby.setupProblem.detail}</p>
-            </section>
-          )}
-
-          <DeckPanel
-            library={library}
-            selectedDeckId={myMember?.selectedDeckId ?? null}
-            disabled={!room || prepared || busy}
-            inRoom={Boolean(room)}
-            onSelect={(deckId) => {
-              if (!room) return;
-              void run(() => selectDeck(room.roomId, deckId, room.revision));
-            }}
-          />
-        </div>
+        )}
+        {failure && (
+          <div className="pa-notice pa-notice-bad" role="alert">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">{failure}</span>
+          </div>
+        )}
+        {lobby.setupProblem && (
+          // §5.100 — about YOUR deck, sent only to you.
+          <div className="pa-notice pa-notice-bad" role="alert">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">
+              <strong>Your deck needs attention</strong>
+              <span className="pa-notice-sub">{lobby.setupProblem.detail}</span>
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* A page with no way off it is a dead end. The lobby is the
-          one place a player will sit for a while, so it says where
-          else they can go. */}
-      <p className="verdict">
-        <Link to="/decks">Deck Depot</Link> · <a href="/">Server status</a>
-      </p>
+      {lobby.match && (
+        <div className="pa-lobby-match">
+          <MatchPanel match={lobby.match} me={me.userId} />
+        </div>
+      )}
+
+      <div className="pa-lobby-layout">
+        <PlayersPanel
+          lobby={lobby}
+          me={me.userId}
+          onInvite={invite}
+          onWithdraw={() => send({ type: "INVITE_WITHDRAW" })}
+        />
+        <RoomsPanel
+          lobby={lobby}
+          me={me.userId}
+          library={library}
+          busy={busy}
+          starting={starting}
+          onOpen={(name) => void run(() => createRoom(fetch, name))}
+          onAccept={(roomId) => send({ type: "INVITE_ACCEPT", roomId })}
+          onSelectDeck={(deckId) => {
+            if (room) void run(() => selectDeck(room.roomId, deckId, room.revision));
+          }}
+          onReady={(ready) => {
+            if (room) void run(() => setReady(room.roomId, ready, room.revision));
+          }}
+          onStart={() => void startMatch()}
+          onCancelStart={() => {
+            if (room) void run(() => cancelPreparation(room.roomId));
+          }}
+          onRemove={(userId) => {
+            if (room) void run(() => removeMember(room.roomId, userId, room.revision));
+          }}
+          onClose={() => {
+            if (room) void runLeaving(() => closeRoom(room.roomId));
+          }}
+          onLeave={() => {
+            if (room) void runLeaving(() => leaveRoom(room.roomId));
+          }}
+        />
+      </div>
+
+      <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
+
+      {inviteBoxOpen && invitation && (
+        <Dialog
+          label="Invitation"
+          title={`${invitation.from.displayName} asked you into ${invitation.roomName}`}
+          sub="One seat open, waiting on you. Close this to deal with it later — the invitation waits on the room's row."
+          primary="Accept"
+          onPrimary={() => send({ type: "INVITE_ACCEPT", roomId: invitation.roomId })}
+          secondary="Decline"
+          onSecondary={() => send({ type: "INVITE_DECLINE" })}
+          onDismiss={() => setSetAsideFor(invitation.roomId)}
+        />
+      )}
+
+      {!inviteBoxOpen && lobby.invitationGone && (
+        <Dialog
+          label="Invitation ended"
+          title={goneTitle(lobby.invitationGone.reason, lobby.invitationGone.fromDisplayName)}
+          sub="Nothing changed for you — you are still in the lobby. This is also what you see if you accepted a moment too late."
+          primary="OK"
+          onPrimary={() => setLobby((previous) => ({ ...previous, invitationGone: null }))}
+        />
+      )}
+
+      {needRoomFor && (
+        <Dialog
+          label="No room yet"
+          title="You need a room before you can invite anyone"
+          sub={`Open a room and the invitation to ${needRoomFor.user.displayName} will be for that one.`}
+          primary="Open a room"
+          onPrimary={() => void openRoomAndInvite()}
+          secondary="Cancel"
+          onSecondary={() => setNeedRoomFor(null)}
+        />
+      )}
     </main>
   );
 }
 
-function isFull(room: RoomView | null): boolean {
-  return room !== null && room.members.length >= room.desiredPlayerCount;
+function goneTitle(reason: string, from: string | null): string {
+  const who = from ?? "The host";
+  switch (reason) {
+    case "WITHDRAWN":
+      return `${who} withdrew the invitation`;
+    case "ROOM_CLOSED":
+      return `${who}'s room closed, so the invitation ended`;
+    case "SEAT_FILLED":
+      return "The seat was taken, so the invitation ended";
+    case "OFFLINE":
+      return `${who} left, so the invitation ended`;
+    default:
+      return "That invitation is no longer open";
+  }
 }
 
-// --- presence ---------------------------------------------------------------
+// --- players ------------------------------------------------------------------
 
-function PresencePanel({
+function PlayersPanel({
   lobby,
-  myUserId,
-  canInvite,
+  me,
   onInvite,
+  onWithdraw,
 }: {
   lobby: LobbyState;
-  myUserId: string;
-  canInvite: boolean;
-  onInvite: (userId: string) => void;
+  me: string;
+  onInvite: (row: PlayerRow) => void;
+  onWithdraw: () => void;
 }) {
+  const rows = useMemo(() => playerRows(lobby, me), [lobby, me]);
+  const online = lobby.presence.filter((p) => p.userId !== me).length;
+  const outgoingTo = lobby.outgoing?.to.userId ?? null;
+
+  // Straight after Invite the pointer is still on the button, so
+  // offering to undo it at once reads as a mistake: it settles first.
+  const [settled, setSettled] = useState<string | null>(null);
+  useEffect(() => {
+    if (!outgoingTo) return undefined;
+    const timer = window.setTimeout(() => setSettled(outgoingTo), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [outgoingTo]);
+
   return (
-    <section className="panel" aria-label="Who is here">
-      <h2>Who is here</h2>
-      {lobby.presence.length === 0 ? (
-        <p className="hint">Nobody else is signed in.</p>
-      ) : (
-        <ul className="presence">
-          {lobby.presence.map((user) => (
-            <li key={user.userId} className="row">
-              <span className="name">
-                {user.displayName}
-                {user.userId === myUserId && <span className="hint"> (you)</span>}
+    <section className="pa-section pa-lobby-players" aria-labelledby="players-heading">
+      <div className="pa-section-head pa-lobby-head">
+        <h2 id="players-heading">Players</h2>
+        <span className="pa-spacer" />
+        <span className="pa-head-key">Online</span>
+        <span className="pa-count" aria-label={`${online} online`}>
+          {online}
+        </span>
+      </div>
+      <ul className="pa-player-list">
+        {rows.length === 0 && <li className="pa-group-empty">Nobody else has an account yet.</li>}
+        {rows.map((row) => (
+          <li key={row.user.userId} className="pa-player-row">
+            <span className="pa-player-text">
+              <span className={`pa-player-name${row.online ? "" : " pa-player-offline"}`}>
+                {row.user.displayName}
               </span>
-              {canInvite && user.userId !== myUserId && (
-                <button type="button" className="small" onClick={() => onInvite(user.userId)}>
-                  Invite
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* AMENDMENT 2 kept this narrow deliberately, so the page
-          should not imply more. */}
-      <p className="hint">Signed in right now. Not a friends list and not a list of games.</p>
+              <span className="pa-player-where">
+                <span
+                  aria-hidden="true"
+                  className={`pa-dot ${row.online ? "pa-dot-on" : "pa-dot-off"}`}
+                />
+                <span className={`pa-where-${row.tone}`}>{row.where}</span>
+              </span>
+            </span>
+            <InviteButton
+              row={row}
+              settled={settled === row.user.userId}
+              onInvite={() => onInvite(row)}
+              onWithdraw={onWithdraw}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
-// --- chat --------------------------------------------------------------------
+function InviteButton({
+  row,
+  settled,
+  onInvite,
+  onWithdraw,
+}: {
+  row: PlayerRow;
+  settled: boolean;
+  onInvite: () => void;
+  onWithdraw: () => void;
+}) {
+  const name = row.user.displayName;
+  switch (row.control.kind) {
+    case "none":
+      return <span className="pa-invite-spacer" />;
+    case "invite":
+      return (
+        <button
+          type="button"
+          className="pa-invite"
+          aria-label={`Invite ${name}`}
+          onClick={onInvite}
+        >
+          Invite
+        </button>
+      );
+    case "invited":
+      // Says what it is at rest and, once settled, what pressing it
+      // does under the pointer: Withdraw.
+      return (
+        <button
+          type="button"
+          className={`pa-invite pa-invite-out${settled ? " pa-invite-withdraw" : ""}`}
+          aria-label={settled ? `Withdraw the invitation to ${name}` : `${name} has been invited`}
+          onClick={() => {
+            if (settled) onWithdraw();
+          }}
+        >
+          <span className="pa-at-rest">Invited</span>
+          <span className="pa-on-hover">Withdraw</span>
+        </button>
+      );
+    case "blocked":
+      return (
+        <button
+          type="button"
+          className="pa-invite pa-invite-blocked"
+          disabled
+          aria-label={`Invite ${name}: ${row.control.why}`}
+          title={row.control.why}
+        >
+          Invite
+        </button>
+      );
+  }
+}
+
+// --- rooms ------------------------------------------------------------------------
+
+function RoomsPanel({
+  lobby,
+  me,
+  library,
+  busy,
+  starting,
+  onOpen,
+  onAccept,
+  onSelectDeck,
+  onReady,
+  onStart,
+  onCancelStart,
+  onRemove,
+  onClose,
+  onLeave,
+}: {
+  lobby: LobbyState;
+  me: string;
+  library: DeckLibrary;
+  busy: boolean;
+  starting: boolean;
+  onOpen: (name: string) => void;
+  onAccept: (roomId: string) => void;
+  onSelectDeck: (deckId: string | null) => void;
+  onReady: (ready: boolean) => void;
+  onStart: () => void;
+  onCancelStart: () => void;
+  onRemove: (userId: string) => void;
+  onClose: () => void;
+  onLeave: () => void;
+}) {
+  const [name, setName] = useState("");
+  const nameId = useId();
+  // Re-read the clock each minute so "clears in" stays honest.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const mine = lobby.room;
+  const rooms = orderRooms(lobby.rooms, mine?.roomId ?? null);
+  // Your own room is drawn from the room the server sent YOU, which is
+  // always at least as fresh as the list; if the list has not caught
+  // up yet, it is still shown.
+  const listed =
+    mine && !rooms.some((r) => r.roomId === mine.roomId) ? [asListed(mine), ...rooms] : rooms;
+
+  const open = (event: FormEvent) => {
+    event.preventDefault();
+    onOpen(name);
+    setName("");
+  };
+
+  return (
+    <section className="pa-section pa-lobby-rooms" aria-labelledby="rooms-heading">
+      <div className="pa-section-head pa-lobby-head">
+        <h2 id="rooms-heading">Game rooms</h2>
+        <span className="pa-spacer" />
+        <span className="pa-head-key">Rooms</span>
+        <span className="pa-count" aria-label={`${listed.length} rooms`}>
+          {listed.length}
+        </span>
+      </div>
+
+      {!mine && (
+        // Amendment 9 — rooms are opened on demand, and may be named.
+        <form className="pa-open-room" onSubmit={open}>
+          <label className="pa-visually-hidden" htmlFor={nameId}>
+            Room name (optional)
+          </label>
+          <input
+            id={nameId}
+            className="pa-input"
+            value={name}
+            maxLength={40}
+            placeholder="Room name (optional)"
+            autoComplete="off"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
+            Open a room
+          </button>
+        </form>
+      )}
+
+      <div className="pa-room-list">
+        {listed.length === 0 && (
+          <p className="pa-group-empty pa-rooms-empty">
+            No rooms are open. Open one, then invite somebody from the list.
+          </p>
+        )}
+        {listed.map((listedRoom) => (
+          <RoomCard
+            key={listedRoom.roomId}
+            listed={listedRoom}
+            mine={mine?.roomId === listedRoom.roomId ? mine : null}
+            lobby={lobby}
+            me={me}
+            now={now}
+            library={library}
+            busy={busy}
+            starting={starting}
+            onAccept={onAccept}
+            onSelectDeck={onSelectDeck}
+            onReady={onReady}
+            onStart={onStart}
+            onCancelStart={onCancelStart}
+            onRemove={onRemove}
+            onClose={onClose}
+            onLeave={onLeave}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Your own room in the list's shape, for the moment before the list catches up. */
+function asListed(room: RoomView): DirectoryRoom {
+  return {
+    roomId: room.roomId,
+    name: room.name,
+    hostUserId: room.hostUserId,
+    status: room.status,
+    desiredPlayerCount: room.desiredPlayerCount,
+    seats: room.members.map((m) => ({
+      seatNumber: m.seatNumber,
+      userId: m.userId,
+      displayName: m.displayName,
+      ready: m.ready,
+      isHost: m.isHost,
+    })),
+    clearsAt: null,
+  };
+}
+
+type SeatKind = "you" | "taken" | "open" | "asked";
+
+function SeatPill({
+  kind,
+  who,
+  ready,
+  playing,
+}: {
+  kind: SeatKind;
+  who: string;
+  ready: boolean;
+  playing: boolean;
+}) {
+  // Canvas notes s4, s5: the dot carries readiness, not presence.
+  // Filled means settled, hollow means waiting on something — so the
+  // difference never rests on telling green from red.
+  const dot =
+    kind === "open"
+      ? "pa-dot-open"
+      : kind === "asked"
+        ? "pa-dot-asked"
+        : playing || ready
+          ? "pa-dot-ready"
+          : "pa-dot-waiting";
+  const state =
+    kind === "open"
+      ? ""
+      : kind === "asked"
+        ? "invited"
+        : playing
+          ? "playing"
+          : ready
+            ? "ready"
+            : "not ready";
+  return (
+    <span className={`pa-seat pa-seat-${kind}`}>
+      <span aria-hidden="true" className={`pa-dot ${dot}`} />
+      <span className="pa-seat-name">{who}</span>
+      {state && <span className="pa-visually-hidden">, {state}</span>}
+    </span>
+  );
+}
+
+function RoomCard({
+  listed,
+  mine,
+  lobby,
+  me,
+  now,
+  library,
+  busy,
+  starting,
+  onAccept,
+  onSelectDeck,
+  onReady,
+  onStart,
+  onCancelStart,
+  onRemove,
+  onClose,
+  onLeave,
+}: {
+  listed: DirectoryRoom;
+  /** The room as the server sent it to you, when it is yours. */
+  mine: RoomView | null;
+  lobby: LobbyState;
+  me: string;
+  now: number;
+  library: DeckLibrary;
+  busy: boolean;
+  starting: boolean;
+  onAccept: (roomId: string) => void;
+  onSelectDeck: (deckId: string | null) => void;
+  onReady: (ready: boolean) => void;
+  onStart: () => void;
+  onCancelStart: () => void;
+  onRemove: (userId: string) => void;
+  onClose: () => void;
+  onLeave: () => void;
+}) {
+  const headingId = useId();
+  const playing = listed.status === "IN_MATCH";
+  const invitedHere = lobby.invitation?.roomId === listed.roomId;
+  const asked = mine && lobby.outgoing?.roomId === listed.roomId ? lobby.outgoing.to : null;
+  const full = listed.seats.length >= listed.desiredPlayerCount;
+
+  // Seats as people: yours brass, theirs plain, an open one hollow,
+  // and one being held for somebody says who (or, to them, "for you").
+  const seats: { key: string; kind: SeatKind; who: string; ready: boolean }[] = listed.seats.map(
+    (seat) => ({
+      key: seat.userId,
+      kind: seat.userId === me ? "you" : "taken",
+      who: seat.displayName,
+      ready: seat.ready,
+    }),
+  );
+  for (let i = listed.seats.length; i < listed.desiredPlayerCount; i++) {
+    const first = i === listed.seats.length;
+    if (first && asked)
+      seats.push({ key: "asked", kind: "asked", who: asked.displayName, ready: false });
+    else if (first && invitedHere)
+      seats.push({ key: "held", kind: "asked", who: "Held for you", ready: false });
+    else seats.push({ key: `open-${i}`, kind: "open", who: "Open seat", ready: false });
+  }
+
+  const clears = clearsIn(listed.clearsAt, now);
+
+  return (
+    <article
+      className={`pa-room${mine ? " pa-room-mine" : ""}${invitedHere ? " pa-room-invited" : ""}`}
+      aria-labelledby={headingId}
+    >
+      <div className="pa-room-line">
+        <h3 id={headingId} className="pa-room-name">
+          {listed.name}
+        </h3>
+        <div className="pa-room-seats">
+          {seats.map((seat) => (
+            <SeatPill
+              key={seat.key}
+              kind={seat.kind}
+              who={seat.who}
+              ready={seat.ready}
+              playing={playing}
+            />
+          ))}
+          <span className="pa-room-taken">
+            {listed.seats.length}/{listed.desiredPlayerCount}
+          </span>
+        </div>
+        <span className="pa-room-state">{roomStateLabel(listed)}</span>
+        <div className="pa-room-clears">
+          {clears && (
+            <>
+              <div className="pa-room-clears-key">Clears in</div>
+              <div className="pa-room-clears-value">{clears}</div>
+            </>
+          )}
+        </div>
+        <div className="pa-room-action">
+          {mine ? (
+            <span className="pa-room-role">
+              {mine.hostUserId === me ? "Your room" : "Your seat"}
+            </span>
+          ) : invitedHere ? (
+            <button
+              type="button"
+              className="pa-button pa-button-accept"
+              onClick={() => onAccept(listed.roomId)}
+            >
+              Accept
+            </button>
+          ) : full || playing ? (
+            <span className="pa-room-note">No seats free</span>
+          ) : (
+            // §7.64, owner decision 19: seeing a room is not a way in.
+            <span className="pa-room-note">By invitation</span>
+          )}
+        </div>
+      </div>
+
+      {mine && (
+        <YourRoom
+          room={mine}
+          me={me}
+          library={library}
+          busy={busy}
+          starting={starting}
+          onSelectDeck={onSelectDeck}
+          onReady={onReady}
+          onStart={onStart}
+          onCancelStart={onCancelStart}
+          onRemove={onRemove}
+          onClose={onClose}
+          onLeave={onLeave}
+        />
+      )}
+    </article>
+  );
+}
+
+/** The room you are in, opened in place: your deck, ready, and what your role may do. */
+function YourRoom({
+  room,
+  me,
+  library,
+  busy,
+  starting,
+  onSelectDeck,
+  onReady,
+  onStart,
+  onCancelStart,
+  onRemove,
+  onClose,
+  onLeave,
+}: {
+  room: RoomView;
+  me: string;
+  library: DeckLibrary;
+  busy: boolean;
+  starting: boolean;
+  onSelectDeck: (deckId: string | null) => void;
+  onReady: (ready: boolean) => void;
+  onStart: () => void;
+  onCancelStart: () => void;
+  onRemove: (userId: string) => void;
+  onClose: () => void;
+  onLeave: () => void;
+}) {
+  const deckId = useId();
+  const myMember = room.members.find((m) => m.userId === me) ?? null;
+  const iHost = room.hostUserId === me;
+  const preparing = room.status === "READY_FOR_MATCH";
+  const playing = room.status === "IN_MATCH";
+  const guest = room.members.find((m) => !m.isHost) ?? null;
+  // A room left prepared but not started (a tab that died between the
+  // two steps) starts from here too: Start match then only launches.
+  const canStart = iHost && room.everyoneReady && !busy && !starting;
+  const decks = [
+    ...library.mine.map((deck) => ({ deck, shared: false })),
+    ...library.sharedWithMe.map((deck) => ({ deck, shared: true })),
+  ];
+
+  if (playing) {
+    return (
+      <div className="pa-your-room">
+        <p className="pa-your-room-note">
+          The match is being played. Nothing here can change it — closing a browser is not a
+          concession, and neither is leaving the room.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pa-your-room">
+      <span className="pa-your-room-key" aria-hidden="true">
+        Your deck
+      </span>
+      <span className="pa-select-wrap pa-deck-select">
+        <label className="pa-visually-hidden" htmlFor={deckId}>
+          Your deck for this match
+        </label>
+        <select
+          id={deckId}
+          className="pa-select"
+          value={myMember?.selectedDeckId ?? ""}
+          disabled={busy || preparing || starting}
+          onChange={(event) => onSelectDeck(event.target.value || null)}
+        >
+          <option value="">{decks.length === 0 ? "No decks yet" : "Choose a deck"}</option>
+          {decks.map(({ deck, shared }) => (
+            <option key={deck.deckId} value={deck.deckId}>
+              {deck.displayName} — {deck.totalCards} cards
+              {shared ? ` (shared by ${deck.ownerDisplayName})` : ""}
+            </option>
+          ))}
+        </select>
+        <svg aria-hidden="true" width="11" height="7" viewBox="0 0 11 7">
+          <path d="M1 1 L5.5 5.5 L10 1" />
+        </svg>
+      </span>
+
+      {myMember && (
+        <button
+          type="button"
+          className={`pa-button pa-ready${myMember.ready ? " pa-ready-on" : ""}`}
+          aria-pressed={myMember.ready}
+          disabled={busy || preparing || starting || (!myMember.ready && !myMember.selectedDeckId)}
+          onClick={() => onReady(!myMember.ready)}
+        >
+          {myMember.ready ? "You are ready" : "Mark yourself ready"}
+        </button>
+      )}
+
+      <span className="pa-spacer" />
+
+      {iHost ? (
+        <>
+          <button
+            type="button"
+            className={`pa-button pa-start${canStart ? " pa-button-brass" : " pa-start-dead"}`}
+            disabled={!canStart}
+            onClick={onStart}
+          >
+            {starting ? "Checking both decks…" : "Start match"}
+          </button>
+          {preparing && !starting && (
+            <button type="button" className="pa-button pa-button-quiet" onClick={onCancelStart}>
+              Cancel
+            </button>
+          )}
+          <button
+            type="button"
+            className="pa-button pa-button-close"
+            disabled={busy}
+            onClick={onClose}
+          >
+            Close room
+          </button>
+        </>
+      ) : (
+        <button type="button" className="pa-small-button" disabled={busy} onClick={onLeave}>
+          Leave seat
+        </button>
+      )}
+
+      <p className="pa-your-room-note">
+        {decks.length === 0 ? (
+          <>
+            No decks yet — <Link to="/decks">import one in the Deck Depot</Link>.
+          </>
+        ) : preparing || starting ? (
+          iHost ? (
+            "Both decks are being built once, so a card that cannot be played turns up now and not mid-game."
+          ) : (
+            "The host is starting the match: both decks are being checked."
+          )
+        ) : iHost && !room.everyoneReady ? (
+          "Start match lights when both seats are filled and both players are ready."
+        ) : (
+          "Each player chooses their own deck; nobody else sees which."
+        )}
+        {iHost && guest && !preparing && !starting && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="pa-link-button"
+              disabled={busy}
+              onClick={() => onRemove(guest.userId)}
+            >
+              Remove {guest.displayName}
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+// --- chat ------------------------------------------------------------------------
 
 function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) => void }) {
   const [draft, setDraft] = useState("");
-  const endRef = useRef<HTMLDivElement | null>(null);
+  const logRef = useRef<HTMLDivElement | null>(null);
+  const inputId = useId();
 
+  // The log scrolls itself, not the page: the chat sits at the bottom
+  // of the Lobby, and scrolling the window to it on every line would
+  // drag the rooms off screen.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "nearest" });
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
   }, [lobby.chat.length]);
 
   const submit = (event: FormEvent) => {
@@ -419,1196 +968,148 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
   };
 
   return (
-    <section className="panel" aria-label="Chat">
-      <h2>Chat</h2>
-      <div className="chat-log" role="log">
-        {lobby.chat.length === 0 ? (
-          <p className="hint">Nothing yet.</p>
-        ) : (
-          lobby.chat.map((line) => (
-            <p key={line.id} className="chat-line">
-              {/* React escapes this. AMENDMENT 3 lists "escaped" as
-                  one of the bounds, and the CSP forbids inline
-                  script as the second line of defence. */}
-              <span className="chat-who">{line.displayName}</span> {line.text}
-            </p>
-          ))
-        )}
-        <div ref={endRef} />
+    <section className="pa-chat" aria-labelledby="chat-heading">
+      <div className="pa-chat-head">
+        <h2 id="chat-heading">Lobby chat</h2>
       </div>
-      <form onSubmit={submit}>
-        <label htmlFor="chat-input">Say something</label>
+      <div className="pa-chat-log" role="log" ref={logRef}>
+        {lobby.chat.length === 0 ? (
+          <p className="pa-chat-empty">
+            Nothing yet. One channel, kept in memory: nothing is stored and nothing survives a
+            restart.
+          </p>
+        ) : (
+          lobby.chat.map((line, index) => {
+            // A run of lines from one person names them once.
+            const run = index > 0 && lobby.chat[index - 1]?.fromUserId === line.fromUserId;
+            return (
+              <div key={line.id} className={`pa-chat-line${run ? " pa-chat-run" : ""}`}>
+                <span className="pa-chat-meta">
+                  <span className="pa-chat-at">{timeOf(line.sentAt)}</span>
+                  <span className={`pa-chat-who${run ? " pa-visually-hidden" : ""}`}>
+                    {line.displayName}
+                  </span>
+                </span>
+                {/* React escapes this (AMENDMENT 3's "escaped"), and the
+                    CSP forbids inline script behind it. */}
+                <span className="pa-chat-text">{line.text}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <form className="pa-chat-form" onSubmit={submit}>
+        <label className="pa-visually-hidden" htmlFor={inputId}>
+          Message the lobby
+        </label>
         <input
-          id="chat-input"
+          id={inputId}
+          className="pa-input"
           value={draft}
           maxLength={MAX_CHAT_LENGTH}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Shall we?"
+          placeholder="Say something to the lobby"
           autoComplete="off"
+          onChange={(event) => setDraft(event.target.value)}
         />
-        {/* Not before the socket is open: a send while it is still
-            connecting throws, the socket swallows it, and the line
-            is lost without a word. CI caught a fast click doing it. */}
-        <button type="submit" disabled={draft.trim().length === 0 || lobby.connection !== "open"}>
+        {/* Not before the socket is open: a send while connecting is
+            lost without a word. CI caught a fast click doing it. */}
+        <button
+          type="submit"
+          className="pa-button"
+          disabled={draft.trim().length === 0 || lobby.connection !== "open"}
+        >
           Send
         </button>
       </form>
-      <p className="hint">
-        One channel, kept in memory. Nothing is stored and nothing survives a restart.
-      </p>
     </section>
   );
 }
 
-// --- the room ------------------------------------------------------------------
-
-function RoomPanel({
-  room,
-  me,
-  iAmHost,
-  busy,
-  onLeave,
-  onClose,
-  onRemove,
-  onReady,
-  onPrepare,
-  onCancelPreparation,
-  onLaunch,
-  launched,
-  inMatch,
-}: {
-  room: RoomView;
-  me: string;
-  iAmHost: boolean;
-  busy: boolean;
-  onLeave: () => void;
-  onClose: () => void;
-  onRemove: (userId: string) => void;
-  onReady: (ready: boolean) => void;
-  onPrepare: () => void;
-  onCancelPreparation: () => void;
-  onLaunch: () => void;
-  /** A match already exists for this room, so there is nothing to start. */
-  launched: boolean;
-  /** The room is playing a match, and the lobby is not in charge. */
-  inMatch: boolean;
-}) {
-  const myMember = room.members.find((m) => m.userId === me);
-  const prepared = room.status === "READY_FOR_MATCH";
-
-  return (
-    <section className="panel" aria-label="Your game">
-      <h2>Your game</h2>
-
-      <div className="row">
-        <span className="name">Format</span>
-        <span className="state">Open Format · {room.desiredPlayerCount} players</span>
-      </div>
-      <div className="row">
-        <span className="name">Seats filled</span>
-        <span className="state">
-          {room.members.length} of {room.desiredPlayerCount}
-        </span>
-      </div>
-
-      <ul className="seats">
-        {room.members.map((member) => (
-          <Seat
-            key={member.userId}
-            member={member}
-            isMe={member.userId === me}
-            canRemove={iAmHost && !prepared && !inMatch && !member.isHost}
-            inMatch={inMatch}
-            busy={busy}
-            onRemove={() => onRemove(member.userId)}
-          />
-        ))}
-        {/* An empty seat is shown, because "waiting for somebody"
-            is the room's actual state and a list of one looks
-            like a bug. */}
-        {Array.from({ length: Math.max(0, room.desiredPlayerCount - room.members.length) }).map(
-          (_, index) => (
-            <li key={`empty-${index}`} className="row seat empty">
-              <span className="name">Empty seat</span>
-              <span className="state">waiting for an invitation</span>
-            </li>
-          ),
-        )}
-      </ul>
-
-      {prepared && !launched && (
-        <p className="hint">
-          The match is prepared and the room is locked. Starting it hands the decks to Forge.
-        </p>
-      )}
-
-      {inMatch && (
-        <p className="hint">
-          The match is being played. Nothing here can change it — closing a browser is not a
-          concession, and neither is leaving the room.
-        </p>
-      )}
-
-      <div className="actions">
-        {myMember && !prepared && !inMatch && (
-          <button
-            type="button"
-            disabled={busy || (!myMember.ready && !myMember.selectedDeckId)}
-            onClick={() => onReady(!myMember.ready)}
-          >
-            {myMember.ready ? "Not ready" : "Ready"}
-          </button>
-        )}
-
-        {iAmHost && !prepared && !inMatch && (
-          <button
-            type="button"
-            disabled={busy || !room.everyoneReady}
-            onClick={onPrepare}
-            title={room.everyoneReady ? undefined : "Everyone needs a deck and a tick first"}
-          >
-            Prepare match
-          </button>
-        )}
-
-        {iAmHost && prepared && !launched && !inMatch && (
-          <button type="button" disabled={busy} onClick={onLaunch}>
-            Start match
-          </button>
-        )}
-
-        {iAmHost && prepared && !launched && !inMatch && (
-          <button type="button" className="secondary" disabled={busy} onClick={onCancelPreparation}>
-            Cancel preparation
-          </button>
-        )}
-
-        {inMatch ? null : iAmHost ? (
-          <button type="button" className="secondary" disabled={busy} onClick={onClose}>
-            Close room
-          </button>
-        ) : (
-          <button type="button" className="secondary" disabled={busy} onClick={onLeave}>
-            Leave room
-          </button>
-        )}
-      </div>
-
-      {myMember && !myMember.selectedDeckId && !prepared && (
-        <p className="hint">Choose a deck below before you can mark yourself ready.</p>
-      )}
-    </section>
-  );
+function timeOf(sentAt: string): string {
+  const at = new Date(sentAt);
+  if (Number.isNaN(at.getTime())) return "";
+  return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-/** §5.46, §5.47 — the most the viewer is entitled to. */
-function deckLabel(member: RoomMemberView, isMe: boolean): string {
-  if (!member.deckSelected) return "no deck yet";
-  if (isMe) return member.selectedDeckName ?? "deck chosen";
-  return "deck chosen";
-}
+// --- the one dialog slot ------------------------------------------------------------
 
-function Seat({
-  member,
-  isMe,
-  canRemove,
-  busy,
-  inMatch,
-  onRemove,
-}: {
-  member: RoomMemberView;
-  isMe: boolean;
-  canRemove: boolean;
-  busy: boolean;
-  /** The match is being played, so readiness is a spent fact. */
-  inMatch: boolean;
-  onRemove: () => void;
-}) {
-  return (
-    <li className="row seat">
-      <span className="name">
-        Seat {member.seatNumber}: {member.displayName}
-        {member.isHost && <span className="hint"> (host)</span>}
-        {isMe && <span className="hint"> (you)</span>}
-      </span>
-      <span className="state">
-        {/* §5.47 — your own deck by name, everybody else's as a
-            fact. The server does not send an opponent's deck name
-            at all, so this is what the page CAN render, not a
-            policy it is choosing. */}
-        {deckLabel(member, isMe)}
-        {/* Readiness is a PRE-match fact. Once the game is being
-            played it is stale — the seats still carried "ready"
-            through an entire match, which says nothing true
-            about what is happening. Found by auditing Phase 5
-            against its own criteria after Phase 6 added
-            IN_MATCH, a state the lobby panel predates. */}
-        {!inMatch && (member.ready ? " · ready" : " · not ready")}
-      </span>
-      {canRemove && (
-        <button type="button" className="small secondary" disabled={busy} onClick={onRemove}>
-          Remove
-        </button>
-      )}
-    </li>
-  );
-}
-
-// --- decks, inline ----------------------------------------------------------------
-
-function DeckPanel({
-  library,
-  selectedDeckId,
-  disabled,
-  inRoom,
-  onSelect,
-}: {
-  library: DeckLibrary;
-  selectedDeckId: string | null;
-  disabled: boolean;
-  inRoom: boolean;
-  onSelect: (deckId: string | null) => void;
-}) {
-  const everything: { deck: DeckSummary; shared: boolean }[] = [
-    ...library.mine.map((deck) => ({ deck, shared: false })),
-    ...library.sharedWithMe.map((deck) => ({ deck, shared: true })),
-  ];
-
-  return (
-    <section className="panel" aria-label="My decks">
-      <h2>My decks</h2>
-      {everything.length === 0 ? (
-        <p className="hint">
-          No decks yet. <Link to="/decks">Import one from Deck Builder</Link>.
-        </p>
-      ) : (
-        <ul className="deck-choices">
-          {everything.map(({ deck, shared }) => (
-            <li key={deck.deckId} className="row">
-              <span className="name">
-                {deck.displayName}
-                {/* §4.59 — a shared deck says whose it is. */}
-                {shared && <span className="hint"> · shared by {deck.ownerDisplayName}</span>}
-              </span>
-              <span className="state">{deck.totalCards} cards</span>
-              <button
-                type="button"
-                className="small"
-                disabled={disabled || deck.deckId === selectedDeckId}
-                onClick={() => onSelect(deck.deckId)}
-              >
-                {deck.deckId === selectedDeckId ? "Selected" : "Use this deck"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!inRoom && <p className="hint">Host or join a game to choose a deck.</p>}
-      {/* §5.44 — there is no control for choosing somebody else's
-          deck because the endpoint cannot express it. Saying so
-          saves a host looking for one. */}
-      {inRoom && <p className="hint">Each player chooses their own deck.</p>}
-    </section>
-  );
-}
-
-/**
- * What the lobby shows about a live match — PHASE_06 §6.17.
- *
- * Deliberately thin. The board, the hand and the decisions are the
- * next slice; what this has to do today is stop the page claiming
- * a player is sitting in a lobby when they are in a game, and
- * change by itself when LAUNCHING becomes RUNNING. Those two are
- * the refresh-free requirement, and they are testable now.
- */
-function MatchPanel({ match, me }: { match: MatchView; me: string }) {
-  const mine = match.participants.find((seat) => seat.userId === me);
-  const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
-  const socketRef = useRef<MatchSocket | null>(null);
-  const running = match.status === "RUNNING";
-
-  // LAUNCHING COUNTS AS LIVE, and that is the whole fix for a
-  // three-layer deadlock.
-  //
-  // The match row turns RUNNING at the first priority window,
-  // which is AFTER the mulligans. Connecting only at RUNNING meant
-  // a pregame question had nowhere to go: Forge waited for an
-  // answer, the worker waited for Forge, the server waited for the
-  // worker, and the browser was not listening yet. It went
-  // unnoticed for as long as the adapter answered those questions
-  // itself.
-  const live = running || match.status === "LAUNCHING";
-  const [confirmingAbandon, setConfirmingAbandon] = useState(false);
-  const [abandoning, setAbandoning] = useState(false);
-  const [abandonFailure, setAbandonFailure] = useState<string | null>(null);
-  const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
-
-  // §6.107 — the match socket, open only once there is a game to
-  // connect to. Keyed on the match id so a second match opens a
-  // second connection rather than quietly reusing the first.
-  useEffect(() => {
-    if (!live) return undefined;
-    setGame(EMPTY_MATCH);
-    const socket = connectMatch(matchUrl(match.matchId), (apply) => setGame(apply));
-    socketRef.current = socket;
-    return () => {
-      socketRef.current = null;
-      socket.close();
-    };
-  }, [match.matchId, live]);
-
-  /**
-   * §6.162 — the escape hatch.
-   *
-   * Nothing optimistic happens: the page does not clear the
-   * match, because the SERVER decides whether the match ended
-   * and the MATCH message is what says so. A page that cleared
-   * it locally on a request that was refused would show a lobby
-   * for a game still running.
-   */
-  const abandon = async () => {
-    setAbandoning(true);
-    setAbandonFailure(null);
-    const result = await abandonMatch(match.matchId);
-    setAbandoning(false);
-    setConfirmingAbandon(false);
-    if (!result.ok) setAbandonFailure(result.failure.detail);
-  };
-
-  const answer = (actionId: string | null) => {
-    const decision = game.decision;
-    if (!decision) return;
-    // §6.132's shape, carried here: the page does not predict.
-    // The question stays on screen until the SERVER says it was
-    // taken, because a refusal has to put the player back where
-    // they were rather than in front of an empty game.
-    setGame((previous) => ({ ...previous, awaiting: decision.decisionId, notice: null }));
-    socketRef.current?.answer(decision.decisionId, actionId);
-  };
-
-  const decisionId = game.decision?.decisionId ?? null;
-  const search = useCallback(
-    (query: string) => {
-      if (decisionId !== null) socketRef.current?.search(decisionId, query);
-    },
-    [decisionId],
-  );
-
-  return (
-    <section className="panel" aria-label="Your match">
-      <h2>Your match</h2>
-      <p>
-        {finished
-          ? resultText(match, mine?.seatNumber ?? null)
-          : match.status === "LAUNCHING"
-            ? // A question during LAUNCHING is not a contradiction:
-              // mulligans happen before the first priority window,
-              // and the match row only turns RUNNING at that
-              // window. Saying "Forge is loading" above a real
-              // question the player has to answer would be the
-              // page describing itself wrongly.
-              game.decision
-              ? "Setting the game up — and it needs an answer from you."
-              : "Starting the game. Forge is loading — this takes a few seconds."
-            : "The game is running."}
-      </p>
-      {mine?.deckName && (
-        // §5.47 into §6: your own deck by name. The server sends
-        // nobody else's, so there is nothing here to leak.
-        <p className="hint">You are playing {mine.deckName}.</p>
-      )}
-      <p className="hint">
-        Seat {mine ? mine.seatNumber : "?"} of {match.participants.length}.
-      </p>
-
-      {live && game.connection === "closed" && (
-        // §5.133's rule for the game: a page that stopped being
-        // told must say so rather than showing a live-looking
-        // game. The decision is still pending on the server
-        // (§6.112) — nothing passed on this player's behalf.
-        <p className="error-text">
-          You are no longer connected to the game. Reload the page — the game is still running and
-          nothing has been answered for you.
-        </p>
-      )}
-
-      {game.board && <Board board={game.board} matchId={match.matchId} finished={finished} />}
-
-      {game.notice && <p className="error-text">{game.notice}</p>}
-      {abandonFailure && <p className="error-text">{abandonFailure}</p>}
-
-      {/* Not once the match is over: a question from a game that has
-          ended cannot be answered (the socket is closed), and CI found a
-          test clicking a failed match's mulligan for eighteen minutes.
-          A player would have done the same, to no effect. */}
-      {game.decision && !finished ? (
-        <div className="decision">
-          <h3>
-            {game.decision.actedForSeat === mine?.seatNumber
-              ? headingFor(game.decision.kind)
-              : `Playing for seat ${game.decision.actedForSeat}`}
-          </h3>
-          {/* Forge's own wording, when it has any. It is more
-              specific than anything this page could infer from
-              the kind, so it goes above the options rather than
-              replacing the heading. */}
-          {game.decision.prompt && <p className="decision-prompt">{game.decision.prompt}</p>}
-          {game.decision.searchable ? (
-            <NameSearch
-              key={game.decision.decisionId}
-              decision={game.decision}
-              disabled={game.awaiting !== null}
-              onSearch={search}
-              onChoose={answer}
-            />
-          ) : (
-            <ul className="actions-list">
-              {game.decision.options.map((option) => (
-                <li key={option.actionId}>
-                  <button
-                    type="button"
-                    disabled={game.awaiting !== null}
-                    onClick={() => answer(option.actionId)}
-                  >
-                    {option.label ?? option.actionId}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* No Pass when the rules do not allow one. Offering a
-              button that is always refused is worse than offering
-              nothing: it reads as the game being broken. */}
-          {!game.decision.mandatory && (
-            <button
-              type="button"
-              className="secondary"
-              disabled={game.awaiting !== null}
-              onClick={() => answer(null)}
-            >
-              Pass
-            </button>
-          )}
-          {/* §6.50 — this list is FORGE's. The page does not add
-              to it, remove from it or reorder it, because an
-              option Forge offered and a browser hid is a rules
-              disagreement the player cannot see. */}
-          {!game.decision.searchable && (
-            <p className="hint">{hintFor(game.decision.kind, game.decision.options.length)}</p>
-          )}
-        </div>
-      ) : (
-        live && <p className="hint">Waiting for the game.</p>
-      )}
-
-      {(running || match.status === "LAUNCHING") &&
-        (confirmingAbandon ? (
-          <div className="actions">
-            {/* Said plainly, because it ends the game for BOTH
-                players and there is no undo. §6.153 is why it
-                can say "nobody wins": an abandoned match records
-                no winner at all. */}
-            <p className="error-text">
-              End this match for both players? Nobody wins it, and it cannot be resumed.
-            </p>
-            <button type="button" disabled={abandoning} onClick={() => void abandon()}>
-              Yes, abandon the match
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={abandoning}
-              onClick={() => setConfirmingAbandon(false)}
-            >
-              Keep playing
-            </button>
-          </div>
-        ) : (
-          <div className="actions">
-            <button type="button" className="secondary" onClick={() => setConfirmingAbandon(true)}>
-              Abandon match
-            </button>
-          </div>
-        ))}
-    </section>
-  );
-}
-
-/**
- * P6-AG — naming a card: search, then pick.
- *
- * Forge allows tens of thousands of names, so they are never sent.
- * The player types; the server returns what matched, from FORGE's
- * list, best match first; the player picks one of those. The page
- * never invents a name and never accepts typed text as the answer:
- * the answer is always one of the results it was sent.
- *
- * Results are shown only for the text currently in the box. A
- * reply for an older keystroke arriving late would otherwise
- * replace the list under the player's cursor.
- */
-function NameSearch({
-  decision,
-  disabled,
-  onSearch,
-  onChoose,
-}: {
-  decision: Decision;
-  disabled: boolean;
-  onSearch: (query: string) => void;
-  onChoose: (actionId: string) => void;
-}) {
-  const [query, setQuery] = useState("");
-  // The server trims and caps what it searches for; compare like with like.
-  const asked = query.trim().slice(0, 64);
-
-  useEffect(() => {
-    if (!asked) return;
-    // Wait for a pause in typing rather than searching every key.
-    const timer = window.setTimeout(() => onSearch(asked), 200);
-    return () => window.clearTimeout(timer);
-  }, [asked, onSearch]);
-
-  const results = decision.results?.query === asked ? decision.results : null;
-
-  return (
-    <div className="name-search">
-      <label>
-        Card name
-        <input
-          type="search"
-          value={query}
-          autoFocus
-          autoComplete="off"
-          placeholder="Start typing a card's name"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-      {asked && !results && <p className="hint">Searching…</p>}
-      {results && results.total === 0 && <p className="hint">No card is called that.</p>}
-      {results && results.options.length > 0 && (
-        <ul className="actions-list" aria-label="Matching names">
-          {results.options.map((option) => (
-            <li key={option.actionId}>
-              <button type="button" disabled={disabled} onClick={() => onChoose(option.actionId)}>
-                {option.label ?? option.actionId}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="hint">
-        {results && results.total > results.options.length
-          ? `Showing ${results.options.length} of ${results.total.toLocaleString()} matches — type more to narrow it down.`
-          : `Any of ${decision.optionCount.toLocaleString()} names Forge allows here. The list is Forge's, not this page's.`}
-      </p>
-    </div>
-  );
-}
-
-/**
- * §6.149 — FORGE decided this, and the page only reads it.
- *
- * Nothing here looks at life totals, connections or who left.
- * The winner is a SEAT the server sent; turning it into "you" or
- * a name is the only interpretation allowed, and it uses the
- * participant list the page already holds.
- */
-function resultText(match: MatchView, mySeat: number | null): string {
-  if (match.status === "FAILED_RUNTIME" || match.outcome?.kind === "FAILED") {
-    // §6.154 — not a loss for anybody. A match that stopped is a
-    // fault, and recording a winner for it would be a lie.
-    return "The game stopped before it finished. Nobody won it.";
-  }
-  const outcome = match.outcome;
-  if (!outcome) return "The game is over.";
-
-  const turn = outcome.endedOnTurn > 0 ? ` on turn ${outcome.endedOnTurn}` : "";
-  if (outcome.kind === "DRAW") return `The game was a draw${turn}.`;
-  if (outcome.kind !== "WINNER" || outcome.winningSeat === null) {
-    return `The game ended without a result${turn}.`;
-  }
-  // P6-AP — Forge's own sentence for why, when it gave one. Every
-  // PlayerOutcome reads "has won ...", so "The winner" is its
-  // subject; nothing about it is reworded.
-  const why = outcome.reason ? ` The winner ${outcome.reason}.` : "";
-  if (outcome.winningSeat === mySeat) return `You won${turn}.${why}`;
-
-  // The match participant list carries seats, not names (§5.47
-  // keeps other people's decks out of it, and names were never
-  // needed before). With two seats "your opponent" is exact; with
-  // more it would not be, so the seat is named instead. FMT-005
-  // keeps that case representable even though Open Format is two.
-  return match.participants.length === 2
-    ? `Your opponent won${turn}.${why}`
-    : `Seat ${outcome.winningSeat} won${turn}.${why}`;
-}
-
-/**
- * What Forge is asking, in the player's words.
- *
- * Found by LOOKING at it (AGENTS TEST-011): a target choice was
- * headed "Your move" and footed "These are the actions Forge
- * says you can take", so a list of two player names read as a
- * list of things to do. The decision's kind was already in the
- * protocol and simply was not used.
- *
- * An unknown kind falls back to the general wording rather than
- * showing the raw name: a newer server asking something this
- * build has never heard of should still be answerable.
- */
-function headingFor(kind: string): string {
-  switch (kind) {
-    case "chooseTargetsFor":
-      return "Choose a target";
-    case "getAbilityToPlay":
-      return "Choose which ability";
-    case "chooseManaAbility":
-      return "Choose which mana to make";
-    case "applyManaToCost":
-      return "Tap something for mana";
-    case "chooseCardsToDiscardToMaximumHandSize":
-      return "Discard a card";
-    case "declareAttackers":
-      return "Declare attackers";
-    case "declareBlockers":
-      return "Declare blockers";
-    case "chooseDefender":
-      return "Choose what to attack";
-    case "chooseBlockTarget":
-      return "Choose what to block";
-    case "assignCombatDamage":
-      return "Assign combat damage";
-    case "orderSimultaneousAbilities":
-      return "Choose what resolves first";
-    case "chooseSingleReplacementEffect":
-      return "Choose which effect applies";
-    case "chooseCounterType":
-      return "Choose a kind of counter";
-    case "chooseModeForAbility":
-      return "Choose a mode";
-    case "announceRequirements":
-      return "Choose how much";
-    case "chooseSingleEntityForEffect":
-      return "Choose one";
-    case "chooseEntitiesForEffect":
-      return "Choose from these";
-    case "orderMoveToZoneList":
-      return "Put them in order";
-    case "mulliganKeepHand":
-      return "Keep or mulligan";
-    case "tuckCardsViaMulligan":
-      return "Put a card back";
-    case "chooseStartingPlayer":
-      return "Play or draw";
-    case "chooseSaToActivateFromOpeningHand":
-      return "Begin with it on the battlefield";
-    case "chooseSomeType":
-      return "Choose a type";
-    case "chooseColor":
-    case "chooseColors":
-      return "Choose a colour";
-    case "chooseProtectionType":
-      return "Choose protection";
-    case "chooseCardName":
-      return "Name a card";
-    case "chooseBinary":
-      return "Call it";
-    case "chooseNumber":
-      return "Choose a number";
-    case "chooseSingleCardFace":
-    case "chooseSingleSpellForEffect":
-      return "Choose one";
-    case "chooseSpellAbilitiesForEffect":
-      return "Choose what it does";
-    case "arrangeForScry":
-      return "Order the top of your library";
-    case "willPutCardOnTop":
-      return "Top or bottom";
-    case "CostPutCounter":
-      return "Choose where the counter goes";
-    case "CostRemoveCounter":
-      return "Choose where to take a counter from";
-    case "confirmTrigger":
-    case "confirmAction":
-    case "confirmPayment":
-    case "confirmReplacementEffect":
-    case "confirmStaticApplication":
-      return "Confirm";
-    default:
-      return "Your move";
-  }
-}
-
-function hintFor(kind: string, options: number): string {
-  if (options === 0) {
-    return "Forge is not offering any action right now; passing is the only answer.";
-  }
-  switch (kind) {
-    case "chooseTargetsFor":
-      // §6.93 — the candidates are Forge's, and saying so is not
-      // decoration: it is why an option that looks wrong is not
-      // a bug in the page.
-      return "These are the legal targets Forge allows. Pass to cancel instead.";
-    case "getAbilityToPlay":
-      return "That card can do more than one thing. Pass to cancel instead.";
-    case "applyManaToCost":
-    case "chooseManaAbility":
-      // The label carries what is still owed, so the hint says
-      // what the choice IS rather than repeating it.
-      return "Choose what to tap. Pass to cancel the whole thing.";
-    case "chooseCardsToDiscardToMaximumHandSize":
-      return "You are over your maximum hand size. This cannot be skipped.";
-    case "declareAttackers":
-      return "Choose attackers one at a time. Pass when you are done attacking.";
-    case "declareBlockers":
-      return "Choose blockers one at a time. Pass to take the damage.";
-    case "assignCombatDamage":
-      return "One point at a time, so nothing is assigned for you.";
-    case "chooseCounterType":
-      // The prompt above already names the card, because Forge
-      // wrote it. What this adds is that the kind MATTERS: these
-      // are not interchangeable, and nothing will pick for you.
-      return "Which counter this is changes what it does. This cannot be skipped.";
-    case "chooseModeForAbility":
-      // A modal card does ONE of these. Passing, where it is
-      // allowed at all, means "no more modes" rather than
-      // cancelling the spell -- which is worth saying, because
-      // every other Pass in this panel cancels something.
-      return "The card does the mode you pick. Pass, if offered, takes no further mode.";
-    case "chooseSingleEntityForEffect":
-      // The generic chooser: sacrificing something, exiling
-      // something, searching a library. Forge's own line above
-      // says which, so this says where the list came from -- a
-      // library search shows cards nobody else can see, and that
-      // being deliberate rather than a leak is worth knowing.
-      return "Forge decides what may be chosen here. The line above says what for.";
-    case "mulliganKeepHand":
-      // Says what mulliganing COSTS, because the prompt gives the
-      // hand size and not the consequence.
-      return "A mulligan draws seven again and puts one more back each time.";
-    case "tuckCardsViaMulligan":
-      return "These go to the bottom of your library. This cannot be skipped.";
-    case "chooseStartingPlayer":
-      return "On the play you are a turn ahead; on the draw you are a card ahead.";
-    case "chooseSaToActivateFromOpeningHand":
-      // §6.68 — it is NOT cast: no mana, no stack, nothing to respond
-      // to. Saying so stops the page reading like a free spell.
-      return "These start the game already on the battlefield — not cast, nothing paid. Choose them one at a time in the order they happen, then pass when you have the ones you want.";
-    case "chooseSomeType":
-    case "chooseColor":
-    case "chooseColors":
-    case "chooseProtectionType":
-    case "chooseCardName":
-      // Says where the list came from, because this is the one
-      // family of choices that is NOT about anything on the
-      // board: the list is Forge's, not the page's (P6-AH).
-      return "These are the values Forge allows. Nothing here is a card on the board.";
-    case "chooseBinary":
-      // The call is yours; the flip is not. Worth saying, because
-      // a player who calls heads and loses should know the game
-      // flipped it, not the page.
-      return "You call it. Forge flips it, and the result is announced.";
-    case "orderMoveToZoneList":
-      // The prompt names the END being chosen for — "closest to
-      // the top", "closest to the bottom" — because that is the
-      // entire decision, and a list of cards with no end named
-      // reads as a choice of ONE rather than a sort.
-      return "Each pick is the next one in order. This cannot be skipped.";
-    case "chooseEntitiesForEffect":
-      // Several, one click at a time. The prompt carries the
-      // count -- how many more are needed, or how many more are
-      // allowed -- so this says what the clicking IS.
-      return "Pick them one at a time. The line above says how many more.";
-    case "announceRequirements":
-      // Says what the number COSTS, because that is the part a
-      // list of numbers does not show. Not "the list stops at
-      // what you can pay" -- it does not, deliberately, and a
-      // hint that describes the page wrongly is worse than none.
-      return "You pay for what you choose. The list grows as the board can pay for more.";
-    case "CostPutCounter":
-    case "CostRemoveCounter":
-      return "This is part of paying for what you are doing. Pass to cancel it.";
-    case "arrangeForScry":
-    case "willPutCardOnTop":
-      // A scry names library cards: worth saying they are shown to
-      // this player alone, as Forge shows them.
-      return "Only you can see these cards. This cannot be skipped.";
-    case "chooseNumber":
-      return "Forge allows these numbers. This cannot be skipped.";
-    default:
-      return "These are the actions Forge says you can take.";
-  }
-}
-
-/**
- * The board, as this player may see it — PHASE_06 §6.40, §6.42.
- *
- * Laid out the way a table is: the opponent across from you,
- * your own side nearest. Lands sit apart from creatures because
- * that is how players actually read a board — "can they block"
- * and "can they pay" are different questions and mixing the rows
- * forces you to answer both at once.
- *
- * Nothing here is concealed. §6.42 requires hidden information
- * to be removed BEFORE serialisation, so a card this page cannot
- * name is a card whose name never arrived; a developer console
- * shows exactly what this does.
- */
-function Board({
-  board,
-  matchId,
-  finished,
-}: {
-  board: Snapshot;
-  matchId: string;
-  finished: boolean;
-}) {
-  const me = board.players.find((player) => player.seat === board.seat);
-  const opponents = board.players.filter((player) => player.seat !== board.seat);
-  const nameOf = (seat: number) =>
-    board.players.find((player) => player.seat === seat)?.name ?? `Seat ${seat}`;
-
-  return (
-    <div className="board">
-      <p className="hint board-turn">
-        {/* §6.70 — after a restart, say which game this is, or "turn 1"
-            reads as the game having gone backwards. */}
-        {board.gameEpoch > 1 && `Game ${board.gameEpoch} · `}
-        {board.dayTime && `It is ${board.dayTime} · `}
-        {finished && board.phase ? (
-          // The board is the final position; nobody's turn is going
-          // on any more, and "draw · opponent's turn" said one was.
-          <>
-            Game over · it ended on turn {board.turn}, in the{" "}
-            {board.phase.toLowerCase().replace(/_/g, " ")} step.
-          </>
-        ) : board.phase ? (
-          <>
-            Turn {board.turn} · {board.phase.toLowerCase().replace(/_/g, " ")} ·{" "}
-            {board.activeSeat === board.seat ? "your turn" : "opponent’s turn"}
-          </>
-        ) : (
-          // Before the first turn there is no phase and no active
-          // player, and saying "turn 0, opponent’s turn" about a
-          // mulligan is three wrong things in one line.
-          "Before the game begins."
-        )}
-      </p>
-
-      {/*
-        P6-AM — what Forge told YOU. A flip, a roll, a card looked
-        at. Private to this seat, and the newest last so it reads
-        like a short log rather than a stack.
-      */}
-      {board.notices.length > 0 && (
-        <ul className="board-notices">
-          {board.notices.map((text, index) => (
-            <li key={`${index}-${text}`}>{text}</li>
-          ))}
-        </ul>
-      )}
-
-      {opponents.map((player) => {
-        const seen = board.otherHands.filter((card) => card.seat === player.seat);
-        return (
-          <div key={player.seat}>
-            <PlayerSide
-              player={player}
-              cards={board.battlefield.filter((card) => card.seat === player.seat)}
-              battlefield={board.battlefield}
-              viewerSeat={board.seat}
-              nameOf={nameOf}
-              mine={false}
-              matchId={matchId}
-            />
-            {seen.length > 0 && (
-              // Only ever what Forge let this viewer see -- Mindslaver's
-              // controller, or an effect that reveals a hand.
-              <div className="board-zone board-other-hand">
-                <h4>
-                  {player.name}’s hand — you can see it ({seen.length})
-                </h4>
-                <ul className="board-cards">
-                  {seen.map((card) => (
-                    <CardChip
-                      key={card.id}
-                      card={card}
-                      mine={false}
-                      attachments={[]}
-                      matchId={matchId}
-                    />
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {board.stack.length > 0 && (
-        <div className="board-stack">
-          <h4>On the stack</h4>
-          <ul className="board-cards">
-            {board.stack.map((item) => (
-              <li key={item.id} className="card-chip stacked">
-                {item.description}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {me && (
-        <PlayerSide
-          player={me}
-          cards={board.battlefield.filter((card) => card.seat === me.seat)}
-          battlefield={board.battlefield}
-          viewerSeat={board.seat}
-          nameOf={nameOf}
-          mine
-          matchId={matchId}
-        />
-      )}
-
-      <div className="board-zone board-hand">
-        <h4>Your hand ({board.hand.length})</h4>
-        {board.hand.length === 0 ? (
-          <p className="hint">Empty.</p>
-        ) : (
-          <ul className="board-cards">
-            {board.hand.map((card) => (
-              <CardChip key={card.id} card={card} mine attachments={[]} matchId={matchId} />
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** One player: their totals, then their creatures, then their lands. */
-function PlayerSide({
-  player,
-  cards,
-  battlefield,
-  viewerSeat,
-  nameOf,
-  mine,
-  matchId,
-}: {
-  player: SnapshotPlayer;
-  cards: SnapshotCard[];
-  battlefield: SnapshotCard[];
-  viewerSeat: number;
-  nameOf: (seat: number) => string;
-  mine: boolean;
-  matchId: string;
-}) {
-  // Auras and equipment are drawn WITH what they modify. An
-  // equipment in its own row tells you nothing about which
-  // creature is now a 5/5.
-  //
-  // WHOEVER controls them (P6-AK). They were looked for among this
-  // side's own cards only, so your Pacifism on an opponent's creature
-  // was drawn nowhere at all: an attachment on your side, its host on
-  // theirs. One whose host is not on the battlefield stays a card of
-  // its own rather than vanishing.
-  const present = new Set(battlefield.map((card) => card.id));
-  const standalone = cards.filter(
-    (card) => card.attachedTo === null || !present.has(card.attachedTo),
-  );
-  const attachedTo = (id: string) => {
-    const host = battlefield.find((card) => card.id === id);
-    return battlefield
-      .filter((card) => card.attachedTo === id)
-      .map((attached) =>
-        !host || attached.seat === host.seat
-          ? attached
-          : {
-              ...attached,
-              name: `${attached.name} (${attached.seat === viewerSeat ? "yours" : `${nameOf(attached.seat)}'s`})`,
-            },
-      );
-  };
-
-  const creatures = standalone.filter((card) => card.kind === "creature");
-  const lands = standalone.filter((card) => card.kind === "land");
-  const rest = standalone.filter((card) => card.kind !== "creature" && card.kind !== "land");
-
-  return (
-    <section className={mine ? "board-side mine" : "board-side theirs"}>
-      <div className="row board-totals">
-        <span className="name">
-          {player.name}
-          {mine ? " (you)" : ""}
-        </span>
-        <span className="state">
-          {player.life} life · {player.handCount} in hand · {player.libraryCount} in library
-          {player.graveyardCount > 0 ? ` · ${player.graveyardCount} in graveyard` : ""}
-          {/* §6.96 — Forge's player state, as sent: poison, energy,
-              the monarch, a dungeon or emblem in the command zone. */}
-          {player.counters
-            .map((counter) => ` · ${counter.count} ${counter.name.toLowerCase()}`)
-            .join("")}
-          {player.designations.map((designation) => ` · ${designation}`).join("")}
-          {player.command.length > 0 ? ` · command zone: ${player.command.join(", ")}` : ""}
-          {player.ringTempted > 0
-            ? ` · the Ring has tempted ${mine ? "you" : player.name} ${player.ringTempted}×`
-            : ""}
-          {player.dungeonsCompleted.length > 0
-            ? ` · dungeons completed: ${player.dungeonsCompleted.join(", ")}`
-            : ""}
-        </span>
-      </div>
-
-      {standalone.length === 0 ? (
-        <p className="hint board-empty">Nothing in play.</p>
-      ) : (
-        <>
-          <CardRow
-            label="Creatures"
-            cards={creatures}
-            mine={mine}
-            attachedTo={attachedTo}
-            matchId={matchId}
-          />
-          <CardRow
-            label="Other"
-            cards={rest}
-            mine={mine}
-            attachedTo={attachedTo}
-            matchId={matchId}
-          />
-          <CardRow
-            label="Lands"
-            cards={lands}
-            mine={mine}
-            attachedTo={attachedTo}
-            matchId={matchId}
-          />
-        </>
-      )}
-    </section>
-  );
-}
-
-function CardRow({
+function Dialog({
   label,
-  cards,
-  mine,
-  attachedTo,
-  matchId,
+  title,
+  sub,
+  primary,
+  onPrimary,
+  secondary,
+  onSecondary,
+  onDismiss,
 }: {
   label: string;
-  cards: SnapshotCard[];
-  mine: boolean;
-  attachedTo: (id: string) => SnapshotCard[];
-  matchId: string;
+  title: string;
+  sub: string;
+  primary: string;
+  onPrimary: () => void;
+  secondary?: string;
+  onSecondary?: () => void;
+  /** Present when closing it is "later", not an answer. */
+  onDismiss?: () => void;
 }) {
-  if (cards.length === 0) return null;
+  const titleId = useId();
+  const primaryRef = useRef<HTMLButtonElement | null>(null);
+  const returnTo = useRef<Element | null>(null);
+
+  useEffect(() => {
+    returnTo.current = document.activeElement;
+    primaryRef.current?.focus();
+    const back = returnTo.current;
+    return () => {
+      if (back instanceof HTMLElement) back.focus();
+    };
+  }, []);
+
+  const escape = onDismiss ?? onSecondary;
   return (
-    <div className="board-row">
-      <span className="board-row-label">{label}</span>
-      <ul className="board-cards">
-        {cards.map((card) => (
-          <CardChip
-            key={card.id}
-            card={card}
-            mine={mine}
-            attachments={attachedTo(card.id)}
-            matchId={matchId}
-          />
-        ))}
-      </ul>
+    <div className="pa-dialog-backdrop" onClick={escape}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="pa-dialog"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && escape) escape();
+        }}
+      >
+        {onDismiss && (
+          <button
+            type="button"
+            className="pa-dialog-close"
+            aria-label="Put this aside for now"
+            onClick={onDismiss}
+          >
+            ×
+          </button>
+        )}
+        <div className="pa-dialog-label">{label}</div>
+        <h2 id={titleId} className="pa-dialog-title">
+          {title}
+        </h2>
+        <p className="pa-dialog-sub">{sub}</p>
+        <div className="pa-dialog-buttons">
+          <button
+            ref={primaryRef}
+            type="button"
+            className="pa-button pa-button-brass"
+            onClick={onPrimary}
+          >
+            {primary}
+          </button>
+          {secondary && onSecondary && (
+            <button type="button" className="pa-button pa-button-quiet" onClick={onSecondary}>
+              {secondary}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
-}
-
-/**
- * One permanent.
- *
- * Tapped is shown by rotating it AND said in words, because
- * colour and angle alone are not labels — a player who cannot
- * tell the two apart still has to know which lands are spent.
- */
-function CardChip({
-  card,
-  mine,
-  attachments,
-  matchId,
-}: {
-  card: SnapshotCard;
-  mine: boolean;
-  attachments: SnapshotCard[];
-  matchId: string;
-}) {
-  const classes = ["card-chip"];
-  if (card.tapped) classes.push("tapped");
-  if (!mine) classes.push("theirs");
-  if (!card.known) classes.push("unknown");
-  if (card.attacking) classes.push("attacking");
-  if (card.blocking) classes.push("blocking");
-
-  // Damage is subtracted so the number means what a player
-  // means by it: what this creature has LEFT.
-  const remaining = card.toughness === null ? null : card.toughness - card.damage;
-
-  return (
-    <li className={classes.join(" ")}>
-      {/*
-        §6.131 — a functional image, and the name stays either way.
-        The artwork is small at this size and a player still has to
-        be able to read what something is; Phase 7 owns what this
-        eventually looks like (§6.121 is explicit that layout, size
-        and composition are not Phase 6's).
-
-        A broken or missing image must not take the card with it,
-        so the name is a sibling rather than a caption, and the
-        element simply is not rendered when there is no reference.
-      */}
-      {card.art && (
-        <img
-          className="card-art"
-          src={`/api/matches/${matchId}/assets/${card.art}`}
-          alt=""
-          loading="lazy"
-        />
-      )}
-      <span className="card-name">{card.name}</span>
-      {card.power !== null && card.toughness !== null && (
-        <span className="card-pt">
-          {card.power}/{remaining}
-          {card.damage > 0 ? ` (${card.damage} damage)` : ""}
-        </span>
-      )}
-      {card.keywords.length > 0 && (
-        <span className="card-keywords">{card.keywords.join(" · ")}</span>
-      )}
-      {card.counters.length > 0 && (
-        <span className="card-counters">
-          {card.counters.map((counter) => `${counter.count} ${counter.name}`).join(", ")}
-        </span>
-      )}
-      {/* P6-I — your own face-down card, named for you (the worker
-          only names it to a viewer Forge lets identify it) and said
-          to be face down; the opponent's chip just says Face-down. */}
-      {card.faceDown && card.known && <span className="card-note">face down</span>}
-      {card.ringBearer && <span className="card-note">Ring-bearer</span>}
-      {card.sick && <span className="card-note">summoning sick</span>}
-      {card.attacking && <span className="card-note">attacking</span>}
-      {card.blocking && <span className="card-note">blocking</span>}
-      {card.tapped && <span className="card-note">tapped</span>}
-      {attachments.length > 0 && (
-        <span className="card-attached">
-          {attachments.map((attached) => attached.name).join(", ")}
-        </span>
-      )}
-    </li>
-  );
-}
-
-function matchUrl(matchId: string): string {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}/ws/matches/${matchId}`;
 }

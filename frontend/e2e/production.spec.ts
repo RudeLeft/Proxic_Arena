@@ -31,7 +31,16 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { secondPassword, secondUser, signInAs, testPassword, testUser } from "./helpers";
-import { expectReady, matchPanel, seatOf, settlePregame } from "./match-helpers";
+import {
+  chooseDeck,
+  expectReady,
+  inviteIn,
+  markReady,
+  matchPanel,
+  openRoom,
+  seatOf,
+  settlePregame,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 2_700_000 });
 // No single step may wait out the clock: an action inherits the TEST
@@ -119,40 +128,25 @@ async function usableDecks(host: Page, guest: Page): Promise<string[]> {
 async function startWithDecks(host: Page, guest: Page, hostDeck: string, guestDeck: string) {
   await host.goto("/play");
   await guest.goto("/play");
-  await host.getByRole("button", { name: "Host a game" }).click();
-  await host
-    .getByRole("region", { name: "Who is here" })
-    .locator("li", { hasText: secondUser })
-    .getByRole("button", { name: "Invite" })
-    .click();
-  await guest.getByRole("button", { name: "Accept" }).click();
-  await expect(host.getByText("2 of 2")).toBeVisible();
+  await openRoom(host);
+  await inviteIn(host, guest, secondUser);
 
   const readied: string[] = [];
   for (const [page, who, deck] of [
     [host, testUser, hostDeck],
     [guest, secondUser, guestDeck],
   ] as const) {
-    const named = page.getByRole("region", { name: "My decks" }).locator("li", { hasText: deck });
-    const row =
-      page === host
-        ? named.filter({ hasNotText: "shared by" })
-        : named.filter({ hasText: `shared by ${testUser}` });
-    const use = row.getByRole("button", { name: "Use this deck" });
-    await expect(row.getByRole("button", { name: /^(Use this deck|Selected)$/ })).toBeVisible();
-    if ((await use.count()) > 0) await use.click();
-    await expect(row.getByRole("button", { name: "Selected" })).toBeVisible();
+    await chooseDeck(page, deck, page === host ? undefined : testUser);
     for (const earlier of readied) await expectReady(seatOf(page, earlier));
-    await page.getByRole("button", { name: "Ready", exact: true }).click();
+    await markReady(page);
     await expectReady(seatOf(page, who));
     readied.push(who);
   }
 
-  const prepare = host.getByRole("button", { name: "Prepare match" });
-  await expect(prepare).toBeEnabled();
-  await prepare.click();
-  await expect(guest.getByText(/match is prepared/i)).toBeVisible();
-  await host.getByRole("button", { name: "Start match" }).click();
+  // PHASE_07 §7.64 — one button: prepared and launched behind it.
+  const start = host.getByRole("button", { name: "Start match" });
+  await expect(start).toBeEnabled();
+  await start.click();
   await settlePregame(host, guest);
   for (const page of [host, guest]) {
     await expect(matchPanel(page).getByText(/The game is running/)).toBeVisible({

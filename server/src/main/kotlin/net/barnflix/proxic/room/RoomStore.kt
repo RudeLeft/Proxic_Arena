@@ -180,7 +180,8 @@ internal class RoomStore(private val dataSource: DataSource) {
         val room =
             connection.prepareStatement(
                 """
-                SELECT host_user_id, preset_id, desired_player_count, status, revision
+                SELECT host_user_id, preset_id, desired_player_count, status, revision,
+                       name, last_activity_at
                   FROM room WHERE room_id = ?
                 """.trimIndent(),
             ).use { statement ->
@@ -197,6 +198,8 @@ internal class RoomStore(private val dataSource: DataSource) {
                             status = RoomStatus.valueOf(rows.getString(4)),
                             revision = rows.getLong(5),
                             members = emptyList(),
+                            name = rows.getString(6),
+                            lastActivityAt = rows.getTimestamp(7).toInstant(),
                         )
                     }
                 }
