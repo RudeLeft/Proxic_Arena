@@ -34,6 +34,13 @@ fun interface DeckAccessListener {
         beingDeleted: Boolean,
     )
 
+    /**
+     * PHASE_07 §7.65 — the deck has a new name. Nobody's access
+     * changed and no selection moves (everything holds the id); a
+     * room showing the old name just needs to hear the new one.
+     */
+    suspend fun deckRenamed(deckId: UUID) = Unit
+
     companion object {
         /** For wiring with no lobby: tests, and Phase 2's importer. */
         val NONE = DeckAccessListener { _, _ -> }

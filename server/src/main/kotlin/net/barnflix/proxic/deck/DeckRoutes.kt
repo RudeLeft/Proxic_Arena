@@ -63,6 +63,12 @@ data class DeckSummary(
     // a shared deck can say "shared by Alice" (§4.59) without a
     // second request, and so the client never has to infer it.
     val ownerDisplayName: String,
+    /**
+     * PHASE_07 §7.65 — "shared with 2", on YOUR decks only. Always 0
+     * on a deck shared with you: who else holds it is the owner's
+     * business (§4.99).
+     */
+    val shareCount: Int = 0,
 )
 
 @Serializable
@@ -78,6 +84,11 @@ data class ShareRecipientView(
 data class ShareListResponse(
     val shares: List<ShareRecipientView>,
     val shareCount: Int,
+    /**
+     * PHASE_07 Amendment 10 — the players the owner can still share
+     * with, for the Share list. Owner only, like the rest of this.
+     */
+    val candidates: List<ShareCandidate> = emptyList(),
 )
 
 @Serializable
@@ -108,6 +119,11 @@ data class DeckEntryView(
     val resolutionStatus: String,
     /** An Arena asset URL, never a filesystem path (§2.57, §2.59). */
     val artUrl: String? = null,
+    /**
+     * PHASE_07 Amendment 10 — LAND, CREATURE or SPELL, from Forge.
+     * Null for a deck imported before the column, until the fill.
+     */
+    val category: String? = null,
 )
 
 @Serializable
@@ -266,6 +282,9 @@ fun Route.deckRoutes(
         // raised threshold.
         shareRoutes(authorization, sharing, deckAccess)
 
+        // PHASE_07 §7.65 — rename, in its own file for the same reason.
+        renameRoute(dataSource, authorization, deckAccess)
+
         // §2.79
         delete("/{deckId}") {
             val deckId =
@@ -359,7 +378,8 @@ private fun deckLibrary(
             dataSource,
             """
             SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
-                   d.imported_at, u.display_name
+                   d.imported_at, u.display_name,
+                   (SELECT count(*) FROM deck_share s WHERE s.deck_id = d.deck_id)
               FROM imported_deck d
               JOIN app_user u ON u.user_id = d.owner_user_id
              WHERE d.owner_user_id = ?
@@ -373,7 +393,7 @@ private fun deckLibrary(
             dataSource,
             """
             SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
-                   d.imported_at, u.display_name
+                   d.imported_at, u.display_name, 0
               FROM imported_deck d
               JOIN deck_share s ON s.deck_id = d.deck_id
               JOIN app_user u ON u.user_id = d.owner_user_id
@@ -405,6 +425,7 @@ private fun summaries(
                                 distinctCards = rows.getInt(4),
                                 importedAt = rows.getTimestamp(5).toInstant().toString(),
                                 ownerDisplayName = rows.getString(6),
+                                shareCount = rows.getInt(7),
                             ),
                         )
                     }
@@ -446,7 +467,7 @@ private fun deckDetail(
             connection.prepareStatement(
                 """
                 SELECT line_number, quantity, card_name, set_code, collector_number,
-                       resolution_status, art_sha256
+                       resolution_status, art_sha256, card_category
                 FROM deck_entry WHERE deck_id = ? ORDER BY line_number
                 """.trimIndent(),
             ).use { statement ->
@@ -464,6 +485,7 @@ private fun deckDetail(
                                     collectorNumber = rows.getString(5),
                                     resolutionStatus = rows.getString(6),
                                     artUrl = art?.let { "/api/decks/$deckId/assets/$it" },
+                                    category = rows.getString(8),
                                 ),
                             )
                         }
@@ -535,11 +557,17 @@ private suspend fun ImportContext.handleImport(
     val staging = File(config.dataRoot, "temp/uploads").apply { mkdirs() }
     val upload = File(staging, "upload-${UUID.randomUUID()}.zip")
     var originalName = "upload.zip"
+    // PHASE_07 §7.65 -- an optional name the player typed, sent when
+    // the package's own name is one they already use.
+    var typedName: String? = null
 
     try {
         var bytes = 0L
         var tooLarge = false
         call.receiveMultipart().forEachPart { part ->
+            if (part is PartData.FormItem && part.name == "name") {
+                typedName = part.value
+            }
             if (part is PartData.FileItem) {
                 // The uploaded filename is a LABEL, never a
                 // path: it is used for display and nothing
@@ -594,43 +622,91 @@ private suspend fun ImportContext.handleImport(
         // deck to somebody else, or take one.
         val owner = call.attributes[net.barnflix.proxic.PRINCIPAL_KEY].user.userId
 
-        when (val result = importer.import(upload, originalName, owner)) {
-            is ImportResult.Imported ->
-                call.respond(
-                    HttpStatusCode.Created,
-                    ImportAcceptedResponse(
-                        deckId = result.deckId.toString(),
-                        displayName = result.displayName,
-                        status = "ready",
-                        totalCards = result.totalCards,
-                        distinctCards = result.distinctCards,
-                        artStored = result.artStored,
-                        entriesWithoutArt = result.entriesWithoutArt,
-                    ),
-                )
-
-            is ImportResult.Duplicate ->
-                call.respond(
-                    // 409: the request was understood and refused
-                    // because the deck already exists (owner
-                    // decision D3). The existing id is returned so
-                    // the client can show it rather than guess.
-                    HttpStatusCode.Conflict,
-                    ImportRejectedResponse(
-                        "DUPLICATE_PACKAGE",
-                        "This package has already been imported as \"${result.displayName}\".",
-                        listOf(result.existingDeckId.toString()),
-                    ),
-                )
-
-            is ImportResult.Rejected ->
-                call.respond(
-                    HttpStatusCode.UnprocessableEntity,
-                    ImportRejectedResponse(result.code, result.detail, result.problems),
-                )
-        }
+        importAndRespond(importer, ImportRequest(upload, originalName, owner, typedName))
     } finally {
         // The upload is ours and temporary whatever happened.
         upload.delete()
+    }
+}
+
+/** One upload, as the import handler received it. */
+private class ImportRequest(
+    val upload: File,
+    val originalName: String,
+    val owner: UUID,
+    /** PHASE_07 §7.65 — what the player typed in the name field, if anything. */
+    val typedName: String?,
+)
+
+/**
+ * Run the import and answer it. Split from [handleImport] when the
+ * name field (PHASE_07 §7.65) took that function past detekt's
+ * complexity limit: receiving an upload and answering for it are two
+ * jobs.
+ */
+private suspend fun ImportContext.importAndRespond(
+    importer: DeckImporter,
+    request: ImportRequest,
+) {
+    // A blank field means "use the package's name", not an error.
+    val typed = request.typedName?.takeIf { it.isNotBlank() }
+    val requestedName = typed?.let { DeckNames.typed(it) }
+    if (typed != null && requestedName == null) {
+        call.respond(
+            HttpStatusCode.UnprocessableEntity,
+            ImportRejectedResponse(
+                "INVALID_DECK_NAME",
+                "A deck name is 1 to ${DeckNames.MAX_LENGTH} characters on one line.",
+            ),
+        )
+        return
+    }
+
+    when (val result = importer.import(request.upload, request.originalName, request.owner, requestedName)) {
+        is ImportResult.Imported ->
+            call.respond(
+                HttpStatusCode.Created,
+                ImportAcceptedResponse(
+                    deckId = result.deckId.toString(),
+                    displayName = result.displayName,
+                    status = "ready",
+                    totalCards = result.totalCards,
+                    distinctCards = result.distinctCards,
+                    artStored = result.artStored,
+                    entriesWithoutArt = result.entriesWithoutArt,
+                ),
+            )
+
+        is ImportResult.Duplicate ->
+            call.respond(
+                // 409: the request was understood and refused
+                // because the deck already exists (owner
+                // decision D3). The existing id is returned so
+                // the client can show it rather than guess.
+                HttpStatusCode.Conflict,
+                ImportRejectedResponse(
+                    "DUPLICATE_PACKAGE",
+                    "This package has already been imported as \"${result.displayName}\".",
+                    listOf(result.existingDeckId.toString()),
+                ),
+            )
+
+        is ImportResult.NameTaken ->
+            call.respond(
+                // 409 like a duplicate package, but a different
+                // code: this one is fixed by choosing a name.
+                HttpStatusCode.Conflict,
+                ImportRejectedResponse(
+                    "DECK_NAME_TAKEN",
+                    DeckNames.takenMessage(result.displayName),
+                    listOf(result.displayName),
+                ),
+            )
+
+        is ImportResult.Rejected ->
+            call.respond(
+                HttpStatusCode.UnprocessableEntity,
+                ImportRejectedResponse(result.code, result.detail, result.problems),
+            )
     }
 }

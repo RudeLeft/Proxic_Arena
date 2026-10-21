@@ -57,3 +57,27 @@ export const extraPlayers: { username: string; password: string }[] = (
     accounts: { username: string; password: string }[];
   }
 ).accounts;
+
+/**
+ * Share the deck open in the Deck Depot with [username], through the
+ * page's list of players (PHASE_07 Amendment 10).
+ *
+ * The list's values are the server's spelling of each username, so
+ * this picks by name ignoring case -- the same way the server matches
+ * a share -- rather than assuming the caller's spelling.
+ */
+export async function shareOpenDeckWith(page: Page, username: string): Promise<void> {
+  const select = page.getByLabel("Share this deck with a player");
+  await expect(select.locator("option", { hasText: new RegExp(username, "i") })).toHaveCount(1);
+  const value = await select
+    .locator("option")
+    .evaluateAll(
+      (options, wanted) =>
+        options
+          .map((option) => (option as HTMLOptionElement).value)
+          .find((v) => v.toLowerCase() === wanted.toLowerCase()) ?? "",
+      username,
+    );
+  await select.selectOption(value);
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+}

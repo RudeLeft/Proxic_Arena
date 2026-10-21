@@ -105,7 +105,7 @@ fun Route.shareRoutes(
         }
 
         val recipients = sharing.recipientsOf(deckId).map { it.view() }
-        call.respond(ShareListResponse(recipients, recipients.size))
+        call.respond(ShareListResponse(recipients, recipients.size, sharing.candidatesFor(deckId, callerId())))
     }
 
     // §4.34 — revoke by recipient id, which is what the owner's

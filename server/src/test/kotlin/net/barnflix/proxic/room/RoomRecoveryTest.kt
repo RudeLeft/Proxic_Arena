@@ -177,6 +177,35 @@ class RoomRecoveryTest {
         assertTrue(watch().releaseDeck(other).isEmpty())
     }
 
+    // --- PHASE_07 §7.65: a deck is renamed --------------------------------
+
+    /**
+     * A rename moves nothing: the selection and the readiness stay,
+     * and so does the revision, so a Start match already on its way
+     * is not turned away as stale. The room is still reported, with
+     * the new name, so its members hear it.
+     */
+    @Test
+    fun `a renamed deck stays selected and the room hears the new name`() {
+        val deckId = insertDeck(userId("RudeLeft"))
+        val room = readyRoom(deckId)
+        source().connection.use { connection ->
+            connection.prepareStatement("UPDATE imported_deck SET display_name = 'Renamed' WHERE deck_id = ?").use {
+                it.setObject(1, deckId)
+                it.executeUpdate()
+            }
+        }
+
+        val holding = watch().roomsHolding(deckId)
+
+        assertEquals(listOf(room.roomId), holding.map { it.roomId })
+        val after = holding.single()
+        assertEquals(room.revision, after.revision)
+        assertTrue(after.members.all { it.ready && it.selectedDeckId == deckId })
+        assertTrue(after.members.all { it.selectedDeckName == "Renamed" })
+        assertTrue(watch().roomsHolding(insertDeck(userId("RudeLeft"))).isEmpty())
+    }
+
     // --- §5.51: a share is revoked -----------------------------------------
 
     /**

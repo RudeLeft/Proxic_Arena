@@ -25,6 +25,8 @@ export interface ImportFailure {
   problems: string[];
   /** The existing deck, when the failure is a duplicate. */
   existingDeckId?: string;
+  /** PHASE_07 §7.65 — the name you already use, when that was the problem. */
+  takenName?: string;
 }
 
 export interface DeckSummary {
@@ -35,6 +37,8 @@ export interface DeckSummary {
   importedAt: string;
   /** PHASE_04 §4.73 — who owns it. "Shared by Pat" needs a name. */
   ownerDisplayName: string;
+  /** PHASE_07 §7.65 — how many players hold one of YOUR decks; 0 on a lent one. */
+  shareCount?: number;
 }
 
 /**
@@ -60,6 +64,52 @@ export interface DeckEntryView {
   collectorNumber?: string;
   resolutionStatus: string;
   artUrl?: string;
+  /** PHASE_07 Amendment 10 — Forge's answer; absent until an older deck is sorted. */
+  category?: CardCategory;
+}
+
+export type CardCategory = "LAND" | "CREATURE" | "SPELL";
+
+export interface CardBand {
+  label: string;
+  /** Cards, not lines: four Mountains count four. */
+  count: number;
+  entries: DeckEntryView[];
+}
+
+const BANDS: { category: CardCategory; label: string }[] = [
+  { category: "LAND", label: "Lands" },
+  { category: "CREATURE", label: "Creatures" },
+  { category: "SPELL", label: "Spells" },
+];
+
+/**
+ * An open deck in the bands a player reads it in — PHASE_07
+ * Amendment 10. Forge decided each card's category; this only
+ * groups. A card with no category yet (a deck imported before the
+ * column, waiting for the server's fill) goes in a band of its own
+ * rather than being guessed into one. Empty bands are left out, and
+ * each band keeps decklist order.
+ */
+export function bandsOf(entries: DeckEntryView[]): CardBand[] {
+  const band = (label: string, of: DeckEntryView[]): CardBand => ({
+    label,
+    count: of.reduce((sum, entry) => sum + entry.quantity, 0),
+    entries: of,
+  });
+  const bands = BANDS.map(({ category, label }) =>
+    band(
+      label,
+      entries.filter((entry) => entry.category === category),
+    ),
+  );
+  bands.push(
+    band(
+      "Not sorted yet",
+      entries.filter((entry) => !BANDS.some(({ category }) => category === entry.category)),
+    ),
+  );
+  return bands.filter((b) => b.entries.length > 0);
 }
 
 export interface DeckDetail {
@@ -100,6 +150,8 @@ const ERROR_HEADINGS: Record<string, string> = {
   CARDS_NOT_RESOLVED: "Forge does not recognise every card in that deck",
   INVALID_ARTWORK: "That package contains artwork that is not a usable image",
   DUPLICATE_PACKAGE: "That deck has already been imported",
+  DECK_NAME_TAKEN: "You already have a deck with that name",
+  INVALID_DECK_NAME: "That name cannot be used",
   IMPORT_DISABLED: "Deck import is turned off on this server",
   NO_FILE: "No file was selected",
 };
@@ -119,8 +171,11 @@ export function headingFor(errorCode: string): string | null {
 export async function importDeck(
   file: File,
   fetchFn: typeof fetch = fetch,
+  /** PHASE_07 §7.65 — a name of your own, when the package's is one you already use. */
+  name?: string,
 ): Promise<{ ok: true; deck: ImportedDeck } | { ok: false; failure: ImportFailure }> {
   const body = new FormData();
+  if (name !== undefined) body.append("name", name);
   body.append("package", file, file.name);
 
   let response: Response;
@@ -176,6 +231,10 @@ export async function importDeck(
   if (payload.errorCode === "DUPLICATE_PACKAGE" && existing !== undefined) {
     failure.existingDeckId = existing;
   }
+  // A name clash carries the name, so the page can offer it back to edit.
+  if (payload.errorCode === "DECK_NAME_TAKEN" && existing !== undefined) {
+    failure.takenName = existing;
+  }
   return { ok: false, failure };
 }
 
@@ -209,8 +268,21 @@ export interface ShareRecipient {
   sharedAt: string;
 }
 
+/** Somebody the owner could share with — PHASE_07 Amendment 10. */
+export interface ShareCandidate {
+  username: string;
+  displayName: string;
+}
+
+export interface ShareList {
+  shares: ShareRecipient[];
+  /** Every active player except you and the current holders. */
+  candidates: ShareCandidate[];
+}
+
 /**
- * The share list — PHASE_04 §4.99.
+ * The share list — PHASE_04 §4.99, and since PHASE_07 Amendment 10
+ * the players it could still go to.
  *
  * Only the owner may read this; a recipient gets 403 and the page
  * simply does not show the panel. `null` means "not yours to see",
@@ -219,15 +291,50 @@ export interface ShareRecipient {
 export async function listShares(
   deckId: string,
   fetchFn: typeof fetch = fetch,
-): Promise<ShareRecipient[] | null> {
+): Promise<ShareList | null> {
   try {
     const response = await fetchFn(`/api/decks/${deckId}/shares`, { credentials: "same-origin" });
     if (!response.ok) return null;
-    const body = (await response.json()) as { shares: ShareRecipient[] };
-    return body.shares;
+    const body = (await response.json()) as Partial<ShareList>;
+    return { shares: body.shares ?? [], candidates: body.candidates ?? [] };
   } catch {
     return null;
   }
+}
+
+/** PHASE_07 §7.65 — the outcome of a rename, in words a person can act on. */
+export type RenameOutcome = { ok: true; displayName: string } | { ok: false; message: string };
+
+/**
+ * Rename a deck you own. The server trims, checks the name is one
+ * line of 1 to 80 characters and not one of your others, and says
+ * which when it refuses; its words are shown as they come.
+ */
+export async function renameDeck(
+  deckId: string,
+  displayName: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<RenameOutcome> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      `/api/decks/${deckId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "The rename could not be sent. Try again." };
+  }
+  if (response.ok) {
+    const body = (await response.json()) as { displayName: string };
+    return { ok: true, displayName: body.displayName };
+  }
+  const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+  return { ok: false, message: body?.detail ?? "That deck could not be renamed." };
 }
 
 /** §4.72 — every outcome the owner needs to be told about. */

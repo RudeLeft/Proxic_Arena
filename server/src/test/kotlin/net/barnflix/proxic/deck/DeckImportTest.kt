@@ -338,6 +338,53 @@ class DeckImportTest {
         assertEquals(emptyList(), leftovers, "staging directories were left behind")
     }
 
+    private fun categories(): Map<String, String?> =
+        database!!.dataSource().connection.use { connection ->
+            connection.createStatement()
+                .executeQuery("SELECT card_name, card_category FROM deck_entry")
+                .use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.getString(2)) } }
+        }
+
+    /**
+     * PHASE_07 Amendment 10 — an import stores Forge's category for
+     * every card, and a deck imported before that existed gets it
+     * from the one-time fill, with the same answers.
+     */
+    @Test
+    fun `every imported card is sorted, and the fill sorts an older deck the same way`() {
+        importer.import(realExport, realExport.name, owner)
+        val atImport = categories()
+        assertTrue(atImport.values.none { it == null }, "unsorted after import: $atImport")
+        assertEquals("LAND", atImport["Mountain"])
+        assertEquals("SPELL", atImport["Fiery Temper"])
+
+        // As a deck from before V011 looks.
+        database!!.dataSource().connection.use {
+            it.createStatement().executeUpdate("UPDATE deck_entry SET card_category = NULL")
+        }
+        val config =
+            ServerConfig(
+                host = "0.0.0.0",
+                port = 0,
+                databaseUrl = container!!.jdbcUrl,
+                forgeWorkerJar = workerJar.path,
+                dataRoot = dataRoot.path,
+                forgeResRoot = resRoot.path,
+                databasePasswordValue = container!!.password,
+                databaseUserValue = container!!.username,
+            )
+        val fill =
+            DeckCategoryFill(
+                database!!.dataSource(),
+                CardResolver(config),
+                org.slf4j.LoggerFactory.getLogger("test"),
+            )
+        assertEquals(1, fill.fillAll())
+        assertEquals(atImport, categories())
+        // Nothing left to do is nothing done -- no worker started.
+        assertEquals(0, fill.fillAll())
+    }
+
     @Test
     fun `art is shared between two decks rather than stored twice`() {
         // The same cards in a different deck: different package, so
@@ -366,8 +413,16 @@ class DeckImportTest {
             }
         }
 
-        val result = importer.import(second, second.name, owner)
+        // PHASE_07 §7.65: the copy carries the same name, which this
+        // owner already uses -- refused, nothing written, and the
+        // refusal names the clash so the page can ask for another.
+        val clash = importer.import(second, second.name, owner)
+        assertTrue(clash is ImportResult.NameTaken, "got $clash")
+        assertEquals(1, rowCount("imported_deck"))
+
+        val result = importer.import(second, second.name, owner, requestedName = "Mono Red, one fewer Mountain")
         assertTrue(result is ImportResult.Imported, "got $result")
+        assertEquals("Mono Red, one fewer Mountain", result.displayName)
         assertEquals(2, rowCount("imported_deck"))
         // §2.135: the second deck added no new art rows.
         assertEquals(artAfterFirst, rowCount("art_asset"))

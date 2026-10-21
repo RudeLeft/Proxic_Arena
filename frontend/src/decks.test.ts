@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { deleteDeck, getDeck, headingFor, importDeck, listDecks } from "./decks";
+import {
+  bandsOf,
+  deleteDeck,
+  getDeck,
+  headingFor,
+  importDeck,
+  listDecks,
+  listShares,
+  renameDeck,
+  type CardCategory,
+} from "./decks";
 
 /**
  * Deck import client — PHASE_02 §2.75, §2.84, §2.86.
@@ -129,5 +139,105 @@ describe("deck queries", () => {
 
   it("treats a 404 deck as null, not as an error", async () => {
     expect(await getDeck("abc", respondWith(404, { errorCode: "DECK_NOT_FOUND" }))).toBeNull();
+  });
+});
+
+describe("one name per owner and rename (PHASE_07 §7.65)", () => {
+  it("hands a name clash back with the name, so the page can offer it to edit", async () => {
+    const result = await importDeck(
+      file(),
+      respondWith(409, {
+        errorCode: "DECK_NAME_TAKEN",
+        detail: 'You already have a deck called "Burn". Choose another name.',
+        problems: ["Burn"],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.takenName).toBe("Burn");
+      expect(result.failure.existingDeckId).toBeUndefined();
+      expect(headingFor(result.failure.errorCode)).toMatch(/already have a deck with that name/);
+    }
+  });
+
+  it("sends a chosen name with the package, and none when there is none", async () => {
+    const fetchFn = respondWith(201, { deckId: "abc", displayName: "Burn 2" });
+    await importDeck(file(), fetchFn, "Burn 2");
+    await importDeck(file(), fetchFn);
+    const bodies = vi.mocked(fetchFn).mock.calls.map((call) => call[1]?.body as FormData);
+    expect(bodies[0]?.get("name")).toBe("Burn 2");
+    expect(bodies[1]?.has("name")).toBe(false);
+  });
+
+  it("renames with PATCH and reports the server's words when refused", async () => {
+    const ok = respondWith(200, { deckId: "abc", displayName: "Gruul" });
+    expect(await renameDeck("abc", "Gruul", ok)).toEqual({ ok: true, displayName: "Gruul" });
+    expect(vi.mocked(ok).mock.calls[0]?.[1]?.method).toBe("PATCH");
+
+    const refused = respondWith(409, {
+      errorCode: "DECK_NAME_TAKEN",
+      detail: 'You already have a deck called "Gruul". Choose another name.',
+    });
+    expect(await renameDeck("abc", "Gruul", refused)).toEqual({
+      ok: false,
+      message: 'You already have a deck called "Gruul". Choose another name.',
+    });
+  });
+});
+
+describe("the share list (PHASE_07 Amendment 10)", () => {
+  it("carries the players the deck could still go to", async () => {
+    const list = await listShares(
+      "abc",
+      respondWith(200, {
+        shares: [],
+        shareCount: 0,
+        candidates: [{ username: "parsley", displayName: "Parsley" }],
+      }),
+    );
+    expect(list?.candidates).toEqual([{ username: "parsley", displayName: "Parsley" }]);
+  });
+
+  it("is null when the deck is not yours, not an empty list", async () => {
+    expect(await listShares("abc", respondWith(403, { errorCode: "DECK_OWNER_REQUIRED" }))).toBe(
+      null,
+    );
+  });
+});
+
+describe("bands (PHASE_07 Amendment 10)", () => {
+  const entry = (lineNumber: number, quantity: number, category?: CardCategory) => ({
+    lineNumber,
+    quantity,
+    cardName: `card ${lineNumber}`,
+    resolutionStatus: "RESOLVED",
+    ...(category ? { category } : {}),
+  });
+
+  it("bands lands, creatures and spells in that order, counting cards not lines", () => {
+    const bands = bandsOf([
+      entry(1, 4, "SPELL"),
+      entry(2, 20, "LAND"),
+      entry(3, 4, "CREATURE"),
+      entry(4, 2, "SPELL"),
+    ]);
+    expect(bands.map((b) => [b.label, b.count])).toEqual([
+      ["Lands", 20],
+      ["Creatures", 4],
+      ["Spells", 6],
+    ]);
+    // Decklist order inside a band.
+    expect(bands[2]?.entries.map((e) => e.lineNumber)).toEqual([1, 4]);
+  });
+
+  it("never guesses: a card Forge has not sorted yet goes in its own band", () => {
+    const bands = bandsOf([entry(1, 4, "LAND"), entry(2, 3)]);
+    expect(bands.map((b) => b.label)).toEqual(["Lands", "Not sorted yet"]);
+    expect(bands[1]?.count).toBe(3);
+  });
+
+  it("leaves out an empty band", () => {
+    expect(bandsOf([entry(1, 60, "LAND")]).map((b) => b.label)).toEqual(["Lands"]);
+    expect(bandsOf([])).toEqual([]);
   });
 });

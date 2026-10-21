@@ -136,6 +136,13 @@ class RoomDeckAccess(
         // the host cannot start the match.
         for (room in changed) announcer.roomChanged(room)
     }
+
+    // PHASE_07 §7.65 — re-sent at the same revision: a rename is not
+    // a change to the room, and bumping the revision would turn away
+    // a host's Start match that was already on its way.
+    override suspend fun deckRenamed(deckId: UUID) {
+        for (room in watch.roomsHolding(deckId)) announcer.roomChanged(room)
+    }
 }
 
 /**

@@ -32,6 +32,9 @@ sealed interface ImportResult {
         ImportResult
 
     data class Duplicate(val existingDeckId: UUID, val displayName: String) : ImportResult
+
+    /** PHASE_07 §7.65 — the owner already has a deck by this name. */
+    data class NameTaken(val displayName: String) : ImportResult
 }
 
 /**
@@ -74,11 +77,15 @@ class DeckImporter(
      *   ownerless import cannot be written by accident (§4.53), and
      *   it is never read from the request body: a client that can
      *   name the owner can give a deck to somebody else.
+     * @param requestedName PHASE_07 §7.65 -- the name the player typed,
+     *   already cleaned by [DeckNames.typed]; null to take the
+     *   package's own name.
      */
     fun import(
         upload: File,
         originalFilename: String,
         ownerUserId: UUID,
+        requestedName: String? = null,
     ): ImportResult {
         // §2.37 — one isolated staging directory per import, under
         // /data and NEVER /tmp: the production container runs with a
@@ -89,7 +96,7 @@ class DeckImporter(
 
         return try {
             staging.mkdirs()
-            runImport(upload, originalFilename, staging, ownerUserId)
+            runImport(upload, originalFilename, staging, ownerUserId, requestedName)
         } catch (e: Exception) {
             log.error("import {} failed unexpectedly", importId, e)
             ImportResult.Rejected(
@@ -111,6 +118,7 @@ class DeckImporter(
         originalFilename: String,
         staging: File,
         ownerUserId: UUID,
+        requestedName: String?,
     ): ImportResult {
         // 1-3. Structure and limits, before anything is extracted.
         val inspected =
@@ -162,6 +170,15 @@ class DeckImporter(
             )
         }
 
+        // PHASE_07 §7.65 -- one of your names already? Asked here,
+        // before Forge and the artwork, so a clash costs nothing;
+        // asked again under the owner's lock when the row is written.
+        val displayName =
+            requestedName ?: DeckNames.derived(deck.declaredName ?: originalFilename.removeSuffix(".zip"))
+        if (DeckNames.taken(dataSource, ownerUserId, displayName)) {
+            return ImportResult.NameTaken(displayName)
+        }
+
         // 7. Forge resolution (§2.46–§2.49).
         val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
         val unresolved =
@@ -200,7 +217,7 @@ class DeckImporter(
             PreparedImport(
                 deckId = deckId,
                 ownerUserId = ownerUserId,
-                displayName = deck.declaredName ?: originalFilename.removeSuffix(".zip"),
+                displayName = displayName,
                 sourceFilename = originalFilename,
                 checksum = checksum,
                 deck = deck,
@@ -254,6 +271,11 @@ class DeckImporter(
         dataSource.connection.use { connection ->
             connection.autoCommit = false
             try {
+                DeckNames.lockOwner(connection, prepared.ownerUserId)
+                if (DeckNames.taken(connection, prepared.ownerUserId, displayName)) {
+                    connection.rollback()
+                    return ImportResult.NameTaken(displayName)
+                }
                 connection.prepareStatement(
                     """
                     INSERT INTO imported_deck
@@ -295,8 +317,8 @@ class DeckImporter(
                         INSERT INTO deck_entry
                           (deck_id, line_number, quantity, card_name, set_code,
                            collector_number, source_text, resolution_status,
-                           resolved_set, resolved_number, art_sha256)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           resolved_set, resolved_number, art_sha256, card_category)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """.trimIndent(),
                     ).use { statement ->
                         statement.setObject(1, deckId)
@@ -310,6 +332,7 @@ class DeckImporter(
                         statement.setString(9, resolution?.actualSet)
                         statement.setString(10, resolution?.actualNumber)
                         statement.setString(11, art[entry.frontFaceName.lowercase()]?.sha256)
+                        statement.setString(12, resolution?.category)
                         statement.executeUpdate()
                     }
                 }

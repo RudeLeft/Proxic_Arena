@@ -16,7 +16,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import {
+  secondPassword,
+  secondUser,
+  shareOpenDeckWith,
+  signIn,
+  signInAs,
+  testUser,
+} from "./helpers";
 
 // Importing a real package resolves every card through Forge, which
 // takes most of a minute. The file-level default of 45s is right for
@@ -63,12 +70,12 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await owner.locator('input[type="file"]').setInputFiles(zip!);
   // The confirmation names the deck, the way decks.spec.ts waits.
   await expect(
-    owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first(),
+    owner.getByRole("region", { name: "My decks" }).getByRole("listitem").first(),
   ).toBeVisible({ timeout: 180_000 });
 
   const deckName = await owner
-    .locator("section.panel", { hasText: "My decks" })
-    .locator(".row .name")
+    .getByRole("region", { name: "My decks" })
+    .locator(".pa-deck-name")
     .first()
     .innerText();
 
@@ -90,16 +97,15 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   const library = (await (await owner.request.get("/api/decks")).json()) as {
     mine: { deckId: string }[];
   };
-  const deckId = library.mine[0].deckId;
+  const deckId = library.mine[0]!.deckId;
 
   // §4.152 — a direct object reference is not authorization.
   expect((await guest.request.get(`/api/decks/${deckId}`)).status()).toBe(404);
 
   // --- User A shares ----------------------------------------------
   await owner.getByRole("button", { name: "view" }).first().click();
-  await expect(owner.getByRole("heading", { name: "Share this deck" })).toBeVisible();
-  await owner.getByLabel("Username").fill(secondUser);
-  await owner.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(owner.getByRole("heading", { name: "Shared with", exact: true })).toBeVisible();
+  await shareOpenDeckWith(owner, secondUser);
   // Specific, because `/Shared with/` also matches the
   // "Shared with me" panel HEADING, which renders whether or not
   // that list has anything in it. The loose version passed by
@@ -110,14 +116,14 @@ test("a deck is private until shared, visible once shared, and gone once revoked
 
   // --- User B, after the share ------------------------------------
   await guest.reload();
-  const sharedPanel = guest.locator("section.panel", { hasText: "Shared with me" });
-  await expect(sharedPanel.locator(".row .name", { hasText: deckName })).toBeVisible();
+  const sharedPanel = guest.getByRole("region", { name: "Shared with me" });
+  await expect(sharedPanel.locator(".pa-deck-name", { hasText: deckName })).toBeVisible();
   // §4.59, §4.73 — and it says whose it is.
   await expect(guest.getByText(new RegExp(`shared by ${testUser}`))).toBeVisible();
 
   // §4.22 — the recipient may open it, artwork and all.
   await guest.getByRole("button", { name: "view" }).first().click();
-  const art = guest.locator(".card-grid img").first();
+  const art = guest.getByRole("region", { name: "Cards" }).getByRole("img").first();
   await expect(art).toBeVisible();
   // Captured NOW, while the deck is still visible: after the revoke
   // the element is gone, and reading it then waits forever for a
@@ -125,7 +131,8 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   const artUrl = (await art.getAttribute("src"))!;
 
   // §4.71 — and gets no owner controls.
-  await expect(guest.getByRole("heading", { name: "Share this deck" })).toHaveCount(0);
+  await expect(guest.getByRole("heading", { name: "Shared with", exact: true })).toHaveCount(0);
+  await expect(guest.getByRole("button", { name: "Rename" })).toHaveCount(0);
   await expect(guest.getByRole("button", { name: "delete" })).toHaveCount(0);
 
   // --- User A revokes ---------------------------------------------
@@ -142,7 +149,7 @@ test("a deck is private until shared, visible once shared, and gone once revoked
 
   // §4.145 — the owner is untouched throughout.
   await owner.goto("/decks");
-  await expect(owner.locator(".row .name", { hasText: deckName })).toBeVisible();
+  await expect(owner.locator(".pa-deck-name", { hasText: deckName })).toBeVisible();
 
   await ownerContext.close();
   await guestContext.close();
@@ -162,13 +169,13 @@ test("a recipient cannot delete or re-share, even by calling the API", async ({ 
   await owner.goto("/decks");
   await owner.locator('input[type="file"]').setInputFiles(zip!);
   await expect(
-    owner.locator("section.panel", { hasText: "My decks" }).locator(".row").first(),
+    owner.getByRole("region", { name: "My decks" }).getByRole("listitem").first(),
   ).toBeVisible({ timeout: 180_000 });
 
   const library = (await (await owner.request.get("/api/decks")).json()) as {
     mine: { deckId: string }[];
   };
-  const deckId = library.mine[0].deckId;
+  const deckId = library.mine[0]!.deckId;
 
   const ownerCsrf = (await ownerContext.cookies()).find(
     (c) => c.name === "proxicarena_csrf",

@@ -84,6 +84,27 @@ class RoomDeckWatch(
             }
         }
 
+    /** PHASE_07 §7.65 — the active rooms where somebody has this deck selected, unchanged. */
+    fun roomsHolding(deckId: UUID): List<Room> =
+        store.withConnection { connection ->
+            val roomIds =
+                connection.prepareStatement(
+                    """
+                    SELECT DISTINCT m.room_id
+                      FROM room_member m
+                      JOIN room r ON r.room_id = m.room_id
+                     WHERE m.selected_deck_id = ?
+                       AND r.status IN ('OPEN', 'READY_FOR_MATCH')
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setObject(1, deckId)
+                    statement.executeQuery().use { rows ->
+                        buildList { while (rows.next()) add(rows.getObject(1, UUID::class.java)) }
+                    }
+                }
+            roomIds.mapNotNull { store.load(connection, it) }
+        }
+
     /**
      * §5.50, §5.51 — re-check every selection in a room.
      *

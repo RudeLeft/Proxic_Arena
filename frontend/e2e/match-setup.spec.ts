@@ -22,7 +22,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import {
+  secondPassword,
+  secondUser,
+  shareOpenDeckWith,
+  signIn,
+  signInAs,
+  testUser,
+} from "./helpers";
 import { expectReady } from "./match-helpers";
 
 // Importing resolves every card through Forge, and preparation
@@ -108,9 +115,8 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     const deckName = library.mine[0]!.displayName;
 
     await host.getByRole("button", { name: "view" }).first().click();
-    await expect(host.getByRole("heading", { name: "Share this deck" })).toBeVisible();
-    await host.getByLabel("Username").fill(secondUser);
-    await host.getByRole("button", { name: "Share", exact: true }).click();
+    await expect(host.getByRole("heading", { name: "Shared with", exact: true })).toBeVisible();
+    await shareOpenDeckWith(host, secondUser);
     // Specific, because `/Shared with/` also matches the
     // "Shared with me" panel HEADING, which renders whether or not
     // that list has anything in it. The loose version passed by

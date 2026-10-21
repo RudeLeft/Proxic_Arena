@@ -562,6 +562,8 @@ private fun Route.databaseRoutes(
         // decision that will never arrive.
         net.barnflix.proxic.match.MatchRecovery(database.dataSource(), application.log).recover()
 
+        startCategoryFill(config, database)
+
         // PHASE_05 §5.124-§5.126, owner D4 — abandoned
         // rooms expire. Unlike the session sweep this is
         // not housekeeping: nothing else expires a room, so
@@ -655,6 +657,26 @@ private fun Route.databaseRoutes(
             importEnabled = config.deckImportEnabled,
         )
     }
+}
+
+/**
+ * PHASE_07 Amendment 10 — decks imported before card categories
+ * existed get them from Forge, once, in the background. Only where a
+ * worker can actually run.
+ */
+private fun Route.startCategoryFill(
+    config: ServerConfig,
+    database: Database,
+) {
+    if (config.forgeWorkerJar?.let { java.io.File(it).isFile } != true) return
+    val categoryFill =
+        net.barnflix.proxic.deck.DeckCategoryFill(
+            database.dataSource(),
+            net.barnflix.proxic.deck.CardResolver(config),
+            application.log,
+        )
+    categoryFill.start()
+    application.environment.monitor.subscribe(ApplicationStopped) { categoryFill.stop() }
 }
 
 /**

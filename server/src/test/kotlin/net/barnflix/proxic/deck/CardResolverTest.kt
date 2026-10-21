@@ -50,6 +50,34 @@ class CardResolverTest {
     }
 
     /**
+     * PHASE_07 Amendment 10 — Forge sorts each card for the Deck
+     * Depot's bands. The edge cases are the ones a player would
+     * argue about: Dryad Arbor is a land, an artifact creature is a
+     * creature, a planeswalker and a double-faced card's front face
+     * decide by their own type line, and an unknown card has none.
+     */
+    @Test
+    fun `Forge sorts each card into land, creature or spell`() {
+        val names =
+            listOf(
+                "Mountain" to "LAND",
+                "Dryad Arbor" to "LAND",
+                "Llanowar Elves" to "CREATURE",
+                "Bonecrusher Giant" to "CREATURE",
+                "Walking Ballista" to "CREATURE",
+                "Lightning Bolt" to "SPELL",
+                "Chandra, Torch of Defiance" to "SPELL",
+                "Embercleave" to "SPELL",
+                "Reckless Stormseeker // Storm-Charged Slasher" to "CREATURE",
+            )
+        val results = resolver().resolve(names.map { entry(it.first) } + entry("Not A Real Card"))
+        for ((name, expected) in names) {
+            assertEquals(expected, results.first { it.name == name }.category, name)
+        }
+        assertEquals(null, results.last().category)
+    }
+
+    /**
      * §2.49 — the finding this whole section exists for.
      *
      * Forge does NOT return null for a bad set or collector number.

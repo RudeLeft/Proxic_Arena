@@ -150,6 +150,31 @@ because that deck is theirs to be told about. Storage cost of a
 second owner's copy, measured: zero image bytes — artwork is
 content-addressed.
 
+### Names, and renaming (PHASE_07 §7.65)
+
+**A player's deck names are unique to that player** (owner decision
+18). The comparison ignores capitals and surrounding spaces, so
+"Burn" and " burn" are the same name; two players may each have a
+"Burn". An upload whose name you already use is refused with `409
+DECK_NAME_TAKEN`; the page asks for another name and sends it as the
+optional multipart field `name`. Names you type are 1 to 80
+characters on one line (`422 INVALID_DECK_NAME`).
+
+```text
+PATCH /api/decks/{deckId}    {"displayName": "New name"}
+```
+
+**Rename** is the owner's (owner decision 17): a recipient gets `403`,
+a stranger `404`, a clash `409`. It is allowed while the deck is
+selected in a room, because rooms, setups and matches all hold the
+deck's id; the room is re-sent at the same revision so its members see
+the new name without a Start match in flight being turned away.
+
+Not a database constraint: duplicates imported before the rule are
+left as they are, and a unique index cannot be built over them. The
+check runs in the writing transaction under a per-owner advisory lock,
+so two uploads racing for one name cannot both win.
+
 ### Share, revoke, delete
 
 Open a deck you own and the Share panel appears: a username field,

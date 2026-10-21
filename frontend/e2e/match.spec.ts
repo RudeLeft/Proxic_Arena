@@ -22,7 +22,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
+import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, startAMatch, whoseTurn } from "./match-helpers";
 
 // Forge loads its whole card pool before the first game, and the
@@ -83,8 +83,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
 
     if (!(await guestCanSee())) {
       await host.getByRole("button", { name: "view" }).first().click();
-      await host.getByLabel("Username").fill(secondUser);
-      await host.getByRole("button", { name: "Share", exact: true }).click();
+      await shareOpenDeckWith(host, secondUser);
       await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
     }
 

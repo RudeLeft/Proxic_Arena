@@ -1,219 +1,219 @@
-// Deck import page — PHASE_02 §2.81–§2.87.
+// The Deck Depot — PHASE_07 §7.65 and Amendment 10, over Phase 4.
 //
-// Temporary, like the foundation page: a list and a grid, not a deck
-// builder (§2.87). Its job is to prove the pipeline works from a
-// browser and to show a player what went wrong when it does not.
+// The canvas's Depot: import on the left with the library under it,
+// the open deck on the right with who holds it and its cards. Still
+// not a deck builder (§2.87): decks are made in Proxic Deck Builder
+// and arrive here as packages.
+//
+// Everything a player may do here the server decides again: hiding
+// Rename, Delete and Share on a deck lent to you is the courtesy, the
+// refusal is the protection (§4.71, §4.80).
 
-import { Link } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
+  bandsOf,
   deleteDeck,
   getDeck,
   headingFor,
   importDeck,
   listDecks,
   listShares,
+  renameDeck,
   revokeShare,
   shareDeck,
   EMPTY_LIBRARY,
   type DeckDetail,
   type DeckLibrary,
   type DeckSummary,
-  type ShareRecipient,
   type ImportFailure,
-  type ImportState,
   type ImportedDeck,
+  type ShareList,
 } from "./decks";
 
-function ImportResult({ deck }: { deck: ImportedDeck }) {
-  return (
-    <section className="panel">
-      {/* §2.85 — what was actually imported. */}
-      <h2>{deck.displayName}</h2>
-      <div className="row">
-        <span className="name">Cards</span>
-        <span className="state">{deck.totalCards}</span>
-      </div>
-      <div className="row">
-        <span className="name">Distinct cards</span>
-        <span className="state">{deck.distinctCards}</span>
-      </div>
-      <div className="row">
-        <span className="name">Artwork stored</span>
-        <span className="state">{deck.artStored}</span>
-      </div>
-      {deck.entriesWithoutArt > 0 && (
-        <p className="hint">
-          {deck.entriesWithoutArt} card{deck.entriesWithoutArt === 1 ? "" : "s"} arrived without
-          artwork. The deck is fine — Deck Builder omits art it could not fetch.
-        </p>
-      )}
-    </section>
-  );
-}
+type ImportView =
+  | { kind: "idle" }
+  | { kind: "working"; fileName: string }
+  | { kind: "imported"; deck: ImportedDeck }
+  | { kind: "failed"; failure: ImportFailure; file: File };
 
-function ImportError({ failure }: { failure: ImportFailure }) {
-  const heading = headingFor(failure.errorCode);
-  return (
-    <section className="panel error">
-      {/* §2.86 — a category, an explanation, and the specific lines.
-          Never "check the container logs". */}
-      <h2>{heading ?? "That package could not be imported"}</h2>
-      <p>{failure.detail}</p>
-      {failure.problems.length > 0 && failure.errorCode !== "DUPLICATE_PACKAGE" && (
-        <ul className="problems">
-          {failure.problems.map((problem) => (
-            <li key={problem}>{problem}</li>
-          ))}
-        </ul>
-      )}
-      {failure.existingDeckId && (
-        <p className="hint">
-          Already imported as <code>{failure.existingDeckId}</code>.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function DeckCards({ detail }: { detail: DeckDetail }) {
-  return (
-    <section className="panel">
-      <h2>{detail.displayName}</h2>
-      {/* §2.87 — a grid, to prove the image pipeline end to end. */}
-      <div className="card-grid">
-        {detail.entries.map((entry) => (
-          <figure key={entry.lineNumber} className="card">
-            {entry.artUrl ? (
-              <img src={entry.artUrl} alt={entry.cardName} loading="lazy" />
-            ) : (
-              <div className="card-placeholder">no art</div>
-            )}
-            <figcaption>
-              {entry.quantity}× {entry.cardName}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </section>
-  );
+/** §2.85 — what was actually imported, in one sentence. */
+function importedSentence(deck: ImportedDeck): string {
+  const art =
+    deck.entriesWithoutArt === 0
+      ? "artwork stored for all of them"
+      : `artwork stored for ${deck.artStored}; ${deck.entriesWithoutArt} arrived without art (Deck Builder omits art it could not fetch)`;
+  return `${deck.totalCards} cards, ${deck.distinctCards} distinct, ${art}.`;
 }
 
 /**
- * Share management — PHASE_04 §4.70, §4.71, §4.72.
+ * Import — §2.81-§2.86, and §7.65's one name per owner.
  *
- * Rendered only for a deck the viewer owns. §4.71 asks that a
- * recipient not receive owner controls, and the server refuses them
- * regardless (§4.80); hiding the panel is the courtesy, the refusal
- * is the protection.
- *
- * The share list itself is fetched, not inferred: `null` back from
- * the server means "not yours to see", which is different from an
- * empty list, and the panel disappears rather than showing an empty
- * one.
+ * A name you already use is not a broken package: the notice offers
+ * the name back to edit and imports the same file again under the new
+ * one, so nobody has to find the file twice.
  */
-function SharePanel({ detail }: { detail: DeckDetail }) {
-  const [shares, setShares] = useState<ShareRecipient[] | null>(null);
-  const [username, setUsername] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+function ImportPanel({
+  library,
+  onImported,
+}: {
+  library: DeckLibrary;
+  onImported: (deck: ImportedDeck) => Promise<void>;
+}) {
+  const [view, setView] = useState<ImportView>({ kind: "idle" });
+  const [dragging, setDragging] = useState(false);
+  const [newName, setNewName] = useState("");
+  const nameId = useId();
 
-  const refresh = useCallback(async () => {
-    setShares(await listShares(detail.deckId));
-  }, [detail.deckId]);
+  const upload = useCallback(
+    async (file: File, name?: string) => {
+      // One request does the whole import and reports no progress
+      // along the way, so the page says what is happening and does
+      // not pretend to know how far it has got (§2.84).
+      setView({ kind: "working", fileName: file.name });
+      const result = await importDeck(file, fetch, name);
+      if (result.ok) {
+        setView({ kind: "imported", deck: result.deck });
+        await onImported(result.deck);
+      } else {
+        setView({ kind: "failed", failure: result.failure, file });
+        setNewName(result.failure.takenName ?? "");
+      }
+    },
+    [onImported],
+  );
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  // §4.71 — not the owner, no panel. The server already said so by
-  // answering 403 to the share list, and `access` says it directly.
-  if (detail.access === "SHARED") return null;
-  if (shares === null) return null;
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    const outcome = await shareDeck(detail.deckId, username);
-    setBusy(false);
-    if (!outcome.ok) {
-      // §4.72 — the server's wording, because it knows which case
-      // this was: unknown user, disabled account, or yourself.
-      setMessage(outcome.message);
-      return;
-    }
-    setMessage(
-      outcome.created
-        ? `Shared with ${outcome.recipient.displayName}.`
-        : `${outcome.recipient.displayName} already had this deck.`,
-    );
-    setUsername("");
-    await refresh();
-  };
+  const working = view.kind === "working";
+  const existingName = (deckId: string) =>
+    library.mine.find((deck) => deck.deckId === deckId)?.displayName ?? deckId;
 
   return (
-    <section className="panel" aria-label="Share this deck">
-      <h2>Share this deck</h2>
+    <section className="pa-section" aria-labelledby="import-heading">
+      <div className="pa-section-head">
+        <h2 id="import-heading">Import</h2>
+      </div>
+      <div className="pa-section-body">
+        <label
+          className={`pa-drop${dragging ? " pa-drop-active" : ""}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            const file = event.dataTransfer.files[0];
+            if (file && !working) void upload(file);
+          }}
+        >
+          <input
+            className="pa-visually-hidden"
+            type="file"
+            accept=".zip,application/zip"
+            disabled={working}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              // Cleared, because a file input fires NO change event
+              // when the same file is chosen again -- and the
+              // duplicate message is exactly what somebody re-picking
+              // a file needs to see. Found by a browser test doing it.
+              event.target.value = "";
+              if (file) void upload(file);
+            }}
+          />
+          {working ? (
+            <span className="pa-drop-title" role="status">
+              Checking {view.fileName}: the package, the deck and every card…
+            </span>
+          ) : (
+            <>
+              <span className="pa-drop-title">Drop a deck package here, or choose a file</span>
+              <span className="pa-drop-sub">
+                A <code>.zip</code> exported by Proxic Deck Builder. Open Format: 60–65 cards, at
+                most 4 of any card, basic lands unlimited.
+              </span>
+            </>
+          )}
+        </label>
+      </div>
 
-      <form onSubmit={(event) => void submit(event)}>
-        <label htmlFor="share-username">Username</label>
-        <input
-          id="share-username"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          autoComplete="off"
-          required
-        />
-        <button type="submit" disabled={busy}>
-          {busy ? "Sharing…" : "Share"}
-        </button>
-      </form>
-
-      {message && <p className="verdict">{message}</p>}
-
-      <h3>Currently shared with</h3>
-      {shares.length === 0 && <p className="hint">Nobody yet.</p>}
-      {shares.map((recipient) => (
-        <div className="row" key={recipient.userId}>
-          <span className="name">
-            {recipient.displayName} <span className="hint">@{recipient.username}</span>
-          </span>
-          <span className="state">
-            <button
-              type="button"
-              onClick={() => {
-                void revokeShare(detail.deckId, recipient.userId).then((done) => {
-                  setMessage(
-                    done
-                      ? `${recipient.displayName} can no longer see this deck.`
-                      : "That share could not be revoked.",
-                  );
-                  return refresh();
-                });
-              }}
-            >
-              revoke
-            </button>
+      {view.kind === "imported" && (
+        <div className="pa-notice pa-notice-ok pa-section-notice" role="status">
+          <span aria-hidden="true" className="pa-notice-mark" />
+          <span className="pa-notice-text">
+            <strong>{view.deck.displayName} imported</strong>
+            <span className="pa-notice-sub">{importedSentence(view.deck)}</span>
           </span>
         </div>
-      ))}
+      )}
+
+      {view.kind === "failed" && (
+        <div className="pa-notice pa-notice-bad pa-section-notice" role="alert">
+          <span aria-hidden="true" className="pa-notice-mark" />
+          <span className="pa-notice-text">
+            {/* §2.86 — a category, an explanation and the lines. */}
+            <strong>
+              {headingFor(view.failure.errorCode) ?? "That package could not be imported"}
+            </strong>
+            <span className="pa-notice-sub">{view.failure.detail}</span>
+            {view.failure.problems.length > 0 &&
+              !["DUPLICATE_PACKAGE", "DECK_NAME_TAKEN"].includes(view.failure.errorCode) && (
+                <ul className="pa-problems">
+                  {view.failure.problems.map((problem) => (
+                    <li key={problem}>{problem}</li>
+                  ))}
+                </ul>
+              )}
+            {view.failure.existingDeckId && (
+              <span className="pa-notice-sub">
+                Already imported as “{existingName(view.failure.existingDeckId)}”, in My decks.
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {view.kind === "failed" && view.failure.errorCode === "DECK_NAME_TAKEN" && (
+        <form
+          className="pa-form pa-rename-import"
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            void upload(view.file, newName);
+          }}
+        >
+          <label className="pa-label" htmlFor={nameId}>
+            Import it as
+          </label>
+          <div className="pa-form-inline">
+            <input
+              id={nameId}
+              className="pa-input"
+              value={newName}
+              maxLength={80}
+              onChange={(event) => setNewName(event.target.value)}
+              required
+            />
+            <button type="submit" className="pa-button">
+              Import
+            </button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }
 
 /**
- * One titled list of decks — PHASE_04 §4.58–§4.60, §4.112, §4.113.
- *
- * `owned` decides whether a delete control exists at all. The server
- * refuses either way (§4.80), so this is about not offering an
- * action that will be refused — hiding it is a courtesy, never the
- * protection.
+ * One group of the library — My decks or Shared with me, never merged
+ * (§4.59, §4.60): a deck lent to you is not yours to delete, and the
+ * page does not offer to.
  */
-function DeckList({
+function DeckGroup({
   title,
   decks,
   empty,
   owned,
+  openId,
   onView,
   onDelete,
 }: {
@@ -221,37 +221,382 @@ function DeckList({
   decks: DeckSummary[];
   empty: string;
   owned: boolean;
+  openId: string | null;
   onView: (deckId: string) => void;
-  onDelete?: (deckId: string) => void;
+  onDelete?: (deckId: string) => Promise<void>;
 }) {
+  const headingId = useId();
+  // Amendment 10 — Delete asks first, on the row.
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  const meta = (deck: DeckSummary) => {
+    const cards = `${deck.totalCards} cards`;
+    if (!owned) return `${cards} · shared by ${deck.ownerDisplayName}`;
+    const holders = deck.shareCount ?? 0;
+    return holders > 0 ? `${cards} · shared with ${holders}` : cards;
+  };
+
   return (
-    // NAMED, because a <section> with no accessible name is not
-    // exposed as a landmark at all -- a screen reader can jump to
-    // "My decks" on the lobby page and could not here, on the page
-    // whose whole job is decks. Found by reading the page's own
-    // accessibility tree (AGENTS TEST-011).
-    <section className="panel" aria-label={title}>
-      <h2>{title}</h2>
-      {decks.length === 0 && <p className="hint">{empty}</p>}
-      {decks.map((deck) => (
-        <div className="row" key={deck.deckId}>
-          <span className="name">
-            {deck.displayName}
-            {/* §4.59 — "shared by Pat". Only where it tells you
-                something you did not already know. */}
-            {!owned && <span className="hint"> · shared by {deck.ownerDisplayName}</span>}
-          </span>
-          <span className="state">
-            {deck.totalCards} cards
-            <button type="button" onClick={() => onView(deck.deckId)}>
-              view
-            </button>
-            {owned && onDelete && (
-              <button type="button" onClick={() => onDelete(deck.deckId)}>
-                delete
-              </button>
+    // A named region each, so "My decks" is a landmark a screen
+    // reader can jump to (found by reading the page's own
+    // accessibility tree, AGENTS TEST-011).
+    <section aria-labelledby={headingId}>
+      <h3 id={headingId} className="pa-group-head">
+        {title}
+      </h3>
+      {decks.length === 0 && <p className="pa-group-empty">{empty}</p>}
+      <ul className="pa-decks">
+        {decks.map((deck) => (
+          <li
+            key={deck.deckId}
+            className={`pa-deck-row${deck.deckId === openId ? " pa-deck-row-open" : ""}`}
+          >
+            {confirming === deck.deckId ? (
+              <>
+                <span className="pa-deck-text" role="alert">
+                  <span className="pa-deck-name pa-deck-name-wrap">Delete {deck.displayName}?</span>
+                  <span className="pa-deck-meta">
+                    This can’t be undone, and everyone it is shared with loses it.
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="pa-small-button pa-small-button-warn"
+                  onClick={() => {
+                    setConfirming(null);
+                    void onDelete?.(deck.deckId);
+                  }}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="pa-small-button"
+                  onClick={() => setConfirming(null)}
+                >
+                  Keep
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="pa-deck-text">
+                  <span className="pa-deck-name">{deck.displayName}</span>
+                  <span className="pa-deck-meta">{meta(deck)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="pa-small-button"
+                  aria-label={`View ${deck.displayName}`}
+                  aria-pressed={deck.deckId === openId}
+                  onClick={() => onView(deck.deckId)}
+                >
+                  View
+                </button>
+                {owned && onDelete && (
+                  <button
+                    type="button"
+                    className="pa-small-button pa-small-button-faint"
+                    aria-label={`Delete ${deck.displayName}`}
+                    onClick={() => setConfirming(deck.deckId)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </>
             )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The open deck's name, whose it is, rename (yours only) and its numbers. */
+function OpenDeck({
+  detail,
+  onRenamed,
+}: {
+  detail: DeckDetail;
+  onRenamed: (displayName: string) => Promise<void>;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(detail.displayName);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const renameButton = useRef<HTMLButtonElement | null>(null);
+  const nameId = useId();
+  const owned = detail.access !== "SHARED";
+
+  useEffect(() => {
+    if (renaming) inputRef.current?.select();
+  }, [renaming]);
+
+  const stop = () => {
+    setRenaming(false);
+    setProblem(null);
+    // Focus goes back where it came from, not to the top of the page.
+    requestAnimationFrame(() => renameButton.current?.focus());
+  };
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    const outcome = await renameDeck(detail.deckId, name);
+    setBusy(false);
+    if (!outcome.ok) {
+      // The server's words: it knows whether the name was taken or
+      // could not be a name at all.
+      setProblem(outcome.message);
+      return;
+    }
+    await onRenamed(outcome.displayName);
+    stop();
+  };
+
+  const stats = [
+    { key: "Cards", value: String(detail.totalCards) },
+    { key: "Distinct", value: String(detail.distinctCards) },
+    { key: "Format", value: "Open" },
+  ];
+
+  return (
+    <section className="pa-section" aria-labelledby="open-heading">
+      <div className="pa-section-head">
+        <h2 id="open-heading">Open deck</h2>
+      </div>
+      <div className="pa-open">
+        <div className="pa-open-name">
+          {renaming ? (
+            <form onSubmit={(event) => void save(event)} className="pa-rename">
+              <label className="pa-visually-hidden" htmlFor={nameId}>
+                Deck name
+              </label>
+              <input
+                id={nameId}
+                ref={inputRef}
+                className="pa-input pa-rename-input"
+                value={name}
+                maxLength={80}
+                required
+                aria-invalid={problem !== null}
+                aria-describedby={problem ? `${nameId}-problem` : undefined}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setProblem(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") stop();
+                }}
+              />
+              {problem && (
+                <p id={`${nameId}-problem`} className="pa-field-problem" role="alert">
+                  {problem}
+                </p>
+              )}
+              <div className="pa-button-row">
+                <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
+                  {busy ? "Saving…" : "Save"}
+                </button>
+                <button type="button" className="pa-button pa-button-quiet" onClick={stop}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="pa-open-title-row">
+                <h3 className="pa-open-title">{detail.displayName}</h3>
+                {/* Only for a deck you own: renaming one lent to you
+                    would rename it for its owner (§7.65). */}
+                {owned && (
+                  <button
+                    ref={renameButton}
+                    type="button"
+                    className="pa-small-button"
+                    onClick={() => {
+                      setName(detail.displayName);
+                      setRenaming(true);
+                    }}
+                  >
+                    Rename
+                  </button>
+                )}
+              </div>
+              <div className="pa-open-owner">
+                {owned ? "Yours" : `Shared by ${detail.ownerDisplayName ?? "its owner"}`}
+              </div>
+            </>
+          )}
+        </div>
+        <dl className="pa-stats">
+          {stats.map((stat) => (
+            <div key={stat.key} className="pa-stat">
+              <dt>{stat.key}</dt>
+              <dd>{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Who holds this deck, and lending it — PHASE_04 §4.70-§4.72 and
+ * Amendment 10's list of players.
+ *
+ * Shown only for a deck you own. The list is fetched, not inferred:
+ * `null` from the server means "not yours to see", which is different
+ * from nobody holding it, and the panel then does not exist at all.
+ */
+function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () => Promise<void> }) {
+  const [list, setList] = useState<ShareList | null>(null);
+  const [chosen, setChosen] = useState("");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const selectId = useId();
+
+  const refresh = useCallback(async () => {
+    setList(await listShares(detail.deckId));
+  }, [detail.deckId]);
+
+  useEffect(() => {
+    setMessage(null);
+    void refresh();
+  }, [refresh]);
+
+  if (detail.access === "SHARED" || list === null) return null;
+
+  const share = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!chosen) return;
+    setBusy(true);
+    const outcome = await shareDeck(detail.deckId, chosen);
+    setBusy(false);
+    if (!outcome.ok) {
+      // §4.72 — the server's wording, because it knows which case.
+      setMessage({ ok: false, text: outcome.message });
+      return;
+    }
+    setMessage({
+      ok: true,
+      text: outcome.created
+        ? `Shared with ${outcome.recipient.displayName}.`
+        : `${outcome.recipient.displayName} already had this deck.`,
+    });
+    setChosen("");
+    await refresh();
+    await onChanged();
+  };
+
+  const revoke = async (userId: string, displayName: string) => {
+    const done = await revokeShare(detail.deckId, userId);
+    setMessage(
+      done
+        ? { ok: true, text: `${displayName} can no longer see this deck.` }
+        : { ok: false, text: "That share could not be revoked." },
+    );
+    await refresh();
+    await onChanged();
+  };
+
+  return (
+    <section className="pa-section" aria-labelledby="shared-heading">
+      <div className="pa-section-head">
+        <h2 id="shared-heading">Shared with</h2>
+      </div>
+      <div className="pa-chips">
+        {list.shares.length === 0 && <span className="pa-group-empty">Nobody yet.</span>}
+        {list.shares.map((recipient) => (
+          <span key={recipient.userId} className="pa-chip">
+            {recipient.displayName}
+            <button
+              type="button"
+              className="pa-chip-button"
+              aria-label={`Revoke ${recipient.displayName}`}
+              onClick={() => void revoke(recipient.userId, recipient.displayName)}
+            >
+              Revoke
+            </button>
           </span>
+        ))}
+      </div>
+      <form className="pa-share-form" onSubmit={(event) => void share(event)}>
+        <label className="pa-visually-hidden" htmlFor={selectId}>
+          Share this deck with a player
+        </label>
+        <span className="pa-select-wrap">
+          <select
+            id={selectId}
+            className="pa-select"
+            value={chosen}
+            onChange={(event) => setChosen(event.target.value)}
+          >
+            <option value="">
+              {list.candidates.length === 0 ? "Nobody else to share with" : "Choose a player"}
+            </option>
+            {list.candidates.map((candidate) => (
+              <option key={candidate.username} value={candidate.username}>
+                {candidate.displayName === candidate.username
+                  ? candidate.username
+                  : `${candidate.displayName} (${candidate.username})`}
+              </option>
+            ))}
+          </select>
+          <svg aria-hidden="true" width="11" height="7" viewBox="0 0 11 7">
+            <path d="M1 1 L5.5 5.5 L10 1" />
+          </svg>
+        </span>
+        <button type="submit" className="pa-button" disabled={busy || !chosen}>
+          {busy ? "Sharing…" : "Share"}
+        </button>
+        <p className="pa-help">
+          Players this deck is already shared with are not listed, and neither are you.
+        </p>
+        {message && (
+          <p
+            className={`pa-share-message${message.ok ? "" : " pa-share-message-bad"}`}
+            role="status"
+          >
+            {message.text}
+          </p>
+        )}
+      </form>
+    </section>
+  );
+}
+
+/** §2.87 and Amendment 10 — the cards, banded as Forge sorted them. */
+function CardsPanel({ detail }: { detail: DeckDetail }) {
+  return (
+    <section className="pa-section" aria-labelledby="cards-heading">
+      <div className="pa-section-head">
+        <h2 id="cards-heading">Cards</h2>
+      </div>
+      {bandsOf(detail.entries).map((band) => (
+        <div key={band.label} role="group" aria-label={`${band.label}, ${band.count} cards`}>
+          <div className="pa-band-head" aria-hidden="true">
+            <span>{band.label}</span>
+            <span className="pa-band-count">{band.count}</span>
+          </div>
+          <div className="pa-card-grid">
+            {band.entries.map((entry) => (
+              <figure key={entry.lineNumber} className="pa-card">
+                <span className="pa-card-art">
+                  {entry.artUrl ? (
+                    <img src={entry.artUrl} alt={entry.cardName} loading="lazy" />
+                  ) : (
+                    <span className="pa-card-noart">No art</span>
+                  )}
+                  <span className="pa-card-qty" aria-label={`${entry.quantity} copies`}>
+                    {entry.quantity}
+                  </span>
+                </span>
+                <figcaption>{entry.cardName}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       ))}
     </section>
@@ -259,12 +604,8 @@ function DeckList({
 }
 
 export default function DecksPage() {
-  const [state, setState] = useState<ImportState>("idle");
-  const [imported, setImported] = useState<ImportedDeck | null>(null);
-  const [failure, setFailure] = useState<ImportFailure | null>(null);
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [open, setOpen] = useState<DeckDetail | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => setLibrary(await listDecks()), []);
 
@@ -272,104 +613,77 @@ export default function DecksPage() {
     void refresh();
   }, [refresh]);
 
-  const upload = useCallback(
-    async (file: File) => {
-      setFailure(null);
-      setImported(null);
-      setState("uploading");
+  const view = useCallback((deckId: string) => {
+    void getDeck(deckId).then(setOpen);
+  }, []);
 
-      // "validating" is not a progress bar. The server does the
-      // whole import in one request and reports no intermediate
-      // progress, and §2.84 forbids pretending otherwise.
-      setState("validating");
-      const result = await importDeck(file);
-      if (result.ok) {
-        setImported(result.deck);
-        setState("imported");
-        await refresh();
-      } else {
-        setFailure(result.failure);
-        setState("failed");
-      }
-    },
-    [refresh],
-  );
+  const total = library.mine.length + library.sharedWithMe.length;
 
   return (
-    <main>
-      <h1>PROXIC ARENA</h1>
-      {/* PHASE_04 §4.109, §4.110 — the feature is called Deck Depot
-          and lives at the Phase 2 route, so no link anywhere breaks.
-          §2.82 still holds: this is not a generic deck-file
-          importer. */}
-      <p className="sub">
-        Deck Depot — import a deck package exported by <strong>Proxic Deck Builder</strong>
-      </p>
+    <main className="pa-main pa-depot">
+      <h1 className="pa-visually-hidden">Deck Depot</h1>
+      <div className="pa-depot-layout">
+        <div className="pa-depot-side">
+          <ImportPanel library={library} onImported={refresh} />
 
-      <section className="panel" aria-label="Import a deck">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".zip,application/zip"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            // Clearing the input is not tidiness. A file input fires
-            // NO change event when the same file is chosen again, so
-            // after one upload the page would silently ignore a
-            // second attempt at the same deck — and the duplicate
-            // message is exactly what a player re-picking a file
-            // needs to see. Found by a browser test doing it twice.
-            event.target.value = "";
-            if (file) {
-              setState("selected");
-              void upload(file);
-            }
-          }}
-        />
-        <p className="hint">
-          A <code>.zip</code> containing the decklist and its card art. Open Format: 60–65 cards, at
-          most 4 of any card, basic lands unlimited.
-        </p>
-        {state === "uploading" && <p>Uploading…</p>}
-        {state === "validating" && <p>Checking the package, the deck and every card…</p>}
-      </section>
+          <section className="pa-section" aria-labelledby="library-heading">
+            <div className="pa-section-head">
+              <h2 id="library-heading">Deck library</h2>
+              <span className="pa-spacer" />
+              <span className="pa-count" aria-label={`${total} decks`}>
+                {total}
+              </span>
+            </div>
+            <DeckGroup
+              title="My decks"
+              decks={library.mine}
+              empty="Nothing imported yet."
+              owned
+              openId={open?.deckId ?? null}
+              onView={view}
+              onDelete={async (deckId) => {
+                await deleteDeck(deckId);
+                setOpen((current) => (current?.deckId === deckId ? null : current));
+                await refresh();
+              }}
+            />
+            <DeckGroup
+              title="Shared with me"
+              decks={library.sharedWithMe}
+              empty="Nobody has shared a deck with you."
+              owned={false}
+              openId={open?.deckId ?? null}
+              onView={view}
+            />
+          </section>
+        </div>
 
-      {imported && <ImportResult deck={imported} />}
-      {failure && <ImportError failure={failure} />}
-
-      <DeckList
-        title="My decks"
-        decks={library.mine}
-        empty="Nothing imported yet."
-        owned
-        onView={(deckId) => void getDeck(deckId).then(setOpen)}
-        onDelete={(deckId) =>
-          void deleteDeck(deckId).then(() => {
-            setOpen((current) => (current?.deckId === deckId ? null : current));
-            return refresh();
-          })
-        }
-      />
-
-      {/* §4.59, §4.60 — a separate list, never merged with the one
-          above: a deck someone shared with you is not yours to
-          delete, and the page should not invite you to try. */}
-      <DeckList
-        title="Shared with me"
-        decks={library.sharedWithMe}
-        empty="Nobody has shared a deck with you."
-        owned={false}
-        onView={(deckId) => void getDeck(deckId).then(setOpen)}
-      />
-
-      {open && <SharePanel detail={open} />}
-      {open && <DeckCards detail={open} />}
-
-      <p className="verdict">
-        {/* The lobby is where a deck gets used, so the Deck Depot
-            should point at it rather than only back home. */}
-        <Link to="/play">Play</Link> · <a href="/">Back to the foundation page</a>
-      </p>
+        <div className="pa-depot-main">
+          {open ? (
+            <>
+              <OpenDeck
+                key={open.deckId}
+                detail={open}
+                onRenamed={async (displayName) => {
+                  setOpen((current) => (current ? { ...current, displayName } : current));
+                  await refresh();
+                }}
+              />
+              <SharePanel detail={open} onChanged={refresh} />
+              <CardsPanel detail={open} />
+            </>
+          ) : (
+            <section className="pa-section" aria-labelledby="open-heading">
+              <div className="pa-section-head">
+                <h2 id="open-heading">Open deck</h2>
+              </div>
+              <p className="pa-open-empty">
+                Choose View on a deck to see its cards and who it is shared with.
+              </p>
+            </section>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

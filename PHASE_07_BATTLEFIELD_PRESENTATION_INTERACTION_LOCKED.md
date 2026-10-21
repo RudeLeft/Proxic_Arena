@@ -1330,6 +1330,48 @@ address).
 
 ---
 
+## PHASE 7 AMENDMENT 10
+
+**Reason:** Building the Deck Depot (§7.65) to the canvas found three
+things the canvas draws that the server could not yet do or that no
+rule decided: a drop-down of players to share with, the open deck's
+cards banded into Lands / Creatures / Spells, and Delete with no
+question asked.
+
+**Affected requirements:** §7.65; Phase 4 §4.29 (share by a typed
+username), §4.76 (delete).
+
+**Old decision:** Share by typing a username; no list of accounts
+anywhere. The server stored card names only. Delete removed a deck at
+one click.
+
+**New decision:**
+
+1. **Share from a list of players.** The owner of a deck is offered
+   every active account except themselves and the players who already
+   hold it, as username and display name -- nothing about roles,
+   status or decks. Any signed-in player who owns a deck can therefore
+   see every account's name; accepted for a small group of friends.
+   The list rides on the owner-only share list (§4.99), so a recipient
+   or a stranger never receives it.
+2. **Cards are banded Lands / Creatures / Spells, and Forge decides.**
+   The worker answers each resolved card's category with its printing
+   (a land first, so Dryad Arbor is a land; then a creature, so an
+   artifact creature is one; everything else a spell). Imports store
+   it; decks imported earlier are filled once, in the background, one
+   worker at a time; until then their cards show in an unsorted band,
+   never a guess.
+3. **Delete asks first:** "Delete <name>? This can't be undone." with
+   Delete and Keep, on the row.
+
+**Evidence:** owner decisions 2026-10-21, asked with the alternatives
+(typed username; one grid in decklist order; delete at once).
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
+---
+
 # PART IX — PLAY, AS DECIDED 2026-10-20
 
 ## 7.53 Priority stops
@@ -1563,7 +1605,7 @@ last-admin rule holds against the API, not only the page.
 | Phase | Was | Now |
 | --- | --- | --- |
 | 3 | account administration only through `arena-admin` on the host | also the Admin page, with §7.67's rules |
-| 4 | deck names may repeat; no rename | rename your own decks; names unique per owner |
+| 4 | deck names may repeat; no rename; share by typed username; delete at one click | rename your own decks; names unique per owner; share from a list of players; delete asks first (Amendment 10) |
 | 5 | no directory of rooms; invitation-only | rooms visible to all; seats still by invitation; Start match is one step for the player |
 | 6 | protocol as built | §7.61's additive fields and messages |
 

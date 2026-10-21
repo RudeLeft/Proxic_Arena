@@ -23,7 +23,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
+import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, startAMatch } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -91,18 +91,15 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       ).sharedWithMe.some((deck) => deck.displayName === deckName);
 
     if (!(await guestCanSee())) {
-      // `.row`, not a list item: the Deck Depot draws each deck as
-      // a div, and a locator written from an imagined structure
-      // hangs for the whole test timeout rather than failing. This
-      // one was read off the running page.
+      // THIS deck's row, by its own View button: "View <name>".
       await host
         .getByRole("region", { name: "My decks" })
-        .locator(".row", { hasText: deckName })
+        .getByRole("listitem")
+        .filter({ hasText: deckName })
         .getByRole("button", { name: "view" })
         .first()
         .click();
-      await host.getByLabel("Username").fill(secondUser);
-      await host.getByRole("button", { name: "Share", exact: true }).click();
+      await shareOpenDeckWith(host, secondUser);
       await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
     }
 

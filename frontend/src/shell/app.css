@@ -119,6 +119,13 @@ body {
 
 /* --- page body ---------------------------------------------------------- */
 
+/* main.pa-main, not .pa-main: the Phase 1 stylesheet caps every
+ * <main> at 760px and centres it, which squeezed the Deck Depot's two
+ * columns into one. */
+main.pa-main {
+  max-width: none;
+  margin: 0;
+}
 .pa-main {
   flex: 1;
   min-height: 0;
@@ -397,6 +404,480 @@ body {
   color: var(--pa-faint);
 }
 
+/* --- shared small pieces ---------------------------------------------- */
+
+.pa-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pa-notice-ok {
+  border-left: 3px solid var(--pa-ok);
+}
+.pa-button-brass {
+  border-color: var(--pa-brass);
+  background: var(--pa-brass);
+  color: #17110a;
+}
+.pa-button-brass:hover:not(:disabled) {
+  background: #eab765;
+}
+.pa-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 11px;
+}
+.pa-small-button {
+  flex: none;
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+  min-width: 58px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pa-label);
+  font: inherit;
+  font-size: 12px;
+}
+.pa-small-button:hover {
+  background: #1a212a;
+  color: var(--pa-ink-bright);
+}
+.pa-small-button:focus-visible,
+.pa-chip-button:focus-visible,
+.pa-select:focus-visible {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 1px;
+}
+.pa-small-button-faint {
+  color: var(--pa-muted);
+}
+.pa-small-button-warn {
+  border-color: var(--pa-bad);
+  color: #f4cdc6;
+}
+.pa-count {
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.pa-field-problem {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #f4cdc6;
+}
+
+/* --- Deck Depot (§7.65) ------------------------------------------------- */
+
+.pa-depot {
+  padding: 22px 20px 28px;
+}
+.pa-depot-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 22px;
+}
+.pa-depot-side {
+  flex: 1 1 320px;
+  max-width: 400px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pa-depot-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pa-section-body {
+  padding: 0 15px 15px;
+}
+.pa-section-notice {
+  margin: 0 15px 15px;
+}
+.pa-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 104px;
+  padding: 14px;
+  box-sizing: border-box;
+  border: 1px dashed #4c5563;
+  border-radius: 4px;
+  background: var(--pa-field);
+  text-align: center;
+  cursor: pointer;
+}
+.pa-drop:hover,
+.pa-drop-active {
+  border-color: var(--pa-brass);
+  background: #131922;
+}
+.pa-drop:focus-within {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 2px;
+}
+.pa-drop-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #dfe4ea;
+}
+.pa-drop-sub {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--pa-muted);
+}
+.pa-drop code {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.pa-problems {
+  margin: 9px 0 0;
+  padding-left: 17px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #b4bbc4;
+}
+.pa-rename-import {
+  border-top: 0;
+  padding-top: 0;
+}
+.pa-group-head {
+  margin: 0;
+  padding: 9px 15px 7px;
+  border-top: 1px solid var(--pa-line-soft);
+  background: var(--pa-field);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pa-faint);
+}
+.pa-group-empty {
+  margin: 0;
+  padding: 12px 15px;
+  border-top: 1px solid var(--pa-line-soft);
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-chips .pa-group-empty {
+  padding: 0;
+  border: 0;
+}
+.pa-decks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pa-deck-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 56px;
+  padding: 9px 15px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-deck-row-open {
+  background: #161d27;
+  box-shadow: inset 3px 0 0 var(--pa-brass);
+}
+.pa-deck-text {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.pa-deck-name {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+/* A question must be read whole: "Delete attachment-de…?" is not one. */
+.pa-deck-name-wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pa-deck-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--pa-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pa-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 28px;
+  padding: 16px 16px 18px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-open-name {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.pa-open-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.pa-open-title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--pa-display);
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+}
+.pa-open-owner {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-open-empty {
+  margin: 0;
+  padding: 18px 16px 22px;
+  border-top: 1px solid var(--pa-line-soft);
+  font-size: 13px;
+  color: var(--pa-muted);
+}
+.pa-rename-input {
+  max-width: 380px;
+  min-height: 48px;
+  margin: 0;
+  font-family: var(--pa-display);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+.pa-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  margin: 0;
+}
+.pa-stat {
+  min-width: 74px;
+}
+.pa-stat dt {
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pa-faint);
+}
+.pa-stat dd {
+  margin: 3px 0 0;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.pa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px 14px;
+}
+.pa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 7px 6px 13px;
+  border: 1px solid #4c5563;
+  border-radius: 18px;
+  font-size: 13px;
+}
+.pa-chip-button {
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+  min-width: 60px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 14px;
+  background: transparent;
+  color: #a9b0ba;
+  font: inherit;
+  font-size: 11px;
+}
+.pa-chip-button:hover {
+  color: var(--pa-ink-bright);
+  border-color: var(--pa-button-line);
+}
+.pa-share-form {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 13px 16px 15px;
+  border-top: 1px solid var(--pa-line-soft);
+  background: var(--pa-field);
+}
+.pa-select-wrap {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+}
+.pa-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 38px 0 13px;
+  box-sizing: border-box;
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 3px;
+  background: var(--pa-panel);
+  color: var(--pa-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.pa-select-wrap svg {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  margin-top: -3px;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--pa-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pa-share-form .pa-button {
+  min-height: 44px;
+  font-size: 14px;
+}
+.pa-share-message {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--pa-ok);
+}
+.pa-share-message-bad {
+  color: #f4cdc6;
+}
+.pa-band-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px 9px;
+  border-top: 1px solid var(--pa-line-soft);
+  background: var(--pa-field);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-band-count {
+  margin-left: auto;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: #b4bbc4;
+  font-variant-numeric: tabular-nums;
+}
+.pa-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 14px 12px;
+  padding: 14px 16px 16px;
+}
+.pa-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.pa-card-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  border: 1px solid #2b333f;
+  border-radius: 4px;
+  background: var(--pa-field);
+}
+.pa-card-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pa-card-noart {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #5d6470;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.035) 0 1px,
+    transparent 1px 8px
+  );
+}
+.pa-card-qty {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  min-width: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 1px solid var(--pa-button-line);
+  border-radius: 9px;
+  background: var(--pa-panel);
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--pa-ink-bright);
+  font-variant-numeric: tabular-nums;
+}
+.pa-card figcaption {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #a9b0ba;
+  overflow-wrap: anywhere;
+}
+
+/* Wrapped under each other, the library takes the whole width. */
+@media (max-width: 1000px) {
+  .pa-depot-side {
+    max-width: none;
+  }
+}
+
 @media (max-width: 560px) {
   .pa-header {
     padding: 10px 16px;
@@ -406,5 +887,8 @@ body {
   }
   .pa-main {
     padding: 20px 16px 40px;
+  }
+  .pa-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
   }
 }

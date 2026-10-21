@@ -15,7 +15,7 @@
 
 import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname } from "node:path";
-import { secondUser, testUser } from "./helpers";
+import { secondUser, shareOpenDeckWith, testUser } from "./helpers";
 
 export async function csrfOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -313,16 +313,15 @@ export async function sharedDeck(
       }
     ).sharedWithMe.some((deck) => deck.deckId === deckId);
   if (!(await guestCanSee())) {
-    // THIS deck's row. `.row`, not a list item: the Deck Depot draws
-    // each deck as a div (read off the running page).
+    // THIS deck's row, by its own View button: "View <name>".
     await host
       .getByRole("region", { name: "My decks" })
-      .locator(".row", { hasText: deckName })
+      .getByRole("listitem")
+      .filter({ hasText: deckName })
       .getByRole("button", { name: "view" })
       .first()
       .click();
-    await host.getByLabel("Username").fill(guestName);
-    await host.getByRole("button", { name: "Share", exact: true }).click();
+    await shareOpenDeckWith(host, guestName);
     await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
   }
   return deckName;

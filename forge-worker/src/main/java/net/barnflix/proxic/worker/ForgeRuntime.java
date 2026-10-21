@@ -221,22 +221,30 @@ public final class ForgeRuntime {
         public final String detail;
         public final String actualSet;
         public final String actualNumber;
+        /**
+         * PHASE_07 §7.65 (Amendment 10): LAND, CREATURE or SPELL, so
+         * the Deck Depot can band a deck the way a player reads one.
+         * Forge's type line decides; null when Forge found no card.
+         */
+        public final String category;
 
-        private Resolution(String status, String detail, String actualSet, String actualNumber) {
+        private Resolution(String status, String detail, String actualSet, String actualNumber,
+                String category) {
             this.status = status;
             this.detail = detail;
             this.actualSet = actualSet;
             this.actualNumber = actualNumber;
+            this.category = category;
         }
 
         static Resolution resolved(PaperCard card) {
             return new Resolution("RESOLVED", null, card.getEdition(),
-                    card.getCollectorNumber());
+                    card.getCollectorNumber(), categoryOf(card));
         }
 
         static Resolution notFound(String name) {
             return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
-                    null, null);
+                    null, null, null);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
@@ -244,7 +252,20 @@ public final class ForgeRuntime {
                     "PRINTING_MISMATCH",
                     "Requested " + requested + ", Forge returned "
                             + got.getEdition() + "/" + got.getCollectorNumber() + ".",
-                    got.getEdition(), got.getCollectorNumber());
+                    got.getEdition(), got.getCollectorNumber(), categoryOf(got));
+        }
+
+        /**
+         * The front face's type line. A land first, so Dryad Arbor is
+         * a land, as it is in every decklist; then a creature, so an
+         * artifact creature is a creature; everything else a spell.
+         */
+        static String categoryOf(PaperCard card) {
+            CardType type = card.getRules().getType();
+            if (type.isLand()) {
+                return "LAND";
+            }
+            return type.isCreature() ? "CREATURE" : "SPELL";
         }
     }
 

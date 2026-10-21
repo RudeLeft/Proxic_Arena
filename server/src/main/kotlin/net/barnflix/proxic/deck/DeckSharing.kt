@@ -11,6 +11,10 @@ import javax.sql.DataSource
 // its artwork stay exactly where they were, owned by exactly who
 // owned them. Everything here manipulates one small table.
 
+/** Somebody a deck could be shared with — PHASE_07 Amendment 10. */
+@kotlinx.serialization.Serializable
+data class ShareCandidate(val username: String, val displayName: String)
+
 /**
  * Who a deck is shared with (§4.99).
  *
@@ -166,6 +170,38 @@ class DeckSharing(
                             )
                         }
                     }
+                }
+            }
+        }
+
+    /**
+     * PHASE_07 Amendment 10 — who the owner could share this deck
+     * with: every active account except the owner and the people who
+     * already hold it. Usernames and display names only, which every
+     * signed-in player may see (owner decision, 2026-10-21); never a
+     * role, a status or anything about their decks.
+     */
+    fun candidatesFor(
+        deckId: UUID,
+        ownerId: UUID,
+    ): List<ShareCandidate> =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                SELECT u.username, u.display_name
+                  FROM app_user u
+                 WHERE u.status = 'ACTIVE'
+                   AND u.user_id <> ?
+                   AND NOT EXISTS (
+                       SELECT 1 FROM deck_share s
+                        WHERE s.deck_id = ? AND s.shared_with_user_id = u.user_id)
+                 ORDER BY lower(u.display_name), u.username_normalized
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, ownerId)
+                statement.setObject(2, deckId)
+                statement.executeQuery().use { rows ->
+                    buildList { while (rows.next()) add(ShareCandidate(rows.getString(1), rows.getString(2))) }
                 }
             }
         }

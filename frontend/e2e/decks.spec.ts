@@ -7,6 +7,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { signIn } from "./helpers";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -78,20 +79,30 @@ test("a real package imports and its artwork renders", async ({ page }) => {
   await page.goto("/decks");
   await page.locator('input[type="file"]').setInputFiles(realExport);
 
-  // §2.85 — the confirmation names what was imported.
-  await expect(page.getByText("Basic_Mono_Red_65_Card_Deck").first()).toBeVisible({
+  // §2.85 — the confirmation names what was imported, and counts it.
+  const confirmation = page.getByRole("status").filter({ hasText: "imported" });
+  await expect(confirmation).toContainText("Basic_Mono_Red_65_Card_Deck imported", {
     timeout: 90_000,
   });
-  await expect(page.locator(".row").filter({ hasText: /^Cards/ })).toContainText("65");
-  await expect(page.locator(".row").filter({ hasText: "Distinct cards" })).toContainText("11");
-  await expect(page.locator(".row").filter({ hasText: "Artwork stored" })).toContainText("11");
+  await expect(confirmation).toContainText("65 cards, 11 distinct, artwork stored for all of them");
 
   // §2.87 — the images actually render. Checking naturalWidth, not
   // merely that the element exists: a broken image is still an
   // <img>, and the point of this test is the pipeline.
   await page.getByRole("button", { name: "view" }).click();
-  const cards = page.locator(".card img");
+  const cards = page.getByRole("region", { name: "Cards" }).getByRole("img");
   await expect(cards).toHaveCount(11);
+  // Amendment 10 — banded the way Forge sorted them; the bands add
+  // up to the deck.
+  const bands = page.getByRole("region", { name: "Cards" }).getByRole("group");
+  await expect(bands.first()).toHaveAccessibleName(/^Lands, \d+ cards$/);
+  const counts = await bands.evaluateAll((groups) =>
+    groups.map((group) =>
+      Number(/, (\d+) cards$/.exec(group.getAttribute("aria-label") ?? "")?.[1]),
+    ),
+  );
+  expect(counts.reduce((sum, n) => sum + n, 0)).toBe(65);
+  await expect(page.getByRole("region", { name: "Cards" })).not.toContainText("Not sorted yet");
 
   // Wait for the browser to finish DECODING them, not merely for
   // the elements to exist. `toHaveCount` is satisfied the moment
@@ -131,10 +142,10 @@ test("a rejected package explains itself without mentioning logs", async ({ page
   await page.goto("/decks");
   await page.locator('input[type="file"]').setInputFiles(notAPackage);
 
-  await expect(page.locator(".panel.error")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("alert")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/not a deck package/i)).toBeVisible();
 
-  const text = (await page.locator(".panel.error").textContent()) ?? "";
+  const text = (await page.getByRole("alert").textContent()) ?? "";
   expect(text).not.toMatch(/stack|exception|logs|docker/i);
 });
 
@@ -144,7 +155,6 @@ test("an illegal deck lists every problem at once", async ({ page }) => {
   // A deck that breaks two rules: too few cards, and five copies.
   const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
   const illegal = join(directory, "illegal.zip");
-  const { execFileSync } = await import("node:child_process");
   writeFileSync(
     join(directory, "Illegal Deck.txt"),
     "// Illegal Deck\n\n5 Fiery Temper [INR:154]\n5 Rift Bolt [2X2:122]\n",
@@ -167,11 +177,11 @@ test("an illegal deck lists every problem at once", async ({ page }) => {
   await page.goto("/decks");
   await page.locator('input[type="file"]').setInputFiles(illegal);
 
-  await expect(page.locator(".panel.error")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("alert")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/not legal in Open Format/i).first()).toBeVisible();
   // Both problems, not just the first: fixing one per upload is a
   // worse experience than seeing the list.
-  await expect(page.locator(".problems li")).toHaveCount(3);
+  await expect(page.getByRole("alert").getByRole("listitem")).toHaveCount(3);
 });
 
 test("importing the same package twice is refused and points at the deck", async ({ page }) => {
@@ -186,8 +196,74 @@ test("importing the same package twice is refused and points at the deck", async
   await expect(page.getByText("Artwork stored")).toBeVisible({ timeout: 90_000 });
 
   await page.locator('input[type="file"]').setInputFiles(pkg!);
-  await expect(page.locator(".panel.error")).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByRole("alert")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/already been imported/i).first()).toBeVisible();
   // Owner decision D3: refusing is right, a dead end is not.
   await expect(page.getByText(/Already imported as/i)).toBeVisible();
+});
+
+/** A legal, art-free package whose decklist declares [name]: 60 or more Mountains. */
+function mountainPackage(directory: string, file: string, name: string, mountains: number) {
+  const list = join(directory, `${file}.txt`);
+  writeFileSync(list, `// ${name}\n\n${mountains} Mountain\n`);
+  const zip = join(directory, `${file}.zip`);
+  execFileSync("node", [join(process.cwd(), "..", "scripts", "make-zip.mjs"), zip, list]);
+  return zip;
+}
+
+test("one name per player: a clash asks for another, rename refuses one, delete asks first", async ({
+  page,
+}) => {
+  // PHASE_07 §7.65 and Amendment 10, through real clicks (§7.68).
+  // Two DIFFERENT packages (so not the duplicate-package rule) that
+  // declare the SAME name.
+  test.setTimeout(240_000);
+  const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
+  const first = mountainPackage(directory, "clash-a", "Clash Deck", 60);
+  const second = mountainPackage(directory, "clash-b", "Clash Deck", 61);
+  const mine = page.getByRole("region", { name: "My decks" });
+
+  await page.goto("/decks");
+  await page.locator('input[type="file"]').setInputFiles(first);
+  await expect(page.getByText("Clash Deck imported")).toBeVisible({ timeout: 120_000 });
+
+  // The clash: refused, said in words, and the name offered back.
+  await page.locator('input[type="file"]').setInputFiles(second);
+  await expect(page.getByRole("alert")).toContainText("already have a deck called", {
+    timeout: 120_000,
+  });
+  const importAs = page.getByLabel("Import it as");
+  await expect(importAs).toHaveValue("Clash Deck");
+  await importAs.fill("Clash Deck II");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.getByText("Clash Deck II imported")).toBeVisible({ timeout: 120_000 });
+  await expect(mine.getByRole("listitem")).toHaveCount(2);
+
+  // Rename, refused into a name you use, then accepted.
+  await page.getByRole("button", { name: "View Clash Deck II" }).click();
+  await expect(page.getByRole("heading", { name: "Clash Deck II" })).toBeVisible();
+  await page.getByRole("button", { name: "Rename" }).click();
+  const name = page.getByLabel("Deck name");
+  await name.fill("clash deck");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("alert")).toContainText("already have a deck called");
+  await name.fill("Sixty-one Mountains");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("heading", { name: "Sixty-one Mountains" })).toBeVisible();
+  await expect(mine.getByText("Sixty-one Mountains")).toBeVisible();
+  // Banded by Forge: all lands.
+  await expect(
+    page.getByRole("region", { name: "Cards" }).getByRole("group", { name: "Lands, 61 cards" }),
+  ).toBeVisible();
+
+  // Delete asks first; Keep keeps it.
+  await page.getByRole("button", { name: "Delete Sixty-one Mountains" }).click();
+  await expect(mine.getByText("Delete Sixty-one Mountains?")).toBeVisible();
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(mine.getByRole("listitem")).toHaveCount(2);
+  await page.getByRole("button", { name: "Delete Sixty-one Mountains" }).click();
+  await mine.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(mine.getByRole("listitem")).toHaveCount(1);
+  // It was open; it is not any more.
+  await expect(page.getByText("Choose View on a deck")).toBeVisible();
 });

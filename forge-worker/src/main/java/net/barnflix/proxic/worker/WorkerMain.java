@@ -139,6 +139,9 @@ public final class WorkerMain {
                             item.addProperty("actualSet", resolution.actualSet);
                             item.addProperty("actualNumber", resolution.actualNumber);
                         }
+                        if (resolution.category != null) {
+                            item.addProperty("category", resolution.category);
+                        }
                         out.add(item);
                     }
                     response.add("cards", out);

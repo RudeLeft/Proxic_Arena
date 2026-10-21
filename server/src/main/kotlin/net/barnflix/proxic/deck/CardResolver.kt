@@ -29,6 +29,8 @@ data class CardResolution(
     val detail: String?,
     val actualSet: String? = null,
     val actualNumber: String? = null,
+    /** PHASE_07 Amendment 10 — LAND, CREATURE or SPELL, as Forge reads the card. */
+    val category: String? = null,
 ) {
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
@@ -269,6 +271,9 @@ class CardResolver(private val config: ServerConfig) {
                 detail = (card["detail"] as? JsonPrimitive)?.content,
                 actualSet = (card["actualSet"] as? JsonPrimitive)?.content,
                 actualNumber = (card["actualNumber"] as? JsonPrimitive)?.content,
+                category =
+                    (card["category"] as? JsonPrimitive)?.content
+                        ?.takeIf { it in setOf("LAND", "CREATURE", "SPELL") },
             )
         }
     }
