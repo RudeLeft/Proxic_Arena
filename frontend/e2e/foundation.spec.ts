@@ -30,7 +30,7 @@ function indicator(page: Page, name: string) {
 
 test("the page loads and React is served by Ktor", async ({ page }) => {
   const assertClean = watchConsole(page);
-  const response = await page.goto("/");
+  const response = await page.goto("/status");
 
   expect(response?.status()).toBe(200);
   // Served from Ktor's static route in production, not from Vite.
@@ -41,7 +41,7 @@ test("the page loads and React is served by Ktor", async ({ page }) => {
 
 test("every status indicator reflects a real backend check", async ({ page }) => {
   const assertClean = watchConsole(page);
-  await page.goto("/");
+  await page.goto("/status");
 
   await expect(indicator(page, "Application Server")).toContainText("Ready");
   await expect(indicator(page, "Database")).toContainText("Ready");
@@ -74,7 +74,7 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
 });
 
 test("the version is displayed and matches the API", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/status");
   await expect(page.locator(".sub")).toContainText("protocol v");
 
   // Cross-checked against the API rather than trusted: a hardcoded
@@ -122,7 +122,7 @@ test("P1-L: Pixi initialises, and navigating away and back leaves no duplicate",
   page,
 }) => {
   const assertClean = watchConsole(page);
-  await page.goto("/");
+  await page.goto("/status");
 
   const canvas = page.locator(".canvas-host canvas");
   await expect(canvas).toHaveCount(1);
@@ -181,7 +181,7 @@ test("an unknown route is served by Ktor and answered honestly by React", async 
  * drop that a browser test can cause.
  */
 test("§1.80: a dropped WebSocket is reported, not left showing Ready", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/status");
   await expect(indicator(page, "WebSocket")).toContainText("Ready");
 
   await page.evaluate(() => {

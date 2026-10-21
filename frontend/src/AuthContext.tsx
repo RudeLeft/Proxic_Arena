@@ -18,11 +18,13 @@ import {
   safeReturnPath,
   type AuthState,
   type AuthUser,
+  type LoginFailure,
 } from "./auth";
 
 interface AuthContextValue {
   state: AuthState;
-  signIn: (username: string, password: string) => Promise<string | null>;
+  /** null on success; the server's refusal otherwise (code AND its sentence). */
+  signIn: (username: string, password: string) => Promise<LoginFailure | null>;
   signOut: () => Promise<void>;
   /** §3.34 — sign out everywhere. Returns the count, or null if it failed. */
   signOutEverywhere: () => Promise<number | null>;
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
     setState({ status: "anonymous" });
-    return result.failure.detail;
+    return result.failure;
   }, []);
 
   const signOut = useCallback(async () => {

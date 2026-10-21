@@ -45,9 +45,16 @@ describe("routes", () => {
     );
   }
 
-  it("serves the foundation page at /", () => {
-    at("/");
+  it("serves the foundation page at /status", () => {
+    at("/status");
     expect(screen.getByText(/Foundation Build/i)).toBeDefined();
+  });
+
+  /** PHASE_07 §7.62, the canvas's note f1: the address everyone types
+   * lands on Sign in when signed out (and the Lobby when signed in). */
+  it("sends an anonymous visitor from / to sign in", async () => {
+    at("/");
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
   });
 
   it("answers an unknown route honestly instead of showing the home page", () => {

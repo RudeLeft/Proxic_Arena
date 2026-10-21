@@ -41,7 +41,7 @@ test("nothing the app needs is blocked by the policy", async ({ page }) => {
   // polyfill, NOT a weaker policy — and this is what notices if the
   // polyfill is ever dropped.
   const assertClean = watchViolations(page);
-  await page.goto("/");
+  await page.goto("/status");
 
   await expect(page.locator(".row").filter({ hasText: "Pixi Renderer" })).toContainText("Ready");
   // The WebSocket is connect-src's real test.

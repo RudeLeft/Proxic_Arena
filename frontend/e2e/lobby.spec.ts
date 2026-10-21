@@ -280,17 +280,19 @@ test("a signed-in player can find the lobby by clicking", async ({ browser }) =>
   await signIn(page);
 
   try {
-    await page.goto("/");
-    await page.getByRole("link", { name: "Play" }).click();
+    // PHASE_07 §7.62: the shared header, on every signed-in page.
+    await page.goto("/decks");
+    const pages = page.getByRole("navigation", { name: "Pages" });
+    await pages.getByRole("link", { name: "Lobby" }).click();
     await expect(page).toHaveURL(/\/play/);
     await expect(page.getByRole("heading", { name: "Who is here" })).toBeVisible();
 
     // And back out again: a page with no way off it is a dead end.
-    await page.getByRole("link", { name: "Deck Depot" }).click();
+    await pages.getByRole("link", { name: "Deck Depot" }).click();
     await expect(page).toHaveURL(/\/decks/);
 
-    // The Deck Depot points back at where a deck gets used.
-    await page.getByRole("link", { name: "Play" }).click();
+    // The logo returns to the Lobby from anywhere.
+    await page.getByRole("link", { name: "Proxic Arena — Lobby" }).click();
     await expect(page).toHaveURL(/\/play/);
   } finally {
     await leaveAnyRoom(page);

@@ -13,31 +13,31 @@ import { signIn, testPassword, testUser } from "./helpers";
 const username = testUser;
 const password = testPassword;
 
-test("the home page offers a way in, and says who you are", async ({ page }) => {
-  // §3.69. The defect this exists for: the home page had five green
-  // indicators and NOTHING about authentication -- no sign-in link,
-  // no identity. Every other test here navigates straight to /login
-  // or /decks, so the whole suite passed while a person arriving at
-  // the site had no visible way in.
+test("the address everyone types leads in, and every page says who you are", async ({ page }) => {
+  // §3.69, PHASE_07 §7.62. The defect this exists for: the home page had
+  // five green indicators and NOTHING about authentication, so a person
+  // arriving had no visible way in. Now "/" is the way in: Sign in when
+  // signed out, the Lobby when signed in, and the shared header names
+  // the pages and the way out on every signed-in page.
   await page.goto("/");
-  await expect(page.getByText("Not signed in")).toBeVisible();
-  const signInLink = page.getByRole("link", { name: "Sign in" });
-  await expect(signInLink).toBeVisible();
-
-  await signInLink.click();
   await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
   await signIn(page);
   await page.goto("/");
-  // Identity, role and the way onward (§3.69).
-  await expect(page.getByText(/Signed in as/)).toBeVisible();
-  await expect(page.getByText("ADMIN")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Deck Depot" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+  await expect(page).toHaveURL(/\/play$/);
+  const pages = page.getByRole("navigation", { name: "Pages" });
+  await expect(pages.getByRole("link", { name: "Deck Depot" })).toBeVisible();
+  await expect(pages.getByRole("link", { name: "Lobby" })).toBeVisible();
+  await pages.getByRole("link", { name: "Account" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  // Identity and role (§3.69), on the Account page.
+  await expect(page.getByText("Administrator")).toBeVisible();
 
-  // ...and out again, from the same page.
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByText("Not signed in")).toBeVisible();
+  // ...and out again, from the header, back to Sign in.
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
 test("an anonymous visitor to a protected page is sent to login", async ({ page }) => {
@@ -66,7 +66,8 @@ test("a wrong password says so without revealing whether the user exists", async
   await page.getByLabel("Password", { exact: true }).fill("definitely not the password");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  const error = page.locator(".error-text");
+  // The notice above the form (PHASE_07 §7.63), an alert.
+  const error = page.getByRole("alert");
   await expect(error).toBeVisible();
   // §3.44 — the message must not distinguish an unknown user from
   // a wrong password, and the page must not invent wording the
@@ -83,13 +84,13 @@ test("an unknown user gets the same message as a wrong password", async ({ page 
   await page.getByLabel("Username").fill("definitely-not-a-user");
   await page.getByLabel("Password", { exact: true }).fill("whatever");
   await page.getByRole("button", { name: "Sign in" }).click();
-  const unknown = await page.locator(".error-text").textContent();
+  const unknown = await page.getByRole("alert").textContent();
 
   await page.goto("/login");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill("definitely not the password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  const wrong = await page.locator(".error-text").textContent();
+  const wrong = await page.getByRole("alert").textContent();
 
   expect(unknown).toBe(wrong);
 });
@@ -98,7 +99,7 @@ test("the session cookie is not readable from JavaScript", async ({ page }) => {
   // §3.24 — HttpOnly, proven from the page's own point of view
   // rather than by reading a response header.
   await signIn(page);
-  await expect(page).toHaveURL(/\/$|\/decks$/);
+  await expect(page).toHaveURL(/\/play$|\/decks$/);
 
   const visible = await page.evaluate(() => document.cookie);
   expect(visible).not.toContain("proxicarena_session");
@@ -163,7 +164,7 @@ test("sign out everywhere ends sessions in other browsers too", async ({ browser
 
   await signIn(page);
   await page.goto("/account");
-  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await page.getByRole("button", { name: "Sign out all" }).click();
   await expect(page.getByText(/Signed out of \d+ session/)).toBeVisible();
 
   // The OTHER browser is now signed out, which it finds out on its
@@ -179,8 +180,9 @@ test("sign out everywhere ends sessions in other browsers too", async ({ browser
 test("the account page shows who you are", async ({ page }) => {
   await signIn(page);
   await page.goto("/account");
-  await expect(page.getByText(username)).toBeVisible();
-  await expect(page.getByText("ADMIN")).toBeVisible();
+  await expect(page.getByText(username, { exact: true }).first()).toBeVisible();
+  // The role in words (PHASE_07 §7.66), not the server's enum.
+  await expect(page.getByText("Administrator", { exact: true })).toBeVisible();
 });
 
 test("health stays public while decks do not", async ({ page }) => {

@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary, type DeckSummary } from "./decks";
 import {
   EMPTY_MATCH,
@@ -30,11 +31,9 @@ import {
   type SnapshotPlayer,
 } from "./match";
 import {
-  EMPTY_LOBBY,
   MAX_CHAT_LENGTH,
   cancelPreparation,
   closeRoom,
-  connectLobby,
   createRoom,
   abandonMatch,
   fetchCurrentMatch,
@@ -46,7 +45,6 @@ import {
   removeMember,
   selectDeck,
   setReady,
-  type LobbySocket,
   type LobbyState,
   type MatchView,
   type RoomMemberView,
@@ -54,20 +52,16 @@ import {
   type RoomView,
 } from "./lobby";
 
-function lobbyUrl(): string {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}/ws/user`;
-}
-
 export default function LobbyPage() {
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
 
-  const [lobby, setLobby] = useState<LobbyState>(EMPTY_LOBBY);
+  // The live connection is the shell's (PHASE_07 §7.62): it outlives this
+  // page, so presence and invitations reach a player on any page.
+  const { lobby, setLobby, send } = useLobbyConnection();
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const socketRef = useRef<LobbySocket | null>(null);
 
   // §5.119 — a refresh should land you back in the room, not
   // outside it. Asked over HTTP as well as awaited on the socket,
@@ -95,7 +89,7 @@ export default function LobbyPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setLobby]);
 
   /**
    * Leaving and closing: the room is no longer YOURS.
@@ -117,23 +111,26 @@ export default function LobbyPage() {
    * my view of it is now empty. Reported by the owner, who had to
    * refresh to get "Host a game" back.
    */
-  const runLeaving = useCallback(async (call: () => Promise<RoomResult>) => {
-    setBusy(true);
-    setFailure(null);
-    const result = await call();
-    setBusy(false);
-    if (result.ok) {
-      setLobby((previous) => ({
-        ...previous,
-        room: null,
-        setupProblem: null,
-        notice: null,
-        match: null,
-      }));
-    } else {
-      setFailure(result.failure.detail);
-    }
-  }, []);
+  const runLeaving = useCallback(
+    async (call: () => Promise<RoomResult>) => {
+      setBusy(true);
+      setFailure(null);
+      const result = await call();
+      setBusy(false);
+      if (result.ok) {
+        setLobby((previous) => ({
+          ...previous,
+          room: null,
+          setupProblem: null,
+          notice: null,
+          match: null,
+        }));
+      } else {
+        setFailure(result.failure.detail);
+      }
+    },
+    [setLobby],
+  );
 
   /**
    * §6.10 — start the match the host already prepared.
@@ -147,32 +144,26 @@ export default function LobbyPage() {
    * later when Forge is up — which is the whole reason the MATCH
    * message exists.
    */
-  const launch = useCallback(async (roomId: string) => {
-    setBusy(true);
-    setFailure(null);
-    const setupId = await fetchMatchSetupId(roomId);
-    if (!setupId) {
+  const launch = useCallback(
+    async (roomId: string) => {
+      setBusy(true);
+      setFailure(null);
+      const setupId = await fetchMatchSetupId(roomId);
+      if (!setupId) {
+        setBusy(false);
+        setFailure("That match is no longer prepared. Prepare it again.");
+        return;
+      }
+      const result = await launchMatch(setupId);
       setBusy(false);
-      setFailure("That match is no longer prepared. Prepare it again.");
-      return;
-    }
-    const result = await launchMatch(setupId);
-    setBusy(false);
-    if (result.ok) {
-      setLobby((previous) => ({ ...previous, match: result.match, notice: null }));
-    } else {
-      setFailure(result.failure.detail);
-    }
-  }, []);
-
-  useEffect(() => {
-    const socket = connectLobby(lobbyUrl(), setLobby);
-    socketRef.current = socket;
-    return () => {
-      socketRef.current = null;
-      socket.close();
-    };
-  }, []);
+      if (result.ok) {
+        setLobby((previous) => ({ ...previous, match: result.match, notice: null }));
+      } else {
+        setFailure(result.failure.detail);
+      }
+    },
+    [setLobby],
+  );
 
   const room = lobby.room;
   const myMember = useMemo(
@@ -192,28 +183,27 @@ export default function LobbyPage() {
   const inMatch = room?.status === "IN_MATCH";
 
   /** One place where every room call reports its refusal. */
-  const run = useCallback(async (call: () => Promise<RoomResult>) => {
-    setBusy(true);
-    setFailure(null);
-    const result = await call();
-    setBusy(false);
-    if (result.ok) {
-      // §5.132 — the server's room, not a guess at it. The socket
-      // will send the same thing to everyone else.
-      setLobby((previous) => ({
-        ...previous,
-        room: result.room,
-        setupProblem: null,
-        notice: null,
-      }));
-    } else {
-      setFailure(result.failure.detail);
-    }
-  }, []);
-
-  const send = useCallback((message: Record<string, unknown>) => {
-    socketRef.current?.send(message);
-  }, []);
+  const run = useCallback(
+    async (call: () => Promise<RoomResult>) => {
+      setBusy(true);
+      setFailure(null);
+      const result = await call();
+      setBusy(false);
+      if (result.ok) {
+        // §5.132 — the server's room, not a guess at it. The socket
+        // will send the same thing to everyone else.
+        setLobby((previous) => ({
+          ...previous,
+          room: result.room,
+          setupProblem: null,
+          notice: null,
+        }));
+      } else {
+        setFailure(result.failure.detail);
+      }
+    },
+    [setLobby],
+  );
 
   /**
    * Declining clears the prompt here as well as on the server.
@@ -227,7 +217,7 @@ export default function LobbyPage() {
   const decline = useCallback(() => {
     send({ type: "INVITE_DECLINE" });
     setLobby((previous) => ({ ...previous, invitation: null }));
-  }, [send]);
+  }, [send, setLobby]);
 
   if (!me) return null;
 

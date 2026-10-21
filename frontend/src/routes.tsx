@@ -11,12 +11,13 @@
 // to be deleted before the real one could be written.
 
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import DecksPage from "./DecksPage";
 import LobbyPage from "./LobbyPage";
 import { AccountPage, LoginPage } from "./LoginPage";
-import { RequireAuth } from "./AuthContext";
+import { RequireAuth, useAuth } from "./AuthContext";
+import { Shell } from "./shell/Shell";
 
 // BATTLEFIELD_RENDERING.md §6: a synthetic board for development. Loaded
 // on demand so the board's code and fonts are not in every page's bundle.
@@ -42,43 +43,41 @@ function Placeholder({ title, phase }: { title: string; phase: string }) {
   );
 }
 
+/**
+ * The address everyone types (the canvas's note f1): the Lobby when
+ * signed in, Sign in when not. Nothing in between flashes: while the
+ * session check is out, it waits.
+ */
+function Home() {
+  const { state } = useAuth();
+  if (state.status === "loading") return <p className="hint">Checking your session…</p>;
+  return <Navigate to={state.status === "authenticated" ? "/play" : "/login"} replace />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<App />} />
-      {/* PHASE_05 AMENDMENT 4 — the one lobby page. Protected for
-          the same reason /decks is: every room endpoint requires a
-          session, so an anonymous visitor would meet a page of
-          401s rather than a login form. */}
-      <Route
-        path="/play"
-        element={
-          <RequireAuth>
-            <LobbyPage />
-          </RequireAuth>
-        }
-      />
+      <Route path="/" element={<Home />} />
+      {/* The Phase 1 foundation page: the server's own health, kept as
+          a diagnostic now that "/" is the way into the app. */}
+      <Route path="/status" element={<App />} />
       <Route path="/login" element={<LoginPage />} />
-      {/* PHASE_03 §3.67 — protected. The deck API requires a
-          session (PHASE 3 AMENDMENT 1), so an unauthenticated
-          visitor would otherwise see a page of 401s rather than a
-          login form. */}
+      {/* Every signed-in page, inside the shared header and the one
+          live connection (PHASE_07 §7.62). Protected because every API
+          behind them requires a session: an anonymous visitor would
+          otherwise meet a page of 401s rather than a login form
+          (PHASE_03 §3.67, PHASE_05 AMENDMENT 4). */}
       <Route
-        path="/decks"
         element={
           <RequireAuth>
-            <DecksPage />
+            <Shell />
           </RequireAuth>
         }
-      />
-      <Route
-        path="/account"
-        element={
-          <RequireAuth>
-            <AccountPage />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route path="/play" element={<LobbyPage />} />
+        <Route path="/decks" element={<DecksPage />} />
+        <Route path="/account" element={<AccountPage />} />
+      </Route>
       {/* Unlinked, signed-in only, and labelled synthetic on screen
           (BATTLEFIELD_RENDERING.md §6). Not a game: no match, no
           server traffic beyond the session check. */}
