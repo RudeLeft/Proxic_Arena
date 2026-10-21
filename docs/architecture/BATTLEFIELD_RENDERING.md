@@ -178,6 +178,17 @@ rather than teleports.
    glows render *above*. Several layers at different z-indices are free
    on DOM and impossible on a single canvas.
 
+   As built (step 5, PHASE 7 AMENDMENT 7): the four lines are one SVG layer
+   above the battlefield and below the hand (stacking: battlefield up to
+   ~2000, a swooping attacker 4500, lines 5000, bursts and numbers 6000,
+   hand 10000+). Every line starts and ends **inside the card's picture**,
+   never on its name or power/toughness bar (the mock ended its block line
+   at 72% of the card's height for the same reason). A swoop comes
+   **straight across the table**: centred over its target, or between its
+   blockers, its near edge halfway down them; at a player it stops with its
+   near edge on the life total. A swooping attacker is hit where it lands
+   (the burst), and its damage number rises where it rests.
+
 6. **State-driven appearance stays on the card.** Tapped (tilt, dim, and
    the word), attacking (step toward the line), selected, legal target,
    summoning sick — all per §7.40, never hue alone — are CSS states on

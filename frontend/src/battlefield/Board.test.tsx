@@ -3,8 +3,9 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board } from "./Board";
-import { applyChanges, syntheticBoard } from "./fixture";
-import { layout } from "./layout";
+import { applyChanges, combatScript, syntheticBoard } from "./fixture";
+import { TAPPED_ORIGIN, layout } from "./layout";
+import { centreOf } from "./effects";
 
 /**
  * The drawn board — PHASE_07 §7.42 and §7.45, BATTLEFIELD_RENDERING.md §7
@@ -239,5 +240,163 @@ describe("Board movement", () => {
     view.rerender(at(n));
     expect(calls).toHaveLength(0);
     expect(view.container.querySelector("[data-ghost-of]")).toBeNull();
+  });
+});
+
+/**
+ * Lines and combat effects — §7 step 5, PHASE 7 AMENDMENTS 4 and 7, on the
+ * dev page's fixed combat script. What is drawn, and what was asked of the
+ * (stubbed) Web Animations API; geometry in a real browser is the bridge's.
+ */
+describe("Board lines and effects", () => {
+  const size = { width: 1920, height: 1080 };
+  const calls: {
+    element: Element;
+    frames: Keyframe[];
+    options: KeyframeAnimationOptions;
+  }[] = [];
+  let reduced = false;
+  beforeEach(() => {
+    calls.length = 0;
+    reduced = false;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(size.width);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(size.height);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("matchMedia", () => ({ matches: reduced }));
+    (HTMLElement.prototype as unknown as { animate: unknown }).animate = function (
+      this: Element,
+      frames: Keyframe[],
+      options: KeyframeAnimationOptions,
+    ) {
+      calls.push({ element: this, frames, options });
+      return { onfinish: null, oncancel: null, cancel() {} };
+    };
+  });
+  afterEach(() => {
+    delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const art = (a: string) => a;
+  function scene(n: number) {
+    const s = combatScript(n);
+    return (
+      <Board
+        battlefield={s.board.battlefield}
+        hand={s.board.hand}
+        viewerSeat={s.board.viewerSeat}
+        artUrl={art}
+        arrivals={s.arrivals}
+        departures={s.departures}
+        combat={s.combat}
+        stack={s.stack}
+        pointedStack={s.pointedStack}
+        attaching={s.attaching}
+        damage={s.damage}
+      />
+    );
+  }
+  const lines = (c: Element, kind: string) =>
+    [...c.querySelectorAll(`[data-line="${kind}"]`)].map(
+      (g) => `${g.getAttribute("data-from")}>${g.getAttribute("data-to")}`,
+    );
+
+  it("fire lines from each attacker to what it attacks, shield lines from each blocker", () => {
+    const c = render(scene(2)).container;
+    expect(lines(c, "attack").sort()).toEqual(
+      ["card:201>player:1", "card:202>player:1", "card:203>card:215"].sort(),
+    );
+    expect(lines(c, "block").sort()).toEqual(
+      ["card:211>card:201", "card:212>card:201", "card:213>card:202"].sort(),
+    );
+    // The lines layer takes no clicks.
+    expect(c.querySelector(".bf-lines")!.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("no lines once combat ends", () => {
+    const c = render(scene(6)).container;
+    expect(c.querySelectorAll("[data-line]")).toHaveLength(0);
+  });
+
+  it("only the stack's top object's target line, plus a pointed-at one (AMENDMENT 7)", () => {
+    const view = render(scene(8));
+    expect(lines(view.container, "target")).toEqual(["stack:2>card:202"]);
+    view.rerender(scene(9));
+    expect(lines(view.container, "target").sort()).toEqual(
+      ["stack:1>card:215", "stack:2>card:202"].sort(),
+    );
+  });
+
+  it("a gold chain while Equip's host is chosen, a tag once attached", () => {
+    const view = render(scene(12));
+    expect(lines(view.container, "attach")).toEqual(["card:216>card:214"]);
+    view.rerender(scene(13));
+    expect(lines(view.container, "attach")).toEqual([]);
+    expect(
+      view.container.querySelector('[data-object-id="card:216"]')!.getAttribute("data-attached-to"),
+    ).toBe("card:214");
+  });
+
+  it("combat damage: attackers swoop, everything hit bursts and shows its number", () => {
+    const view = render(scene(4));
+    view.rerender(scene(5));
+    const swoops = calls.filter((call) => call.options.id === "swoop");
+    // Serra Angel and the Goblin token swoop; blockers do not.
+    const swooping = swoops.map(
+      (call) => call.element.querySelector("button")!.getAttribute("data-object-id")!,
+    );
+    expect(swooping.sort()).toEqual(["card:201", "card:203"]);
+    for (const call of swoops) {
+      expect(call.frames[1]!.offset).toBe(0.4);
+      expect(call.frames[0]!.transform).toBe(call.frames[3]!.transform); // and back
+    }
+    const numbers = [...view.container.querySelectorAll("[data-damage-number]")].map(
+      (n) => `${n.getAttribute("data-damage-number")} ${n.textContent}`,
+    );
+    expect(numbers.sort()).toEqual(
+      ["card:201 −3", "card:211 −2", "card:212 −2", "card:215 −1"].sort(),
+    );
+    expect(view.container.querySelectorAll("[data-impact]")).toHaveLength(4);
+    // Serra Angel is hit where it landed, but its number rises at home.
+    const home = centreOf(
+      layout(combatScript(5).board, size).boxes.get("card:201")!,
+      TAPPED_ORIGIN,
+    );
+    const angelNumber = view.container.querySelector<HTMLElement>(
+      '[data-damage-number="card:201"]',
+    )!;
+    const angelBurst = view.container.querySelector<HTMLElement>('[data-impact="card:201"]')!;
+    expect(parseFloat(angelNumber.style.left)).toBeCloseTo(home.x, 3);
+    expect(parseFloat(angelNumber.style.top)).toBeCloseTo(home.y, 3);
+    expect(parseFloat(angelBurst.style.top)).toBeGreaterThan(home.y + 20);
+    // A wave plays once: the same damage again draws nothing new.
+    calls.length = 0;
+    view.rerender(scene(5));
+    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
+  });
+
+  it("a creature the same update killed waits for its impact before it leaves", () => {
+    const view = render(scene(9));
+    view.rerender(scene(10)); // Shock resolves: 2 damage, White Knight dies
+    expect(view.container.querySelector('[data-damage-number="card:202"]')!.textContent).toBe("−2");
+    const ghost = view.container.querySelector('[data-ghost-of="card:202"]')!;
+    const call = calls.find((c) => c.element === ghost)!;
+    expect(Number(call.options.delay)).toBeGreaterThan(100);
+  });
+
+  it("with reduced motion: no swoops, no bursts, the numbers still say what happened", () => {
+    reduced = true;
+    const view = render(scene(4));
+    view.rerender(scene(5));
+    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
+    expect(view.container.querySelectorAll("[data-impact]")).toHaveLength(0);
+    expect(view.container.querySelectorAll("[data-damage-number]")).toHaveLength(4);
   });
 });

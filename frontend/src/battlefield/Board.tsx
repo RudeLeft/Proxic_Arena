@@ -15,6 +15,15 @@
 // card that left travels to its zone as a "ghost" (no id, no clicks) and
 // fades. None of it gates input (§7.36): the board's state is always the
 // newest snapshot's, and an animation only decorates the way there.
+//
+// Lines and effects (step 5, PHASE 7 AMENDMENTS 4 and 7): fire lines from
+// attackers to what they attack, shield lines from blockers, a crosshair
+// line from the stack's top object (and a pointed-at one) to its targets,
+// and a chain while an Aura or Equipment's host is chosen -- in one SVG
+// layer that takes no clicks. When damage is dealt, attackers swoop onto
+// what they hit, a burst plays there and the amount rises and fades. All
+// of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
+// inferred here.
 
 import {
   useLayoutEffect,
@@ -46,7 +55,30 @@ import {
   handZoomBox,
   placement,
   type AnchorId,
+  type Point,
 } from "./motion";
+import {
+  LINE_THEME,
+  NUMBER_MS,
+  SWOOP_ARRIVE,
+  SWOOP_LEAVE,
+  SWOOP_MS,
+  Z_EFFECTS,
+  Z_LINES,
+  Z_SWOOP,
+  arrowHead,
+  centreOf,
+  curve,
+  effectSizes,
+  pathOf,
+  playerPoint,
+  shieldAt,
+  swoopBox,
+  type LineKind,
+  type TargetRef,
+} from "./effects";
+
+export type { TargetRef } from "./effects";
 
 /** A permanent as the board needs it: layout's fields plus its picture. */
 export interface BoardCard extends LayoutCard {
@@ -65,6 +97,35 @@ export interface BoardHandCard {
   art: string | null;
 }
 
+/** Who attacks what, and who blocks whom (§7.61 B4). */
+export interface CombatView {
+  attackers: readonly { id: string; target: TargetRef }[];
+  blocks: readonly { blocker: string; attacker: string }[];
+}
+
+/** One object on the stack and what it targets (§7.61 B2, B3). */
+export interface StackView {
+  id: string;
+  name: string;
+  /** The permanent it came from, if one is on the battlefield (an
+   * activated ability); null for a spell, whose line starts at the stack. */
+  source: string | null;
+  targets: readonly TargetRef[];
+}
+
+/** An Aura or Equipment whose host is being chosen (the gold chain). */
+export interface AttachView {
+  source: string;
+  host: string;
+}
+
+/** Damage just dealt, one wave (one combat damage step, or one spell):
+ * what Forge actually dealt (§7.61 B13). A new `key` is a new wave. */
+export interface DamageWave {
+  key: string;
+  hits: readonly { source: string; target: TargetRef; amount: number }[];
+}
+
 export interface BoardProps {
   battlefield: readonly BoardCard[];
   hand: readonly BoardHandCard[];
@@ -79,6 +140,16 @@ export interface BoardProps {
    * graveyard). A card that moved to the hand needs nothing: it is still
    * drawn, and simply moves. */
   departures?: ReadonlyMap<string, AnchorId>;
+  /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
+  combat?: CombatView | null;
+  /** The stack, the object that resolves next FIRST. */
+  stack?: readonly StackView[];
+  /** A stack object the player is pointing at: its lines show too. */
+  pointedStack?: string | null;
+  /** An attachment's host being chosen. */
+  attaching?: AttachView | null;
+  /** The newest damage dealt: played once per `key`. */
+  damage?: DamageWave | null;
 }
 
 /** The canvas's palette, by what a card is (§7.40: the type also shows
@@ -190,7 +261,34 @@ interface Ghost extends Drawn {
   to: Box;
   toOrigin: { x: number; y: number };
   fade: boolean;
+  /** Held in place this long first: a creature killed by damage waits for
+   * its impact before it leaves. */
+  delay: number;
 }
+
+/** A burst or a damage number, on its way out. */
+interface Effect {
+  key: string;
+  kind: "burst" | "number";
+  /** What was hit: an object id, or "player:N". */
+  target: string;
+  at: Point;
+  amount: number;
+  delay: number;
+}
+
+/** A line, ready to draw. */
+interface Line {
+  key: string;
+  kind: LineKind;
+  from: string;
+  to: string;
+  start: Point;
+  end: Point;
+  lane: number;
+}
+
+const refKey = (ref: TargetRef) => ("player" in ref ? `player:${ref.player}` : ref.object);
 
 /** One thing layout() placed, ready to draw. */
 interface Item {
@@ -211,12 +309,33 @@ function reducedMotion(): boolean {
 }
 
 /** The board fills its container and lays itself out for that size. */
-export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departures }: BoardProps) {
+export function Board({
+  battlefield,
+  hand,
+  viewerSeat,
+  artUrl,
+  arrivals,
+  departures,
+  combat,
+  stack,
+  pointedStack,
+  attaching,
+  damage,
+}: BoardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [pointed, setPointed] = useState<string | null>(null);
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
+  const [effects, setEffects] = useState<Effect[]>([]);
+  const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
+  const timers = useRef<number[]>([]);
+  useLayoutEffect(
+    () => () => {
+      for (const t of timers.current) window.clearTimeout(t);
+    },
+    [],
+  );
   const elements = useRef(new Map<string, HTMLDivElement>());
   const previous = useRef<{
     viewport: Viewport;
@@ -389,6 +508,130 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
     return out;
   }, [result, byId, hand, viewerSeat, artUrl, pointed]);
 
+  /** Where every object is drawn now: piles' members and hosts' tags
+   * share their card's box. */
+  const positions = useMemo(() => {
+    const at = new Map<string, { box: Box; origin: { x: number; y: number }; item: string }>();
+    for (const item of items) {
+      for (const id of item.ids) at.set(id, { box: item.box, origin: item.origin, item: item.id });
+    }
+    return at;
+  }, [items]);
+
+  // Damage: swoops, bursts and numbers, once per wave. Declared before the
+  // movement effect so a creature the same snapshot killed knows to wait.
+  useLayoutEffect(() => {
+    if (!result || !damage || damage.key === wave.current?.key) return;
+    const g = result.geometry;
+    const where = anchors(g);
+    const still = reducedMotion();
+    // Where a hit object is: drawn now, or (killed by this very snapshot)
+    // where it was drawn last.
+    const at = (id: string) => positions.get(id) ?? previous.current?.at.get(id);
+    // A swooping attacker is hit where it lands, not where it rests.
+    const landed = new Map<string, Point>();
+    const pointOf = (ref: TargetRef): Point | null => {
+      if ("player" in ref) return playerPoint(ref.player, viewerSeat, where);
+      const swooped = landed.get(ref.object);
+      if (swooped) return swooped;
+      const p = at(ref.object);
+      return p ? centreOf(p.box, p.origin) : null;
+    };
+
+    // Attackers swoop onto what they hit, all at once (AMENDMENT 7).
+    const attackers = new Set(combat?.attackers.map((a) => a.id) ?? []);
+    const bySource = new Map<string, TargetRef[]>();
+    for (const hit of damage.hits) {
+      bySource.set(hit.source, [...(bySource.get(hit.source) ?? []), hit.target]);
+    }
+    let swooped = false;
+    for (const [source, targets] of bySource) {
+      if (still || !attackers.has(source)) continue;
+      const from = positions.get(source);
+      const element = from ? elements.current.get(from.item) : undefined;
+      if (!from || !element || typeof element.animate !== "function") continue;
+      const boxes = targets.flatMap((t) => ("object" in t ? [at(t.object)?.box ?? []].flat() : []));
+      const player = targets.find((t) => "player" in t);
+      const landing =
+        boxes.length > 0
+          ? swoopBox(from.box, from.origin, { boxes })
+          : player
+            ? swoopBox(from.box, from.origin, { point: pointOf(player)! })
+            : null;
+      if (!landing) continue;
+      landed.set(source, centreOf(landing, from.origin));
+      const rest = placement(from.box, g.cardW, g.cardH, from.origin).transform;
+      const there = placement(landing, g.cardW, g.cardH, from.origin).transform;
+      element.style.zIndex = String(Z_SWOOP);
+      const animation = element.animate(
+        [
+          { transform: rest },
+          { transform: there, offset: SWOOP_ARRIVE },
+          { transform: there, offset: SWOOP_LEAVE },
+          { transform: rest },
+        ],
+        { duration: SWOOP_MS, easing: "ease-in-out", id: "swoop" },
+      );
+      const back = () => {
+        element.style.zIndex = element.dataset.z ?? "";
+      };
+      animation.onfinish = back;
+      animation.oncancel = back;
+      swooped = true;
+    }
+
+    // A burst and a number on everything hit, as the swoops land.
+    const delay = swooped ? SWOOP_ARRIVE * SWOOP_MS : 0;
+    const totals = new Map<string, { ref: TargetRef; amount: number }>();
+    for (const hit of damage.hits) {
+      const k = refKey(hit.target);
+      totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
+    }
+    const added: Effect[] = [];
+    for (const [k, { ref, amount }] of totals) {
+      const point = pointOf(ref);
+      if (!point) continue;
+      // The burst is where the hit happened; the number rises from where
+      // the card stays -- a swooping attacker's home, not its landing.
+      const home =
+        "object" in ref && landed.has(ref.object)
+          ? (() => {
+              const p = at(ref.object)!;
+              return centreOf(p.box, p.origin);
+            })()
+          : point;
+      if (!still)
+        added.push({
+          key: `${damage.key}:${k}:burst`,
+          kind: "burst",
+          target: k,
+          at: point,
+          amount,
+          delay,
+        });
+      added.push({
+        key: `${damage.key}:${k}:number`,
+        kind: "number",
+        target: k,
+        at: home,
+        amount,
+        delay,
+      });
+    }
+    setEffects((list) => [...list.filter((e) => !e.key.startsWith(`${damage.key}:`)), ...added]);
+    timers.current.push(
+      window.setTimeout(
+        () => setEffects((list) => list.filter((e) => !added.includes(e))),
+        delay + NUMBER_MS + 50,
+      ),
+    );
+    wave.current = {
+      key: damage.key,
+      impactAt: performance.now() + delay,
+      targets: new Set([...totals.keys()]),
+    };
+  }, [damage, result, positions, combat, viewerSeat]);
+
   // After each commit, before paint: start what should move.
   useLayoutEffect(() => {
     if (!result) return;
@@ -448,9 +691,12 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
         const at = before.at.get(id);
         if (!at) continue;
         const joined = now.get(id);
+        const hit = wave.current;
+        const delay =
+          hit && hit.targets.has(id) ? Math.max(0, hit.impactAt - performance.now()) + 150 : 0;
         leaving.push(
           joined
-            ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false }
+            ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false, delay }
             : {
                 ...d,
                 id,
@@ -458,6 +704,7 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
                 to: boxAt(where[departures?.get(id) ?? `${d.side}:graveyard`], g),
                 toOrigin: at.origin,
                 fade: true,
+                delay,
               },
         );
       }
@@ -474,6 +721,72 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
+  const where = anchors(g);
+  const sizes = effectSizes(g);
+
+  // The lines (AMENDMENT 7): every end is a drawn object or a rail point.
+  const centre = (id: string) => {
+    const p = positions.get(id);
+    return p ? centreOf(p.box, p.origin) : null;
+  };
+  // A point inside the card's picture, toward `toward`: a line starts and
+  // ends there, never on the name or power/toughness bars (as the mock's
+  // block line ended at 72% of the card's height).
+  const edge = (id: string, toward: Point, depth: number) => {
+    const p = positions.get(id)!;
+    const c = centreOf(p.box, p.origin);
+    const dx = toward.x - c.x;
+    const dy = toward.y - c.y;
+    const len = Math.max(0.001, Math.hypot(dx, dy));
+    const reach = Math.min(p.box.h * depth, len / 3);
+    return { x: c.x + (dx / len) * reach, y: c.y + (dy / len) * reach };
+  };
+  const refPoint = (ref: TargetRef) =>
+    "player" in ref ? playerPoint(ref.player, viewerSeat, where) : centre(ref.object);
+  const lines: Line[] = [];
+  const add = (kind: LineKind, from: string, to: string, start: Point, end: Point) =>
+    lines.push({ key: `${kind}:${from}:${to}`, kind, from, to, start, end, lane: 0 });
+  for (const a of combat?.attackers ?? []) {
+    const from = centre(a.id);
+    const aim = refPoint(a.target);
+    if (!from || !aim) continue;
+    const end = "object" in a.target ? edge(a.target.object, from, 0.18) : aim;
+    add("attack", a.id, refKey(a.target), edge(a.id, end, 0.22), end);
+  }
+  for (const b of combat?.blocks ?? []) {
+    const from = centre(b.blocker);
+    const to = centre(b.attacker);
+    if (!from || !to) continue;
+    add("block", b.blocker, b.attacker, edge(b.blocker, to, 0.2), edge(b.attacker, from, 0.22));
+  }
+  const shown = (stack ?? []).filter((s, i) => i === 0 || s.id === pointedStack);
+  for (const s of shown) {
+    for (const t of s.targets) {
+      const end = refPoint(t);
+      if (!end) continue;
+      const start = s.source && positions.has(s.source) ? edge(s.source, end, 0.22) : where.stack;
+      add("target", s.id, refKey(t), start, end);
+    }
+  }
+  if (attaching) {
+    const from = centre(attaching.source);
+    const to = centre(attaching.host);
+    if (from && to) {
+      add(
+        "attach",
+        attaching.source,
+        attaching.host,
+        edge(attaching.source, to, 0.22),
+        edge(attaching.host, from, 0.22),
+      );
+    }
+  }
+  // Several lines into one thing spread into lanes (the mock's).
+  const into = new Map<string, Line[]>();
+  for (const line of lines) into.set(line.to, [...(into.get(line.to) ?? []), line]);
+  for (const group of into.values()) {
+    group.forEach((line, i) => (line.lane = i - (group.length - 1) / 2));
+  }
 
   return (
     <div ref={ref} className="bf-board" data-testid="battlefield">
@@ -502,6 +815,7 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
               else elements.current.delete(item.id);
             }}
             className="bf-slot"
+            data-z={item.box.z}
             style={{
               width: g.cardW,
               height: g.cardH,
@@ -513,6 +827,105 @@ export function Board({ battlefield, hand, viewerSeat, artUrl, arrivals, departu
             {item.content}
           </div>
         ))}
+        <svg
+          className="bf-lines"
+          width={g.width}
+          height={g.height}
+          style={{ zIndex: Z_LINES }}
+          aria-hidden="true"
+        >
+          {lines.map((line) => {
+            const c = curve(line.kind, line.start, line.end, line.lane);
+            const d = pathOf(c);
+            const theme = LINE_THEME[line.kind];
+            const w = sizes.line;
+            return (
+              <g
+                key={line.key}
+                className={`bf-line bf-line-${line.kind}`}
+                data-line={line.kind}
+                data-from={line.from}
+                data-to={line.to}
+                data-start={`${line.start.x.toFixed(1)},${line.start.y.toFixed(1)}`}
+                data-end={`${line.end.x.toFixed(1)},${line.end.y.toFixed(1)}`}
+              >
+                <path d={d} stroke={theme.aura} strokeWidth={w * 3} className="bf-line-aura" />
+                <path d={d} stroke={theme.body} strokeWidth={w} className="bf-line-body" />
+                <path d={d} stroke={theme.core} strokeWidth={w * 0.7} className="bf-line-flow" />
+                {line.kind === "attack" && (
+                  <polygon points={arrowHead(c, w * 7)} fill={theme.body} stroke={theme.core} />
+                )}
+                {line.kind === "block" && (
+                  <polygon points={shieldAt(c, w * 3.2)} fill={theme.aura} stroke={theme.body} />
+                )}
+                {line.kind === "target" && (
+                  <g stroke={theme.body} strokeWidth={w * 0.8} fill="none">
+                    <circle cx={c.end.x} cy={c.end.y} r={w * 5} />
+                    <path
+                      d={`M ${c.end.x - w * 7} ${c.end.y} H ${c.end.x + w * 7} M ${c.end.x} ${c.end.y - w * 7} V ${c.end.y + w * 7}`}
+                    />
+                  </g>
+                )}
+                {line.kind === "attach" && (
+                  <g fill={theme.core} stroke={theme.body}>
+                    <circle cx={c.start.x} cy={c.start.y} r={w * 1.6} />
+                    <circle cx={c.end.x} cy={c.end.y} r={w * 1.6} />
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+        <div className="bf-effects" style={{ zIndex: Z_EFFECTS }} aria-hidden="true">
+          {effects.map((effect) =>
+            effect.kind === "burst" ? (
+              <div
+                key={effect.key}
+                className="bf-burst"
+                data-impact={effect.target}
+                style={{
+                  left: effect.at.x,
+                  top: effect.at.y,
+                  width: sizes.burst,
+                  height: sizes.burst,
+                  animationDelay: `${effect.delay}ms`,
+                }}
+              >
+                <svg viewBox="-50 -50 100 100">
+                  <circle r="22" className="bf-burst-core" />
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const t = (i / 10) * Math.PI * 2;
+                    const r1 = i % 2 ? 26 : 30;
+                    return (
+                      <line
+                        key={i}
+                        x1={Math.cos(t) * r1}
+                        y1={Math.sin(t) * r1}
+                        x2={Math.cos(t) * 48}
+                        y2={Math.sin(t) * 48}
+                        className="bf-burst-ray"
+                      />
+                    );
+                  })}
+                </svg>
+              </div>
+            ) : (
+              <div
+                key={effect.key}
+                className="bf-number"
+                data-damage-number={effect.target}
+                style={{
+                  left: effect.at.x,
+                  top: effect.at.y,
+                  fontSize: sizes.number,
+                  animationDelay: `${effect.delay}ms`,
+                }}
+              >
+                −{effect.amount}
+              </div>
+            ),
+          )}
+        </div>
         {ghosts.map((ghost) => (
           <GhostCard
             key={`ghost:${ghost.id}`}
@@ -556,7 +969,7 @@ function GhostCard({
           opacity: ghost.fade ? 0.15 : 1,
         },
       ],
-      { duration: MOVE_MS, easing: MOVE_EASING, fill: "forwards" },
+      { duration: MOVE_MS, easing: MOVE_EASING, delay: ghost.delay, fill: "both" },
     );
     animation.onfinish = done;
     // Unmounting (or StrictMode's rehearsal) stops it without finishing it.

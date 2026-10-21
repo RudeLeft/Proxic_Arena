@@ -11,11 +11,15 @@
 // `&change=N` applies N seeded changes (a land taps, a creature dies, a
 // spell resolves...), and "Next change" applies one more, so movement can
 // be watched -- and tested -- step by step (§7 step 4).
+//
+// `&script=combat` instead plays a fixed little game, step by step: an
+// attack, blocks, first-strike and regular damage, a Bolt and a response
+// on the stack, an Equip choice (§7 step 5's lines and effects).
 
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Board } from "./Board";
-import { applyChanges, syntheticBoard } from "./fixture";
+import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 
 function number(params: URLSearchParams, key: string, fallback: number, max: number): number {
   const raw = params.get(key);
@@ -33,7 +37,12 @@ export default function DevBoardPage() {
   const seed = number(params, "seed", 1, 1_000_000);
   const change = number(params, "change", 0, 10_000);
   const start = useMemo(() => syntheticBoard(permanents, faces, seed), [permanents, faces, seed]);
-  const now = useMemo(() => applyChanges(start, change, seed), [start, change, seed]);
+  const script = params.get("script") === "combat";
+  const scene = useMemo(() => (script ? combatScript(change) : null), [script, change]);
+  const now = useMemo(
+    () => scene ?? applyChanges(start, change, seed),
+    [scene, start, change, seed],
+  );
 
   const next = () => {
     const after = new URLSearchParams(params);
@@ -50,10 +59,18 @@ export default function DevBoardPage() {
         artUrl={asIs}
         arrivals={now.arrivals}
         departures={now.departures}
+        combat={scene?.combat ?? null}
+        stack={scene?.stack ?? []}
+        pointedStack={scene?.pointedStack ?? null}
+        attaching={scene?.attaching ?? null}
+        damage={scene?.damage ?? null}
       />
       <div className="bf-dev-note" role="note">
         <span>
-          Synthetic board — permanents {permanents}, faces {faces}, seed {seed}, change {change}
+          {script
+            ? "Synthetic combat"
+            : `Synthetic board — permanents ${permanents}, faces ${faces}, seed ${seed}`}
+          , change {change}
           {change > 0 ? ` (${now.what})` : ""}. Not a game.
         </span>
         <button type="button" className="bf-dev-next" onClick={next}>

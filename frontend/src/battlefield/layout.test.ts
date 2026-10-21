@@ -12,6 +12,7 @@ import {
   type LayoutInput,
   type Viewport,
 } from "./layout";
+import { syntheticBoard } from "./fixture";
 
 const VIEWPORTS: Viewport[] = [
   { width: 1366, height: 768 }, // the minimum (§1.19)
@@ -622,6 +623,20 @@ describe("the hand", () => {
         expect(right(last)).toBeLessThanOrEqual(g.rail.x + EPS);
         for (const b of boxes) expect(b.z).toBeGreaterThan(900);
       }
+    }
+  });
+});
+
+describe("stacking", () => {
+  it("every hand card is above every battlefield card, however full the board", () => {
+    const board = syntheticBoard(200, 30, 3);
+    for (const vp of VIEWPORTS) {
+      const out = layout(board, vp);
+      const field = board.battlefield.map((c) => out.boxes.get(c.id)!.z);
+      const hand = board.hand.map((c) => out.boxes.get(c.id)!.z);
+      // The lines (5000) and effects (6000) sit between the two.
+      expect(Math.max(...field)).toBeLessThan(5000);
+      expect(Math.min(...hand)).toBeGreaterThan(6000);
     }
   });
 });

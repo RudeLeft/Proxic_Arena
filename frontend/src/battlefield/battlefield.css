@@ -327,6 +327,151 @@
   text-overflow: ellipsis;
 }
 
+/* --- lines and combat effects (PHASE 7 AMENDMENTS 4 and 7) ----------------- */
+
+.bf-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.bf-line path {
+  fill: none;
+  stroke-linecap: round;
+}
+.bf-line-aura {
+  opacity: 0.35;
+}
+/* What keeps a line alive: sparks, pulses or glints running along it. */
+.bf-line-flow {
+  animation: bf-flow-18 0.6s linear infinite;
+}
+.bf-line-attack .bf-line-flow {
+  stroke-dasharray: 2 16;
+}
+.bf-line-block .bf-line-flow {
+  stroke-dasharray: 10 20;
+  animation: bf-flow-30 1s linear infinite;
+}
+.bf-line-target .bf-line-flow {
+  stroke-dasharray: 3 12;
+  animation: bf-flow-15 0.7s linear infinite;
+}
+.bf-line-attach .bf-line-flow {
+  stroke-dasharray: 0.1 14;
+  stroke-width: 5px;
+  animation: bf-flow-14 1.6s linear infinite;
+}
+@keyframes bf-flow-18 {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+@keyframes bf-flow-30 {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+@keyframes bf-flow-15 {
+  to {
+    stroke-dashoffset: -15;
+  }
+}
+@keyframes bf-flow-14 {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.bf-effects {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* The impact: a burst about a card wide, gone in half a second. */
+.bf-burst {
+  position: absolute;
+  animation: bf-burst 500ms ease-out both;
+}
+.bf-burst svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.bf-burst-core {
+  fill: #ffd06a;
+  opacity: 0.85;
+}
+.bf-burst-ray {
+  stroke: #ff5a19;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+@keyframes bf-burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  55% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+/* The damage number: rises a little and fades, about a second. */
+.bf-number {
+  position: absolute;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: #ffd06a;
+  text-shadow:
+    0 0 3px #000,
+    0 2px 8px #000;
+  font-variant-numeric: tabular-nums;
+  animation: bf-number 1000ms ease-out both;
+}
+@keyframes bf-number {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%);
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -160%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-line-flow {
+    animation: none;
+  }
+  .bf-number {
+    animation-name: bf-number-still;
+  }
+  @keyframes bf-number-still {
+    0%,
+    80% {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 /* --- the development page ---------------------------------------------- */
 
 .bf-dev-note {

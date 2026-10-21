@@ -397,7 +397,7 @@ function planRows(
 // --- layout -------------------------------------------------------------------
 
 const Z_BATTLEFIELD = 10;
-const Z_HAND = 1000;
+const Z_HAND = 10000; // above every battlefield z (rows reach ~2000), the lines and the effects
 
 export function layout(input: LayoutInput, viewport: Viewport): Layout {
   const g = geometry(viewport);

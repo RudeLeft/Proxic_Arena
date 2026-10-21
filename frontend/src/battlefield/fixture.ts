@@ -6,6 +6,7 @@
 
 import type { BoardCard, BoardHandCard } from "./Board";
 import type { AnchorId } from "./motion";
+import type { AttachView, CombatView, DamageWave, StackView } from "./Board";
 
 /** mulberry32: small, fast, deterministic. */
 function random(seed: number): () => number {
@@ -371,4 +372,274 @@ export function applyChanges(start: SyntheticBoard, n: number, seed: number): Sy
     last = { board, what, arrivals, departures };
   }
   return last;
+}
+
+// --- the combat script (§7 step 5) ---------------------------------------------
+
+/** What the board is told about besides the cards: combat, the stack, an
+ * attachment being chosen, and damage just dealt (§7.61 B2-B4, B13). */
+export interface SyntheticScene extends SyntheticChange {
+  combat: CombatView | null;
+  stack: StackView[];
+  pointedStack: string | null;
+  attaching: AttachView | null;
+  damage: DamageWave | null;
+}
+
+function scriptCard(
+  id: string,
+  seat: number,
+  name: string,
+  kind: string,
+  types: string,
+  over: Partial<BoardCard> = {},
+): BoardCard {
+  return {
+    id,
+    seat,
+    name,
+    kind,
+    types,
+    tapped: false,
+    attacking: false,
+    blocking: false,
+    sick: false,
+    faceDown: false,
+    known: true,
+    power: null,
+    toughness: null,
+    keywords: [],
+    counters: [],
+    attachedTo: null,
+    enteredAt: Number(id.replace(/\D/g, "")),
+    art: syntheticScan(name),
+    ...over,
+  };
+}
+
+const SCRIPT_STEPS = [
+  "the board before combat",
+  "Bob attacks: Serra Angel and White Knight at you, a Goblin token at The Wandering Emperor",
+  "you block: Goblin Guide and Llanowar Elves on Serra Angel, Grizzly Bears on White Knight",
+  "first-strike damage: White Knight deals 2 to Grizzly Bears",
+  "Grizzly Bears dies",
+  "combat damage: Serra Angel 2 to each blocker, they hit back, the token hits the Emperor",
+  "Goblin Guide and Llanowar Elves die; combat ends",
+  "Bob casts Lightning Bolt at The Wandering Emperor",
+  "you respond: Shock at White Knight",
+  "pointing at Lightning Bolt in the stack",
+  "Shock resolves: White Knight dies",
+  "Lightning Bolt resolves: The Wandering Emperor dies",
+  "you equip Bonesplitter: choosing Walking Corpse",
+  "Bonesplitter is attached to Walking Corpse",
+] as const;
+
+export const COMBAT_SCRIPT_LENGTH = SCRIPT_STEPS.length;
+
+/**
+ * A short, fixed game to watch every line and effect in turn (PHASE 7
+ * AMENDMENTS 4 and 7), one step per "Next change". Its names are the
+ * owner's examples. A step past the end stays on the last.
+ */
+export function combatScript(n: number): SyntheticScene {
+  const you = 1;
+  const bob = 2;
+  const angel = scriptCard("card:201", bob, "Serra Angel", "creature", "Creature — Angel", {
+    power: 4,
+    toughness: 4,
+    keywords: ["Flying", "Vigilance"],
+  });
+  const knight = scriptCard("card:202", bob, "White Knight", "creature", "Creature — Knight", {
+    power: 2,
+    toughness: 2,
+    keywords: ["First strike"],
+  });
+  const token = scriptCard("card:203", bob, "Goblin Token", "creature", "Token Creature — Goblin", {
+    power: 1,
+    toughness: 1,
+    token: true,
+    art: null,
+  });
+  const guide = scriptCard("card:211", you, "Goblin Guide", "creature", "Creature — Goblin", {
+    power: 2,
+    toughness: 2,
+  });
+  const elves = scriptCard("card:212", you, "Llanowar Elves", "creature", "Creature — Elf", {
+    power: 1,
+    toughness: 1,
+  });
+  const bears = scriptCard("card:213", you, "Grizzly Bears", "creature", "Creature — Bear", {
+    power: 2,
+    toughness: 2,
+  });
+  const corpse = scriptCard("card:214", you, "Walking Corpse", "creature", "Creature — Zombie", {
+    power: 2,
+    toughness: 2,
+  });
+  const emperor = scriptCard(
+    "card:215",
+    you,
+    "The Wandering Emperor",
+    "other",
+    "Legendary Planeswalker — Emperor",
+    { counters: [{ name: "LOYALTY", count: 4 }] },
+  );
+  const splitter = scriptCard("card:216", you, "Bonesplitter", "other", "Artifact — Equipment");
+  const lands = [
+    ...[221, 222, 223, 224].map((i) =>
+      scriptCard(`card:${i}`, bob, "Plains", "land", "Basic Land — Plains"),
+    ),
+    ...[231, 232, 233].map((i) =>
+      scriptCard(`card:${i}`, you, "Forest", "land", "Basic Land — Forest"),
+    ),
+    ...[234, 235].map((i) =>
+      scriptCard(`card:${i}`, you, "Mountain", "land", "Basic Land — Mountain"),
+    ),
+  ];
+  const handNames = ["Shock", "Forest", "Thraben Inspector", "Mind Stone"];
+  const hand: BoardHandCard[] = handNames.map((name, i) => ({
+    id: `card:24${i}`,
+    name,
+    kind: name === "Forest" ? "land" : name === "Thraben Inspector" ? "creature" : "other",
+    types:
+      name === "Forest"
+        ? "Basic Land — Forest"
+        : name === "Thraben Inspector"
+          ? "Creature — Human"
+          : "Spell",
+    power: name === "Thraben Inspector" ? 1 : null,
+    toughness: name === "Thraben Inspector" ? 2 : null,
+    art: syntheticScan(name),
+  }));
+
+  const step = Math.max(0, Math.min(n, SCRIPT_STEPS.length - 1));
+  let battlefield: BoardCard[] = [
+    angel,
+    knight,
+    token,
+    guide,
+    elves,
+    bears,
+    corpse,
+    emperor,
+    splitter,
+    ...lands,
+  ];
+  const set = (id: string, over: Partial<BoardCard>) => {
+    battlefield = battlefield.map((c) => (c.id === id ? { ...c, ...over } : c));
+  };
+  const remove = (...ids: string[]) => {
+    battlefield = battlefield.filter((c) => !ids.includes(c.id));
+  };
+  const scene: SyntheticScene = {
+    board: { battlefield, hand, viewerSeat: you },
+    what: SCRIPT_STEPS[step]!,
+    arrivals: new Map(),
+    departures: new Map(),
+    combat: null,
+    stack: [],
+    pointedStack: null,
+    attaching: null,
+    damage: null,
+  };
+
+  // Combat: steps 1-5 (it ends at step 6).
+  if (step >= 1 && step <= 5) {
+    set(angel.id, { attacking: true }); // vigilance: attacks untapped
+    set(knight.id, { attacking: true, tapped: true });
+    set(token.id, { attacking: true, tapped: true });
+    scene.combat = {
+      attackers: [
+        { id: angel.id, target: { player: you } },
+        { id: knight.id, target: { player: you } },
+        { id: token.id, target: { object: emperor.id } },
+      ],
+      blocks: [],
+    };
+  }
+  if (step >= 2 && step <= 5) {
+    set(guide.id, { blocking: true });
+    set(elves.id, { blocking: true });
+    if (step <= 3) set(bears.id, { blocking: true });
+    scene.combat!.blocks = [
+      { blocker: guide.id, attacker: angel.id },
+      { blocker: elves.id, attacker: angel.id },
+      ...(step <= 3 ? [{ blocker: bears.id, attacker: knight.id }] : []),
+    ];
+  }
+  if (step === 3) {
+    scene.damage = {
+      key: "first-strike",
+      hits: [{ source: knight.id, target: { object: bears.id }, amount: 2 }],
+    };
+  }
+  if (step >= 4) {
+    remove(bears.id);
+    if (step === 4) scene.departures.set(bears.id, "viewer:graveyard");
+  }
+  if (step === 5) {
+    scene.damage = {
+      key: "regular",
+      hits: [
+        { source: angel.id, target: { object: guide.id }, amount: 2 },
+        { source: angel.id, target: { object: elves.id }, amount: 2 },
+        { source: guide.id, target: { object: angel.id }, amount: 2 },
+        { source: elves.id, target: { object: angel.id }, amount: 1 },
+        { source: token.id, target: { object: emperor.id }, amount: 1 },
+      ],
+    };
+  }
+  if (step >= 5) set(emperor.id, { counters: [{ name: "LOYALTY", count: 3 }] });
+  if (step >= 6) {
+    remove(guide.id, elves.id);
+    if (step === 6) {
+      scene.departures.set(guide.id, "viewer:graveyard");
+      scene.departures.set(elves.id, "viewer:graveyard");
+    }
+  }
+
+  // The stack: steps 7-11.
+  const bolt: StackView = {
+    id: "stack:1",
+    name: "Lightning Bolt",
+    source: null,
+    targets: [{ object: emperor.id }],
+  };
+  const shock: StackView = {
+    id: "stack:2",
+    name: "Shock",
+    source: null,
+    targets: [{ object: knight.id }],
+  };
+  if (step === 7) scene.stack = [bolt];
+  if (step === 8 || step === 9) scene.stack = [shock, bolt];
+  if (step === 9) scene.pointedStack = bolt.id;
+  if (step >= 10) {
+    remove(knight.id);
+    if (step === 10) {
+      scene.stack = [bolt];
+      scene.damage = {
+        key: "shock",
+        hits: [{ source: shock.id, target: { object: knight.id }, amount: 2 }],
+      };
+      scene.departures.set(knight.id, "opponent:graveyard");
+    }
+  }
+  if (step >= 11) {
+    remove(emperor.id);
+    if (step === 11) {
+      scene.damage = {
+        key: "bolt",
+        hits: [{ source: bolt.id, target: { object: emperor.id }, amount: 3 }],
+      };
+      scene.departures.set(emperor.id, "viewer:graveyard");
+    }
+  }
+
+  // Equip: steps 12-13.
+  if (step === 12) scene.attaching = { source: splitter.id, host: corpse.id };
+  if (step >= 13) set(splitter.id, { attachedTo: corpse.id });
+
+  scene.board = { battlefield, hand, viewerSeat: you };
+  return scene;
 }

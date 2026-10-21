@@ -11,11 +11,18 @@
 // It then checks, on the boxes the browser actually drew, what Amendment 4
 // promised the owner: no card covers a card in another row, nothing
 // crosses the divider, and tilted corners really are clipped. And, step 4,
-// that after any change the board MOVES and then settles exactly there.
+// that after any change the board MOVES and then settles exactly there;
+// step 5, that the lines and combat effects follow the game.
 
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./helpers";
-import { applyChanges, syntheticBoard, type SyntheticBoard } from "../src/battlefield/fixture";
+import {
+  COMBAT_SCRIPT_LENGTH,
+  applyChanges,
+  combatScript,
+  syntheticBoard,
+  type SyntheticBoard,
+} from "../src/battlefield/fixture";
 import {
   HAND_ORIGIN,
   TAPPED_ORIGIN,
@@ -23,7 +30,8 @@ import {
   type Box,
   type RowId,
 } from "../src/battlefield/layout";
-import { MOVE_MS, bandOf, handZoomBox } from "../src/battlefield/motion";
+import { MOVE_MS, anchors, bandOf, handZoomBox, placement } from "../src/battlefield/motion";
+import { swoopBox } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -394,5 +402,178 @@ test("after every change the board moves, then settles exactly where layout() sa
   await expect(handCard).not.toHaveAttribute("data-zoomed", "true");
   expect((await differences(page, board, viewport, false)).wrong).toEqual([]);
 
+  expect(problems, "browser reported errors").toEqual([]);
+});
+
+/** Is the point inside the convex polygon (with a little slack)? */
+function inside(point: { x: number; y: number }, poly: Point[], slack = 1): boolean {
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, y1] = poly[i]!;
+    const [x2, y2] = poly[(i + 1) % poly.length]!;
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const side = ((x2 - x1) * (point.y - y1) - (y2 - y1) * (point.x - x1)) / len;
+    if (Math.abs(side) <= slack) continue;
+    const s = Math.sign(side);
+    if (sign !== 0 && s !== sign) return false;
+    sign = s;
+  }
+  return true;
+}
+
+const numbers = (text: string) => (text.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+
+test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ page }) => {
+  test.setTimeout(120_000);
+  const problems = watchErrors(page);
+  await signIn(page);
+  const viewport = { width: 1920, height: 1080 };
+  await page.setViewportSize(viewport);
+  await page.goto("/dev/board?script=combat");
+  await page.locator(".bf-slot").first().waitFor();
+
+  for (let n = 1; n < COMBAT_SCRIPT_LENGTH; n++) {
+    const scene = combatScript(n);
+    const before = layout(combatScript(n - 1).board, viewport);
+    const expected = layout(scene.board, viewport);
+    const where = anchors(expected.geometry);
+    const what = `step ${n} (${scene.what})`;
+    await page.getByRole("button", { name: "Next change" }).click();
+    await page.mouse.move(viewport.width / 2, 40);
+    await expect(page.getByRole("note")).toContainText(`change ${n} `);
+
+    // Damage: read the swoops and numbers while they play.
+    if (scene.damage) {
+      const playing = await page.evaluate(() => ({
+        swoops: document
+          .getAnimations()
+          .filter((a) => a.id === "swoop")
+          .map((a) => {
+            const effect = a.effect as KeyframeEffect;
+            const target = effect.target as HTMLElement;
+            return {
+              id: target.querySelector("button")!.dataset.objectId!,
+              landing: String(effect.getKeyframes()[1]!.transform),
+            };
+          }),
+        numbers: [...document.querySelectorAll<HTMLElement>("[data-damage-number]")].map(
+          (e) => `${e.dataset.damageNumber} ${e.textContent}`,
+        ),
+        impacts: document.querySelectorAll("[data-impact]").length,
+      }));
+      const totals = new Map<string, number>();
+      for (const hit of scene.damage.hits) {
+        const k = "player" in hit.target ? `player:${hit.target.player}` : hit.target.object;
+        totals.set(k, (totals.get(k) ?? 0) + hit.amount);
+      }
+      expect(playing.numbers.sort(), `${what}: numbers`).toEqual(
+        [...totals].map(([k, v]) => `${k} −${v}`).sort(),
+      );
+      expect(playing.impacts, `${what}: bursts`).toBe(totals.size);
+      // Attackers swoop -- and land exactly where swoopBox() says.
+      const attackers = new Set(scene.combat?.attackers.map((a) => a.id) ?? []);
+      const sources = [...new Set(scene.damage.hits.map((h) => h.source))].filter((s) =>
+        attackers.has(s),
+      );
+      expect(playing.swoops.map((s) => s.id).sort(), `${what}: swoops`).toEqual(sources.sort());
+      for (const swoop of playing.swoops) {
+        const from = expected.boxes.get(swoop.id) ?? before.boxes.get(swoop.id)!;
+        const hits = scene.damage.hits.filter((h) => h.source === swoop.id);
+        const boxes = hits.flatMap((h) =>
+          "object" in h.target
+            ? [expected.boxes.get(h.target.object) ?? before.boxes.get(h.target.object)!]
+            : [],
+        );
+        const landing =
+          boxes.length > 0
+            ? swoopBox(from, TAPPED_ORIGIN, { boxes })
+            : swoopBox(from, TAPPED_ORIGIN, { point: where["viewer:life"] });
+        const want = placement(
+          landing,
+          expected.geometry.cardW,
+          expected.geometry.cardH,
+          TAPPED_ORIGIN,
+        ).transform;
+        const [got, wanted] = [numbers(swoop.landing), numbers(want)];
+        expect(got.length, `${what}: ${swoop.id}'s swoop`).toBe(wanted.length);
+        got.forEach((v, i) => expect(Math.abs(v - wanted[i]!)).toBeLessThan(0.05));
+      }
+    }
+
+    // Once it has all played out: the board is exactly the layout, nothing
+    // still moving or showing, and the lines are the scene's.
+    await page.waitForTimeout(1400);
+    const result = await differences(page, scene.board, viewport, false);
+    expect(result.wrong, what).toEqual([]);
+    // Nothing moves any more but the lines' own sparks (CSS animations).
+    const stillMoving = await page.evaluate(
+      () =>
+        document
+          .getAnimations()
+          .filter((a) => a.playState === "running" && !(a instanceof CSSAnimation)).length,
+    );
+    expect(stillMoving, `${what}: still moving`).toBe(0);
+    expect(await page.locator("[data-damage-number], [data-impact]").count(), what).toBe(0);
+
+    const drawnLines = await page.evaluate(() =>
+      [...document.querySelectorAll<SVGGElement>("[data-line]")].map((g) => ({
+        kind: g.dataset.line!,
+        from: g.dataset.from!,
+        to: g.dataset.to!,
+        start: g.dataset.start!.split(",").map(Number) as [number, number],
+        end: g.dataset.end!.split(",").map(Number) as [number, number],
+        // Drawn, not just present: a hidden layer has no size on screen.
+        shown: g.getBoundingClientRect().width + g.getBoundingClientRect().height > 4,
+      })),
+    );
+    const want: string[] = [
+      ...(scene.combat?.attackers ?? []).map(
+        (a) =>
+          `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
+      ),
+      ...(scene.combat?.blocks ?? []).map((b) => `block ${b.blocker}>${b.attacker}`),
+      ...scene.stack
+        .filter((s, i) => i === 0 || s.id === scene.pointedStack)
+        .flatMap((s) =>
+          s.targets.map((t) => `target ${s.id}>${"player" in t ? `player:${t.player}` : t.object}`),
+        ),
+      ...(scene.attaching ? [`attach ${scene.attaching.source}>${scene.attaching.host}`] : []),
+    ];
+    expect(drawnLines.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
+      want.sort(),
+    );
+    // Every end is inside the drawn card it belongs to, or on its rail point.
+    const outlineOf = (id: string) => {
+      const box = expected.boxes.get(id)!;
+      return corners(box, TAPPED_ORIGIN);
+    };
+    const near = (p: [number, number], q: { x: number; y: number }) =>
+      Math.hypot(p[0] - q.x, p[1] - q.y) < 1;
+    for (const line of drawnLines) {
+      expect(line.shown, `${what}: ${line.kind} ${line.from} is not visible`).toBe(true);
+      const start = { x: line.start[0], y: line.start[1] };
+      const end = { x: line.end[0], y: line.end[1] };
+      if (line.from.startsWith("stack:")) {
+        expect(near(line.start, where.stack), `${what}: ${line.from} starts at the stack`).toBe(
+          true,
+        );
+      } else {
+        expect(
+          inside(start, outlineOf(line.from)),
+          `${what}: ${line.kind} starts in ${line.from}`,
+        ).toBe(true);
+      }
+      if (line.to.startsWith("player:")) {
+        expect(
+          near(line.end, where["viewer:life"]),
+          `${what}: ${line.kind} ends at the life total`,
+        ).toBe(true);
+      } else {
+        expect(inside(end, outlineOf(line.to)), `${what}: ${line.kind} ends in ${line.to}`).toBe(
+          true,
+        );
+      }
+    }
+  }
   expect(problems, "browser reported errors").toEqual([]);
 });
