@@ -466,6 +466,15 @@ public final class MatchController extends GeneratedControllerBase {
         }
         host.offerUnpayable(unpayable);
 
+        // PHASE_07 §7.53, AMENDMENT 13 -- a step this player does not stop
+        // at, with nothing on the stack they could answer: passed for, as
+        // MTG Arena does. Only ever a priority pass, and only with the
+        // player's own settings; a seat without any is asked as before.
+        if (!host.stops().shouldAsk(actedForSeat, player, player.getGame(),
+                actedForSeat != authorisedSeat, byId, unpayable)) {
+            return null;
+        }
+
         try {
             String choice =
                     host.gate().ask(

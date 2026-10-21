@@ -29,6 +29,7 @@ import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../MatchP
 import { Board } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
+import { STOP_STEPS, fetchStops, passWords, saveStops, type StopSettings } from "./stops";
 import "./game.css";
 
 /** The canvas's eight steps; Forge's phase names fold into them. */
@@ -206,6 +207,10 @@ export function GameScreen({
               selected={selected}
               onPick={pick}
               onPass={() => answer(null)}
+              onPassTurn={() => {
+                socketRef.current?.passTurn();
+                answer(null);
+              }}
               onView={setViewer}
               finished={finished}
             />
@@ -257,6 +262,7 @@ export function GameScreen({
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
           concession={finished ? null : concessionText(game.concession)}
+          onStops={(settings) => socketRef.current?.stops(settings)}
           onConcede={() => {
             setGame((previous) => ({ ...previous, concession: null }));
             socketRef.current?.concede();
@@ -285,6 +291,7 @@ export function GameScreen({
           onToggleAll={() => setListOpen((open) => !open)}
           onAnswer={answer}
           onSearch={search}
+          passWord={passWordFor(decision.kind, board, mine?.seatNumber ?? null)}
         />
       )}
 
@@ -504,6 +511,7 @@ function Rail({
   selected,
   onPick,
   onPass,
+  onPassTurn,
   onView,
   finished,
 }: {
@@ -514,6 +522,8 @@ function Rail({
   selected: string | null;
   onPick: (id: string) => void;
   onPass: () => void;
+  /** §7.53 extra — pass now, and no more stops this turn. */
+  onPassTurn: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
@@ -525,6 +535,7 @@ function Rail({
   const priorityName =
     board.players.find((p) => p.seat === board.prioritySeat)?.name ?? "The other player";
   const myPriority = question?.context === "priority";
+  const words = passWords(board, mySeat);
   return (
     <div className="gs-rail">
       {them && (
@@ -590,12 +601,26 @@ function Rail({
           <span className="gs-waiting-sub">Nobody holds priority now</span>
         </div>
       ) : myPriority ? (
-        <button type="button" className="gs-act" disabled={busy} onClick={onPass}>
-          <span className="gs-act-word">Pass</span>
-          <span className="gs-act-sub">
-            {top ? `Lets ${top.name} resolve` : "Moves the game on"}
-          </span>
-        </button>
+        <div className="gs-act-group">
+          {/* The same pass whatever it says (§7.53 extra): the words say
+              what happens next, as MTG Arena's button does. Named "Pass"
+              for a screen reader, whatever it shows. */}
+          <button
+            type="button"
+            className="gs-act"
+            disabled={busy}
+            onClick={onPass}
+            aria-label={`Pass: ${words.word}. ${words.sub}`}
+          >
+            <span className="gs-act-word">{words.word}</span>
+            <span className="gs-act-sub">{words.sub}</span>
+          </button>
+          {!top && (
+            <button type="button" className="gs-act-turn" disabled={busy} onClick={onPassTurn}>
+              Skip to end of turn
+            </button>
+          )}
+        </div>
       ) : !question ? (
         <div className="gs-waiting" role="status">
           <span className="gs-waiting-word">
@@ -642,6 +667,7 @@ function QuestionBar({
   onToggleAll,
   onAnswer,
   onSearch,
+  passWord,
 }: {
   decision: NonNullable<MatchState["decision"]>;
   question: Question;
@@ -653,6 +679,8 @@ function QuestionBar({
   onToggleAll: () => void;
   onAnswer: (actionId: string | null) => void;
   onSearch: (query: string) => void;
+  /** What this question's "no" means, in words ("Attack", "No attack"). */
+  passWord: string;
 }) {
   const onBoardCount = [...question.onBoard.values()].reduce((n, list) => n + list.length, 0);
   // On your move with nothing to list, the board and the Pass button are
@@ -696,20 +724,30 @@ function QuestionBar({
   // Everything asked is on the board (a target, a land to tap): the
   // board is the answer, so the question is one line over the table,
   // never a box in the middle of it (AMENDMENT 12).
-  if (!all && !decision.searchable && question.listed.length === 0 && onBoardCount > 0) {
+  if (!all && !decision.searchable && question.listed.length <= 3 && onBoardCount > 0) {
     return (
       <div className="gs-question gs-question-slim" data-kind={decision.kind}>
         <h2 className="gs-question-title">{heading}</h2>
         {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
         <p className="gs-question-hint">{hintFor(decision.kind, decision.options.length)}</p>
+        {/* A few choices the board cannot show ("All attack"): inline. */}
+        {question.listed.length > 0 && (
+          <ul className="gs-options gs-options-inline">{question.listed.map(option)}</ul>
+        )}
         {notice && (
           <p className="gs-question-notice" role="alert">
             {notice}
           </p>
         )}
         {question.context !== "priority" && question.canPass && (
-          <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
-            Pass
+          <button
+            type="button"
+            className="gs-pass"
+            disabled={busy}
+            onClick={() => onAnswer(null)}
+            aria-label={passWord === "Pass" ? undefined : `Pass: ${passWord}`}
+          >
+            {passWord}
           </button>
         )}
       </div>
@@ -767,12 +805,32 @@ function QuestionBar({
           canvas); here only when this question's "no" is not a pass of
           priority. Never when the rules give no "no" (Phase 6). */}
       {question.context !== "priority" && question.canPass && (
-        <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
-          Pass
+        <button
+          type="button"
+          className="gs-pass"
+          disabled={busy}
+          onClick={() => onAnswer(null)}
+          aria-label={passWord === "Pass" ? undefined : `Pass: ${passWord}`}
+        >
+          {passWord}
         </button>
       )}
     </div>
   );
+}
+
+/**
+ * A question's "no", in the words of what it does (AMENDMENT 13): ending
+ * the attack declaration attacks with whatever was chosen. Named "Pass"
+ * for a screen reader whatever it shows.
+ */
+function passWordFor(kind: string, board: Snapshot | null, mySeat: number | null): string {
+  if (kind === "declareAttackers") {
+    const attacking = board?.battlefield.some((c) => c.attacking && c.seat === mySeat) ?? false;
+    return attacking ? "Attack" : "No attack";
+  }
+  if (kind === "declareBlockers") return "Done blocking";
+  return "Pass";
 }
 
 function ActionPopup({
@@ -1009,6 +1067,7 @@ function GameMenu({
   onList,
   concession,
   onConcede,
+  onStops,
 }: {
   match: MatchView;
   live: boolean;
@@ -1021,7 +1080,10 @@ function GameMenu({
   /** Where a concession stands, in words (§7.55). */
   concession: string | null;
   onConcede: () => void;
+  /** §7.53 — saved stops, to apply to this game now. */
+  onStops: (settings: StopSettings) => void;
 }) {
+  const [stopsOpen, setStopsOpen] = useState(false);
   // §7.55: Concede is a real loss, Forge's; Abandon is for a stuck or
   // broken game and has no winner. Each asks first, and only one asks
   // at a time.
@@ -1046,6 +1108,25 @@ function GameMenu({
         <button type="button" className="gs-menu-button" aria-expanded={listOpen} onClick={onList}>
           List choices ({choices})
         </button>
+      )}
+      {live && (
+        <button
+          type="button"
+          className="gs-menu-button"
+          aria-expanded={stopsOpen}
+          onClick={() => setStopsOpen((open) => !open)}
+        >
+          Stops
+        </button>
+      )}
+      {live && stopsOpen && (
+        <StopsPanel
+          onClose={() => setStopsOpen(false)}
+          onSaved={(settings) => {
+            onStops(settings);
+            setStopsOpen(false);
+          }}
+        />
       )}
       {live &&
         (confirming === "concede" ? (
@@ -1113,6 +1194,110 @@ function GameMenu({
           {failure}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * §7.53 — where you are asked "act or pass?". Everywhere else the game
+ * passes for you, and only ever passes: targets, payments, blocks and
+ * mulligans are always asked. Saved for your account, and applied to the
+ * game in progress.
+ */
+function StopsPanel({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: (settings: StopSettings) => void;
+}) {
+  const [settings, setSettings] = useState<StopSettings | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void fetchStops().then((loaded) => {
+      if (!alive) return;
+      if (loaded) setSettings(loaded);
+      else setFailure("Your stops could not be loaded.");
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const toggle = (side: "own" | "opponent", key: string) =>
+    setSettings((current) => {
+      if (!current) return current;
+      const list = current[side];
+      return {
+        ...current,
+        [side]: list.includes(key) ? list.filter((k) => k !== key) : [...list, key],
+      };
+    });
+  const save = async () => {
+    if (!settings) return;
+    setSaving(true);
+    const saved = await saveStops(settings);
+    setSaving(false);
+    if (saved) onSaved(saved);
+    else setFailure("Your stops could not be saved. Try again.");
+  };
+  return (
+    <div className="gs-stops" role="dialog" aria-label="Where the game stops for you">
+      <h2 className="gs-stops-title">Where the game stops for you</h2>
+      <p className="gs-stops-note">
+        At a step without a tick the game passes for you, but only when nothing your opponent did is
+        waiting to resolve, and never past a target, a payment or a block. Your main phases stop
+        only when you have something to play.
+      </p>
+      {settings ? (
+        <table className="gs-stops-table">
+          <thead>
+            <tr>
+              <th scope="col">Step</th>
+              <th scope="col">Your turn</th>
+              <th scope="col">Their turn</th>
+            </tr>
+          </thead>
+          <tbody>
+            {STOP_STEPS.map((step) => (
+              <tr key={step.key}>
+                <th scope="row">{step.label}</th>
+                {(["own", "opponent"] as const).map((side) => (
+                  <td key={side}>
+                    <input
+                      type="checkbox"
+                      aria-label={`${step.label}, ${side === "own" ? "your turn" : "their turn"}`}
+                      checked={settings[side].includes(step.key)}
+                      onChange={() => toggle(side, step.key)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        !failure && <p className="gs-stops-note">Loading…</p>
+      )}
+      {failure && (
+        <p className="gs-menu-failure" role="alert">
+          {failure}
+        </p>
+      )}
+      <div className="gs-stops-actions">
+        <button
+          type="button"
+          className="gs-menu-button gs-menu-warn"
+          disabled={!settings || saving}
+          onClick={() => void save()}
+        >
+          Save
+        </button>
+        <button type="button" className="gs-menu-button" onClick={onClose}>
+          Close
+        </button>
+      </div>
     </div>
   );
 }

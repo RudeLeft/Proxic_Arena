@@ -46,6 +46,8 @@ data class WorkerSeat(
      */
     val seatNumber: Int,
     val cards: List<DeckEntry>,
+    /** PHASE_07 §7.53 — when this player is asked; null asks at every step. */
+    val stops: StopSettings? = null,
 )
 
 sealed interface WorkerStart {

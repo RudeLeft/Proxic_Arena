@@ -37,7 +37,10 @@ import uuid
 
 JAR, RES = sys.argv[1], sys.argv[2]
 TRACE = sys.argv[3] if len(sys.argv) > 3 else None
-DECK = [("Forest", 10), ("Plains", 10), ("Mountain", 10), ("Aether Hub", 4),
+# Ten Aether Hubs, not four: energy is seen only once a Hub is drawn, and
+# with four about one game in ten ended (the Elf's poison) before one was
+# -- inconclusive in CI, 2026-10-21. Seven of each basic still cast all three.
+DECK = [("Forest", 7), ("Plains", 8), ("Mountain", 7), ("Aether Hub", 10),
         ("Glistener Elf", 8), ("Palace Jailer", 8), ("Reckless Stormseeker", 8)]
 CASTS = ["Glistener Elf", "Palace Jailer", "Reckless Stormseeker"]
 MAX_TURN = 40

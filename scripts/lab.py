@@ -46,11 +46,14 @@ def card_of(action_id):
 
 
 class Game:
-    def __init__(self, seat1, seat2, jar=None, res=None, trace=None, jvm=()):
+    def __init__(self, seat1, seat2, jar=None, res=None, trace=None, jvm=(), stops=None):
         self.jar = jar or sys.argv[1]
         self.res = res or sys.argv[2]
         trace = trace if trace is not None else (sys.argv[3] if len(sys.argv) > 3 else None)
         self.decks = {1: seat1, 2: seat2}
+        # PHASE_07 §7.53 -- {seat: {"own": [...], "opponent": [...]}}; a seat
+        # without stops is asked at every step, as before.
+        self.stops = stops or {}
         self.state = {}            # seat -> latest snapshot, that seat's view
         self.ended = None          # the GAME_ENDED frame
         self.error = None          # an ERROR frame that stopped the game
@@ -98,6 +101,11 @@ class Game:
                    "messageId": str(uuid.uuid4()), "decisionId": frame["decisionId"],
                    "seat": frame["authorisedSeat"], "stateVersion": frame["stateVersion"],
                    "actionId": action_id})
+
+    def pass_turn(self, seat):
+        """PHASE_07 §7.53 -- "Pass until end of turn" for `seat`."""
+        self.send({"protocolVersion": 1, "type": "PASS_TURN",
+                   "messageId": str(uuid.uuid4()), "seat": seat})
 
     def concede(self, seat):
         """PHASE_07 §7.55 -- `seat` concedes, as the server would send it."""
@@ -218,8 +226,10 @@ class Game:
                     return out
                 self.send({"protocolVersion": 1, "type": "START_GAME",
                            "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-                           "players": [{"displayName": "Alice", "seatNumber": 1, "cards": cards(self.decks[1])},
-                                       {"displayName": "Bob", "seatNumber": 2, "cards": cards(self.decks[2])}]})
+                           "players": [dict({"displayName": "Alice", "seatNumber": 1, "cards": cards(self.decks[1])},
+                                            **({"stops": self.stops[1]} if 1 in self.stops else {})),
+                                       dict({"displayName": "Bob", "seatNumber": 2, "cards": cards(self.decks[2])},
+                                            **({"stops": self.stops[2]} if 2 in self.stops else {}))]})
                 continue
             if kind == "MATCH_SNAPSHOT":
                 s = frame.get("state") or {}

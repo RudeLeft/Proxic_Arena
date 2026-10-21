@@ -3,6 +3,7 @@ package net.barnflix.proxic.match
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -218,11 +219,53 @@ class MatchRoutesTest {
                     "POST /api/matches" to client.post("/api/matches"),
                     "GET /api/matches/current" to client.get("/api/matches/current"),
                     "GET /api/matches/{id}" to client.get("/api/matches/${UUID.randomUUID()}"),
+                    "GET /api/matches/stops" to client.get("/api/matches/stops"),
+                    "PUT /api/matches/stops" to client.put("/api/matches/stops"),
                 )
 
             for ((endpoint, answer) in answers) {
                 assertEquals(HttpStatusCode.Unauthorized, answer.status, "$endpoint was open")
             }
+        }
+
+    /**
+     * PHASE_07 §7.53, AMENDMENT 13 — a player's stops: the Arena-style
+     * defaults until changed, then theirs; only Forge's step names, in
+     * turn order, each once.
+     */
+    @Test
+    fun `a player's stops default, save, and refuse what is not a step`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+
+            val first = client.get("/api/matches/stops") { signedBy(host) }
+            assertEquals(HttpStatusCode.OK, first.status)
+            val defaults = json.parseToJsonElement(first.bodyAsText()).jsonObject
+            assertEquals(
+                listOf("MAIN1", "COMBAT_DECLARE_BLOCKERS", "MAIN2"),
+                defaults["own"]!!.jsonArray.map { it.jsonPrimitive.content },
+            )
+
+            val saved =
+                client.put("/api/matches/stops") {
+                    signedBy(host)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"own":["MAIN2","MAIN1","MAIN1"],"opponent":["END_OF_TURN"]}""")
+                }
+            assertEquals(HttpStatusCode.OK, saved.status)
+            val reread = client.get("/api/matches/stops") { signedBy(host) }.bodyAsText()
+            val again = json.parseToJsonElement(reread).jsonObject
+            assertEquals(listOf("MAIN1", "MAIN2"), again["own"]!!.jsonArray.map { it.jsonPrimitive.content })
+            assertEquals(listOf("END_OF_TURN"), again["opponent"]!!.jsonArray.map { it.jsonPrimitive.content })
+
+            val refused =
+                client.put("/api/matches/stops") {
+                    signedBy(host)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"own":["MAIN1","ATTACK_NOW"],"opponent":[]}""")
+                }
+            assertEquals(HttpStatusCode.BadRequest, refused.status)
         }
 
     /** §3.51 — and a mutation needs the CSRF pair, not just a session. */

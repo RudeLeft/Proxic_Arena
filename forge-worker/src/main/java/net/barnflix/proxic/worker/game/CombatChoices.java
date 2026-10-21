@@ -85,13 +85,22 @@ final class CombatChoices {
             if (byId.isEmpty()) {
                 return;
             }
+            // PHASE_07 AMENDMENT 13 — "All attack", as MTG Arena has: every
+            // creature still offered, in one answer. Last, and naming no
+            // card, so an answer that takes the first option, or picks a
+            // creature by its card, means what it always meant.
+            java.util.List<String> offered = new ArrayList<>(byId.keySet());
+            if (byId.size() >= 2) {
+                offered.add(ALL_ATTACK);
+                labels.put(ALL_ATTACK, "All attack");
+            }
 
             String choice =
                     host.gate().ask(
                             actedForSeat,
                             authorisedSeat,
                             "declareAttackers",
-                            new ArrayList<>(byId.keySet()),
+                            offered,
                             false,
                             "Choose a creature to attack with, or pass to stop attacking.",
                             pending -> host.publishDecision(pending, labels));
@@ -100,6 +109,17 @@ final class CombatChoices {
                 // Done attacking. Not an error and not a
                 // failure: most turns end here.
                 return;
+            }
+            if (ALL_ATTACK.equals(choice)) {
+                // Each as if chosen one by one: Forge still decides whom
+                // each may attack, and asks when there is a choice.
+                for (Card each : byId.values()) {
+                    GameEntity defender = chooseDefender(each, defenders);
+                    if (defender != null && !combat.isAttacking(each)) {
+                        combat.addAttacker(each, defender);
+                    }
+                }
+                continue;
             }
             Card chosen = byId.get(choice);
             if (chosen == null) {
@@ -113,6 +133,9 @@ final class CombatChoices {
             combat.addAttacker(chosen, defender);
         }
     }
+
+    /** AMENDMENT 13 — every creature still offered attacks, in one answer. */
+    static final String ALL_ATTACK = "attackers:all";
 
     /** Which player or planeswalker this creature attacks. */
     private GameEntity chooseDefender(Card attacker, List<GameEntity> defenders)

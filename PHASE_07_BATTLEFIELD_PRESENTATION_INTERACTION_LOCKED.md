@@ -1461,9 +1461,63 @@ via a click"), asked with the alternatives (always act; keep the window).
 
 ---
 
+## PHASE 7 AMENDMENT 13
+
+**Reason:** The owner asked for the turn to flow "as smooth as MTG Arena":
+it felt like one player never got to play. Measured on a real eight-turn
+game (2026-10-21): 148 priority questions, about eighteen a turn, each a
+click and a round trip, five in six at a step where nothing could matter.
+The cause: a player was passed for only when they had nothing at all to
+do, and an untapped land always offers "tap for mana". §7.53's stops were
+designed and not yet built.
+
+**Affected requirements:** §7.53; B10 of §7.61; P7-R.
+
+**Old decision (§7.53):** the CLIENT answers "pass" at a step that is not
+a stop; defaults: your main phases, declare blockers when attacked, and
+ANY time something is on the stack.
+
+**New decision:**
+
+1. **The game server passes**, not the browser: the worker skips a step
+   the player does not stop at, at once, with no round trip, and the game
+   never waits on a tab in the background. Still only a priority pass,
+   and only with the player's own settings: a seat with none is asked at
+   every step (the Mechanics Lab, and turning every stop on).
+2. **Arena-style defaults:** your Main 1 and Main 2, and the declare-
+   blockers step once you attack; on the opponent's turn their attackers
+   and blockers steps once there is a combat -- each only when you have
+   something to do besides tapping a land. Something the OPPONENT put on
+   the stack stops you whenever you could respond; your own spell or
+   trigger does not. Upkeep, draw, beginning and end of combat and the
+   end step pass unless you add a stop.
+3. **Stop settings** per player, server-side (`player_stops`), changed
+   from a Stops panel in the game menu and applied to the game in
+   progress.
+4. **Skip to end of turn**: no more stops this turn unless the opponent
+   puts something on the stack you could answer.
+5. **The Pass button says what passing does**: Next / To combat, End turn,
+   Resolve, Pass back to the opponent.
+6. **Faster attacking** (to follow): click attackers on the board, then one
+   Attack button, and All attack.
+
+**Evidence:** owner decisions 2026-10-21, asked with the alternatives
+(the browser passes; §7.53's defaults as locked), after the measurement.
+`scripts/check-stops.py` (Forge: 26 priority questions instead of 160 in
+nine turns, none at an empty quiet step, a response never skipped,
+nothing to respond with passed for, skip-to-end-of-turn) and
+`e2e/match-stops.spec.ts`.
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
+---
+
 # PART IX — PLAY, AS DECIDED 2026-10-20
 
 ## 7.53 Priority stops
+
+*(Built as AMENDMENT 13: the server passes, Arena-style defaults.)*
 
 The board stops for a player's decision only at **stops**. Defaults:
 

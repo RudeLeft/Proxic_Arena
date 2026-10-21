@@ -144,6 +144,8 @@ class DatabaseTest {
                         // and admin_action, what the Admin page reads.
                         // Records of attempts and of administrators'
                         // actions, not of play.
+                        // Phase 7 (§7.53, Amendment 13): player_stops,
+                        // each player's own priority-stop setting.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -158,6 +160,7 @@ class DatabaseTest {
                                 "match_participant",
                                 "match_setup",
                                 "match_setup_player",
+                                "player_stops",
                                 "room",
                                 "room_member",
                                 "sign_in_event",

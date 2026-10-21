@@ -130,6 +130,7 @@ fun startGameFrame(
                         // on. Display names are not unique.
                         put("seatNumber", seat.seatNumber)
                         put("cards", cardsOf(seat))
+                        seat.stops?.let { put("stops", stopsJson(it)) }
                     },
                 )
             }

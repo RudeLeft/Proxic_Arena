@@ -197,6 +197,9 @@ public final class WorkerMain {
                     JsonArray players = request.getAsJsonArray("players");
                     java.util.List<net.barnflix.proxic.worker.game.GameHost.Seat> seats =
                             new java.util.ArrayList<>();
+                    // §7.53 — each player's stops, when the server sends them.
+                    java.util.Map<Integer, net.barnflix.proxic.worker.game.PriorityStops.Settings> stops =
+                            new java.util.HashMap<>();
                     JsonArray unresolvedAll = new JsonArray();
 
                     for (int i = 0; i < players.size(); i++) {
@@ -227,6 +230,9 @@ public final class WorkerMain {
                         built.unresolved.forEach(unresolvedAll::add);
                         seats.add(new net.barnflix.proxic.worker.game.GameHost.Seat(
                                 name, seatNumber, built.deck));
+                        if (seat.has("stops") && seat.get("stops").isJsonObject()) {
+                            stops.put(seatNumber, stopsOf(seat.getAsJsonObject("stops")));
+                        }
                     }
 
                     // A deck Forge could not fully build is not a
@@ -243,6 +249,7 @@ public final class WorkerMain {
                     }
 
                     GAME = new net.barnflix.proxic.worker.game.GameHost();
+                    stops.forEach((seatNumber, settings) -> GAME.stops().set(seatNumber, settings));
                     // §6.99 — a decision becomes a frame. Sent from
                     // Forge's own thread, inside the blocked call,
                     // so this writes and returns rather than waiting
@@ -472,6 +479,24 @@ public final class WorkerMain {
                 reply.add("options", options);
                 send(reply);
             }
+            case "STOPS" -> {
+                // PHASE_07 §7.53 — a player changed their stops mid-game.
+                // `seat` is the server's, from the authenticated user.
+                if (GAME == null) {
+                    send(error("NO_GAME", "no game has been started"));
+                    break;
+                }
+                GAME.stops().set(request.get("seat").getAsInt(), stopsOf(request));
+            }
+            case "PASS_TURN" -> {
+                // §7.53 extra — "Pass until end of turn": no more stops for
+                // this seat this turn, unless the opponent does something.
+                if (GAME == null) {
+                    send(error("NO_GAME", "no game has been started"));
+                    break;
+                }
+                GAME.stops().passTurn(request.get("seat").getAsInt(), GAME.turn());
+            }
             case "CONCEDE" -> {
                 // PHASE_07 §7.55 — `seat` is the server's, resolved
                 // from the authenticated user. Forge's concession;
@@ -534,6 +559,20 @@ public final class WorkerMain {
             default -> send(error("UNKNOWN_TYPE", type));
         }
         return true;
+    }
+
+    /** §7.53 — `{own: [PHASE, ...], opponent: [PHASE, ...]}`, Forge's step names. */
+    private static net.barnflix.proxic.worker.game.PriorityStops.Settings stopsOf(JsonObject from) {
+        return new net.barnflix.proxic.worker.game.PriorityStops.Settings(
+                namesIn(from, "own"), namesIn(from, "opponent"));
+    }
+
+    private static java.util.Set<String> namesIn(JsonObject from, String key) {
+        java.util.Set<String> names = new java.util.HashSet<>();
+        if (from.has(key) && from.get(key).isJsonArray()) {
+            from.getAsJsonArray(key).forEach(name -> names.add(name.getAsString()));
+        }
+        return names;
     }
 
     private static void sendReady(File resRoot) {

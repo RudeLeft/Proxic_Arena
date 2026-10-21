@@ -296,6 +296,34 @@ button.gs-zone:not(:disabled):hover {
   outline: 2px solid #f1f4f8;
   outline-offset: 2px;
 }
+/* §7.53 extra — under the act button, in the gap above your seat: the
+ * act button and the seats keep their canvas places. */
+.gs-act-turn {
+  position: absolute;
+  left: 7.4px;
+  top: 633px;
+  width: 216px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #c9a46a;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.gs-act-turn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.gs-act-turn:focus-visible {
+  outline: 2px solid #f1f4f8;
+  outline-offset: 2px;
+}
 .gs-act-word {
   font-family: "Barlow Condensed", "Segoe UI", sans-serif;
   font-weight: 700;
@@ -935,4 +963,65 @@ button.gs-zone:not(:disabled):hover {
   font-size: 14px;
   line-height: 1.5;
   color: #c2c9d2;
+}
+
+/* §7.53 — the stops panel, under the menu. */
+.gs-stops {
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  padding: 12px 14px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: rgb(17 22 29 / 97%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 70%);
+  color: #e6e9ee;
+  font-size: 13px;
+}
+.gs-stops-title {
+  margin: 0 0 6px;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+.gs-stops-note {
+  margin: 0 0 8px;
+  color: #a8b0bb;
+  font-size: 12px;
+}
+.gs-stops-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gs-stops-table th,
+.gs-stops-table td {
+  padding: 3px 4px;
+  text-align: center;
+  font-weight: 400;
+}
+.gs-stops-table th[scope="row"],
+.gs-stops-table thead th:first-child {
+  text-align: left;
+}
+.gs-stops-table thead th {
+  color: #a8b0bb;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gs-stops-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* A few choices the board cannot show, inline in the slim line. */
+.gs-options-inline {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-options-inline .gs-option {
+  padding: 4px 10px;
 }

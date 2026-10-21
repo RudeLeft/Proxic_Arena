@@ -149,6 +149,23 @@ private fun handle(
             runtime.search(matchId, userId, decisionId, query)?.let { searchRefusedMessage(decisionId, it) }
         }
 
+        // PHASE_07 §7.53 — the player's stops, changed mid-game (they
+        // were saved over HTTP first). Only step names are read.
+        "STOPS" -> {
+            val settings =
+                runCatching { json.decodeFromJsonElement(StopSettings.serializer(), message) }
+                    .getOrNull()
+                    ?.cleaned()
+            settings?.let { runtime.applyStops(matchId, userId, it) }
+            null
+        }
+
+        // §7.53 extra — "Pass until end of turn". Nothing is read.
+        "PASS_TURN" -> {
+            runtime.passTurn(matchId, userId)
+            null
+        }
+
         // PHASE_07 §7.55 — nothing is read from it at all: who
         // concedes is the session's, and for their own seat only.
         "CONCEDE" ->

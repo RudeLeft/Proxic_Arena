@@ -308,6 +308,13 @@ public final class GameHost {
         return gate;
     }
 
+    /** §7.53 — each player's stops: when they are asked, and when passed for. */
+    private final PriorityStops stops = new PriorityStops();
+
+    public PriorityStops stops() {
+        return stops;
+    }
+
     public void onDecision(
             java.util.function.BiConsumer<DecisionGate.Pending,
                     java.util.Map<String, String>> sink) {
@@ -422,7 +429,10 @@ public final class GameHost {
                 boolean combatStep = phase == forge.game.phase.PhaseType.COMBAT_FIRST_STRIKE_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_END;
-                if (combatStep || !damageDealt.isEmpty()) {
+                // AMENDMENT 13: with stops, most steps ask nobody, so every
+                // step sends the board -- the step bar walks through them
+                // instead of jumping from one question to the next.
+                if (combatStep || !damageDealt.isEmpty() || stops.active()) {
                     publishSnapshots();
                 }
                 return;

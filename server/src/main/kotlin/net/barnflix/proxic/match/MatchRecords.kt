@@ -198,7 +198,14 @@ internal class MatchRecords(private val dataSource: DataSource) {
                 // The seat NUMBER is what the worker routes on,
                 // and it travels from the frozen setup rather than
                 // being an index into this list.
-                WorkerSeat(participant.displayName, participant.seatNumber, cards)
+                WorkerSeat(
+                    participant.displayName,
+                    participant.seatNumber,
+                    cards,
+                    // §7.53 — the player's own stops (the defaults when
+                    // they never changed them).
+                    StopStore(dataSource).get(participant.userId),
+                )
             }
         }
 

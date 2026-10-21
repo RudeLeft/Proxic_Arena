@@ -81,7 +81,17 @@ else's); who is *authorised* is the server's conclusion and is not sent
 DECISION_RESPONSE   decisionId, actionId     actionId null = pass
 DECISION_SEARCH     decisionId, query        searchable questions only
 CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
+STOPS               own[], opponent[]        §7.53: your stops, applied to this game
+PASS_TURN           (nothing)                §7.53: no more stops for you this turn
 ```
+
+**Stops (PHASE_07 §7.53, AMENDMENT 13).** Saved with `GET`/`PUT
+/api/matches/stops` (Forge's step names); the server hands each seat's
+stops to the worker in `START_GAME` and, changed mid-game, as `STOPS`.
+The worker then passes priority for a player at a step they do not stop
+at -- only priority, never a target, payment, block or other question --
+unless the opponent put something on the stack they could answer. A seat
+without stops is asked at every step.
 
 **Only `decisionId` and `actionId` are read.** Not a seat, not a user,
 not a Forge player id, not a state version: a client that could supply
