@@ -167,13 +167,22 @@ def platinum():
 
 
 def grace():
-    g = game("grace", [("Mountain", 15), ("Plains", 15), ("Lightning Bolt", 20), ("Angel's Grace", 10)],
+    # Bob is the burn: he Bolts Alice to 3 or less, one at a time, and
+    # Bolts her again once her Angel's Grace has resolved. Alice only
+    # needs a Plains and a Grace, so the scenario no longer waits on a
+    # lucky draw: when Alice burned herself (and needed a Mountain, six
+    # Bolts and then Grace together) it ran past turn 40 in about one CI
+    # run in three.
+    g = game("grace", [("Plains", 20), ("Angel's Grace", 40)],
              [("Mountain", 30), ("Lightning Bolt", 30)])
     st = {"grace_turn": None, "on_stack_offered": {1: set(), 2: set()}, "asked_during": {1: 0, 2: 0},
-          "lethal": None, "bolt_seen": False, "after": None}
+          "lethal": None, "bolt_seen": False, "after": None, "grace_seen": False}
 
     def grace_on_stack(g):
         return any("Angel's Grace" in (s.get("description") or "") for s in g.state.get(1, {}).get("stack") or [])
+
+    def stack_empty(g):
+        return not g.state.get(1, {}).get("stack")
 
     def policy(g, f):
         kind = f.get("kind")
@@ -186,36 +195,53 @@ def grace():
                 if "{T}: Add" not in label:
                     st["on_stack_offered"][seat].add(label)
             return None
+        if kind == "chooseTargetsFor":
+            o = pick(f, "Alice")
+            return o or (f["options"][0]["actionId"] if f.get("options") else None)
+        if kind != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        land = g.play_land(f)
+        if land:
+            return land
+        hp = life(g, 1) or 0
+        if st["grace_turn"] is not None and st["lethal"] is None and g.turn > st["grace_turn"]:
+            st["grace_turn"] = None  # a Grace turn went by without the Bolt: again
+            st["grace_seen"] = False
         if seat == 2:
-            # Lands, and Bolts held: a castable Bolt is what split
-            # second must keep off the list.
-            return g.play_land(f) if kind == "chooseSpellAbilityToPlay" else DEFAULT
-        if kind == "chooseSpellAbilityToPlay":
-            land = g.play_land(f, prefer="Plains" if not g.mine(1, name="Plains") else "Mountain")
-            if land:
-                return land
-            hp = life(g, 1) or 0
+            if not stack_empty(g):
+                # One at a time: life is read before a Bolt on the stack
+                # has resolved. And while Grace is on the stack a Bolt is
+                # exactly what split second must keep off this list.
+                return None
             if st["grace_turn"] is None:
-                if hp > 3:
-                    return cast(g, f, "Lightning Bolt")
-                ready = (g.untapped_lands(1, name="Plains") and g.untapped_lands(1, name="Mountain")
-                         and g.zone(1, "hand", owner=1, name="Lightning Bolt"))
-                o = cast(g, f, "Angel's Grace") if ready else None
-                if o:
-                    st["grace_turn"] = g.turn
-                return o
-            if st["grace_turn"] == g.turn and st["lethal"] is None:
+                return cast(g, f, "Lightning Bolt") if hp > 3 else None
+            # Only once Grace has really been on the stack and resolved:
+            # Forge undoes a cast it cannot pay for, and a Bolt after an
+            # undone Grace is simply lethal.
+            if st["grace_turn"] == g.turn and st["grace_seen"] and st["lethal"] is None:
                 o = cast(g, f, "Lightning Bolt")
                 if o:
                     st["lethal"] = hp
                 return o
             return None
-        if kind == "chooseTargetsFor":
-            o = pick(f, "Alice")
-            return o or (f["options"][0]["actionId"] if f.get("options") else None)
-        return DEFAULT
+        # Alice: Grace on her own turn, at 3 or less, when Bob can answer
+        # with a Bolt (so split second has a castable spell to hold back,
+        # and the lethal Bolt can follow it), and with a Plains to spare:
+        # a player with nothing at all to do is not asked, and the check
+        # below wants both players asked while Grace is on the stack.
+        bob_ready = g.untapped_lands(2, name="Mountain") and g.zone(2, "hand", owner=2, name="Lightning Bolt")
+        if (st["grace_turn"] is None and hp <= 3 and stack_empty(g) and bob_ready
+                and len(g.untapped_lands(1, name="Plains")) >= 2
+                and g.state.get(1, {}).get("activeSeat") == 1):
+            o = cast(g, f, "Angel's Grace")
+            if o:
+                st["grace_turn"] = g.turn
+            return o
+        return None
 
     def until(g):
+        if grace_on_stack(g):
+            st["grace_seen"] = True
         # Life is read once the Bolt has been on the stack and left it.
         stack = g.state.get(1, {}).get("stack") or []
         if st["lethal"] is not None and any("Lightning Bolt" in (s.get("description") or "") for s in stack):
@@ -224,7 +250,7 @@ def grace():
             st["after"] = life(g, 1)
         return st["after"] is not None and g.turn >= st["grace_turn"] + 2
 
-    g.run(policy, until=until, max_turn=40)
+    g.run(policy, until=until, max_turn=60)
     found = {"grace_turn": st["grace_turn"], "life_before_bolt": st["lethal"], "life_after": st["after"],
              "offered_during_split_second": {k: sorted(v) for k, v in st["on_stack_offered"].items()},
              "priority_during_split_second": st["asked_during"],
