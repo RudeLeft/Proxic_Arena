@@ -238,6 +238,36 @@ Measured with a dev route that generates a synthetic board:
 `?permanents=N&faces=M&seed=S`. The route is also how an agent inspects
 the board reproducibly.
 
+### Measured (step 6, 2026-10-21)
+
+`frontend/e2e/benchmark.spec.ts` (opt-in, `PROXIC_BENCH=1`) on `/dev/bench`:
+80 permanents, 60 distinct pictures (generated at a real scan's 745 x 1040,
+with grain), five runs, in a real Edge window on the owner's PC
+(i5-13600KF). Evidence: `docs/testing/evidence/p7-benchmark.json`.
+
+```text
+                         1920x1080            3840x2160
+                         full      fit        full      fit
+first paint (<= 300)     30 ms     29 ms      30 ms     30 ms     PASS (at 80, twice the board)
+new face (<= 100)        30 ms     30 ms      30 ms     30 ms     PASS
+re-centre at 60 fps      0/486     0/486      0/493     0/488     PASS (frames over 25 ms)
+decoded images (<= 150)  174 MB    8 MB       175 MB    33 MB     FAIL at full size, PASS fitted
+```
+
+"full" is a picture served at the scan's own size, as Arena serves
+imported pictures today; "fit" is at the size the table draws it, which
+is what §5.4's `srcset` would serve. The memory miss is the PICTURES'
+size, not the renderer's: a browser keeps every PNG decoded at its own
+resolution whatever draws it, and a canvas renderer would upload the same
+full-size pictures as textures. It does not open the PixiJS door; it
+makes §5.4's sized pictures a requirement rather than a refinement.
+
+Method notes: frames are measured in a real window -- headless Edge
+schedules frames on a timer and dropped some whenever many animations
+ran (15 of 24 re-centres against 1 of 24 idle windows), which measured
+the test browser; headed, none of 24 did. The page is never polled
+while something moves.
+
 **Only a missed budget opens the PixiJS door**, and then only for the
 card layer. Because positions come from `layout()` and the tests assert
 rendered geometry, a swap is contained to one module and the tests

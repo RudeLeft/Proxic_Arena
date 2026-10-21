@@ -21,6 +21,7 @@ import { RequireAuth } from "./AuthContext";
 // BATTLEFIELD_RENDERING.md §6: a synthetic board for development. Loaded
 // on demand so the board's code and fonts are not in every page's bundle.
 const DevBoardPage = lazy(() => import("./battlefield/DevBoardPage"));
+const DevBenchPage = lazy(() => import("./battlefield/DevBenchPage"));
 
 function Placeholder({ title, phase }: { title: string; phase: string }) {
   return (
@@ -81,6 +82,16 @@ export function AppRoutes() {
       {/* Unlinked, signed-in only, and labelled synthetic on screen
           (BATTLEFIELD_RENDERING.md §6). Not a game: no match, no
           server traffic beyond the session check. */}
+      <Route
+        path="/dev/bench"
+        element={
+          <RequireAuth>
+            <Suspense fallback={null}>
+              <DevBenchPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
       <Route
         path="/dev/board"
         element={
