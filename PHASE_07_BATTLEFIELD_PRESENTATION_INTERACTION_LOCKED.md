@@ -1042,6 +1042,95 @@ always leaving tilt room (no movement on tap, fewer cards per row).
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 4
+
+**Reason:** The first drawn board (build step 2), measured card by card
+in a real browser at 1366x768, 1920x1080 and 3440x1440, showed four
+places where the canvas's choices made one card cover another. The rows
+are packed edge to edge (3.75px apart at 1080), so anything that leaves
+its row lands on a neighbour:
+
+- an attacker's step toward the divider, plus its tilt, reached up to
+  23px over the divider and covered the name of the creature across
+  from it -- the card the defender reads to choose blocks;
+- an Aura's or Equipment's peeking name strip (L7) covered the bottom of
+  the card in the row above it, where that card's power/toughness is;
+- in a squeezed row each card shows its left third, and power/toughness
+  sat on the right, so it was covered;
+- a 15-degree tilt makes a card about 15% taller, so a tapped card's
+  corner tips reached about 4px into the rows above and below.
+
+The owner also pointed to the relationship primitives of the earlier
+PixiJS mock (`Proxic_Arena_PixiJS_Mock_Battlefield.zip`,
+`proxic-arena-spike-10`: `attack-presentation.mjs`,
+`block-presentation.mjs`, `target-presentation.mjs`,
+`attach-presentation.mjs`) as the intended look for combat and targeting.
+
+**Affected requirements:** §7.52a L7 (attachments peek above the host);
+the canvas rules recorded under §7.52a ("an attacker steps toward the
+divider"; the bottom bar reads type, then power/toughness); PHASE 7
+AMENDMENT 3 (tapped cards overlap nothing); BATTLEFIELD_RENDERING.md §7
+step 5 (connectors and effects, previously unspecified).
+
+**Old decision:** attackers step 14/900 of the board's height toward the
+divider; attachments are tucked behind the host with their name strip
+peeking out above; the bottom bar reads "Creature ... 2/2"; tapped cards
+tilt in place.
+
+**New decision:**
+
+1. **Attackers keep their place.** An attacking creature stays in its
+   slot, tilted if tapped, with the amber outline and an **ATTACKING**
+   tag (in place of TAPPED). What it attacks is shown by the **fire
+   line** (item 5), not by moving it.
+2. **Combat damage is an impact.** When Forge deals combat damage, each
+   attacker swoops onto what it is hitting -- its blocker, or, if
+   unblocked, the player's life total or the planeswalker or battle it
+   attacked -- covers about half of it, an **impact burst** plays, and it
+   slides back to its place. First strike and regular damage are
+   separate waves. A **damage number** ("-3") rises off whatever was hit
+   and fades; it is the amount Forge actually dealt, so prevention and
+   replacement are reflected. These are animations: per §7.34-§7.36 they
+   never gate input and the snapshot stays the truth.
+3. **Auras and Equipment are name tags on their host.** Nothing peeks
+   out of the host. The host shows one tag per attachment across its
+   picture (glyph and name, oldest first). Each tag is its own control
+   with the attachment's object id, so it can be targeted (Disenchant on
+   Pacifism) and pointed at to see the whole card. Attachments still
+   share the host's slot and side of the table whoever controls them.
+4. **Power/toughness on the left.** The bottom bar reads "2/2 Creature";
+   a pile's count ("x3") sits at the left under the name. A squeezed row
+   therefore always shows each card's name and power/toughness.
+5. **Relationship lines, from the mock:** a fiery red-orange line with
+   moving particles and an arrowhead from an attacker to what it attacks;
+   a blue shield line from a blocker to the attacker it blocks; a purple
+   crosshair line from a spell or ability to its target; a gold chain
+   from an Aura or Equipment to the creature while the player chooses
+   where it goes (afterwards it is a name tag). They are drawn in the SVG
+   effects layer and take no clicks.
+6. **Tapped corners tuck under.** Each horizontal band of rows clips its
+   cards vertically, so a tilted card's corner tips disappear under the
+   next band instead of covering it. Sideways nothing is clipped
+   (AMENDMENT 3's tilt room still applies). An animation that must leave
+   its band (the impact swoop, a card changing rows) draws in a layer
+   above the bands while it moves.
+
+**Measured result:** on seeded boards of 12 and 40 permanents, no card
+overlaps any card of another row and nothing crosses the divider, at all
+three window sizes; on a 90-permanent board the only overlaps are the
+overflow ladder's own squeeze within a row (§7.51).
+
+**Protocol addition:** B13 (Part IX) -- combat damage dealt, for the
+damage numbers.
+
+**Evidence:** owner decisions 2026-10-20, asked with screenshots of the
+measured overlaps and with the alternatives (attackers step but slide
+under the defender's cards; peek and tuck under; keep the canvas;
+smaller cards so tilted cards fit).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
@@ -1175,6 +1264,7 @@ like Phase 6's fields (both seats, hidden information checked).
 | B10 | stops (§7.53) | the player's stop settings, and which questions are priority passes |
 | B11 | arrival order within a row (§7.52a L6) | each permanent's entry timestamp, Forge's `getGameTimestamp()` |
 | B12 | identical tokens pile (§7.52a L5) | `token: true` on a token (Forge's `isToken()`) |
+| B13 | damage numbers at impact (AMENDMENT 4) | per combat damage wave: source, recipient (object or player) and the amount Forge dealt |
 
 ---
 

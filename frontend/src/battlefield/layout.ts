@@ -51,12 +51,10 @@ const SCALE_FLOOR = 0.75; // of reference card size (§7.51 decision 2)
 const RAIL_X = 0.8529; // the rail starts here on the 16:9 board
 const HAND_BASELINE = 0.9167; // of board height: the top of a resting hand card
 // From the canvas (a 1600x900 board), as fractions of its height:
-const ATTACK_STEP = 14 / 900; // an attacker steps this far toward the divider
 const HAND_DIP = 5 / 900; // per card from the middle of the hand
 const HAND_TILT = 2.4; // degrees per card from the middle of the hand
 const HAND_PITCH = 0.78; // of card width
 const TAPPED_TILT = 15; // degrees (§7.52a, from the canvas)
-const ATTACHMENT_PEEK = 0.16; // of card height, per attachment behind a host
 
 /** Where a tapped card and a hand card rotate about, as CSS
  * transform-origin percentages of the card box. */
@@ -134,7 +132,8 @@ export interface Slot {
   row: RowId;
   /** Every object in the slot's pile, oldest first; one for a single. */
   ids: string[];
-  /** Attached cards tucked behind it, nearest first (§7.52a L7). */
+  /** Its Auras and Equipment, oldest first; drawn as name tags on it
+   * (§7.52a L7 as amended by PHASE 7 AMENDMENT 4). */
   attached: string[];
   box: Box;
 }
@@ -473,11 +472,11 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
       plan.slots.forEach((slotIndex, i) => {
         const members = group.slots[slotIndex]!;
         const lead = members[0]!;
-        const towardDivider = group.side === "viewer" ? -1 : 1;
-        const step = lead.attacking ? towardDivider * ATTACK_STEP * g.height : 0;
+        // An attacker keeps its place (PHASE 7 AMENDMENT 4): what it
+        // attacks is shown by a line, not by moving it over the divider.
         const box: Box = {
           x: plan.xs[i]!,
-          y: top + step,
+          y: top,
           w,
           h,
           scale: plan.scale,
@@ -490,16 +489,12 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           boxes.set(member.id, box);
           rowOf.set(member.id, rowId);
         }
-        attachedCards.forEach((card, depth) => {
-          boxes.set(card.id, {
-            ...box,
-            y: box.y - (depth + 1) * ATTACHMENT_PEEK * box.h,
-            // Its own tapped state, not its host's.
-            rotation: card.tapped ? TAPPED_TILT : 0,
-            z: box.z - (depth + 1),
-          });
+        // An Aura or Equipment is drawn as a name tag on its host
+        // (PHASE 7 AMENDMENT 4), so it is where its host is.
+        for (const card of attachedCards) {
+          boxes.set(card.id, box);
           rowOf.set(card.id, rowId);
-        });
+        }
         slots.push({
           row: rowId,
           ids: members.map((card) => card.id),

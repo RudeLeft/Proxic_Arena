@@ -243,7 +243,7 @@ tree and the one-line assertions. That trade is to be made with numbers.
 | 2 | static DOM board from a seeded fixture, data attributes from the first commit | something an agent can read and the owner can see |
 | 3 | the tier-2 Playwright bridge | proves step 2 obeys step 1 |
 | 4 | transforms, enter/exit transitions | now it moves |
-| 5 | SVG connector and effects layers | now it points and glows |
+| 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`) | now it points and glows |
 | 6 | density route, benchmarks against §6 | the PixiJS decision, with data |
 | 7 | this document's acceptance rows green; Phase 7 gate updated | make it official |
 

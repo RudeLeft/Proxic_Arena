@@ -10,12 +10,17 @@
 // mock table with mock cards would look like progress and would have
 // to be deleted before the real one could be written.
 
+import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import App from "./App";
 import DecksPage from "./DecksPage";
 import LobbyPage from "./LobbyPage";
 import { AccountPage, LoginPage } from "./LoginPage";
 import { RequireAuth } from "./AuthContext";
+
+// BATTLEFIELD_RENDERING.md §6: a synthetic board for development. Loaded
+// on demand so the board's code and fonts are not in every page's bundle.
+const DevBoardPage = lazy(() => import("./battlefield/DevBoardPage"));
 
 function Placeholder({ title, phase }: { title: string; phase: string }) {
   return (
@@ -70,6 +75,19 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <AccountPage />
+          </RequireAuth>
+        }
+      />
+      {/* Unlinked, signed-in only, and labelled synthetic on screen
+          (BATTLEFIELD_RENDERING.md §6). Not a game: no match, no
+          server traffic beyond the session check. */}
+      <Route
+        path="/dev/board"
+        element={
+          <RequireAuth>
+            <Suspense fallback={null}>
+              <DevBoardPage />
+            </Suspense>
           </RequireAuth>
         }
       />

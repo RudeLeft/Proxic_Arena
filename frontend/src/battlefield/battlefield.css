@@ -1,0 +1,341 @@
+/* The battlefield — PHASE_07 §7.15-§7.20, the UI design canvas, and
+ * BATTLEFIELD_RENDERING.md §5. Sizes follow the card height (--card-h,
+ * set by Board from layout()'s geometry), so a card reads the same at
+ * every window size. */
+
+:root {
+  --bf-table: #0e1512;
+  --bf-table-glow: #18241d;
+  --bf-rail: #10161b;
+  --bf-line: #2a3631;
+  --bf-ink: #e9eee8;
+  --bf-muted: #8d9a92;
+  --bf-attack: #e0a44a;
+  --bf-focus: #8fc6ff;
+
+  /* The canvas's palette: frame, bar text, bar. */
+  --bf-land-frame: #2c4433;
+  --bf-land-text: #cfe0cc;
+  --bf-land-bar: #17251b;
+  --bf-creature-frame: #243327;
+  --bf-creature-text: #c6d4c3;
+  --bf-creature-bar: #16211a;
+  --bf-artifact-frame: #2f4157;
+  --bf-artifact-text: #ccd8e4;
+  --bf-artifact-bar: #152130;
+  --bf-walker-frame: #3a3350;
+  --bf-walker-text: #d6cfe2;
+  --bf-walker-bar: #1d1930;
+}
+
+.bf-page {
+  position: fixed;
+  inset: 0;
+  background: var(--bf-table);
+}
+
+.bf-board {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 42% 50%, var(--bf-table-glow) 0%, var(--bf-table) 70%);
+  font-family: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
+  color: var(--bf-ink);
+}
+
+.bf-divider {
+  position: absolute;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--bf-line) 12%,
+    var(--bf-line) 88%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.bf-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--bf-rail);
+  border-left: 1px solid var(--bf-line);
+}
+
+.bf-cards {
+  position: absolute;
+  inset: 0;
+}
+
+/* A horizontal band of rows. It clips vertically only: a tapped card's
+ * corner tips tuck under the next band (PHASE 7 AMENDMENT 4). */
+.bf-band {
+  position: absolute;
+  left: 0;
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+/* What layout() places: a card, and on a host, its name tags. */
+.bf-slot {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* --- a card ------------------------------------------------------------ */
+
+.bf-card,
+.bf-tag {
+  --frame: var(--bf-artifact-frame);
+  --bar-text: var(--bf-artifact-text);
+  --bar: var(--bf-artifact-bar);
+}
+.bf-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--bar-text) 35%, transparent);
+  border-radius: calc(var(--card-h) * 0.045);
+  background: var(--frame);
+  color: var(--bar-text);
+  font: inherit;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.06) rgb(0 0 0 / 45%);
+}
+.bf-look-land {
+  --frame: var(--bf-land-frame);
+  --bar-text: var(--bf-land-text);
+  --bar: var(--bf-land-bar);
+}
+.bf-look-creature {
+  --frame: var(--bf-creature-frame);
+  --bar-text: var(--bf-creature-text);
+  --bar: var(--bf-creature-bar);
+}
+.bf-look-walker {
+  --frame: var(--bf-walker-frame);
+  --bar-text: var(--bf-walker-text);
+  --bar: var(--bf-walker-bar);
+}
+
+/* Inside the card, so a band's clip never cuts the focus ring off. */
+.bf-card:focus-visible,
+.bf-tag:focus-visible {
+  outline: 2px solid var(--bf-focus);
+  outline-offset: -3px;
+}
+
+/* Tapped: dimmed (the canvas), the state word stays bright. */
+.bf-dim > .bf-bar,
+.bf-dim > .bf-window {
+  filter: brightness(0.72) saturate(0.85);
+}
+
+.bf-attacking {
+  border-color: var(--bf-attack);
+  box-shadow:
+    0 0 0 2px var(--bf-attack),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
+}
+
+.bf-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(var(--card-h) * 0.132);
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0 calc(var(--card-h) * 0.035);
+  background: var(--bar);
+  font-size: calc(var(--card-h) * 0.062);
+  line-height: 1;
+  white-space: nowrap;
+}
+.bf-bar-top {
+  top: 0;
+}
+.bf-bar-bottom {
+  bottom: 0;
+}
+.bf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.bf-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.bf-pt {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bf-ink);
+}
+
+/* The art window between the bars. The picture is a whole scan; it is
+ * sized so the scan's art box (y 11%-55.6% of the card, Proxic's
+ * imported scans) fills the window's height, and centred across it. */
+.bf-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--card-h) * 0.132);
+  bottom: calc(var(--card-h) * 0.132);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.bf-art {
+  --art-h: calc(var(--card-h) * 0.736 / 0.445);
+  position: absolute;
+  left: 50%;
+  top: calc(var(--art-h) * -0.11);
+  height: var(--art-h);
+  width: auto;
+  max-width: none;
+  transform: translateX(-50%);
+  user-select: none;
+  pointer-events: none;
+}
+.bf-glyph {
+  width: calc(var(--card-h) * 0.2);
+  height: calc(var(--card-h) * 0.2);
+  fill: none;
+  stroke: var(--bar-text);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+/* Face down: the same back for both seats (§7.18); the controller knows
+ * the card from its label and inspect, not from its face. */
+.bf-card-back {
+  position: absolute;
+  inset: calc(var(--card-h) * 0.03);
+  border-radius: calc(var(--card-h) * 0.03);
+  background: repeating-linear-gradient(45deg, rgb(255 255 255 / 4%) 0 4px, transparent 4px 9px),
+    #1f2a36;
+  display: grid;
+  place-items: center;
+}
+.bf-card-back-mark {
+  width: 38%;
+  aspect-ratio: 1;
+  border: 2px solid rgb(204 216 228 / 45%);
+  border-radius: 50%;
+}
+
+/* --- badges ------------------------------------------------------------- */
+
+.bf-state,
+.bf-pile {
+  position: absolute;
+  font-size: calc(var(--card-h) * 0.058);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  padding: 0.22em 0.4em;
+  border-radius: 0.3em;
+  pointer-events: none;
+}
+.bf-state {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgb(10 14 12 / 82%);
+  color: var(--bf-muted);
+  border: 1px solid var(--bf-line);
+}
+.bf-state-attacking {
+  color: #1a1206;
+  background: var(--bf-attack);
+  border-color: var(--bf-attack);
+}
+/* Left, under the name, so a squeezed row still shows it. */
+.bf-pile {
+  left: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.155);
+  background: var(--bf-ink);
+  color: #111;
+}
+
+/* --- Auras and Equipment: name tags on the host (AMENDMENT 4) ------------ */
+
+.bf-tags {
+  position: absolute;
+  left: calc(var(--card-h) * 0.03);
+  right: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.155);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--card-h) * 0.015);
+  pointer-events: none;
+}
+.bf-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  max-width: 100%;
+  height: calc(var(--card-h) * 0.1);
+  margin: 0;
+  padding: 0 0.4em 0 0.25em;
+  border: 1px solid color-mix(in srgb, var(--bar-text) 45%, transparent);
+  border-radius: 0.3em;
+  background: var(--bar);
+  color: var(--bar-text);
+  font: inherit;
+  font-size: calc(var(--card-h) * 0.058);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 50%);
+}
+.bf-tag-glyph {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.bf-tag-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- the development page ---------------------------------------------- */
+
+.bf-dev-note {
+  position: fixed;
+  left: 8px;
+  bottom: 6px;
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 60%);
+  color: var(--bf-muted);
+  font:
+    12px/1.5 "Segoe UI",
+    system-ui,
+    sans-serif;
+  pointer-events: none;
+  z-index: 100000;
+}

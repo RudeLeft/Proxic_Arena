@@ -478,10 +478,10 @@ describe("piles (§7.58, §7.52a L5, L8)", () => {
   });
 });
 
-describe("attachments (§7.52a L7)", () => {
+describe("attachments (§7.52a L7, PHASE 7 AMENDMENT 4)", () => {
   const vp = { width: 1920, height: 1080 };
 
-  it("tuck behind the host, share its slot, and peek above it", () => {
+  it("share the host's slot and box: they are drawn as name tags on it", () => {
     const goblin = card({ seat: 1, name: "Goblin" });
     const splitter = card({
       seat: 1,
@@ -495,11 +495,7 @@ describe("attachments (§7.52a L7)", () => {
     const out = layout({ viewerSeat: 1, hand: [], battlefield: [goblin, splitter] }, vp);
     expect(out.slots).toHaveLength(1);
     expect(out.slots[0]!.attached).toEqual([splitter.id]);
-    const host = out.boxes.get(goblin.id)!;
-    const tucked = out.boxes.get(splitter.id)!;
-    expect(tucked.x).toBe(host.x);
-    expect(tucked.y).toBeLessThan(host.y);
-    expect(tucked.z).toBeLessThan(host.z);
+    expect(out.boxes.get(splitter.id)).toEqual(out.boxes.get(goblin.id));
   });
 
   it("sit on the host's side of the table whoever controls them", () => {
@@ -594,7 +590,7 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
 describe("combat and tapped", () => {
   const vp = { width: 1920, height: 1080 };
 
-  it("an attacker steps toward the divider; a tapped card tilts 15 degrees", () => {
+  it("an attacker keeps its place (AMENDMENT 4); a tapped card tilts 15 degrees", () => {
     const mine = card({ seat: 1 });
     const mineAttacking = card({ seat: 1, attacking: true, tapped: true });
     const theirs = card({ seat: 2 });
@@ -603,8 +599,8 @@ describe("combat and tapped", () => {
       { viewerSeat: 1, hand: [], battlefield: [mine, mineAttacking, theirs, theirsAttacking] },
       vp,
     );
-    expect(out.boxes.get(mineAttacking.id)!.y).toBeLessThan(out.boxes.get(mine.id)!.y);
-    expect(out.boxes.get(theirsAttacking.id)!.y).toBeGreaterThan(out.boxes.get(theirs.id)!.y);
+    expect(out.boxes.get(mineAttacking.id)!.y).toBe(out.boxes.get(mine.id)!.y);
+    expect(out.boxes.get(theirsAttacking.id)!.y).toBe(out.boxes.get(theirs.id)!.y);
     expect(out.boxes.get(mineAttacking.id)!.rotation).toBe(15);
     expect(out.boxes.get(mine.id)!.rotation).toBe(0);
   });
