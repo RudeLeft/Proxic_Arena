@@ -580,6 +580,9 @@ distinct. Convenience may shorten the path; it may not merge the concepts.
 
 ## 7.26 Primary Click Selects
 
+*(On your move, a card with one action now acts on the click: AMENDMENT
+12. A click still never attacks.)*
+
 Outside an explicit Forge selection context:
 
 ```text
@@ -1408,6 +1411,50 @@ remove a guest from the old room panel.
 
 **Evidence:** owner decisions 2026-10-21, asked with the alternatives
 (online only; five minutes as before; Close room as the only option).
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
+---
+
+## PHASE 7 AMENDMENT 12
+
+**Reason:** Playing the first real games on the new game screen
+(2026-10-21), the owner found that playing a land, tapping it or casting
+a spell happened in a window rather than on the battlefield: every click
+on your move opened a small window of the card's actions (§7.28), and a
+"Your move" bar sat over the table. The canvas mock
+(`Proxic_Arena_PixiJS_Mock_Battlefield.zip`) acts by clicking highlighted
+cards on the board; its only window opens a stack to pick one member.
+
+**Affected requirements:** §7.26, §7.28, §7.29; the question bar of §7.60.
+
+**Old decision:** On your move a click never acted by itself, even with
+one action -- it opened the card's actions, and a second click chose. A
+compact "Your move" bar showed above the board.
+
+**New decision:**
+
+1. **On your move, a card with exactly one thing it can do does it on
+   the click** -- play the land, tap it for mana, cast the spell. A
+   misclicked spell can still be cancelled while it is being paid for
+   (Forge unwinds it); a played land cannot.
+2. **A window only when a click cannot settle it:** a card that can do
+   two or more things lists them (§7.28, §7.29 -- every action stays
+   reachable), and Forge's own questions that the board cannot show (a
+   mode, a number, keep or mulligan, order) keep their bar. A click on a
+   card with nothing to do only highlights it; right-click is the close
+   look (§7.30).
+3. **No bar on your move.** The board, its highlighted cards and the
+   Pass button are the whole question; "List choices" in the menu still
+   lists everything (§7.29). The heading stays for screen readers.
+4. Unchanged: a click never **attacks** (§6.52, §7.26) -- attacking is
+   Forge's declare-attackers question, a context of its own (§7.27).
+
+**Evidence:** owner decisions 2026-10-21 ("act at once if one choice";
+"we need to get away from any popup windows that could otherwise be done
+via a click"), asked with the alternatives (always act; keep the window).
+`interaction.test.ts` holds rule 1; the e2e suite plays through it.
 
 **Approved by project owner:** yes, 2026-10-21
 **Date:** 2026-10-21

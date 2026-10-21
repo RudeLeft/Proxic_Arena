@@ -351,6 +351,9 @@ private fun Application.installRoutes(
             // route and gets the app.
             val file = resolveStaticFile(staticDir, path)
             if (file != null) {
+                if (file.name == "index.html") {
+                    call.response.headers.append(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
+                }
                 call.respondFile(file)
             } else if (path.startsWith("/assets/")) {
                 // A MISSING build asset must 404. Falling back to
@@ -362,6 +365,12 @@ private fun Application.installRoutes(
                     ErrorResponse("NOT_FOUND", "No such asset.", call.callId),
                 )
             } else if (indexHtml.isFile) {
+                // The page names THIS build's scripts by their hashed
+                // names; a cached copy names the last build's, and a
+                // player kept the old screens after an update
+                // (2026-10-21). Always asked for again; the hashed
+                // scripts themselves may be kept for ever.
+                call.response.headers.append(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
                 call.respondFile(indexHtml)
             } else {
                 // Honest about WHY, per §1.71: the frontend was never

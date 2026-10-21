@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkState, versionState, fetchStatus, connectSystemSocket } from "./status";
+import { checkState, versionState, fetchStatus, connectSystemSocket, isNewBuild } from "./status";
 import type { VersionInfo } from "./status";
 
 const GOOD: VersionInfo = {
@@ -150,5 +150,15 @@ describe("system socket", () => {
       data: JSON.stringify({ protocolVersion: 99, type: "HELLO", messageId: "a", payload: {} }),
     });
     expect(states).toContain("version-mismatch");
+  });
+});
+
+describe("isNewBuild", () => {
+  it("is a new build only when both builds are known and differ", () => {
+    expect(isNewBuild("f1794ba", "f7e5a8e")).toBe(true);
+    expect(isNewBuild("f1794ba", "f1794ba")).toBe(false);
+    // Unknown is not newer: an older server, or a development run.
+    expect(isNewBuild(null, "f7e5a8e")).toBe(false);
+    expect(isNewBuild("f1794ba", null)).toBe(false);
   });
 });

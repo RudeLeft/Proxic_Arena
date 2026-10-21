@@ -61,12 +61,17 @@ describe("clickOn", () => {
     expect(clickOn(q, "card:1")).toEqual({ kind: "select", objectId: "card:1" });
   });
 
-  it("on your move, never acts on one click, even with one action (§7.26)", () => {
-    const q = questionOf(decision(PRIORITY_KIND, [option("cast", "card:1")]), visible);
-    expect(clickOn(q, "card:1")).toEqual({
+  it("on your move, one action is the click; several are offered (AMENDMENT 12)", () => {
+    const one = questionOf(decision(PRIORITY_KIND, [option("cast", "card:1")]), visible);
+    expect(clickOn(one, "card:1")).toEqual({ kind: "answer", actionId: "cast" });
+    const two = questionOf(
+      decision(PRIORITY_KIND, [option("cast", "card:1"), option("cycle", "card:1")]),
+      visible,
+    );
+    expect(clickOn(two, "card:1")).toEqual({
       kind: "offer",
       objectId: "card:1",
-      options: [option("cast", "card:1")],
+      options: [option("cast", "card:1"), option("cycle", "card:1")],
     });
   });
 

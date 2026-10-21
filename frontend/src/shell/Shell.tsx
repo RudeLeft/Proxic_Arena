@@ -7,11 +7,65 @@
 // alone is the courtesy: the server re-reads the role from the session
 // on every request (Phase 3 §3.19).
 
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { isNewBuild } from "../status";
 import { LobbyConnectionProvider, useLobbyConnection } from "./LobbyConnection";
 import logo from "../assets/logo-header.webp";
 import "./app.css";
+
+/** How often an open page asks whether the server has been updated. */
+const VERSION_CHECK_MS = 60_000;
+
+async function buildIdNow(): Promise<string | null> {
+  try {
+    const response = await fetch("/api/version", { cache: "no-store" });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { buildId?: unknown };
+    return typeof body.buildId === "string" ? body.buildId : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A page loaded before an update keeps running the old screens until it
+ * is reloaded (seen 2026-10-21: the joining player had the pre-Phase-7
+ * match view while the host had the new one). Say so, over everything,
+ * with the way out. Reloading is safe mid-game: the match comes back.
+ */
+function NewVersion() {
+  const loadedWith = useRef<string | null>(null);
+  const [stale, setStale] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const now = await buildIdNow();
+      if (!alive) return;
+      if (loadedWith.current === null) loadedWith.current = now;
+      else if (isNewBuild(loadedWith.current, now)) setStale(true);
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), VERSION_CHECK_MS);
+    const onFocus = () => void check();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+  if (!stale) return null;
+  return (
+    <div className="pa-new-version" role="alert">
+      <span>Proxic Arena has been updated. Reload to get the new version.</span>
+      <button type="button" className="pa-button" onClick={() => window.location.reload()}>
+        Reload
+      </button>
+    </div>
+  );
+}
 
 function ConnectionState() {
   const { lobby } = useLobbyConnection();
@@ -75,6 +129,7 @@ export function Shell() {
   return (
     <LobbyConnectionProvider>
       <div className="pa-app">
+        <NewVersion />
         <Header />
         <Outlet />
       </div>

@@ -515,23 +515,27 @@ button.gs-zone:not(:disabled):hover {
   box-shadow: 0 16px 40px rgb(0 0 0 / 70%);
   transform: translate(-50%, -50%);
 }
-/* On your move with nothing to list: a small line under the steps, so
- * the table stays clear and the player still reads whose move it is. */
-.gs-question-quiet {
+/* A question the board answers: one line under the steps, so the
+ * highlighted cards stay in plain view (AMENDMENT 12). */
+.gs-question-slim {
   top: calc(84px * var(--gs-scale, 1));
   width: auto;
-  max-width: 60vw;
-  padding: 6px 16px;
+  max-width: min(64vw, 960px);
+  padding: 8px 16px;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
   transform: translateX(-50%);
 }
-.gs-question-quiet .gs-question-title {
-  font-size: 16px;
+.gs-question-slim .gs-question-title {
+  font-size: 17px;
 }
-.gs-question-quiet .gs-question-hint {
+.gs-question-slim p {
   margin: 0;
+}
+.gs-question-slim .gs-pass {
+  margin: 0 0 0 auto;
 }
 .gs-question-title {
   margin: 0;

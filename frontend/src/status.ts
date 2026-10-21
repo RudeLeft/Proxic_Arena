@@ -25,6 +25,15 @@ export interface VersionInfo {
   buildId: string | null;
 }
 
+/**
+ * Whether the server now runs a different build from the one this page
+ * was loaded against. Only when BOTH are known: a server that reports no
+ * build id (an older one, or a development run) is not "newer".
+ */
+export function isNewBuild(loadedWith: string | null, now: string | null): boolean {
+  return loadedWith !== null && now !== null && loadedWith !== now;
+}
+
 export interface Readiness {
   status: string;
   checks: Record<string, string>;

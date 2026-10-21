@@ -157,8 +157,10 @@ export function GameScreen({
         answer(result.actionId);
         return;
       }
+      // A card with nothing to do is only highlighted: no window
+      // (AMENDMENT 12). Right-click is the close look (§7.30).
       setSelected(objectId);
-      setOffer(result.kind === "offer" ? result.options : []);
+      setOffer(result.kind === "offer" ? result.options : null);
     },
     [question, answer],
   );
@@ -654,13 +656,26 @@ function QuestionBar({
 }) {
   const onBoardCount = [...question.onBoard.values()].reduce((n, list) => n + list.length, 0);
   // On your move with nothing to list, the board and the Pass button are
-  // the whole question: no bar over the table, unless the list is asked for.
-  const quiet =
+  // the whole question: NO bar over the table (AMENDMENT 12), unless the
+  // list is asked for from the menu.
+  if (
     !all &&
     question.context === "priority" &&
     question.listed.length === 0 &&
     !notice &&
-    !decision.prompt;
+    !decision.prompt
+  ) {
+    // Still SAID, to a screen reader: whose move it is.
+    return (
+      <div className="gs-your-move" data-kind={decision.kind}>
+        <h2 className="gs-question-title pa-visually-hidden">
+          {decision.actedForSeat === mySeat
+            ? headingFor(decision.kind)
+            : `Playing for seat ${decision.actedForSeat}`}
+        </h2>
+      </div>
+    );
+  }
   const option = (o: DecisionOption) => (
     <li key={o.actionId}>
       <button
@@ -674,13 +689,35 @@ function QuestionBar({
       </button>
     </li>
   );
+  const heading =
+    decision.actedForSeat === mySeat
+      ? headingFor(decision.kind)
+      : `Playing for seat ${decision.actedForSeat}`;
+  // Everything asked is on the board (a target, a land to tap): the
+  // board is the answer, so the question is one line over the table,
+  // never a box in the middle of it (AMENDMENT 12).
+  if (!all && !decision.searchable && question.listed.length === 0 && onBoardCount > 0) {
+    return (
+      <div className="gs-question gs-question-slim" data-kind={decision.kind}>
+        <h2 className="gs-question-title">{heading}</h2>
+        {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
+        <p className="gs-question-hint">{hintFor(decision.kind, decision.options.length)}</p>
+        {notice && (
+          <p className="gs-question-notice" role="alert">
+            {notice}
+          </p>
+        )}
+        {question.context !== "priority" && question.canPass && (
+          <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
+            Pass
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
-    <div className={`gs-question${quiet ? " gs-question-quiet" : ""}`} data-kind={decision.kind}>
-      <h2 className="gs-question-title">
-        {decision.actedForSeat === mySeat
-          ? headingFor(decision.kind)
-          : `Playing for seat ${decision.actedForSeat}`}
-      </h2>
+    <div className="gs-question" data-kind={decision.kind}>
+      <h2 className="gs-question-title">{heading}</h2>
       {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
       {notice && (
         <p className="gs-question-notice" role="alert">
@@ -723,9 +760,7 @@ function QuestionBar({
               {all ? "Hide the list" : `Every choice as a list (${decision.options.length})`}
             </button>
           )}
-          {!quiet && (
-            <p className="gs-question-foot">{hintFor(decision.kind, decision.options.length)}</p>
-          )}
+          <p className="gs-question-foot">{hintFor(decision.kind, decision.options.length)}</p>
         </>
       )}
       {/* On your move, Pass is the act button under the stack (the

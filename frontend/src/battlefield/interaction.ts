@@ -7,9 +7,12 @@
 //   makes one up, reads a label to decide what it does, or decides what
 //   is legal: the options ARE the legal answers, and each says which
 //   object it is about (§7.61 B5).
-// - Outside a Forge context, clicking a card SELECTS it (§7.25, §7.26):
-//   on your move, a click opens the card's actions, it never casts or
-//   attacks by itself.
+// - On your move (AMENDMENT 12, owner 2026-10-21): a card with exactly
+//   ONE thing it can do does it on the click -- play the land, tap it for
+//   mana, cast the spell. With several, they are offered (§7.28). A click
+//   never ATTACKS: attacking is Forge's declare-attackers question, a
+//   context of its own (§7.26, §6.52).
+// - A card nothing is asked about is just selected (§7.25).
 // - Inside one (choose a target, an attacker, a card to discard...), the
 //   context defines the click (§7.27): a highlighted object with exactly
 //   one answer is that answer; with several, they are offered (§7.29).
@@ -73,11 +76,8 @@ export type ClickResult =
 export function clickOn(question: Question | null, objectId: string): ClickResult {
   const options = question?.onBoard.get(objectId) ?? [];
   if (!question || options.length === 0) return { kind: "select", objectId };
-  // §7.26: on your move a click never acts by itself, even with one
-  // option -- casting is a separate, visible step.
-  if (question.context === "priority") return { kind: "offer", objectId, options };
-  // §7.27: inside Forge's context the click IS the choice, when there is
-  // only one thing it could mean.
+  // AMENDMENT 12 (on your move) and §7.27 (inside Forge's context): the
+  // click IS the choice when there is only one thing it could mean.
   if (options.length === 1) return { kind: "answer", actionId: options[0]!.actionId };
   return { kind: "offer", objectId, options };
 }

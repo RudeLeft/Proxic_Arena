@@ -1771,3 +1771,23 @@ main.pa-main {
     grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
   }
 }
+
+/* An update happened while this page was open (Shell.tsx NewVersion).
+ * Above everything, the game screen included. */
+.pa-new-version {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  transform: translateX(-50%);
+  border: 1px solid #e0a44a;
+  border-radius: 8px;
+  background: #1c1710;
+  color: #f3e4c8;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+}
