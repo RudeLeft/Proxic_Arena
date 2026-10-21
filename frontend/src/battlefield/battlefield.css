@@ -70,20 +70,26 @@
   inset: 0;
 }
 
-/* A horizontal band of rows. It clips vertically only: a tapped card's
- * corner tips tuck under the next band (PHASE 7 AMENDMENT 4). */
-.bf-band {
-  position: absolute;
-  left: 0;
-  overflow-x: visible;
-  overflow-y: clip;
-}
-
 /* What layout() places: a card, and on a host, its name tags. */
 .bf-slot {
   position: absolute;
   left: 0;
   top: 0;
+  /* Movement (PHASE 7 AMENDMENT 6): a changed box glides there. */
+  transition: transform var(--move-ms) var(--move-easing);
+}
+/* A new window size is not a move. */
+.bf-cards[data-instant] .bf-slot {
+  transition: none;
+}
+/* A card on its way out: drawn, never clickable. */
+.bf-ghost {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-slot {
+    transition: none;
+  }
 }
 
 /* --- a card ------------------------------------------------------------ */
@@ -325,10 +331,15 @@
 
 .bf-dev-note {
   position: fixed;
+  /* Top left: empty table above the opponent's rows, and away from the
+     hand, which zooms under a resting pointer. */
   left: 8px;
-  bottom: 6px;
+  top: 6px;
   margin: 0;
-  padding: 2px 8px;
+  padding: 2px 4px 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border-radius: 4px;
   background: rgb(0 0 0 / 60%);
   color: var(--bf-muted);
@@ -336,6 +347,14 @@
     12px/1.5 "Segoe UI",
     system-ui,
     sans-serif;
-  pointer-events: none;
   z-index: 100000;
+}
+.bf-dev-next {
+  font: inherit;
+  color: var(--bf-ink);
+  background: #1f2a36;
+  border: 1px solid var(--bf-line);
+  border-radius: 3px;
+  padding: 1px 8px;
+  cursor: pointer;
 }

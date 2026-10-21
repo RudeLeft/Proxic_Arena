@@ -5,6 +5,7 @@
 // the server.
 
 import type { BoardCard, BoardHandCard } from "./Board";
+import type { AnchorId } from "./motion";
 
 /** mulberry32: small, fast, deterministic. */
 function random(seed: number): () => number {
@@ -192,4 +193,182 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
     };
   });
   return { battlefield, hand, viewerSeat: 1 };
+}
+
+/** What one synthetic change did: the board after it, and where the cards
+ * that appeared came from and the ones that went went (rail zones). */
+export interface SyntheticChange {
+  board: SyntheticBoard;
+  /** A short description, for the dev page and test messages. */
+  what: string;
+  arrivals: Map<string, AnchorId>;
+  departures: Map<string, AnchorId>;
+}
+
+const CHANGES = ["tap", "dies", "resolves", "land", "bounce", "attack", "draw", "untap"] as const;
+
+/**
+ * The board after `n` seeded changes (BATTLEFIELD_RENDERING.md §7 step 4:
+ * something to watch move). Each change is one kind of thing a real game
+ * does to the board, in turn: a land taps, a creature dies (its Auras and
+ * Equipment go with it), a creature spell resolves, a land is played from
+ * the hand, a creature is returned to its owner's hand, creatures attack,
+ * a card is drawn, a land untaps. Deterministic for (board, n, seed),
+ * so a test can compute the board it should see.
+ */
+export function applyChanges(start: SyntheticBoard, n: number, seed: number): SyntheticChange {
+  const rnd = random(seed * 7919 + 17);
+  let board: SyntheticBoard = {
+    ...start,
+    battlefield: [...start.battlefield],
+    hand: [...start.hand],
+  };
+  let last: SyntheticChange = {
+    board,
+    what: "the starting board",
+    arrivals: new Map(),
+    departures: new Map(),
+  };
+  let id = 100000;
+  let clock = 100000;
+  const pick = <T>(list: readonly T[]): T | undefined =>
+    list.length > 0 ? list[Math.floor(rnd() * list.length)] : undefined;
+  const side = (seat: number) => (seat === board.viewerSeat ? "viewer" : "opponent");
+
+  for (let step = 0; step < n; step++) {
+    const kind = CHANGES[step % CHANGES.length]!;
+    const arrivals = new Map<string, AnchorId>();
+    const departures = new Map<string, AnchorId>();
+    let battlefield = [...board.battlefield];
+    let hand = [...board.hand];
+    let what: string = kind;
+    const free = (c: BoardCard) => c.attachedTo === null;
+
+    if (kind === "tap" || kind === "untap") {
+      const target = pick(
+        battlefield.filter((c) => c.kind === "land" && c.tapped === (kind === "untap")),
+      );
+      if (target) {
+        battlefield = battlefield.map((c) =>
+          c.id === target.id ? { ...c, tapped: !c.tapped } : c,
+        );
+        what = `${target.name} ${kind}s`;
+      }
+    } else if (kind === "dies") {
+      const victim = pick(battlefield.filter((c) => c.kind === "creature" && free(c)));
+      if (victim) {
+        const going = battlefield.filter((c) => c.id === victim.id || c.attachedTo === victim.id);
+        for (const c of going) departures.set(c.id, `${side(c.seat)}:graveyard`);
+        battlefield = battlefield.filter((c) => !going.includes(c));
+        what = `${victim.name} dies`;
+      }
+    } else if (kind === "resolves") {
+      const seat = rnd() < 0.5 ? 1 : 2;
+      const name = pick(CREATURES)!;
+      const card: BoardCard = {
+        id: `card:${id++}`,
+        seat,
+        name,
+        kind: "creature",
+        types: "Creature — Test",
+        tapped: false,
+        attacking: false,
+        blocking: false,
+        sick: true,
+        faceDown: false,
+        known: true,
+        power: 1 + Math.floor(rnd() * 5),
+        toughness: 1 + Math.floor(rnd() * 5),
+        keywords: [],
+        counters: [],
+        attachedTo: null,
+        enteredAt: clock++,
+        art: syntheticScan(name),
+      };
+      battlefield.push(card);
+      arrivals.set(card.id, "stack");
+      what = `${name} resolves for ${side(seat) === "viewer" ? "you" : "the opponent"}`;
+    } else if (kind === "land") {
+      const card = hand[0];
+      if (card) {
+        // The same object, from the hand to the battlefield: no arrival,
+        // it moves from where it was drawn.
+        hand = hand.slice(1);
+        battlefield.push({
+          id: card.id,
+          seat: board.viewerSeat,
+          name: "Forest",
+          kind: "land",
+          types: "Basic Land — Forest",
+          tapped: false,
+          attacking: false,
+          blocking: false,
+          sick: false,
+          faceDown: false,
+          known: true,
+          power: null,
+          toughness: null,
+          keywords: [],
+          counters: [],
+          attachedTo: null,
+          enteredAt: clock++,
+          art: syntheticScan("Forest"),
+        });
+        what = "a land is played from the hand";
+      }
+    } else if (kind === "bounce") {
+      const card = pick(
+        battlefield.filter(
+          (c) =>
+            c.kind === "creature" &&
+            c.seat === board.viewerSeat &&
+            !c.faceDown &&
+            !battlefield.some((a) => a.attachedTo === c.id),
+        ),
+      );
+      if (card) {
+        battlefield = battlefield.filter((c) => c.id !== card.id);
+        hand = [
+          ...hand,
+          {
+            id: card.id,
+            name: card.name,
+            kind: card.kind,
+            types: card.types,
+            power: card.power,
+            toughness: card.toughness,
+            art: card.art,
+          },
+        ];
+        what = `${card.name} returns to your hand`;
+      }
+    } else if (kind === "attack") {
+      const ready = battlefield.filter(
+        (c) => c.kind === "creature" && c.seat !== board.viewerSeat && !c.tapped && !c.faceDown,
+      );
+      const attackers = new Set(ready.slice(0, 2).map((c) => c.id));
+      battlefield = battlefield.map((c) =>
+        attackers.has(c.id) ? { ...c, attacking: true, tapped: true } : c,
+      );
+      what = `${attackers.size} creature(s) attack you`;
+    } else if (kind === "draw") {
+      const name = pick(CREATURES)!;
+      const card: BoardHandCard = {
+        id: `card:${id++}`,
+        name,
+        kind: "creature",
+        types: "Creature — Test",
+        power: 2,
+        toughness: 2,
+        art: syntheticScan(name),
+      };
+      hand = [...hand, card];
+      arrivals.set(card.id, "viewer:library");
+      what = `you draw ${name}`;
+    }
+
+    board = { ...board, battlefield, hand };
+    last = { board, what, arrivals, departures };
+  }
+  return last;
 }

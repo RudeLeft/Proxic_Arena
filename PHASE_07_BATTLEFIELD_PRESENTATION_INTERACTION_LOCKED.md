@@ -1152,6 +1152,61 @@ the card face is unchanged.
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 6
+
+**Reason:** Build step 4 (movement). The document required that movement
+never gates input (§7.34-§7.36) and named "an animated transition" as
+the remedy for row changes (§7.11), but set no speed and did not say how
+cards enter, leave or respond to the pointer in the hand.
+
+**Affected requirements:** Part V (events and animation) and the canvas
+rule recorded under §7.52a ("a card lifts when pointed at").
+
+**Old decision:** none recorded; the canvas lifted a pointed-at hand
+card a little.
+
+**New decision:**
+
+1. **Speed: about a quarter of a second** (250 ms, quick to start and
+   gentle to land) for every move: a tap, a row re-centring, a card
+   arriving, leaving or rising from the hand.
+2. **A card that enters play travels from where it was**: from the hand
+   (the same card, gliding), from a pile it leaves, or from its zone in
+   the rail -- the stack for a resolving spell, the library for a draw, a
+   graveyard for a return -- growing from small to full size.
+3. **A card that leaves play slides to where it went**: its owner's
+   graveyard, exile, library or hand in the rail, shrinking and fading on
+   the way; its row then closes the gap. A card that joins another's spot
+   (a land into its pile) glides into it.
+4. **A pointed-at hand card rises and zooms**: upright, **twice** the
+   table size, wholly on screen and inside the play area, covering part of
+   the board while pointed at (owner's choice over "rise fully, a little
+   larger" and "rise a little"). Keyboard focus does the same.
+5. **Where the zones are** is the canvas's rail: each player's block
+   (life, then library, graveyard and exile rows) -- the opponent's at the
+   top, the viewer's at the bottom -- and the stack between them. Until
+   the rail is built (Part X), cards travel to those positions.
+6. Not movement: a new window size redraws in place; the first board, a
+   reload or a reconnect (§7.37) is drawn where it is, nothing flying in;
+   the system's "reduce motion" setting turns all of it off.
+7. A card on its way out is drawn but has no object id and takes no
+   clicks, so a test or a player never acts on something already gone
+   (§7.36). The tilted-corner clip of AMENDMENT 4 is drawn per card, in the
+   card's own coordinates, so it rides with a moving card instead of
+   cutting it at a band's edge.
+
+**Evidence:** owner decisions 2026-10-20, asked with game examples (a
+tapped Forest, a resolving Serra Angel, a Goblin Guide dying in combat,
+pointing at a hand card). Verified on the real stack:
+`frontend/e2e/battlefield.spec.ts` drives sixteen seeded changes and
+checks that each one moves and then settles exactly on `layout()`, ghosts
+gone, and that a pointed-at hand card lands exactly on its zoomed box;
+shown to fail with transitions switched off and with ghosts that never
+leave.
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20

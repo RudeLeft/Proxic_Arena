@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board } from "./Board";
-import { syntheticBoard } from "./fixture";
+import { applyChanges, syntheticBoard } from "./fixture";
 import { layout } from "./layout";
 
 /**
@@ -107,5 +107,137 @@ describe("Board", () => {
   it("the synthetic board is the same board every time for a seed", () => {
     expect(syntheticBoard(40, 30, 1)).toEqual(syntheticBoard(40, 30, 1));
     expect(syntheticBoard(40, 30, 2)).not.toEqual(syntheticBoard(40, 30, 1));
+  });
+});
+
+/**
+ * Movement — §7 step 4, PHASE 7 AMENDMENT 6. jsdom runs no animations,
+ * so the Web Animations API is stubbed and the test checks what the board
+ * ASKED for: a new card travels in from its zone, a card that left is
+ * drawn as a ghost travelling to its zone, and a card that only moved is
+ * left to its CSS transition.
+ */
+describe("Board movement", () => {
+  const size = { width: 1920, height: 1080 };
+  const calls: {
+    element: Element;
+    frames: Keyframe[];
+    animation: { onfinish: (() => void) | null };
+  }[] = [];
+  beforeEach(() => {
+    calls.length = 0;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(size.width);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(size.height);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    (HTMLElement.prototype as unknown as { animate: unknown }).animate = function (
+      this: Element,
+      frames: Keyframe[],
+    ) {
+      const animation = { onfinish: null as (() => void) | null, cancel() {} };
+      calls.push({ element: this, frames, animation });
+      return animation;
+    };
+  });
+  afterEach(() => {
+    delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const start = syntheticBoard(40, 30, 1);
+  function at(n: number) {
+    const step = applyChanges(start, n, 1);
+    return (
+      <Board
+        battlefield={step.board.battlefield}
+        hand={step.board.hand}
+        viewerSeat={step.board.viewerSeat}
+        artUrl={same}
+        arrivals={step.arrivals}
+        departures={step.departures}
+      />
+    );
+  }
+  const same = (art: string) => art;
+  const stepWhere = (pattern: RegExp) => {
+    for (let n = 1; n < 40; n++) if (pattern.test(applyChanges(start, n, 1).what)) return n;
+    throw new Error(`no change matches ${pattern}`);
+  };
+
+  it("the first board is drawn where it is, with nothing travelling", () => {
+    render(at(0));
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a card that resolves travels in from the stack, faded at first", () => {
+    const n = stepWhere(/resolves/);
+    const view = render(at(n - 1));
+    view.rerender(at(n));
+    const [id] = [...applyChanges(start, n, 1).arrivals.keys()];
+    const element = view.container.querySelector(`[data-object-id="${id}"]`)!.closest(".bf-slot");
+    const call = calls.find((c) => c.element === element);
+    expect(call, "the new card was not animated").toBeTruthy();
+    expect(call!.frames[0]!.opacity).toBe(0.2);
+    expect(String(call!.frames[0]!.transform)).toContain("scale(0.3)");
+  });
+
+  it("a card that dies leaves as a ghost to the graveyard, then is gone", () => {
+    const n = stepWhere(/dies$/);
+    const view = render(at(n - 1));
+    view.rerender(at(n));
+    const [id] = [...applyChanges(start, n, 1).departures.keys()];
+    expect(view.container.querySelector(`[data-object-id="${id}"]`)).toBeNull();
+    const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+    expect(ghost).toBeTruthy();
+    expect(ghost.getAttribute("aria-hidden")).toBe("true");
+    expect(ghost.querySelector("button")).toBeNull();
+    const call = calls.find((c) => c.element === ghost)!;
+    expect(String(call.frames[1]!.transform)).toContain("scale(0.3)");
+    act(() => call.animation.onfinish!());
+    expect(view.container.querySelector(`[data-ghost-of="${id}"]`)).toBeNull();
+  });
+
+  it("a land played from the hand glides to the battlefield: as itself, or into its pile", () => {
+    const n = stepWhere(/played from the hand/);
+    const view = render(at(n - 1));
+    const id = applyChanges(start, n - 1, 1).board.hand[0]!.id;
+    const before = view.container.querySelector(`[data-object-id="${id}"]`)!.closest(".bf-slot");
+    view.rerender(at(n));
+    const own = view.container.querySelector(`[data-object-id="${id}"]`);
+    if (own) {
+      // Its own spot: the same element, left to its CSS transition.
+      expect(own.closest(".bf-slot")).toBe(before);
+      expect(calls.filter((c) => c.element === before)).toHaveLength(0);
+    } else {
+      // Joined a pile: a ghost travels into the pile's spot, unfaded.
+      const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+      expect(ghost).toBeTruthy();
+      const call = calls.find((c) => c.element === ghost)!;
+      expect(call.frames[1]!.opacity).toBe(1);
+      const joined = layout(applyChanges(start, n, 1).board, size).slots.find((slot) =>
+        slot.ids.includes(id),
+      )!;
+      const pile = view.container.querySelector(`[data-object-id="${joined.ids[0]}"]`)!;
+      expect(pile.getAttribute("data-pile")).toBe(String(joined.ids.length));
+      expect(String(call.frames[1]!.transform)).toBe(
+        (pile.closest(".bf-slot") as HTMLElement).style.transform,
+      );
+    }
+  });
+
+  it("with reduced motion asked for, nothing travels and nothing lingers", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    const n = stepWhere(/dies$/);
+    const view = render(at(n - 1));
+    view.rerender(at(n));
+    expect(calls).toHaveLength(0);
+    expect(view.container.querySelector("[data-ghost-of]")).toBeNull();
   });
 });
