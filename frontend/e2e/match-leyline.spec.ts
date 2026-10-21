@@ -16,7 +16,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  boardCards,
+  choices,
+  clearEverything,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -58,7 +65,7 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
       for (const page of [host, guest]) {
         const panel = matchPanel(page);
         if ((await panel.getByRole("heading", { name: opening }).count()) > 0) {
-          const options = panel.getByRole("listitem").getByRole("button");
+          const options = await choices(page);
           await expect(options.first()).toBeVisible();
           const labels = await options.allTextContents();
           const picked = began.filter((entry) => entry.page === page).length;
@@ -87,7 +94,7 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
           break;
         }
         const generic = panel.getByRole("heading", { name: other });
-        const choice = panel.getByRole("listitem").getByRole("button");
+        const choice = await choices(page);
         if ((await generic.count()) > 0 && (await choice.count()) > 0) {
           await choice.first().click();
           handled = true;
@@ -106,8 +113,8 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
     // Where Forge put it: on that player's own battlefield, before
     // turn one, and no longer in their hand.
     for (const { page, name } of began) {
-      const battlefield = matchPanel(page).locator(".board-side.mine");
-      await expect(battlefield.locator(".card-chip", { hasText: name }).first()).toBeVisible({
+      const battlefield = boardCards(page, "viewer");
+      await expect(battlefield.filter({ hasText: name }).first()).toBeVisible({
         timeout: 30_000,
       });
     }

@@ -14,7 +14,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -46,14 +54,14 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     const deckName = await sharedDeck(host, guest, statePackage);
     await startAMatch(host, guest, deckName);
 
-    const totals = (page: Page) => matchPanel(page).locator(".board-totals");
+    const totals = (page: Page) => matchPanel(page).locator(".gs-seat");
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;
     const everything = async () =>
       (await seen(/\d+ poison/)) && (await seen(/\d+ energy/)) && (await seen(/· monarch/));
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     const deadline = Date.now() + 1_000_000;
@@ -64,8 +72,8 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
       const poisoned = await seen(/\d+ poison/);
@@ -80,10 +88,14 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         if (!poisoned)
           pick = labels.findIndex((label) => INFECT.some((name) => label.startsWith(name)));
       } else if (/Your move/.test(heading)) {
-        const lands = panel.locator(".board-side.mine .card-chip").filter({ hasNotText: "tapped" });
-        const forests = await lands.filter({ hasText: "Forest" }).count();
-        const plains = await lands.filter({ hasText: "Plains" }).count();
-        const hubs = await lands.filter({ hasText: "Aether Hub" }).count();
+        const lands = panel
+          .locator(
+            '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+          )
+          .filter({ hasNotText: "tapped" });
+        const forests = await cardCount(lands.filter({ hasText: "Forest" }));
+        const plains = await cardCount(lands.filter({ hasText: "Plains" }));
+        const hubs = await cardCount(lands.filter({ hasText: "Aether Hub" }));
         pick = find(/^Aether Hub — no cost — Play land/);
         if (pick < 0) pick = find(/Play land/);
         for (const [name, cost] of Object.entries(COSTS)) {

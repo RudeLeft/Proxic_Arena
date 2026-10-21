@@ -22,7 +22,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -44,11 +51,13 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
     const deckName = await sharedDeck(host, guest, delverPackage);
     await startAMatch(host, guest, deckName, { settle: false });
 
-    const mine = matchPanel(host).locator(".board-side.mine .card-chip");
+    const mine = matchPanel(host).locator(
+      '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+    );
     const front = mine.filter({ hasText: "Delver of Secrets" });
     const back = mine.filter({ hasText: "Insectile Aberration" });
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     let sawFront = false;
@@ -67,7 +76,7 @@ guest: ${(await matchPanel(guest).innerText()).slice(0, 600)}`;
 
       if (!sawFront && (await front.count()) > 0) {
         // The front, with its imported picture.
-        await expect(front.first().locator("img.card-art")).toBeVisible({ timeout: 30_000 });
+        await expect(front.first().locator("img.bf-art")).toBeVisible({ timeout: 30_000 });
         sawFront = true;
       }
 
@@ -82,14 +91,14 @@ ${await screens()}`);
       }
       quietSince = Date.now();
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
-        const hand = await panel.locator(".board-hand .card-chip").allTextContents();
+        const hand = await panel.locator('[data-zone="viewer:hand"]').allTextContents();
         // At most two mulligans, then keep and draw into it: each
         // mulligan shrinks the hand, an EMPTY hand can never hold the
         // card, and "keep only with it" then mulligans for ever. CI
@@ -104,7 +113,7 @@ ${await screens()}`);
         pick = find(/^Island/);
       } else if (live === host && find(/Reveal cards to other players/) >= 0) {
         // The look reached the player before the question did.
-        await expect(panel.locator(".board-notices")).toContainText("Looking at your library:");
+        await expect(panel.locator(".gs-notices")).toContainText("Looking at your library:");
         if (!sawLook) {
           await host.screenshot({ path: "test-results/seen/delver-look.png", fullPage: true });
           sawLook = true;
@@ -147,7 +156,7 @@ ${said}`,
     // and no picture borrowed from the front.
     await expect(back.first()).toBeVisible({ timeout: 60_000 });
     await expect(back.first()).toContainText("3/2");
-    await expect(back.first().locator("img.card-art")).toHaveCount(0);
+    await expect(back.first().locator("img.bf-art")).toHaveCount(0);
     await expect(front).toHaveCount(0);
     await host.screenshot({ path: "test-results/seen/delver-back.png", fullPage: true });
   } finally {

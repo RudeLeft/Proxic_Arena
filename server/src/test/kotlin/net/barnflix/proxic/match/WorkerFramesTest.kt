@@ -82,6 +82,34 @@ class WorkerFramesTest {
         assertNull(request)
     }
 
+    /**
+     * PHASE_07 §7.61 B5, B8 — found by the first live game on the new
+     * board: the worker sent each option's object and payability, and
+     * the server dropped both on the way to the browser, so no card in
+     * hand could be clicked to play it.
+     */
+    @Test
+    fun `an option's object and payability reach the browser`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"3","actedForSeat":1,"authorisedSeat":1,"kind":"chooseSpellAbilityToPlay",
+                     "stateVersion":"2","options":[
+                       {"actionId":"action:0:card:7","label":"Mountain","objectId":"card:7"},
+                       {"actionId":"action:1:card:9","label":"Bolt","objectId":"card:9","payable":false},
+                       {"actionId":"mode:0","label":"Mode"}]}
+                    """.trimIndent(),
+                ),
+            )!!
+        val sent = decisionMessage(request).toString()
+        val mountain = "\"actionId\":\"action:0:card:7\",\"label\":\"Mountain\",\"objectId\":\"card:7\"}"
+        assertTrue(sent.contains(mountain), sent)
+        assertTrue(sent.contains("\"objectId\":\"card:9\",\"payable\":false}"), sent)
+        // Absent stays absent: no object invented, payable not written.
+        assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

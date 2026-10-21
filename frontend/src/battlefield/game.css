@@ -1,0 +1,934 @@
+/* The game screen — PHASE_07 §7.60 and the canvas's Battlefield
+ * artboard. The right-hand column and the top bar are drawn at the
+ * canvas's own sizes on a 900-pixel-high board and scaled with the real
+ * board (--rail-scale), so the zones cards fly to are where they show. */
+
+.gs-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #05070a;
+  color: #e6e9ee;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+.gs-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  color: #a9b0ba;
+}
+
+/* --- the column on the right ------------------------------------------------- */
+
+.gs-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 235.4px;
+  height: 900px;
+  transform: scale(var(--rail-scale, 1));
+  transform-origin: top left;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+.gs-seat {
+  position: absolute;
+  left: 7.4px;
+  width: 216px;
+}
+.gs-seat-opponent {
+  top: 96px;
+}
+.gs-seat-viewer {
+  top: 656px;
+}
+.gs-seat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gs-life {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #39424f;
+  border-radius: 50%;
+  background: #11161d;
+  color: #e6e9ee;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+/* Whose turn it is: the ring. Who may act: the dot (canvas). */
+.gs-life-active {
+  border-color: #e0a44a;
+}
+.gs-seat-who {
+  flex: 1;
+  min-width: 0;
+}
+.gs-seat-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.gs-seat-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+}
+.gs-priority-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e0a44a;
+}
+.gs-seat-role {
+  display: block;
+  margin-top: 2px;
+  font-size: 8px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #7a828d;
+}
+.gs-seat-role-you {
+  color: #e0a44a;
+}
+.gs-seat-facts {
+  margin: 6px 0 0;
+  font-size: 9px;
+  line-height: 1.4;
+  color: #c2c9d2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.gs-zones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.gs-zone {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 11px;
+  border: 1px solid #262d36;
+  border-radius: 4px;
+  background: #11161d;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.gs-zone:not(:disabled) {
+  cursor: pointer;
+}
+button.gs-zone:not(:disabled):hover {
+  border-color: #39424f;
+}
+.gs-zone-key {
+  flex: 1;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+.gs-zone-n {
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gs-stack {
+  position: absolute;
+  left: 7.4px;
+  top: 292px;
+  width: 216px;
+  height: 264px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: #11161d;
+  overflow: hidden;
+}
+.gs-stack-head {
+  display: flex;
+  align-items: center;
+  padding: 11px 13px;
+  border-bottom: 1px solid #262d36;
+}
+.gs-stack-key {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f0dcb6;
+}
+.gs-stack-count {
+  min-width: 22px;
+  padding: 1px 6px;
+  box-sizing: border-box;
+  border: 1px solid #5c6472;
+  border-radius: 10px;
+  text-align: center;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #f0dcb6;
+}
+.gs-stack-top {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 11px 13px;
+  border: 0;
+  border-bottom: 1px solid #262d36;
+  background: #161c25;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-stack-next {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #e0a44a;
+}
+.gs-stack-name {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.gs-stack-who {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #8a8f98;
+}
+.gs-stack-empty {
+  margin: 0;
+  padding: 14px 13px;
+  font-size: 11px;
+  color: #7a828d;
+}
+.gs-stack-list {
+  margin: 0;
+  padding: 9px 13px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gs-stack-item {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.gs-stack-more {
+  margin: 0;
+  font-size: 10px;
+  color: #7a828d;
+}
+
+.gs-act,
+.gs-waiting {
+  position: absolute;
+  left: 7.4px;
+  top: 572px;
+  width: 216px;
+  height: 58px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 6px;
+}
+.gs-act {
+  margin: 0;
+  border: 1px solid #e0a44a;
+  background: #e0a44a;
+  color: #17110a;
+  cursor: pointer;
+  font: inherit;
+}
+.gs-act:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.gs-act:focus-visible {
+  outline: 2px solid #f1f4f8;
+  outline-offset: 2px;
+}
+.gs-act-word {
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.gs-act-sub {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #4a3a18;
+}
+.gs-waiting {
+  border: 1px dashed #39424f;
+}
+.gs-waiting-word {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+.gs-waiting-sub {
+  font-size: 9px;
+  color: #7a828d;
+}
+.gs-waiting-question {
+  border-color: #6b5b36;
+}
+
+/* Choosable and selected, in the column too: an outline AND a word. */
+.gs-choosable {
+  outline: 2px dashed #e0a44a;
+  outline-offset: 2px;
+  cursor: pointer;
+}
+.gs-selected {
+  outline: 3px solid #9ccbff;
+  outline-offset: 2px;
+}
+
+/* --- the top bar -------------------------------------------------------------- */
+
+.bf-top {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 0;
+  z-index: 15000;
+  pointer-events: none;
+}
+.gs-top {
+  position: absolute;
+  left: 50%;
+  top: calc(12px * var(--rail-scale, 1));
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transform: translateX(-50%) scale(var(--rail-scale, 1));
+  transform-origin: top center;
+  pointer-events: auto;
+}
+.gs-turn {
+  flex: none;
+  width: 62px;
+  height: 62px;
+  box-sizing: border-box;
+  border: 2px solid #5c6472;
+  border-radius: 50%;
+  background: #11161d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.gs-turn-key {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+.gs-turn-value {
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 25px;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.gs-steps {
+  display: flex;
+  gap: 2px;
+  width: 744px;
+  height: 54px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  border: 1px solid #262d36;
+  border-radius: 27px;
+  background: #11161d;
+}
+.gs-step {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #7a828d;
+}
+.gs-step-now {
+  background: #e0a44a;
+  color: #17110a;
+  font-weight: 700;
+}
+.gs-day {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c2c9d2;
+}
+
+/* The logo, the game's state in words, and the menu: top left. */
+.gs-corner {
+  position: absolute;
+  left: 20px;
+  top: 12px;
+  z-index: 16000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: none;
+}
+.gs-corner > * {
+  pointer-events: auto;
+}
+.gs-logo {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+.gs-status {
+  margin: 0;
+  font-size: 10px;
+  color: #8a8f98;
+}
+.gs-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 340px;
+}
+.gs-menu-button {
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid #39424f;
+  border-radius: 3px;
+  background: rgb(17 22 29 / 85%);
+  color: #cfd5dd;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.gs-menu-button[aria-pressed="true"] {
+  border-color: #e0a44a;
+}
+.gs-menu-warn {
+  border-color: #a05449;
+  color: #f0b2a8;
+}
+.gs-menu-confirm,
+.gs-menu-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #6b5450;
+  border-radius: 4px;
+  background: #1c1a1c;
+  font-size: 11px;
+  color: #f4cdc6;
+}
+
+.gs-banner {
+  position: absolute;
+  left: 50%;
+  top: 90px;
+  z-index: 16000;
+  max-width: 560px;
+  transform: translateX(-50%);
+}
+
+/* --- the question ---------------------------------------------------------------- */
+
+.gs-question {
+  position: absolute;
+  left: 42%;
+  top: 50%;
+  z-index: 16000;
+  width: min(560px, 60vw);
+  max-height: 46vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: rgb(17 22 29 / 96%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 70%);
+  transform: translate(-50%, -50%);
+}
+/* On your move with nothing to list: a small line under the steps, so
+ * the table stays clear and the player still reads whose move it is. */
+.gs-question-quiet {
+  top: calc(84px * var(--gs-scale, 1));
+  width: auto;
+  max-width: 60vw;
+  padding: 6px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  transform: translateX(-50%);
+}
+.gs-question-quiet .gs-question-title {
+  font-size: 16px;
+}
+.gs-question-quiet .gs-question-hint {
+  margin: 0;
+}
+.gs-question-title {
+  margin: 0;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+}
+.gs-question-prompt {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #dfe4ea;
+}
+.gs-question-hint,
+.gs-question-foot {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #8a8f98;
+}
+.gs-question-notice {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #f4cdc6;
+}
+.gs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-option {
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid #39424f;
+  border-radius: 4px;
+  background: #1b222c;
+  color: #e6e9ee;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-option:hover:not(:disabled) {
+  border-color: #5c6472;
+}
+.gs-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* §7.54: dimmed by a pattern and words, still choosable. */
+.gs-option-unpayable {
+  color: #a9b0ba;
+  background: repeating-linear-gradient(135deg, #1b222c 0 6px, #171d26 6px 12px);
+}
+.gs-option-note {
+  font-size: 10px;
+  color: #8a8f98;
+}
+.gs-all-toggle,
+.gs-link {
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #9ccbff;
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.gs-pass {
+  display: block;
+  margin: 12px 0 0;
+  padding: 8px 20px;
+  border: 1px solid #5c6472;
+  border-radius: 4px;
+  background: transparent;
+  color: #cfd5dd;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* --- beside a card ----------------------------------------------------------------- */
+
+.gs-popup {
+  position: absolute;
+  z-index: 30000;
+  pointer-events: auto;
+  width: 238px;
+  box-sizing: border-box;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: #11161d;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 75%);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+.gs-popup-head {
+  padding: 11px 13px;
+  border-bottom: 1px solid #262d36;
+}
+.gs-popup-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.gs-popup-count {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #8a8f98;
+}
+.gs-popup-actions {
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.gs-popup-actions .gs-option {
+  width: 100%;
+}
+.gs-popup-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 13px 10px;
+}
+.gs-popup-foot .gs-link {
+  margin: 0;
+}
+
+/* The board's own marks for choosable, selected and unpayable cards. */
+.bf-card.bf-choosable,
+.bf-tag.bf-choosable {
+  outline: 2px dashed #e0a44a;
+  outline-offset: 1px;
+  cursor: pointer;
+}
+.bf-asking .bf-card.bf-choosable::after {
+  content: "CHOOSE";
+  position: absolute;
+  right: 3%;
+  top: 22%;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: #e0a44a;
+  color: #17110a;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.07);
+  letter-spacing: 0.08em;
+}
+.bf-card.bf-selected,
+.bf-tag.bf-selected {
+  outline: 3px solid #9ccbff;
+  outline-offset: 1px;
+}
+.bf-card.bf-unpayable {
+  filter: saturate(0.5) brightness(0.8);
+}
+.bf-card {
+  cursor: pointer;
+}
+
+/* --- looking closer, and zones ---------------------------------------------------- */
+
+.gs-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40000;
+  display: grid;
+  place-items: center;
+  background: rgb(5 7 10 / 70%);
+}
+.gs-inspect {
+  display: flex;
+  gap: 20px;
+  max-width: min(720px, 92vw);
+  padding: 20px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: #161c25;
+}
+.gs-inspect-art {
+  flex: none;
+  width: min(300px, 40vw);
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.gs-inspect-noart {
+  display: grid;
+  place-items: center;
+  border: 1px solid #39424f;
+  background: #11161d;
+  color: #7a828d;
+  font-size: 13px;
+}
+.gs-inspect-text {
+  min-width: 200px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #c2c9d2;
+}
+.gs-inspect-text p {
+  margin: 6px 0 0;
+}
+.gs-inspect-name {
+  margin: 0;
+  font-size: 20px;
+  color: #e6e9ee;
+}
+.gs-inspect-types {
+  color: #8a8f98;
+}
+.gs-inspect-pt {
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #e6e9ee;
+}
+.gs-inspect-text .pa-button {
+  margin-top: 16px;
+}
+.gs-viewer {
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 18px 20px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: #161c25;
+}
+.gs-viewer-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.gs-viewer-empty {
+  font-size: 12px;
+  color: #8a8f98;
+}
+.gs-viewer-list {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gs-viewer-card {
+  width: 100%;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid #262d36;
+  border-radius: 4px;
+  background: #11161d;
+  color: #e6e9ee;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-viewer-types {
+  font-size: 11px;
+  color: #8a8f98;
+}
+
+/* --- what Forge said, the chat, the end -------------------------------------------- */
+
+.gs-notices {
+  position: absolute;
+  left: 42%;
+  bottom: 24%;
+  z-index: 16000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.gs-notice {
+  max-width: 520px;
+  padding: 8px 14px;
+  border: 1px solid #39424f;
+  border-radius: 6px;
+  background: rgb(17 22 29 / 94%);
+  font-size: 12px;
+  color: #dfe4ea;
+  animation: gs-fade 7s ease forwards;
+}
+@keyframes gs-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-notice {
+    animation: none;
+  }
+}
+
+.gs-chat {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 35000;
+  width: min(360px, 90vw);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #39424f;
+  background: #0d1117;
+}
+.gs-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1a212a;
+}
+.gs-chat-head h2 {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c2c9d2;
+}
+.gs-chat-head .gs-link {
+  margin: 0;
+}
+.gs-chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+.gs-chat-line {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #c2c9d2;
+  overflow-wrap: anywhere;
+}
+.gs-chat-who {
+  font-weight: 600;
+  color: #dfe4ea;
+}
+.gs-chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid #1a212a;
+}
+.gs-chat-form .pa-input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.gs-over {
+  position: absolute;
+  left: 42%;
+  top: 50%;
+  z-index: 38000;
+  width: min(440px, 90vw);
+  box-sizing: border-box;
+  padding: 22px 24px 24px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: #161c25;
+  box-shadow: 0 26px 64px rgb(0 0 0 / 72%);
+  transform: translate(-50%, -50%);
+}
+.gs-over-title {
+  margin: 0;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+}
+.gs-over-text {
+  margin: 10px 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #c2c9d2;
+}

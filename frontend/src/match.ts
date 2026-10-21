@@ -23,7 +23,23 @@
 export interface DecisionOption {
   actionId: string;
   label: string | null;
+  /**
+   * PHASE_07 §7.61 B5 — what the option is about: "card:N", "stack:N"
+   * or "player:SEAT", so the board can be clicked to answer. The page
+   * never parses an actionId to find this out. Several options may
+   * share an object (a card's abilities, §7.29).
+   */
+  objectId: string | null;
+  /**
+   * §7.61 B8 — false when Forge's own payment check says this cannot
+   * be paid right now. Shown dimmed, still choosable (§7.54): Forge
+   * has the last word. Absent from the frame means payable.
+   */
+  payable: boolean;
 }
+
+/** A target, as the server names it: an object id, or a player's seat. */
+export type TargetRef = { object: string } | { player: number };
 
 export interface Decision {
   decisionId: number;
@@ -142,6 +158,10 @@ export interface SnapshotCard {
   attachedTo: string | null;
   /** The Ring-bearer (the Ring's abilities are its alone). Public. */
   ringBearer: boolean;
+  /** §7.61 B11 — Forge's game timestamp: arrival order in a row. */
+  enteredAt: number | null;
+  /** §7.61 B12 — a token (they pile when identical). */
+  token: boolean;
 }
 
 export interface SnapshotPlayer {
@@ -165,6 +185,35 @@ export interface SnapshotPlayer {
   ringTempted: number;
   /** Dungeons this player has completed, one entry each time. */
   dungeonsCompleted: string[];
+  /** §7.61 B6 — floating mana by colour ({"R": 1}); empty when there is none. Public. */
+  manaPool: Record<string, number>;
+}
+
+/** One object on the stack — §7.61 B2, B3. */
+export interface StackEntry {
+  /** "stack:N", the snapshot's own id, which a counterspell's option names. */
+  id: string;
+  description: string;
+  /** The card it came from, "card:N"; null when unknown. */
+  source: string | null;
+  /** As this viewer may know it ("Face-down" for a face-down spell). */
+  name: string;
+  controller: number | null;
+  /** "spell" | "ability" | "trigger" */
+  kind: string;
+  targets: TargetRef[];
+}
+
+/** Combat, while there is one — §7.61 B4. Forge's record. */
+export interface CombatState {
+  attackers: { id: string; target: TargetRef }[];
+  blocks: { blocker: string; attacker: string }[];
+}
+
+/** One wave of damage — §7.61 B13. A new key is a new wave. */
+export interface DamageState {
+  key: string;
+  hits: { source: string; target: TargetRef; amount: number }[];
 }
 
 /** §6.40 — the board as one seat may see it. */
@@ -183,6 +232,8 @@ export interface Snapshot {
   turn: number;
   phase: string;
   activeSeat: number;
+  /** §7.61 B1 — who holds priority now; not always the active seat. Null if not sent. */
+  prioritySeat: number | null;
   seat: number;
   players: SnapshotPlayer[];
   /**
@@ -204,7 +255,12 @@ export interface Snapshot {
    */
   otherHands: SnapshotCard[];
   graveyard: SnapshotCard[];
-  stack: { id: string; description: string }[];
+  /** The stack, as Forge orders it (the top, which resolves next, first). */
+  stack: StackEntry[];
+  /** §7.61 B4 — null outside combat. */
+  combat: CombatState | null;
+  /** §7.61 B13 — the newest damage wave, or null. */
+  damage: DamageState | null;
 }
 
 export type MatchConnection = "connecting" | "open" | "closed";
@@ -376,6 +432,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     turn: asNumber(row["turn"]) ?? 0,
     phase: asString(row["phase"]) ?? "",
     activeSeat: asNumber(row["activeSeat"]) ?? 0,
+    prioritySeat: asNumber(row["prioritySeat"]),
     players: asPlayers(row["players"]),
     notices: asNotices(row["notices"]),
     battlefield: asCards(row["battlefield"]),
@@ -383,6 +440,8 @@ function asSnapshot(value: unknown): Snapshot | null {
     otherHands: asCards(row["otherHands"]),
     graveyard: asCards(row["graveyard"]),
     stack: asStack(row["stack"]),
+    combat: asCombat(row["combat"]),
+    damage: asDamage(row["damage"]),
   };
 }
 
@@ -406,6 +465,7 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       command: asNotices(row["command"]),
       ringTempted: asNumber(row["ringTempted"]) ?? 0,
       dungeonsCompleted: asNotices(row["dungeonsCompleted"]),
+      manaPool: asManaPool(row["manaPool"]),
     });
   }
   return players;
@@ -456,9 +516,70 @@ function asCards(value: unknown): SnapshotCard[] {
       // also why artwork did not appear the first time: the
       // server was sending `art` and this dropped it.
       art: asHash(row["art"]),
+      enteredAt: asNumber(row["enteredAt"]),
+      token: row["token"] === true,
     });
   }
   return cards;
+}
+
+function asManaPool(value: unknown): Record<string, number> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const pool: Record<string, number> = {};
+  for (const [colour, amount] of Object.entries(value as Record<string, unknown>)) {
+    const n = asNumber(amount);
+    if (n !== null && n > 0 && /^[WUBRGC]$/.test(colour)) pool[colour] = n;
+  }
+  return pool;
+}
+
+/** A target as the server writes it, or null. Never parsed out of a label. */
+function asTarget(value: unknown): TargetRef | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const object = asString(row["object"]);
+  if (object) return { object };
+  const player = asNumber(row["player"]);
+  return player === null ? null : { player };
+}
+
+function asCombat(value: unknown): CombatState | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const attackers: CombatState["attackers"] = [];
+  for (const entry of Array.isArray(row["attackers"]) ? (row["attackers"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const a = entry as Record<string, unknown>;
+    const id = asString(a["id"]);
+    const target = asTarget(a["target"]);
+    if (id && target) attackers.push({ id, target });
+  }
+  const blocks: CombatState["blocks"] = [];
+  for (const entry of Array.isArray(row["blocks"]) ? (row["blocks"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const b = entry as Record<string, unknown>;
+    const blocker = asString(b["blocker"]);
+    const attacker = asString(b["attacker"]);
+    if (blocker && attacker) blocks.push({ blocker, attacker });
+  }
+  return { attackers, blocks };
+}
+
+function asDamage(value: unknown): DamageState | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const key = asString(row["key"]);
+  if (!key) return null;
+  const hits: DamageState["hits"] = [];
+  for (const entry of Array.isArray(row["hits"]) ? (row["hits"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const h = entry as Record<string, unknown>;
+    const source = asString(h["source"]);
+    const target = asTarget(h["target"]);
+    const amount = asNumber(h["amount"]);
+    if (source && target && amount !== null) hits.push({ source, target, amount });
+  }
+  return { key, hits };
 }
 
 function asCounters(value: unknown): SnapshotCounter[] {
@@ -475,15 +596,26 @@ function asCounters(value: unknown): SnapshotCounter[] {
   return counters;
 }
 
-function asStack(value: unknown): { id: string; description: string }[] {
+function asStack(value: unknown): StackEntry[] {
   if (!Array.isArray(value)) return [];
-  const items: { id: string; description: string }[] = [];
+  const items: StackEntry[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) continue;
     const row = entry as Record<string, unknown>;
     const id = asString(row["id"]);
     if (!id) continue;
-    items.push({ id, description: asString(row["description"]) ?? "" });
+    const description = asString(row["description"]) ?? "";
+    items.push({
+      id,
+      description,
+      source: asString(row["source"]),
+      name: asString(row["name"]) ?? description,
+      controller: asNumber(row["controller"]),
+      kind: asString(row["kind"]) ?? "spell",
+      targets: Array.isArray(row["targets"])
+        ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
+        : [],
+    });
   }
   return items;
 }
@@ -519,7 +651,13 @@ function asOptions(value: unknown): DecisionOption[] {
     // An option with no id is one that cannot be chosen. Dropped
     // rather than shown as a button that does nothing.
     if (!actionId) continue;
-    options.push({ actionId, label: asString(row["label"]) });
+    options.push({
+      actionId,
+      label: asString(row["label"]),
+      objectId: asString(row["objectId"]),
+      // Only an explicit false dims: absent means payable (§7.54).
+      payable: row["payable"] !== false,
+    });
   }
   return options;
 }

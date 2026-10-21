@@ -13,7 +13,16 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  boardCards,
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -36,11 +45,13 @@ test("a face-down creature is named for its controller and hidden from the oppon
     const deckName = await sharedDeck(host, guest, morphPackage);
     await startAMatch(host, guest, deckName);
 
-    const faceDownMine = matchPanel(host)
-      .locator(".board-side.mine .card-chip")
-      .filter({ hasText: "face down" });
+    // PHASE_07 §7.18: a face-down permanent is a card back with its
+    // public power/toughness; its name only for the controller.
+    const faceDownMine = matchPanel(host).locator(
+      '.bf-cards button.bf-card[data-controller="viewer"][data-face="down"]',
+    );
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     const deadline = Date.now() + 1_000_000;
@@ -52,8 +63,8 @@ test("a face-down creature is named for its controller and hidden from the oppon
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
@@ -61,11 +72,11 @@ test("a face-down creature is named for its controller and hidden from the oppon
       if (/Your move/.test(heading)) {
         pick = find(/Play land/);
         if (pick < 0 && live === host) {
-          const islands = await matchPanel(host)
-            .locator(".board-side.mine .card-chip")
-            .filter({ hasText: "Island" })
-            .filter({ hasNotText: "tapped" })
-            .count();
+          const islands = await cardCount(
+            boardCards(host, "viewer")
+              .filter({ hasText: "Island" })
+              .filter({ hasNotText: "tapped" }),
+          );
           if (islands >= 3) pick = find(/cast this card face down/);
         }
       } else if (find(/still owing/) >= 0) {
@@ -87,26 +98,30 @@ test("a face-down creature is named for its controller and hidden from the oppon
 
     // The controller: its own card, by name, marked face down.
     await expect(faceDownMine.first(), `after ${answered} decisions`).toBeVisible();
-    const name = (await faceDownMine.first().locator(".card-name").textContent())?.trim() ?? "";
+    const name = (await faceDownMine.first().locator(".bf-name").textContent())?.trim() ?? "";
     expect(MORPHS, `the controller's face-down card is named ${name}`).toContain(name);
 
     // The opponent: a Face-down creature, nothing that names it, no
     // picture, and not the controller's word for it either.
-    const theirs = matchPanel(guest).locator(".board-side.theirs");
-    const hidden = theirs.locator(".card-chip").filter({ hasText: "Face-down" });
+    const hidden = matchPanel(guest).locator(
+      '.bf-cards button.bf-card[data-controller="opponent"][data-face="down"]',
+    );
     await expect(hidden.first()).toBeVisible({ timeout: 30_000 });
-    await expect(hidden.first().locator(".card-art")).toHaveCount(0);
+    await expect(hidden.first().locator("img")).toHaveCount(0);
+    await expect(hidden.first().locator(".bf-name")).toHaveCount(0);
     // What the rules make public (owner decision 2026-10-20): a 2/2
     // creature, drawn among the creatures.
     await expect(hidden.first()).toContainText("2/2");
-    await expect(
-      theirs.locator(".board-row").filter({ hasText: "Creatures" }).locator(".card-chip", {
-        hasText: "Face-down",
-      }),
-    ).toHaveCount(1);
-    await expect(hidden.first()).not.toContainText("face down");
+    await expect(hidden.first()).toHaveAttribute("data-zone", /creature/i);
+    await expect(hidden.first()).toHaveAttribute("aria-label", /^Face-down card/);
+    // Not in the text, and not in any label a screen reader would read.
+    const opponentWords = await matchPanel(guest)
+      .locator('.bf-cards [data-controller="opponent"]')
+      .evaluateAll((els) =>
+        els.map((el) => `${el.textContent} ${el.getAttribute("aria-label")}`).join(" "),
+      );
     for (const morph of MORPHS) {
-      await expect(theirs, `the opponent's board names ${morph}`).not.toContainText(morph);
+      expect(opponentWords, `the opponent's board names ${morph}`).not.toContain(morph);
     }
     await host.screenshot({ path: "test-results/seen/face-down-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/face-down-guest.png", fullPage: true });

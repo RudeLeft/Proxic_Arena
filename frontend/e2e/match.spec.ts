@@ -23,7 +23,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, startAMatch, whoseTurn } from "./match-helpers";
+import {
+  choices,
+  clearEverything,
+  handCards,
+  matchPanel,
+  startAMatch,
+  whoseTurn,
+} from "./match-helpers";
 
 // Forge loads its whole card pool before the first game, and the
 // import ahead of it resolves every card the same way. Measured on
@@ -100,7 +107,8 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // one of them for a question that no longer existed. Only one
     // player holds priority in Magic.
     await expect(matchPanel(waiting).getByRole("heading", { name: /Your move/ })).toHaveCount(0);
-    await expect(matchPanel(waiting).getByText(/Waiting for the game/)).toBeVisible();
+    // PHASE_07: the rail says whose move it is, by name.
+    await expect(matchPanel(waiting).locator(".gs-waiting")).toContainText(/to act/);
 
     // §6.50 — the actions are FORGE's, and there may be NONE.
     //
@@ -109,7 +117,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // playable. That is real Magic, not a fault: most priority
     // in a game is declined. What must always be true is that
     // the player can decline.
-    const actions = matchPanel(asked).getByRole("listitem").getByRole("button");
+    const actions = await choices(asked);
     await expect(matchPanel(asked).getByRole("button", { name: "Pass" })).toBeVisible();
 
     // --- THE BOARD, FOR BOTH OF THEM --------------------------
@@ -130,11 +138,15 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       // makes it a table rather than a list.
       expect(await page.getByText(/in library/).count()).toBe(2);
     }
-    // Each player's own hand is headed with a count, and the
-    // cards in it are named; the opponent's hand has no such
-    // section at all, because its contents never arrived.
-    await expect(asked.getByRole("heading", { name: /Your hand/ })).toBeVisible();
-    await expect(waiting.getByRole("heading", { name: /Your hand/ })).toBeVisible();
+    // Each player's own hand is drawn, card by card; the opponent's
+    // is not drawn at all, because its contents never arrived -- only
+    // its count, in the totals.
+    for (const page of [asked, waiting]) {
+      await expect(handCards(page).first()).toBeVisible();
+      await expect(
+        page.locator('.bf-cards [data-zone$=":hand"]:not([data-zone="viewer:hand"])'),
+      ).toHaveCount(0);
+    }
 
     // --- ANSWER IT, AND SEE THE GAME MOVE ---------------------
     //
@@ -157,10 +169,9 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     await expect
       .poll(
         async () => {
-          const listed = await matchPanel(asked)
-            .getByRole("listitem")
-            .getByRole("button")
-            .allTextContents();
+          // Through the list: on your move the board answers clicks
+          // and the bar lists nothing until it is opened.
+          const listed = await (await choices(asked)).allTextContents();
           const waitingHas = await matchPanel(waiting)
             .getByRole("heading", { name: /Your move/ })
             .count();
@@ -184,7 +195,8 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // Bounded and non-fatal: if it does not populate, the test
     // has already asserted everything it asserts, and the
     // screenshot simply shows less.
-    const inPlay = (page: Page) => page.locator(".board-side .card-chip");
+    const inPlay = (page: Page) =>
+      page.locator('.bf-cards button[data-object-id]:not([data-zone="viewer:hand"])');
     for (let step = 0; step < 120; step++) {
       if ((await inPlay(asked).count()) > 2 && (await inPlay(waiting).count()) > 0) break;
 
@@ -194,7 +206,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       const land = matchPanel(live)
         .getByRole("listitem")
         .getByRole("button", { name: /Play land/ });
-      const options = matchPanel(live).getByRole("listitem").getByRole("button");
+      const options = await choices(live);
 
       if ((await land.count()) > 0) {
         await land.first().click();

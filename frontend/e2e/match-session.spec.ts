@@ -25,7 +25,7 @@ import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import { choices, clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -67,7 +67,7 @@ async function question(page: Page) {
   const panel = matchPanel(page);
   return {
     heading: (await panel.getByRole("heading", { name: pregame }).first().textContent()) ?? "",
-    options: await panel.getByRole("listitem").getByRole("button").allTextContents(),
+    options: await (await choices(page)).allTextContents(),
   };
 }
 
@@ -186,8 +186,8 @@ test("refresh, disconnect, a second tab and a closed browser change nothing", as
     const decisionId = pending!.frame.decisionId!;
 
     await Promise.all([
-      matchPanel(asked).getByRole("listitem").getByRole("button").first().click(),
-      matchPanel(second).getByRole("listitem").getByRole("button").first().click(),
+      (await choices(asked)).first().click(),
+      (await choices(second)).first().click(),
     ]);
     await asked.waitForTimeout(3_000);
 

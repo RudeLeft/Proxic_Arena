@@ -24,7 +24,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, startAMatch } from "./match-helpers";
+import { choices, clearEverything, isAsked, matchPanel, startAMatch } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -289,13 +289,13 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         // on a game that was working perfectly. What has to be
         // true is that the game MOVED -- this question is gone, or
         // it is a shorter one.
-        const before = await panel.getByRole("listitem").getByRole("button").count();
-        await panel.getByRole("listitem").getByRole("button").first().click();
+        const before = await (await choices(on)).count();
+        await (await choices(on)).first().click();
         await expect
           .poll(
             async () =>
               (await panel.getByRole("heading", { name: question.heading }).count()) === 0 ||
-              (await panel.getByRole("listitem").getByRole("button").count()) !== before,
+              (await (await choices(on)).count()) !== before,
             { timeout: 60_000 },
           )
           .toBe(true);
@@ -338,7 +338,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       // runs in four, 87 and 155 decisions in, both on a game that
       // was still perfectly healthy.
       const asking = async (page: Page) =>
-        (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+        (await isAsked(page)) ||
         (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
@@ -350,7 +350,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         continue;
       }
 
-      const options = matchPanel(live).getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
 
       // PLAY TOWARDS THE DECISIONS, deliberately. This is not a
@@ -412,7 +412,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     //
     // A 200 on the response is the only step that proves the last
     // two, so the response is what is waited for.
-    const art = matchPanel(host).locator("img.card-art");
+    const art = matchPanel(host).locator("img.bf-art");
     await expect(art.first()).toBeVisible({ timeout: 60_000 });
 
     const src = await art.first().getAttribute("src");

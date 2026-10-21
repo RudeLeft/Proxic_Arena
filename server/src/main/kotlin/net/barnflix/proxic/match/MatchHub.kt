@@ -156,6 +156,10 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
                     buildJsonObject {
                         put("actionId", option.actionId)
                         put("label", option.label)
+                        // PHASE_07 §7.61 B5, B8 -- the worker sent them; the
+                        // first build of the board found they stopped here.
+                        option.objectId?.let { put("objectId", it) }
+                        if (!option.payable) put("payable", false)
                     },
                 )
             }
@@ -179,6 +183,10 @@ fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
                     buildJsonObject {
                         put("actionId", option.actionId)
                         put("label", option.label)
+                        // PHASE_07 §7.61 B5, B8 -- the worker sent them; the
+                        // first build of the board found they stopped here.
+                        option.objectId?.let { put("objectId", it) }
+                        if (!option.payable) put("payable", false)
                     },
                 )
             }

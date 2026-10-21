@@ -68,7 +68,13 @@ private fun readOptions(value: JsonElement?): List<DecisionOption> =
     (value as? JsonArray).orEmpty().mapNotNull { entry ->
         val option = entry as? JsonObject ?: return@mapNotNull null
         val actionId = option["actionId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-        DecisionOption(actionId, option["label"]?.jsonPrimitive?.contentOrNull)
+        DecisionOption(
+            actionId,
+            option["label"]?.jsonPrimitive?.contentOrNull,
+            objectId = option["objectId"]?.jsonPrimitive?.contentOrNull,
+            // Only an explicit false: absent means payable (§7.54).
+            payable = option["payable"]?.jsonPrimitive?.contentOrNull != "false",
+        )
     }
 
 /** §6.149, §6.151 — what Forge said, read without interpretation. */

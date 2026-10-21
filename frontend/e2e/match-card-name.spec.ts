@@ -26,7 +26,14 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -115,7 +122,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       if (over > 0) break;
 
       const asking = async (page: Page) =>
-        (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+        (await isAsked(page)) ||
         (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
@@ -126,7 +133,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       // Cast the naming cards whenever they are on offer, lands
       // otherwise, and nothing else: the game exists to ask the
       // question. Mana is paid from the first source offered.
-      const options = matchPanel(live).getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       // Nobody attacks or blocks. Forge labels a Revoker in combat
       // "Phyrexian Revoker — 2/1", which the cast pattern below also

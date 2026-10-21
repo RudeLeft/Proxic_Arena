@@ -16,7 +16,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -40,7 +48,7 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
 
     const restarted = /Game 2 ·/;
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     // Bounded by the clock: the host needs seven lands, then three
@@ -57,15 +65,15 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
         // The host keeps only a hand with Karn in it.
-        const hand = await panel.locator(".board-hand .card-chip").allTextContents();
+        const hand = await panel.locator('[data-zone="viewer:hand"]').allTextContents();
         // At most two mulligans, then keep and draw into it: each
         // mulligan shrinks the hand, an EMPTY hand can never hold the
         // card, and "keep only with it" then mulligans for ever. CI
@@ -77,12 +85,14 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Plains/);
       } else if (live === host) {
-        const mine = panel.locator(".board-side.mine .card-chip");
+        const mine = panel.locator(
+          '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+        );
         const karnOut = (await mine.filter({ hasText: "Karn" }).count()) > 0;
         // Forge offers a spell whether or not it can be paid for, and
         // an unpaid cast rolls back to the same question -- clicking
         // Karn at six lands would loop for ever. So count first.
-        const lands = await mine.filter({ hasText: "Plains" }).count();
+        const lands = await cardCount(mine.filter({ hasText: "Plains" }));
         pick = find(/-14: Restart the game/);
         if (pick < 0) pick = find(/\+4: Target player/);
         if (pick < 0) pick = find(/Play land/);
@@ -123,7 +133,7 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
       ).toBeVisible();
       // A new game: the same page and the same match, and twenty life
       // each again.
-      await expect(panel.locator(".board-totals").filter({ hasText: "20 life" })).toHaveCount(2);
+      await expect(panel.locator(".gs-seat").filter({ hasText: "20 life" })).toHaveCount(2);
     }
     await host.screenshot({ path: "test-results/seen/karn-restart.png", fullPage: true });
   } finally {

@@ -11,6 +11,15 @@ package net.barnflix.proxic.match
 data class DecisionOption(
     val actionId: String,
     val label: String?,
+    /**
+     * PHASE_07 §7.61 B5 — what the option is about ("card:N", "stack:N",
+     * "player:SEAT"), as the worker derived it. Passed through untouched:
+     * the server neither reads nor checks it, and a browser that clicks
+     * the board still answers with the actionId.
+     */
+    val objectId: String? = null,
+    /** §7.61 B8 — false when Forge's payment check says it cannot be paid now. */
+    val payable: Boolean = true,
 )
 
 /**

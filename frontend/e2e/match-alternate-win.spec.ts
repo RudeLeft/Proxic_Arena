@@ -15,7 +15,15 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -77,7 +85,7 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     await startAMatch(host, guest, deckName, { settle: false });
 
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     let mulligans = 0;
@@ -92,16 +100,16 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
         // The host keeps only a hand with the Maniac in it.
-        const hand = await panel.locator(".board-hand .card-chip").allTextContents();
+        const hand = await panel.locator('[data-zone="viewer:hand"]').allTextContents();
         // At most two mulligans, then keep and draw into it: each
         // mulligan shrinks the hand, an EMPTY hand can never hold the
         // card, and "keep only with it" then mulligans for ever. CI
@@ -118,12 +126,14 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         // Nobody attacks: life must not move.
         pick = -1;
       } else if (live === host) {
-        const mine = panel.locator(".board-side.mine .card-chip");
+        const mine = panel.locator(
+          '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+        );
         const maniacOut = (await mine.filter({ hasText: MANIAC }).count()) > 0;
-        const untapped = await mine
-          .filter({ hasText: "Island" })
-          .filter({ hasNotText: "tapped" })
-          .count();
+        // Basic lands pile (§7.58): count the cards, not the piles.
+        const untapped = await cardCount(
+          mine.filter({ hasText: "Island" }).filter({ hasNotText: "tapped" }),
+        );
         // Every mill targets the host itself.
         pick = find(new RegExp(`^${testUser}`));
         if (pick < 0) pick = find(/still owing/);
@@ -160,7 +170,7 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     const why = "The winner has won due to effect of 'Laboratory Maniac'.";
     // What the page said, so a failure names how the game DID end.
     const said = async () =>
-      (await matchPanel(host).locator(".board-totals, p").allTextContents())
+      (await matchPanel(host).locator(".gs-seat, .gs-status").allTextContents())
         .filter((text) => /won|draw|stopped|life/.test(text))
         .join(" | ");
     await expect(
@@ -177,13 +187,13 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     // Life never moved, so it could not have decided anything; the
     // host's library is empty, which is the Maniac's condition.
     for (const page of [host, guest]) {
-      await expect(
-        matchPanel(page).locator(".board-totals").filter({ hasText: "20 life" }),
-      ).toHaveCount(2);
+      await expect(matchPanel(page).locator(".gs-seat").filter({ hasText: "20 life" })).toHaveCount(
+        2,
+      );
     }
     await expect(
       matchPanel(host)
-        .locator(".board-side.mine .board-totals")
+        .locator(".gs-seat-viewer")
         .filter({ hasText: /\s0 in library/ }),
     ).toHaveCount(1);
     // P6-BC — a whole real game later, the deck storage it was played

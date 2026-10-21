@@ -15,7 +15,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -47,9 +55,9 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
     const deckName = await sharedDeck(host, guest, ringPackage);
     await startAMatch(host, guest, deckName);
 
-    const totals = (page: Page) => matchPanel(page).locator(".board-totals");
+    const totals = (page: Page) => matchPanel(page).locator(".gs-seat");
     const bearers = (page: Page) =>
-      matchPanel(page).locator(".card-chip").filter({ hasText: "Ring-bearer" });
+      matchPanel(page).locator(".bf-cards button.bf-card").filter({ hasText: "Ring-bearer" });
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;
@@ -59,7 +67,7 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
       (await bearers(host).count()) > 0 &&
       (await bearers(guest).count()) > 0;
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     const deadline = Date.now() + 1_000_000;
@@ -70,24 +78,31 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
       let pick = -1;
-      if (/Choose a creature to (attack|block)/.test(prompt) || /Declare (attackers|blockers)/.test(heading)) {
+      if (
+        /Choose a creature to (attack|block)/.test(prompt) ||
+        /Declare (attackers|blockers)/.test(heading)
+      ) {
         // No combat: the initiative stays where it was taken.
         pick = -1;
       } else if (/Your move/.test(heading)) {
-        const mine = panel.locator(".board-side.mine .card-chip");
+        const mine = panel.locator(
+          '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+        );
         const untapped = mine.filter({ hasNotText: "tapped" });
-        const swamps = await untapped.filter({ hasText: "Swamp" }).count();
-        const plains = await untapped.filter({ hasText: "Plains" }).count();
-        const swampsOut = await mine.filter({ hasText: "Swamp" }).count();
-        const plainsOut = await mine.filter({ hasText: "Plains" }).count();
-        pick = find(new RegExp(`^${swampsOut <= plainsOut ? "Swamp" : "Plains"} — no cost — Play land`));
+        const swamps = await cardCount(untapped.filter({ hasText: "Swamp" }));
+        const plains = await cardCount(untapped.filter({ hasText: "Plains" }));
+        const swampsOut = await cardCount(mine.filter({ hasText: "Swamp" }));
+        const plainsOut = await cardCount(mine.filter({ hasText: "Plains" }));
+        pick = find(
+          new RegExp(`^${swampsOut <= plainsOut ? "Swamp" : "Plains"} — no cost — Play land`),
+        );
         if (pick < 0) pick = find(/Play land/);
         for (const [name, cost] of Object.entries(COSTS)) {
           if (pick >= 0) break;
@@ -113,7 +128,9 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
     }
 
     expect(await seen(/the Ring has tempted/), "the Ring never tempted anyone").toBe(true);
-    expect(await seen(/command zone: .*The Ring/), "the Ring is not in the command zone").toBe(true);
+    expect(await seen(/command zone: .*The Ring/), "the Ring is not in the command zone").toBe(
+      true,
+    );
     expect(await seen(/Undercity \(room: /), "no dungeon room was shown").toBe(true);
     // Public: both players see the same Ring-bearers.
     expect(await bearers(host).count()).toBeGreaterThan(0);

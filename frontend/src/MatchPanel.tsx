@@ -253,7 +253,7 @@ export function MatchPanel({ match, me }: { match: MatchView; me: string }) {
  * reply for an older keystroke arriving late would otherwise
  * replace the list under the player's cursor.
  */
-function NameSearch({
+export function NameSearch({
   decision,
   disabled,
   onSearch,
@@ -320,7 +320,7 @@ function NameSearch({
  * a name is the only interpretation allowed, and it uses the
  * participant list the page already holds.
  */
-function resultText(match: MatchView, mySeat: number | null): string {
+export function resultText(match: MatchView, mySeat: number | null): string {
   if (match.status === "FAILED_RUNTIME" || match.outcome?.kind === "FAILED") {
     // §6.154 — not a loss for anybody. A match that stopped is a
     // fault, and recording a winner for it would be a lie.
@@ -363,7 +363,7 @@ function resultText(match: MatchView, mySeat: number | null): string {
  * showing the raw name: a newer server asking something this
  * build has never heard of should still be answerable.
  */
-function headingFor(kind: string): string {
+export function headingFor(kind: string): string {
   switch (kind) {
     case "chooseTargetsFor":
       return "Choose a target";
@@ -446,7 +446,7 @@ function headingFor(kind: string): string {
   }
 }
 
-function hintFor(kind: string, options: number): string {
+export function hintFor(kind: string, options: number): string {
   if (options === 0) {
     return "Forge is not offering any action right now; passing is the only answer.";
   }
@@ -914,7 +914,7 @@ function CardChip({
   );
 }
 
-function matchUrl(matchId: string): string {
+export function matchUrl(matchId: string): string {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   return `${scheme}://${location.host}/ws/matches/${matchId}`;
 }

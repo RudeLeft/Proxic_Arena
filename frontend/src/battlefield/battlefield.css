@@ -37,7 +37,10 @@
 .bf-board {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  /* clip, not hidden: a hidden box can still be scrolled by focusing
+   * something near its edge, which slid the whole table up (found on the
+   * first live game screen). */
+  overflow: clip;
   background: radial-gradient(ellipse at 42% 50%, var(--bf-table-glow) 0%, var(--bf-table) 70%);
   font-family: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
   color: var(--bf-ink);
@@ -65,9 +68,13 @@
   border-left: 1px solid var(--bf-line);
 }
 
+/* The layer spans the whole board, over the rail too, so it lets every
+ * click through except on what it draws: the first live game screen
+ * found it had been swallowing the rail's Pass button. */
 .bf-cards {
   position: absolute;
   inset: 0;
+  pointer-events: none;
 }
 
 /* What layout() places: a card, and on a host, its name tags. */
@@ -75,6 +82,7 @@
   position: absolute;
   left: 0;
   top: 0;
+  pointer-events: auto;
   /* Movement (PHASE 7 AMENDMENT 6): a changed box glides there. */
   transition: transform var(--move-ms) var(--move-easing);
 }
@@ -502,4 +510,28 @@
   border-radius: 3px;
   padding: 1px 8px;
   cursor: pointer;
+}
+
+/* A face-down card's name, shown to its controller alone (§7.18): set
+ * apart from a face-up name by italics and a darker bar. */
+.bf-bar-secret {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* The Ring-bearer (public): a word on the card, not a colour alone. */
+.bf-ring {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border: 1px solid #e0a44a;
+  border-radius: 2px;
+  background: rgb(10 13 17 / 88%);
+  color: #f0dcb6;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.07);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }

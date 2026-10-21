@@ -42,6 +42,7 @@ import {
   TAPPED_ORIGIN,
   layout,
   type Box,
+  type Geometry,
   type LayoutCard,
   type Viewport,
 } from "./layout";
@@ -85,6 +86,8 @@ export interface BoardCard extends LayoutCard {
   /** An imported picture's reference, or null (tokens, hidden cards,
    * back faces without a picture). */
   art: string | null;
+  /** The Ring-bearer (public): marked on the card, in words too. */
+  ringBearer?: boolean;
 }
 
 export interface BoardHandCard {
@@ -150,6 +153,29 @@ export interface BoardProps {
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
   damage?: DamageWave | null;
+  // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
+  /** A primary click on an object (a card, a pile, a tag, a hand card). */
+  onPick?: (objectId: string) => void;
+  /** Right-click (or the context-menu key): inspect, never act (§7.30). */
+  onInspect?: (objectId: string) => void;
+  /** Objects the question on screen can be answered with (§7.27): shown
+   * as choosable, by an outline AND a word, never colour alone (§7.40). */
+  choosable?: ReadonlySet<string>;
+  /** Objects whose only answers Forge says cannot be paid now (§7.54):
+   * dimmed, still clickable. */
+  unpayable?: ReadonlySet<string>;
+  /** The object the player picked (§7.25: selected, not acted on). */
+  selected?: string | null;
+  /** Forge is asking for a CHOICE (a target, an attacker...), not just
+   * what to do with priority: choosable objects then say "choose". */
+  asking?: boolean;
+  /** The right-hand column's contents, drawn inside the rail. */
+  rail?: ReactNode;
+  /** The top bar (turn and step), drawn over the play area. */
+  top?: ReactNode;
+  /** Things drawn beside an object (the action pop-up), given where each
+   * object is now. */
+  overlay?: (at: (objectId: string) => Box | null, geometry: Geometry) => ReactNode;
 }
 
 /** The canvas's palette, by what a card is (§7.40: the type also shows
@@ -202,6 +228,7 @@ function CardFace({
   pt,
   art,
   faceDown,
+  known,
 }: {
   name: string;
   look: Look;
@@ -209,12 +236,28 @@ function CardFace({
   pt: string;
   art: string | null;
   faceDown: boolean;
+  /** Whether this viewer may know what a face-down card is (§7.18). */
+  known?: boolean;
 }) {
   if (faceDown) {
+    // §7.18: the back, to both players; what the rules make public (a
+    // face-down 2/2) on its bar; the card's name only to the player the
+    // server told (the snapshot carries no name for anybody else).
     return (
-      <span className="bf-card-back" aria-hidden="true">
-        <span className="bf-card-back-mark" />
-      </span>
+      <>
+        <span className="bf-card-back" aria-hidden="true">
+          <span className="bf-card-back-mark" />
+        </span>
+        {known && (
+          <span className="bf-bar bf-bar-top bf-bar-secret">
+            <span className="bf-name">{name}</span>
+          </span>
+        )}
+        <span className="bf-bar bf-bar-bottom">
+          {pt && <span className="bf-pt">{pt}</span>}
+          <span className="bf-type">Face down</span>
+        </span>
+      </>
     );
   }
   return (
@@ -249,6 +292,7 @@ interface Drawn {
   pt: string;
   art: string | null;
   faceDown: boolean;
+  known?: boolean;
   side: "viewer" | "opponent";
 }
 
@@ -321,6 +365,15 @@ export function Board({
   pointedStack,
   attaching,
   damage,
+  onPick,
+  onInspect,
+  choosable,
+  unpayable,
+  selected,
+  asking,
+  rail,
+  top,
+  overlay,
 }: BoardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -360,6 +413,43 @@ export function Board({
   );
   const byId = useMemo(() => new Map(battlefield.map((card) => [card.id, card])), [battlefield]);
 
+  /**
+   * What one object's button does and says (§7.24-§7.30). A pile answers
+   * as its first choosable member (tapping "a Forest" is choosing one of
+   * them, §7.58), else as its lead.
+   */
+  const act = useMemo(() => {
+    const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
+    return (ids: readonly string[]) => {
+      const id = pickOf(ids);
+      const canChoose = ids.some((one) => choosable?.has(one));
+      const dim = !canChoose && ids.some((one) => unpayable?.has(one));
+      const isSelected = ids.some((one) => one === selected);
+      return {
+        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}`,
+        words: [
+          canChoose ? "can be chosen" : "",
+          dim ? "not enough mana right now" : "",
+          isSelected ? "selected" : "",
+        ],
+        data: {
+          "data-choosable": canChoose ? "true" : undefined,
+          "data-selected": isSelected ? "true" : undefined,
+          "data-unpayable": dim ? "true" : undefined,
+        },
+        handlers: {
+          onClick: onPick ? () => onPick(id) : undefined,
+          onContextMenu: onInspect
+            ? (event: { preventDefault: () => void }) => {
+                event.preventDefault();
+                onInspect(id);
+              }
+            : undefined,
+        },
+      };
+    };
+  }, [choosable, unpayable, selected, onPick, onInspect]);
+
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
     const g = result.geometry;
@@ -384,11 +474,14 @@ export function Board({
         pt,
         lead.tapped ? "tapped" : "",
         lead.attacking ? "attacking" : "",
+        lead.ringBearer ? "Ring-bearer" : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
         side === "viewer" ? "yours" : "opponent's",
+        ...act(slot.ids).words,
       ]
         .filter(Boolean)
         .join(", ");
+      const leadAct = act(slot.ids);
       const drawn: Drawn = {
         name: lead.name,
         look,
@@ -396,6 +489,7 @@ export function Board({
         pt,
         art: lead.art ? artUrl(lead.art) : null,
         faceDown: lead.faceDown,
+        known: lead.known,
         side,
       };
       out.push({
@@ -410,8 +504,10 @@ export function Board({
           <>
             <button
               type="button"
-              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}`}
+              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${leadAct.className}`}
               aria-label={label}
+              {...leadAct.data}
+              {...leadAct.handlers}
               data-object-id={lead.id}
               data-zone={slot.row}
               data-controller={side}
@@ -428,6 +524,7 @@ export function Board({
                 <span className="bf-state">TAPPED</span>
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
+              {lead.ringBearer && <span className="bf-ring">Ring-bearer</span>}
             </button>
             {attached.length > 0 && (
               // Auras and Equipment as name tags across the host's picture
@@ -436,12 +533,21 @@ export function Board({
               <div className="bf-tags">
                 {attached.map((card) => {
                   const tagLook = lookOf(card.kind, card.types);
+                  const tagAct = act([card.id]);
                   return (
                     <button
                       key={card.id}
                       type="button"
-                      className={`bf-tag bf-look-${tagLook}`}
-                      aria-label={`${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}, ${sideOf(card.seat) === "viewer" ? "yours" : "opponent's"}`}
+                      className={`bf-tag bf-look-${tagLook}${tagAct.className}`}
+                      {...tagAct.data}
+                      {...tagAct.handlers}
+                      aria-label={[
+                        `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
+                        sideOf(card.seat) === "viewer" ? "yours" : "opponent's",
+                        ...tagAct.words,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
                       data-object-id={card.id}
                       data-zone={slot.row}
                       data-controller={sideOf(card.seat)}
@@ -477,6 +583,7 @@ export function Board({
       };
       const zoomed = pointed === card.id;
       const box = zoomed ? handZoomBox(rest, g) : rest;
+      const handAct = act([card.id]);
       const show = () => setPointed(card.id);
       const hide = () => setPointed((now) => (now === card.id ? null : now));
       out.push({
@@ -488,8 +595,12 @@ export function Board({
         content: (
           <button
             type="button"
-            className={`bf-card bf-hand bf-look-${look}`}
-            aria-label={`${card.name}, in your hand${pt ? `, ${pt}` : ""}`}
+            className={`bf-card bf-hand bf-look-${look}${handAct.className}`}
+            aria-label={[`${card.name}, in your hand`, pt, ...handAct.words]
+              .filter(Boolean)
+              .join(", ")}
+            {...handAct.data}
+            {...handAct.handlers}
             data-object-id={card.id}
             data-zone="viewer:hand"
             data-controller="viewer"
@@ -506,7 +617,7 @@ export function Board({
       });
     }
     return out;
-  }, [result, byId, hand, viewerSeat, artUrl, pointed]);
+  }, [result, byId, hand, viewerSeat, artUrl, pointed, act]);
 
   /** Where every object is drawn now: piles' members and hosts' tags
    * share their card's box. */
@@ -794,11 +905,32 @@ export function Board({
       <aside
         className="bf-rail"
         aria-label="Game status"
-        style={{ left: g.rail.x, width: g.rail.w }}
-      />
+        style={
+          {
+            left: g.rail.x,
+            width: g.rail.w,
+            // The canvas draws the rail on a 900-pixel-high board; its
+            // blocks scale with the board, so the zones cards fly to and
+            // from (motion.ts anchors) are where they are drawn.
+            ["--rail-scale" as string]: String(g.height / 900),
+          } as CSSProperties
+        }
+      >
+        {rail}
+      </aside>
+      {top && (
+        <div
+          className="bf-top"
+          style={
+            { width: g.play.w, ["--rail-scale" as string]: String(g.height / 900) } as CSSProperties
+          }
+        >
+          {top}
+        </div>
+      )}
       <div
         ref={cardsRef}
-        className="bf-cards"
+        className={`bf-cards${asking ? " bf-asking" : ""}`}
         style={
           {
             ["--card-h" as string]: `${g.cardH}px`,
@@ -876,6 +1008,7 @@ export function Board({
             );
           })}
         </svg>
+        {overlay?.((id) => positions.get(id)?.box ?? null, g)}
         <div className="bf-effects" style={{ zIndex: Z_EFFECTS }} aria-hidden="true">
           {effects.map((effect) =>
             effect.kind === "burst" ? (

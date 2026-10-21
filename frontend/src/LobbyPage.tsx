@@ -3,8 +3,8 @@
 // The canvas's Lobby: the players on the left, every open room on the
 // right with the one you are in opened in place, and the lobby chat
 // across the bottom. While you are in a match, Phase 6's match view
-// sits on top of it all (MatchPanel), until the battlefield replaces
-// it on the game screen.
+// takes the whole window instead (the game screen, PHASE_07 §7.60),
+// and the lobby comes back when the game ends.
 //
 // Two rules from Phase 5 still shape every handler. The page does not
 // predict (§5.132): it sends a request and draws the room the server
@@ -21,7 +21,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
-import { MatchPanel } from "./MatchPanel";
+import { GameScreen } from "./battlefield/GameScreen";
 import {
   MAX_CHAT_LENGTH,
   cancelPreparation,
@@ -245,9 +245,13 @@ export default function LobbyPage() {
       </div>
 
       {lobby.match && (
-        <div className="pa-lobby-match">
-          <MatchPanel match={lobby.match} me={me.userId} />
-        </div>
+        // §7.60 — the board takes the whole window; the lobby is back
+        // when the player leaves a finished game.
+        <GameScreen
+          match={lobby.match}
+          me={me.userId}
+          onLeave={() => setLobby((previous) => ({ ...previous, match: null }))}
+        />
       )}
 
       <div className="pa-lobby-layout">

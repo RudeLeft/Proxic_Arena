@@ -21,7 +21,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -44,9 +52,12 @@ test("under Mindslaver the controller answers for the other player and sees thei
     await startAMatch(host, guest, deckName, { settle: false });
 
     const controlling = matchPanel(host).getByRole("heading", { name: /Playing for seat 2/ });
-    const theirHand = matchPanel(host).locator(".board-other-hand");
+    // PHASE_07: the opponent's hand row opens once some of it is visible.
+    const theirHand = matchPanel(host).getByRole("button", {
+      name: new RegExp(`^${secondUser}'s hand, [0-9]+ cards, [0-9]+ visible to you`),
+    });
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     let sawHandBefore = false;
@@ -63,14 +74,14 @@ test("under Mindslaver the controller answers for the other player and sees thei
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
       let pick = -1;
       if (/Keep or mulligan/.test(heading)) {
-        const hand = await panel.locator(".board-hand .card-chip").allTextContents();
+        const hand = await panel.locator('[data-zone="viewer:hand"]').allTextContents();
         // At most two mulligans, then keep and draw into it: each
         // mulligan shrinks the hand, an EMPTY hand can never hold the
         // card, and "keep only with it" then mulligans for ever.
@@ -81,13 +92,14 @@ test("under Mindslaver the controller answers for the other player and sees thei
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Mountain/);
       } else if (live === host) {
-        const mine = panel.locator(".board-side.mine .card-chip");
+        const mine = panel.locator(
+          '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"])',
+        );
         const out = (await mine.filter({ hasText: "Mindslaver" }).count()) > 0;
-        const untapped = await mine
-          .filter({ hasText: "Mountain" })
-          .filter({ hasNotText: "tapped" })
-          .count();
-        const lands = await mine.filter({ hasText: "Mountain" }).count();
+        const untapped = await cardCount(
+          mine.filter({ hasText: "Mountain" }).filter({ hasNotText: "tapped" }),
+        );
+        const lands = await cardCount(mine.filter({ hasText: "Mountain" }));
         // Forge offers what cannot be paid for; count first.
         if (out && untapped >= 4) pick = find(/You control target player/);
         if (pick >= 0) used = true;
@@ -118,11 +130,15 @@ test("under Mindslaver the controller answers for the other player and sees thei
     await expect(controlling, "the host was never asked a question for seat 2").toBeVisible({
       timeout: 60_000,
     });
-    await expect(matchPanel(guest).locator(".decision")).toHaveCount(0);
+    await expect(matchPanel(guest).locator(".gs-question")).toHaveCount(0);
     // Seen by the controller, as the guest's, and not before.
     expect(sawHandBefore, "the host saw the guest's hand before controlling them").toBe(false);
     await expect(theirHand).toBeVisible();
-    await expect(theirHand).toContainText(`${secondUser}’s hand — you can see it`);
+    await theirHand.click();
+    await expect(
+      host.getByRole("dialog", { name: `${secondUser}'s hand, as far as you may see it` }),
+    ).toBeVisible();
+    await host.getByRole("dialog").getByRole("button", { name: "Close" }).click();
     await host.screenshot({ path: "test-results/seen/mindslaver-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/mindslaver-guest.png", fullPage: true });
   } finally {

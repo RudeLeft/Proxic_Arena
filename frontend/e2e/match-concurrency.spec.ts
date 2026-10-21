@@ -248,7 +248,7 @@ test("three matches at once stay separate, and one crashing leaves the others pl
     // a real asset id that exists in the art store; the second
     // player was never shown it in their own match.
     await settlePregame(all[0]!.host, all[0]!.guest);
-    const art = matchPanel(all[0]!.host).locator("img.card-art");
+    const art = matchPanel(all[0]!.host).locator("img.bf-art");
     let leakChecked = false;
     if ((await art.count()) > 0) {
       const src = (await art.first().getAttribute("src"))!;
@@ -299,11 +299,11 @@ test("three matches at once stay separate, and one crashing leaves the others pl
     // that failed — which is how a two-faced card went unnoticed
     // until somebody looked at this screenshot.
     for (const pair of all.slice(1)) {
-      const hand = matchPanel(pair.host).locator(".board-hand li.card-chip");
+      const hand = matchPanel(pair.host).locator('[data-zone="viewer:hand"]');
       const count = await hand.count();
       expect(count, `${pair.label}: a hand was dealt`).toBeGreaterThan(0);
       const blank = await hand
-        .filter({ hasNot: pair.host.locator("img.card-art") })
+        .filter({ hasNot: pair.host.locator("img.bf-art") })
         .allTextContents();
       expect(blank, `${pair.label}: cards in hand with no artwork`).toEqual([]);
     }

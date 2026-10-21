@@ -101,7 +101,10 @@ describe("Board", () => {
     expect(down.length).toBeGreaterThan(0);
     for (const card of down) {
       expect(card.getAttribute("aria-label")).toMatch(/^Face-down card/);
-      expect(card.textContent).not.toMatch(/[A-Za-z]{3,}/);
+      // §7.18: the back says what is public -- "Face down" and its
+      // power/toughness -- and nothing that could be a name.
+      expect(card.querySelector(".bf-name")).toBeNull();
+      expect((card.textContent ?? "").replace("Face down", "")).not.toMatch(/[A-Za-z]{3,}/);
     }
   });
 

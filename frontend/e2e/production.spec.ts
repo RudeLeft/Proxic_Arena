@@ -32,9 +32,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { secondPassword, secondUser, signInAs, testPassword, testUser } from "./helpers";
 import {
+  choices,
   chooseDeck,
   expectReady,
   inviteIn,
+  isAsked,
   markReady,
   matchPanel,
   openRoom,
@@ -209,7 +211,7 @@ test("one real game on the live site, both players, start to finish", async ({ b
     await shot(guest, "1-start-guest");
 
     // 5. A picture in this player's own hand actually renders.
-    const handArt = matchPanel(host).locator("img.card-art");
+    const handArt = matchPanel(host).locator("img.bf-art");
     await expect(handArt.first()).toBeVisible({ timeout: 60_000 });
     const rendered = await handArt.evaluateAll(
       (images) => images.filter((img) => (img as HTMLImageElement).naturalWidth > 0).length,
@@ -297,7 +299,7 @@ test("one real game on the live site, both players, start to finish", async ({ b
       }
 
       const asking = async (page: Page) =>
-        (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+        (await isAsked(page)) ||
         (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
@@ -322,9 +324,9 @@ test("one real game on the live site, both players, start to finish", async ({ b
       const me = live === host ? testUser : secondUser;
       const them = live === host ? secondUser : testUser;
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (test: (label: string) => boolean) => labels.findIndex(test);
 

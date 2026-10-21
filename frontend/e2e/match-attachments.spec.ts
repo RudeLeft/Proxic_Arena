@@ -16,7 +16,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  cardCount,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
 
@@ -38,22 +46,33 @@ test("attachments are drawn with what they modify, on either side of the table",
     const deckName = await sharedDeck(host, guest, attachmentPackage);
     await startAMatch(host, guest, deckName);
 
-    const mineSide = (page: Page) => matchPanel(page).locator(".board-side.mine");
-    const theirSide = (page: Page) => matchPanel(page).locator(".board-side.theirs");
-    // A creature chip carrying an attachment, by the two names.
-    const carrying = (side: ReturnType<typeof mineSide>, creature: string, attached: RegExp) =>
-      side
-        .locator(".card-chip")
-        .filter({ hasText: creature })
+    // PHASE_07: the board draws an Aura or Equipment as a name tag on its
+    // host, in the host's slot (AMENDMENT 4); a tag's label says whose it is.
+    type Side = "viewer" | "opponent";
+    const cardsOf = (page: Page, who: Side) =>
+      page.locator(`.bf-cards button.bf-card[data-controller="${who}"]:not([data-zone$=":hand"])`);
+    const card = (page: Page, who: Side, name: string) =>
+      cardsOf(page, who).filter({ hasText: name });
+    // A creature carrying an attachment: its slot holds both. (A `has`
+    // locator is searched INSIDE the slot, so it starts at the button.)
+    const carrying = (page: Page, who: Side, creature: string, tag: RegExp) =>
+      page
+        .locator(".bf-cards .bf-slot")
         .filter({
-          has: host.locator(".card-attached", { hasText: attached }),
-        });
+          has: page.locator(`button.bf-card[data-controller="${who}"]`, { hasText: creature }),
+        })
+        .filter({ has: page.getByRole("button", { name: tag }) });
     const everything = async () =>
-      (await carrying(mineSide(host), "Raging Goblin", /Bonesplitter/).count()) > 0 &&
-      (await carrying(mineSide(host), "Raging Goblin", /Rabbit Battery/).count()) > 0 &&
-      (await carrying(theirSide(host), "Grizzly Bears", /Pacifism \(yours\)/).count()) > 0;
+      (await carrying(host, "viewer", "Raging Goblin", /^Bonesplitter, attached/).count()) > 0 &&
+      (await carrying(host, "viewer", "Raging Goblin", /^Rabbit Battery, attached/).count()) > 0 &&
+      (await carrying(
+        host,
+        "opponent",
+        "Grizzly Bears",
+        /^Pacifism, attached to .*, yours/,
+      ).count()) > 0;
     const asking = async (page: Page) =>
-      (await matchPanel(page).getByRole("listitem").getByRole("button").count()) > 0 ||
+      (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     let intent: "pacifism" | "goblin" | null = null;
@@ -66,9 +85,9 @@ test("attachments are drawn with what they modify, on either side of the table",
         continue;
       }
       const panel = matchPanel(live);
-      const heading = (await panel.locator(".decision h3").allTextContents()).join(" ");
+      const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
-      const options = panel.getByRole("listitem").getByRole("button");
+      const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
 
@@ -76,23 +95,28 @@ test("attachments are drawn with what they modify, on either side of the table",
       if (/Choose a creature to (attack|block) with/.test(prompt)) {
         pick = -1; // nobody fights: the board stays readable
       } else if (/Your move/.test(heading) && live === host) {
-        const mine = mineSide(host).locator(".card-chip");
+        const mine = cardsOf(host, "viewer");
         const free = mine.filter({ hasNotText: "tapped" });
-        const mountains = await free.filter({ hasText: "Mountain" }).count();
-        const plains = await free.filter({ hasText: "Plains" }).count();
-        const lands = mountains + plains + (await free.filter({ hasText: "Forest" }).count());
-        const goblins = await mine.filter({ hasText: "Raging Goblin" }).count();
-        const has = async (name: string) => (await mine.filter({ hasText: name }).count()) > 0;
+        const mountains = await cardCount(free.filter({ hasText: "Mountain" }));
+        const plains = await cardCount(free.filter({ hasText: "Plains" }));
+        const lands = mountains + plains + (await cardCount(free.filter({ hasText: "Forest" })));
+        const goblins = await cardCount(mine.filter({ hasText: "Raging Goblin" }));
+        // In play, on its own or as a tag on a creature -- not in hand.
+        const has = async (name: string) =>
+          (await card(host, "viewer", name).count()) > 0 ||
+          (await host
+            .getByRole("button", { name: new RegExp(`^${name}, attached .*, yours`) })
+            .count()) > 0;
         const equipped =
-          (await carrying(mineSide(host), "Raging Goblin", /Bonesplitter/).count()) > 0;
+          (await carrying(host, "viewer", "Raging Goblin", /^Bonesplitter, attached/).count()) > 0;
         const reconfigured =
-          (await carrying(mineSide(host), "Raging Goblin", /Rabbit Battery/).count()) > 0;
-        const bears =
-          (await theirSide(host).locator(".card-chip", { hasText: "Grizzly Bears" }).count()) > 0;
+          (await carrying(host, "viewer", "Raging Goblin", /^Rabbit Battery, attached/).count()) >
+          0;
+        const bears = (await card(host, "opponent", "Grizzly Bears").count()) > 0;
         const pacified =
-          (await theirSide(host).locator(".card-attached", { hasText: "Pacifism" }).count()) > 0;
-        const allMountains = await mine.filter({ hasText: "Mountain" }).count();
-        const allPlains = await mine.filter({ hasText: "Plains" }).count();
+          (await host.getByRole("button", { name: /^Pacifism, attached/ }).count()) > 0;
+        const allMountains = await cardCount(mine.filter({ hasText: "Mountain" }));
+        const allPlains = await cardCount(mine.filter({ hasText: "Plains" }));
 
         pick = find(
           allPlains < allMountains / 2 ? /^Plains — .*Play land/ : /^Mountain — .*Play land/,
@@ -123,8 +147,8 @@ test("attachments are drawn with what they modify, on either side of the table",
           pick = find(/^Bonesplitter — \{1\}/);
       } else if (/Your move/.test(heading)) {
         // The guest: lands, and Grizzly Bears to be pacified.
-        const free = mineSide(guest).locator(".card-chip").filter({ hasNotText: "tapped" });
-        const forests = await free.filter({ hasText: "Forest" }).count();
+        const free = cardsOf(guest, "viewer").filter({ hasNotText: "tapped" });
+        const forests = await cardCount(free.filter({ hasText: "Forest" }));
         pick = find(/^Forest — .*Play land/);
         if (pick < 0) pick = find(/Play land/);
         if (pick < 0 && forests >= 2) pick = find(/^Grizzly Bears — \{/);
@@ -152,32 +176,23 @@ test("attachments are drawn with what they modify, on either side of the table",
     // As the host sees it: its equipment and its reconfigured Rabbit
     // Battery on its Goblin, its Pacifism on the guest's Bears.
     await expect(
-      carrying(mineSide(host), "Raging Goblin", /Bonesplitter/).first(),
+      carrying(host, "viewer", "Raging Goblin", /^Bonesplitter, attached/).first(),
       `after ${answered} decisions`,
     ).toBeVisible();
-    await expect(carrying(mineSide(host), "Raging Goblin", /Rabbit Battery/).first()).toBeVisible();
     await expect(
-      carrying(theirSide(host), "Grizzly Bears", /Pacifism \(yours\)/).first(),
+      carrying(host, "viewer", "Raging Goblin", /^Rabbit Battery, attached/).first(),
+    ).toBeVisible();
+    await expect(
+      carrying(host, "opponent", "Grizzly Bears", /^Pacifism, attached to .*, yours/).first(),
     ).toBeVisible();
     // As the guest sees it: the same Pacifism, on its own creature,
     // named as the host's.
     await expect(
-      mineSide(guest)
-        .locator(".card-chip")
-        .filter({ hasText: "Grizzly Bears" })
-        .locator(".card-attached", { hasText: /Pacifism \(.+'s\)/ })
-        .first(),
+      carrying(guest, "viewer", "Grizzly Bears", /^Pacifism, attached to .*, opponent's/).first(),
     ).toBeVisible({ timeout: 30_000 });
     // And a reconfigured Rabbit Battery is not a creature any more:
-    // nowhere drawn as a card of its own.
-    await expect(
-      mineSide(host)
-        .locator(".board-row")
-        .filter({ hasText: "Creatures" })
-        .locator(".card-chip > .card-name", {
-          hasText: /^Rabbit Battery$/,
-        }),
-    ).toHaveCount(0);
+    // nowhere drawn as a card of its own -- only as a tag.
+    await expect(card(host, "viewer", "Rabbit Battery")).toHaveCount(0);
     await host.screenshot({ path: "test-results/seen/attachments-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/attachments-guest.png", fullPage: true });
   } finally {

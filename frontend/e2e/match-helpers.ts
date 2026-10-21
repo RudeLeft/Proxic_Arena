@@ -144,8 +144,72 @@ export async function expectReady(seat: Locator) {
   await expect(seat).not.toContainText("not ready");
 }
 
-/** The panel that shows a live match. */
+/** The game screen (PHASE_07 §7.60): the whole window during a match. */
 export const matchPanel = (page: Page) => page.getByRole("region", { name: "Your match" });
+
+// --- reading the game screen (PHASE_07) ----------------------------------------
+//
+// The board draws cards as buttons with data attributes and the question
+// above it; these read them, so each scripted game reads the screen one
+// way. Read off the running page.
+
+/** The question on screen: its heading and Forge's own prompt ("" when none). */
+export async function question(page: Page): Promise<{ heading: string; prompt: string }> {
+  return {
+    heading: (await page.locator(".gs-question-title").allTextContents()).join(" "),
+    prompt: (await page.locator(".gs-question-prompt").allTextContents()).join(" "),
+  };
+}
+
+/** Whether this player is being asked something now. */
+export async function isAsked(page: Page): Promise<boolean> {
+  return (await page.locator(".gs-question").count()) > 0;
+}
+
+/**
+ * Every option of the question on screen, as list buttons in Forge's
+ * order: the game menu's "List choices" opens them all, whether or not
+ * the board could have been clicked instead (§7.29).
+ */
+export async function choices(page: Page): Promise<Locator> {
+  const list = page.getByRole("button", { name: /^List choices/ });
+  // Read and click without waiting: the question can be answered (and
+  // the menu item go) between two calls, and getAttribute/click would
+  // then wait for it to come back -- for the rest of the test.
+  const expanded = await list.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("aria-expanded")),
+  );
+  if (expanded.length > 0 && expanded[0] !== "true") {
+    await list
+      .first()
+      .click({ timeout: 2_000 })
+      .catch(() => undefined);
+  }
+  return page.locator(".gs-question").getByRole("listitem").getByRole("button");
+}
+
+/** "No": the act button under the stack on your move, else the question's Pass. */
+export const passButton = (page: Page) => page.locator("button.gs-act, button.gs-pass");
+
+/** Cards on the battlefield, by side, as the board draws them (piles are one button). */
+export const boardCards = (page: Page, side: "viewer" | "opponent") =>
+  page.locator(
+    `.bf-cards button[data-object-id][data-controller="${side}"]:not([data-zone="viewer:hand"])`,
+  );
+
+/** The viewer's hand. */
+export const handCards = (page: Page) => page.locator('.bf-cards [data-zone="viewer:hand"]');
+
+/** How many cards a set of board buttons stands for: a pile counts its members. */
+export async function cardCount(cards: Locator): Promise<number> {
+  const piles = await cards.evaluateAll((buttons) =>
+    buttons.map((b) => Number((b as HTMLElement).dataset["pile"] ?? 1)),
+  );
+  return piles.reduce((sum, n) => sum + n, 0);
+}
+
+/** Both players' facts: life, hand size, counters, designations, command zone. */
+export const totals = (page: Page) => page.locator(".gs-seat");
 
 /**
  * Whichever page is currently being asked for a decision.
@@ -285,7 +349,7 @@ export async function settlePregame(host: Page, guest: Page) {
       continue;
     }
 
-    const options = matchPanel(asked).getByRole("listitem").getByRole("button");
+    const options = await choices(asked);
     if ((await options.count()) === 0) {
       await asked.waitForTimeout(100);
       continue;

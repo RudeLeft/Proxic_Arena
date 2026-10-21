@@ -417,9 +417,21 @@ describe("board detail", () => {
   });
 
   it("reads the Ring-bearer mark, and only an explicit true", () => {
-    const base = { id: "card:8", seat: 1, name: "Bear", kind: "creature", power: 2, toughness: 2, known: true };
-    expect(apply([withCreature({ ...base, ringBearer: true })]).board?.battlefield[0]?.ringBearer).toBe(true);
-    expect(apply([withCreature({ ...base, ringBearer: "yes" })]).board?.battlefield[0]?.ringBearer).toBe(false);
+    const base = {
+      id: "card:8",
+      seat: 1,
+      name: "Bear",
+      kind: "creature",
+      power: 2,
+      toughness: 2,
+      known: true,
+    };
+    expect(
+      apply([withCreature({ ...base, ringBearer: true })]).board?.battlefield[0]?.ringBearer,
+    ).toBe(true);
+    expect(
+      apply([withCreature({ ...base, ringBearer: "yes" })]).board?.battlefield[0]?.ringBearer,
+    ).toBe(false);
   });
 
   /**
