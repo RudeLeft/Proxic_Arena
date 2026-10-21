@@ -30,8 +30,15 @@ import {
   type Box,
   type RowId,
 } from "../src/battlefield/layout";
-import { MOVE_MS, anchors, bandOf, handZoomBox, placement } from "../src/battlefield/motion";
-import { swoopBox } from "../src/battlefield/effects";
+import {
+  LIFE_R,
+  MOVE_MS,
+  anchors,
+  bandOf,
+  handZoomBox,
+  placement,
+} from "../src/battlefield/motion";
+import { stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -139,7 +146,11 @@ function readBoard(page: Page): Promise<Seen> {
     const board = document.querySelector<HTMLElement>('[data-testid="battlefield"]')!;
     const name = document.querySelector<HTMLElement>(".bf-name");
     const slot = document.querySelector<HTMLElement>(".bf-slot");
-    const drawn = [...board.querySelectorAll<HTMLElement>("button[data-object-id]")].map((el) => {
+    // Not the stack's cards (owner 2026-10-21): those are drawn beside the
+    // layout, at the play area's right edge, and checked with the lines.
+    const drawn = [
+      ...board.querySelectorAll<HTMLElement>('button[data-object-id]:not([data-zone="stack"])'),
+    ].map((el) => {
       const r = el.getBoundingClientRect();
       return {
         id: el.dataset.objectId!,
@@ -547,16 +558,28 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       const box = expected.boxes.get(id)!;
       return corners(box, TAPPED_ORIGIN);
     };
-    const near = (p: [number, number], q: { x: number; y: number }) =>
-      Math.hypot(p[0] - q.x, p[1] - q.y) < 1;
     for (const line of drawnLines) {
       expect(line.shown, `${what}: ${line.kind} ${line.from} is not visible`).toBe(true);
       const start = { x: line.start[0], y: line.start[1] };
       const end = { x: line.end[0], y: line.end[1] };
       if (line.from.startsWith("stack:")) {
-        expect(near(line.start, where.stack), `${what}: ${line.from} starts at the stack`).toBe(
-          true,
-        );
+        // Owner 2026-10-21: from the spell's own card on the stack, drawn
+        // at the right edge of the play area -- on that card's edge.
+        const spot = stackSpotBoxes(expected.geometry, scene.stack.length);
+        const index = scene.stack.findIndex((s) => s.id === line.from);
+        const box = spot[index] ?? spot[spot.length - 1]!;
+        const onEdge =
+          start.x >= box.x - 1 &&
+          start.x <= box.x + box.w + 1 &&
+          start.y >= box.y - 1 &&
+          start.y <= box.y + box.h + 1 &&
+          Math.min(
+            Math.abs(start.x - box.x),
+            Math.abs(start.x - box.x - box.w),
+            Math.abs(start.y - box.y),
+            Math.abs(start.y - box.y - box.h),
+          ) < 1;
+        expect(onEdge, `${what}: ${line.from} starts on its card on the stack`).toBe(true);
       } else {
         expect(
           inside(start, outlineOf(line.from)),
@@ -564,9 +587,12 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
         ).toBe(true);
       }
       if (line.to.startsWith("player:")) {
+        // On the life circle's edge, never over the total.
+        const life = where["viewer:life"];
+        const fromCentre = Math.hypot(end.x - life.x, end.y - life.y);
         expect(
-          near(line.end, where["viewer:life"]),
-          `${what}: ${line.kind} ends at the life total`,
+          Math.abs(fromCentre - LIFE_R * expected.geometry.height) < 1,
+          `${what}: ${line.kind} ends on the life circle's edge`,
         ).toBe(true);
       } else {
         expect(inside(end, outlineOf(line.to)), `${what}: ${line.kind} ends in ${line.to}`).toBe(

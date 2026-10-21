@@ -77,6 +77,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   const stack: StackView[] = snapshot.stack.map((entry) => ({
     id: entry.id,
     name: entry.name,
+    art: entry.art,
+    kind: entry.kind,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
     targets: entry.targets,
   }));

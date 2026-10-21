@@ -1134,3 +1134,24 @@ button.gs-zone:not(:disabled):hover {
   background: #232b36;
   outline: none;
 }
+
+/* A spell on the stack targets this player: the life circle glows gold. */
+.gs-life.gs-targeted {
+  border-color: #f4c25e;
+  box-shadow:
+    0 0 0 2px rgb(244 194 94 / 45%),
+    0 0 20px 6px rgb(240 168 48 / 50%);
+  animation: gs-life-targeted 1.6s ease-in-out infinite;
+}
+@keyframes gs-life-targeted {
+  50% {
+    box-shadow:
+      0 0 0 3px rgb(255 240 200 / 60%),
+      0 0 28px 10px rgb(240 168 48 / 65%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-life.gs-targeted {
+    animation: none;
+  }
+}

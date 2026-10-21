@@ -130,9 +130,35 @@ class MatchArt(
 
         return buildJsonObject {
             state.forEach { (key, value) ->
-                val rewritten = if (key == "battlefield" || key == "hand") zone(key) else null
+                val rewritten =
+                    when (key) {
+                        "battlefield", "hand" -> zone(key)
+                        "stack" -> (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
+                        else -> null
+                    }
                 put(key, rewritten ?: value)
             }
+        }
+    }
+
+    /**
+     * PHASE_07 (owner 2026-10-21) — a spell on the stack is drawn as its
+     * card, so it wears its picture: from the deck of whoever controls it.
+     * The stack names an object only as this viewer may know it (a
+     * face-down spell is "Face-down" to the opponent), so what is not
+     * theirs to know matches nothing here.
+     */
+    private fun stackArt(
+        entry: JsonObject,
+        allowed: MutableSet<String>,
+    ): JsonObject {
+        val name = entry["name"]?.jsonPrimitive?.content ?: return entry
+        val controller = entry["controller"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
+        val asset = bySeat[controller]?.get(name) ?: return entry
+        allowed.add(asset)
+        return buildJsonObject {
+            entry.forEach { (key, value) -> put(key, value) }
+            put("art", JsonPrimitive(asset))
         }
     }
 

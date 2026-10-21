@@ -120,6 +120,11 @@ const ZONE_Y: Record<Side, Record<Exclude<ZoneName, "hand">, number>> = {
   viewer: { life: 685 / 900, library: 741 / 900, graveyard: 777 / 900, exile: 813 / 900 },
 };
 const STACK_Y = 424 / 900;
+// The life circle (58 px and its 2 px border): its centre from the rail's
+// left, and its radius. Lines and hits meet the circle's edge, not the
+// middle of the block where the player's name is.
+const LIFE_X = (7.4 + 31) / 900;
+export const LIFE_R = 31 / 900;
 
 /** Where each zone is on the board: a card travels to or from here. */
 export function anchors(g: Geometry): Record<AnchorId, Point> {
@@ -128,7 +133,10 @@ export function anchors(g: Geometry): Record<AnchorId, Point> {
   const out = { stack: { x, y: STACK_Y * h } } as Record<AnchorId, Point>;
   for (const side of ["viewer", "opponent"] as const) {
     for (const [zone, y] of Object.entries(ZONE_Y[side])) {
-      out[`${side}:${zone as ZoneName}`] = { x, y: y * h };
+      out[`${side}:${zone as ZoneName}`] = {
+        x: zone === "life" ? g.rail.x + LIFE_X * h : x,
+        y: y * h,
+      };
     }
   }
   // Hands: the viewer's fans along the bottom; the opponent's is off the

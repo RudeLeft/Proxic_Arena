@@ -16,11 +16,12 @@
 // fades. None of it gates input (§7.36): the board's state is always the
 // newest snapshot's, and an animation only decorates the way there.
 //
-// Lines and effects (step 5, PHASE 7 AMENDMENTS 4 and 7): fire lines from
-// attackers to what they attack, shield lines from blockers, a crosshair
-// line from the stack's top object (and a pointed-at one) to its targets,
-// and a chain while an Aura or Equipment's host is chosen -- in one SVG
-// layer that takes no clicks. When damage is dealt, attackers swoop onto
+// Lines and effects (step 5, PHASE 7 AMENDMENTS 4 and 7; restyled MTG
+// Arena-fashion, owner 2026-10-21): glowing arrows from attackers to what
+// they attack and from blockers to what they block, from a spell's card on
+// the stack (drawn large at the right edge of the play area) to what it
+// targets, which glows, and a chain while an Aura or Equipment's host is
+// chosen -- in one SVG layer that takes no clicks. When damage is dealt, attackers swoop onto
 // what they hit, a burst plays there and the amount rises and fades. All
 // of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
 // inferred here.
@@ -47,36 +48,39 @@ import {
   type Viewport,
 } from "./layout";
 import {
-  MOVE_EASING,
-  MOVE_MS,
   anchors,
   bandClip,
   bandOf,
   boxAt,
   handZoomBox,
+  LIFE_R,
+  MOVE_EASING,
+  MOVE_MS,
   placement,
   type AnchorId,
   type Point,
 } from "./motion";
 import {
-  LINE_THEME,
-  NUMBER_MS,
-  SWOOP_ARRIVE,
-  SWOOP_LEAVE,
-  SWOOP_MS,
-  Z_EFFECTS,
-  Z_LINES,
-  Z_SWOOP,
   arrowHead,
   centreOf,
   curve,
   effectSizes,
+  LINE_THEME,
+  NUMBER_MS,
   pathOf,
   playerPoint,
-  shieldAt,
+  rectEdge,
+  ringEdge,
+  stackSpotBoxes,
+  SWOOP_ARRIVE,
+  SWOOP_LEAVE,
+  SWOOP_MS,
   swoopBox,
   type LineKind,
   type TargetRef,
+  Z_EFFECTS,
+  Z_LINES,
+  Z_SWOOP,
 } from "./effects";
 
 export type { TargetRef } from "./effects";
@@ -110,6 +114,10 @@ export interface CombatView {
 export interface StackView {
   id: string;
   name: string;
+  /** Its picture (the caster's deck's), when this viewer may see it. */
+  art?: string | null;
+  /** "spell" | "ability" | "trigger" */
+  kind?: string;
   /** The permanent it came from, if one is on the battlefield (an
    * activated ability); null for a spell, whose line starts at the stack. */
   source: string | null;
@@ -192,6 +200,13 @@ const GLYPH: Record<Look, string> = {
   creature: "M4 18 L10 8 L14 14 L17 10 L20 18 Z",
   artifact: "M12 4 V20 M4 12 H20 M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5",
   walker: "M12 3 L19 9 V17 L12 21 L5 17 V9 Z",
+};
+
+/** A stack object's kind, on its card's bottom bar. */
+const STACK_KIND: Record<string, string> = {
+  spell: "Spell",
+  ability: "Ability",
+  trigger: "Trigger",
 };
 
 function Glyph({ look, className }: { look: Look; className: string }) {
@@ -418,6 +433,16 @@ export function Board({
    * as its first choosable member (tapping "a Forest" is choosing one of
    * them, §7.58), else as its lead.
    */
+  // What the stack's shown objects target glows (owner 2026-10-21).
+  const targeted = useMemo(
+    () =>
+      new Set(
+        (stack ?? [])
+          .filter((s, i) => i === 0 || s.id === pointedStack)
+          .flatMap((s) => s.targets.flatMap((t) => ("object" in t ? [t.object] : []))),
+      ),
+    [stack, pointedStack],
+  );
   const act = useMemo(() => {
     const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
     return (ids: readonly string[]) => {
@@ -425,12 +450,14 @@ export function Board({
       const canChoose = ids.some((one) => choosable?.has(one));
       const dim = !canChoose && ids.some((one) => unpayable?.has(one));
       const isSelected = ids.some((one) => one === selected);
+      const isTargeted = ids.some((one) => targeted.has(one));
       return {
-        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}`,
+        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}`,
         words: [
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
           isSelected ? "selected" : "",
+          isTargeted ? "targeted" : "",
         ],
         data: {
           "data-choosable": canChoose ? "true" : undefined,
@@ -448,7 +475,7 @@ export function Board({
         },
       };
     };
-  }, [choosable, unpayable, selected, onPick, onInspect]);
+  }, [choosable, unpayable, selected, targeted, onPick, onInspect]);
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -854,6 +881,11 @@ export function Board({
   };
   const refPoint = (ref: TargetRef) =>
     "player" in ref ? playerPoint(ref.player, viewerSeat, where) : centre(ref.object);
+  // A line into a player meets their life circle's edge, never covers it.
+  const lifeR = LIFE_R * g.height;
+  // The stack, drawn as cards at the right edge of the play area.
+  const spot = stackSpotBoxes(g, (stack ?? []).length);
+  const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
   const lines: Line[] = [];
   const add = (kind: LineKind, from: string, to: string, start: Point, end: Point) =>
     lines.push({ key: `${kind}:${from}:${to}`, kind, from, to, start, end, lane: 0 });
@@ -861,7 +893,8 @@ export function Board({
     const from = centre(a.id);
     const aim = refPoint(a.target);
     if (!from || !aim) continue;
-    const end = "object" in a.target ? edge(a.target.object, from, 0.18) : aim;
+    const end =
+      "object" in a.target ? edge(a.target.object, from, 0.18) : ringEdge(aim, from, lifeR);
     add("attack", a.id, refKey(a.target), edge(a.id, end, 0.22), end);
   }
   for (const b of combat?.blocks ?? []) {
@@ -872,11 +905,15 @@ export function Board({
   }
   const shown = (stack ?? []).filter((s, i) => i === 0 || s.id === pointedStack);
   for (const s of shown) {
+    // From the spell's own card on the stack (the last drawn one, for an
+    // object further down than the cards shown).
+    const box = spotBox.get(s.id) ?? spot[spot.length - 1];
+    const from = box ? { x: box.x + box.w / 2, y: box.y + box.h / 2 } : where.stack;
     for (const t of s.targets) {
-      const end = refPoint(t);
-      if (!end) continue;
-      const start = s.source && positions.has(s.source) ? edge(s.source, end, 0.22) : where.stack;
-      add("target", s.id, refKey(t), start, end);
+      const aim = refPoint(t);
+      if (!aim) continue;
+      const end = "player" in t ? ringEdge(aim, from, lifeR) : edge(t.object, from, 0.18);
+      add("target", s.id, refKey(t), box ? rectEdge(box, end) : from, end);
     }
   }
   if (attaching) {
@@ -959,6 +996,45 @@ export function Board({
             {item.content}
           </div>
         ))}
+        {(stack ?? []).slice(0, spot.length).map((s, i) => {
+          const box = spot[i]!;
+          const a = act([s.id]);
+          return (
+            <div
+              key={`stack-spot:${s.id}`}
+              className="bf-slot bf-stack-slot"
+              style={{
+                width: g.cardW,
+                height: g.cardH,
+                transformOrigin: "0 0",
+                transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(${box.scale})`,
+                zIndex: Z_LINES - 100 - i,
+              }}
+            >
+              <button
+                type="button"
+                className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${a.className}`}
+                aria-label={[`${s.name}, on the stack`, i === 0 ? "resolves next" : "", ...a.words]
+                  .filter(Boolean)
+                  .join(", ")}
+                data-object-id={s.id}
+                data-zone="stack"
+                {...a.data}
+                {...a.handlers}
+              >
+                <CardFace
+                  name={s.name}
+                  look="artifact"
+                  type={STACK_KIND[s.kind ?? "spell"] ?? "Spell"}
+                  pt=""
+                  art={s.art ? artUrl(s.art) : null}
+                  faceDown={s.name === "Face-down"}
+                  known={false}
+                />
+              </button>
+            </div>
+          );
+        })}
         <svg
           className="bf-lines"
           width={g.width}
@@ -966,6 +1042,11 @@ export function Board({
           style={{ zIndex: Z_LINES }}
           aria-hidden="true"
         >
+          <defs>
+            <filter id="bf-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" />
+            </filter>
+          </defs>
           {lines.map((line) => {
             const c = curve(line.kind, line.start, line.end, line.lane);
             const d = pathOf(c);
@@ -981,22 +1062,36 @@ export function Board({
                 data-start={`${line.start.x.toFixed(1)},${line.start.y.toFixed(1)}`}
                 data-end={`${line.end.x.toFixed(1)},${line.end.y.toFixed(1)}`}
               >
-                <path d={d} stroke={theme.aura} strokeWidth={w * 3} className="bf-line-aura" />
-                <path d={d} stroke={theme.body} strokeWidth={w} className="bf-line-body" />
-                <path d={d} stroke={theme.core} strokeWidth={w * 0.7} className="bf-line-flow" />
-                {line.kind === "attack" && (
-                  <polygon points={arrowHead(c, w * 7)} fill={theme.body} stroke={theme.core} />
-                )}
-                {line.kind === "block" && (
-                  <polygon points={shieldAt(c, w * 3.2)} fill={theme.aura} stroke={theme.body} />
-                )}
-                {line.kind === "target" && (
-                  <g stroke={theme.body} strokeWidth={w * 0.8} fill="none">
-                    <circle cx={c.end.x} cy={c.end.y} r={w * 5} />
-                    <path
-                      d={`M ${c.end.x - w * 7} ${c.end.y} H ${c.end.x + w * 7} M ${c.end.x} ${c.end.y - w * 7} V ${c.end.y + w * 7}`}
-                    />
-                  </g>
+                <path
+                  d={d}
+                  stroke={theme.aura}
+                  strokeWidth={w * 2.6}
+                  className="bf-line-aura"
+                  filter="url(#bf-glow)"
+                />
+                <path
+                  d={d}
+                  stroke={theme.body}
+                  strokeWidth={w}
+                  className="bf-line-body"
+                  pathLength={1}
+                />
+                <path
+                  d={d}
+                  stroke={theme.core}
+                  strokeWidth={w * 0.35}
+                  className="bf-line-core"
+                  pathLength={1}
+                />
+                {line.kind !== "attach" && (
+                  <polygon
+                    points={arrowHead(c, w * 4.4)}
+                    fill={theme.body}
+                    stroke={theme.core}
+                    strokeWidth={w * 0.3}
+                    strokeLinejoin="round"
+                    className="bf-line-head"
+                  />
                 )}
                 {line.kind === "attach" && (
                   <g fill={theme.core} stroke={theme.body}>

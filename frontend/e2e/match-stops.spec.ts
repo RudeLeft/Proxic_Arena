@@ -120,16 +120,18 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
         // its neighbours, and the click then waited for ever on a Mountain
         // the enlarged card covered. Every click is bounded.
         await page.mouse.move(0, 0);
-        if ((await land.count()) > 0) {
-          await land
-            .first()
-            .click({ timeout: 5_000 })
-            .catch(() => undefined);
-        } else if (!skipped && turn >= 3 && step === "Main 1" && label.includes("To combat")) {
-          // Once: pass to the end of the turn from Main 1.
+        if (!skipped && turn >= 3 && step === "Main 1" && label.includes("To combat")) {
+          // Once, the first Main 1 asked from turn 3 -- before the land: a
+          // Main 1 with only a land to play is asked once, and after the
+          // land nothing more is asked there (CI never saw the moment).
           skipped = { page, turn };
           await matchPanel(page)
             .getByRole("button", { name: "Skip to end of turn" })
+            .click({ timeout: 5_000 })
+            .catch(() => undefined);
+        } else if ((await land.count()) > 0) {
+          await land
+            .first()
             .click({ timeout: 5_000 })
             .catch(() => undefined);
         } else {

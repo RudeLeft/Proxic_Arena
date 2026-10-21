@@ -439,6 +439,11 @@ function SeatBlock({
   const active = board.activeSeat === player.seat;
   const priority = board.prioritySeat === player.seat;
   const choosable = Boolean(question?.onBoard.has(id));
+  // The spell resolving next targets this player: their life total glows
+  // (owner 2026-10-21), as a targeted card does on the board.
+  const targeted = (board.stack[0]?.targets ?? []).some(
+    (t) => "player" in t && t.player === player.seat,
+  );
   const role = mine
     ? active
       ? "You · active turn"
@@ -461,7 +466,7 @@ function SeatBlock({
       <div className="gs-seat-head">
         <button
           type="button"
-          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}`}
+          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}`}
           aria-label={`${player.name}, ${player.life} life${choosable ? ", can be chosen" : ""}`}
           data-object-id={id}
           data-choosable={choosable ? "true" : undefined}

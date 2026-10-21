@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { TAPPED_ORIGIN, geometry, layout, type Box } from "./layout";
-import { arrowHead, centreOf, curve, pointOn, swoopBox } from "./effects";
+import {
+  arrowHead,
+  centreOf,
+  curve,
+  pointOn,
+  rectEdge,
+  ringEdge,
+  stackSpotBoxes,
+  STACK_SHOWN,
+  swoopBox,
+} from "./effects";
 import { combatScript } from "./fixture";
 
 /**
@@ -123,5 +133,34 @@ describe("line curves", () => {
     const c = curve("attack", { x: 0, y: 0 }, { x: 100, y: 300 });
     const first = arrowHead(c, g.cardH * 0.2).split(" ")[0]!;
     expect(first).toBe("100,300");
+  });
+});
+
+describe("the stack, as cards (owner 2026-10-21)", () => {
+  const g = layout(combatScript(0).board, { width: 1920, height: 1080 }).geometry;
+
+  it("sits at the play area's right edge, centred on the middle line, the top card in front", () => {
+    const [top, under] = stackSpotBoxes(g, 2);
+    expect(top!.x + top!.w).toBeLessThanOrEqual(g.play.x + g.play.w);
+    expect(top!.x).toBeGreaterThan(g.play.x + g.play.w / 2);
+    expect(top!.y + top!.h / 2).toBeCloseTo(g.height / 2, 0);
+    // Bigger than a battlefield card; the one under it smaller, behind and up-left.
+    expect(top!.w).toBeGreaterThan(g.cardW);
+    expect(under!.w).toBeLessThan(top!.w);
+    expect(under!.x).toBeLessThan(top!.x);
+  });
+
+  it("draws at most a few cards; the rest stay in the list", () => {
+    expect(stackSpotBoxes(g, 9)).toHaveLength(STACK_SHOWN);
+    expect(stackSpotBoxes(g, 0)).toHaveLength(0);
+  });
+
+  it("a line leaves a card at its edge and meets a life circle at its rim", () => {
+    const box: Box = { x: 100, y: 100, w: 60, h: 80, scale: 1, rotation: 0, z: 0 };
+    expect(rectEdge(box, { x: 400, y: 140 })).toEqual({ x: 160, y: 140 });
+    expect(rectEdge(box, { x: 130, y: 0 })).toEqual({ x: 130, y: 100 });
+    const rim = ringEdge({ x: 0, y: 0 }, { x: 30, y: 40 }, 10);
+    expect(rim.x).toBeCloseTo(6);
+    expect(rim.y).toBeCloseTo(8);
   });
 });

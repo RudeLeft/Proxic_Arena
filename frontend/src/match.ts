@@ -202,6 +202,8 @@ export interface StackEntry {
   /** "spell" | "ability" | "trigger" */
   kind: string;
   targets: TargetRef[];
+  /** Its picture, from the caster's deck, when this viewer may see it. */
+  art: string | null;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -644,6 +646,7 @@ function asStack(value: unknown): StackEntry[] {
       name: asString(row["name"]) ?? description,
       controller: asNumber(row["controller"]),
       kind: asString(row["kind"]) ?? "spell",
+      art: asString(row["art"]),
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],

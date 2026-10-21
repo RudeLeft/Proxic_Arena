@@ -27,12 +27,16 @@ export const NUMBER_MS = 1000; // the damage number (AMENDMENT 7 item 5)
 /** What a line or a hit points at: a permanent, or a player. */
 export type TargetRef = { object: string } | { player: number };
 
-/** The colours of each line, from the mock's themes. */
+/**
+ * The colours of each line (owner 2026-10-21, MTG Arena-style): one family
+ * of clean, glowing arrows -- gold for a spell's target, ember for an
+ * attack, steel blue for a block, copper for an attachment.
+ */
 export const LINE_THEME = {
-  attack: { aura: "#a3230d", body: "#ff5a19", core: "#ffd06a" },
-  block: { aura: "#0b5278", body: "#2fcfff", core: "#b9f4ff" },
-  target: { aura: "#5c167e", body: "#c53cff", core: "#ffb7ff" },
-  attach: { aura: "#614225", body: "#d6a15c", core: "#ffdfac" },
+  attack: { aura: "#ff5a1f", body: "#ff7a3d", core: "#ffe1c4" },
+  block: { aura: "#3aa8ff", body: "#6cc6ff", core: "#e4f5ff" },
+  target: { aura: "#f0a830", body: "#f4c25e", core: "#fff4d6" },
+  attach: { aura: "#b9782f", body: "#d6a15c", core: "#ffdfac" },
 } as const;
 export type LineKind = keyof typeof LINE_THEME;
 
@@ -174,6 +178,61 @@ export function swoopBox(
     to = { x: aim.x, y: aim.y + (from.y <= aim.y ? -reach : reach) };
   }
   return { ...attacker, x: attacker.x + (to.x - from.x), y: attacker.y + (to.y - from.y) };
+}
+
+// --- the stack, as cards (owner 2026-10-21) -----------------------------------
+
+/** How much bigger than a battlefield card a spell on the stack is drawn. */
+export const STACK_SCALE = 1.5;
+/** How many of the stack's objects are drawn as cards; the rest are in the list. */
+export const STACK_SHOWN = 4;
+
+/**
+ * Where the stack's objects are drawn while they wait: as cards, at the
+ * right edge of the play area, centred on the line between the two sides
+ * (MTG Arena's place for a spell being cast). The top object is the
+ * front card; each one under it peeks out behind, up and to the left.
+ */
+export function stackSpotBoxes(g: Geometry, count: number): Box[] {
+  const shown = Math.min(count, STACK_SHOWN);
+  const w = g.cardW * STACK_SCALE;
+  const h = g.cardH * STACK_SCALE;
+  const right = g.play.x + g.play.w - g.inset * 2;
+  return Array.from({ length: shown }, (_, i) => {
+    const scale = STACK_SCALE * Math.pow(0.9, i);
+    const bw = g.cardW * scale;
+    const bh = g.cardH * scale;
+    return {
+      x: right - bw - i * w * 0.18,
+      y: g.height / 2 - bh / 2 - i * h * 0.06,
+      w: bw,
+      h: bh,
+      scale,
+      rotation: 0,
+      z: 0,
+    };
+  });
+}
+
+/** Where a line from inside an upright box toward `toward` leaves its edge. */
+export function rectEdge(box: Box, toward: Point): Point {
+  const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  const dx = toward.x - c.x;
+  const dy = toward.y - c.y;
+  if (dx === 0 && dy === 0) return c;
+  const t = Math.min(
+    dx === 0 ? Infinity : box.w / 2 / Math.abs(dx),
+    dy === 0 ? Infinity : box.h / 2 / Math.abs(dy),
+  );
+  return { x: c.x + dx * t, y: c.y + dy * t };
+}
+
+/** Where a line toward a circle's centre meets its edge (a life total). */
+export function ringEdge(centre: Point, from: Point, r: number): Point {
+  const dx = from.x - centre.x;
+  const dy = from.y - centre.y;
+  const len = Math.max(0.001, Math.hypot(dx, dy));
+  return { x: centre.x + (dx / len) * r, y: centre.y + (dy / len) * r };
 }
 
 /** Where a player's life total is, for lines and hits that point at them. */

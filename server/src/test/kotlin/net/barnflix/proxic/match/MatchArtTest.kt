@@ -87,6 +87,29 @@ class MatchArtTest {
     }
 
     /**
+     * PHASE_07 (owner 2026-10-21) — a spell on the stack is drawn as its
+     * card: it wears the caster's art, and that is what authorises it. A
+     * face-down spell, named "Face-down" to the opponent, carries none.
+     */
+    @Test
+    fun `a spell on the stack carries its caster's art, and a face-down one none`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":2,"battlefield":[],"hand":[],"players":[],"stack":[
+                {"id":"stack:1","name":"Lightning Bolt","controller":1,"kind":"spell"},
+                {"id":"stack:2","name":"Face-down","controller":1,"kind":"spell"}]}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, bob)
+        val stack = seen["stack"]!!.jsonArray
+        assertEquals(bolt, stack[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertNull(stack[1].jsonObject["art"])
+        assertTrue(art.mayFetch(bob, bolt))
+        assertFalse(art.mayFetch(bob, plains), "only what was shown")
+    }
+
+    /**
      * P6-Y, §6.124, §6.125 — a card the viewer may not identify
      * carries no reference, so there is nothing to ask for.
      *
