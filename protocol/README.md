@@ -187,3 +187,40 @@ card.ringBearer           true on the Ring-bearer, for every viewer
 Value notices use Forge's own wording, per viewer: "Krark, the
 Thumbless: You win the flip" to the flipper, "...: Alice wins the
 flip" to the opponent.
+
+## What the board is told (Phase 7, §7.61)
+
+Added 2026-10-21, each read from Forge, per viewer, checked by
+`scripts/check-board-data.py` (Mechanics Lab):
+
+```text
+prioritySeat        B1  the seat holding priority now (Forge's priority
+                        player); on your own turn often not activeSeat
+player.manaPool     B6  floating mana by colour, {"R": 1}; absent when
+                        the pool is empty. Public.
+stack[]             B2  per entry, besides id and description:
+                        source      "card:N", the card it came from
+                        name        as this viewer may know it ("Face-down"
+                                    for a face-down spell it may not identify)
+                        controller  seat that cast or activated it
+                        kind        "spell" | "ability" | "trigger"
+                    B3  targets     [{object: "card:N"} | {object: "stack:N"} |
+                                    {player: seat}], through every part of
+                                    the spell; a spell targeted on the stack
+                                    is named as its stack entry
+                        description is "Face-down spell" when its source
+                                    is a face-down card this viewer may not
+                                    identify (it began with the card's name)
+combat              B4  while there is one: attackers [{id, target:
+                        {player: seat} | {object: "card:N"}}],
+                        blocks [{blocker, attacker}] -- Forge's record
+damage              B13 damage dealt since the last round, ONE combat
+                        damage step or one spell: {key, hits: [{source,
+                        target, amount}]}; a new key is a new wave. A
+                        combat step sends the board even when nobody is
+                        asked anything, so first strike and regular
+                        damage are always separate waves.
+card.enteredAt      B11 Forge's game timestamp: arrival order
+card.token          B12 true on a token
+```
+

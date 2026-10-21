@@ -206,7 +206,7 @@ jobs:
               agent-of-kotis panglacial-wurm card-name leyline karn multiface \
               mindslaver characteristics player-state mana-choice alternate-win \
               attachments printings face-down costs modes shapes results \
-              tracked-state text-effects coin-flip \
+              tracked-state text-effects coin-flip board-data \
             | xargs -n 1 -P 3 sh -c \
               'timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
                s=$?; [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";

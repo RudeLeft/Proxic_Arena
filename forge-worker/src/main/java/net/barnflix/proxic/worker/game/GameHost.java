@@ -142,6 +142,9 @@ public final class GameHost {
         // Liberated's ultimate resolves. Nothing here decides a
         // restart happened.
         created.subscribeToEvents(new EpochCounter());
+        // §7.61 B13 -- damage as Forge dealt it, for the board's impact
+        // and numbers (PHASE 7 AMENDMENT 4).
+        created.subscribeToEvents(new DamageLog());
 
         // NOTHING installs controllers here, deliberately. Forge
         // builds its own Player objects during createGame through
@@ -394,6 +397,65 @@ public final class GameHost {
         return epoch.get();
     }
 
+    /**
+     * Damage dealt since the last snapshot round, as Forge reported it.
+     * Snapshots go out with every question and each combat damage step
+     * gives priority, so one round's hits are one wave: the first-strike
+     * step and the regular step arrive separately (PHASE 7 AMENDMENT 7).
+     */
+    private final java.util.List<com.google.gson.JsonObject> damageDealt =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    private final class DamageLog {
+        @com.google.common.eventbus.Subscribe
+        public void on(forge.game.event.GameEvent event) {
+            if (event instanceof forge.game.event.GameEventTurnPhase step) {
+                // Snapshots go out with questions, and a combat where nobody
+                // can do anything asks none: the blocks were never shown and
+                // first-strike and regular damage arrived as one wave (found
+                // by check-board-data.py). So each combat damage step, and
+                // the end of combat, sends the board as it stands -- the
+                // blocks, then each step's damage as its own wave.
+                forge.game.phase.PhaseType phase = step.phase();
+                boolean combatStep = phase == forge.game.phase.PhaseType.COMBAT_FIRST_STRIKE_DAMAGE
+                        || phase == forge.game.phase.PhaseType.COMBAT_DAMAGE
+                        || phase == forge.game.phase.PhaseType.COMBAT_END;
+                if (combatStep || !damageDealt.isEmpty()) {
+                    publishSnapshots();
+                }
+                return;
+            }
+            if (event instanceof forge.game.event.GameEventCardDamaged hit && hit.amount() > 0) {
+                com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+                target.addProperty("object", "card:" + hit.card().getId());
+                record(hit.source(), target, hit.amount());
+            } else if (event instanceof forge.game.event.GameEventPlayerDamaged hit && hit.amount() > 0) {
+                Game current = game;
+                if (current == null) {
+                    return;
+                }
+                for (Player player : current.getRegisteredPlayers()) {
+                    if (player.getId() == hit.target().getId()) {
+                        Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
+                        com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+                        target.addProperty("player", seat == null ? 0 : seat);
+                        record(hit.source(), target, hit.amount());
+                    }
+                }
+            }
+        }
+
+        private void record(forge.game.card.CardView source, com.google.gson.JsonObject target, int amount) {
+            com.google.gson.JsonObject entry = new com.google.gson.JsonObject();
+            if (source != null) {
+                entry.addProperty("source", "card:" + source.getId());
+            }
+            entry.add("target", target);
+            entry.addProperty("amount", amount);
+            damageDealt.add(entry);
+        }
+    }
+
     /** Forge's event bus calls this; Guava finds it by the annotation. */
     private final class EpochCounter {
         @com.google.common.eventbus.Subscribe
@@ -419,6 +481,19 @@ public final class GameHost {
             return;
         }
         long revision = gate.bumpStateVersion();
+        // B13: this round's damage, sent once, to every seat (damage is
+        // public). The key is the round's, so a board plays it once.
+        com.google.gson.JsonObject damage = null;
+        synchronized (damageDealt) {
+            if (!damageDealt.isEmpty()) {
+                damage = new com.google.gson.JsonObject();
+                damage.addProperty("key", "damage:" + revision);
+                com.google.gson.JsonArray hits = new com.google.gson.JsonArray();
+                damageDealt.forEach(hits::add);
+                damage.add("hits", hits);
+                damageDealt.clear();
+            }
+        }
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone
         // and showed the winner alone. Measured, P6-AP.
@@ -441,6 +516,9 @@ public final class GameHost {
                             revision,
                             noticesFor(seat),
                             epoch.get());
+            if (damage != null) {
+                snapshot.add("damage", damage.deepCopy());
+            }
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {

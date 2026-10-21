@@ -90,6 +90,12 @@ final class ViewerSnapshot {
         snapshot.addProperty("phase", phase == null ? "" : phase.toString());
         Player active = game.getPhaseHandler().getPlayerTurn();
         snapshot.addProperty("activeSeat", active == null ? 0 : seatOf.getOrDefault(active, 0));
+        // §7.61 B1 -- who may act now: the priority holder, Forge's own.
+        // On your own turn the active player and the priority holder are
+        // often different seats, and the board shows both (the canvas's
+        // ring and dot).
+        Player priority = game.getPhaseHandler().getPriorityPlayer();
+        snapshot.addProperty("prioritySeat", priority == null ? 0 : seatOf.getOrDefault(priority, 0));
         snapshot.addProperty("seat", seatOf.getOrDefault(viewer, 0));
 
         JsonArray players = new JsonArray();
@@ -98,6 +104,12 @@ final class ViewerSnapshot {
             entry.addProperty("seat", seatOf.getOrDefault(player, 0));
             entry.addProperty("name", player.getName());
             entry.addProperty("life", player.getLife());
+        // §7.61 B6 -- mana floating in the pool, by colour; absent when
+        // the pool is empty. Public: mana in a pool is on the table.
+        JsonObject pool = manaPool(player);
+        if (pool != null) {
+            entry.add("manaPool", pool);
+        }
             // COUNTS, not contents. A library is hidden from
             // everyone including its owner, and a hand is hidden
             // from the opponent; how MANY is public in both cases
@@ -264,10 +276,35 @@ final class ViewerSnapshot {
             // Phase 0A run caught a stack instance whose id
             // equalled its own source card's.
             entry.addProperty("id", "stack:" + instance.getId());
-            entry.addProperty("description", String.valueOf(instance));
+            Card source = instance.getSourceCard();
+            boolean hidden = source != null && source.isFaceDown()
+                    && !(source.getView().canBeShownTo(viewing) && source.getView().canFaceDownBeShownTo(viewing));
+            // Forge's own wording -- unless it is about a face-down card
+            // this viewer may not identify: it starts with the card's name.
+            entry.addProperty("description", hidden ? "Face-down spell" : String.valueOf(instance));
+            // §7.61 B2 -- the stack as cards: what it is, whose it is, and
+            // where it came from, the name as this viewer may know it.
+            if (source != null) {
+                entry.addProperty("source", "card:" + source.getId());
+                entry.addProperty("name", nameFor(source, viewing));
+            }
+            Player by = instance.getActivatingPlayer();
+            entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
+            entry.addProperty("kind", instance.isSpell() ? "spell" : instance.isTrigger() ? "trigger" : "ability");
+            // §7.61 B3 -- what it targets, every part of it (Electrolyze's
+            // second half has targets of its own).
+            entry.add("targets", targetsOf(game, instance.getSpellAbility(), seatOf));
             stack.add(entry);
         });
         snapshot.add("stack", stack);
+
+        // §7.61 B4 -- combat: who attacks what, who blocks whom. Public,
+        // and Forge's own record of it, not inferred from the cards'
+        // attacking/blocking flags.
+        JsonObject fight = combatOf(game, seatOf);
+        if (fight != null) {
+            snapshot.add("combat", fight);
+        }
 
         return snapshot;
     }
@@ -301,6 +338,116 @@ final class ViewerSnapshot {
         return real == null || real.isEmpty() ? "Face-down" : real + " (face down)";
     }
 
+    /** A player's floating mana by colour, or null when the pool is empty. */
+    private static JsonObject manaPool(Player player) {
+        forge.game.mana.ManaPool pool = player.getManaPool();
+        if (pool == null || pool.totalMana() == 0) {
+            return null;
+        }
+        JsonObject out = new JsonObject();
+        byte[] colours = {forge.card.MagicColor.WHITE, forge.card.MagicColor.BLUE,
+                forge.card.MagicColor.BLACK, forge.card.MagicColor.RED,
+                forge.card.MagicColor.GREEN, forge.card.MagicColor.COLORLESS};
+        String[] letters = {"W", "U", "B", "R", "G", "C"};
+        for (int i = 0; i < colours.length; i++) {
+            int n = pool.getAmountOfColor(colours[i]);
+            if (n > 0) {
+                out.addProperty(letters[i], n);
+            }
+        }
+        return out;
+    }
+
+    /** Everything a spell or ability targets, through its sub-abilities:
+     *  {object: "card:N"}, {object: "stack:N"} or {player: seat}. */
+    static JsonArray targetsOf(Game game, forge.game.spellability.SpellAbility sa,
+                               Map<Player, Integer> seatOf) {
+        JsonArray out = new JsonArray();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (forge.game.spellability.SpellAbility part = sa; part != null; part = part.getSubAbility()) {
+            forge.game.spellability.TargetChoices chosen = part.getTargets();
+            if (chosen == null) {
+                continue;
+            }
+            for (Card card : chosen.getTargetCards()) {
+                // "Counter target spell" targets the CARD on the stack
+                // (Forge's own model): name the stack entry it is, or the
+                // line would point at a card id no board can find. Found
+                // by check-board-data.py (Counterspell on a Bolt).
+                forge.game.spellability.SpellAbilityStackInstance onStack = card.isInZone(ZoneType.Stack)
+                        ? stackEntryOf(game, card) : null;
+                add(out, seen, "object", onStack != null ? "stack:" + onStack.getId() : "card:" + card.getId());
+            }
+            for (Player player : chosen.getTargetPlayers()) {
+                JsonObject t = new JsonObject();
+                int seat = seatOf.getOrDefault(player, 0);
+                if (seen.add("player:" + seat)) {
+                    t.addProperty("player", seat);
+                    out.add(t);
+                }
+            }
+            for (forge.game.spellability.SpellAbility spell : chosen.getTargetSpells()) {
+                forge.game.spellability.SpellAbilityStackInstance target =
+                        game.getStack().getInstanceMatchingSpellAbilityID(spell);
+                if (target != null) {
+                    add(out, seen, "object", "stack:" + target.getId());
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The stack entry a card on the stack is the source of (a spell). */
+    private static forge.game.spellability.SpellAbilityStackInstance stackEntryOf(Game game, Card card) {
+        for (forge.game.spellability.SpellAbilityStackInstance instance : game.getStack()) {
+            if (instance.isSpell() && instance.getSourceCard() == card) {
+                return instance;
+            }
+        }
+        return null;
+    }
+
+    private static void add(JsonArray out, java.util.Set<String> seen, String key, String id) {
+        if (seen.add(id)) {
+            JsonObject t = new JsonObject();
+            t.addProperty(key, id);
+            out.add(t);
+        }
+    }
+
+    /** Forge's combat, or null outside one. */
+    private static JsonObject combatOf(Game game, Map<Player, Integer> seatOf) {
+        forge.game.combat.Combat combat = game.getCombat();
+        if (combat == null || combat.getAttackers().isEmpty()) {
+            return null;
+        }
+        JsonArray attackers = new JsonArray();
+        JsonArray blocks = new JsonArray();
+        for (Card attacker : combat.getAttackers()) {
+            JsonObject a = new JsonObject();
+            a.addProperty("id", "card:" + attacker.getId());
+            forge.game.GameEntity defender = combat.getDefenderByAttacker(attacker);
+            JsonObject target = new JsonObject();
+            if (defender instanceof Player player) {
+                target.addProperty("player", seatOf.getOrDefault(player, 0));
+            } else if (defender instanceof Card card) {
+                target.addProperty("object", "card:" + card.getId());
+            }
+            a.add("target", target);
+            attackers.add(a);
+            for (Card blocker : combat.getBlockers(attacker)) {
+                JsonObject b = new JsonObject();
+                b.addProperty("blocker", "card:" + blocker.getId());
+                b.addProperty("attacker", "card:" + attacker.getId());
+                blocks.add(b);
+            }
+        }
+        JsonObject out = new JsonObject();
+        out.add("attackers", attackers);
+        out.add("blocks", blocks);
+        return out;
+    }
+
     private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         CardView view = card.getView();
         JsonObject entry = new JsonObject();
@@ -309,6 +456,13 @@ final class ViewerSnapshot {
         // the browser never has to match things up by name.
         entry.addProperty("id", "card:" + card.getId());
         entry.addProperty("seat", seatOf.getOrDefault(card.getController(), 0));
+        // §7.61 B11 -- when it arrived where it is, Forge's own game
+        // timestamp: a row keeps arrival order (§7.52a L6).
+        entry.addProperty("enteredAt", card.getGameTimestamp());
+        // §7.61 B12 -- identical tokens pile (§7.52a L5).
+        if (card.isToken()) {
+            entry.addProperty("token", true);
+        }
         entry.addProperty("tapped", view.isTapped());
         entry.addProperty("faceDown", view.isFaceDown());
 
