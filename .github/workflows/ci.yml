@@ -188,7 +188,10 @@ jobs:
       # from this image. Exit 2 means the game never reached the scenario,
       # which proves nothing, so it fails too. Three at a time: each is
       # its own worker process and none depends on timing. Each prints its
-      # whole output when it finishes, so the log stays readable.
+      # whole output when it finishes, so the log stays readable. Each has
+      # five minutes (the slowest takes about one): a hung scenario once
+      # ran the whole job into its time limit, and a killed job keeps no
+      # log at all, so nobody could tell which one it was.
       - name: Mechanics Lab regressions
         env:
           res: spikes/forge-phase0a/forge-upstream/forge-gui/res
@@ -202,8 +205,9 @@ jobs:
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip \
             | xargs -n 1 -P 3 sh -c \
-              'python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
-               s=$?; echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
+              'timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
+               s=$?; [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
+               echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
           # §6.29: a player's pregame thinking time is not Forge's start budget.
           python3 -I scripts/check-start-budget.py "$jar" "$res"
           # P6-L, over every game above: no question reaches a seat before
