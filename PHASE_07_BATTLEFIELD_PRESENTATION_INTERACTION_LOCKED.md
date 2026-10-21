@@ -1207,6 +1207,53 @@ leave.
 **Approved by project owner:** yes, 2026-10-20
 **Date:** 2026-10-20
 
+## PHASE 7 AMENDMENT 7
+
+**Reason:** Before build step 5 (connectors and effects), the details
+AMENDMENT 4 left open: which relationship lines show when, how they
+move, and how the combat impact plays in the cases that are not one
+attacker against one blocker.
+
+**Affected requirements:** PHASE 7 AMENDMENT 4 items 2 and 5;
+BATTLEFIELD_RENDERING.md §5.5 and §7 step 5.
+
+**Old decision:** the four lines and the swoop-and-impact as the PixiJS
+mock (`proxic-arena-spike-10`) drew them, details unspecified.
+
+**New decision:**
+
+1. **Targeting lines** (purple crosshair): only the stack's **top**
+   object (the one that resolves next) shows its lines, plus any stack
+   object the player points at. With Lightning Bolt, a response and a
+   response to that on the stack, one line shows, not three.
+2. **Fire lines** (attacks) appear when the attacking player's choice is
+   confirmed and stay **until combat ends**, through blocks and damage.
+   Shield lines (blocks) appear when blocks are confirmed and stay until
+   combat ends.
+3. **Lines keep moving** while shown, as in the mock: sparks along the
+   fire line, pulses along the shield line, glints along the chain. The
+   system's "reduce motion" setting makes them still.
+4. **The impact is a burst about a card wide** over what was hit, in the
+   fire line's colours, gone in about half a second. No table shake.
+5. **A damage number lasts about one second**: it rises a little and
+   fades.
+6. **Several blockers:** the attacker swoops to land **between** them,
+   covering the inner half of each; each gets its burst and its number
+   at the same moment, because the rules deal that damage at once.
+7. **Many attackers:** every swoop of one damage step plays **at once**
+   (one quarter second), never one after another.
+8. **First strike:** each combat damage step is its own swoop -- the
+   first-strike step, then the regular step -- each showing exactly what
+   Forge dealt in that step.
+
+**Evidence:** owner decisions 2026-10-20, asked with game examples (a
+Bolt and two responses on the stack; Serra Angel blocked by Goblin Guide
+and Llanowar Elves; six attackers, three blocked; a first-strike White
+Knight blocked by Goblin Guide).
+
+**Approved by project owner:** yes, 2026-10-20
+**Date:** 2026-10-20
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
