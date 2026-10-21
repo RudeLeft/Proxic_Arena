@@ -484,7 +484,11 @@ def prepare():
             land = g.play_land(f, prefer="Forest" if not g.mine(1, name="Forest") else "Island")
             if land:
                 return land
-            if g.mine(1, name="Studious First-Year") and not st["growth"] and len(g.untapped_lands(1)) >= 2:
+            # {1}{G}: a Forest among them. Forge offers a spell it cannot
+            # pay for and then undoes it, so two Islands looked castable,
+            # the copy never resolved, and no land arrived (one CI run).
+            if g.mine(1, name="Studious First-Year") and not st["growth"] \
+                    and len(g.untapped_lands(1)) >= 2 and g.untapped_lands(1, "Forest"):
                 o = starts(f, "Rampant Growth — {1}{G}")
                 if o:
                     st["growth"] = True
@@ -512,11 +516,24 @@ def prepare():
             return f["options"][0]["actionId"] if f["options"] else None
         if kind == "chooseTargetsFor" and st["recall"]:
             return next((o["actionId"] for o in f["options"] if o["label"] == "Alice"), f["options"][0]["actionId"])
+        if kind == "chooseCardsToDiscardToMaximumHandSize":
+            # A spare creature goes, never a land: Emeritus needs five lands,
+            # and discarding the first card cost one game its fifth by
+            # turn 32.
+            spare = next((o["actionId"] for o in f["options"]
+                          if "Studious" in (o.get("label") or "") or "Emeritus" in (o.get("label") or "")), None)
+            return spare or f["options"][0]["actionId"]
         return DEFAULT
 
     def until(g):
+        # Both copies RESOLVED, not just cast: with Recall already done, the
+        # board right after Rampant Growth was chosen was calm, and the
+        # check stopped before the land arrived (one CI run). A copy that
+        # never delivers runs to the turn limit and is reported.
+        lands = len([c for c in g.mine(1) if c.get("kind") == "land"])
         return st["growth"] and st["recall"] and calm(g) \
-            and g.player(1, 1).get("handCount", 0) >= st["before"]["hand"] + 2
+            and g.player(1, 1).get("handCount", 0) >= st["before"]["hand"] + 2 \
+            and lands >= st["before"]["lands"] + 1
 
     g.run(policy, until=until, max_turn=32)
     b = st["before"]
