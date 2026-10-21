@@ -1289,6 +1289,45 @@ and the alternative (keep full size and raise the budget to about 200 MB).
 **Approved by project owner:** yes, 2026-10-21
 **Date:** 2026-10-21
 
+## PHASE 7 AMENDMENT 9
+
+**Reason:** The application pages (Part X) were moved ahead of the rest
+of the battlefield integration (owner decision 2026-10-21). §7.64 left
+one question "to confirm at build", and three details the canvas draws
+were not yet rules.
+
+**Affected requirements:** §7.64 (rooms), §7.67 (Admin: reset a
+password, sign-in activity).
+
+**Old decision:** §7.64: fixed set of rooms or on demand, to confirm.
+Room names, the password-reset flow and what sign-in activity shows were
+unspecified.
+
+**New decision:**
+
+1. **Rooms are opened on demand, as today** -- not the canvas's five
+   fixed rooms. "Open a room" makes a new one; the list shows every open
+   room; there is no "all rooms busy" state. Phase 5's one room per
+   player and the server's existing limit on simultaneous games are
+   unchanged. The canvas's "claim an empty room" (notes r5, i1) becomes
+   "open a room".
+2. **A room may be named** when it is opened -- optional; left blank it
+   is "<display name>'s room". The name is shown to everyone in the room
+   list.
+3. **Resetting a password on the Admin page:** the administrator types
+   the new password, every session of that account ends, and the
+   administrator tells the player -- as `arena-admin` does today. No
+   forced change at the next sign-in.
+4. **Sign-in activity shows the address** each attempt came from, with
+   its time, account and result. Only administrators see it.
+
+**Evidence:** owner decisions 2026-10-21, asked with the alternatives
+(five fixed rooms; automatic names; forcing a password change; no
+address).
+
+**Approved by project owner:** yes, 2026-10-21
+**Date:** 2026-10-21
+
 ---
 
 # PART IX — PLAY, AS DECIDED 2026-10-20
