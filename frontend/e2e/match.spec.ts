@@ -298,6 +298,7 @@ test.fixme("a match can always be abandoned, and the room comes back", async ({ 
 
     // The guest abandons, not the host: ANY participant may, and
     // the trapped case is precisely the one where the host is gone.
+    await guest.getByRole("button", { name: "Game menu" }).click();
     await guest.getByRole("button", { name: "Abandon match" }).click();
     await guest.getByRole("button", { name: "Yes, abandon the match" }).click();
 

@@ -150,6 +150,7 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
 
     // The stops panel: a change is saved for the account.
     const menu = matchPanel(host);
+    await menu.getByRole("button", { name: "Game menu" }).click();
     await menu.getByRole("button", { name: "Stops" }).click();
     const panel = host.getByRole("dialog", { name: "Where the game stops for you" });
     await expect(panel).toBeVisible();

@@ -129,6 +129,21 @@ export function GameScreen({
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ seat: number; zone: "graveyard" | "hand" } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  // The chat icon flashes when somebody ELSE says something while the
+  // chat is closed (owner 2026-10-21). By the line's id, not a count: the
+  // log keeps only the latest lines, so its length stops growing.
+  const { lobby } = useLobbyConnection();
+  const latestFromOthers = useMemo(() => {
+    for (let i = lobby.chat.length - 1; i >= 0; i--) {
+      if (lobby.chat[i]!.fromUserId !== me) return lobby.chat[i]!.id;
+    }
+    return null;
+  }, [lobby.chat, me]);
+  const [chatSeen, setChatSeen] = useState(latestFromOthers);
+  useEffect(() => {
+    if (chatOpen) setChatSeen(latestFromOthers);
+  }, [chatOpen, latestFromOthers]);
+  const unread = !chatOpen && latestFromOthers !== chatSeen;
   const [listOpen, setListOpen] = useState(false);
 
   // A new question (or none) clears what the last one had picked.
@@ -253,10 +268,16 @@ export function GameScreen({
                 : "Starting the game."
               : "The game is running."}
         </p>
+      </div>
+
+      {/* Owner 2026-10-21: the game's controls at the bottom left, where no
+          card is drawn -- a gear (Stops, Concede, Abandon) and chat. */}
+      <div className="gs-dock-anchor">
         <GameMenu
           match={match}
           live={live && !finished}
           chatOpen={chatOpen}
+          unread={unread}
           onChat={() => setChatOpen((open) => !open)}
           choices={decision ? decision.options.length : null}
           listOpen={listOpen}
@@ -1061,6 +1082,7 @@ function GameMenu({
   match,
   live,
   chatOpen,
+  unread,
   onChat,
   choices,
   listOpen,
@@ -1072,6 +1094,8 @@ function GameMenu({
   match: MatchView;
   live: boolean;
   chatOpen: boolean;
+  /** Somebody else said something since the chat was last open. */
+  unread: boolean;
   onChat: () => void;
   /** How many options the question on screen has, or null for none. */
   choices: number | null;
@@ -1083,6 +1107,7 @@ function GameMenu({
   /** §7.53 — saved stops, to apply to this game now. */
   onStops: (settings: StopSettings) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [stopsOpen, setStopsOpen] = useState(false);
   // §7.55: Concede is a real loss, Forge's; Abandon is for a stuck or
   // broken game and has no winner. Each asks first, and only one asks
@@ -1090,6 +1115,23 @@ function GameMenu({
   const [confirming, setConfirming] = useState<"concede" | "abandon" | null>(null);
   const [abandoning, setAbandoning] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const dock = useRef<HTMLDivElement | null>(null);
+  // The gear's menu closes on a click anywhere else, or Escape.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const away = (event: MouseEvent) => {
+      if (dock.current && !dock.current.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
   const abandon = async () => {
     setAbandoning(true);
     const result = await abandonMatch(match.matchId);
@@ -1097,39 +1139,39 @@ function GameMenu({
     setConfirming(null);
     if (!result.ok) setFailure(result.failure.detail);
   };
+  const choose = (what: "stops" | "concede" | "abandon") => {
+    setMenuOpen(false);
+    if (what === "stops") setStopsOpen(true);
+    else setConfirming(what);
+  };
   return (
-    <div className="gs-menu">
-      <button type="button" className="gs-menu-button" aria-pressed={chatOpen} onClick={onChat}>
-        Chat
-      </button>
-      {choices !== null && choices > 0 && (
-        // §7.29 and the keyboard: every answer, as a plain list, from
-        // anywhere -- the board is the quick way, never the only way.
-        <button type="button" className="gs-menu-button" aria-expanded={listOpen} onClick={onList}>
-          List choices ({choices})
-        </button>
-      )}
-      {live && (
-        <button
-          type="button"
-          className="gs-menu-button"
-          aria-expanded={stopsOpen}
-          onClick={() => setStopsOpen((open) => !open)}
-        >
-          Stops
-        </button>
-      )}
-      {live && stopsOpen && (
-        <StopsPanel
-          onClose={() => setStopsOpen(false)}
-          onSaved={(settings) => {
-            onStops(settings);
-            setStopsOpen(false);
-          }}
-        />
-      )}
-      {live &&
-        (confirming === "concede" ? (
+    <div className="gs-dock" ref={dock}>
+      {/* Above the icons, opening upwards: the menu, the panels it opens,
+          and what became of a concession or an abandon. */}
+      <div className="gs-dock-pop">
+        {live && menuOpen && (
+          <div className="gs-dock-menu" role="group" aria-label="Game menu">
+            <button type="button" className="gs-dock-item" onClick={() => choose("stops")}>
+              Stops
+            </button>
+            <button type="button" className="gs-dock-item" onClick={() => choose("concede")}>
+              Concede
+            </button>
+            <button type="button" className="gs-dock-item" onClick={() => choose("abandon")}>
+              Abandon match
+            </button>
+          </div>
+        )}
+        {live && stopsOpen && (
+          <StopsPanel
+            onClose={() => setStopsOpen(false)}
+            onSaved={(settings) => {
+              onStops(settings);
+              setStopsOpen(false);
+            }}
+          />
+        )}
+        {live && confirming === "concede" && (
           <span className="gs-menu-confirm" role="alert">
             Concede this game? Your opponent wins it, and it cannot be undone.
             <button
@@ -1146,7 +1188,8 @@ function GameMenu({
               Keep playing
             </button>
           </span>
-        ) : confirming === "abandon" ? (
+        )}
+        {live && confirming === "abandon" && (
           <span className="gs-menu-confirm" role="alert">
             End this match for both players? Nobody wins it, and it cannot be resumed.
             <button
@@ -1166,35 +1209,80 @@ function GameMenu({
               Keep playing
             </button>
           </span>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="gs-menu-button"
-              onClick={() => setConfirming("concede")}
-            >
-              Concede
-            </button>
-            <button
-              type="button"
-              className="gs-menu-button"
-              onClick={() => setConfirming("abandon")}
-            >
-              Abandon match
-            </button>
-          </>
-        ))}
-      {concession && (
-        <span className="gs-menu-failure" role="status">
-          {concession}
-        </span>
-      )}
-      {failure && (
-        <span className="gs-menu-failure" role="alert">
-          {failure}
-        </span>
-      )}
+        )}
+        {concession && (
+          <span className="gs-menu-failure" role="status">
+            {concession}
+          </span>
+        )}
+        {failure && (
+          <span className="gs-menu-failure" role="alert">
+            {failure}
+          </span>
+        )}
+      </div>
+      <div className="gs-dock-row">
+        {live && (
+          <button
+            type="button"
+            className="gs-icon-button"
+            aria-label="Game menu"
+            aria-expanded={menuOpen}
+            title="Stops, Concede, Abandon match"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <GearIcon />
+          </button>
+        )}
+        <button
+          type="button"
+          className={`gs-icon-button${unread ? " gs-icon-unread" : ""}`}
+          aria-label={unread ? "Chat, new messages" : "Chat"}
+          aria-pressed={chatOpen}
+          title="Chat"
+          onClick={onChat}
+        >
+          <ChatIcon />
+          {unread && <span className="gs-icon-dot" aria-hidden="true" />}
+        </button>
+        {choices !== null && choices > 0 && (
+          // §7.29 and the keyboard: every answer, as a plain list, from
+          // anywhere -- the board is the quick way, never the only way.
+          <button
+            type="button"
+            className="gs-menu-button"
+            aria-expanded={listOpen}
+            onClick={onList}
+          >
+            List choices ({choices})
+          </button>
+        )}
+      </div>
     </div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M10.3 2h3.4l.5 2.6c.7.2 1.3.5 1.9.9l2.3-1.4 2.4 2.4-1.4 2.3c.4.6.7 1.2.9 1.9l2.6.5v3.4l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.4 2.3-2.4 2.4-2.3-1.4c-.6.4-1.2.7-1.9.9l-.5 2.6h-3.4l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.3 1.4-2.4-2.4 1.4-2.3c-.4-.6-.7-1.2-.9-1.9L1 13.7v-3.4l2.6-.5c.2-.7.5-1.3.9-1.9L3.1 5.6 5.5 3.2l2.3 1.4c.6-.4 1.2-.7 1.9-.9L10.3 2ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+      />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 4v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
+      />
+    </svg>
   );
 }
 

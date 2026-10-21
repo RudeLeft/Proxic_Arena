@@ -452,7 +452,7 @@ button.gs-zone:not(:disabled):hover {
   color: #c2c9d2;
 }
 
-/* The logo, the game's state in words, and the menu: top left. */
+/* The logo and the game's state in words: top left. */
 .gs-corner {
   position: absolute;
   left: 20px;
@@ -476,13 +476,6 @@ button.gs-zone:not(:disabled):hover {
   margin: 0;
   font-size: 10px;
   color: #8a8f98;
-}
-.gs-menu {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  max-width: 340px;
 }
 .gs-menu-button {
   margin: 0;
@@ -881,15 +874,16 @@ button.gs-zone:not(:disabled):hover {
 
 .gs-chat {
   position: absolute;
-  right: 0;
+  left: 0;
   top: 0;
   bottom: 0;
   z-index: 35000;
   width: min(360px, 90vw);
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #39424f;
+  border-right: 1px solid #39424f;
   background: #0d1117;
+  box-shadow: 12px 0 32px rgb(0 0 0 / 50%);
 }
 .gs-chat-head {
   display: flex;
@@ -1024,4 +1018,119 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-options-inline .gs-option {
   padding: 4px 10px;
+}
+
+/* Owner 2026-10-21: the game's controls at the bottom left, where no card
+ * is drawn -- a gear (Stops, Concede, Abandon match) and chat beside it.
+ * The menu and its panels open upwards from the icons. */
+.gs-dock-anchor {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  z-index: 16000;
+}
+.gs-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(380px, calc(100vw - 40px));
+}
+.gs-dock-pop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.gs-dock-pop:empty {
+  display: none;
+}
+.gs-dock-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gs-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #39424f;
+  border-radius: 50%;
+  background: rgb(17 22 29 / 90%);
+  color: #cfd5dd;
+  cursor: pointer;
+}
+.gs-icon-button:hover,
+.gs-icon-button[aria-expanded="true"],
+.gs-icon-button[aria-pressed="true"] {
+  border-color: #e0a44a;
+  color: #f1d9ad;
+}
+.gs-icon-button:focus-visible {
+  outline: 2px solid #f1f4f8;
+  outline-offset: 2px;
+}
+/* Somebody said something while the chat was closed: the icon flashes. */
+.gs-icon-unread {
+  border-color: #e0a44a;
+  color: #f1d9ad;
+  animation: gs-chat-flash 1.1s ease-in-out infinite;
+}
+.gs-icon-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e0a44a;
+  box-shadow: 0 0 0 2px #0d1117;
+}
+@keyframes gs-chat-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(224 164 74 / 0%);
+    background: rgb(17 22 29 / 90%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(224 164 74 / 45%);
+    background: rgb(92 64 22 / 95%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-icon-unread {
+    animation: none;
+    background: rgb(92 64 22 / 95%);
+  }
+}
+.gs-dock-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid #5c6472;
+  border-radius: 8px;
+  background: rgb(17 22 29 / 97%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+}
+.gs-dock-item {
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: #dfe4ea;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-dock-item:hover,
+.gs-dock-item:focus-visible {
+  background: #232b36;
+  outline: none;
 }

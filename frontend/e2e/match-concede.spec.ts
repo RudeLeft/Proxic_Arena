@@ -47,12 +47,36 @@ test("conceding is a real loss: Forge names the other player the winner, and bot
     await whoseTurn(host, guest);
 
     const menu = matchPanel(host);
+
+    // Chat, beside the gear (owner 2026-10-21): the guest says something,
+    // and the host's chat icon flashes until the host opens the chat --
+    // which opens on the left.
+    await matchPanel(guest).getByRole("button", { name: "Chat", exact: true }).click();
+    const guestChat = guest.getByRole("complementary", { name: "Lobby chat" });
+    await guestChat.getByLabel("Message the lobby").fill("good game");
+    await guestChat.getByRole("button", { name: "Send" }).click();
+    const flashing = menu.getByRole("button", { name: "Chat, new messages" });
+    await expect(flashing).toBeVisible({ timeout: 15_000 });
+    await expect(flashing).toHaveClass(/gs-icon-unread/);
+    await host.screenshot({ path: "test-results/seen/chat-flashing.png", fullPage: true });
+    await flashing.click();
+    const chat = host.getByRole("complementary", { name: "Lobby chat" });
+    await expect(chat).toContainText("good game");
+    const box = await chat.boundingBox();
+    expect(box?.x ?? 99, "the chat should open on the left").toBeLessThan(10);
+    await expect(menu.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+    await chat.getByRole("button", { name: "Close" }).click();
+
+    // The gear holds Stops, Concede and Abandon match.
+    await menu.getByRole("button", { name: "Game menu" }).click();
+    await host.screenshot({ path: "test-results/seen/game-menu.png", fullPage: true });
     await menu.getByRole("button", { name: "Concede" }).click();
     // It asks first, and keeping playing changes nothing.
     await expect(menu.getByText("Concede this game? Your opponent wins it")).toBeVisible();
     await menu.getByRole("button", { name: "Keep playing" }).click();
     await expect(menu.getByText("Concede this game?")).toHaveCount(0);
 
+    await menu.getByRole("button", { name: "Game menu" }).click();
     await menu.getByRole("button", { name: "Concede" }).click();
     await menu.getByRole("button", { name: "Yes, concede" }).click();
 
@@ -83,6 +107,7 @@ test("abandoning still ends the match with no winner, after asking", async ({ br
     await whoseTurn(host, guest);
 
     const menu = matchPanel(guest);
+    await menu.getByRole("button", { name: "Game menu" }).click();
     await menu.getByRole("button", { name: "Abandon match" }).click();
     await expect(menu.getByText(/Nobody wins it, and it cannot be resumed/)).toBeVisible();
     await menu.getByRole("button", { name: "Yes, abandon the match" }).click();
