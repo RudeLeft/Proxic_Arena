@@ -175,6 +175,34 @@ describe("Board movement", () => {
     throw new Error(`no change matches ${pattern}`);
   };
 
+  it("a missed update costs only the movement: the board ends the same (P7-K, §7.35)", () => {
+    // Every slot as drawn once the movement is over: which object, where.
+    const settled = (container: HTMLElement) => {
+      act(() => {
+        for (const c of calls) c.animation.onfinish?.();
+      });
+      return [...container.querySelectorAll(".bf-slot")]
+        .map((slot) => {
+          const id = slot.querySelector("[data-object-id]")?.getAttribute("data-object-id");
+          return `${id} ${(slot as HTMLElement).style.cssText}`;
+        })
+        .sort();
+    };
+    const last = 12;
+    const skipping = render(at(0));
+    skipping.rerender(at(last)); // eleven updates never arrived
+    const skipped = settled(skipping.container);
+    skipping.unmount();
+    calls.length = 0;
+
+    const every = render(at(0));
+    for (let n = 1; n <= last; n++) every.rerender(at(n));
+    const all = settled(every.container);
+
+    expect(skipped.length).toBeGreaterThan(0);
+    expect(skipped).toEqual(all);
+  });
+
   it("the first board is drawn where it is, with nothing travelling", () => {
     render(at(0));
     expect(calls).toHaveLength(0);

@@ -6,7 +6,8 @@
 // stack.
 
 import { test, expect, type Page } from "@playwright/test";
-import { signIn } from "./helpers";
+import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import { chooseDeck, clearEverything, inviteIn, openRoom, sharedDeck } from "./match-helpers";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -266,4 +267,55 @@ test("one name per player: a clash asks for another, rename refuses one, delete 
   await expect(mine.getByRole("listitem")).toHaveCount(1);
   // It was open; it is not any more.
   await expect(page.getByText("Choose View on a deck")).toBeVisible();
+});
+
+test("a deck selected in a room can be renamed, and the other player sees the new name", async ({
+  browser,
+}) => {
+  // PHASE_07 P7-AA, §7.65 owner decision 17: everything refers to the deck
+  // id, so a rename while the deck is chosen in a room is allowed -- and
+  // Pat, playing RudeLeft's shared copy, is shown the new name.
+  test.setTimeout(300_000);
+  const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
+  const stamp = Date.now().toString(36);
+  const pkg = mountainPackage(directory, `Rename Room ${stamp}`, `Rename Room ${stamp}`, 60);
+
+  const host = await (await browser.newContext()).newPage();
+  await signIn(host);
+  await clearEverything(host);
+  const guest = await (await browser.newContext()).newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await clearEverything(guest);
+
+  const deck = await sharedDeck(host, guest, pkg);
+  await host.goto("/play");
+  await guest.goto("/play");
+  await openRoom(host);
+  await inviteIn(host, guest, secondUser);
+  await chooseDeck(host, deck);
+  await chooseDeck(guest, deck, testUser);
+
+  // RudeLeft renames it in the Deck Depot, through real clicks.
+  const renamed = `Renamed Room ${stamp}`;
+  await host.goto("/decks");
+  await host.getByRole("button", { name: `View ${deck}` }).click();
+  // exact: the deck's own name has "Rename" in it.
+  await host.getByRole("button", { name: "Rename", exact: true }).click();
+  await host.getByLabel("Deck name").fill(renamed);
+  await host.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(host.getByRole("heading", { name: renamed })).toBeVisible();
+
+  // Pat, still in the room, sees the new name on the deck chosen there.
+  const patsChoice = guest.getByLabel("Your deck for this match");
+  await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} — `), {
+    timeout: 15_000,
+  });
+  // And the room still holds the deck: nobody had to choose again.
+  await host.goto("/play");
+  await expect(host.getByLabel("Your deck for this match").locator("option:checked")).toHaveText(
+    new RegExp(`^${renamed} — `),
+  );
+
+  await clearEverything(host);
+  await clearEverything(guest);
 });

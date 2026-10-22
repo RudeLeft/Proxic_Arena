@@ -132,6 +132,12 @@ def force_of_will():
             if on_stack and not done["cast"]:
                 alt = [o for o in f["options"] if "Force of Will" in o["label"] and "life" in o["label"].lower()]
                 if alt:
+                    # P7-S: the alternative cost CAN be paid (a blue card, 1
+                    # life) with no lands, so that offer is not dimmed; the
+                    # mana cost cannot, so that one is.
+                    done["alt_payable"] = alt[0].get("payable", True)
+                    normal = [o for o in f["options"] if "Force of Will" in o["label"] and o not in alt]
+                    done["mana_payable"] = [o.get("payable", True) for o in normal]
                     done["cast"], done["life_before"] = True, g.player(1, 1).get("life")
                     done["fow_in_grave"] = len(graveyard(g, 1, "Force of Will"))
                     return alt[0]["actionId"]
@@ -150,7 +156,8 @@ def force_of_will():
              "bears_countered": bool(g.zone(1, "graveyard", owner=2, name="Grizzly Bears")),
              "bears_on_battlefield": bool(g.zone(1, "battlefield", owner=2, name="Grizzly Bears")),
              "life": (done["life_before"], g.player(1, 1).get("life")), "exiled": len(exiled),
-             "lands": len(g.mine(1, name=None))}
+             "lands": len(g.mine(1, name=None)),
+             "alt_payable": done.get("alt_payable"), "mana_payable": done.get("mana_payable")}
     if not done["cast"]:
         return "inconclusive", "Force of Will's alternative cost was never offered against a spell", found
     problems = []
@@ -158,6 +165,10 @@ def force_of_will():
         problems.append("Grizzly Bears was not countered")
     if found["life"][0] - found["life"][1] != 1:
         problems.append(f"the alternative cost is 1 life: {found['life']}")
+    if found["alt_payable"] is not True:
+        problems.append("the alternative cost can be paid with no lands, so it must not be dimmed (P7-S)")
+    if any(found["mana_payable"] or []):
+        problems.append(f"with no lands the mana cost cannot be paid, so it is dimmed: {found['mana_payable']}")
     if found["exiled"] < 1:
         problems.append("no blue card was exiled to pay")
     return ("wrong", "; ".join(problems), found) if problems else \

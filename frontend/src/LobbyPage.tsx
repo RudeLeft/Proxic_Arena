@@ -85,6 +85,19 @@ export default function LobbyPage() {
     };
   }, [setLobby]);
 
+  // A deck chosen in this room was renamed (P7-AA): the room already says
+  // the new name; the deck list catches up, once per new name.
+  const chosen = lobby.room?.members.find((m) => m.userId === me?.userId);
+  const chosenName = chosen?.selectedDeckName ?? null;
+  const listed = [...library.mine, ...library.sharedWithMe].find(
+    (d) => d.deckId === chosen?.selectedDeckId,
+  );
+  const listStale = !!listed && !!chosenName && listed.displayName !== chosenName;
+  useEffect(() => {
+    if (!listStale) return;
+    void listDecks().then(setLibrary);
+  }, [listStale, chosenName]);
+
   /** One place where every room call reports its refusal (§5.132: adopt, never predict). */
   const run = useCallback(
     async (call: () => Promise<RoomResult>) => {
@@ -882,7 +895,13 @@ function YourRoom({
           <option value="">{decks.length === 0 ? "No decks yet" : "Choose a deck"}</option>
           {decks.map(({ deck, shared }) => (
             <option key={deck.deckId} value={deck.deckId}>
-              {deck.displayName} — {deck.totalCards} cards
+              {/* The room's word for the chosen deck wins: it is the server's
+                  current name, and the list here was read when the page
+                  opened (P7-AA: renamed while chosen). */}
+              {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
+                ? myMember.selectedDeckName
+                : deck.displayName}{" "}
+              — {deck.totalCards} cards
               {shared ? ` (shared by ${deck.ownerDisplayName})` : ""}
             </option>
           ))}

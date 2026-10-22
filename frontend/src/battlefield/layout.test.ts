@@ -328,6 +328,55 @@ describe("rows (§7.52a L3, L4)", () => {
     expect(out.rowOf.get(hidden.id)).toBe("opponent:other-front");
   });
 
+  it("a permanent that changes type moves rows at once (§7.11, P7-D)", () => {
+    // A creature-land animates, then stops; an Equipment that was a
+    // creature (reconfigure) stops being one. Same card, same id: the next
+    // layout puts it in the row its new type says, and nothing else moves rows.
+    const land = card({
+      seat: 1,
+      name: "Mutavault",
+      kind: "land",
+      types: "Land",
+      power: null,
+      toughness: null,
+    });
+    const rabbit = card({
+      seat: 1,
+      name: "Rabbit Battery",
+      kind: "creature",
+      types: "Artifact Creature — Equipment Rabbit",
+    });
+    const bear = card({ seat: 1 });
+    const at = (battlefield: LayoutCard[]) =>
+      layout({ viewerSeat: 1, hand: [], battlefield }, vp).rowOf;
+
+    const before = at([land, rabbit, bear]);
+    expect(before.get(land.id)).toBe("viewer:land-back");
+    expect(before.get(rabbit.id)).toBe("viewer:creature-front");
+
+    const animated = {
+      ...land,
+      kind: "creature",
+      types: "Land Creature — All",
+      power: 2,
+      toughness: 2,
+    };
+    const attached = {
+      ...rabbit,
+      kind: "other",
+      types: "Artifact — Equipment Rabbit",
+      power: null,
+      toughness: null,
+    };
+    const after = at([animated, attached, bear]);
+    expect(after.get(land.id)).toBe("viewer:creature-front");
+    expect(after.get(rabbit.id)).toBe("viewer:other-front");
+    expect(after.get(bear.id)).toBe(before.get(bear.id));
+
+    // And back, the moment it stops.
+    expect(at([land, rabbit, bear]).get(land.id)).toBe("viewer:land-back");
+  });
+
   it("lands fill the back row first, then spill forward; creatures fill the front first", () => {
     const g = geometry(vp);
     const out = layout(
