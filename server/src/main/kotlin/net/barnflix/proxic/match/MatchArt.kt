@@ -105,6 +105,10 @@ class MatchArt(
                 return entry
             }
             val name = entry["name"]?.jsonPrimitive?.content ?: return entry
+            // §6.128 — a token is in nobody's package. Said here, not left
+            // to no name matching: a package may carry pictures by face
+            // name (§7.59), and one could share a token's name.
+            if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return entry
             // The art belongs to the deck of whoever OWNS the card,
             // not the viewer: that is the whole reason §6.122 exists
             // as a match-scoped route rather than a Deck Depot one.
@@ -112,9 +116,13 @@ class MatchArt(
             // The exact printing first, when the deck carried art for
             // it; the name otherwise, as before.
             val printing = entry["printing"]?.jsonPrimitive?.content
+            // §7.59 — a face that is not a front (a card turned over) has its
+            // own picture when the deck carried one, by that face's name;
+            // otherwise none -- never the front's.
             val asset =
-                bySeat[owner]?.let { art -> printing?.let { art["$PRINTING$it|$name"] } ?: art[name] }
-                    ?: return entry
+                bySeat[owner]?.let { art ->
+                    printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
+                } ?: return entry
 
             allowed.add(asset)
             return buildJsonObject {
@@ -154,7 +162,7 @@ class MatchArt(
     ): JsonObject {
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
         val controller = entry["controller"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
-        val asset = bySeat[controller]?.get(name) ?: return entry
+        val asset = bySeat[controller]?.let { it[name] ?: it[FACE + name.lowercase()] } ?: return entry
         allowed.add(asset)
         return buildJsonObject {
             entry.forEach { (key, value) -> put(key, value) }
@@ -179,6 +187,9 @@ class MatchArt(
     companion object {
         /** The key prefix [MatchRecords] files a printing's art under. */
         const val PRINTING = "printing:"
+
+        /** A face's own picture (a back face), by its lowercase name (§7.59). */
+        const val FACE = "face:"
 
         private fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
     }

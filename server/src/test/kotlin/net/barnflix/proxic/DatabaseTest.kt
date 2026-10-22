@@ -145,7 +145,8 @@ class DatabaseTest {
                         // Records of attempts and of administrators'
                         // actions, not of play.
                         // Phase 7 (§7.53, Amendment 13): player_stops,
-                        // each player's own priority-stop setting.
+                        // each player's own priority-stop setting; and
+                        // (§7.59) deck_face_art, a deck's back-face pictures.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -154,6 +155,7 @@ class DatabaseTest {
                                 "app_user",
                                 "art_asset",
                                 "deck_entry",
+                                "deck_face_art",
                                 "deck_share",
                                 "imported_deck",
                                 "match",

@@ -193,7 +193,8 @@ for line in proc.stdout:
     elif dkind == "declareAttackers" and seat == 1:
         # Attack with the face-down creature once, so seat 2 is asked
         # about blocking something it cannot identify.
-        attack = [o for o in options if hidden and card_of(o["actionId"]) == hidden]
+        attack = [o for o in options if hidden and o["actionId"].startswith("attacker:")
+                  and card_of(o["actionId"]) == hidden]
         if attack and not found["attacked_face_down"]:
             pick = attack[0]
             found["attacked_face_down"] = True

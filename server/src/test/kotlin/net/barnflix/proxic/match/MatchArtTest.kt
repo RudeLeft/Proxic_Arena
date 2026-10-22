@@ -293,6 +293,46 @@ class MatchArtTest {
         assertNull(artOf(back))
     }
 
+    /**
+     * PHASE_07 §7.59, P7-W — the Deck Builder bundles a back face's own
+     * picture, filed by that face's name. Turned over, the card wears it;
+     * the front's picture is never used for it, by printing or by name.
+     */
+    @Test
+    fun `a card turned over wears its back face's own picture when the deck carried one`() {
+        val back = "d".repeat(64)
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to
+                        mapOf(
+                            "Reckless Stormseeker // Storm-Charged Slasher" to bolt,
+                            "${MatchArt.PRINTING}MID/157|Reckless Stormseeker // Storm-Charged Slasher" to bolt,
+                            "${MatchArt.FACE}storm-charged slasher" to back,
+                        ),
+                ),
+            )
+
+        val front = art.annotate(snapshot(printed("card:1", alice, "Reckless Stormseeker", "MID/157")), alice)
+        val turned = art.annotate(snapshot(printed("card:1", alice, "Storm-Charged Slasher", "MID/157")), alice)
+
+        assertEquals(bolt, artOf(front))
+        assertEquals(back, artOf(turned), "the back face's own picture")
+        assertTrue(art.mayFetch(alice, back), "being shown it is what authorises it")
+        // Bob was never shown the back: he may not fetch it.
+        assertEquals(false, art.mayFetch(bob, back))
+    }
+
+    /** §6.128 — a token wears nothing, even when a picture shares its name. */
+    @Test
+    fun `a token gets no picture even when one is filed under its name`() {
+        val art = MatchArt(mapOf(alice to mapOf("${MatchArt.FACE}goblin" to bolt, "Goblin" to bolt)))
+        val token = """{"id":"card:9","seat":$alice,"name":"Goblin","known":true,"token":true}"""
+
+        assertNull(artOf(art.annotate(snapshot(token), alice)))
+        assertEquals(false, art.mayFetch(alice, bolt))
+    }
+
     private fun printed(
         id: String,
         seat: Int,

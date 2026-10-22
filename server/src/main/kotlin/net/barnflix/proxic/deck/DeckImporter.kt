@@ -337,6 +337,23 @@ class DeckImporter(
                     }
                 }
 
+                // §7.59 — a picture that is no entry's front face: the back
+                // of a card that turns over, kept by that face's name.
+                val fronts = deck.entries.map { it.frontFaceName.lowercase() }.toSet()
+                for ((face, stored) in art.filterKeys { it !in fronts }) {
+                    connection.prepareStatement(
+                        """
+                        INSERT INTO deck_face_art (deck_id, face_name, art_sha256)
+                        VALUES (?, ?, ?) ON CONFLICT (deck_id, face_name) DO NOTHING
+                        """.trimIndent(),
+                    ).use { statement ->
+                        statement.setObject(1, deckId)
+                        statement.setString(2, face)
+                        statement.setString(3, stored.sha256)
+                        statement.executeUpdate()
+                    }
+                }
+
                 connection.commit()
             } catch (e: Exception) {
                 connection.rollback()

@@ -61,6 +61,7 @@ test("a two-faced card turns over: same card, Forge's other face, no borrowed pi
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     let sawFront = false;
+    let frontPicture: string | null = null;
     let sawLook = false;
     // What both screens say, for a failure that has to explain itself:
     // CI once spent the whole budget here with nothing on record.
@@ -77,6 +78,10 @@ guest: ${(await matchPanel(guest).innerText()).slice(0, 600)}`;
       if (!sawFront && (await front.count()) > 0) {
         // The front, with its imported picture.
         await expect(front.first().locator("img.bf-art")).toBeVisible({ timeout: 30_000 });
+        frontPicture = await front
+          .first()
+          .locator("img.bf-art")
+          .getAttribute("src", { timeout: 5000 });
         sawFront = true;
       }
 
@@ -152,11 +157,14 @@ ${said}`,
       `never asked to reveal the top card
 ${said}`,
     ).toBe(true);
-    // The same card, turned over: the back face's name and numbers,
-    // and no picture borrowed from the front.
+    // The same card, turned over: the back face's name and numbers, and
+    // the back face's OWN picture (PHASE_07 §7.59, P7-W: the package
+    // carries it under "Insectile Aberration") -- never the front's.
     await expect(back.first()).toBeVisible({ timeout: 60_000 });
     await expect(back.first()).toContainText("3/2");
-    await expect(back.first().locator("img.bf-art")).toHaveCount(0);
+    const backArt = back.first().locator("img.bf-art");
+    await expect(backArt, "the back face's own picture").toBeVisible({ timeout: 30_000 });
+    expect(await backArt.getAttribute("src"), "not the front's picture").not.toBe(frontPicture);
     await expect(front).toHaveCount(0);
     await host.screenshot({ path: "test-results/seen/delver-back.png", fullPage: true });
   } finally {

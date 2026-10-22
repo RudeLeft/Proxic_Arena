@@ -92,9 +92,12 @@ test("a click with nothing asked selects and does not attack; a cancelled target
             "the opponent is a target",
           ).toHaveCount(1, { timeout: 15_000 });
           await click(panel.locator("button.gs-pass"));
-          await expect(panel.locator(".gs-act"), "back to the same priority").toHaveCount(1, {
-            timeout: 15_000,
-          });
+          // The target question is gone. (Priority may come back, or -- when
+          // that spell was the only thing to do -- pass on, as it should.)
+          await expect(
+            page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
+            "the target question ended",
+          ).toHaveCount(0, { timeout: 15_000 });
           await expect(
             page.locator('[data-zone="viewer:hand"]').filter({ hasText: name }),
             "the spell is still in hand",

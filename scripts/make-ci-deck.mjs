@@ -146,8 +146,11 @@ const cardNames = [
       .map((line) => line.replace(/^\d+\s+/, "").replace(/\s*\[[^\]]*\]\s*$/, ""))
       // A two-faced card's image is filed under its FRONT face, as
       // the real exporter does ("Reckless Stormseeker [MID].png");
-      // the full "A // B" would put a slash in the member path.
-      .map((name) => name.split(" // ")[0].trim())
+      // the full "A // B" would put a slash in the member path. Its
+      // BACK face gets its own image under its own name, as the
+      // exporter does since 2026-10-21 (PHASE_07 §7.59): "Insectile
+      // Aberration [CI].png" beside "Delver of Secrets [CI].png".
+      .flatMap((name) => name.split(" // ").map((face) => face.trim()))
       .filter(Boolean),
   ),
 ];

@@ -301,4 +301,22 @@ private fun artOf(
                 }
             }
         }
+    } + faceArtOf(connection, deckId)
+
+/**
+ * §7.59 — the other faces' pictures (a back face, by its own name,
+ * lowercase): what a card that has turned over shows. Filed under a
+ * prefix of their own, so they never stand in for a front face.
+ */
+private fun faceArtOf(
+    connection: Connection,
+    deckId: UUID,
+): Map<String, String> =
+    connection.prepareStatement("SELECT face_name, art_sha256 FROM deck_face_art WHERE deck_id = ?").use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildMap {
+                while (rows.next()) put(MatchArt.FACE + rows.getString(1), rows.getString(2))
+            }
+        }
     }

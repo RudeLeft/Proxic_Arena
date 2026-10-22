@@ -165,7 +165,10 @@ for line in proc.stdout:
         # once: ten poison counters end the game before the rest.
         elf = {c["id"] for c in mine(1, "Glistener Elf")}
         if not found["poison"]:
-            pick = next((o for o in options if card_of(o["actionId"]) in elf), None)
+            # attacker: only -- once it attacks, the Elf is also offered as
+            # "unattack:" (take it back), and choosing that looped for ever.
+            pick = next((o for o in options if o["actionId"].startswith("attacker:")
+                         and card_of(o["actionId"]) in elf), None)
     elif dkind in ("declareAttackers", "declareBlockers"):
         pick = None
     # chooseManaAbility too: Aether Hub asks which of its two abilities,

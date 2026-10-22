@@ -329,6 +329,44 @@ class DeckImportTest {
         assertEquals(3, rowCount("art_asset"))
     }
 
+    /**
+     * PHASE_07 §7.59, P7-W — the Deck Builder bundles each back face as its
+     * own picture, filed under that face's name. The import keeps it by
+     * that name (deck_face_art); a front face's picture stays on its entry.
+     */
+    @Test
+    fun `a back face's own picture is kept by its face name`() {
+        val withBack = File("build/with-back-face.zip")
+        java.util.zip.ZipFile(realExport).use { source ->
+            ZipOutputStream(withBack.outputStream()).use { out ->
+                var firstImage: ByteArray? = null
+                for (entry in source.entries()) {
+                    out.putNextEntry(ZipEntry(entry.name))
+                    val bytes = source.getInputStream(entry).use { it.readBytes() }
+                    if (firstImage == null && entry.name.endsWith(".png")) firstImage = bytes
+                    out.write(bytes)
+                    out.closeEntry()
+                }
+                // A back face no entry names, in the exporter's shape.
+                out.putNextEntry(ZipEntry("real_cards/Insectile Aberration [M21].png"))
+                // Different bytes from every front, so it is its own asset.
+                out.write(firstImage!! + byteArrayOf(0))
+                out.closeEntry()
+            }
+        }
+
+        val result = importer.import(withBack, withBack.name, owner)
+        assertTrue(result is ImportResult.Imported, "a package with a back face imports: $result")
+
+        val faces =
+            database!!.dataSource().connection.use { connection ->
+                connection.createStatement().executeQuery("SELECT face_name FROM deck_face_art").use { rows ->
+                    buildList { while (rows.next()) add(rows.getString(1)) }
+                }
+            }
+        assertEquals(listOf("insectile aberration"), faces, "only the face no entry names, by its name")
+    }
+
     /** §2.38 — staging is cleaned up whatever happened. */
     @Test
     fun `no staging directory survives an import`() {
