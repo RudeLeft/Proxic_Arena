@@ -3,6 +3,7 @@ package net.barnflix.proxic.match
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -49,6 +50,11 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             searchable = frame["searchable"]?.jsonPrimitive?.contentOrNull?.toBoolean() ?: false,
             optionCount = frame["optionCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
             gameEpoch = frame["gameEpoch"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1,
+            // B7 -- object id to reason; anything not a string pair is dropped.
+            unavailable =
+                (frame["unavailable"] as? JsonObject).orEmpty().mapNotNull { (objectId, reason) ->
+                    (reason as? JsonPrimitive)?.contentOrNull?.let { objectId to it }
+                }.toMap(),
         )
     }.getOrNull()
 

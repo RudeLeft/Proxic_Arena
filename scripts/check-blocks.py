@@ -15,6 +15,12 @@ with menace.
             lone block never stands, and the Brute's damage reaches the
             player.
 
+  reasons   B7: why a card cannot act, as the player is told when they
+            click it -- a second Mountain after the land drop ("already
+            played a land"), a Goblin Piker cast this turn at the attack
+            ("came in this turn"), a creature card in hand on the
+            opponent's turn ("only in your main phase").
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
@@ -124,7 +130,55 @@ def menace():
     return "ok", "a lone block of a menace creature is refused with Forge's reason; 3 damage to the player", found
 
 
-SCENARIOS = {"menace": menace}
+def reasons():
+    g = game("reasons", [("Mountain", 30), ("Goblin Piker", 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    seen = {"land": None, "sick": None, "timing": None}
+
+    def note(f):
+        why = f.get("unavailable") or {}
+        s1 = g.state.get(1) or {}
+        hand = {f"card:{c['id']}" if not str(c.get("id", "")).startswith("card:") else c["id"]: c.get("name")
+                for c in s1.get("hand", [])}
+        active = s1.get("activeSeat")
+        for obj, text in why.items():
+            name = hand.get(obj)
+            if f.get("kind") == "chooseSpellAbilityToPlay" and name == "Mountain" and active == 1                     and seen["land"] is None:
+                seen["land"] = text
+            if f.get("kind") == "chooseSpellAbilityToPlay" and name == "Goblin Piker" and active == 2                     and seen["timing"] is None:
+                seen["timing"] = text
+            if f.get("kind") == "declareAttackers" and seen["sick"] is None:
+                seen["sick"] = text
+
+    def policy(g, f):
+        if f["authorisedSeat"] == 1:
+            note(f)
+        kind, seat = f.get("kind"), f["authorisedSeat"]
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            return cast(g, f, "Goblin Piker" if seat == 1 else "Grizzly Bears")
+        if kind in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    g.run(policy, until=lambda g: all(seen.values()), max_turn=20)
+    found = dict(seen, stopped=g.stopped_badly())
+    if not all(seen.values()):
+        return "inconclusive", "never saw all three situations", found
+    problems = []
+    if seen["land"] != "You've already played a land this turn.":
+        problems.append(f"second land: {seen['land']!r}")
+    if seen["sick"] != "Came in this turn — it can't attack yet.":
+        problems.append(f"a creature cast this turn: {seen['sick']!r}")
+    if seen["timing"] != "Only in your main phase, with nothing on the stack.":
+        problems.append(f"a creature on the opponent's turn: {seen['timing']!r}")
+    if problems:
+        return "wrong", "; ".join(problems), found
+    return "ok", "a second land, a creature cast this turn and one on the opponent's turn each say why", found
+
+
+SCENARIOS = {"menace": menace, "reasons": reasons}
 
 if __name__ == "__main__":
     worst = 0

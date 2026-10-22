@@ -497,12 +497,30 @@ public final class MatchController extends GeneratedControllerBase {
         }
         host.offerCosts(costs);
 
+        // B7 (owner 2026-10-21) -- a card in hand with nothing offered:
+        // why, read off Forge's facts, for when the player clicks it.
+        java.util.Set<Integer> offeredCards = new java.util.HashSet<>();
+        for (SpellAbility sa : byId.values()) {
+            if (sa.getHostCard() != null) {
+                offeredCards.add(sa.getHostCard().getId());
+            }
+        }
+        java.util.Map<String, String> why = new java.util.HashMap<>();
+        for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
+            if (!offeredCards.contains(card.getId())) {
+                why.put("card:" + card.getId(), WhyNot.play(card, player));
+            }
+        }
+        host.offerUnavailable(why);
+
         // PHASE_07 §7.53, AMENDMENT 13 -- a step this player does not stop
         // at, with nothing on the stack they could answer: passed for, as
         // MTG Arena does. Only ever a priority pass, and only with the
         // player's own settings; a seat without any is asked as before.
         if (!host.stops().shouldAsk(actedForSeat, player, player.getGame(),
                 actedForSeat != authorisedSeat, byId, unpayable)) {
+            // Not asked: nothing set for this question may ride on the next.
+            host.offerUnavailable(java.util.Map.of());
             return null;
         }
 

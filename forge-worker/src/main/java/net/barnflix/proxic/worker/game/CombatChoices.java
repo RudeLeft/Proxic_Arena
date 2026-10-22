@@ -76,6 +76,7 @@ final class CombatChoices {
             LinkedHashMap<String, Card> byId = new LinkedHashMap<>();
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
             LinkedHashMap<String, Card> takeBack = new LinkedHashMap<>();
+            java.util.Map<String, String> why = new java.util.HashMap<>();
             for (Card creature : attacker.getCardsIn(ZoneType.Battlefield)) {
                 if (combat.isAttacking(creature)) {
                     String back = UNATTACK + creature.getId();
@@ -89,6 +90,9 @@ final class CombatChoices {
                 boolean canAttackSomething =
                         defenders.stream().anyMatch(d -> CombatUtil.canAttack(creature, d));
                 if (!canAttackSomething) {
+                    if (creature.isCreature()) {
+                        why.put("card:" + creature.getId(), WhyNot.attack(creature));
+                    }
                     continue;
                 }
                 String id = "attacker:card:" + creature.getId();
@@ -113,6 +117,7 @@ final class CombatChoices {
             }
             // Last, so the first option is still an attacker.
             offered.addAll(takeBack.keySet());
+            host.offerUnavailable(why);
 
             String choice =
                     host.gate().ask(
@@ -251,13 +256,18 @@ final class CombatChoices {
             LinkedHashMap<String, Card> blockerById = new LinkedHashMap<>();
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
             LinkedHashMap<String, Card> takeBack = new LinkedHashMap<>();
+            java.util.Map<String, String> why = new java.util.HashMap<>();
             for (Card creature : defender.getCardsIn(ZoneType.Battlefield)) {
-                if (combat.isBlocking(creature)) {
+                boolean blocking = combat.isBlocking(creature);
+                if (blocking) {
                     String back = UNBLOCK + creature.getId();
                     takeBack.put(back, creature);
                     labels.put(back, "Stop blocking — " + describe(creature));
                 }
                 if (!CombatUtil.canBlock(creature, combat)) {
+                    if (!blocking && creature.isCreature()) {
+                        why.put("card:" + creature.getId(), WhyNot.block(creature));
+                    }
                     continue;
                 }
                 String id = "blocker:card:" + creature.getId();
@@ -275,6 +285,7 @@ final class CombatChoices {
             java.util.List<String> offered = new ArrayList<>(blockerById.keySet());
             // Last, so the first option is still a blocker.
             offered.addAll(takeBack.keySet());
+            host.offerUnavailable(why);
             String choice =
                     host.gate().ask(
                             actedForSeat,

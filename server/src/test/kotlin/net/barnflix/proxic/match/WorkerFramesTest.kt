@@ -111,6 +111,27 @@ class WorkerFramesTest {
         assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
     }
 
+    /** PHASE_07 B7 (owner 2026-10-21) -- why a card cannot act now reaches the player. */
+    @Test
+    fun `reasons a card cannot act reach the browser, and only string pairs`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"4","actedForSeat":1,"authorisedSeat":1,"kind":"declareAttackers",
+                     "stateVersion":"2","options":[],
+                     "unavailable":{"card:5":"Came in this turn — it can't attack yet.","card:6":{"x":1}}}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertTrue(request.unavailable == mapOf("card:5" to "Came in this turn — it can't attack yet."))
+        val sent = decisionMessage(request).toString()
+        assertTrue(sent.contains("\"unavailable\":{\"card:5\":\"Came in this turn — it can't attack yet.\"}"), sent)
+        // None to give: not written at all.
+        val plain = decisionMessage(request.copy(unavailable = emptyMap())).toString()
+        assertTrue(!plain.contains("unavailable"), plain)
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

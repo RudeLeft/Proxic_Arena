@@ -88,6 +88,12 @@ export interface Decision {
   searchable: boolean;
   optionCount: number;
   results: SearchResults | null;
+  /**
+   * PHASE_07 B7 (owner 2026-10-21) — why each of your cards that is not
+   * offered cannot act now, by object id ("card:N"): "Came in this turn
+   * — it can't attack yet." Shown when such a card is clicked.
+   */
+  unavailable: Record<string, string>;
 }
 
 /** What one search matched: the best few, and how many there were. */
@@ -704,7 +710,17 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     searchable: message["searchable"] === true,
     optionCount: asNumber(message["optionCount"]) ?? 0,
     results: null,
+    unavailable: asReasons(message["unavailable"]),
   };
+}
+
+function asReasons(value: unknown): Record<string, string> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [id, why] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof why === "string") out[id] = why;
+  }
+  return out;
 }
 
 function asOptions(value: unknown): DecisionOption[] {

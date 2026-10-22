@@ -732,6 +732,35 @@ button.gs-zone:not(:disabled):hover {
 
 /* --- beside a card ----------------------------------------------------------------- */
 
+/* B7: why a clicked card cannot act now -- beside it, briefly. */
+.gs-why {
+  position: absolute;
+  z-index: 30000;
+  pointer-events: none;
+  max-width: 260px;
+  padding: 8px 12px;
+  border: 1px solid rgba(233, 179, 74, 0.55);
+  border-radius: 8px;
+  background: #11161d;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 70%);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #e6e9ee;
+  text-align: center;
+  animation: gs-why-in 160ms ease-out;
+}
+@keyframes gs-why-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-why {
+    animation: none;
+  }
+}
+
 .gs-popup {
   position: absolute;
   z-index: 30000;

@@ -140,6 +140,14 @@ export function GameScreen({
 
   const [selected, setSelected] = useState<string | null>(null);
   const [offer, setOffer] = useState<DecisionOption[] | null>(null);
+  // B7 (owner 2026-10-21): a card clicked that cannot act now says why,
+  // briefly, beside it -- not a window.
+  const [why, setWhy] = useState<{ objectId: string; text: string } | null>(null);
+  useEffect(() => {
+    if (!why) return undefined;
+    const timer = window.setTimeout(() => setWhy(null), WHY_MS);
+    return () => window.clearTimeout(timer);
+  }, [why]);
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ seat: number; zone: "graveyard" | "hand" } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -183,6 +191,8 @@ export function GameScreen({
   const pick = useCallback(
     (objectId: string) => {
       const result = clickOn(question, objectId);
+      const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
+      setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
         answer(result.actionId);
         return;
@@ -192,7 +202,7 @@ export function GameScreen({
       setSelected(objectId);
       setOffer(result.kind === "offer" ? result.options : null);
     },
-    [question, answer],
+    [question, answer, decision],
   );
 
   const decisionId = decision?.decisionId ?? null;
@@ -246,7 +256,9 @@ export function GameScreen({
             />
           }
           overlay={(at) =>
-            selected && offer ? (
+            why && !offer ? (
+              <WhyNot box={at(why.objectId)} text={why.text} />
+            ) : selected && offer ? (
               <ActionPopup
                 box={at(selected)}
                 name={objectName(selected)}
@@ -884,6 +896,31 @@ function passWordFor(kind: string, board: Snapshot | null, mySeat: number | null
   }
   if (kind === "declareBlockers") return "Done blocking";
   return "Pass";
+}
+
+/** How long a "why not" stays beside the card. */
+const WHY_MS = 3500;
+
+/** Why the card just clicked cannot act now (B7). Says it; asks nothing. */
+function WhyNot({
+  box,
+  text,
+}: {
+  box: { x: number; y: number; w: number; h: number } | null;
+  text: string;
+}) {
+  const style = box
+    ? {
+        left: box.x + box.w / 2,
+        top: box.y > 300 ? box.y - 10 : box.y + box.h + 10,
+        transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+      }
+    : { left: "50%", top: "45%", transform: "translate(-50%, 0)" };
+  return (
+    <div className="gs-why" role="status" style={style}>
+      {text}
+    </div>
+  );
 }
 
 function ActionPopup({

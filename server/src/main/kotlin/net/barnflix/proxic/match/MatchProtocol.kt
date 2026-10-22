@@ -84,6 +84,13 @@ data class DecisionRequest(
      * epoch is what lets a client tell the boards apart.
      */
     val gameEpoch: Int = 1,
+    /**
+     * PHASE_07 §7.61 B7 — why each of the player's cards that is NOT
+     * offered cannot act now, by object id ("card:N"). Read off Forge's
+     * facts by the worker; passed through untouched, to the same seat
+     * the question goes to and nobody else.
+     */
+    val unavailable: Map<String, String> = emptyMap(),
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */

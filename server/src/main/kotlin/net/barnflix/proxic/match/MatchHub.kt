@@ -7,6 +7,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import net.barnflix.proxic.BuildInfo
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -165,6 +166,9 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.searchable) {
             put("searchable", true)
             put("optionCount", request.optionCount)
+        }
+        if (request.unavailable.isNotEmpty()) {
+            putJsonObject("unavailable") { request.unavailable.forEach { (id, why) -> put(id, why) } }
         }
         putJsonArray("options") {
             request.options.forEach { option ->

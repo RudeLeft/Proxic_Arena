@@ -308,6 +308,13 @@ public final class WorkerMain {
                             options.add(option);
                         }
                         ask.add("options", options);
+                        // B7 -- why the player's other cards cannot act now.
+                        java.util.Map<String, String> why = GAME.unavailable();
+                        if (!why.isEmpty()) {
+                            JsonObject reasons = new JsonObject();
+                            why.forEach(reasons::addProperty);
+                            ask.add("unavailable", reasons);
+                        }
                         send(ask);
                     });
                     // §6.40 — one snapshot per viewer, and the

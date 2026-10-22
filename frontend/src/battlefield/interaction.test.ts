@@ -16,6 +16,7 @@ function decision(kind: string, options: Decision["options"], mandatory = false)
     searchable: false,
     optionCount: options.length,
     results: null,
+    unavailable: {},
   };
 }
 const option = (actionId: string, objectId: string | null, label = actionId) => ({

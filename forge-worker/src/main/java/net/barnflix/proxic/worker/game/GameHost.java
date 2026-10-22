@@ -693,6 +693,19 @@ public final class GameHost {
         return costs.get(actionId);
     }
 
+    /** B7, owner 2026-10-21 -- why each of the player's cards that is NOT
+     *  offered cannot act now, by object id ("card:N"). Same lifetime as
+     *  the two above: set before the ask, cleared after it is published. */
+    private volatile java.util.Map<String, String> unavailable = java.util.Map.of();
+
+    void offerUnavailable(java.util.Map<String, String> byObject) {
+        unavailable = byObject;
+    }
+
+    public java.util.Map<String, String> unavailable() {
+        return unavailable;
+    }
+
     private static final java.util.regex.Pattern OBJECT =
             java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
 
@@ -743,6 +756,7 @@ public final class GameHost {
         publisher.accept(pending, labels);
         unpayable = java.util.Set.of(); // only for the question it was set for
         costs = java.util.Map.of();
+        unavailable = java.util.Map.of();
     }
 
     /**

@@ -736,3 +736,32 @@ describe("a step nobody is asked at (PHASE_07 AMENDMENT 13)", () => {
     expect(other.board?.phase).toBe(before.board?.phase);
   });
 });
+
+describe("why a card cannot act (B7)", () => {
+  it("keeps each card's reason, and drops anything that is not text", () => {
+    const state = reduceMatch(EMPTY_MATCH, {
+      type: "DECISION_REQUEST",
+      decisionId: 9,
+      actedForSeat: 1,
+      stateVersion: 3,
+      kind: "declareAttackers",
+      options: [],
+      unavailable: { "card:5": "Came in this turn — it can't attack yet.", "card:6": 7 },
+    });
+    expect(state.decision?.unavailable).toEqual({
+      "card:5": "Came in this turn — it can't attack yet.",
+    });
+  });
+
+  it("is empty when the server sends none", () => {
+    const state = reduceMatch(EMPTY_MATCH, {
+      type: "DECISION_REQUEST",
+      decisionId: 9,
+      actedForSeat: 1,
+      stateVersion: 3,
+      kind: "chooseSpellAbilityToPlay",
+      options: [],
+    });
+    expect(state.decision?.unavailable).toEqual({});
+  });
+});
