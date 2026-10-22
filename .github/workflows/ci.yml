@@ -210,6 +210,10 @@ jobs:
       # five minutes (the slowest takes about one): a hung scenario once
       # ran the whole job into its time limit, and a killed job keeps no
       # log at all, so nobody could tell which one it was.
+      # An INCONCLUSIVE scenario (exit 2) never reached its moment -- the
+      # shuffle never dealt what it needed -- and proves nothing either
+      # way, so it gets ONE more game (2026-10-21, after three
+      # such flakes in a day). A WRONG answer (exit 1) is never retried.
       - name: Mechanics Lab regressions
         env:
           res: spikes/forge-phase0a/forge-upstream/forge-gui/res
@@ -228,8 +232,13 @@ jobs:
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
-              'timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
-               s=$?; [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
+              'run() { timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
+               run; s=$?;
+               if [ $s = 2 ]; then
+                 echo "== $0 never reached its moment: one more game, fresh shuffle";
+                 cp "$traces/$0.log" "$traces/$0.first-try.log"; run; s=$?;
+               fi;
+               [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
                echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
           # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
           # stay playable. A benchmark: 110 s without the patch, ~41 s with it
