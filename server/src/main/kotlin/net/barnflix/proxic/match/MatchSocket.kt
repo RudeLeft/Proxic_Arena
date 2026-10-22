@@ -10,8 +10,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
-import net.barnflix.proxic.auth.SESSION_COOKIE
+import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.auth.Sessions
+import net.barnflix.proxic.auth.socketPrincipal
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
@@ -40,16 +41,11 @@ fun Route.matchSocket(
     matches: MatchStore,
     runtime: MatchRuntime,
     hub: MatchHub,
+    config: ServerConfig,
 ) {
     webSocket("/ws/matches/{$MATCH_ID}") {
-        // §3.78 — the same cookie that authenticates every other
-        // request authenticates the upgrade.
-        val token = call.request.cookies[SESSION_COOKIE]
-        val principal = token?.let { sessions.authenticate(it) }
-        if (principal == null) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "authentication required"))
-            return@webSocket
-        }
+        // §3.78 — the cookie, and our own page (socketPrincipal).
+        val principal = socketPrincipal(sessions, config) ?: return@webSocket
 
         val matchId =
             call.parameters[MATCH_ID]?.let { runCatching { UUID.fromString(it) }.getOrNull() }

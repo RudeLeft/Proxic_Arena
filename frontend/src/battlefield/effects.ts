@@ -21,7 +21,6 @@ export const Z_EFFECTS = 6000;
 export const SWOOP_MS = 650;
 export const SWOOP_ARRIVE = 0.4; // fraction of SWOOP_MS when it lands
 export const SWOOP_LEAVE = 0.6; // ...and when it starts back
-export const IMPACT_MS = 500; // the burst (AMENDMENT 7 item 4)
 export const NUMBER_MS = 1000; // the damage number (AMENDMENT 7 item 5)
 
 /** What a line or a hit points at: a permanent, or a player. */
@@ -119,23 +118,6 @@ export function arrowHead(c: Curve, size: number): string {
     { x: back.x + p.x * half, y: back.y + p.y * half },
     { x: back.x - u.x * size * 0.3, y: back.y - u.y * size * 0.3 },
     { x: back.x - p.x * half, y: back.y - p.y * half },
-  ];
-  return pts.map((q) => `${Math.round(q.x * 10) / 10},${Math.round(q.y * 10) / 10}`).join(" ");
-}
-
-/** The block line's shield at its end (the mock's six-point shield). */
-export function shieldAt(c: Curve, r: number): string {
-  const u = arrival(c);
-  const p = { x: -u.y, y: u.x };
-  const cx = c.end.x - u.x * r * 1.3;
-  const cy = c.end.y - u.y * r * 1.3;
-  const pts: Point[] = [
-    { x: cx + p.x * r, y: cy + p.y * r },
-    { x: cx + u.x * r * 0.62 + p.x * r * 0.72, y: cy + u.y * r * 0.62 + p.y * r * 0.72 },
-    { x: cx + u.x * r * 1.35, y: cy + u.y * r * 1.35 },
-    { x: cx + u.x * r * 0.62 - p.x * r * 0.72, y: cy + u.y * r * 0.62 - p.y * r * 0.72 },
-    { x: cx - p.x * r, y: cy - p.y * r },
-    { x: cx - u.x * r * 0.85, y: cy - u.y * r * 0.85 },
   ];
   return pts.map((q) => `${Math.round(q.x * 10) / 10},${Math.round(q.y * 10) / 10}`).join(" ");
 }

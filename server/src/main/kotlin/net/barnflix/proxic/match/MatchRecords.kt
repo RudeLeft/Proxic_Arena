@@ -164,23 +164,6 @@ internal class MatchRecords(private val dataSource: DataSource) {
             }
         }
 
-    fun recordStatus(
-        matchId: UUID,
-        status: MatchStatus,
-        at: Instant?,
-    ) {
-        dataSource.connection.use { connection ->
-            connection.prepareStatement(
-                "UPDATE match SET status = ?, ended_at = ? WHERE match_id = ?",
-            ).use {
-                it.setString(1, status.name)
-                it.setTimestamp(2, at?.let { moment -> java.sql.Timestamp.from(moment) })
-                it.setObject(3, matchId)
-                it.executeUpdate()
-            }
-        }
-    }
-
     /**
      * Each seat's deck, as card entries.
      *

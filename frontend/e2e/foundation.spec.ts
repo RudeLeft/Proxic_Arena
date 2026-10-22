@@ -6,6 +6,7 @@
 // can re-run.
 
 import { test, expect, type ConsoleMessage, type Page } from "@playwright/test";
+import { signIn } from "./helpers";
 
 /**
  * §1.79 — console errors and unhandled rejections must FAIL the
@@ -30,6 +31,7 @@ function indicator(page: Page, name: string) {
 
 test("the page loads and React is served by Ktor", async ({ page }) => {
   const assertClean = watchConsole(page);
+  await signIn(page);
   const response = await page.goto("/status");
 
   expect(response?.status()).toBe(200);
@@ -41,6 +43,7 @@ test("the page loads and React is served by Ktor", async ({ page }) => {
 
 test("every status indicator reflects a real backend check", async ({ page }) => {
   const assertClean = watchConsole(page);
+  await signIn(page);
   await page.goto("/status");
 
   await expect(indicator(page, "Application Server")).toContainText("Ready");
@@ -74,6 +77,7 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
 });
 
 test("the version is displayed and matches the API", async ({ page }) => {
+  await signIn(page);
   await page.goto("/status");
   await expect(page.locator(".sub")).toContainText("protocol v");
 
@@ -122,6 +126,7 @@ test("P1-L: Pixi initialises, and navigating away and back leaves no duplicate",
   page,
 }) => {
   const assertClean = watchConsole(page);
+  await signIn(page);
   await page.goto("/status");
 
   const canvas = page.locator(".canvas-host canvas");
@@ -181,6 +186,7 @@ test("an unknown route is served by Ktor and answered honestly by React", async 
  * drop that a browser test can cause.
  */
 test("§1.80: a dropped WebSocket is reported, not left showing Ready", async ({ page }) => {
+  await signIn(page);
   await page.goto("/status");
   await expect(indicator(page, "WebSocket")).toContainText("Ready");
 

@@ -16,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.barnflix.proxic.BuildInfo
 import net.barnflix.proxic.LogContext
+import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.lobby.LobbySocketHandler
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
@@ -65,21 +66,13 @@ private const val REVALIDATE_SECONDS = 30L
  */
 fun Route.userSocket(
     sessions: Sessions,
+    config: ServerConfig,
     lobby: LobbySocketHandler? = null,
 ) {
     webSocket("/ws/user") {
-        // §3.78 — the cookie that authenticates every other request
-        // authenticates the upgrade too. Ktor exposes the request's
-        // cookies on the session's call.
-        val token = call.request.cookies[SESSION_COOKIE]
-        val principal = token?.let { sessions.authenticate(it) }
-
-        if (principal == null) {
-            // §3.80 — refused, and told why in a way that does not
-            // distinguish "no cookie" from "bad cookie".
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "authentication required"))
-            return@webSocket
-        }
+        val principal = socketPrincipal(sessions, config) ?: return@webSocket
+        // Re-checked every REVALIDATE_SECONDS (§3.81).
+        val token = call.request.cookies[SESSION_COOKIE]!!
 
         val connectionId = "uconn-${userConnectionSequence.incrementAndGet()}"
         // §3.82 — connection, session and user together. NEVER the

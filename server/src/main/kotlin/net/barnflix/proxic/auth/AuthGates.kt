@@ -6,6 +6,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.header
 import io.ktor.server.response.respond
+import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.close
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.ServerConfig
 
@@ -18,6 +21,35 @@ import net.barnflix.proxic.ServerConfig
 //
 // Split from AuthRoutes.kt when detekt found that file past its
 // function limit.
+
+/**
+ * The principal behind a WebSocket upgrade, or null with the socket closed.
+ *
+ * Our own page first (2026-10-22 review). The session cookie is
+ * SameSite=Lax, and every barnflix.net subdomain is the SAME SITE as this
+ * one, so a page on any of them -- another app on the host, one day
+ * compromised -- could open the lobby or a game as the signed-in player
+ * and chat, join rooms or answer their questions. Pages' requests were
+ * already refused by [csrfOk]; the sockets checked only the cookie.
+ */
+suspend fun DefaultWebSocketServerSession.socketPrincipal(
+    sessions: Sessions,
+    config: ServerConfig,
+): Principal? {
+    if (!call.originAcceptable(config)) {
+        close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unexpected origin"))
+        return null
+    }
+    // §3.78 — the cookie that authenticates every other request
+    // authenticates the upgrade too.
+    val principal = call.request.cookies[SESSION_COOKIE]?.let { sessions.authenticate(it) }
+    if (principal == null) {
+        // §3.80 — refused, and told why in a way that does not
+        // distinguish "no cookie" from "bad cookie".
+        close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "authentication required"))
+    }
+    return principal
+}
 
 /** The principal for this call, or null (§3.38). */
 suspend fun ApplicationCall.principal(sessions: Sessions): Principal? {

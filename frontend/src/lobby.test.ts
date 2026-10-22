@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { EMPTY_LOBBY, MAX_CHAT_LINES, reduceLobby, type LobbyState, type RoomView } from "./lobby";
-import { resultText } from "./MatchPanel";
+import { resultText } from "./matchText";
 
 const pat = { userId: "u-pat", username: "Pat", displayName: "Pat" };
 const sam = { userId: "u-sam", username: "Sam", displayName: "Sam" };

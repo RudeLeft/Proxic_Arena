@@ -105,6 +105,4 @@ object OpenFormat {
 
         return violations
     }
-
-    fun isLegal(deck: ParsedDeck): Boolean = validate(deck).isEmpty()
 }

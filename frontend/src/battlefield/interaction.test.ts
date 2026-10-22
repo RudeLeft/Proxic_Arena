@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import type { Decision } from "../match";
 import { PRIORITY_KIND, clickOn, questionOf } from "./interaction";
-import { headingFor, hintFor } from "../MatchPanel";
+import { headingFor, hintFor } from "../matchText";
 
 function decision(kind: string, options: Decision["options"], mandatory = false): Decision {
   return {

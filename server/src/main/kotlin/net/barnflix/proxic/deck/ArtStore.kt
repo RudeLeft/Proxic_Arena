@@ -86,19 +86,27 @@ class ArtStore(dataRoot: File) {
 
         // Magic bytes first: cheap, and refuses the obvious case
         // before handing anything to an image decoder.
-        val header = ByteArray(8)
-        source.inputStream().use { it.read(header) }
-        if (!header.contentEquals(PNG_MAGIC)) {
+        val header = ByteArray(PNG_HEADER_BYTES)
+        val headerRead = source.inputStream().use { it.readNBytes(header, 0, header.size) }
+        if (headerRead < PNG_MAGIC.size || !header.copyOf(PNG_MAGIC.size).contentEquals(PNG_MAGIC)) {
             return ArtResult.Rejected("NOT_A_PNG", "\"$member\" is not a PNG.")
+        }
+
+        // The size, from the header, BEFORE decoding (2026-10-22 review).
+        // A PNG of one colour compresses about a thousand to one, so a
+        // file well under the byte limit can claim 40,000 x 40,000 and
+        // decode to gigabytes -- the server's memory, for everyone.
+        val claimed = dimensionsOf(header, headerRead)
+        if (claimed == null || !reasonable(claimed.first, claimed.second)) {
+            val size = claimed?.let { "${it.first}x${it.second}" } ?: "of no readable size"
+            return ArtResult.Rejected("UNREASONABLE_DIMENSIONS", "\"$member\" is $size.")
         }
 
         val image: BufferedImage =
             runCatching { ImageIO.read(source) }.getOrNull()
                 ?: return ArtResult.Rejected("UNDECODABLE_IMAGE", "\"$member\" could not be decoded.")
 
-        if (image.width !in MIN_DIMENSION..MAX_DIMENSION ||
-            image.height !in MIN_DIMENSION..MAX_DIMENSION
-        ) {
+        if (!reasonable(image.width, image.height)) {
             return ArtResult.Rejected(
                 "UNREASONABLE_DIMENSIONS",
                 "\"$member\" is ${image.width}x${image.height}.",
@@ -173,6 +181,23 @@ class ArtStore(dataRoot: File) {
         ImageIO.write(scaled, "png", target)
     }
 
+    private fun reasonable(
+        width: Int,
+        height: Int,
+    ) = width in MIN_DIMENSION..MAX_DIMENSION && height in MIN_DIMENSION..MAX_DIMENSION
+
+    /** Width and height from the IHDR chunk, which a PNG must begin with; null if it does not. */
+    private fun dimensionsOf(
+        header: ByteArray,
+        length: Int,
+    ): Pair<Int, Int>? {
+        if (length < PNG_HEADER_BYTES) return null
+        val chunk = String(header, IHDR_TYPE_AT, IHDR.length, Charsets.US_ASCII)
+        if (chunk != IHDR) return null
+        val buffer = java.nio.ByteBuffer.wrap(header)
+        return buffer.getInt(IHDR_WIDTH_AT) to buffer.getInt(IHDR_WIDTH_AT + Int.SIZE_BYTES)
+    }
+
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { stream ->
@@ -189,6 +214,12 @@ class ArtStore(dataRoot: File) {
     companion object {
         private val PNG_MAGIC =
             byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)
+
+        /** Signature, IHDR length and type, width, height. */
+        private const val PNG_HEADER_BYTES = 24
+        private const val IHDR = "IHDR"
+        private const val IHDR_TYPE_AT = 12
+        private const val IHDR_WIDTH_AT = 16
 
         /** A card image smaller than this is not a card image. */
         private const val MIN_DIMENSION = 50

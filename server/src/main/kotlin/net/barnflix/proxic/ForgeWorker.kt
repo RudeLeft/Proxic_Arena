@@ -63,8 +63,6 @@ class ForgeWorker(private val config: ServerConfig) {
     @Volatile
     private var cached: Result = Result.Unconfigured
 
-    fun lastResult(): Result = cached
-
     /** The state readiness reports (§1.69 vocabulary). */
     fun state(): String =
         when (val result = cached) {

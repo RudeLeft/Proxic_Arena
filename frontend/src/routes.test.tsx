@@ -45,9 +45,10 @@ describe("routes", () => {
     );
   }
 
-  it("serves the foundation page at /status", () => {
+  it("sends an anonymous visitor at /status to sign in, not to the server's state", async () => {
     at("/status");
-    expect(screen.getByText(/Foundation Build/i)).toBeDefined();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
+    expect(screen.queryByText(/Foundation Build/i)).toBeNull();
   });
 
   /** PHASE_07 §7.62, the canvas's note f1: the address everyone types

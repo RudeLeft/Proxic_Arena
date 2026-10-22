@@ -60,8 +60,19 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       {/* The Phase 1 foundation page: the server's own health, kept as
-          a diagnostic now that "/" is the way into the app. */}
-      <Route path="/status" element={<App />} />
+          a diagnostic now that "/" is the way into the app, and the home
+          of PixiJS's lifecycle check (BATTLEFIELD_RENDERING.md §1).
+          Signed-in only since 2026-10-22: a stranger has no use for the
+          server's version and state, and an administrator has them on
+          the Admin page too. */}
+      <Route
+        path="/status"
+        element={
+          <RequireAuth>
+            <App />
+          </RequireAuth>
+        }
+      />
       <Route path="/login" element={<LoginPage />} />
       {/* Every signed-in page, inside the shared header and the one
           live connection (PHASE_07 §7.62). Protected because every API

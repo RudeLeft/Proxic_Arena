@@ -495,7 +495,7 @@ private fun Route.databaseRoutes(
         matchRuntime.stopAll()
     }
 
-    userSocket(sessions, lobby)
+    userSocket(sessions, config, lobby)
 
     // §6.108 — participants only, checked per match.
     matchSocket(
@@ -503,6 +503,7 @@ private fun Route.databaseRoutes(
         net.barnflix.proxic.match.MatchStore(database.dataSource()),
         matchRuntime,
         matchHub,
+        config,
     )
 
     route("/api") {

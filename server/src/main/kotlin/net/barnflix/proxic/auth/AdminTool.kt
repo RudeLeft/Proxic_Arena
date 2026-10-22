@@ -2,7 +2,6 @@ package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
 import net.barnflix.proxic.ServerConfig
-import java.util.UUID
 import javax.sql.DataSource
 import kotlin.system.exitProcess
 
@@ -251,8 +250,6 @@ class AdminTool(
                 it.getInt(1)
             }
         }
-
-    internal fun userIdOf(username: String): UUID? = accounts.findByUsername(username)?.userId
 
     companion object {
         private const val NO_TERMINAL =

@@ -130,6 +130,41 @@ class UserSocketTest {
         }
 
     /**
+     * 2026-10-22 review — the cookie alone is not enough. It is
+     * SameSite=Lax, so a page on any other barnflix.net subdomain is
+     * the same site and the browser would send it; only the Origin
+     * says the upgrade came from somewhere else.
+     */
+    @Test
+    fun `a page on another site cannot open the socket, even with the cookie`() =
+        testApplication {
+            val (token, _) = seedSession()
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+
+            var sawHello = false
+            runCatching {
+                client.webSocket("/ws/user", {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
+                    header(HttpHeaders.Origin, "https://elsewhere.barnflix.net")
+                }) {
+                    val frame = withTimeoutOrNull(3_000) { incoming.receive() }
+                    if (frame is Frame.Text) sawHello = frame.readText().contains("HELLO")
+                }
+            }
+            assertTrue(!sawHello, "a foreign page was greeted")
+
+            // The negative control: our own page, same cookie.
+            client.webSocket("/ws/user", {
+                header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
+                header(HttpHeaders.Origin, config().publicOrigin)
+            }) {
+                val hello = withTimeoutOrNull(5_000) { (incoming.receive() as Frame.Text).readText() }
+                assertTrue(hello != null && hello.contains("HELLO"), "our own page was refused: $hello")
+            }
+        }
+
+    /**
      * §3.81 — the case this endpoint exists to prove.
      *
      * Revoking a session must end connections already open, not

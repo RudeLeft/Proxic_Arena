@@ -14,7 +14,9 @@ export default defineConfig({
       "/ws": { target: "ws://localhost:8080", ws: true },
     },
   },
-  build: { outDir: "dist", sourcemap: true },
+  // No source maps in the build: they would publish the site's readable
+  // source to anyone (2026-10-22 review). Development (Vite) has its own.
+  build: { outDir: "dist", sourcemap: false },
   test: {
     // Node by default: the logic modules are deliberately DOM-free
     // and must stay runnable without one. Component tests opt into

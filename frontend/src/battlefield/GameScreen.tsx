@@ -25,7 +25,7 @@ import {
   type SnapshotPlayer,
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
-import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../MatchPanel";
+import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../matchText";
 import { Board } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
@@ -73,7 +73,7 @@ export function GameScreen({
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
   const socketRef = useRef<MatchSocket | null>(null);
   // LAUNCHING counts as live: the mulligans come before the match row
-  // turns RUNNING (Phase 6's three-layer deadlock, MatchPanel's note).
+  // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
 

@@ -134,17 +134,25 @@ class DeckImporter(
         existingDeck(checksum, ownerUserId)?.let { return it }
 
         // 4-6. Extract and parse.
+        // The size a zip DECLARES is the uploader's word; what is read is
+        // capped at one byte past the limit whatever it says (2026-10-22).
         val deckText =
             ZipFile(upload).use { zip ->
                 val entry = zip.getEntry(inspected.deckTextEntry)
-                if (entry.size > PackageLimits.MAX_DECK_TEXT_BYTES) {
+                val bytes =
+                    zip.getInputStream(entry).use {
+                        it.readNBytes((PackageLimits.MAX_DECK_TEXT_BYTES + 1).toInt())
+                    }
+                if (entry.size > PackageLimits.MAX_DECK_TEXT_BYTES ||
+                    bytes.size > PackageLimits.MAX_DECK_TEXT_BYTES
+                ) {
                     return ImportResult.Rejected(
                         "DECK_TEXT_TOO_LARGE",
-                        "The decklist is ${entry.size} bytes.",
+                        "The decklist is ${maxOf(entry.size, bytes.size.toLong())} bytes.",
                         emptyList(),
                     )
                 }
-                zip.getInputStream(entry).readBytes().toString(Charsets.UTF_8)
+                bytes.toString(Charsets.UTF_8)
             }
 
         val deck =
@@ -244,8 +252,13 @@ class DeckImporter(
         ZipFile(upload).use { zip ->
             for (member in inspected.imageEntries) {
                 val extracted = File(staging, "art-${into.size}.png")
+                // At most one byte past the limit, so ArtStore refuses an
+                // entry that inflates past the size its zip header claimed
+                // rather than this filling the disk first.
                 zip.getInputStream(zip.getEntry(member)).use { input ->
-                    extracted.outputStream().use { output -> input.copyTo(output) }
+                    extracted.outputStream().use { output ->
+                        input.copyAtMost(output, PackageLimits.MAX_ENTRY_BYTES + 1)
+                    }
                 }
                 when (val stored = artStore.store(extracted, member)) {
                     is ArtResult.Rejected -> problems += "${stored.code}: ${stored.detail}"
@@ -442,3 +455,18 @@ internal fun frontNameOf(member: String): String =
         .substringBeforeLast(" [")
         .trim()
         .lowercase(Locale.ROOT)
+
+/** Copy until the stream ends or [limit] bytes have been written. */
+private fun java.io.InputStream.copyAtMost(
+    output: java.io.OutputStream,
+    limit: Long,
+) {
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var left = limit
+    while (left > 0) {
+        val read = read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
+        if (read < 0) return
+        output.write(buffer, 0, read)
+        left -= read
+    }
+}
