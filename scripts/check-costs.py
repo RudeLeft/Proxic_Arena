@@ -75,8 +75,15 @@ def dismember():
                 return g.play_land(f)
             bears = [c for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears")]
             if bears and not done["cast"] and len(g.untapped_lands(1)) == 1:
-                done["cast"], done["life_before"] = True, g.player(1, 1).get("life")
-                return cast(g, f, "Dismember")
+                # Only once it is really offered: a hand of Swamps offers
+                # nothing, and counting that as a cast once made the check
+                # read discarded copies as a resolved Dismember (2026-10-21).
+                o = cast(g, f, "Dismember")
+                if o:
+                    done["cast"], done["life_before"] = True, g.player(1, 1).get("life")
+                    done["card"] = card_of(o)
+                    done["bears_before"] = len(graveyard(g, 2, "Grizzly Bears"))
+                return o
             return None
         if kind == "applyManaToCost":
             # Life for both Phyrexian symbols first; then the Swamp for {1}.
@@ -88,15 +95,19 @@ def dismember():
     # actions AFTER Dismember resolves, which is a later snapshot.
     done["turn"] = None
 
+    def resolved(g):
+        return any(c["id"] == done.get("card") for c in graveyard(g, 1, "Dismember"))
+
     def until(g):
-        if done["cast"] and graveyard(g, 1, "Dismember"):
+        if done["cast"] and resolved(g):
             done["turn"] = done["turn"] or g.turn
-            return bool(graveyard(g, 2, "Grizzly Bears")) or g.turn > done["turn"] + 1
+            return len(graveyard(g, 2, "Grizzly Bears")) > done["bears_before"] or g.turn > done["turn"] + 1
         return False
 
     g.run(policy, until=until, max_turn=24)
     found = {"life_before": done["life_before"], "life_after": g.player(1, 1).get("life"),
-             "bears_dead": len(graveyard(g, 2, "Grizzly Bears")), "dismember_resolved": bool(graveyard(g, 1, "Dismember")),
+             "bears_dead": len(graveyard(g, 2, "Grizzly Bears")) - done.get("bears_before", 0),
+             "dismember_resolved": resolved(g),
              "lands_tapped": [c.get("tapped") for c in g.mine(1, name="Swamp")]}
     if not done["cast"]:
         return "inconclusive", "Dismember was never cast", found

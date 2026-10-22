@@ -268,6 +268,10 @@ def fuse():
                 o = (starts(f, "Wear // Tear — {1}{R}{W}") or starts(f, "Wear // Tear — {1}{W}{R}"))
                 if o:
                     st["targets"] = []
+                    # P7-F: one card, three ways to cast it -- every one
+                    # offered for that card, none only by default.
+                    card = next((x.get("objectId") for x in f["options"] if x["actionId"] == o), None)
+                    st["offered"] = [x["label"] for x in f["options"] if card and x.get("objectId") == card]
                     return o
             return None
         if kind == "chooseTargetsFor":
@@ -288,11 +292,14 @@ def fuse():
 
     g.run(policy, until=until, max_turn=32)
     gone = {c["id"]: c["name"] for c in g.zone(1, "graveyard", owner=2)}
-    found = {"cast": st["cast"], "targets": st["targets"],
+    found = {"cast": st["cast"], "targets": st["targets"], "offered": st.get("offered"),
              "destroyed": [gone.get(t) for t in st["targets"]], "stopped": g.stopped_badly()}
     if not st["cast"]:
         return "inconclusive", "never had an artifact and an enchantment to destroy", found
     problems = [found["stopped"]] if found["stopped"] else []
+    offered = found["offered"] or []
+    if len(set(offered)) < 3 or not any(" // " not in label.split(" — ")[0] for label in offered):
+        problems.append(f"Wear, Tear and both fused should each be offered for the one card: {offered}")
     if sorted(n or "" for n in found["destroyed"]) != ["Glorious Anthem", "Ornithopter"]:
         problems.append(f"one cast should destroy the targeted artifact AND enchantment: {found['destroyed']}")
     return result(problems, "fused for {1}{R}{W}: an artifact and an enchantment destroyed by one cast", found)

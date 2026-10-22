@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import type { Decision } from "../match";
 import { PRIORITY_KIND, clickOn, questionOf } from "./interaction";
+import { headingFor, hintFor } from "../MatchPanel";
 
 function decision(kind: string, options: Decision["options"], mandatory = false): Decision {
   return {
@@ -27,6 +28,27 @@ const option = (actionId: string, objectId: string | null, label = actionId) => 
   cost: null,
 });
 const visible = new Set(["card:1", "card:2", "stack:1", "player:2"]);
+
+describe("a question kind this page has never seen (§7.33, P7-I)", () => {
+  it("is still answerable: every option listed, the board's clickable, and a pass when allowed", () => {
+    const unseen = decision("aQuestionNoReleaseHasYet", [
+      option("x", "card:1", "Pick the card"),
+      option("y", null, "Pick a word"),
+    ]);
+    const q = questionOf(unseen, visible);
+    // Not mistaken for "your move": the question bar is shown.
+    expect(q.context).toBe("choose");
+    // Nothing dropped: the answer about a drawn card is on that card, the
+    // other one is in the list.
+    expect(q.onBoard.get("card:1")!.map((o) => o.actionId)).toEqual(["x"]);
+    expect(q.listed.map((o) => o.actionId)).toEqual(["y"]);
+    expect(clickOn(q, "card:1")).toEqual({ kind: "answer", actionId: "x" });
+    expect(q.canPass).toBe(true);
+    // Words for it, generic but never blank.
+    expect(headingFor(unseen.kind).length).toBeGreaterThan(0);
+    expect(hintFor(unseen.kind, 2).length).toBeGreaterThan(0);
+  });
+});
 
 describe("questionOf", () => {
   it("puts options about drawn objects on the board and lists the rest", () => {

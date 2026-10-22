@@ -26,10 +26,17 @@ does, `RUN` means a real game or a real browser, not a unit test alone
 
 ## Where it stands
 
+**Updated 2026-10-21, later.** Every partial is closed. Two of the new
+tests found faults on the way, both fixed: a renamed deck kept its old
+name in the other player's room until a reload (P7-AA), and the Mechanics
+Lab's combat and Dismember checks had wrong expectations (two Knights can
+attack; a hand of Swamps casts nothing). What is left is the back-face
+pictures (P7-W, waiting on the Deck Builder) and the owner's sign-off.
+
 | Status | Count |
 |---|---|
-| MET | 19 |
-| PARTIAL | 6 |
+| MET | 25 |
+| PARTIAL | 0 |
 | NOT MET | 1 |
 | OWNER | 1 |
 | **Total** | **27** |
@@ -40,13 +47,13 @@ does, `RUN` means a real game or a real browser, not a unit test alone
 |---|---|---|---|
 | P7-A | Layout renders correctly 1366×768 → 3840×2160, continuously | MET | `layout.test.ts` "§7.42 properties, across viewports × counts × both seats" (8 viewports, 1366×768 to 3840×2160, ultrawide included) and "continuity: a 1px resize moves no card more than a few px"; `battlefield.spec.ts` "the drawn battlefield is exactly layout()'s" in a real browser |
 | P7-B | 23 permanents in a zone render legibly via the overflow ladder | MET | the property suite runs 23, 31 and 60 per kind at every viewport (no overlap, readable floor); `layout.test.ts` "a pile is one slot of the overflow ladder" |
-| P7-C | Every permanent type in the Mechanics Lab corpus has a defined zone | PARTIAL | Rows come from Forge's own `kind` (creature, land, other), never from names, and every kind has a row (`layout.test.ts` "creature before land before other": Dryad Arbor, Urza's Saga, Darksteel Citadel). Missing: a check over **the corpus itself** that every permanent it can put on the battlefield gets a row |
+| P7-C | Every permanent type in the Mechanics Lab corpus has a defined zone | MET | `check-kinds.py`, in CI over every Mechanics Lab game: every permanent Forge puts on a battlefield, in every snapshot to both seats, has a row -- the one its CURRENT type line says (run locally over the whole Lab 2026-10-21: 62 different permanents, 767,824 sightings, none without its row); rows from Forge's `kind`, with an unknown kind falling back to the noncreature row (`layout.test.ts`) |
 | P7-D | A permanent that changes type behaves per §7.11 (moves at once) | MET | `layout.test.ts` "a permanent that changes type moves rows at once (§7.11, P7-D)": the same card id goes land → creature row → back, and an Equipment leaves the creature row, in the next layout, nothing else moving; `check-characteristics.py` proves Forge's changed type reaches the snapshot in a real game (Blood Moon) |
 | P7-E | Face-down: card back to both, identity to controller only | MET | `check-face-down.py` (65 frames, both seats), `match-face-down.spec.ts` (browser), `Board.test.tsx` "an opponent's face-down card shows no name" |
-| P7-F | A card with 3 actions exposes all 3; none reachable only by default | PARTIAL | `interaction.test.ts` "several are offered (AMENDMENT 12)" (two actions on one card become a choice, never a default). Missing: three actions, in a real browser game |
-| P7-G | Primary click outside a Forge context selects and does not attack | PARTIAL | `interaction.test.ts` "selects when nothing is being asked, or nothing is asked about that object". Missing: the same in a real browser game |
-| P7-H | Targeting: source visible, candidates visible, cancel works | PARTIAL | Targets are choosable on the board and arrows drawn from the stack (`Board.test.tsx` line tests; screenshots 2026-10-21). Missing: an automated browser test that cancels a targeted spell and checks nothing was cast |
-| P7-I | An unmapped decision kind renders a usable generic fallback | PARTIAL | Every kind is answered through the generic list (`questionOf` lists whatever the board cannot show; `MatchPanel` hints fall back to a generic line). Missing: a test that feeds an unknown kind and answers it |
+| P7-F | A card with 3 actions exposes all 3; none reachable only by default | MET | `check-shapes.py` "fuse" (real game): Wear // Tear in hand offers all three for the one card -- Wear, Tear, and both fused -- and the fused cast is the one taken; `interaction.test.ts`: several answers for one card are offered, never one by default |
+| P7-G | Primary click outside a Forge context selects and does not attack | MET | `match-interaction.spec.ts` (real browser game): clicking your own creature while nothing is asked about it selects it, it does not attack, and the open question stays open; `interaction.test.ts` "selects when nothing is being asked" |
+| P7-H | Targeting: source visible, candidates visible, cancel works | MET | `match-interaction.spec.ts` (real browser game): starting Shock / Lightning Bolt / Lightning Strike shows the opponent as a target; Pass at the target question casts nothing -- the card stays in hand, the stack is empty, nobody takes damage |
+| P7-I | An unmapped decision kind renders a usable generic fallback | MET | `interaction.test.ts` "a question kind this page has never seen": an unknown kind is shown as a question (not mistaken for priority), its answers are on the board or in the list with nothing dropped, a click answers, and the heading and hint are generic but never blank. No real game can be made to ask an unmapped kind on demand; every kind Forge asks today goes through this same path |
 | P7-J | Reconnect rebuilds the board from the snapshot alone and play continues | MET | `match-session.spec.ts` (reload mid-game), `reconnect.test.ts` (the game connection retries on its own and sets the question aside), and the 2026-10-21 server-restart run (both players reconnected without a reload) |
 | P7-K | Dropping an event costs an animation, not correctness | MET | `Board.test.tsx` "a missed update costs only the movement": a board shown 12 updates in one jump ends with every slot exactly where the board shown every update ends; an older snapshot arriving late is ignored (`match.test.ts`) |
 | P7-L | Attachments render from relationship data, not parsed text | MET | `check-attachments.py` (real games), `match-attachments.spec.ts` (browser), `layout.test.ts` "attachments" |
@@ -58,7 +65,7 @@ does, `RUN` means a real game or a real browser, not a unit test alone
 | P7-R | Default stops: quiet turns pass; a spell on the stack stops; an added stop is honoured; no non-priority question auto-answered | MET | `check-stops.py` (quiet, respond, nothing, skip), `match-stops.spec.ts` (browser) |
 | P7-S | Unpayable spell dimmed, still clickable, Forge decides; Force of Will not dimmed when its alternative cost can be paid | MET | `check-board-data.py` "afford" (Shivan Dragon, Fling: dimmed exactly when unpayable, on every offer); `check-costs.py` "force-of-will": with no lands, Force of Will's {3}{U}{U} offer is dimmed and its pay-1-life alternative is not, and casting it counters the spell |
 | P7-T | Concede: opponent is Forge's winner; Abandon still ends with none | MET | `check-concede.py`, `match-concede.spec.ts`, `lobby.test.ts` |
-| P7-U | The game record holds every question, answer and refusal of a real match; only an administrator can read it | PARTIAL | `GameRecordTest`, `AdminApiTest` "an administrator downloads a match's game record" (a player is refused); seen by hand on a real local game 2026-10-21 (81 lines). Missing: an automated check against a **real match** |
+| P7-U | The game record holds every question, answer and refusal of a real match; only an administrator can read it | MET | `match-record.spec.ts` (real browser match): questions with their seat and options, answers and their acceptance, a server-refused answer, both seats' snapshots and Forge's game log, all in order, downloaded by the administrator; the other player is refused (403); the Admin page lists it. Also `GameRecordTest`, `AdminApiTest` |
 | P7-V | Identical untapped basics pile from the start; a tapped one leaves the pile | MET | `layout.test.ts` "identical untapped basics are one slot from the start", "tapped basics form their own pile"; seen in every browser game |
 | P7-W | A back-face picture is shown for the back face; without one, a text frame, never the front's picture | NOT MET | The "never the front's picture" half holds (`MatchArtTest` "a transformed card does not borrow its front's art"). Showing a back-face picture waits for the Proxic Deck Builder to export back-face images |
 | P7-X | Every §7.61 addition reaches both seats correctly, none carries hidden information | MET | `check-board-data.py` (combat, stack, tokens, face-down, afford, options over 5,000+ options), `check-hidden-hands.py` and `check-snapshot-first.py` over every Lab game, `check-mana-cost.py`, `check-blocks.py` "reasons" |
@@ -70,8 +77,5 @@ does, `RUN` means a real game or a real browser, not a unit test alone
 
 | Gap | Plan |
 |---|---|
-| P7-C | A check over the Mechanics Lab corpus: every card that can be a permanent gets a row from its Forge `kind` |
-| P7-F, G, H, I | One browser spec on a small fixture deck: a card with three actions (all offered), a click with nothing asked (selects, no attack), a targeted spell cancelled (nothing cast), an unknown question kind answered through the list |
-| P7-U | A browser spec: play a short real match, abandon it, download its record as the administrator, and find each question, answer and both seats' snapshots in it; the player is refused |
 | P7-W | Waits on the Deck Builder's back-face export (owner) |
 | P7-O | The owner's acceptance, at the exit gate |

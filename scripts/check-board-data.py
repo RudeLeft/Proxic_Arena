@@ -229,19 +229,26 @@ def combat():
     s2_combat = [snap.get("combat") for snap in w.snaps[2] if snap.get("combat")]
     if not any(c == st["blocks_seen"] for c in s2_combat):
         problems.append("seat 2 should be shown the same combat")
-    # Two waves, seen by seat 1: first strike (the Knight into the Bear),
-    # then regular (the attacking Bear into player 2).
+    # Two waves, seen by seat 1: first strike -- EVERY attacking White
+    # Knight (the blocked one into the Bear, any other into player 2) --
+    # then regular: the Lions into player 2. More than one Knight can
+    # attack (CI 2026-10-21 saw two, and Forge rightly dealt both first).
     mine = [d for seat, d, _ in st["waves"] if seat == 1]
     knight = block[0]["attacker"]
     bear_blocker = block[0]["blocker"]
-    bears = [a["id"] for a in attackers if a["id"] != knight]
+    knights = [a["id"] for a in attackers if names.get(a["id"]) == "White Knight"]
+    lions = [a["id"] for a in attackers if names.get(a["id"]) != "White Knight"]
     first = next((d for d in mine if any(h.get("source") == knight for h in d["hits"])), None)
-    regular = next((d for d in mine if any(h.get("source") in bears for h in d["hits"])), None)
-    if not first or first["hits"] != [{"source": knight, "target": {"object": bear_blocker}, "amount": 2}]:
-        problems.append(f"the first-strike wave should be the Knight's 2 to the Bear alone: {first}")
-    want = sorted(({"source": b, "target": {"player": 2}, "amount": 2} for b in bears), key=json.dumps)
+    regular = next((d for d in mine if any(h.get("source") in lions for h in d["hits"])), None)
+    want_first = sorted(
+        [{"source": knight, "target": {"object": bear_blocker}, "amount": 2}]
+        + [{"source": k, "target": {"player": 2}, "amount": 2} for k in knights if k != knight],
+        key=json.dumps)
+    if not first or sorted(first["hits"], key=json.dumps) != want_first:
+        problems.append(f"the first-strike wave should be each Knight's 2 (the blocked one's to the Bear): {first}")
+    want = sorted(({"source": b, "target": {"player": 2}, "amount": 2} for b in lions), key=json.dumps)
     if not regular or sorted(regular["hits"], key=json.dumps) != want:
-        problems.append(f"the regular wave should be each attacking Bear's 2 to player 2: {regular}")
+        problems.append(f"the regular wave should be each attacking Lions' 2 to player 2: {regular}")
     if first and regular and first["key"] == regular["key"]:
         problems.append("first strike and regular damage should be separate waves")
     theirs = [d for seat, d, _ in st["waves"] if seat == 2]

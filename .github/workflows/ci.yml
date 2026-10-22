@@ -255,6 +255,9 @@ jobs:
           # P6-G, over the same games: no seat is sent a card from another
           # seat's hand that Forge did not show it.
           python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
+          # PHASE_07 P7-C, over the same games: every permanent Forge put on a
+          # battlefield has a row, the one its current type line says.
+          python3 -I scripts/check-kinds.py "$traces"/*.jsonl
 
       - uses: actions/upload-artifact@v4.4.3
         if: failure()
@@ -397,6 +400,12 @@ jobs:
       - name: Build the ring deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/ring-deck.zip" protocol/fixtures/ring-deck
+
+      # And clicking on the board (PHASE_07 P7-G, P7-H): creatures with
+      # nothing to activate, and burn that needs a target.
+      - name: Build the interaction deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/interaction-deck.zip" protocol/fixtures/interaction-deck
 
       - run: npm ci
         working-directory: frontend
