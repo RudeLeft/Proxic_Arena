@@ -26,14 +26,7 @@
 // of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
 // inferred here.
 
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -970,25 +963,21 @@ export function Board({
       <aside
         className="bf-rail"
         aria-label="Game status"
-        style={
-          {
-            left: g.rail.x,
-            width: g.rail.w,
-            // The canvas draws the rail on a 900-pixel-high board; its
-            // blocks scale with the board, so the zones cards fly to and
-            // from (motion.ts anchors) are where they are drawn.
-            ["--rail-scale" as string]: String(g.height / 900),
-          } as CSSProperties
-        }
+        style={{
+          left: g.rail.x,
+          width: g.rail.w,
+          // The canvas draws the rail on a 900-pixel-high board; its
+          // blocks scale with the board, so the zones cards fly to and
+          // from (motion.ts anchors) are where they are drawn.
+          ["--rail-scale" as string]: String(g.height / 900),
+        }}
       >
         {rail}
       </aside>
       {top && (
         <div
           className="bf-top"
-          style={
-            { width: g.play.w, ["--rail-scale" as string]: String(g.height / 900) } as CSSProperties
-          }
+          style={{ width: g.play.w, ["--rail-scale" as string]: String(g.height / 900) }}
         >
           {top}
         </div>
@@ -996,13 +985,11 @@ export function Board({
       <div
         ref={cardsRef}
         className={`bf-cards${asking ? " bf-asking" : ""}`}
-        style={
-          {
-            ["--card-h" as string]: `${g.cardH}px`,
-            ["--move-ms" as string]: `${MOVE_MS}ms`,
-            ["--move-easing" as string]: MOVE_EASING,
-          } as CSSProperties
-        }
+        style={{
+          ["--card-h" as string]: `${g.cardH}px`,
+          ["--move-ms" as string]: `${MOVE_MS}ms`,
+          ["--move-easing" as string]: MOVE_EASING,
+        }}
       >
         {items.map((item) => (
           <div

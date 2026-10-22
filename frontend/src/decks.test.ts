@@ -32,7 +32,7 @@ function respondWith(status: number, body: unknown): typeof fetch {
         headers: { "content-type": "application/json" },
       }),
     ),
-  ) as unknown as typeof fetch;
+  );
 }
 
 describe("importDeck", () => {

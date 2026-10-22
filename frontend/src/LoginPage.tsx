@@ -75,7 +75,7 @@ export function LoginPage() {
       setPassword("");
       return;
     }
-    navigate(from, { replace: true });
+    void navigate(from, { replace: true });
   };
 
   return (

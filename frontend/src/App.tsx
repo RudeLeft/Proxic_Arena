@@ -123,7 +123,7 @@ function RendererPanel({ onState }: { onState: (s: ServiceState) => void }) {
           container: host,
           width: size.width,
           height: size.height,
-          app: new Application() as never,
+          app: new Application(),
         });
         if (disposed) {
           handle.destroy();
