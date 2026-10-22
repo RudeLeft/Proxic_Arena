@@ -97,7 +97,7 @@ class WorkerFramesTest {
                     {"decisionId":"3","actedForSeat":1,"authorisedSeat":1,"kind":"chooseSpellAbilityToPlay",
                      "stateVersion":"2","options":[
                        {"actionId":"action:0:card:7","label":"Mountain","objectId":"card:7"},
-                       {"actionId":"action:1:card:9","label":"Bolt","objectId":"card:9","payable":false},
+                       {"actionId":"action:1:card:9","label":"Bolt","objectId":"card:9","payable":false,"cost":"{R}"},
                        {"actionId":"mode:0","label":"Mode"}]}
                     """.trimIndent(),
                 ),
@@ -105,7 +105,8 @@ class WorkerFramesTest {
         val sent = decisionMessage(request).toString()
         val mountain = "\"actionId\":\"action:0:card:7\",\"label\":\"Mountain\",\"objectId\":\"card:7\"}"
         assertTrue(sent.contains(mountain), sent)
-        assertTrue(sent.contains("\"objectId\":\"card:9\",\"payable\":false}"), sent)
+        // And what it costs right now (owner 2026-10-21), as the worker said.
+        assertTrue(sent.contains("\"objectId\":\"card:9\",\"payable\":false,\"cost\":\"{R}\"}"), sent)
         // Absent stays absent: no object invented, payable not written.
         assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
     }

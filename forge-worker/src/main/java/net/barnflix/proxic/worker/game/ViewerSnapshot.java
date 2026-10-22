@@ -287,6 +287,13 @@ final class ViewerSnapshot {
             if (source != null) {
                 entry.addProperty("source", "card:" + source.getId());
                 entry.addProperty("name", nameFor(source, viewing));
+                // A spell's printed cost, when this viewer may know the card.
+                if (instance.isSpell() && !hidden) {
+                    forge.card.mana.ManaCost printed = source.getManaCost();
+                    if (printed != null && !printed.isNoCost()) {
+                        entry.addProperty("manaCost", printed.toString());
+                    }
+                }
             }
             Player by = instance.getActivatingPlayer();
             entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
@@ -570,6 +577,14 @@ final class ViewerSnapshot {
         // away from creatures instead of showing one long row.
         entry.addProperty("kind", kindOf(state));
         entry.addProperty("types", String.valueOf(state.getType()));
+        // The printed mana cost of the face that is up, Forge's notation
+        // ("{1}{R}"), for a card this viewer may identify (owner
+        // 2026-10-21: costs on cards in hand, on the stack, close up).
+        // A land has none.
+        forge.card.mana.ManaCost printed = state.getManaCost();
+        if (printed != null && !printed.isNoCost()) {
+            entry.addProperty("manaCost", printed.toString());
+        }
 
         if (state.isCreature()) {
             entry.addProperty("power", state.getPower());

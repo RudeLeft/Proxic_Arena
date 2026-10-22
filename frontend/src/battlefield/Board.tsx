@@ -38,6 +38,7 @@ import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
+import { ManaCost, costChange } from "./ManaCost";
 import {
   HAND_ORIGIN,
   TAPPED_ORIGIN,
@@ -102,6 +103,8 @@ export interface BoardHandCard {
   power: number | null;
   toughness: number | null;
   art: string | null;
+  /** The printed mana cost ("{1}{R}"); null for a land. */
+  manaCost?: string | null;
 }
 
 /** Who attacks what, and who blocks whom (§7.61 B4). */
@@ -116,6 +119,8 @@ export interface StackView {
   name: string;
   /** Its picture (the caster's deck's), when this viewer may see it. */
   art?: string | null;
+  /** A spell's printed mana cost, when this viewer may know it. */
+  manaCost?: string | null;
   /** "spell" | "ability" | "trigger" */
   kind?: string;
   /** The permanent it came from, if one is on the battlefield (an
@@ -157,6 +162,8 @@ export interface BoardProps {
   stack?: readonly StackView[];
   /** A stack object the player is pointing at: its lines show too. */
   pointedStack?: string | null;
+  /** What each hand card's cast costs right now, by card id (Forge's reckoning). */
+  handCosts?: ReadonlyMap<string, string>;
   /** An attachment's host being chosen. */
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
@@ -244,6 +251,9 @@ function CardFace({
   art,
   faceDown,
   known,
+  cost,
+  costChange,
+  costFirst,
 }: {
   name: string;
   look: Look;
@@ -253,6 +263,9 @@ function CardFace({
   faceDown: boolean;
   /** Whether this viewer may know what a face-down card is (§7.18). */
   known?: boolean;
+  cost?: string | null;
+  costChange?: "down" | "up" | null;
+  costFirst?: boolean;
 }) {
   if (faceDown) {
     // §7.18: the back, to both players; what the rules make public (a
@@ -277,8 +290,10 @@ function CardFace({
   }
   return (
     <>
-      <span className="bf-bar bf-bar-top">
+      <span className={`bf-bar bf-bar-top${cost && costFirst ? " bf-cost-first" : ""}`}>
+        {cost && costFirst && <ManaCost cost={cost} change={costChange ?? null} />}
         <span className="bf-name">{name}</span>
+        {cost && !costFirst && <ManaCost cost={cost} change={costChange ?? null} />}
       </span>
       <span className="bf-window" aria-hidden="true">
         {art ? (
@@ -308,6 +323,12 @@ interface Drawn {
   art: string | null;
   faceDown: boolean;
   known?: boolean;
+  /** Its mana cost, drawn as symbols (hand and stack cards only). */
+  cost?: string | null;
+  /** Lower or higher than printed right now (Forge's reckoning). */
+  costChange?: "down" | "up" | null;
+  /** The cost before the name: a hand card's right side is under the next card. */
+  costFirst?: boolean;
   side: "viewer" | "opponent";
 }
 
@@ -378,6 +399,7 @@ export function Board({
   combat,
   stack,
   pointedStack,
+  handCosts,
   attaching,
   damage,
   onPick,
@@ -599,6 +621,9 @@ export function Board({
       if (!rest) continue;
       const look = lookOf(card.kind, card.types);
       const pt = figure(card);
+      // Owner 2026-10-21: the cost the cast would take right now when
+      // Forge has said (you hold priority), the printed cost otherwise.
+      const now = handCosts?.get(card.id) ?? null;
       const drawn: Drawn = {
         name: card.name,
         look,
@@ -607,6 +632,9 @@ export function Board({
         art: card.art ? artUrl(card.art) : null,
         faceDown: false,
         side: "viewer",
+        cost: now ?? card.manaCost ?? null,
+        costChange: costChange(now, card.manaCost),
+        costFirst: true,
       };
       const zoomed = pointed === card.id;
       const box = zoomed ? handZoomBox(rest, g) : rest;
@@ -644,7 +672,7 @@ export function Board({
       });
     }
     return out;
-  }, [result, byId, hand, viewerSeat, artUrl, pointed, act]);
+  }, [result, byId, hand, viewerSeat, artUrl, pointed, act, handCosts]);
 
   /** Where every object is drawn now: piles' members and hosts' tags
    * share their card's box. */
@@ -1030,6 +1058,7 @@ export function Board({
                   art={s.art ? artUrl(s.art) : null}
                   faceDown={s.name === "Face-down"}
                   known={false}
+                  cost={s.manaCost ?? null}
                 />
               </button>
             </div>

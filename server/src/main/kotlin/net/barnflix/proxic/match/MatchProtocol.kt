@@ -20,6 +20,8 @@ data class DecisionOption(
     val objectId: String? = null,
     /** §7.61 B8 — false when Forge's payment check says it cannot be paid now. */
     val payable: Boolean = true,
+    /** What a spell costs right now, Forge's reckoning ("{R}"); null for anything else. */
+    val cost: String? = null,
 )
 
 /**

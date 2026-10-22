@@ -300,6 +300,11 @@ public final class WorkerMain {
                             if (!GAME.payable(id)) {
                                 option.addProperty("payable", false);
                             }
+                            // What a spell costs right now (Forge's reckoning).
+                            String cost = GAME.costOf(id);
+                            if (cost != null) {
+                                option.addProperty("cost", cost);
+                            }
                             options.add(option);
                         }
                         ask.add("options", options);

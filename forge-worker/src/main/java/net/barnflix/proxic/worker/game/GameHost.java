@@ -682,6 +682,17 @@ public final class GameHost {
         return !unpayable.contains(actionId);
     }
 
+    /** Owner 2026-10-21 — what each offered spell costs right now, as Forge works it out. */
+    private volatile java.util.Map<String, String> costs = java.util.Map.of();
+
+    void offerCosts(java.util.Map<String, String> byId) {
+        costs = byId;
+    }
+
+    public String costOf(String actionId) {
+        return costs.get(actionId);
+    }
+
     private static final java.util.regex.Pattern OBJECT =
             java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
 
@@ -731,6 +742,7 @@ public final class GameHost {
         publishSnapshots();
         publisher.accept(pending, labels);
         unpayable = java.util.Set.of(); // only for the question it was set for
+        costs = java.util.Map.of();
     }
 
     /**

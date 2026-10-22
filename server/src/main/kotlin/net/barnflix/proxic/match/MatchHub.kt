@@ -176,6 +176,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
                         // first build of the board found they stopped here.
                         option.objectId?.let { put("objectId", it) }
                         if (!option.payable) put("payable", false)
+                        option.cost?.let { put("cost", it) }
                     },
                 )
             }
@@ -203,6 +204,7 @@ fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
                         // first build of the board found they stopped here.
                         option.objectId?.let { put("objectId", it) }
                         if (!option.payable) put("payable", false)
+                        option.cost?.let { put("cost", it) }
                     },
                 )
             }

@@ -591,3 +591,52 @@
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
+
+/* Mana costs as symbols, at the right of a card's name bar (owner
+ * 2026-10-21): hand and stack cards, and close up. The cost the cast would
+ * take right now; a green edge when it is less than printed, red when more. */
+.bf-bar-top {
+  gap: 4px;
+}
+.bf-bar-top .bf-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.bf-cost {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  border-radius: 999px;
+}
+.bf-pip {
+  display: block;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 55%);
+}
+.bf-pip-text {
+  display: grid;
+  place-items: center;
+  background: #cfc9be;
+  color: #1d1d1d;
+  font-size: 0.6em;
+  font-weight: 700;
+}
+.bf-cost-down {
+  box-shadow:
+    0 0 0 2px #7fd26a,
+    0 0 8px rgb(127 210 106 / 70%);
+}
+.bf-cost-up {
+  box-shadow:
+    0 0 0 2px #ff6b5e,
+    0 0 8px rgb(255 107 94 / 70%);
+}
+/* In the hand the next card covers each card's right side: the cost goes
+ * first, where it is always seen. */
+.bf-cost-first .bf-cost {
+  margin-left: 0;
+}

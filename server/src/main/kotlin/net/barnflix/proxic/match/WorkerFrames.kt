@@ -74,6 +74,7 @@ private fun readOptions(value: JsonElement?): List<DecisionOption> =
             objectId = option["objectId"]?.jsonPrimitive?.contentOrNull,
             // Only an explicit false: absent means payable (§7.54).
             payable = option["payable"]?.jsonPrimitive?.contentOrNull != "false",
+            cost = option["cost"]?.jsonPrimitive?.contentOrNull,
         )
     }
 

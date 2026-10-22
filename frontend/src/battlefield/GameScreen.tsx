@@ -29,6 +29,7 @@ import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../MatchP
 import { Board } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
+import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import { STOP_STEPS, fetchStops, passWords, saveStops, type StopSettings } from "./stops";
 import "./game.css";
 
@@ -116,6 +117,18 @@ export function GameScreen({
     [decision, visible],
   );
   const choosable = useMemo(() => new Set(question?.onBoard.keys() ?? []), [question]);
+  // Owner 2026-10-21: what each hand card's cast costs right now -- Forge
+  // says, on the options of the question you are asked; the first spell
+  // option of a card is its ordinary cast.
+  const handCosts = useMemo(() => {
+    const costs = new Map<string, string>();
+    for (const option of decision?.options ?? []) {
+      if (option.cost && option.objectId && !costs.has(option.objectId)) {
+        costs.set(option.objectId, option.cost);
+      }
+    }
+    return costs;
+  }, [decision]);
   const unpayable = useMemo(() => {
     const dim = new Set<string>();
     for (const [id, options] of question?.onBoard ?? []) {
@@ -205,6 +218,7 @@ export function GameScreen({
           departures={data.departures}
           combat={data.combat}
           stack={data.stack}
+          handCosts={handCosts}
           damage={data.damage}
           onPick={pick}
           onInspect={setInspecting}
@@ -322,6 +336,7 @@ export function GameScreen({
         <Inspect
           card={cardOf(board, inspecting)}
           name={objectName(inspecting)}
+          costNow={handCosts.get(inspecting) ?? null}
           artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
           onClose={() => setInspecting(null)}
         />
@@ -943,11 +958,14 @@ function ActionPopup({
 function Inspect({
   card,
   name,
+  costNow,
   artUrl,
   onClose,
 }: {
   card: SnapshotCard | null;
   name: string;
+  /** What its cast costs right now, when Forge has said. */
+  costNow: string | null;
   artUrl: (art: string) => string;
   onClose: () => void;
 }) {
@@ -974,7 +992,15 @@ function Inspect({
           </div>
         )}
         <div className="gs-inspect-text">
-          <h2 className="gs-inspect-name">{name}</h2>
+          <h2 className="gs-inspect-name">
+            {name}
+            {card && !hidden && (costNow ?? card.manaCost) && (
+              <ManaCost
+                cost={(costNow ?? card.manaCost)!}
+                change={costChange(costNow, card.manaCost)}
+              />
+            )}
+          </h2>
           {card && !hidden && (
             <>
               <p className="gs-inspect-types">{card.types}</p>
@@ -984,7 +1010,7 @@ function Inspect({
                   {card.damage > 0 && ` · ${card.damage} damage`}
                 </p>
               )}
-              {card.keywords.length > 0 && <p>{card.keywords.join(", ")}</p>}
+              {card.keywords.length > 0 && <p>{withSymbols(card.keywords.join(", "))}</p>}
               {card.counters.length > 0 && (
                 <p>{card.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`).join(", ")}</p>
               )}

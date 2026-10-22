@@ -476,6 +476,27 @@ public final class MatchController extends GeneratedControllerBase {
         }
         host.offerUnpayable(unpayable);
 
+        // Owner 2026-10-21 — what each spell costs RIGHT NOW: Forge's own
+        // reckoning (the AI's, in test mode -- what payable() above
+        // already relies on), so a cost reduction (Goblin Electromancer)
+        // or an increase (Thalia) shows on the card before it is cast.
+        // Spells only; nothing here decides anything.
+        java.util.Map<String, String> costs = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, SpellAbility> option : byId.entrySet()) {
+            SpellAbility sa = option.getValue();
+            if (!sa.isSpell() || sa.getPayCosts() == null) {
+                continue;
+            }
+            try {
+                forge.game.mana.ManaCostBeingPaid now = forge.ai.ComputerUtilMana.calculateManaCost(
+                        sa.getPayCosts(), sa, player, true, 0, false);
+                costs.put(option.getKey(), now.toManaCost().toString());
+            } catch (RuntimeException e) {
+                System.err.println("proxic: cost check failed for " + sa + ": " + e);
+            }
+        }
+        host.offerCosts(costs);
+
         // PHASE_07 §7.53, AMENDMENT 13 -- a step this player does not stop
         // at, with nothing on the stack they could answer: passed for, as
         // MTG Arena does. Only ever a priority pass, and only with the

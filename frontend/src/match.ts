@@ -36,6 +36,8 @@ export interface DecisionOption {
    * has the last word. Absent from the frame means payable.
    */
   payable: boolean;
+  /** What a spell costs right now, Forge's reckoning ("{R}"); null otherwise. */
+  cost: string | null;
 }
 
 /** A target, as the server names it: an object id, or a player's seat. */
@@ -143,6 +145,8 @@ export interface SnapshotCard {
   /** Creatures only; absent on everything else. */
   power: number | null;
   toughness: number | null;
+  /** The printed mana cost of the face that is up ("{1}{R}"); null for a land or unknown. */
+  manaCost: string | null;
   damage: number;
   sick: boolean;
   attacking: boolean;
@@ -204,6 +208,8 @@ export interface StackEntry {
   targets: TargetRef[];
   /** Its picture, from the caster's deck, when this viewer may see it. */
   art: string | null;
+  /** A spell's printed mana cost ("{1}{R}"), when this viewer may know it. */
+  manaCost: string | null;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -553,6 +559,7 @@ function asCards(value: unknown): SnapshotCard[] {
       known: row["known"] === true,
       kind: asString(row["kind"]) ?? "unknown",
       types: asString(row["types"]) ?? "",
+      manaCost: asString(row["manaCost"]),
       power: asNumber(row["power"]),
       toughness: asNumber(row["toughness"]),
       damage: asNumber(row["damage"]) ?? 0,
@@ -669,6 +676,7 @@ function asStack(value: unknown): StackEntry[] {
       controller: asNumber(row["controller"]),
       kind: asString(row["kind"]) ?? "spell",
       art: asString(row["art"]),
+      manaCost: asString(row["manaCost"]),
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],
@@ -714,6 +722,7 @@ function asOptions(value: unknown): DecisionOption[] {
       objectId: asString(row["objectId"]),
       // Only an explicit false dims: absent means payable (§7.54).
       payable: row["payable"] !== false,
+      cost: asString(row["cost"]),
     });
   }
   return options;

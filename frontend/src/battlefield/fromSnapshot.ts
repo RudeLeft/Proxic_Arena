@@ -59,6 +59,7 @@ function toHandCard(card: SnapshotCard): BoardHandCard {
     power: card.power,
     toughness: card.toughness,
     art: card.art,
+    manaCost: card.manaCost,
   };
 }
 
@@ -78,6 +79,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     id: entry.id,
     name: entry.name,
     art: entry.art,
+    manaCost: entry.manaCost,
     kind: entry.kind,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
     targets: entry.targets,

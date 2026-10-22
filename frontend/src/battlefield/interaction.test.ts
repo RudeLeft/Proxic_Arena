@@ -23,6 +23,7 @@ const option = (actionId: string, objectId: string | null, label = actionId) => 
   label,
   objectId,
   payable: true,
+  cost: null,
 });
 const visible = new Set(["card:1", "card:2", "stack:1", "player:2"]);
 

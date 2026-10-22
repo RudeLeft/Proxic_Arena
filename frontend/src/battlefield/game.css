@@ -1155,3 +1155,13 @@ button.gs-zone:not(:disabled):hover {
     animation: none;
   }
 }
+
+/* Mana symbols close up: beside the name, and inside the card's text. */
+.gs-inspect-name .bf-cost {
+  margin-left: 10px;
+  vertical-align: -3px;
+}
+.gs-inspect-text p .bf-cost {
+  margin: 0 2px;
+  vertical-align: -3px;
+}
