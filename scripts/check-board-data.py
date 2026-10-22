@@ -199,6 +199,12 @@ def combat():
              "waves": [(seat, d, phase) for seat, d, phase in st["waves"]][:6],
              "priority_checked": w.priority_checked, "priority_wrong": w.priority_wrong[:5],
              "stopped": g.stopped_badly()}
+    # Which card is which, for a failure report (CI 2026-10-21: one run
+    # showed a single merged wave, and ids alone could not say whether the
+    # Knight had attacked at all).
+    found["names"] = {c["id"]: c.get("name") for seat in (1, 2)
+                      for zone in ("battlefield", "graveyard", "exile")
+                      for c in (g.state.get(seat) or {}).get(zone, []) or [] if c.get("id")}
     if not st["combat_seen"] or not st["blocks_seen"]:
         return "inconclusive", "never attacked with a Knight and Lions and saw a block", found
     problems = [found["stopped"]] if found["stopped"] else []

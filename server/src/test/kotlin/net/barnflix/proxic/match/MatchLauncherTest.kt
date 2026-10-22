@@ -662,7 +662,13 @@ class MatchLauncherTest {
             val left =
                 dataRoot.walkTopDown().filter { it.isFile }.map { it.relativeTo(dataRoot).invariantSeparatorsPath }
                     .toList()
-            assertEquals(listOf("match-logs/$matchId.log"), left, "per-match files left behind")
+            // The worker's log (Phase 6) and the game record (PHASE_07 §7.56):
+            // both kept on purpose, and nothing else.
+            assertEquals(
+                listOf("match-logs/$matchId.log", "match-records/$matchId.jsonl.gz"),
+                left.sorted(),
+                "per-match files left behind",
+            )
 
             // P6-BC -- and the decks the match was played with are
             // exactly as imported: every column of every deck, entry,
