@@ -337,6 +337,12 @@ public final class WorkerMain {
                     // finishes (persist the result, give the room
                     // back, shut the worker down) and it cannot run
                     // any of it if it has to ask.
+                    // §7.56 — for the server's game record only.
+                    GAME.onGameLog(entries -> {
+                        JsonObject frame = frame("GAME_LOG", null);
+                        frame.add("entries", entries);
+                        send(frame);
+                    });
                     GAME.onEnded(result -> {
                         JsonObject ended = frame("GAME_ENDED", null);
                         ended.addProperty("outcome", result.kind());

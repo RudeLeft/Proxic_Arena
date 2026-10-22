@@ -578,7 +578,12 @@ private fun Route.databaseRoutes(
                 application.log,
                 // The lobby's chat limiter rides this tick rather
                 // than owning a second scheduled executor.
-                alsoSweep = lobby::sweep,
+                alsoSweep = {
+                    lobby.sweep()
+                    // §7.56 — game records are kept for a bounded time.
+                    val gone = config.gameRecords().sweep()
+                    if (gone > 0) application.log.info("deleted $gone game record(s) past their keep date")
+                },
             )
         roomMaintenance.start()
         application.environment.monitor.subscribe(ApplicationStopped) {

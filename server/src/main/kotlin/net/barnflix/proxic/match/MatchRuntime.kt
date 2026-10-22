@@ -1,5 +1,7 @@
 package net.barnflix.proxic.match
 
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import net.barnflix.proxic.ServerConfig
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -202,7 +204,17 @@ class MatchRuntime(
             log.warn("match $matchId: an answer arrived for a match this process is not running")
             return DecisionRefusal.UNREACHABLE
         }
-        return running.answer(userId, decisionId, actionId)
+        return running.answer(userId, decisionId, actionId)?.also { refusal ->
+            // §7.56 — refused here, so the worker never saw it: the record says so.
+            running.worker.record.note(
+                buildJsonObject {
+                    put("refusedAnswer", refusal.name)
+                    put("userId", userId.toString())
+                    put("decisionId", decisionId)
+                    put("actionId", actionId)
+                }.toString(),
+            )
+        }
     }
 
     /**

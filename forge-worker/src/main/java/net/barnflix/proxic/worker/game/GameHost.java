@@ -374,6 +374,40 @@ public final class GameHost {
         this.snapshotSink = sink;
     }
 
+    /** PHASE_07 §7.56 — Forge's own game log, for the server's game record and
+     *  nothing else (it can name hidden cards; no player is sent it). */
+    private volatile java.util.function.Consumer<com.google.gson.JsonArray> logSink = entries -> { };
+
+    private int logSent;
+
+    public void onGameLog(java.util.function.Consumer<com.google.gson.JsonArray> sink) {
+        this.logSink = sink;
+    }
+
+    /** What Forge has logged since the last call: once per question, and at the end. */
+    synchronized void flushGameLog() {
+        Game current = game;
+        if (current == null) {
+            return;
+        }
+        java.util.List<forge.game.GameLogEntry> all = current.getGameLog().getAllEntries();
+        if (all.size() < logSent) {
+            logSent = 0; // a new log (Karn's restart): from its start
+        }
+        if (all.size() == logSent) {
+            return;
+        }
+        com.google.gson.JsonArray entries = new com.google.gson.JsonArray();
+        for (forge.game.GameLogEntry entry : all.subList(logSent, all.size())) {
+            com.google.gson.JsonObject line = new com.google.gson.JsonObject();
+            line.addProperty("type", String.valueOf(entry.type()));
+            line.addProperty("message", entry.message());
+            entries.add(line);
+        }
+        logSent = all.size();
+        logSink.accept(entries);
+    }
+
     /** Where a step change goes (MATCH_STEP). Set by the worker's protocol. */
     private volatile java.util.function.Consumer<com.google.gson.JsonObject> stepSink = step -> { };
 
@@ -751,6 +785,7 @@ public final class GameHost {
             searchable = new Searchable(pending.decisionId(), pending.authorisedSeat(), ids, names, folded);
         }
         decisionCounts.merge(pending.kind(), 1, Integer::sum);
+        flushGameLog();
         // §6.48 — the state the question refers to, before it.
         publishSnapshots();
         publisher.accept(pending, labels);
@@ -829,6 +864,11 @@ public final class GameHost {
             } catch (RuntimeException e) {
                 System.err.println("proxic: final board not delivered: " + e);
             }
+        }
+        try {
+            flushGameLog();
+        } catch (RuntimeException e) {
+            System.err.println("proxic: final game log not recorded: " + e);
         }
         try {
             endSink.accept(result);

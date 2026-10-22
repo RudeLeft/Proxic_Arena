@@ -61,6 +61,7 @@ internal fun adminServices(
             net.barnflix.proxic.admin.AdminRecords(
                 net.barnflix.proxic.admin.AdminActions(database.dataSource()),
                 parts.signIns,
+                net.barnflix.proxic.admin.AdminMatches(database.dataSource(), config.gameRecords()),
             ),
         rooms = adminRooms,
         serverState = {

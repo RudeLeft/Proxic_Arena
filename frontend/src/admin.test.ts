@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   groupSignIns,
   idleText,
+  sizeText,
   setStatus,
   uptimeText,
   workerText,
@@ -78,5 +79,13 @@ describe("admin actions", () => {
       ok: false,
       message: "RudeLeft is the only active administrator. Make somebody else one first.",
     });
+  });
+});
+
+describe("game record sizes (§7.56)", () => {
+  it("read as KB or MB, never 0 KB", () => {
+    expect(sizeText(120)).toBe("1 KB");
+    expect(sizeText(6_400)).toBe("6 KB");
+    expect(sizeText(1_400_000)).toBe("1.4 MB");
   });
 });

@@ -70,7 +70,13 @@ data class ServerConfig(
     private val sessionSecretValue: String? = null,
     private val databasePasswordValue: String? = null,
     val databaseUserValue: String? = null,
+    /** PHASE_07 §7.56 — how many days a match's game record is kept. */
+    val matchRecordDays: Long = net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,
 ) {
+    /** Where match game records live (§7.56). */
+    fun gameRecords(): net.barnflix.proxic.match.GameRecords =
+        net.barnflix.proxic.match.GameRecords(dataRoot, java.time.Duration.ofDays(matchRecordDays))
+
     val isProduction: Boolean get() = appEnv.equals("production", ignoreCase = true)
 
     fun sessionSecret(): String? = sessionSecretValue
@@ -141,6 +147,9 @@ data class ServerConfig(
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),
+                matchRecordDays =
+                    getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }
+                        ?: net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,
             )
 
         private fun mask(value: String?): String = if (value.isNullOrBlank()) "<unset>" else "<set>"

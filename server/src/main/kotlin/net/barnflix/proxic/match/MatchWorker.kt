@@ -81,6 +81,9 @@ class MatchWorker(
     private var process: Process? = null
     private var toWorker: java.io.BufferedWriter? = null
 
+    /** PHASE_07 §7.56 — everything said each way, for an administrator. */
+    val record = GameRecord.open(config.gameRecords(), matchId, log)
+
     /**
      * How the start result gets back from the pump thread.
      *
@@ -234,6 +237,7 @@ class MatchWorker(
                 // nowhere -- nobody is polling any more. §6.154 is
                 // a separate event for exactly that case.
                 raise(WorkerEvent.Stopped)
+                record.close()
             }, "proxic-match-pump-$matchId")
         thread.isDaemon = true
         thread.start()
@@ -246,6 +250,7 @@ class MatchWorker(
         if (!line.trimStart().startsWith("{")) return
         val frame =
             runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: return
+        record.fromWorker(line.trim())
 
         val type = frame["type"]?.jsonPrimitive?.content
         lastHeard = System.nanoTime()
@@ -338,6 +343,7 @@ class MatchWorker(
     @Synchronized
     private fun send(frame: JsonObject) {
         val writer = toWorker ?: error("the worker is not started")
+        record.toWorker(frame.toString())
         writer.write(frame.toString())
         writer.newLine()
         writer.flush()
@@ -380,8 +386,9 @@ class MatchWorker(
             // frame is skipped rather than treated as a malformed
             // answer.
             if (!line.trimStart().startsWith("{")) continue
-            return runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull()
-                ?: continue
+            val frame = runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: continue
+            record.fromWorker(line.trim())
+            return frame
         }
         return null
     }

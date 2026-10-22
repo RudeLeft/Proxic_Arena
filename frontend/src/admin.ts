@@ -32,6 +32,21 @@ export interface ServerState {
   uptimeSeconds: number;
 }
 
+/** PHASE_07 §7.56 — a recent match, and its game record if one is kept. */
+export interface AdminMatch {
+  matchId: string;
+  status: string;
+  createdAt: string;
+  endedAt: string | null;
+  players: string;
+  recordBytes: number | null;
+}
+
+export interface AdminMatches {
+  matches: AdminMatch[];
+  keepDays: number;
+}
+
 export interface SignInEvent {
   at: string;
   kind: "SIGNED_IN" | "FAILED" | "THROTTLED";
@@ -69,6 +84,26 @@ export const fetchAdminRooms = (fetchFn: typeof fetch = fetch) =>
 
 export const fetchServerState = (fetchFn: typeof fetch = fetch) =>
   read("/api/admin/server", (b) => b as unknown as ServerState, fetchFn);
+
+export const fetchAdminMatches = (fetchFn: typeof fetch = fetch) =>
+  read(
+    "/api/admin/matches",
+    (b) => ({
+      matches: (b["matches"] as AdminMatch[]) ?? [],
+      keepDays: typeof b["keepDays"] === "number" ? b["keepDays"] : 0,
+    }),
+    fetchFn,
+  );
+
+/** Where a match's game record downloads from (an administrator's session only). */
+export const recordUrl = (matchId: string) =>
+  `/api/admin/matches/${encodeURIComponent(matchId)}/record`;
+
+/** "1.4 MB", "820 KB". */
+export function sizeText(bytes: number): string {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+}
 
 export const fetchSignIns = (fetchFn: typeof fetch = fetch) =>
   read("/api/admin/sign-ins", (b) => (b["events"] as SignInEvent[]) ?? [], fetchFn);

@@ -77,9 +77,19 @@ DECISION_RESPONSE               DECISION_ACCEPTED / ERROR DECISION_REFUSED
 DECISION_SEARCH                 DECISION_OPTIONS
 GAME_RESULT (diagnostics)       GAME_RESULT
                                 GAME_ENDED          outcome, winningSeat, reason?, turn
+                                GAME_LOG            entries: [{type, message}] -- Forge's
+                                                    game log since the last question; for
+                                                    the game record only (PHASE_07 §7.56)
 SHUTDOWN                        SHUTTING_DOWN
                                 ERROR               errorCode, detail
 ```
+
+Every frame each way is also written, in order and timed, to the
+match's **game record** (`<dataRoot>/match-records/<matchId>.jsonl.gz`,
+PHASE_07 §7.56), with the server's own refusals as notes. It holds both
+players' hidden information, so only an administrator can download it
+(`GET /api/admin/matches/{id}/record`); records are deleted after
+`PROXIC_MATCH_RECORD_DAYS` (30 by default).
 
 `START_GAME` carries each seat's display name and its deck as **card
 names and printings**, resolved by the server from the stored import;

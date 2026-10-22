@@ -66,6 +66,8 @@ data class DoneResponse(val username: String, val detail: String)
 class AdminRecords(
     val actions: AdminActions,
     val signIns: SignInLog,
+    /** PHASE_07 §7.56 — recent matches and their game records. */
+    val matches: AdminMatches,
 )
 
 /** Everything an admin route needs, in one place, so the route table reads. */
@@ -103,6 +105,21 @@ fun Route.adminRoutes(admin: AdminServices) {
         get("/sign-ins") {
             call.asAdmin(admin) ?: return@get
             call.respond(SignInsResponse(admin.records.signIns.recent()))
+        }
+
+        get("/matches") {
+            call.asAdmin(admin) ?: return@get
+            call.respond(AdminMatchesResponse(admin.records.matches.list(), admin.records.matches.keepDays))
+        }
+        get("/matches/{matchId}/record") {
+            call.asAdmin(admin) ?: return@get
+            val matchId =
+                call.parameters["matchId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                    ?: return@get call.respond(
+                        HttpStatusCode.BadRequest,
+                        ErrorResponse("INVALID_MATCH_ID", "That is not a match id.", null),
+                    )
+            admin.records.matches.download(call, matchId)
         }
     }
 }

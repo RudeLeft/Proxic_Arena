@@ -59,8 +59,10 @@ regression game (P6-L, `scripts/check-snapshot-first.py`).
 ```text
 MATCH_SNAPSHOT          state: viewer snapshot (below)
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
-                        mandatory, prompt?, options: [{actionId, label}],
-                        searchable?, optionCount?
+                        mandatory, prompt?, options: [{actionId, label,
+                        objectId?, payable?, cost?}], searchable?, optionCount?,
+                        unavailable?: {objectId: reason}  -- why each of your
+                        cards NOT offered cannot act now (PHASE_07 B7)
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you

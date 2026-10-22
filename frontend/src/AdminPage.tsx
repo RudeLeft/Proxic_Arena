@@ -35,6 +35,10 @@ import {
   type AdminRoom,
   type ServerState,
   type SignInEvent,
+  fetchAdminMatches,
+  recordUrl,
+  sizeText,
+  type AdminMatches,
 } from "./admin";
 import { roomStateLabel } from "./lobbyView";
 
@@ -50,20 +54,23 @@ export default function AdminPage() {
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
   const [server, setServer] = useState<ServerState | null>(null);
   const [signIns, setSignIns] = useState<SignInEvent[]>([]);
+  const [matches, setMatches] = useState<AdminMatches | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
-    const [a, r, s, e] = await Promise.all([
+    const [a, r, s, e, m] = await Promise.all([
       fetchAccounts(),
       fetchAdminRooms(),
       fetchServerState(),
       fetchSignIns(),
+      fetchAdminMatches(),
     ]);
     setAccounts(a);
     setRooms(r ?? []);
     setServer(s);
     setSignIns(e ?? []);
+    setMatches(m);
     setNow(Date.now());
   }, []);
 
@@ -152,6 +159,7 @@ export default function AdminPage() {
 
       <RoomsPanel rooms={rooms} now={now} run={run} />
       <SignInsPanel events={signIns} />
+      <RecordsPanel matches={matches} />
     </main>
   );
 }
@@ -550,6 +558,69 @@ const KIND_WORDS: Record<SignInEvent["kind"], string> = {
 
 /** Enough to read at a glance; the rest is one click away. */
 const SIGN_IN_LINES = 30;
+
+/**
+ * PHASE_07 §7.56 — each recent match's game record, to download. It holds
+ * both players' hidden cards, which is why only this page offers it.
+ */
+function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
+  const [all, setAll] = useState(false);
+  const every = matches?.matches ?? [];
+  const list = all ? every : every.slice(0, RECORD_LINES);
+  return (
+    <section className="pa-section" aria-labelledby="records-heading">
+      <div className="pa-section-head">
+        <h2 id="records-heading">Game records</h2>
+        <span className="pa-spacer" />
+        {matches && <span className="pa-admin-window">Kept {matches.keepDays} days</span>}
+      </div>
+      {list.length === 0 && <p className="pa-group-empty">No matches yet.</p>}
+      <ul className="pa-admin-records">
+        {list.map((m) => (
+          <li key={m.matchId} className="pa-admin-record">
+            <span className="pa-admin-signin-at">
+              {new Date(m.createdAt).toLocaleString([], {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </span>
+            <span className="pa-admin-signin-who">{m.players || "—"}</span>
+            <span className="pa-admin-signin-detail">{STATUS_WORDS[m.status] ?? m.status}</span>
+            {m.recordBytes !== null ? (
+              <a className="pa-small-button" href={recordUrl(m.matchId)} download>
+                Download record · {sizeText(m.recordBytes)}
+              </a>
+            ) : (
+              <span className="pa-admin-signin-address">No record kept</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!all && every.length > RECORD_LINES && (
+        <p className="pa-admin-more">
+          <button type="button" className="pa-small-button" onClick={() => setAll(true)}>
+            Show all {every.length}
+          </button>
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** The newest matches shown before "Show all". */
+const RECORD_LINES = 10;
+
+const STATUS_WORDS: Record<string, string> = {
+  LAUNCHING: "Starting",
+  RUNNING: "Being played",
+  ENDED: "Finished",
+  FAILED_STARTUP: "Did not start",
+  FAILED_RUNTIME: "Stopped by a fault",
+  TERMINATED: "Abandoned",
+};
 
 function SignInsPanel({ events }: { events: SignInEvent[] }) {
   const [all, setAll] = useState(false);

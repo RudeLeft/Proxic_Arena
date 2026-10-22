@@ -7,6 +7,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -156,6 +157,8 @@ class AdminApiTest {
             "POST" to "/api/admin/rooms/{room}/close",
             "GET" to "/api/admin/server",
             "GET" to "/api/admin/sign-ins",
+            "GET" to "/api/admin/matches",
+            "GET" to "/api/admin/matches/{room}/record",
         )
 
     @Test
@@ -368,5 +371,41 @@ class AdminApiTest {
             assertTrue(body.contains("\"database\":\"PostgreSQL 16"), body)
             assertTrue(body.contains("\"forgeWorker\":\"unconfigured\""), body)
             assertTrue(body.contains("\"gamesRunning\":0"), body)
+        }
+
+    /**
+     * PHASE_07 §7.56, P7-U — a game record holds both players' hidden
+     * information, so only an administrator can download one (the player
+     * case is in the every-route test above).
+     */
+    @Test
+    fun `an administrator downloads a match's game record, and none kept is a 404`() =
+        testApplication {
+            application { module(config()) }
+            val matchId = UUID.randomUUID()
+            val record =
+                net.barnflix.proxic.match.GameRecord.open(
+                    config().gameRecords(),
+                    matchId,
+                    org.slf4j.LoggerFactory.getLogger("test"),
+                )
+            record.fromWorker("""{"type":"DECISION_REQUEST","decisionId":"1"}""")
+            record.close()
+            val admin = session("RudeLeft")
+
+            val got = call(admin, "GET", "/api/admin/matches/$matchId/record")
+            assertEquals(HttpStatusCode.OK, got.status)
+            assertTrue(got.headers[HttpHeaders.ContentDisposition].orEmpty().contains("attachment"))
+            val bytes = got.readBytes()
+            val text = java.util.zip.GZIPInputStream(bytes.inputStream()).bufferedReader().readText()
+            assertTrue(text.contains("\"from\":\"worker\""), text)
+            assertTrue(text.contains("DECISION_REQUEST"), text)
+
+            assertEquals(
+                HttpStatusCode.NotFound,
+                call(admin, "GET", "/api/admin/matches/${UUID.randomUUID()}/record").status,
+            )
+            val list = call(admin, "GET", "/api/admin/matches").bodyAsText()
+            assertTrue(list.contains("\"keepDays\":30"), list)
         }
 }
