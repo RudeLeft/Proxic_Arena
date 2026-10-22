@@ -81,6 +81,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     art: entry.art,
     manaCost: entry.manaCost,
     kind: entry.kind,
+    by: snapshot.players.find((p) => p.seat === entry.controller)?.name ?? null,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
     targets: entry.targets,
   }));

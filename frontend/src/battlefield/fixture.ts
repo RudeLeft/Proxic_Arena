@@ -602,12 +602,14 @@ export function combatScript(n: number): SyntheticScene {
   const bolt: StackView = {
     id: "stack:1",
     name: "Lightning Bolt",
+    by: "Ash",
     source: null,
     targets: [{ object: emperor.id }],
   };
   const shock: StackView = {
     id: "stack:2",
     name: "Shock",
+    by: "Bree",
     source: null,
     targets: [{ object: knight.id }],
   };

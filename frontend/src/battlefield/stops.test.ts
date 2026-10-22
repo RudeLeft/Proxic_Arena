@@ -5,11 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 import type { Snapshot } from "../match";
 import { fetchStops, passWords, saveStops } from "./stops";
 
-function board(phase: string, activeSeat: number, stack: { name: string }[] = []): Snapshot {
+function board(
+  phase: string,
+  activeSeat: number,
+  stack: { name: string }[] = [],
+  battlefield: { seat: number; attacking: boolean }[] = [],
+): Snapshot {
   return {
     phase,
     activeSeat,
     stack,
+    battlefield,
     players: [
       { seat: 1, name: "Alice" },
       { seat: 2, name: "Bob" },
@@ -31,6 +37,22 @@ describe("passWords", () => {
       word: "Resolve",
       sub: "Lets Shock resolve",
     });
+  });
+
+  it("while they attack, says the blocks come next rather than Pass (owner 2026-10-22)", () => {
+    const attacking = [
+      { seat: 2, attacking: true },
+      { seat: 2, attacking: true },
+      { seat: 1, attacking: false },
+    ];
+    expect(passWords(board("COMBAT_DECLARE_ATTACKERS", 2, [], attacking), 1)).toEqual({
+      word: "To blocks",
+      sub: "Bob attacks with 2 — you choose blockers next",
+    });
+    expect(passWords(board("COMBAT_DECLARE_BLOCKERS", 2, [], attacking), 1).word).toBe("To damage");
+    // No attack, or another step of their turn: back to them.
+    expect(passWords(board("COMBAT_DECLARE_ATTACKERS", 2, [], []), 1).word).toBe("Pass");
+    expect(passWords(board("COMBAT_END", 2, [], attacking), 1).word).toBe("Pass");
   });
 });
 

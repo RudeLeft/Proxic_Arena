@@ -116,6 +116,8 @@ export interface StackView {
   manaCost?: string | null;
   /** "spell" | "ability" | "trigger" */
   kind?: string;
+  /** Who cast or controls it, as the players read it (the stack caption). */
+  by?: string | null;
   /** The permanent it came from, if one is on the battlefield (an
    * activated ability); null for a spell, whose line starts at the stack. */
   source: string | null;
@@ -1029,7 +1031,12 @@ export function Board({
               <button
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${a.className}`}
-                aria-label={[`${s.name}, on the stack`, i === 0 ? "resolves next" : "", ...a.words]
+                aria-label={[
+                  `${s.name}, on the stack`,
+                  s.by ? `from ${s.by}` : "",
+                  i === 0 ? "resolves next" : "",
+                  ...a.words,
+                ]
                   .filter(Boolean)
                   .join(", ")}
                 data-object-id={s.id}
@@ -1051,6 +1058,35 @@ export function Board({
             </div>
           );
         })}
+        {/* The stack's words, under its front card (owner 2026-10-22: the
+            cards ARE the stack; the column's Stack box is gone). */}
+        {stack && stack.length > 0 && spot[0] && (
+          <div
+            className="bf-stack-caption"
+            aria-hidden="true"
+            style={{
+              // Wider than the card, its right edge on the card's: the
+              // words stay on one line without running off the table.
+              left: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
+              top: spot[0].y + spot[0].h + g.cardH * 0.05,
+              width: Math.max(spot[0].w, g.cardW * 2.6),
+              fontSize: Math.max(11, g.cardH * 0.085),
+              zIndex: Z_LINES - 99,
+            }}
+          >
+            <span className="bf-stack-next">
+              {stack[0]!.by ? `${stack[0]!.by} · resolves next` : "Resolves next"}
+            </span>
+            {stack.length > 1 && (
+              <span className="bf-stack-count">
+                {stack.length} on the stack
+                {stack.length > spot.length
+                  ? ` · ${stack.length - spot.length} more not shown`
+                  : ""}
+              </span>
+            )}
+          </div>
+        )}
         <svg
           className="bf-lines"
           width={g.width}

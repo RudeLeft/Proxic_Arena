@@ -227,14 +227,14 @@ export function hintFor(kind: string, options: number): string {
       // §6.93 — the candidates are Forge's, and saying so is not
       // decoration: it is why an option that looks wrong is not
       // a bug in the page.
-      return "These are the legal targets. Pass to cancel instead.";
+      return "These are the legal targets. Cancel (or Esc) backs out.";
     case "getAbilityToPlay":
-      return "That card can do more than one thing. Pass to cancel instead.";
+      return "That card can do more than one thing. Cancel (or Esc) backs out.";
     case "applyManaToCost":
     case "chooseManaAbility":
       // The label carries what is still owed, so the hint says
       // what the choice IS rather than repeating it.
-      return "Choose what to tap, or spend mana you have floating. Pass to cancel the whole thing.";
+      return "Choose what to tap, or spend mana you have floating. Cancel (or Esc) backs out of the whole thing.";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "You are over your maximum hand size. This cannot be skipped.";
     case "declareAttackers":
@@ -306,7 +306,7 @@ export function hintFor(kind: string, options: number): string {
       return "You pay for what you choose. The list grows as the board can pay for more.";
     case "CostPutCounter":
     case "CostRemoveCounter":
-      return "This is part of paying for what you are doing. Pass to cancel it.";
+      return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "willPutCardOnTop":
       // A scry names library cards: worth saying they are shown to

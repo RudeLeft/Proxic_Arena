@@ -208,6 +208,26 @@ export function GameScreen({
     [question, answer, decision],
   );
 
+  // Esc backs out of a target, a payment or an ability choice (owner
+  // 2026-10-22), unless a window of its own is open and takes Esc first.
+  const cancellable =
+    !!decision &&
+    !!question &&
+    CANCEL_KINDS.has(decision.kind) &&
+    question.canPass &&
+    game.awaiting === null;
+  useEffect(() => {
+    if (!cancellable || offer || inspecting || viewer) return undefined;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      answer(null);
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [cancellable, offer, inspecting, viewer, answer]);
+
   const decisionId = decision?.decisionId ?? null;
   const search = useCallback(
     (query: string) => {
@@ -247,9 +267,31 @@ export function GameScreen({
               question={question}
               mySeat={board.seat}
               busy={busy}
-              selected={selected}
               onPick={pick}
               onPass={() => answer(null)}
+              combat={
+                decision && question && COMBAT_KINDS.has(decision.kind) && !listOpen
+                  ? {
+                      kind: decision.kind,
+                      heading:
+                        decision.actedForSeat === mine?.seatNumber
+                          ? headingFor(decision.kind)
+                          : `Playing for seat ${decision.actedForSeat}`,
+                      ...combatWords(decision.kind, board, board.seat),
+                      all: decision.options.find((o) => o.actionId === ALL_ATTACK) ?? null,
+                      canPass: question.canPass,
+                      notice: game.notice,
+                    }
+                  : null
+              }
+              cancel={
+                !!decision &&
+                !!question &&
+                CANCEL_KINDS.has(decision.kind) &&
+                question.canPass &&
+                !listOpen
+              }
+              onAnswer={answer}
               onPassTurn={() => {
                 socketRef.current?.passTurn();
                 answer(null);
@@ -355,7 +397,6 @@ export function GameScreen({
           onToggleAll={() => setListOpen((open) => !open)}
           onAnswer={answer}
           onSearch={search}
-          passWord={passWordFor(decision.kind, board, mine?.seatNumber ?? null)}
         />
       )}
 
@@ -596,9 +637,11 @@ function Rail({
   question,
   mySeat,
   busy,
-  selected,
   onPick,
   onPass,
+  combat,
+  cancel,
+  onAnswer,
   onPassTurn,
   onView,
   finished,
@@ -607,9 +650,13 @@ function Rail({
   question: Question | null;
   mySeat: number;
   busy: boolean;
-  selected: string | null;
   onPick: (id: string) => void;
   onPass: () => void;
+  /** Declaring attackers or blockers: the act button is the combat button. */
+  combat: CombatButton | null;
+  /** A question whose "no" backs out (a target, a payment): the act button cancels. */
+  cancel: boolean;
+  onAnswer: (actionId: string | null) => void;
   /** §7.53 extra — pass now, and no more stops this turn. */
   onPassTurn: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
@@ -619,7 +666,6 @@ function Rail({
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
   const top = board.stack[0];
-  const below = board.stack.slice(1);
   const priorityName =
     board.players.find((p) => p.seat === board.prioritySeat)?.name ?? "The other player";
   const myPriority = question?.context === "priority";
@@ -638,56 +684,61 @@ function Rail({
         />
       )}
 
-      <section className="gs-stack" aria-label={`Stack, ${board.stack.length} objects`}>
-        <div className="gs-stack-head">
-          <span className="gs-stack-key">Stack</span>
-          <span className="gs-stack-count">{board.stack.length}</span>
-        </div>
-        {top ? (
-          <button
-            type="button"
-            className={`gs-stack-top${question?.onBoard.has(top.id) ? " gs-choosable" : ""}${selected === top.id ? " gs-selected" : ""}`}
-            data-object-id={top.id}
-            onClick={() => onPick(top.id)}
-            aria-label={`${top.name}, resolves next, ${top.kind}${question?.onBoard.has(top.id) ? ", can be chosen" : ""}`}
-          >
-            <span className="gs-stack-next">Resolves next</span>
-            <span className="gs-stack-name">{top.name}</span>
-            <span className="gs-stack-who">
-              {board.players.find((p) => p.seat === top.controller)?.name ?? ""} · {top.kind}
-            </span>
-          </button>
-        ) : (
-          <p className="gs-stack-empty">Nothing on the stack.</p>
-        )}
-        {below.length > 0 && (
-          // Not a list: the board's lists are the question's options, and
-          // the stack's objects are things on the table, like cards.
-          <div className="gs-stack-list">
-            {below.slice(0, 4).map((entry) => (
-              <div key={entry.id}>
-                <button
-                  type="button"
-                  className={`gs-stack-item${question?.onBoard.has(entry.id) ? " gs-choosable" : ""}`}
-                  data-object-id={entry.id}
-                  onClick={() => onPick(entry.id)}
-                  aria-label={`${entry.name}, on the stack${question?.onBoard.has(entry.id) ? ", can be chosen" : ""}`}
-                >
-                  {entry.name}
-                </button>
-              </div>
-            ))}
-            {below.length > 4 && <p className="gs-stack-more">+{below.length - 4} deeper</p>}
-          </div>
-        )}
-      </section>
-
-      {/* Directly under the stack, because that is what it acts on (canvas). */}
+      {/* The act button keeps its canvas place. The stack is drawn as cards
+          on the board (owner 2026-10-22: the column's Stack box is gone). */}
       {finished ? (
         <div className="gs-waiting" role="status">
           <span className="gs-waiting-word">Game over</span>
           <span className="gs-waiting-sub">Nobody holds priority now</span>
         </div>
+      ) : combat ? (
+        // Owner 2026-10-22: combat on the act button, as MTG Arena has it --
+        // no bar over the table. It says what pressing it does, and counts.
+        <div className="gs-combat" data-kind={combat.kind}>
+          <h2 className="gs-question-title pa-visually-hidden">{combat.heading}</h2>
+          {combat.notice && (
+            <p className="gs-combat-notice" role="alert">
+              {combat.notice}
+            </p>
+          )}
+          {combat.all && (
+            <ul className="gs-combat-options">
+              <li>
+                <button
+                  type="button"
+                  className="gs-act-all"
+                  disabled={busy}
+                  onClick={() => onAnswer(combat.all!.actionId)}
+                >
+                  {combat.all.label ?? "All attack"}
+                </button>
+              </li>
+            </ul>
+          )}
+          <button
+            type="button"
+            className="gs-act gs-act-combat"
+            disabled={busy || !combat.canPass}
+            onClick={() => onAnswer(null)}
+            aria-label={`Pass: ${combat.word}. ${combat.sub}`}
+          >
+            <span className="gs-act-word">{combat.word}</span>
+            <span className="gs-act-sub">{combat.sub}</span>
+          </button>
+        </div>
+      ) : cancel ? (
+        // Owner 2026-10-22: a misclick must be undoable where every other
+        // answer is -- the act button. Esc does the same.
+        <button
+          type="button"
+          className="gs-act gs-act-cancel"
+          disabled={busy}
+          onClick={() => onAnswer(null)}
+          aria-label="Cancel: back out, nothing happens. Escape does the same."
+        >
+          <span className="gs-act-word">Cancel</span>
+          <span className="gs-act-sub">Back out — nothing happens · Esc</span>
+        </button>
       ) : myPriority ? (
         <div className="gs-act-group">
           {/* The same pass whatever it says (§7.53 extra): the words say
@@ -753,7 +804,6 @@ function QuestionBar({
   onToggleAll,
   onAnswer,
   onSearch,
-  passWord,
 }: {
   decision: NonNullable<MatchState["decision"]>;
   question: Question;
@@ -765,9 +815,10 @@ function QuestionBar({
   onToggleAll: () => void;
   onAnswer: (actionId: string | null) => void;
   onSearch: (query: string) => void;
-  /** What this question's "no" means, in words ("Attack", "No attack"). */
-  passWord: string;
 }) {
+  // Declaring attackers or blockers is answered on the board and the act
+  // button (owner 2026-10-22); the list, opened from the menu, still works.
+  if (!all && COMBAT_KINDS.has(decision.kind)) return null;
   const onBoardCount = [...question.onBoard.values()].reduce((n, list) => n + list.length, 0);
   // On your move with nothing to list, the board and the Pass button are
   // the whole question: NO bar over the table (AMENDMENT 12), unless the
@@ -825,17 +876,18 @@ function QuestionBar({
             {notice}
           </p>
         )}
-        {question.context !== "priority" && question.canPass && (
-          <button
-            type="button"
-            className="gs-pass"
-            disabled={busy}
-            onClick={() => onAnswer(null)}
-            aria-label={passWord === "Pass" ? undefined : `Pass: ${passWord}`}
-          >
-            {passWord}
-          </button>
-        )}
+        {question.context !== "priority" &&
+          question.canPass &&
+          (all || !CANCEL_KINDS.has(decision.kind)) && (
+            <button
+              type="button"
+              className="gs-pass"
+              disabled={busy}
+              onClick={() => onAnswer(null)}
+            >
+              Pass
+            </button>
+          )}
       </div>
     );
   }
@@ -890,33 +942,62 @@ function QuestionBar({
       {/* On your move, Pass is the act button under the stack (the
           canvas); here only when this question's "no" is not a pass of
           priority. Never when the rules give no "no" (Phase 6). */}
-      {question.context !== "priority" && question.canPass && (
-        <button
-          type="button"
-          className="gs-pass"
-          disabled={busy}
-          onClick={() => onAnswer(null)}
-          aria-label={passWord === "Pass" ? undefined : `Pass: ${passWord}`}
-        >
-          {passWord}
-        </button>
-      )}
+      {question.context !== "priority" &&
+        question.canPass &&
+        (all || !CANCEL_KINDS.has(decision.kind)) && (
+          <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
+            Pass
+          </button>
+        )}
     </div>
   );
 }
 
 /**
- * A question's "no", in the words of what it does (AMENDMENT 13): ending
- * the attack declaration attacks with whatever was chosen. Named "Pass"
- * for a screen reader whatever it shows.
+ * Questions whose "no" backs out of what was started -- a target, a
+ * payment, which ability, a cost's counters (the hints say "cancel"). The
+ * act button reads Cancel for them, and Esc does the same.
  */
-function passWordFor(kind: string, board: Snapshot | null, mySeat: number | null): string {
+const CANCEL_KINDS = new Set([
+  "chooseTargetsFor",
+  "getAbilityToPlay",
+  "applyManaToCost",
+  "chooseManaAbility",
+  "CostPutCounter",
+  "CostRemoveCounter",
+]);
+
+/** The two combat questions, answered on the board and the act button. */
+const COMBAT_KINDS = new Set(["declareAttackers", "declareBlockers"]);
+/** Forge's "every creature still offered" (CombatChoices.ALL_ATTACK). */
+const ALL_ATTACK = "attackers:all";
+
+interface CombatButton {
+  kind: string;
+  heading: string;
+  word: string;
+  sub: string;
+  all: DecisionOption | null;
+  canPass: boolean;
+  notice: string | null;
+}
+
+/**
+ * What the combat button says (AMENDMENT 13, owner 2026-10-22): what
+ * pressing it does, and how many are in -- "No attacks", then "Attack (2)"
+ * as creatures are clicked; the same for blocks.
+ */
+function combatWords(kind: string, board: Snapshot, mySeat: number): { word: string; sub: string } {
   if (kind === "declareAttackers") {
-    const attacking = board?.battlefield.some((c) => c.attacking && c.seat === mySeat) ?? false;
-    return attacking ? "Attack" : "No attack";
+    const n = board.battlefield.filter((c) => c.attacking && c.seat === mySeat).length;
+    return n > 0
+      ? { word: `Attack (${n})`, sub: "Click a creature to add it or take it back" }
+      : { word: "No attacks", sub: "Click creatures to attack with them" };
   }
-  if (kind === "declareBlockers") return "Done blocking";
-  return "Pass";
+  const n = board.battlefield.filter((c) => c.blocking && c.seat === mySeat).length;
+  return n > 0
+    ? { word: `Done blocking (${n})`, sub: "Click a creature to add a block or take it back" }
+    : { word: "No blocks", sub: "Click your creatures to block with them" };
 }
 
 /** How long a "why not" stays beside the card. */

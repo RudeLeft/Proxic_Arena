@@ -49,7 +49,7 @@ test("a click with nothing asked selects and does not attack; a cancelled target
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);
-      const priority = (await panel.locator(".gs-act").count()) > 0;
+      const priority = (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) > 0;
       const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
 
       if (page === host && priority && !selected) {
@@ -65,7 +65,7 @@ test("a click with nothing asked selects and does not attack; a cancelled target
           const card = panel.locator(`.bf-cards button[data-object-id="${id}"]`);
           await expect(card, "the click selects it").toHaveAttribute("data-selected", "true");
           await expect(card, "and it does not attack").not.toContainText(/attacking/i);
-          await expect(panel.locator(".gs-act"), "and the question is still open").toHaveCount(1);
+          await expect(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"), "and the question is still open").toHaveCount(1);
           selected = true;
           continue;
         }
@@ -91,7 +91,9 @@ test("a click with nothing asked selects and does not attack; a cancelled target
             page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
             "the opponent is a target",
           ).toHaveCount(1, { timeout: 15_000 });
-          await click(panel.locator("button.gs-pass"));
+          // Owner 2026-10-22: backing out is the act button, "Cancel".
+          await expect(panel.locator("button.gs-act-cancel")).toContainText("Cancel");
+          await click(panel.locator("button.gs-act-cancel"));
           // The target question is gone. (Priority may come back, or -- when
           // that spell was the only thing to do -- pass on, as it should.)
           await expect(
@@ -102,7 +104,10 @@ test("a click with nothing asked selects and does not attack; a cancelled target
             page.locator('[data-zone="viewer:hand"]').filter({ hasText: name }),
             "the spell is still in hand",
           ).toHaveCount(inHand);
-          await expect(page.getByText("Nothing on the stack."), "nothing was cast").toBeVisible();
+          await expect(
+            page.locator('[data-zone="stack"]'),
+            "nothing was cast: no card on the stack",
+          ).toHaveCount(0);
           expect(await opponentLife(page), "nobody took damage").toBe(life);
           cancelled = true;
           break;
@@ -111,13 +116,13 @@ test("a click with nothing asked selects and does not attack; a cancelled target
 
       if (!priority) {
         // Any other question: the first choice, a board choice, or pass.
-        const listed = panel.locator(".gs-question li button");
+        const listed = panel.locator(".gs-question li button, .gs-combat li button");
         const board = panel.locator(
           '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
         );
         if ((await listed.count()) > 0) await click(listed);
         else if ((await board.count()) > 0) await click(board);
-        else await click(panel.locator("button.gs-pass"));
+        else await click(panel.locator("button.gs-pass, button.gs-act"));
         continue;
       }
       const land = hand.filter({ hasText: "Mountain" });

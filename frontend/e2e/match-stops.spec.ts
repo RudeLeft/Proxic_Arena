@@ -63,11 +63,11 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
       }
       let acted = false;
       for (const page of [host, guest]) {
-        const act = matchPanel(page).locator("button.gs-act");
+        const act = matchPanel(page).locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)");
         if ((await act.count()) === 0) {
           // A question that is not a priority pass (attackers, a target):
           // always asked, answered with its first choice or a pass.
-          const question = matchPanel(page).locator(".gs-question li button");
+          const question = matchPanel(page).locator(".gs-question li button, .gs-combat li button");
           if ((await question.count()) > 0) {
             await question
               .first()
@@ -75,7 +75,7 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
               .catch(() => undefined);
             acted = true;
           } else if (
-            (await matchPanel(page).locator(".gs-question").count()) > 0 &&
+            (await matchPanel(page).locator(".gs-question, .gs-combat").count()) > 0 &&
             (await matchPanel(page).locator('.bf-cards button[data-choosable="true"]').count()) > 0
           ) {
             // A question answered on the board -- discarding down to seven

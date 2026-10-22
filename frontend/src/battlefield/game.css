@@ -253,114 +253,6 @@ button.gs-zone:not(:disabled):hover {
   font-variant-numeric: tabular-nums;
 }
 
-.gs-stack {
-  position: absolute;
-  left: 7.4px;
-  top: 292px;
-  width: 216px;
-  height: 264px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #5c6472;
-  border-radius: 8px;
-  background: #11161d;
-  overflow: hidden;
-}
-.gs-stack-head {
-  display: flex;
-  align-items: center;
-  padding: 11px 13px;
-  border-bottom: 1px solid #262d36;
-}
-.gs-stack-key {
-  flex: 1;
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #f0dcb6;
-}
-.gs-stack-count {
-  min-width: 22px;
-  padding: 1px 6px;
-  box-sizing: border-box;
-  border: 1px solid #5c6472;
-  border-radius: 10px;
-  text-align: center;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: #f0dcb6;
-}
-.gs-stack-top {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 11px 13px;
-  border: 0;
-  border-bottom: 1px solid #262d36;
-  background: #161c25;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.gs-stack-next {
-  display: block;
-  font-size: 8px;
-  letter-spacing: 0.17em;
-  text-transform: uppercase;
-  color: #e0a44a;
-}
-.gs-stack-name {
-  display: block;
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-.gs-stack-who {
-  display: block;
-  margin-top: 3px;
-  font-size: 10px;
-  color: #8a8f98;
-}
-.gs-stack-empty {
-  margin: 0;
-  padding: 14px 13px;
-  font-size: 11px;
-  color: #7a828d;
-}
-.gs-stack-list {
-  margin: 0;
-  padding: 9px 13px;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.gs-stack-item {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.gs-stack-more {
-  margin: 0;
-  font-size: 10px;
-  color: #7a828d;
-}
-
 .gs-act,
 .gs-waiting {
   position: absolute;
@@ -419,6 +311,58 @@ button.gs-zone:not(:disabled):hover {
 .gs-act-turn:focus-visible {
   outline: 2px solid #f1f4f8;
   outline-offset: 2px;
+}
+/* Combat on the act button (owner 2026-10-22): "All attack" in the space
+ * above it, where the Stack box was, and a refusal's reason above that. */
+.gs-combat-options {
+  position: absolute;
+  left: 7.4px;
+  top: 524px;
+  width: 216px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-act-all {
+  width: 100%;
+  height: 38px;
+  margin: 0;
+  border: 1px solid #e0a44a;
+  border-radius: 6px;
+  background: #1b1710;
+  color: #f0c46a;
+  cursor: pointer;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.gs-act-all:hover:not(:disabled) {
+  background: #2a2214;
+}
+.gs-act-all:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.gs-act-all:focus-visible {
+  outline: 2px solid #f1f4f8;
+  outline-offset: 2px;
+}
+.gs-combat-notice {
+  position: absolute;
+  left: 7.4px;
+  bottom: 386px;
+  width: 216px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #a05449;
+  border-radius: 6px;
+  background: #2a1a18;
+  color: #f2c9c2;
+  font-size: 11px;
+  line-height: 1.4;
 }
 .gs-act-word {
   font-family: "Barlow Condensed", "Segoe UI", sans-serif;

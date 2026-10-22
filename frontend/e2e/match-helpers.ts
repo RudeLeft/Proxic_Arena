@@ -194,8 +194,9 @@ export async function question(page: Page): Promise<{ heading: string; prompt: s
 
 /** Whether this player is being asked something now. */
 export async function isAsked(page: Page): Promise<boolean> {
-  // On your move the question has no bar (AMENDMENT 12), only its heading.
-  return (await page.locator(".gs-question, .gs-your-move").count()) > 0;
+  // On your move the question has no bar (AMENDMENT 12), only its heading;
+  // combat is the act button (owner 2026-10-22).
+  return (await page.locator(".gs-question, .gs-your-move, .gs-combat").count()) > 0;
 }
 
 /**

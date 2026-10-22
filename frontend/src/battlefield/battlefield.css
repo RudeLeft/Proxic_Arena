@@ -414,6 +414,29 @@
 .bf-stack-slot:not(:has(.bf-stack-top)) .bf-stack-card {
   filter: brightness(0.7);
 }
+/* Under the front card: who cast it, and how many wait (owner 2026-10-22). */
+.bf-stack-caption {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  text-align: right;
+  white-space: nowrap;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.25;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
+}
+.bf-stack-next {
+  color: #f0c46a;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.bf-stack-count {
+  color: #b8bec7;
+  font-size: 0.88em;
+}
 @keyframes bf-stack-in {
   from {
     opacity: 0;

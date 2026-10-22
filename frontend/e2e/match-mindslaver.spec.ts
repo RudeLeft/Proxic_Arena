@@ -130,7 +130,7 @@ test("under Mindslaver the controller answers for the other player and sees thei
     await expect(controlling, "the host was never asked a question for seat 2").toBeVisible({
       timeout: 60_000,
     });
-    await expect(matchPanel(guest).locator(".gs-question")).toHaveCount(0);
+    await expect(matchPanel(guest).locator(".gs-question, .gs-combat")).toHaveCount(0);
     // Seen by the controller, as the guest's, and not before.
     expect(sawHandBefore, "the host saw the guest's hand before controlling them").toBe(false);
     await expect(theirHand).toBeVisible();

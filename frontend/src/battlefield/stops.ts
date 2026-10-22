@@ -79,7 +79,21 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
   const other = board.players.find((p) => p.seat !== mySeat)?.name ?? "your opponent";
   const active = board.players.find((p) => p.seat === board.activeSeat);
   if (board.activeSeat !== mySeat) {
-    return { word: "Pass", sub: `Back to ${active?.name ?? other}` };
+    // Owner 2026-10-22: "Pass" while they attack read as giving up the
+    // block. Say what comes next, so it is plain that blocks are still yours.
+    const them = active?.name ?? other;
+    const attackers =
+      board.battlefield?.filter((c) => c.attacking && c.seat === board.activeSeat).length ?? 0;
+    if (board.phase === "COMBAT_DECLARE_ATTACKERS" && attackers > 0) {
+      return {
+        word: "To blocks",
+        sub: `${them} attacks with ${attackers} — you choose blockers next`,
+      };
+    }
+    if (board.phase === "COMBAT_DECLARE_BLOCKERS" && attackers > 0) {
+      return { word: "To damage", sub: "Combat damage is dealt next" };
+    }
+    return { word: "Pass", sub: `Back to ${them}` };
   }
   switch (board.phase) {
     case "UPKEEP":
