@@ -352,9 +352,10 @@ final class ViewerSnapshot {
             return null;
         }
         JsonObject out = new JsonObject();
-        byte[] colours = {forge.card.MagicColor.WHITE, forge.card.MagicColor.BLUE,
-                forge.card.MagicColor.BLACK, forge.card.MagicColor.RED,
-                forge.card.MagicColor.GREEN, forge.card.MagicColor.COLORLESS};
+        // ManaAtom's codes, which are the pool's keys: MagicColor.COLORLESS
+        // is 0, not the pool's colourless (32), and asking for it found
+        // nothing -- Sol Ring's spare {C} floated unseen (2026-10-22).
+        byte[] colours = forge.card.mana.ManaAtom.MANATYPES;
         String[] letters = {"W", "U", "B", "R", "G", "C"};
         for (int i = 0; i < colours.length; i++) {
             int n = pool.getAmountOfColor(colours[i]);

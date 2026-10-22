@@ -92,6 +92,13 @@ final class ManaPayment {
     /** The life id: "pay 2 life" for one Phyrexian symbol. */
     private static final String PHYREXIAN = "mana:life:phyrexian";
 
+    /** Floating mana of one kind: "mana:pool:C". */
+    private static final String POOL = "mana:pool:";
+
+    /** The pool's kinds of mana, as ManaAtom codes, and the letters players read. */
+    private static final byte[] POOL_KINDS = ManaAtom.MANATYPES;
+    private static final String POOL_LETTERS = "WUBRGC";
+
     boolean pay(ManaCostBeingPaid toPay, SpellAbility paidFor, boolean effect) throws InterruptedException {
         String lastRemaining = toPay.toString();
         int stalled = 0;
@@ -104,15 +111,20 @@ final class ManaPayment {
 
         while (!toPay.isPaid()) {
             LinkedHashMap<String, Card> sources = usableSources(toPay, paidFor);
+            LinkedHashMap<String, Byte> floating = usableFloating(toPay, paidFor);
             boolean lifeForMana = toPay.containsPhyrexianMana()
                     && player.canPayLife(lifeToLose + 2, effect, paidFor);
-            if (sources.isEmpty() && !lifeForMana) {
+            if (sources.isEmpty() && floating.isEmpty() && !lifeForMana) {
                 // Nothing left that could pay. Not an error: it is
                 // how "you cannot afford this" ends.
                 return false;
             }
 
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+            // Floating mana first: it is already made, and it empties at the
+            // end of the step whether it is spent or not.
+            floating.forEach((id, kind) -> labels.put(id, "Use floating {" + id.substring(POOL.length())
+                    + "} — you have " + player.getManaPool().getAmountOfColor(kind) + " — " + remaining(toPay)));
             sources.forEach((id, card) -> labels.put(id, card.getName() + " — " + remaining(toPay)));
             if (lifeForMana) {
                 labels.put(PHYREXIAN, "Pay 2 life for a Phyrexian symbol — you have "
@@ -129,6 +141,15 @@ final class ManaPayment {
 
             if (DecisionGate.PASS.equals(choice)) {
                 return false;
+            }
+            if (floating.containsKey(choice)) {
+                // Forge's own "click the mana pool" (InputPayMana.useManaFromPool).
+                player.getManaPool().tryPayCostWithColor(
+                        floating.get(choice), paidFor, toPay, paidFor.getPayingMana());
+                String nowRemaining = toPay.toString();
+                stalled = nowRemaining.equals(lastRemaining) ? stalled + 1 : 0;
+                lastRemaining = nowRemaining;
+                continue;
             }
             if (PHYREXIAN.equals(choice)) {
                 if (toPay.payPhyrexian()) {
@@ -198,6 +219,28 @@ final class ManaPayment {
             }
         }
         return sources;
+    }
+
+    /**
+     * Floating mana that could pay some part of what is left, by kind.
+     *
+     * Mana already in the pool -- Sol Ring's second {C} after a {1} spell,
+     * a Dark Ritual's -- was never offered: a spell Forge called affordable
+     * then cancelled itself once every permanent was tapped (2026-10-22).
+     * Forge's own human input spends it when the player clicks the pool;
+     * this is that click, offered. Forge decides whether the mana may pay
+     * (restrictions, `isAnyPartPayableWith`), as for permanents.
+     */
+    private LinkedHashMap<String, Byte> usableFloating(ManaCostBeingPaid toPay, SpellAbility paidFor) {
+        LinkedHashMap<String, Byte> out = new LinkedHashMap<>();
+        forge.game.mana.ManaPool pool = player.getManaPool();
+        for (int i = 0; i < POOL_KINDS.length; i++) {
+            byte kind = POOL_KINDS[i];
+            if (pool.getAmountOfColor(kind) > 0 && toPay.isAnyPartPayableWith(kind, pool)) {
+                out.put(POOL + POOL_LETTERS.charAt(i), kind);
+            }
+        }
+        return out;
     }
 
     /** What the remaining cost will accept, including the pool. */

@@ -234,7 +234,7 @@ export function hintFor(kind: string, options: number): string {
     case "chooseManaAbility":
       // The label carries what is still owed, so the hint says
       // what the choice IS rather than repeating it.
-      return "Choose what to tap. Pass to cancel the whole thing.";
+      return "Choose what to tap, or spend mana you have floating. Pass to cancel the whole thing.";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "You are over your maximum hand size. This cannot be skipped.";
     case "declareAttackers":
