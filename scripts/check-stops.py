@@ -125,7 +125,7 @@ def quiet():
                             f"quiet step; lands played and attacks asked", found)
 
 
-def bolt_game(name, seat2):
+def bolt_game(name, seat2, wait_for_answer=False):
     g = game(name, [("Mountain", 30), ("Lightning Bolt", 30)], seat2)
     st = {"cast": False, "seat2_on_stack": 0, "seat2_asked_after": 0}
 
@@ -140,10 +140,17 @@ def bolt_game(name, seat2):
             land = g.play_land(f)
             if land:
                 return land
-            if seat == 1 and not st["cast"] and turn >= 3 and not stack:
+            # Only once seat 2 really could answer: a Bolt in hand and an
+            # untapped Mountain. A shuffle that leaves it without either is
+            # correctly not stopped for -- CI once failed on exactly that.
+            hand2 = (g.state.get(2) or {}).get("hand", [])
+            can_answer = not wait_for_answer or (
+                any(c.get("name") == "Lightning Bolt" for c in hand2) and bool(g.untapped_lands(2)))
+            if seat == 1 and not st["cast"] and turn >= 3 and not stack and can_answer:
                 bolt = g.option(f, name="Lightning Bolt", zone="hand", land=False)
                 if bolt:
                     st["cast"] = True
+                    st["cast_turn"] = turn
                     return bolt
             return None
         if kind == "chooseTargetsFor" and seat == 1:
@@ -152,14 +159,14 @@ def bolt_game(name, seat2):
         return DEFAULT
 
     def until(g):
-        return st["cast"] and g.turn >= 5
+        return st["cast"] and g.turn >= max(5, st.get("cast_turn", 0) + 2)
 
-    g.run(policy, until=until, max_turn=8)
+    g.run(policy, until=until, max_turn=14)
     return g, st
 
 
 def respond():
-    g, st = bolt_game("respond", [("Mountain", 30), ("Lightning Bolt", 30)])
+    g, st = bolt_game("respond", [("Mountain", 30), ("Lightning Bolt", 30)], wait_for_answer=True)
     found = dict(st, stopped=g.stopped_badly())
     if not st["cast"]:
         return "inconclusive", "seat 1 never cast Lightning Bolt", found
