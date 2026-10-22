@@ -14,7 +14,7 @@ name: proxic-arena-dev
 
 services:
   postgres:
-    image: postgres:16.4-alpine@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c
+    image: postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-proxic}

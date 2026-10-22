@@ -41,7 +41,7 @@ class DatabaseTest {
         requireDocker()
         // Pinned tag, not `latest` (§1.5, §1.56).
         container =
-            PostgreSQLContainer("postgres:16.4-alpine")
+            PostgreSQLContainer("postgres:16.15-alpine")
                 .withDatabaseName("proxic_test")
                 .withUsername("proxic")
                 .withPassword("test-only-not-a-secret")

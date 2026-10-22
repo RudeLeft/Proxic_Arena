@@ -6,14 +6,14 @@
 
 # --- Stage 1: frontend ------------------------------------------------
 # Pinned by DIGEST, not just by tag (§1.58). A tag is a moving
-# pointer: `node:24.11.1-alpine` can be republished, and the build
+# pointer: `node:24.22.1-alpine` can be republished, and the build
 # that worked yesterday is then not the build that runs today. The
 # digest is the image. The tag is kept alongside it because a bare
 # digest tells a reader nothing about what it is.
 #
 # These are manifest-LIST digests, so they still resolve per
 # architecture -- amd64 here and on the Unraid host.
-FROM node:24.11.1-alpine@sha256:682368d8253e0c3364b803956085c456a612d738bd635926d73fa24db3ce53d7 AS frontend
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS frontend
 WORKDIR /src
 # package files first, so a source-only change does not re-resolve
 # every dependency.
@@ -24,7 +24,7 @@ COPY protocol/ /protocol/
 RUN npm run build
 
 # --- Stage 2: server --------------------------------------------------
-FROM eclipse-temurin:17.0.13_11-jdk-alpine@sha256:d60e19d7da3a1bebbde66f740841d822c0e518aebf99a4403da16bb34f0373f8 AS server
+FROM eclipse-temurin:17.0.20.1_1-jdk-alpine@sha256:5a7fe9fcd65085bbf218a4060f08f1346b8bfd13d9f9942e2db6719cc8a11e22 AS server
 WORKDIR /src
 # Wrapper and build scripts first: dependency resolution is the slow
 # part and must not be invalidated by a source edit.
@@ -54,7 +54,7 @@ RUN ./gradlew --no-daemon :server:installDist -x test
 #
 # Forge is built from source here because no published artifact
 # exists for forge-core/forge-game at this pin.
-FROM maven:3.9.9-eclipse-temurin-17@sha256:f58d59b6273e785ac0a4477f6e9b5ba1d7731c75b906c0f7b34076f1851318cc AS worker
+FROM maven:3.9.16-eclipse-temurin-17@sha256:1a352420f7aba21f5ad08df31bab55f74c013fb491f1ae8ab1dd7ff9ed698584 AS worker
 
 # The pin, from the same file the other two builds read (§1.25).
 COPY forge-pin.properties /pin.properties
@@ -98,7 +98,7 @@ COPY forge-pin.properties /build/forge-pin.properties
 RUN cd /build/forge-worker && mvn -q -B package
 
 # --- Stage 4: runtime -------------------------------------------------
-FROM eclipse-temurin:17.0.13_11-jre-alpine@sha256:8164ba7f332faf27462e055013c2aa518a2eba1ce6984e9ca60dadb899cab6bd AS runtime
+FROM eclipse-temurin:17.0.20.1_1-jre-alpine@sha256:c4a33e6ddb738fe4be0a28a613ea0940cec42d25d7263c3e2238c43354cb19b0 AS runtime
 
 # Non-root (§1.59). The app writes only to /data, which is a volume.
 RUN addgroup -S proxic && adduser -S -G proxic proxic

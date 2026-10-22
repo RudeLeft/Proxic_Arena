@@ -22,10 +22,12 @@ val postgresVersion: String by project
 val flywayVersion: String by project
 val testcontainersVersion: String by project
 val bouncycastleVersion: String by project
+val nettyVersion: String by project
 
 dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
+    implementation(platform("io.netty:netty-bom:$nettyVersion"))
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-websockets-jvm:$ktorVersion")

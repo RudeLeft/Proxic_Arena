@@ -30,7 +30,7 @@ x-unraid-icon: &unraid-icon
 
 services:
   postgres:
-    image: postgres:16.4-alpine@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c
+    image: postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815
     restart: unless-stopped
     labels:
       # The same icon: it is this stack's database, and a row of
@@ -134,7 +134,7 @@ services:
   #   docker compose --profile edge up
   # on the Unraid host, and treat its first run as the verification.
   cloudflared:
-    image: cloudflare/cloudflared:2024.8.3@sha256:14d9c6b01b29d556569446b0cc5c9162dc129a92ce127afe27c3aae4534f8af1
+    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
     restart: unless-stopped
     profiles: ["edge"]
     command: tunnel --no-autoupdate run

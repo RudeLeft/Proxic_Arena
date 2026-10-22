@@ -19,7 +19,7 @@ built and wired to it.
 374 frontend unit tests                          0 failed
  75 browser tests    69 passed in CI, 6 skipped by design (opt-in
                      benchmark, live-site check, fault injection)
- 26 Mechanics Lab scenario scripts in CI, 0 failed; an INCONCLUSIVE
+ 27 Mechanics Lab scenario scripts in CI, 0 failed; an INCONCLUSIVE
     scenario (the shuffle never reached it) gets one more game
   4 cross-game trace checks in CI (snapshot-first, hidden hands,
     every permanent has its row, start budget) + the token-speed budget
@@ -96,6 +96,15 @@ Faults found by building and testing, all fixed:
   Forge's replacement handling. Forge patch 0002 (owner-approved) makes
   2,048 tokens 110 s → 41 s.
 - **A back-face picture was imported and never shown.**
+- **A security review (2026-10-22)** found the game and lobby connections
+  accepted a page from any barnflix.net site that carried the player's
+  cookie (now only our own page), a deck picture's size was checked only
+  after unpacking it (now from its header, and unpacking is capped), and
+  the server's building blocks two years old (the database, Java, the web
+  server's network layer, logging, the Cloudflare tunnel, the website's
+  packages -- all refreshed). Also removed: the Phase 6 text board, its
+  styles, the published source maps; the status page needs a sign-in; the
+  tab says "Proxic Arena"; Brainstorm's "put them in order" check joined CI.
 
 And the tests themselves -- the lesson Phase 6 already recorded, again:
 several Mechanics Lab checks assumed the shuffle (one White Knight

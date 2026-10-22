@@ -81,11 +81,11 @@ Three rules shape all of it:
 
 | | |
 | --- | --- |
-| Server | Kotlin 1.9.24, Ktor 2.3.12, Java 17 |
-| Database | PostgreSQL 16.4, Flyway 10.17.0, HikariCP 5.1.0 |
-| Frontend | React 18.3.1, Vite 5.4.2, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.2.6 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
+| Server | Kotlin 1.9.24, Ktor 2.3.13 (Netty 4.1.139), Java 17 (Temurin 17.0.20) |
+| Database | PostgreSQL 16.15, Flyway 10.22.0, HikariCP 5.1.0 |
+| Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
 | Worker | Java 17, Maven, `forge-core` + `forge-game` only |
-| Tests | Vitest, JUnit 5, Testcontainers 1.21.3, Playwright 1.47.0 |
+| Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
 
 Containers run as non-root with all Linux capabilities dropped,

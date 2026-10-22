@@ -56,7 +56,7 @@ class DeckApiTest {
         assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
 
         container =
-            PostgreSQLContainer("postgres:16.4-alpine")
+            PostgreSQLContainer("postgres:16.15-alpine")
                 .withDatabaseName("proxic_test")
                 .withUsername("proxic")
                 .withPassword("test-only-not-a-secret")

@@ -49,7 +49,7 @@ class InvitationGraceTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.4-alpine")
+            PostgreSQLContainer("postgres:16.15-alpine")
                 .withDatabaseName("proxic_test")
                 .withUsername("proxic")
                 .withPassword("test-only-not-a-secret")
