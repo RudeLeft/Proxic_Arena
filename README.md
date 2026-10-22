@@ -6,29 +6,29 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Phases 1–6 are complete.** Application foundation, deck package
+**Phases 1–6 are complete** — application foundation, deck package
 import, accounts and authentication, the Deck Depot, the lobby and the
-Forge match runtime have all passed their gates — `PHASE_01_EXIT_GATE.md`
-through `PHASE_06_EXIT_GATE.md` list exactly what is proven — including
-a full game played on the live host.
+Forge match runtime; `PHASE_01_EXIT_GATE.md` through
+`PHASE_06_EXIT_GATE.md` list exactly what is proven.
 
-**Phase 6 is built: two players play a real game of Magic, run by
-Forge, in the browser** -- each seeing only what Forge lets them see,
-answering every decision Forge asks a player. Every Phase 6 acceptance
-test is met or classified, including a full game played on the live
-site (`PHASE_06_ACCEPTANCE_AUDIT.md`); the gate passed 2026-10-20. The board is functional, not final: the graphical
-battlefield is Phase 7.
+**Phase 7 is built and awaiting the owner's sign-off**
+(`PHASE_07_EXIT_GATE.md`): two players play a real game of Magic, run
+by Forge, on a graphical battlefield in the style of MTG Arena — cards
+clicked to play, target, attack and block, each player seeing only what
+Forge lets them see — and every page (sign in, Lobby, Deck Depot,
+Account, Admin) is built.
 
-**Everything except health, version and the status page requires a
-session.** Accounts are created by an administrator with
+**Everything except health and version requires a session**, the
+status page included. Accounts are created by an administrator with
 `arena-admin`; there is no self-registration. See
 `docs/architecture/AUTHENTICATION.md`, and
 `docs/troubleshooting/AUTHENTICATION.md` when a login will not work.
 
 **There are no join codes.** A host sees who is signed in and
 invites them by clicking their name; an invitation the server
-recorded is the only way into a room. There is no public games list
-and no matchmaking. See `docs/architecture/LOBBY_ARCHITECTURE.md`,
+recorded is the only way into a room. Every signed-in player sees the
+list of rooms and who sits in them — never their decks — but cannot
+walk into one uninvited. There is no matchmaking. See `docs/architecture/LOBBY_ARCHITECTURE.md`,
 and `docs/troubleshooting/LOBBY.md` when a room misbehaves.
 
 **Decks are private.** Each belongs to the account that uploaded it,
@@ -209,12 +209,17 @@ docker compose down -v
 ## Tests
 
 ```bash
-./gradlew :server:test                       # 36 tests
-cd frontend && npm test                      # 20 tests
-cd frontend && npm run e2e                   # 6 browser tests
+./gradlew :server:test                       # ~490 tests
+cd frontend && npm test                      # ~370 unit tests
+cd frontend && npm run e2e                   # ~75 browser tests
 ./gradlew :server:ktlintCheck :server:detekt # Kotlin analysis
 cd frontend && npm run lint                  # ESLint + types
+python -I scripts/check-blocks.py <worker.jar> <forge res>  # one Mechanics Lab game
 ```
+
+Run the server suite and the browser tests **one at a time**: the
+browser tests start real Forge games and the server suite dozens of
+throwaway databases, and together they can exhaust Docker Desktop.
 
 The database tests start a throwaway PostgreSQL through
 Testcontainers, so they never touch development data. The browser
@@ -353,8 +358,14 @@ docs/
   decisions/               ADRs
   research/                phase evidence
   troubleshooting/         FOUNDATION.md, DECK_IMPORT.md,
-                           AUTHENTICATION.md, DECK_DEPOT.md
-forge_patches/             empty on purpose; see its README
+                           AUTHENTICATION.md, DECK_DEPOT.md,
+                           LOBBY.md, MATCH_RUNTIME.md
+  deployment/              Unraid install, updating, rollback
+  testing/                 Mechanics Lab ledger and evidence
+  assets/                  logo, icon, brand images
+forge_patches/             owner-approved Forge fixes; see its README
+scripts/                   Mechanics Lab scenarios (check-*.py), tools
+Test Deck/                 Mechanics Lab corpus (read-only input)
 spikes/                    Phase 0A measurement harnesses
 ```
 
@@ -363,7 +374,8 @@ spikes/                    Phase 0A measurement harnesses
 1. `AGENTS.md` — the operating contract.
 2. `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` — the
    architectural facts Phase 0A established, and why.
-3. `PHASE_01_EXIT_GATE.md` — what is actually proven today.
+3. `PHASE_07_EXIT_GATE.md` — what is actually proven today, and the
+   earlier exit gates for what each phase added.
 4. `docs/troubleshooting/FOUNDATION.md` — when something will not
    start.
 5. `docs/security/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,

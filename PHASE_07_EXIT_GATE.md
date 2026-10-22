@@ -133,7 +133,7 @@ red.
 ## P7-O — the owner's acceptance
 
 Play on `https://proxic.barnflix.net` after updating Unraid to `latest`
-(build `8695da1`), and say whether the board is accepted. Worth trying:
+(build `7fe7c06` or later), and say whether the board is accepted. Worth trying:
 a game start (the mana ring), a menace block with one creature (refused,
 with the reason; click the blocker to take it back), clicking a creature
 that came in this turn while attacking ("why not"), a suspended Rift Bolt
@@ -145,7 +145,35 @@ check if wanted.
 
 ## Next
 
-When the owner accepts: Phase 7 is marked COMPLETE in `CLAUDE.md`,
-`AGENTS.md`, `BUILD_PLAN.md` and `README.md`. What comes next -- the 42
-unbuilt questions, Commander, Two-Headed Giant -- is the owner's to
-choose and lock first.
+When the owner accepts, ONE change closes the phase and moves the project
+from phases to features (owner decision 2026-10-22: "this is moving into
+production with the close of phase 7 ... we will continue to add
+features"):
+
+1. **Phase 7 COMPLETE** in `CLAUDE.md`, `AGENTS.md`, `BUILD_PLAN.md` and
+   `README.md`; `VERSION` 0.1.0 -> 1.0.0, and a first GitHub release with
+   plain-English notes.
+2. **The phase papers become history, unedited.** Every `PHASE_*.md` at
+   the top level, `docs/research/phase-*/` and
+   `docs/security/PHASE_01_BASELINE_REVIEW.md` move to
+   `docs/history/phases/phase-00` ... `phase-07` (0, 0A and 0B together
+   in `phase-00`). Names and text unchanged, so "PHASE_06 §6.17" in the
+   code still finds its section; every path that names them is updated.
+3. **Living documents by purpose.** `docs/deployment/` and
+   `docs/troubleshooting/` become `docs/operations/` (and
+   `docs/operations/troubleshooting/`); `docs/architecture/`,
+   `docs/testing/`, `docs/decisions/` and `docs/assets/` stay.
+4. **`BUILD_PLAN.md` becomes `ROADMAP.md`** -- features Planned, Building,
+   Done -- carrying the 42 unbuilt Forge questions, Commander and
+   Two-Headed Giant; **`CHANGELOG.md`** starts at 1.0.0.
+5. **`docs/features/NNNN-name.md`**: one short spec per feature -- what
+   the player sees, the tests that prove it, the owner's decisions. A spec
+   the owner approves is what a locked phase was; Commander's will simply
+   be long.
+6. **AGENTS.md, owner-approved:** "Current phase" becomes "Current work"
+   (the approved feature specs); PHASE-001 reads "work only on a feature
+   the owner has approved"; PHASE-002 covers approved feature specs and
+   the frozen history alike; PHASE-003/004 unchanged in substance; the
+   document map follows the new paths. Every other rule stands.
+
+`scripts/` stays as it is (owner, 2026-10-22).
