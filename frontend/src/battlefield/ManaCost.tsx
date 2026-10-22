@@ -15,6 +15,11 @@ const PICTURES = import.meta.glob<string>("../assets/mana/*.png", {
   import: "default",
 });
 
+/** One mana symbol's picture ("W", "2G"); undefined when there is none. */
+export function symbolUrl(symbol: string): string | undefined {
+  return PICTURES[`../assets/mana/sym_${symbol}.png`];
+}
+
 /** The symbols of a cost, in order, as the picture names spell them ("1", "R", "WU", "2W", "RP"). */
 export function manaSymbols(cost: string | null | undefined): string[] {
   if (!cost) return [];
@@ -69,7 +74,7 @@ export function ManaCost({
       style={style}
     >
       {symbols.map((symbol, i) => {
-        const url = PICTURES[`../assets/mana/sym_${symbol}.png`];
+        const url = symbolUrl(symbol);
         return url ? (
           <img key={i} className="bf-pip" src={url} alt="" draggable={false} />
         ) : (

@@ -1292,6 +1292,15 @@ and the alternative (keep full size and raise the budget to about 200 MB).
 **Approved by project owner:** yes, 2026-10-21
 **Date:** 2026-10-21
 
+**Condition added by the owner, 2026-10-21 (later the same day): demo
+first.** The owner values the table's current look and will not have it
+put at risk unseen. B14 is built but NOT committed until the owner has
+seen a demo: the real board, the same cards, full-size pictures beside
+table-sized copies (screenshots at the owner's usual window size and at
+4K), and has said yes. Card sizes, frames and layout do not change --
+only the picture file behind each card. If the owner says no, the
+memory budget is revisited instead (the alternative above).
+
 ## PHASE 7 AMENDMENT 9
 
 **Reason:** The application pages (Part X) were moved ahead of the rest

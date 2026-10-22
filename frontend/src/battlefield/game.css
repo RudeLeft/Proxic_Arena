@@ -14,10 +14,95 @@
 .gs-loading {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
   font-size: 15px;
   color: #a9b0ba;
+}
+
+/* The mana ring (owner pick 2026-10-21): five symbols orbit the logo and
+   light in turn; each symbol turns back against the orbit to stay upright. */
+.gs-ring {
+  position: relative;
+  width: 260px;
+  height: 260px;
+}
+.gs-ring::before {
+  content: "";
+  position: absolute;
+  inset: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(233, 179, 74, 0.18);
+  box-shadow: 0 0 40px rgba(233, 179, 74, 0.08) inset;
+}
+.gs-ring-orbit {
+  position: absolute;
+  inset: 0;
+  animation: gs-orbit 24s linear infinite;
+}
+.gs-ring-pip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  transform: rotate(var(--gs-angle)) translateY(-104px) rotate(calc(-1 * var(--gs-angle)));
+}
+.gs-ring-pip img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation:
+    gs-orbit 24s linear infinite reverse,
+    gs-pip-light 2s ease-in-out var(--gs-delay) infinite;
+  opacity: 0.45;
+}
+.gs-ring-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 132px;
+  transform: translate(-50%, -50%);
+}
+.gs-ring-words {
+  margin: 0;
+  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: #d8dde4;
+}
+@keyframes gs-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes gs-pip-light {
+  0%,
+  100% {
+    opacity: 0.45;
+    filter: none;
+  }
+  20% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(255, 220, 150, 0.85));
+  }
+  45% {
+    opacity: 0.45;
+    filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-ring-orbit,
+  .gs-ring-pip img {
+    animation: none;
+  }
+  .gs-ring-pip img {
+    opacity: 0.9;
+  }
 }
 
 /* --- the column on the right ------------------------------------------------- */

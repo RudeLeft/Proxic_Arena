@@ -66,13 +66,13 @@ class CardResolver(private val config: ServerConfig) {
 
         val jar = config.forgeWorkerJar
         if (jar.isNullOrBlank() || !File(jar).isFile) {
-            return unavailable(distinct, "the Forge worker is not configured")
+            return unavailable(distinct, "the card checker is not configured")
         }
 
         return runCatching { ask(distinct, File(jar), timeoutSeconds) }
             .getOrElse { failure ->
                 log.warn("card resolution failed: {}", failure.javaClass.simpleName)
-                unavailable(distinct, "the Forge worker could not be reached")
+                unavailable(distinct, "the card checker could not be reached")
             }
     }
 
@@ -94,7 +94,7 @@ class CardResolver(private val config: ServerConfig) {
     ): ForgeDeckBuild {
         val jar = config.forgeWorkerJar
         if (jar.isNullOrBlank() || !File(jar).isFile) {
-            return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker is not configured"))
+            return ForgeDeckBuild(0, emptyMap(), listOf("the card checker is not configured"))
         }
         val request =
             buildJsonObject {
@@ -120,10 +120,10 @@ class CardResolver(private val config: ServerConfig) {
 
         val reply =
             runCatching { exchange(request, File(jar), timeoutSeconds) }.getOrNull()
-                ?: return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker could not be reached"))
+                ?: return ForgeDeckBuild(0, emptyMap(), listOf("the card checker could not be reached"))
 
         if (reply["type"]?.jsonPrimitive?.content != "DECK_BUILT") {
-            return ForgeDeckBuild(0, emptyMap(), listOf("the Forge worker could not build the deck"))
+            return ForgeDeckBuild(0, emptyMap(), listOf("the card checker could not build the deck"))
         }
         return ForgeDeckBuild(
             totalCards = reply["totalCards"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
@@ -198,7 +198,7 @@ class CardResolver(private val config: ServerConfig) {
 
             // The worker announces WORKER_READY unprompted.
             readLine(reader, process, timeoutSeconds)
-                ?: return unavailable(entries, "the Forge worker did not start")
+                ?: return unavailable(entries, "the card checker did not start")
 
             val messageId = UUID.randomUUID().toString()
             writer.write(json.encodeToString(JsonObject.serializer(), request(entries, messageId)))
@@ -210,7 +210,7 @@ class CardResolver(private val config: ServerConfig) {
             // timeout is generous rather than tight.
             val reply =
                 readLine(reader, process, timeoutSeconds)
-                    ?: return unavailable(entries, "the Forge worker did not answer in time")
+                    ?: return unavailable(entries, "the card checker did not answer in time")
 
             return parse(reply, entries)
         } finally {
@@ -248,15 +248,15 @@ class CardResolver(private val config: ServerConfig) {
     ): List<CardResolution> {
         val frame =
             runCatching { json.parseToJsonElement(reply).jsonObject }.getOrNull()
-                ?: return unavailable(entries, "the Forge worker sent an unreadable reply")
+                ?: return unavailable(entries, "the card checker sent an unreadable reply")
 
         if (frame["type"]?.jsonPrimitive?.content != "CARDS_RESOLVED") {
-            return unavailable(entries, "the Forge worker could not resolve the deck")
+            return unavailable(entries, "the card checker could not resolve the deck")
         }
 
         val cards: JsonArray =
             frame["cards"]?.jsonArray
-                ?: return unavailable(entries, "the Forge worker sent no results")
+                ?: return unavailable(entries, "the card checker sent no results")
 
         return cards.map { element ->
             val card = element.jsonObject

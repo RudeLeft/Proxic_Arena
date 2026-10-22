@@ -191,7 +191,7 @@ class DeckImporter(
             // never a substitution (§2.94).
             return ImportResult.Rejected(
                 "CARDS_NOT_RESOLVED",
-                "Forge could not resolve every card in this deck.",
+                "Some cards in this deck are not supported yet.",
                 unresolved.map { entry ->
                     val detail = resolutions[entry.name.lowercase()]?.detail
                     "Line ${entry.lineNumber}: ${entry.name}${detail?.let { " — $it" } ?: ""}"

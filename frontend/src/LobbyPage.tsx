@@ -118,10 +118,20 @@ export default function LobbyPage() {
       setFailure(null);
       const result = await call();
       setBusy(false);
-      if (result.ok) {
+      // NOT_FOUND is out too: the server no longer has you in that
+      // room (it closed, or you were removed while this page was not
+      // told). It used to show "No such endpoint." and keep the room
+      // on screen, with no way out but a reload (owner, 2026-10-21).
+      if (result.ok || result.failure.errorCode === "NOT_FOUND") {
         setLobby((previous) => ({
           ...previous,
           room: null,
+          left: previous.room
+            ? {
+                roomId: previous.room.roomId,
+                revision: Math.max(previous.room.revision, result.ok ? result.room.revision : 0),
+              }
+            : previous.left,
           setupProblem: null,
           notice: null,
           match: null,
@@ -197,15 +207,27 @@ export default function LobbyPage() {
       <h1 className="pa-visually-hidden">Lobby</h1>
 
       <div className="pa-lobby-notices">
-        {lobby.connection === "closed" && (
-          // §5.133 — a page that stopped being told must say so.
+        {lobby.connection === "reconnecting" && (
+          // §5.133 — a page that stopped being told must say so. It
+          // reconnects on its own now (owner report 2026-10-21).
+          <div className="pa-notice pa-notice-warn" role="status">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">
+              <strong>Reconnecting…</strong>
+              <span className="pa-notice-sub">
+                The connection dropped. This page catches up by itself as soon as it is back — your
+                room is still there.
+              </span>
+            </span>
+          </div>
+        )}
+        {lobby.connection === "ended" && (
           <div className="pa-notice pa-notice-bad" role="alert">
             <span aria-hidden="true" className="pa-notice-mark" />
             <span className="pa-notice-text">
-              <strong>Disconnected</strong>
+              <strong>Signed out</strong>
               <span className="pa-notice-sub">
-                You are no longer receiving updates. Reload the page to reconnect — your room is
-                still on the server.
+                This session has ended, perhaps from another tab. Reload the page to sign in again.
               </span>
             </span>
           </div>

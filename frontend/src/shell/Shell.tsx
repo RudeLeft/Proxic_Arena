@@ -74,7 +74,9 @@ function ConnectionState() {
       ? "Connected"
       : lobby.connection === "connecting"
         ? "Connecting…"
-        : "Disconnected";
+        : lobby.connection === "reconnecting"
+          ? "Reconnecting…"
+          : "Signed out";
   return (
     <span className={`pa-connection pa-connection-${lobby.connection}`} role="status">
       <span aria-hidden="true" className="pa-connection-dot" />

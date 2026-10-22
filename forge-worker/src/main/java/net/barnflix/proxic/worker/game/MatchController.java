@@ -2042,6 +2042,11 @@ public final class MatchController extends GeneratedControllerBase {
 
         boolean topOfDeck = orderedMoveToTopOfLibrary(destinationZone, source);
         String end = endDescription(destinationZone, topOfDeck);
+        // "Draw first" only when it is the player's own library.
+        boolean ownLibrary = true;
+        for (forge.game.card.Card card : cards) {
+            if (!player.equals(card.getOwner())) ownLibrary = false;
+        }
         if (end == null) {
             // Forge's default branch: a destination it does not
             // order. Returned untouched rather than guessed at.
@@ -2075,7 +2080,7 @@ public final class MatchController extends GeneratedControllerBase {
                                 // somewhere, and in SOME order. The
                                 // only question is which.
                                 true,
-                                "Which goes " + end + "? (" + remaining.size() + " left)",
+                                orderPrompt(destinationZone, topOfDeck && ownLibrary, end, ordered.isEmpty(), remaining.size()),
                                 pending -> host.publishDecision(pending, labels));
                 picked = byId.get(choice);
             } catch (InterruptedException e) {
@@ -2100,6 +2105,22 @@ public final class MatchController extends GeneratedControllerBase {
             java.util.Collections.reverse(ordered);
         }
         return ordered;
+    }
+
+    /**
+     * The ordering question, in words. Owner 2026-10-21: "Which goes
+     * closest to the top?" left a player guessing, so back on top of
+     * your own library it is asked as what it means -- which card you
+     * draw first.
+     */
+    private static String orderPrompt(
+            forge.game.zone.ZoneType destination, boolean topOfDeck, String end,
+            boolean firstPick, int left) {
+        if (destination == forge.game.zone.ZoneType.Library && topOfDeck) {
+            return "Which card do you want to draw " + (firstPick ? "first" : "next")
+                    + "? (" + left + " left)";
+        }
+        return "Which goes " + end + "? (" + left + " left)";
     }
 
     /**

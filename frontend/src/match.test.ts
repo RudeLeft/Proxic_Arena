@@ -696,7 +696,7 @@ describe("concede (PHASE_07 §7.55)", () => {
   it("records the server's answer and words it for the player", () => {
     const sent = reduceMatch(EMPTY_MATCH, { type: "CONCEDE_ACCEPTED" });
     expect(sent.concession).toBe("SENT");
-    expect(concessionText(sent.concession)).toBe("You conceded. Forge is ending the game.");
+    expect(concessionText(sent.concession)).toBe("You conceded. Ending the game…");
 
     const early = reduceMatch(EMPTY_MATCH, { type: "CONCEDE_REFUSED", reason: "NOT_STARTED" });
     expect(early.concession).toBe("NOT_STARTED");

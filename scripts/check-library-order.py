@@ -16,7 +16,8 @@ AI controller carries the comment that makes this a trap:
 So "orderMoveToZoneList was asked 57 times" is not evidence. This
 answers it with a named card and then watches the hand:
 
-  1. the question says "which goes closest to the top" -- answer it
+  1. the question asks which card to draw first (once "which goes
+     closest to the top") -- answer it
   2. wait for that player to draw exactly one card
   3. it has to be the card that was put on top
 
@@ -100,7 +101,7 @@ for line in proc.stdout:
         if frame.get("kind") == "orderMoveToZoneList":
             asked += 1
             prompt = frame.get("prompt") or ""
-            if "closest to the top" in prompt and options:
+            if ("closest to the top" in prompt or "want to draw" in prompt) and options:
                 # Take the LAST option offered, not the first: the
                 # first would also be the answer of an
                 # implementation that ignores the choice entirely.

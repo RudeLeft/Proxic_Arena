@@ -128,7 +128,7 @@ fun Route.stopRoutes(store: StopStore) {
             runCatching { call.receive<StopSettings>() }.getOrNull()?.cleaned()
                 ?: return@put call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_STOPS", "Stops are Forge's step names.", null),
+                    ErrorResponse("INVALID_STOPS", "Those are not step names.", null),
                 )
         store.put(call.attributes[PRINCIPAL_KEY].user.userId, settings)
         call.respond(settings)

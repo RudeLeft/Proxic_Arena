@@ -5,7 +5,7 @@
 // browsing the Deck Depot showed as offline and an invitation sent to
 // them waited unseen. It now lives in the shell around every signed-in
 // page: opened once at sign-in, kept across page changes, closed at
-// sign-out. The Lobby page reads it from here; the header shows its
+// sign-out -- and reopened on its own when it drops. The Lobby page reads it from here; the header shows its
 // state.
 
 import {
@@ -18,7 +18,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { EMPTY_LOBBY, connectLobby, type LobbySocket, type LobbyState } from "../lobby";
+import { EMPTY_LOBBY, catchUp, connectLobby, type LobbySocket, type LobbyState } from "../lobby";
 
 interface LobbyConnectionValue {
   lobby: LobbyState;
@@ -36,9 +36,16 @@ function lobbyUrl(): string {
 export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
   const [lobby, setLobbyState] = useState<LobbyState>(EMPTY_LOBBY);
   const socket = useRef<LobbySocket | null>(null);
+  // The state as last drawn, for catching up after a reconnect.
+  const latest = useRef(lobby);
+  useEffect(() => {
+    latest.current = lobby;
+  }, [lobby]);
 
   useEffect(() => {
-    const opened = connectLobby(lobbyUrl(), setLobbyState);
+    const opened = connectLobby(lobbyUrl(), setLobbyState, WebSocket, {
+      onReopen: () => void catchUp(setLobbyState, () => latest.current),
+    });
     socket.current = opened;
     return () => {
       socket.current = null;

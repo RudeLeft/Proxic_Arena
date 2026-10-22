@@ -175,7 +175,18 @@ export interface MatchView {
   outcome: MatchOutcome | null;
 }
 
-export type ConnectionState = "connecting" | "open" | "closed";
+/**
+ * The live connection. "reconnecting" is a dropped connection being
+ * retried on its own (a server update, a Wi-Fi blip); "ended" is a
+ * session that is over, which no retry can fix -- sign in again.
+ */
+export type ConnectionState = "connecting" | "open" | "reconnecting" | "ended";
+
+/** A room this page has left, and how it stood then (late news about it is ignored). */
+export interface LeftRoom {
+  roomId: string;
+  revision: number;
+}
 
 export interface LobbyState {
   connection: ConnectionState;
@@ -198,6 +209,12 @@ export interface LobbyState {
   /** An invitation to you that ended without your say. */
   invitationGone: InvitationGone | null;
   setupProblem: SetupProblem | null;
+  /**
+   * Owner report 2026-10-21: a ROOM message sent just before you left
+   * could arrive just after, and put the room you had left back on
+   * screen -- one you could no longer leave. Remembered so it cannot.
+   */
+  left: LeftRoom | null;
   notice: Notice | null;
   /** Null until a match exists, and null again once one cannot. */
   match: MatchView | null;
@@ -215,6 +232,7 @@ export const EMPTY_LOBBY: LobbyState = {
   declinedBy: null,
   invitationGone: null,
   setupProblem: null,
+  left: null,
   notice: null,
   match: null,
 };
@@ -270,6 +288,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       if (state.room && state.room.roomId === room.roomId && room.revision < state.room.revision) {
         return state;
       }
+      // News about a room you have since left, from before you left.
+      if (state.left && state.left.roomId === room.roomId && room.revision <= state.left.revision) {
+        return state;
+      }
       // The notice goes too. Every notice here is about something
       // that was ABOUT to change the room — "Invited Pat", a
       // refusal — so once the room itself arrives, the notice is
@@ -295,6 +317,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       return {
         ...state,
         room: null,
+        left: { roomId, revision: state.room.revision },
         setupProblem: null,
         match: null,
         notice: {
@@ -427,6 +450,11 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         notice: null,
       };
     }
+
+    case "SESSION_ENDED":
+      // Phase 3 §3.81 -- the session was ended (signed out elsewhere,
+      // or by an administrator). Said, rather than going quietly dead.
+      return { ...state, connection: "ended" };
 
     case "ERROR": {
       const errorCode = asString(message["errorCode"]);
@@ -643,55 +671,97 @@ export interface LobbySocket {
   close: () => void;
 }
 
+/** Waits before each try to reconnect, in milliseconds; the last one repeats. */
+export const RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000, 15000];
+
+/** The server's close for "not signed in" (§3.80): reconnecting cannot fix it. */
+const POLICY_CLOSE = 1008;
+
 /**
- * Open /ws/user and reduce it into lobby state.
+ * Open /ws/user and reduce it into lobby state -- and keep it open.
  *
  * The same socket the server authenticates and revalidates
  * (carry-forward C3). There is no second connection and no token in
  * the URL: the session cookie authenticates the upgrade (§3.78),
  * which is also why this takes no credentials.
+ *
+ * A dropped connection is retried on its own (owner report
+ * 2026-10-21: after a server update every page went quietly deaf
+ * until each player reloaded, so players saw each other offline).
+ * The server re-sends who is online, the players, the rooms and
+ * your room on every connection; [onReopen] catches up on what a
+ * socket cannot re-send -- a room you were removed from, a match
+ * that ended -- while this one was away.
  */
 export function connectLobby(
   url: string,
   onState: (next: (previous: LobbyState) => LobbyState) => void,
   WebSocketImpl: typeof WebSocket = WebSocket,
+  options: { onReopen?: () => void; delays?: readonly number[] } = {},
 ): LobbySocket {
+  const delays = options.delays ?? RECONNECT_DELAYS;
   let closedByUs = false;
-  const ws = new WebSocketImpl(url);
+  let ended = false;
+  let everOpened = false;
+  let attempt = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let ws: WebSocket | null = null;
 
-  ws.addEventListener("open", () => {
-    onState((previous) => ({ ...previous, connection: "open" }));
-  });
+  const open = () => {
+    const socket = new WebSocketImpl(url);
+    ws = socket;
+    let dropped = false;
 
-  ws.addEventListener("message", (event: MessageEvent) => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(String(event.data));
-    } catch {
-      // §1.34 — a malformed frame is dropped, never interpreted.
-      return;
-    }
-    if (typeof parsed !== "object" || parsed === null) return;
-    const message = parsed as Record<string, unknown>;
-    onState((previous) => reduceLobby(previous, message));
-  });
+    socket.addEventListener("open", () => {
+      attempt = 0;
+      const again = everOpened;
+      everOpened = true;
+      onState((previous) => ({ ...previous, connection: "open" }));
+      if (again) options.onReopen?.();
+    });
 
-  const markClosed = () => {
-    if (closedByUs) return;
-    // §5.133 — a disconnected client must not keep showing a lobby
-    // as though it were live. The room stays on screen because it
-    // still exists on the server; what changes is that the page
-    // says it is no longer being told about it.
-    onState((previous) => ({ ...previous, connection: "closed" }));
+    socket.addEventListener("message", (event: MessageEvent) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(String(event.data));
+      } catch {
+        // §1.34 — a malformed frame is dropped, never interpreted.
+        return;
+      }
+      if (typeof parsed !== "object" || parsed === null) return;
+      const message = parsed as Record<string, unknown>;
+      if (message["type"] === "SESSION_ENDED") ended = true;
+      onState((previous) => reduceLobby(previous, message));
+    });
+
+    // A browser fires "close" after every failed or lost connection,
+    // "error" or not, and only "close" carries the server's reason.
+    socket.addEventListener("close", (event: CloseEvent) => {
+      if (dropped || closedByUs) return;
+      dropped = true;
+      if (ended || event.code === POLICY_CLOSE) {
+        ended = true;
+        onState((previous) => ({ ...previous, connection: "ended" }));
+        return;
+      }
+      // §5.133 — a page that is not being told must say so; it also
+      // says it is putting that right.
+      onState((previous) => ({ ...previous, connection: "reconnecting" }));
+      const wait = delays[Math.min(attempt, delays.length - 1)] ?? 0;
+      attempt += 1;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!closedByUs) open();
+      }, wait);
+    });
   };
 
-  ws.addEventListener("close", markClosed);
-  ws.addEventListener("error", markClosed);
+  open();
 
   return {
     send: (message) => {
       try {
-        ws.send(JSON.stringify(message));
+        ws?.send(JSON.stringify(message));
       } catch {
         // A send on a dying socket is not worth an exception in a
         // click handler; the close event is about to arrive.
@@ -699,13 +769,86 @@ export function connectLobby(
     },
     close: () => {
       closedByUs = true;
+      if (timer !== null) clearTimeout(timer);
       try {
-        ws.close();
+        ws?.close();
       } catch {
         /* already closed */
       }
     },
   };
+}
+
+/**
+ * After a reconnect: what the socket cannot re-send.
+ *
+ * The server re-sends your room when you are in one, but says nothing
+ * when you are not -- so a room you were removed from while away, or
+ * one that closed, would stay on screen. And a match that ended while
+ * the page was away would still look like it was running.
+ */
+export async function catchUp(
+  apply: (next: (previous: LobbyState) => LobbyState) => void,
+  current: () => LobbyState,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  const room = await currentRoomAnswer(fetchFn);
+  if (room.ok) apply((previous) => adoptCurrentRoom(previous, room.room));
+
+  const match = await matchAnswer("/api/matches/current", fetchFn);
+  if (match) {
+    apply((previous) => reduceLobby(previous, { ...match, type: "MATCH" }));
+    return;
+  }
+  const shown = current().match;
+  if (!shown || shown.status === "ENDED" || shown.status === "FAILED_RUNTIME") return;
+  const ended = await matchAnswer(`/api/matches/${encodeURIComponent(shown.matchId)}`, fetchFn);
+  if (ended) apply((previous) => reduceLobby(previous, { ...ended, type: "MATCH" }));
+}
+
+/** The room the server says you are in now; null when none. */
+export function adoptCurrentRoom(state: LobbyState, room: RoomView | null): LobbyState {
+  if (room) {
+    if (state.room && state.room.roomId === room.roomId && state.room.revision >= room.revision) {
+      return state;
+    }
+    return { ...state, room };
+  }
+  if (!state.room) return state;
+  return {
+    ...state,
+    room: null,
+    left: { roomId: state.room.roomId, revision: state.room.revision },
+    setupProblem: null,
+  };
+}
+
+async function currentRoomAnswer(
+  fetchFn: typeof fetch,
+): Promise<{ ok: true; room: RoomView | null } | { ok: false }> {
+  try {
+    const response = await apiFetch("/api/rooms/current", {}, fetchFn);
+    if (!response.ok) return { ok: false };
+    const body = (await response.json()) as Record<string, unknown>;
+    return { ok: true, room: asRoom(body["room"]) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function matchAnswer(
+  path: string,
+  fetchFn: typeof fetch,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await apiFetch(path, {}, fetchFn);
+    if (!response.ok) return null;
+    const body = (await response.json()) as Record<string, unknown>;
+    const match = body["match"];
+    return typeof match === "object" && match !== null ? (match as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 // --- the room API ------------------------------------------------------------

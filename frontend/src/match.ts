@@ -271,7 +271,8 @@ export interface Snapshot {
   damage: DamageState | null;
 }
 
-export type MatchConnection = "connecting" | "open" | "closed";
+/** "reconnecting": dropped and being retried on its own; "closed": refused, reload. */
+export type MatchConnection = "connecting" | "open" | "reconnecting" | "closed";
 
 export interface MatchState {
   connection: MatchConnection;
@@ -436,7 +437,7 @@ export function concessionText(concession: string | null): string | null {
     case null:
       return null;
     case "SENT":
-      return "You conceded. Forge is ending the game.";
+      return "You conceded. Ending the game…";
     case "NOT_STARTED":
       return "You can concede once the game has begun. Before that, Abandon ends it with no winner.";
     case "GAME_OVER":
@@ -743,6 +744,9 @@ function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+/** Waits before each try to reconnect to a game, in milliseconds; the last one repeats. */
+export const MATCH_RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000];
+
 export interface MatchSocket {
   /** §6.100 — the decision and the action. Nothing else. */
   answer(decisionId: number, actionId: string | null): void;
@@ -758,30 +762,64 @@ export interface MatchSocket {
 }
 
 /**
- * Connect to a match — §6.107.
+ * Connect to a match — §6.107 -- and stay connected.
  *
- * No reconnect loop here yet: §6.111's reconnect is a real
- * sequence (re-authenticate, re-verify participation, re-send the
- * snapshot and the still-valid pending interaction) and the
- * server performs all of it on a fresh connection. Reloading the
- * page does exactly that today, which is honest; a silent
- * auto-reconnect that skipped a step would be the dangerous
- * version.
+ * §6.111's reconnect is a real sequence (re-authenticate, re-verify
+ * participation, re-send the snapshot and the still-valid pending
+ * question), and the server performs all of it on every fresh
+ * connection; reloading the page did exactly that. So a dropped
+ * connection now simply opens a fresh one, on its own (owner report
+ * 2026-10-21). The question on screen is set aside meanwhile -- the
+ * server re-sends it if it is still the question -- so nothing is
+ * answered against a question that has moved on.
  */
 export function connectMatch(
   url: string,
   onState: (apply: (previous: MatchState) => MatchState) => void,
   factory: (url: string) => WebSocket = (u) => new WebSocket(u),
+  delays: readonly number[] = MATCH_RECONNECT_DELAYS,
 ): MatchSocket {
-  const socket = factory(url);
+  let socket: WebSocket;
+  let closedByUs = false;
+  let attempt = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  socket.onmessage = (event) => {
-    const parsed = parse(event.data);
-    if (!parsed) return;
-    onState((previous) => reduceMatch(previous, parsed));
+  const open = () => {
+    const current = factory(url);
+    socket = current;
+    let dropped = false;
+    current.onopen = () => {
+      attempt = 0;
+    };
+    current.onmessage = (event) => {
+      const parsed = parse(event.data);
+      if (!parsed) return;
+      onState((previous) => reduceMatch(previous, parsed));
+    };
+    current.onclose = (event) => {
+      if (dropped || closedByUs) return;
+      dropped = true;
+      // 1008: not signed in, or not a player in this match. A retry
+      // cannot fix either.
+      if (event.code === 1008) {
+        onState((previous) => ({ ...previous, connection: "closed" }));
+        return;
+      }
+      onState((previous) => ({
+        ...previous,
+        connection: "reconnecting",
+        decision: null,
+        awaiting: null,
+      }));
+      const wait = delays[Math.min(attempt, delays.length - 1)] ?? 0;
+      attempt += 1;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!closedByUs) open();
+      }, wait);
+    };
   };
-  socket.onclose = () => onState((previous) => ({ ...previous, connection: "closed" }));
-  socket.onerror = () => onState((previous) => ({ ...previous, connection: "closed" }));
+  open();
 
   return {
     answer(decisionId, actionId) {
@@ -815,6 +853,8 @@ export function connectMatch(
       socket.send(JSON.stringify({ type: "PASS_TURN" }));
     },
     close() {
+      closedByUs = true;
+      if (timer !== null) clearTimeout(timer);
       socket.close();
     },
   };

@@ -2,6 +2,8 @@ package net.barnflix.proxic.lobby
 
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.room.Presence
@@ -61,23 +63,35 @@ class LobbyHub : Presence {
      * everybody.
      */
     fun register(connection: LobbyConnection): Boolean {
-        val set =
-            connections.computeIfAbsent(connection.user.userId) {
-                ConcurrentHashMap.newKeySet()
-            }
-        val wasEmpty = set.isEmpty()
-        set.add(connection)
+        // Inside compute, so it cannot interleave with [unregister]:
+        // as two steps, a reload's new connection could join the set
+        // the old one was emptying, and then the whole set -- new
+        // connection and all -- was dropped from the map. The player
+        // was connected and, to everyone else, offline; and nothing
+        // reached them until they reloaded again. Owner report
+        // 2026-10-21: "I had to refresh multiple times".
+        var wasEmpty = false
+        connections.compute(connection.user.userId) { _, existing ->
+            val set = existing ?: ConcurrentHashMap.newKeySet()
+            wasEmpty = set.isEmpty()
+            set.add(connection)
+            set
+        }
         return wasEmpty
     }
 
     /** Returns true when the user's LAST connection just went away. */
     fun unregister(connection: LobbyConnection): Boolean {
-        val set = connections[connection.user.userId] ?: return false
-        set.remove(connection)
-        if (set.isNotEmpty()) return false
-
-        connections.remove(connection.user.userId, set)
-        return true
+        var last = false
+        connections.computeIfPresent(connection.user.userId) { _, set ->
+            if (set.remove(connection) && set.isEmpty()) {
+                last = true
+                null
+            } else {
+                set
+            }
+        }
+        return last
     }
 
     /**
@@ -163,4 +177,22 @@ class LobbyHub : Presence {
     ) {
         userIds.toSet().forEach { sendTo(it, message) }
     }
+}
+
+/**
+ * One user's arrivals and departures, one at a time.
+ *
+ * A reload closes the old connection and opens the new one at nearly
+ * the same moment, on two coroutines. Unserialised, the old one's
+ * "left" could be sent AFTER the new one's "arrived", and everybody
+ * else then showed a player who was there as offline (owner report
+ * 2026-10-21). Per user, so a slow connection holds up nobody else's.
+ */
+class PresenceTurns {
+    private val locks = ConcurrentHashMap<UUID, Mutex>()
+
+    suspend fun <T> take(
+        userId: UUID,
+        block: suspend () -> T,
+    ): T = locks.computeIfAbsent(userId) { Mutex() }.withLock { block() }
 }

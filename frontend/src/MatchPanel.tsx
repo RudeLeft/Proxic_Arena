@@ -115,7 +115,7 @@ export function MatchPanel({ match, me }: { match: MatchView; me: string }) {
               // page describing itself wrongly.
               game.decision
               ? "Setting the game up — and it needs an answer from you."
-              : "Starting the game. Forge is loading — this takes a few seconds."
+              : "Setting up the table…"
             : "The game is running."}
       </p>
       {mine?.deckName && (
@@ -306,7 +306,7 @@ export function NameSearch({
       <p className="hint">
         {results && results.total > results.options.length
           ? `Showing ${results.options.length} of ${results.total.toLocaleString()} matches — type more to narrow it down.`
-          : `Any of ${decision.optionCount.toLocaleString()} names Forge allows here. The list is Forge's, not this page's.`}
+          : `Any of ${decision.optionCount.toLocaleString()} card names can go here. Type to search them.`}
       </p>
     </div>
   );
@@ -453,14 +453,14 @@ export function headingFor(kind: string): string {
 
 export function hintFor(kind: string, options: number): string {
   if (options === 0) {
-    return "Forge is not offering any action right now; passing is the only answer.";
+    return "Nothing can be done right now; passing is the only answer.";
   }
   switch (kind) {
     case "chooseTargetsFor":
       // §6.93 — the candidates are Forge's, and saying so is not
       // decoration: it is why an option that looks wrong is not
       // a bug in the page.
-      return "These are the legal targets Forge allows. Pass to cancel instead.";
+      return "These are the legal targets. Pass to cancel instead.";
     case "getAbilityToPlay":
       return "That card can do more than one thing. Pass to cancel instead.";
     case "applyManaToCost":
@@ -493,7 +493,7 @@ export function hintFor(kind: string, options: number): string {
       // says which, so this says where the list came from -- a
       // library search shows cards nobody else can see, and that
       // being deliberate rather than a leak is worth knowing.
-      return "Forge decides what may be chosen here. The line above says what for.";
+      return "Only these may be chosen here. The line above says what for.";
     case "mulliganKeepHand":
       // Says what mulliganing COSTS, because the prompt gives the
       // hand size and not the consequence.
@@ -514,12 +514,12 @@ export function hintFor(kind: string, options: number): string {
       // Says where the list came from, because this is the one
       // family of choices that is NOT about anything on the
       // board: the list is Forge's, not the page's (P6-AH).
-      return "These are the values Forge allows. Nothing here is a card on the board.";
+      return "These are the values allowed. Nothing here is a card on the board.";
     case "chooseBinary":
       // The call is yours; the flip is not. Worth saying, because
       // a player who calls heads and loses should know the game
       // flipped it, not the page.
-      return "You call it. Forge flips it, and the result is announced.";
+      return "You call it. The game flips it, and the result is announced.";
     case "orderMoveToZoneList":
       // The prompt names the END being chosen for — "closest to
       // the top", "closest to the bottom" — because that is the
@@ -546,9 +546,9 @@ export function hintFor(kind: string, options: number): string {
       // this player alone, as Forge shows them.
       return "Only you can see these cards. This cannot be skipped.";
     case "chooseNumber":
-      return "Forge allows these numbers. This cannot be skipped.";
+      return "These are the numbers allowed. This cannot be skipped.";
     default:
-      return "These are the actions Forge says you can take.";
+      return "These are the actions you can take.";
   }
 }
 

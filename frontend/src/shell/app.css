@@ -112,7 +112,8 @@ body {
   background: transparent;
   border: 1px solid var(--pa-muted);
 }
-.pa-connection-closed .pa-connection-dot {
+.pa-connection-reconnecting .pa-connection-dot,
+.pa-connection-ended .pa-connection-dot {
   background: transparent;
   border: 2px solid var(--pa-bad);
 }

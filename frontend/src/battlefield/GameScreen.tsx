@@ -29,6 +29,7 @@ import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../MatchP
 import { Board } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
+import { LoadingRing } from "./LoadingRing";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import { STOP_STEPS, fetchStops, passWords, saveStops, type StopSettings } from "./stops";
 import "./game.css";
@@ -262,13 +263,17 @@ export function GameScreen({
           }
         />
       ) : (
-        <div className="gs-loading" role="status">
-          {match.status === "LAUNCHING"
-            ? "Starting the game. Forge is loading — this takes a few seconds."
-            : finished
+        <LoadingRing
+          words={
+            finished
               ? "The game is over."
-              : "Waiting for the game."}
-        </div>
+              : game.connection === "reconnecting"
+                ? "Reconnecting to the game…"
+                : match.status === "LAUNCHING"
+                  ? "Setting up the table…"
+                  : "Shuffling up and dealing…"
+          }
+        />
       )}
 
       <div className="gs-corner">
@@ -305,6 +310,15 @@ export function GameScreen({
         />
       </div>
 
+      {live && game.connection === "reconnecting" && !finished && (
+        <div className="gs-banner pa-notice pa-notice-warn" role="status">
+          <span aria-hidden="true" className="pa-notice-mark" />
+          <span className="pa-notice-text">
+            Reconnecting to the game… It is still running, and nothing is answered for you while you
+            are away.
+          </span>
+        </div>
+      )}
       {live && game.connection === "closed" && !finished && (
         <div className="gs-banner pa-notice pa-notice-bad" role="alert">
           <span aria-hidden="true" className="pa-notice-mark" />
@@ -669,15 +683,13 @@ function Rail({
             {board.prioritySeat === mySeat ? "Your priority" : `${priorityName} to act`}
           </span>
           <span className="gs-waiting-sub">
-            {board.prioritySeat === mySeat
-              ? "Forge is working it out"
-              : "You will get priority back"}
+            {board.prioritySeat === mySeat ? "Working it out…" : "You will get priority back"}
           </span>
         </div>
       ) : (
         <div className="gs-waiting gs-waiting-question" role="status">
           <span className="gs-waiting-word">Your answer</span>
-          <span className="gs-waiting-sub">Forge is asking you, above the board</span>
+          <span className="gs-waiting-sub">Your choice is above the board</span>
         </div>
       )}
 

@@ -119,9 +119,9 @@ class MatchPreflight(
             return DeckCheck(
                 DeckVerdict.FORGE_RESOLUTION_ERROR,
                 if (more > 0) {
-                    "Forge does not recognise $names and $more more."
+                    "Not supported yet: $names and $more more."
                 } else {
-                    "Forge does not recognise $names."
+                    "Not supported yet: $names."
                 },
             )
         }

@@ -79,6 +79,8 @@ class LobbyService(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val goneSince = ConcurrentHashMap<UUID, Job>()
 
+    private val presenceOf = PresenceTurns()
+
     /**
      * PHASE_07 §7.64 — the room list, to everybody, whenever any room
      * changes. The same list for every viewer: it carries seats and
@@ -182,27 +184,29 @@ class LobbyService(
     ): LobbySession {
         val connection = LobbyConnection(connectionId, user, outgoing)
         live[connectionId] = connection
-        val firstConnection = hub.register(connection)
+        presenceOf.take(user.userId) {
+            val firstConnection = hub.register(connection)
 
-        // Back inside the grace period: nothing of theirs ends.
-        goneSince.remove(user.userId)?.cancel()
+            // Back inside the grace period: nothing of theirs ends.
+            goneSince.remove(user.userId)?.cancel()
 
-        // This connection learns who is here, who could be, and which
-        // rooms are open (Amendment 11, §7.64)...
-        hub.sendTo(user.userId, presenceMessage(hub.online()))
-        hub.sendTo(user.userId, playersMessage(accounts()))
-        hub.sendTo(user.userId, roomsMessage(rooms.list.active().map { it.directoryEntry() }))
+            // This connection learns who is here, who could be, and which
+            // rooms are open (Amendment 11, §7.64)...
+            hub.sendTo(user.userId, presenceMessage(hub.online()))
+            hub.sendTo(user.userId, playersMessage(accounts()))
+            hub.sendTo(user.userId, roomsMessage(rooms.list.active().map { it.directoryEntry() }))
 
-        // ...and everybody learns about it, but only if the user was
-        // not already here in another tab (§5.6).
-        if (firstConnection) {
-            hub.broadcastExcept(
-                user.userId,
-                presenceChange(
-                    PresenceEntry(user.userId, user.username, user.displayName),
-                    online = true,
-                ),
-            )
+            // ...and everybody learns about it, but only if the user was
+            // not already here in another tab (§5.6).
+            if (firstConnection) {
+                hub.broadcastExcept(
+                    user.userId,
+                    presenceChange(
+                        PresenceEntry(user.userId, user.username, user.displayName),
+                        online = true,
+                    ),
+                )
+            }
         }
 
         // A refresh should land you back where you were, not outside
@@ -219,6 +223,13 @@ class LobbyService(
         user: User,
     ) {
         val connection = live.remove(connectionId) ?: return
+        presenceOf.take(user.userId) { departed(connection, user) }
+    }
+
+    private suspend fun departed(
+        connection: LobbyConnection,
+        user: User,
+    ) {
         if (hub.unregister(connection)) {
             // D2 — an invitation waiting for somebody who has gone
             // is not waiting for anything. Amendment 11: "gone" means

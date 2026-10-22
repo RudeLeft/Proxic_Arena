@@ -200,7 +200,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
 
           // WHICH END. Without it the list reads as "choose one"
           // and the player sorts their library backwards.
-          await expect(panel.getByText(/closest to the top/)).toBeVisible();
+          await expect(panel.getByText(/want to draw first/)).toBeVisible();
 
           // They are all going back, in SOME order; the only
           // question is which, so there is nothing to decline.

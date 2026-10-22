@@ -147,7 +147,7 @@ const ERROR_HEADINGS: Record<string, string> = {
   TOO_MANY_IMAGES: "That package contains too many images",
   INVALID_DECK_LIST: "The decklist could not be read",
   DECK_NOT_LEGAL: "That deck is not legal in Open Format",
-  CARDS_NOT_RESOLVED: "Forge does not recognise every card in that deck",
+  CARDS_NOT_RESOLVED: "Some cards in that deck are not supported yet",
   INVALID_ARTWORK: "That package contains artwork that is not a usable image",
   DUPLICATE_PACKAGE: "That deck has already been imported",
   DECK_NAME_TAKEN: "You already have a deck with that name",
