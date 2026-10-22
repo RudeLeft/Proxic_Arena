@@ -119,6 +119,10 @@ const CONFIGS = [
   { width: 1920, height: 1080, res: "fit" },
   { width: 3840, height: 2160, res: "full" },
   { width: 3840, height: 2160, res: "fit" },
+  // What the game actually sends the table: the server's 384-px copy
+  // (2026-10-21; the first measurement compared only full and fit).
+  { width: 1920, height: 1080, res: "served" },
+  { width: 3840, height: 2160, res: "served" },
 ];
 const RUNS = 5;
 const SHIFTS = 4;

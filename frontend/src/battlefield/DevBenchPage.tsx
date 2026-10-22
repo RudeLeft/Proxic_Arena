@@ -1,7 +1,7 @@
 // /dev/bench — the performance budget, measured (BATTLEFIELD_RENDERING.md
 // §6 "The performance budget -- a gate, not a hope", §7 step 6).
 //
-//   ?permanents=80&faces=60&seed=1&res=full|fit
+//   ?permanents=80&faces=60&seed=1&res=full|fit|served
 //
 // `faces` is how many DIFFERENT pictures the board shows (each card gets
 // one, round-robin). `res=full` serves every picture at the scan's own
@@ -35,6 +35,9 @@ function number(params: URLSearchParams, key: string, fallback: number, max: num
 
 /** A picture with a real scan's layout and grain, at `scale` of a real
  * scan's 745 x 1040. */
+/** The width of the copy the server sends the table (ArtStore.displayWidth). */
+const SERVED_WIDTH = 384;
+
 async function rasterScan(name: string, seed: number, scale: number): Promise<string> {
   const w = Math.round(745 * scale);
   const h = Math.round(1040 * scale);
@@ -115,7 +118,10 @@ export default function DevBenchPage() {
   const permanents = number(params, "permanents", 80, 200);
   const faces = number(params, "faces", 60, 120);
   const seed = number(params, "seed", 1, 1_000_000);
-  const res = params.get("res") === "fit" ? "fit" : "full";
+  // "served" (2026-10-21): the 384-px-wide copy the server actually sends
+  // the table (ArtStore's display copy, made at import since Phase 2).
+  const asked = params.get("res");
+  const res = asked === "fit" || asked === "served" ? asked : "full";
   const base = useMemo(() => syntheticBoard(permanents, faces, seed), [permanents, faces, seed]);
 
   const [art, setArt] = useState<Map<string, string> | null>(null);
@@ -143,7 +149,11 @@ export default function DevBenchPage() {
     void (async () => {
       const g = geometry({ width: window.innerWidth, height: window.innerHeight });
       const scale =
-        res === "fit" ? Math.min(1, ((g.cardH * 0.736) / 0.445 / 1040) * devicePixelRatio) : 1;
+        res === "fit"
+          ? Math.min(1, ((g.cardH * 0.736) / 0.445 / 1040) * devicePixelRatio)
+          : res === "served"
+            ? SERVED_WIDTH / 745
+            : 1;
       const made = new Map<string, string>();
       for (let k = 0; k < Math.max(1, faces); k++) {
         made.set(`face:${k}`, await rasterScan(`Face ${k + 1}`, seed, scale));

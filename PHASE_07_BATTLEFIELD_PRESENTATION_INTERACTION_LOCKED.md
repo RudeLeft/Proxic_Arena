@@ -1301,6 +1301,20 @@ table-sized copies (screenshots at the owner's usual window size and at
 only the picture file behind each card. If the owner says no, the
 memory budget is revisited instead (the alternative above).
 
+**Correction, 2026-10-21 (measured): the table already uses smaller
+copies.** This amendment's premise -- "today store and serve one
+full-size picture" -- was wrong. Since Phase 2 (§2.134) every imported
+picture is also stored as a 384-px-wide copy, and the match asset route
+sends that copy first. The first measurement compared only full scans
+and drawn-size pictures, never the copy actually served. Re-measured
+with it (`docs/testing/evidence/p7-benchmark.json`, rows "served"):
+**46.1 MB at 3840x2160 with 60 pictures** -- inside the 150 MB budget --
+with first paint, a new face and 60 fps unchanged. The budget is met
+as the game stands; nothing on the table changes, and the owner's
+demo-first condition stands for anything that would change its look.
+What remains of B14 is the close-up and the zoomed hand card asking for
+the full scan, shown to the owner as a side-by-side demo the same day.
+
 ## PHASE 7 AMENDMENT 9
 
 **Reason:** The application pages (Part X) were moved ahead of the rest

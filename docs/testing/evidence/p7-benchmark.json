@@ -1,5 +1,5 @@
 {
-  "measured": "2026-10-21T04:04:25.870Z",
+  "measured": "2026-10-22T04:04:35.887Z",
   "machine": {
     "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
     "cores": 20,
@@ -15,38 +15,38 @@
       "pictureScale": 1,
       "distinctFaces": 60,
       "firstPaintMs": {
-        "median": 29.700000047683716,
+        "median": 28.699999928474426,
         "all": [
-          44,
+          40,
+          28,
           29,
           30,
-          30,
-          30
+          28
         ]
       },
       "allFacesDecodedMs": {
-        "median": 265.80000001192093
+        "median": 297.89999997615814
       },
       "newFaceMs": {
-        "median": 29.30000001192093,
+        "median": 29.199999928474426,
         "all": [
           29,
           30,
-          28,
+          30,
           29,
-          30
+          29
         ]
       },
       "reCentreFrames": {
-        "count": 486,
+        "count": 488,
         "p50": 16.699999999999818,
-        "p95": 17,
-        "worst": 17.800000000000182,
+        "p95": 16.800000000000182,
+        "worst": 18.5,
         "over25ms": 0,
         "longTasks": 0
       },
       "decodedImageMB": {
-        "measured": 173.74968,
+        "measured": 173.5552,
         "fromPixels": 154.96
       }
     },
@@ -56,17 +56,17 @@
       "pictureScale": 0.217,
       "distinctFaces": 60,
       "firstPaintMs": {
-        "median": 29.19999998807907,
+        "median": 30.700000047683716,
         "all": [
-          29,
-          28,
-          29,
           35,
-          30
+          29,
+          29,
+          31,
+          36
         ]
       },
       "allFacesDecodedMs": {
-        "median": 52.39999997615814
+        "median": 51.799999952316284
       },
       "newFaceMs": {
         "median": 30.100000023841858,
@@ -75,14 +75,14 @@
           29,
           30,
           30,
-          29
+          31
         ]
       },
       "reCentreFrames": {
-        "count": 486,
+        "count": 490,
         "p50": 16.699999999999818,
-        "p95": 17,
-        "worst": 17.800000000000182,
+        "p95": 16.800000000000182,
+        "worst": 17.700000000000273,
         "over25ms": 0,
         "longTasks": 0
       },
@@ -97,33 +97,33 @@
       "pictureScale": 1,
       "distinctFaces": 60,
       "firstPaintMs": {
-        "median": 30.099999964237213,
+        "median": 30.299999952316284,
         "all": [
-          30,
+          31,
           29,
-          30,
-          30,
+          31,
+          28,
           30
         ]
       },
       "allFacesDecodedMs": {
-        "median": 237
+        "median": 201.79999995231628
       },
       "newFaceMs": {
-        "median": 29.5,
+        "median": 30.299999952316284,
         "all": [
-          30,
-          29,
-          30,
+          31,
+          27,
+          31,
           30,
           28
         ]
       },
       "reCentreFrames": {
-        "count": 493,
+        "count": 489,
         "p50": 16.699999999999818,
         "p95": 16.800000000000182,
-        "worst": 17.200000000000728,
+        "worst": 16.900000000000546,
         "over25ms": 0,
         "longTasks": 0
       },
@@ -138,33 +138,33 @@
       "pictureScale": 0.434,
       "distinctFaces": 60,
       "firstPaintMs": {
-        "median": 30,
+        "median": 30.699999928474426,
         "all": [
-          29,
+          31,
           30,
           31,
-          29,
-          30
+          30,
+          31
         ]
       },
       "allFacesDecodedMs": {
-        "median": 65.89999997615814
+        "median": 80.29999995231628
       },
       "newFaceMs": {
-        "median": 29.80000001192093,
+        "median": 29.100000023841858,
         "all": [
-          31,
-          30,
-          30,
           29,
-          30
+          29,
+          30,
+          31,
+          29
         ]
       },
       "reCentreFrames": {
-        "count": 488,
+        "count": 491,
         "p50": 16.699999999999818,
         "p95": 16.800000000000182,
-        "worst": 17.800000000000182,
+        "worst": 17.200000000000273,
         "over25ms": 0,
         "longTasks": 0
       },
@@ -172,12 +172,88 @@
         "measured": 32.630752,
         "fromPixels": 29.1346
       }
+    },
+    {
+      "viewport": "1920x1080",
+      "pictures": "served",
+      "pictureScale": 0.515,
+      "distinctFaces": 60,
+      "firstPaintMs": {
+        "median": 30.300000071525574,
+        "all": [
+          30,
+          31,
+          30,
+          30,
+          31
+        ]
+      },
+      "allFacesDecodedMs": {
+        "median": 79.70000004768372
+      },
+      "newFaceMs": {
+        "median": 28.700000047683716,
+        "all": [
+          29,
+          31,
+          28,
+          29,
+          28
+        ]
+      },
+      "reCentreFrames": {
+        "count": 486,
+        "p50": 16.699999999999818,
+        "p95": 16.800000000000182,
+        "worst": 17.40000000000009,
+        "over25ms": 0,
+        "longTasks": 0
+      },
+      "decodedImageMB": {
+        "measured": 46.104576,
+        "fromPixels": 41.1648
+      }
+    },
+    {
+      "viewport": "3840x2160",
+      "pictures": "served",
+      "pictureScale": 0.515,
+      "distinctFaces": 60,
+      "firstPaintMs": {
+        "median": 29.800000071525574,
+        "all": [
+          30,
+          19,
+          30,
+          30,
+          30
+        ]
+      },
+      "allFacesDecodedMs": {
+        "median": 80.69999992847443
+      },
+      "newFaceMs": {
+        "median": 30.399999976158142,
+        "all": [
+          30,
+          30,
+          31,
+          30,
+          31
+        ]
+      },
+      "reCentreFrames": {
+        "count": 492,
+        "p50": 16.699999999999818,
+        "p95": 16.800000000000182,
+        "worst": 18.800000000000182,
+        "over25ms": 0,
+        "longTasks": 0
+      },
+      "decodedImageMB": {
+        "measured": 46.104576,
+        "fromPixels": 41.1648
+      }
     }
-  ],
-  "notes": [
-    "Frame times are main-thread requestAnimationFrame intervals while every row re-centres (the 250 ms move, measured over 400 ms), 4 re-centres x 5 runs per configuration.",
-    "Measured headed: headless Edge schedules frames on a timer and missed frames under many concurrent animations (15 of 24 re-centres hitched headless vs 1 of 24 idle windows); headed, 0 of 24 re-centres did.",
-    "Pictures are generated 745x1040 PNGs with grain (a real scan's size; no real card art used). 'full' = served at scan size, as Arena serves imported pictures today; 'fit' = at the size the table draws them (the planned srcset, BATTLEFIELD_RENDERING.md 5.4).",
-    "decodedImageMB.measured is Chromium's memory-infra allocator cc/image_memory in the renderer; fromPixels is width x height x 4 summed over distinct pictures."
   ]
 }
