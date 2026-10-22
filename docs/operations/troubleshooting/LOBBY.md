@@ -339,5 +339,5 @@ Both are database-level. Upgrading the server runs them.
 - `docs/architecture/LOBBY_ARCHITECTURE.md` — the model
 - `docs/architecture/LOBBY_PROTOCOL.md` — routes, events, error codes
 - `docs/architecture/MATCH_SETUP_CONTRACT.md` — the Phase 6 handoff
-- `docs/troubleshooting/DECK_DEPOT.md` — sharing and import problems
-- `docs/troubleshooting/AUTHENTICATION.md` — sessions and sign-in
+- `docs/operations/troubleshooting/DECK_DEPOT.md` — sharing and import problems
+- `docs/operations/troubleshooting/AUTHENTICATION.md` — sessions and sign-in

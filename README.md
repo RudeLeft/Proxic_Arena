@@ -6,30 +6,27 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Phases 1–6 are complete** — application foundation, deck package
-import, accounts and authentication, the Deck Depot, the lobby and the
-Forge match runtime; `PHASE_01_EXIT_GATE.md` through
-`PHASE_06_EXIT_GATE.md` list exactly what is proven.
-
-**Phase 7 is built and awaiting the owner's sign-off**
-(`PHASE_07_EXIT_GATE.md`): two players play a real game of Magic, run
-by Forge, on a graphical battlefield in the style of MTG Arena — cards
-clicked to play, target, attack and block, each player seeing only what
-Forge lets them see — and every page (sign in, Lobby, Deck Depot,
-Account, Admin) is built.
+**Version 1.0.0 (2026-10-22): the main build is complete.** Two players
+play a real game of Magic, run by Forge, on a graphical battlefield in
+the style of MTG Arena — cards clicked to play, target, attack and
+block, each player seeing only what Forge lets them see — with every
+page built: sign in, Lobby, Deck Depot, Account, Admin. What each of
+the eight phases proved is in `docs/history/phases/`; what changed in
+each release is `CHANGELOG.md`; what is next, and how new features are
+specified and approved, is `ROADMAP.md`.
 
 **Everything except health and version requires a session**, the
 status page included. Accounts are created by an administrator with
 `arena-admin`; there is no self-registration. See
 `docs/architecture/AUTHENTICATION.md`, and
-`docs/troubleshooting/AUTHENTICATION.md` when a login will not work.
+`docs/operations/troubleshooting/AUTHENTICATION.md` when a login will not work.
 
 **There are no join codes.** A host sees who is signed in and
 invites them by clicking their name; an invitation the server
 recorded is the only way into a room. Every signed-in player sees the
 list of rooms and who sits in them — never their decks — but cannot
 walk into one uninvited. There is no matchmaking. See `docs/architecture/LOBBY_ARCHITECTURE.md`,
-and `docs/troubleshooting/LOBBY.md` when a room misbehaves.
+and `docs/operations/troubleshooting/LOBBY.md` when a room misbehaves.
 
 **Decks are private.** Each belongs to the account that uploaded it,
 and is visible to nobody else until its owner shares it by username.
@@ -90,7 +87,7 @@ Three rules shape all of it:
 
 Containers run as non-root with all Linux capabilities dropped,
 `no-new-privileges`, and a read-only root filesystem for the server.
-See `docs/security/PHASE_01_BASELINE_REVIEW.md`.
+See `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md`.
 
 Every version is pinned exactly. Nothing floats.
 
@@ -142,7 +139,7 @@ export PROXIC_FORGE_RES=$PWD/third_party/forge/forge-gui/res
 ```
 
 Readiness should then report `forgeWorker: "ok"`. Any other value is
-explained in `docs/troubleshooting/FOUNDATION.md`.
+explained in `docs/operations/troubleshooting/FOUNDATION.md`.
 
 > The Forge artifacts on this machine were installed during Phase 0A
 > and the worker has been built and run against them. The clone-and-
@@ -342,9 +339,10 @@ Generate a session secret with `openssl rand -hex 32`.
 
 ```text
 AGENTS.md                  operating contract — read first
-BUILD_PLAN.md              phase index and status
-PHASE_*.md                 phase specifications and gates
-forge-pin.properties       the pinned Forge commit (one source)
+ROADMAP.md                 what is built, what is next, how work happens
+CHANGELOG.md               plain-English notes per release
+VERSION                    the release number
+forge-pin.properties       the pinned Forge commit and app version (one source)
 
 server/                    Kotlin/Ktor — HTTP, WS, sessions
 forge-worker/              Java/Maven — Forge, one JVM per match
@@ -354,15 +352,15 @@ protocol/                  shared fixtures and schemas
 database/                  see its README — migrations are NOT here
 config/                    detekt configuration
 docs/
-  architecture/            accepted decisions, layout contract
+  architecture/            how the game works today (kept current)
+  features/                one spec per feature; template in README.md
+  operations/              Unraid install, updating, rollback
+    troubleshooting/       FOUNDATION, DECK_IMPORT, AUTHENTICATION,
+                           DECK_DEPOT, LOBBY, MATCH_RUNTIME
   decisions/               ADRs
-  research/                phase evidence
-  troubleshooting/         FOUNDATION.md, DECK_IMPORT.md,
-                           AUTHENTICATION.md, DECK_DEPOT.md,
-                           LOBBY.md, MATCH_RUNTIME.md
-  deployment/              Unraid install, updating, rollback
   testing/                 Mechanics Lab ledger and evidence
   assets/                  logo, icon, brand images
+  history/phases/          the main build's phase documents, frozen
 forge_patches/             owner-approved Forge fixes; see its README
 scripts/                   Mechanics Lab scenarios (check-*.py), tools
 Test Deck/                 Mechanics Lab corpus (read-only input)
@@ -374,23 +372,24 @@ spikes/                    Phase 0A measurement harnesses
 1. `AGENTS.md` — the operating contract.
 2. `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` — the
    architectural facts Phase 0A established, and why.
-3. `PHASE_07_EXIT_GATE.md` — what is actually proven today, and the
-   earlier exit gates for what each phase added.
-4. `docs/troubleshooting/FOUNDATION.md` — when something will not
+3. `ROADMAP.md` — what is built and what is next; then
+   `docs/history/phases/phase-07/PHASE_07_EXIT_GATE.md` for what the
+   main build proved, and the earlier exit gates for each phase.
+4. `docs/operations/troubleshooting/FOUNDATION.md` — when something will not
    start.
-5. `docs/security/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,
+5. `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,
    checked rather than asserted.
 6. `docs/architecture/DECK_PACKAGE_FORMAT.md` — the Deck Builder ↔
    Arena contract, and `DECK_IMPORT_PIPELINE.md` for how an import
    actually runs.
 7. `docs/architecture/AUTHENTICATION.md` — who someone is, and
    `AUTHORIZATION.md` — what they may then do. When a login will not
-   work, `docs/troubleshooting/AUTHENTICATION.md`, which starts with
+   work, `docs/operations/troubleshooting/AUTHENTICATION.md`, which starts with
    the one thing that catches everybody: sign in through the tunnel,
    not the LAN port.
-8. `docs/deployment/UPDATING.md` — two clicks, how to tell what is
+8. `docs/operations/UPDATING.md` — two clicks, how to tell what is
    deployed, and how to roll back.
-9. `docs/deployment/UNRAID_INSTALL.md` — installing on the host, and
-   `docs/deployment/UNRAID_CHECKLIST.md` — going public through the
+9. `docs/operations/UNRAID_INSTALL.md` — installing on the host, and
+   `docs/operations/UNRAID_CHECKLIST.md` — going public through the
    tunnel. Both have since been run against the real host, and
    carry the three corrections that deployment found.

@@ -144,7 +144,7 @@ unavailable database is the expected picture during a restart, not a
 contradiction. It recovers on its own once Postgres is healthy.
 
 If Postgres itself is restart-looping, see
-`docs/troubleshooting/FOUNDATION.md` — on this host it was `initdb`
+`docs/operations/troubleshooting/FOUNDATION.md` — on this host it was `initdb`
 refusing a data directory that already held files.
 
 ---

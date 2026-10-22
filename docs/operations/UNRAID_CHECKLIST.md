@@ -104,7 +104,7 @@ docker compose ps
       {"status":"ok","checks":{"dataRoot":"ok","database":"ok","forgeWorker":"ok"}}
       ```
 - [ ] If `forgeWorker` is anything else, stop here —
-      `docs/troubleshooting/FOUNDATION.md` has a table of the five
+      `docs/operations/troubleshooting/FOUNDATION.md` has a table of the five
       states and what each one means.
 
 **Optional, to see it in a browser before the tunnel exists:**
@@ -196,8 +196,8 @@ Send me:
 - the HSTS header line,
 - anything that surprised you.
 
-I will update `PHASE_01_EXIT_GATE.md` and
-`PHASE_01_DELIVERABLES.md` with the real results and, if all four
+I will update `docs/history/phases/phase-01/PHASE_01_EXIT_GATE.md` and
+`docs/history/phases/phase-01/PHASE_01_DELIVERABLES.md` with the real results and, if all four
 pass, Phase 1's gate closes.
 
 ---

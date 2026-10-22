@@ -44,7 +44,7 @@ adapter does not implement [asked: {...}] [declined: N]
 That is deliberate (AGENTS STUB-002): an unbuilt question fails loudly
 rather than being answered for the player. Note the card that was being
 played and the method name; it is built when a real game reaches it
-(42 are still unbuilt -- `PHASE_06_ACCEPTANCE_AUDIT.md`). Out of memory
+(42 are still unbuilt -- `docs/history/phases/phase-06/PHASE_06_ACCEPTANCE_AUDIT.md`). Out of memory
 is the other cause: allow ~1 GiB per concurrent match.
 
 ## A match never starts
@@ -101,4 +101,4 @@ powershell -ExecutionPolicy Bypass -File scripts\run-production-check.ps1
 ```
 
 Plays one real game on the live site as RudeLeft and Pat; see
-`docs/deployment/UPDATING.md`.
+`docs/operations/UPDATING.md`.

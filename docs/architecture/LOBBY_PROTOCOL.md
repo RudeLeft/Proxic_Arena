@@ -299,4 +299,4 @@ filesystem paths, no raw Forge diagnostics reach a browser.
 
 - `LOBBY_ARCHITECTURE.md` — why the model is shaped this way
 - `MATCH_SETUP_CONTRACT.md` — the Phase 6 handoff
-- `docs/troubleshooting/LOBBY.md` — what to do when one of these shows up
+- `docs/operations/troubleshooting/LOBBY.md` — what to do when one of these shows up

@@ -4,7 +4,7 @@ PHASE_04 §4.168. What a deck belongs to, who can see it, and what
 happens when somebody shares one.
 
 The exact authorization rules are `DECK_AUTHORIZATION.md`. When
-something will not work, `docs/troubleshooting/DECK_DEPOT.md`. The
+something will not work, `docs/operations/troubleshooting/DECK_DEPOT.md`. The
 package format itself is unchanged from Phase 2 —
 `DECK_PACKAGE_FORMAT.md`.
 

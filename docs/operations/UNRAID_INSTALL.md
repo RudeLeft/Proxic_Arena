@@ -176,7 +176,7 @@ Open `http://<unraid-ip>:8765` — five indicators, all **Ready**.
 > will not keep a `Secure` cookie delivered over plain HTTP, so the
 > login silently bounces back to the form. Use
 > `https://proxic.barnflix.net`. The LAN port is for diagnostics
-> (owner decision D2); `docs/troubleshooting/AUTHENTICATION.md`
+> (owner decision D2); `docs/operations/troubleshooting/AUTHENTICATION.md`
 > leads with this.
 
 If an indicator is not Ready:

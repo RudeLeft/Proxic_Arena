@@ -4,7 +4,7 @@ package net.barnflix.proxic.deck
 // The Deck Builder decklist, parsed — PHASE_02 §2.39–§2.43.
 //
 // Grammar, observed from a real export rather than assumed
-// (`docs/research/phase-02/DECK_BUILDER_EXPORT_INSPECTION.md`):
+// (`docs/history/phases/phase-02/research/DECK_BUILDER_EXPORT_INSPECTION.md`):
 //
 // ```text
 // // Basic_Mono_Red_65_Card_Deck (commander)

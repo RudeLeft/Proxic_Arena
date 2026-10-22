@@ -6,7 +6,7 @@ what to do.
 How it works is `docs/architecture/DECK_DEPOT.md`; the exact rules
 are `DECK_AUTHORIZATION.md`. Problems with the package itself —
 rejected ZIPs, missing cards, bad artwork — are
-`docs/troubleshooting/DECK_IMPORT.md`, which Phase 4 did not change.
+`docs/operations/troubleshooting/DECK_IMPORT.md`, which Phase 4 did not change.
 
 ---
 
@@ -18,7 +18,7 @@ browser will not keep a `Secure` cookie over plain HTTP. Use
 `https://proxic.barnflix.net`.
 
 That is owner decision D2 and it catches everybody once;
-`docs/troubleshooting/AUTHENTICATION.md` leads with it.
+`docs/operations/troubleshooting/AUTHENTICATION.md` leads with it.
 
 ## The upload is refused
 

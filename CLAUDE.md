@@ -2,14 +2,17 @@
 
 Read `AGENTS.md` first, every session, before inspecting, planning,
 editing, testing, building or playing this project. It is the operating
-contract — project locations, phase discipline, evidence rules, Forge
+contract — project locations, work discipline, evidence rules, Forge
 boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
-**Phase 0A is ACCEPTED (2026-10-15). Phases 1-6 are COMPLETE
-(Phase 6 gate approved by the owner 2026-10-20). Phase 7
-(Battlefield Presentation & Interaction, and the application pages) is
-LOCKED 2026-10-20 and is the active phase.**
+**The main build is COMPLETE — version 1.0.0, 2026-10-22.** Phases 0A
+and 1-7 all passed their gates; Phase 7 was signed off by the owner
+2026-10-22. Their documents are frozen history in
+`docs/history/phases/` and are never edited. **Work is now one feature
+at a time**: only on a feature spec the owner has approved
+(`docs/features/`, listed in `ROADMAP.md`); see AGENTS.md "Current
+work".
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.
@@ -18,8 +21,8 @@ established.
 copies of a specific card, unrestricted card pool, 2 players.
 
 Commander and Two-Headed Giant are **not built and not offered**,
-but they returned to the ROADMAP on 2026-10-17 (owner decision), so
-Phase 6 designs so they stay reachable. AGENTS.md FMT-005 draws the
+but they are on the ROADMAP (owner decision 2026-10-17), so the
+runtime is designed so they stay reachable. AGENTS.md FMT-005 draws the
 line: a seat model that can hold four is in scope; a game that seats
 four is not. See `docs/architecture/OPEN_FORMAT.md`, FMT-001 and
 FMT-005.

@@ -258,7 +258,7 @@ one match (P6-B); a revoked deck or a disabled player stops the launch
 
 ## See also
 
-- `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_LOCKED.md` — §5.91–§5.117
+- `docs/history/phases/phase-05/PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_LOCKED.md` — §5.91–§5.117
 - `PHASE_00_ACCEPTED_DECISIONS.md` — the Forge boundary and process model
 - `OPEN_FORMAT.md` — the only play mode
-- `PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` §2.45 (amended) — who owns legality
+- `docs/history/phases/phase-02/PHASE_02_DECK_PACKAGE_IMPORT_LOCKED.md` §2.45 (amended) — who owns legality

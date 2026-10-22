@@ -6,7 +6,7 @@ package net.barnflix.proxic.deck
  * §2.30 says to measure real exports and leave a safety margin, and
  * explicitly not to pick arbitrary tiny values. These come from the
  * real export inspected on 2026-10-15
- * (`docs/research/phase-02/DECK_BUILDER_EXPORT_INSPECTION.md`):
+ * (`docs/history/phases/phase-02/research/DECK_BUILDER_EXPORT_INSPECTION.md`):
  *
  * ```text
  * 12,404,818 bytes uncompressed, 12 entries, 11 PNGs

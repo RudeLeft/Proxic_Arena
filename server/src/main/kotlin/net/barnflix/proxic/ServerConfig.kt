@@ -48,7 +48,7 @@ data class ServerConfig(
      * the hostname changed once already: the specification said
      * arena.barnflix.net and the deployment is proxic.barnflix.net
      * (PHASE 2 AMENDMENT 1... actually AMENDMENT 1 of Phase 1's
-     * sibling set — see PHASE_01_AMENDMENTS.md).
+     * sibling set — see docs/history/phases/phase-01/PHASE_01_AMENDMENTS.md).
      */
     val publicOrigin: String = "https://proxic.barnflix.net",
     /**

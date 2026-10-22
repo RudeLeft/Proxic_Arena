@@ -5,7 +5,7 @@ each decision is defended against.
 
 Authorization — what an identity may then do — is
 `AUTHORIZATION.md`. When something does not work, go to
-`docs/troubleshooting/AUTHENTICATION.md`.
+`docs/operations/troubleshooting/AUTHENTICATION.md`.
 
 No password, token or secret value appears in this document, in the
 logs, or in any API response.
@@ -279,7 +279,7 @@ reads it from stdin instead, which is the automation path.
   so its behaviour is testable in-process.
 
 The first administrator is created this way; see
-`docs/deployment/UNRAID_CHECKLIST.md`.
+`docs/operations/UNRAID_CHECKLIST.md`.
 
 ---
 

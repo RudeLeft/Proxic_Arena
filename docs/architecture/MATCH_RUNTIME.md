@@ -2,7 +2,7 @@
 
 PHASE_06 §6.176. How a prepared room becomes a running Forge game and
 how it stops. Written from the code (`server/.../match/`) and the
-runs recorded in `PHASE_06_ACCEPTANCE_AUDIT.md`; where they disagree,
+runs recorded in `docs/history/phases/phase-06/PHASE_06_ACCEPTANCE_AUDIT.md`; where they disagree,
 the code is right and this file is the bug.
 
 Related: `MATCH_PROTOCOL.md` (the wire), `FORGE_WORKER_RUNTIME.md`

@@ -1,7 +1,7 @@
 # Battlefield Rendering
 
 **Status:** ACCEPTED — owner decision 2026-10-19
-**Amends:** Phase 7 §7.15 (renderer), §7.16 (texture strategy), §7.48 (acceptance); Phase 1 stack table row "Battlefield renderer" via `PHASE_01_AMENDMENTS.md` Amendment 3
+**Amends:** Phase 7 §7.15 (renderer), §7.16 (texture strategy), §7.48 (acceptance); Phase 1 stack table row "Battlefield renderer" via `docs/history/phases/phase-01/PHASE_01_AMENDMENTS.md` Amendment 3
 **Companion:** `BATTLEFIELD_LAYOUT_CONTRACT.md` (geometry — unchanged by this document)
 **Date:** 2026-10-19
 

@@ -39,16 +39,24 @@ BUILD NEW
 
 ---
 
-## Current phase
+## Current work
 
-**Phase 0A is ACCEPTED (2026-10-15). Phases 1–6 are COMPLETE — Phase 6
-(Forge Match Runtime & Authoritative Game Protocol) passed its exit gate,
-approved by the owner 2026-10-20 (`PHASE_06_EXIT_GATE.md`). The active
-phase is Phase 7 — Battlefield Presentation & Interaction, widened to the
-application pages (LOCKED 2026-10-20).** Production work is authorized
-within Phase 7 only. Its renderer is
-`docs/architecture/BATTLEFIELD_RENDERING.md`; its amendments to Phases
-3-6 are §7.69. *(amended 2026-10-19 — section had still named Phase 1.)*
+**The main build is COMPLETE (2026-10-22, version 1.0.0).** Phase 0A was
+ACCEPTED 2026-10-15 and Phases 1–7 each passed their exit gate; Phase 7
+was signed off by the owner 2026-10-22
+(`docs/history/phases/phase-07/PHASE_07_EXIT_GATE.md`). The phase papers
+are frozen history in `docs/history/phases/`.
+
+**From here, work is one feature at a time** (owner decision
+2026-10-22): production work is authorized only on a feature spec the
+owner has approved (`docs/features/`, listed in `ROADMAP.md`).
+Maintenance that changes no behaviour a player or the owner sees — a
+security fix, a dependency refresh, a failing test — needs no spec, but
+is still reported and verified as any change is. *(amended 2026-10-22 —
+this section was "Current phase".)*
+
+**Approved feature specs: none yet.** Update this line when one is
+approved.
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,
@@ -63,11 +71,11 @@ you were asked to do, stop and say so.
 
 | Document | What it is |
 | --- | --- |
-| `PHASE_00A_..._DRAFT.md` | Blocking Forge validation. Ten questions, ten tests. ACCEPTED 2026-10-15. |
-| `PHASE_00B_..._DRAFT.md` | Deferred validation. A standing register; each entry has a trigger that makes it blocking again. |
-| `PHASE_00_..._SUPERSEDED.md` | Original Phase 0. Its **rules** still bind; its **scope** is replaced by 0A + 0B. |
-| `PHASE_01`–`PHASE_06` `_LOCKED.md` | Production phases, each locked at its exit gate (1–6 COMPLETE; see `BUILD_PLAN.md`). Amendments to a locked phase go in its `PHASE_0N_AMENDMENTS.md` or `_EXIT_GATE.md`, never into the locked text. |
-| `PHASE_07_..._LOCKED.md` | Battlefield presentation and interaction, and the application pages (PART X). LOCKED 2026-10-20, active. §7.4 lists every obligation earlier phases deferred here; §7.52 the owner's 2026-10-20 decisions. |
+| `ROADMAP.md` | What is built, what is next, and how new work happens. |
+| `CHANGELOG.md` | Plain-English notes per release; the GitHub release carries the same. |
+| `docs/features/` | One spec per feature (`README.md` has the template). An owner-approved spec is the authority for its feature, as a locked phase was. |
+| `docs/history/phases/phase-NN/` | **Frozen.** The main build's phase documents (specifications, amendments, deliverables, audits, exit gates, research). Never edited (PHASE-002). The code cites them by section, e.g. "PHASE_06 §6.17". Phase 0's **rules** still bind (`PHASE_00_..._SUPERSEDED.md`); Phase 0B's deferred-question triggers still apply (PHASE-004). |
+| `docs/operations/` | Installing, updating and rolling back on Unraid; `troubleshooting/` when something misbehaves. |
 | `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` | **The locked architecture.** Read before any production code. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
@@ -81,7 +89,7 @@ you were asked to do, stop and say so.
 | `docs/architecture/MATCH_PROTOCOL.md` | The browser ↔ server match wire. Field detail in `protocol/README.md`. |
 | `docs/architecture/FORGE_WORKER_RUNTIME.md` | The Forge process: pin, build, launch, handshake, internal protocol, resources. |
 | `docs/architecture/MATCH_STATE_VISIBILITY.md` | **Who may see what, decided by Forge.** Read before touching `ViewerSnapshot`. |
-| `docs/architecture/MATCH_ACTION_MODEL.md` | How a player acts; selection vs action; what Phase 7 must keep. |
+| `docs/architecture/MATCH_ACTION_MODEL.md` | How a player acts; selection vs action. |
 | `docs/architecture/MATCH_ASSET_AUTHORIZATION.md` | Card pictures during a match: identity, authorization, retrieval. |
 | `docs/testing/MECHANICS_LAB_COVERAGE.md` | The card-by-card regression ledger (generated; edit `mechanics-lab-status.json`). |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
@@ -98,7 +106,7 @@ you were asked to do, stop and say so.
   2026-10-15.
   **AMENDED 2026-10-17 (owner decision).** "or plan for" is gone.
   Commander and Two-Headed Giant are now intended FUTURE phases
-  (see BUILD_PLAN), so the runtime must be designed for them rather
+  (see ROADMAP.md), so the runtime must be designed for them rather
   than merely not blocking them — see FMT-005 for exactly how far
   that goes. What stays forbidden is unchanged: nothing offers,
   exposes or enables either mode today. The preset catalogue has one
@@ -155,24 +163,31 @@ you were asked to do, stop and say so.
 
 ---
 
-## PHASE — Phase discipline
+## PHASE — Work discipline
 
-- **PHASE-001 — MUST:** Check the **Current phase** section above before
-  implementing. Do not start a later phase because the current one is
-  blocked or boring. _REVIEW._
-- **PHASE-002 — MUST NOT:** Silently change a `PROVISIONAL` or `LOCKED`
-  phase document. Amendments are explicit, dated and owner-approved (see
-  `PHASE_00 §0.85`). _USER._
-- **PHASE-003 — MUST:** Escalate when reality contradicts a phase
-  document, using `PHASE_00 §0.81`'s CONFLICT format: requirement,
-  observed reality, evidence, impact, options, recommendation, question.
-  Do not silently follow the document, and do not silently depart from
-  it. _REVIEW._
+*(amended 2026-10-22, owner decision: the main build is complete and work
+is now one approved feature at a time. These were "phase" rules; each
+keeps its number and its substance.)*
+
+- **PHASE-001 — MUST:** Check the **Current work** section above before
+  implementing. Build only what an owner-approved feature spec covers (or
+  maintenance as that section defines it); do not start an unapproved
+  feature because the approved one is blocked or boring. _REVIEW._
+- **PHASE-002 — MUST NOT:** Silently change an approved feature spec, or
+  anything in `docs/history/` — the frozen phase documents are never
+  edited at all. Amendments to an approved spec are explicit, dated and
+  owner-approved (see `PHASE_00 §0.85`). _USER._
+- **PHASE-003 — MUST:** Escalate when reality contradicts a feature spec,
+  an architecture document or a frozen phase document's rule, using
+  `PHASE_00 §0.81`'s CONFLICT format: requirement, observed reality,
+  evidence, impact, options, recommendation, question. Do not silently
+  follow the document, and do not silently depart from it. _REVIEW._
 - **PHASE-004 — MUST:** Give every deferred item a **trigger** — the
-  condition that makes it blocking again — and record it in Phase 0B's
-  register. A deferred question with a trigger is engineering; without
-  one it is a bug with a long fuse. _REVIEW._
-
+  condition that makes it blocking again — and record it: in the feature
+  spec that defers it, or in `ROADMAP.md`. Phase 0B's register is frozen
+  with the rest of the history, but its triggers still apply. A deferred
+  question with a trigger is engineering; without one it is a bug with a
+  long fuse. _REVIEW._
 ---
 
 ## EVID — Evidence discipline
@@ -485,10 +500,10 @@ dropping or adding a supported format
 changing the Scryfall / Forge responsibility boundary
 discarding a proven safety mechanism from the old project
 modifying anything in Proxic_Arena_OLD
-changing a PROVISIONAL or LOCKED phase document
+changing an approved feature spec, or anything in docs/history/
 abandoning process-per-match isolation without evidence
 locking geometry that has not been observed rendering
-any major architecture decision not covered by the active phase
+any major architecture decision not covered by an approved feature spec
 ```
 
 ---

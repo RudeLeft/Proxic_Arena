@@ -26,6 +26,9 @@ does, `RUN` means a real game or a real browser, not a unit test alone
 
 ## Where it stands
 
+**2026-10-22: all 27 MET.** The owner signed off P7-O; Phase 7 is
+COMPLETE (`PHASE_07_EXIT_GATE.md`).
+
 **Updated 2026-10-21, later.** Every partial is closed. Two of the new
 tests found faults on the way, both fixed: a renamed deck kept its old
 name in the other player's room until a reload (P7-AA), and the Mechanics
@@ -35,10 +38,10 @@ pictures (P7-W, waiting on the Deck Builder) and the owner's sign-off.
 
 | Status | Count |
 |---|---|
-| MET | 26 |
+| MET | 27 |
 | PARTIAL | 0 |
 | NOT MET | 0 |
-| OWNER | 1 |
+| OWNER | 0 |
 | **Total** | **27** |
 
 ## The 27
@@ -59,7 +62,7 @@ pictures (P7-W, waiting on the Deck Builder) and the owner's sign-off.
 | P7-L | Attachments render from relationship data, not parsed text | MET | `check-attachments.py` (real games), `match-attachments.spec.ts` (browser), `layout.test.ts` "attachments" |
 | P7-M | Texture strategy measured under a 60-permanent board | MET | `benchmark.spec.ts`, `docs/testing/evidence/p7-benchmark.json` (80 permanents, 60 distinct pictures) |
 | P7-N | Layout property suite green across viewport × card-count matrix | MET | `layout.test.ts` (8 viewports × 7 counts × both seats), in CI |
-| P7-O | Owner has seen and accepted the board | OWNER | The owner's sign-off, at the exit gate |
+| P7-O | Owner has seen and accepted the board | MET | The owner signed Phase 7 off, 2026-10-22 |
 | P7-P | Every card's `getBoundingClientRect()` equals `layout()`'s box | MET | `battlefield.spec.ts` "the drawn battlefield is exactly layout()'s", and "after every change the board moves, then settles exactly where layout() says" |
 | P7-Q | The §6 performance budget is met on the synthetic board, numbers committed | MET | `p7-benchmark.json`, re-measured 2026-10-21 with the pictures the game really sends (384-px copies): 46.1 MB at 4K (budget 150), first paint ~30 ms, new face ~30 ms, 60 fps through a full re-centre (Amendment 8's correction) |
 | P7-R | Default stops: quiet turns pass; a spell on the stack stops; an added stop is honoured; no non-priority question auto-answered | MET | `check-stops.py` (quiet, respond, nothing, skip), `match-stops.spec.ts` (browser) |

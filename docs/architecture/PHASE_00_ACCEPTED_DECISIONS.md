@@ -2,7 +2,7 @@
 
 **Accepted by the project owner: 2026-10-15.**
 **Required by:** `PHASE_01` §1.3
-**Evidence:** `docs/research/phase-00a/` — this document carries
+**Evidence:** `docs/history/phases/phase-00/research/` — this document carries
 decisions, not the narrative.
 
 > These are the architectural facts established by Phase 0A. Later

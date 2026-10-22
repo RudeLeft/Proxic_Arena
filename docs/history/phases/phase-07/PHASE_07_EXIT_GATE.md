@@ -1,9 +1,10 @@
 # Phase 7 Exit Gate
 
-**Status: AWAITING THE OWNER'S SIGN-OFF (P7-O).** Every other acceptance
-test is met, on build `8695da1` (CI run 39725687656, promoted to
-`latest`). Closing the phase is the owner's decision, after playing on
-the live site.
+**Status: PASSED — Phase 7 is COMPLETE.** The owner signed it off on
+2026-10-22 (P7-O). All 27 acceptance tests are met; the build carried
+forward the 2026-10-22 security review (`9150a62`, `7fe7c06`). This is
+the last phase: the project now moves from phases to features
+("Next", below), and this document is history from here on.
 
 Two players play a real game of Magic, run by Forge, on a graphical
 battlefield in the style of MTG Arena: the board is laid out by one
@@ -27,7 +28,7 @@ ktlint, detekt, ESLint, Prettier, tsc     clean
 a full check: about 12 minutes, on 10 machines at once
 ```
 
-**27 acceptance tests: 26 MET, 1 the owner's (P7-O).** Evidence, row by
+**27 acceptance tests: 27 MET** (P7-O by the owner, 2026-10-22). Evidence, row by
 row: `PHASE_07_ACCEPTANCE_AUDIT.md`.
 
 ---

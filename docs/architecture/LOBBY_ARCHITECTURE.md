@@ -337,5 +337,5 @@ server bounced nightly must not keep dead rooms alive forever.
 - `LOBBY_PROTOCOL.md` — the wire: routes, events, fields, codes
 - `MATCH_SETUP_CONTRACT.md` — the Phase 6 handoff
 - `DECK_AUTHORIZATION.md` — `canUseDeck`, from Phase 4
-- `docs/troubleshooting/LOBBY.md` — when it misbehaves
-- `PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_LOCKED.md` — the specification and its four amendments
+- `docs/operations/troubleshooting/LOBBY.md` — when it misbehaves
+- `docs/history/phases/phase-05/PHASE_05_LOBBY_GAME_ROOMS_MATCH_SETUP_LOCKED.md` — the specification and its four amendments

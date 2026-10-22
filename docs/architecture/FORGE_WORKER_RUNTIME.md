@@ -40,7 +40,7 @@ Multi-stage `Dockerfile`, `worker` stage (Maven, Temurin 17):
 The runtime image carries `/app/forge/forge-worker.jar` and Forge's
 resources at `/app/forge/res` (`PROXIC_FORGE_WORKER_JAR`,
 `PROXIC_FORGE_RES`). The worker is built **once per image** and promoted
-with it; nothing compiles on the host (docs/deployment/UPDATING.md).
+with it; nothing compiles on the host (docs/operations/UPDATING.md).
 
 ## Launch
 
