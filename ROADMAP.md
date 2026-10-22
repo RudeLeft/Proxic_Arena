@@ -27,12 +27,12 @@ time** (owner decision, 2026-10-22):
 
 | # | Feature | Status | Spec |
 |---|---|---|---|
-| 0001 | Sacrifice and surveil — "which creature do you sacrifice?" (Eldrazi Monument, Diabolic Edict) and "surveil N"; the two unbuilt questions most likely to stop a game | Draft — for approval | `docs/features/0001-sacrifice-and-surveil.md` |
+| 0001 | Sacrifice and surveil — "which creature do you sacrifice?" (Eldrazi Monument, Diabolic Edict) and "surveil N"; the two unbuilt questions most likely to stop a game | **Approved** 2026-10-22 — building (with "destroy" too) | `docs/features/0001-sacrifice-and-surveil.md` |
 | — | The other unbuilt Forge questions — a game that reaches one ends with an error. Next most likely: choosing what to destroy, ordering your own triggers and blockers, piles (Fact or Fiction), exert/enlist, attack taxes (Ghostly Prison), voting, splice. The full list and how likely each is: `docs/history/phases/phase-06/PHASE_06_EXIT_GATE.md` ("Unsupported Forge paths") | Planned | — |
 | — | Commander | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | Two-Headed Giant | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | A match that survives a server restart (today it ends with no winner; P6-AZ) | Idea | — |
-| — | A computer opponent | Owner question | — |
+| — | A computer opponent | Idea, later (owner 2026-10-22: no spec until asked) | — |
 | — | Web server framework: Ktor 2.3 (end of its line) → Ktor 3 | Planned (maintenance) | — |
 | — | Offer Forge patches 0001 and 0002 upstream | Idea | — |
 

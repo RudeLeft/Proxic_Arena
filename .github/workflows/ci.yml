@@ -429,7 +429,13 @@ jobs:
         if: failure()
         with:
           name: playwright-report-${{ matrix.shard }}
-          path: frontend/playwright-report/
+          # test-results/ holds what a failure leaves -- screenshots, the
+          # trace, the page at the moment it failed. The line reporter
+          # writes no playwright-report/, so this uploaded nothing and a
+          # failure could not be seen after the run (2026-10-22).
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
           retention-days: 7
 
   publish:

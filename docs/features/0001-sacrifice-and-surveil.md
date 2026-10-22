@@ -1,8 +1,9 @@
 # 0001 — Sacrifice and surveil
 
-**Status:** Draft, for the owner's approval
+**Status:** Approved 2026-10-22
 **Owner decisions:** what to build (2026-10-22: "spec sacrifice plus
-surveil"); D1–D3 below are open
+surveil"); approved 2026-10-22 with D1 yes (destroy too), D2 ask anyway,
+D3 card pictures (scry moves to the same look)
 
 ## Why
 
@@ -96,18 +97,19 @@ who sacrifices what — Forge's rules, untouched (ARCH-002).
   the same code, with one word different (`choosePermanentsToDestroy`;
   cards that make a player destroy their own permanents). Building it
   alongside costs almost nothing and removes a third unbuilt question.
-  *Recommendation: yes, include it.*
+  *Recommendation: yes, include it.* **Owner, 2026-10-22: yes.**
 - **D2 — When there is no real choice** (sacrifice one creature, you have
   one): ask anyway, with that creature glowing (one click; you always see
   what happened — Forge's own screen does this), or let it go without a
   question and say so in the game's notices ("You sacrificed Goblin
   Instigator")? *Recommendation: ask — as Forge does, and never a silent
-  move (§6.50); one click.*
+  move (§6.50); one click.* **Owner, 2026-10-22: ask anyway.**
 - **D3 — Surveil's cards:** shown as their names in the question line
   (as scry is today), or as small card pictures you click (more like the
   rest of the board, more work)? *Recommendation: card pictures,
   clickable, since the owner wants the board to be the answer — and scry
-  moves to the same look in the same change.*
+  moves to the same look in the same change.* **Owner, 2026-10-22: card
+  pictures.**
 
 ## Amendments
 

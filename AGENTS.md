@@ -55,8 +55,8 @@ security fix, a dependency refresh, a failing test — needs no spec, but
 is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
-**Approved feature specs: none yet.** Update this line when one is
-approved.
+**Approved feature specs:** `docs/features/0001-sacrifice-and-surveil.md`
+(2026-10-22). Update this line when one is approved or done.
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,
