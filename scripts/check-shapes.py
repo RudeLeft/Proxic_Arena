@@ -440,9 +440,12 @@ def battle():
             return None
         if kind == "declareAttackers":
             # Every creature attacks the battle, once it is there.
-            if g.mine(1, name="Invasion of Zendikar") and f["options"]:
+            # Attackers only: a creature already attacking is offered to
+            # take back ("unattack:"), and taking it back is not attacking.
+            new = [o for o in f["options"] if o["actionId"].startswith("attacker:")]
+            if g.mine(1, name="Invasion of Zendikar") and new:
                 st["attacked"] += 1
-                return f["options"][0]["actionId"]
+                return new[0]["actionId"]
             return None
         if kind == "chooseEntitiesForEffect" and st["cast"]:
             return f["options"][0]["actionId"] if f["options"] else None

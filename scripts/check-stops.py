@@ -65,13 +65,22 @@ def where(g, f):
 def survey(stops):
     g = game("quiet" if stops else "quiet-all", RED, RED, stops)
     asked = []
+    drops = {"held": set(), "played": set()}
 
     def policy(g, f):
         turn, phase, stack, active = where(g, f)
-        asked.append((f.get("kind"), phase, stack, f["authorisedSeat"] == active))
+        seat = f["authorisedSeat"]
+        asked.append((f.get("kind"), phase, stack, seat == active))
         if f.get("kind") == "chooseSpellAbilityToPlay":
+            # A land drop is owed whenever the active player holds a
+            # Mountain in a main phase: stops must never skip it.
+            hand = (g.state.get(seat) or {}).get("hand", [])
+            if seat == active and str(phase).startswith("MAIN") \
+                    and any(c.get("name") == "Mountain" for c in hand):
+                drops["held"].add((seat, turn))
             land = g.play_land(f)
             if land:
+                drops["played"].add((seat, turn))
                 return land
             if f["authorisedSeat"] == active and str(phase).startswith("MAIN"):
                 goblin = g.option(f, name="Raging Goblin", zone="hand", land=False)
@@ -81,6 +90,7 @@ def survey(stops):
         return DEFAULT
 
     g.run(policy, max_turn=8)
+    g.drops = drops
     return g, asked
 
 
@@ -95,6 +105,7 @@ def quiet():
              "asked at a quiet step with an empty stack": dict(bad), "turns": g.turn,
              "other questions": {k: v for k, v in kinds.items() if k != "chooseSpellAbilityToPlay"},
              "lands": len(g.mine(1, name="Mountain")) + len(g.mine(2, name="Mountain")),
+             "land drops missed (seat, turn)": sorted(g.drops["held"] - g.drops["played"]),
              "stopped": g.stopped_badly() or g_all.stopped_badly()}
     if g.turn < 8:
         return "inconclusive", "the game did not reach turn 8", found
@@ -103,8 +114,11 @@ def quiet():
         problems.append(f"asked at a step nobody stops at: {dict(bad)}")
     if not len(prio) * 2 < len(prio_all):
         problems.append(f"default stops should at least halve the priority questions: {len(prio)} vs {len(prio_all)}")
-    if found["lands"] < 6:
-        problems.append(f"the land drops should still happen: {found['lands']} Mountains in play")
+    # Not a fixed count: a shuffle can deal few Mountains (CI once saw
+    # 5 in 8 turns). What stops must not do is skip a drop that was owed.
+    if found["land drops missed (seat, turn)"] or found["lands"] < 3:
+        problems.append(f"the land drops should still happen: {found['lands']} Mountains in play, "
+                        f"missed {found['land drops missed (seat, turn)']}")
     if not kinds.get("declareAttackers"):
         problems.append("the attack question should still be asked")
     return result(problems, f"{len(prio)} priority questions instead of {len(prio_all)} in {g.turn} turns; none at a "

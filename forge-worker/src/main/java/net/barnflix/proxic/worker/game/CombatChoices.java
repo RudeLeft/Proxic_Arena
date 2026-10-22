@@ -32,6 +32,15 @@ import java.util.List;
  * Forge's own human input re-checks legality as each attacker is
  * added, because adding one can make another illegal. This does
  * the same by rebuilding the candidate list every round.
+ *
+ * And it checks the WHOLE declaration when the player says "done",
+ * as Forge's human input does (CombatUtil.validateAttackers and
+ * validateBlocks) -- Forge's game loop does not check blocks again.
+ * Without it one creature could block a creature with menace (owner
+ * report, 2026-10-21). A declaration Forge refuses is not taken:
+ * Forge's reason goes to the player, who is asked again and may take
+ * any creature back out of combat ("unattack:" / "unblock:" options,
+ * also a click on that creature on the board).
  */
 final class CombatChoices {
 
@@ -66,8 +75,12 @@ final class CombatChoices {
         while (true) {
             LinkedHashMap<String, Card> byId = new LinkedHashMap<>();
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+            LinkedHashMap<String, Card> takeBack = new LinkedHashMap<>();
             for (Card creature : attacker.getCardsIn(ZoneType.Battlefield)) {
                 if (combat.isAttacking(creature)) {
+                    String back = UNATTACK + creature.getId();
+                    takeBack.put(back, creature);
+                    labels.put(back, "Stop attacking — " + describe(creature));
                     continue;
                 }
                 // FORGE decides whether it can attack anything at
@@ -83,7 +96,11 @@ final class CombatChoices {
                 labels.put(id, describe(creature));
             }
             if (byId.isEmpty()) {
-                return;
+                // Nothing more to add. Done, unless Forge refuses what
+                // was declared -- then only taking back can fix it.
+                if (attacksAccepted(combat) || takeBack.isEmpty()) {
+                    return;
+                }
             }
             // PHASE_07 AMENDMENT 13 — "All attack", as MTG Arena has: every
             // creature still offered, in one answer. Last, and naming no
@@ -94,6 +111,8 @@ final class CombatChoices {
                 offered.add(ALL_ATTACK);
                 labels.put(ALL_ATTACK, "All attack");
             }
+            // Last, so the first option is still an attacker.
+            offered.addAll(takeBack.keySet());
 
             String choice =
                     host.gate().ask(
@@ -107,8 +126,15 @@ final class CombatChoices {
 
             if (DecisionGate.PASS.equals(choice)) {
                 // Done attacking. Not an error and not a
-                // failure: most turns end here.
-                return;
+                // failure: most turns end here -- once Forge agrees.
+                if (attacksAccepted(combat)) {
+                    return;
+                }
+                continue;
+            }
+            if (takeBack.containsKey(choice)) {
+                combat.removeFromCombat(takeBack.get(choice));
+                continue;
             }
             if (ALL_ATTACK.equals(choice)) {
                 // Each as if chosen one by one: Forge still decides whom
@@ -136,6 +162,37 @@ final class CombatChoices {
 
     /** AMENDMENT 13 — every creature still offered attacks, in one answer. */
     static final String ALL_ATTACK = "attackers:all";
+
+    /** Take a creature back out of the attack, or out of a block. */
+    static final String UNATTACK = "unattack:card:";
+    static final String UNBLOCK = "unblock:card:";
+
+    /**
+     * Forge's verdict on the whole attack. Forge gives no reason for
+     * a refused attack (its own loop says only "Attack declaration
+     * invalid"), so the player is told what kinds of rule it is.
+     */
+    private boolean attacksAccepted(Combat combat) {
+        if (CombatUtil.validateAttackers(combat)) {
+            return true;
+        }
+        host.note(actedForSeat,
+                "That attack breaks a rule — a creature that must attack, or one that can't"
+                        + " attack alone. Change your attackers.");
+        return false;
+    }
+
+    /** Forge's verdict on the whole block, with Forge's own reason when it refuses. */
+    private boolean blocksAccepted(Combat combat, Player defender) {
+        String problem = CombatUtil.validateBlocks(combat, defender);
+        if (problem == null) {
+            return true;
+        }
+        // Forge names cards with their game id ("Boggart Brute (38)");
+        // the player sees names.
+        host.note(actedForSeat, "Not allowed: " + problem.replaceAll("\\s\\(\\d+\\)", ""));
+        return false;
+    }
 
     /** Which player or planeswalker this creature attacks. */
     private GameEntity chooseDefender(Card attacker, List<GameEntity> defenders)
@@ -193,7 +250,13 @@ final class CombatChoices {
 
             LinkedHashMap<String, Card> blockerById = new LinkedHashMap<>();
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+            LinkedHashMap<String, Card> takeBack = new LinkedHashMap<>();
             for (Card creature : defender.getCardsIn(ZoneType.Battlefield)) {
+                if (combat.isBlocking(creature)) {
+                    String back = UNBLOCK + creature.getId();
+                    takeBack.put(back, creature);
+                    labels.put(back, "Stop blocking — " + describe(creature));
+                }
                 if (!CombatUtil.canBlock(creature, combat)) {
                     continue;
                 }
@@ -202,21 +265,35 @@ final class CombatChoices {
                 labels.put(id, describe(creature));
             }
             if (blockerById.isEmpty()) {
-                return;
+                // Nothing more to add. Done, unless Forge refuses the
+                // blocks -- then only taking one back can fix them.
+                if (blocksAccepted(combat, defender) || takeBack.isEmpty()) {
+                    return;
+                }
             }
 
+            java.util.List<String> offered = new ArrayList<>(blockerById.keySet());
+            // Last, so the first option is still a blocker.
+            offered.addAll(takeBack.keySet());
             String choice =
                     host.gate().ask(
                             actedForSeat,
                             authorisedSeat,
                             "declareBlockers",
-                            new ArrayList<>(blockerById.keySet()),
+                            offered,
                             false,
                             "Choose a creature to block with, or pass to take the damage.",
                             pending -> host.publishDecision(pending, labels));
 
             if (DecisionGate.PASS.equals(choice)) {
-                return;
+                if (blocksAccepted(combat, defender)) {
+                    return;
+                }
+                continue;
+            }
+            if (takeBack.containsKey(choice)) {
+                combat.undoBlockingAssignment(takeBack.get(choice));
+                continue;
             }
             Card blocker = blockerById.get(choice);
             if (blocker == null) {
