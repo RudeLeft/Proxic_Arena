@@ -109,16 +109,19 @@ export function bandOf(g: Geometry, row: RowId): { top: number; bottom: number }
 export type ZoneName = "library" | "graveyard" | "exile" | "hand" | "life";
 export type AnchorId = `${Side}:${ZoneName}` | "stack";
 
-// From the canvas's 1600x900 board, as fractions of its height: each
-// player's block in the rail (life, then library, graveyard and exile
-// rows), the opponent's at the top and the viewer's at the bottom, and
-// the stack between them.
+// As built (game.css), as fractions of the rail's 900 px: each player's
+// block (life, then -- the opponent's only -- a hand row, library, and
+// graveyard beside exile), the opponent's at the top and the viewer's at
+// the bottom, and the stack between them. The opponent's rows were one
+// row high until 2026-10-21: they predated its hand row.
 const PANEL_X = 7.4 / 900; // a block's left edge, from the rail's
 const PANEL_W = 216 / 900;
 const ZONE_Y: Record<Side, Record<Exclude<ZoneName, "hand">, number>> = {
-  opponent: { life: 125 / 900, library: 181 / 900, graveyard: 217 / 900, exile: 253 / 900 },
-  viewer: { life: 685 / 900, library: 741 / 900, graveyard: 777 / 900, exile: 813 / 900 },
+  opponent: { life: 125 / 900, library: 215 / 900, graveyard: 251 / 900, exile: 251 / 900 },
+  viewer: { life: 685 / 900, library: 739 / 900, graveyard: 775 / 900, exile: 775 / 900 },
 };
+// Graveyard and exile share a row: each is half of it (owner 2026-10-21).
+const HALF_X: Partial<Record<ZoneName, number>> = { graveyard: -0.25, exile: 0.25 };
 const STACK_Y = 424 / 900;
 // The life circle (58 px and its 2 px border): its centre from the rail's
 // left, and its radius. Lines and hits meet the circle's edge, not the
@@ -134,7 +137,10 @@ export function anchors(g: Geometry): Record<AnchorId, Point> {
   for (const side of ["viewer", "opponent"] as const) {
     for (const [zone, y] of Object.entries(ZONE_Y[side])) {
       out[`${side}:${zone as ZoneName}`] = {
-        x: zone === "life" ? g.rail.x + LIFE_X * h : x,
+        x:
+          zone === "life"
+            ? g.rail.x + LIFE_X * h
+            : x + (HALF_X[zone as ZoneName] ?? 0) * PANEL_W * h,
         y: y * h,
       };
     }

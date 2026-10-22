@@ -269,6 +269,12 @@ export interface Snapshot {
    */
   otherHands: SnapshotCard[];
   graveyard: SnapshotCard[];
+  /**
+   * Every player's exile, as this viewer may know it (public; a
+   * face-down exiled card stays "Face-down"). Owner 2026-10-21: counted
+   * beside each graveyard, and opened the same way.
+   */
+  exile: SnapshotCard[];
   /** The stack, as Forge orders it (the top, which resolves next, first). */
   stack: StackEntry[];
   /** §7.61 B4 — null outside combat. */
@@ -508,6 +514,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     hand: asCards(row["hand"]),
     otherHands: asCards(row["otherHands"]),
     graveyard: asCards(row["graveyard"]),
+    exile: asCards(row["exile"]),
     stack: asStack(row["stack"]),
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),

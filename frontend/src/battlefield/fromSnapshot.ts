@@ -91,14 +91,17 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
     const wasInGraveyard = new Set(previous.graveyard.map((c) => c.id));
+    const wasInExile = new Set(previous.exile.map((c) => c.id));
     for (const card of snapshot.battlefield) {
       if (wasOnBoard.has(card.id)) continue;
       // A land played comes from the hand; reanimation from the
       // graveyard; anything else through the stack (the default).
       if (wasInHand.has(card.id)) arrivals.set(card.id, `${side(card.seat)}:hand`);
       else if (wasInGraveyard.has(card.id)) arrivals.set(card.id, `${side(card.seat)}:graveyard`);
+      else if (wasInExile.has(card.id)) arrivals.set(card.id, `${side(card.seat)}:exile`);
     }
     const inGraveyard = new Set(snapshot.graveyard.map((c) => c.id));
+    const inExile = new Set(snapshot.exile.map((c) => c.id));
     const inHands = new Set([...snapshot.hand, ...snapshot.otherHands].map((c) => c.id));
     const handGrew = new Map(
       snapshot.players.map((p) => [
@@ -111,8 +114,13 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       // Into a hand the board can see: it is drawn there and simply moves.
       if (inHands.has(card.id)) continue;
       if (inGraveyard.has(card.id)) continue; // the default
+      if (inExile.has(card.id)) {
+        departures.set(card.id, `${side(card.seat)}:exile`);
+        continue;
+      }
       // Into a hand the board cannot see (bounced to the opponent): the
-      // hand count grew. Otherwise exile is the likeliest place.
+      // hand count grew. Otherwise exile (face-down, or a new id) is
+      // the likeliest place.
       departures.set(
         card.id,
         handGrew.get(card.seat) ? `${side(card.seat)}:hand` : `${side(card.seat)}:exile`,

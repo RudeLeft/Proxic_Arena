@@ -93,6 +93,19 @@ describe("the rail's zones (AMENDMENT 6)", () => {
       expect(a["viewer:hand"].y).toBeGreaterThan(g.handTop);
     }
   });
+
+  it("put exile beside the graveyard, on its row, to the right (owner 2026-10-21)", () => {
+    const g = geometry({ width: 1600, height: 900 });
+    const a = anchors(g);
+    for (const side of ["viewer", "opponent"] as const) {
+      expect(a[`${side}:exile`].y).toBe(a[`${side}:graveyard`].y);
+      expect(a[`${side}:exile`].x).toBeGreaterThan(a[`${side}:graveyard`].x);
+      expect(a[`${side}:graveyard`].y).toBeGreaterThan(a[`${side}:library`].y);
+    }
+    // The rows as built: the opponent's library is under its hand row.
+    expect(a["opponent:library"].y).toBeCloseTo(215, 0);
+    expect(a["viewer:library"].y).toBeCloseTo(739, 0);
+  });
 });
 
 describe("a pointed-at hand card (AMENDMENT 6)", () => {

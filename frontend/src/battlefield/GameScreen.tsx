@@ -149,7 +149,10 @@ export function GameScreen({
     return () => window.clearTimeout(timer);
   }, [why]);
   const [inspecting, setInspecting] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<{ seat: number; zone: "graveyard" | "hand" } | null>(null);
+  const [viewer, setViewer] = useState<{
+    seat: number;
+    zone: "graveyard" | "exile" | "hand";
+  } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   // The chat icon flashes when somebody ELSE says something while the
   // chat is closed (owner 2026-10-21). By the line's id, not a count: the
@@ -399,9 +402,13 @@ export function GameScreen({
 
 function cardOf(board: Snapshot, id: string): SnapshotCard | null {
   return (
-    [...board.battlefield, ...board.hand, ...board.otherHands, ...board.graveyard].find(
-      (card) => card.id === id,
-    ) ?? null
+    [
+      ...board.battlefield,
+      ...board.hand,
+      ...board.otherHands,
+      ...board.graveyard,
+      ...board.exile,
+    ].find((card) => card.id === id) ?? null
   );
 }
 
@@ -474,7 +481,7 @@ function SeatBlock({
   question: Question | null;
   busy: boolean;
   onPick: (id: string) => void;
-  onView: (view: { seat: number; zone: "graveyard" | "hand" }) => void;
+  onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
 }) {
   const id = `player:${player.seat}`;
   const active = board.activeSeat === player.seat;
@@ -493,6 +500,7 @@ function SeatBlock({
       ? "Opponent · active turn"
       : "Opponent";
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
+  const exiled = board.exile.filter((card) => card.seat === player.seat).length;
   const facts = [
     ...player.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`),
     ...player.designations.map((d) => `· ${d.toLowerCase()}`),
@@ -502,7 +510,7 @@ function SeatBlock({
     <div className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}`} data-seat={player.seat}>
       <span className="pa-visually-hidden">
         {player.name}: {player.life} life, {player.handCount} in hand, {player.libraryCount} in
-        library, {player.graveyardCount} in graveyard.
+        library, {player.graveyardCount} in graveyard, {exiled} in exile.
       </span>
       <div className="gs-seat-head">
         <button
@@ -556,15 +564,28 @@ function SeatBlock({
           <span className="gs-zone-key">Library</span>
           <span className="gs-zone-n">{player.libraryCount}</span>
         </div>
-        <button
-          type="button"
-          className="gs-zone"
-          aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
-          onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
-        >
-          <span className="gs-zone-key">Graveyard</span>
-          <span className="gs-zone-n">{player.graveyardCount}</span>
-        </button>
+        {/* Owner 2026-10-21: exile beside the graveyard, one row, so
+            nothing else in the rail moves. */}
+        <div className="gs-zone-pair">
+          <button
+            type="button"
+            className="gs-zone"
+            aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
+            onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
+          >
+            <span className="gs-zone-key">Graveyard</span>
+            <span className="gs-zone-n">{player.graveyardCount}</span>
+          </button>
+          <button
+            type="button"
+            className="gs-zone"
+            aria-label={`${player.name}'s exile, ${exiled} cards`}
+            onClick={() => onView({ seat: player.seat, zone: "exile" })}
+          >
+            <span className="gs-zone-key">Exile</span>
+            <span className="gs-zone-n">{exiled}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -591,7 +612,7 @@ function Rail({
   onPass: () => void;
   /** §7.53 extra — pass now, and no more stops this turn. */
   onPassTurn: () => void;
-  onView: (view: { seat: number; zone: "graveyard" | "hand" }) => void;
+  onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
 }) {
@@ -1087,15 +1108,15 @@ function ZoneViewer({
 }: {
   board: Snapshot;
   seat: number;
-  zone: "graveyard" | "hand";
+  zone: "graveyard" | "exile" | "hand";
   onInspect: (id: string) => void;
   onClose: () => void;
 }) {
   const player = board.players.find((p) => p.seat === seat);
-  const cards = (zone === "graveyard" ? board.graveyard : board.otherHands).filter(
-    (c) => c.seat === seat,
-  );
-  const title = `${player?.name ?? "Their"}'s ${zone === "graveyard" ? "graveyard" : "hand, as far as you may see it"}`;
+  const cards = (
+    zone === "graveyard" ? board.graveyard : zone === "exile" ? board.exile : board.otherHands
+  ).filter((c) => c.seat === seat);
+  const title = `${player?.name ?? "Their"}'s ${zone === "hand" ? "hand, as far as you may see it" : zone}`;
   return (
     <div className="gs-backdrop" onClick={onClose}>
       <div
@@ -1116,6 +1137,18 @@ function ZoneViewer({
               <button type="button" className="gs-viewer-card" onClick={() => onInspect(card.id)}>
                 {card.name}
                 <span className="gs-viewer-types"> {card.types}</span>
+                {/* A suspended card's time counters say when it comes back. */}
+                {card.counters.length > 0 && (
+                  <span className="gs-viewer-types">
+                    {" · "}
+                    {card.counters
+                      .map(
+                        (c) =>
+                          `${c.count} ${c.name.toLowerCase()} counter${c.count === 1 ? "" : "s"}`,
+                      )
+                      .join(", ")}
+                  </span>
+                )}
               </button>
             </li>
           ))}

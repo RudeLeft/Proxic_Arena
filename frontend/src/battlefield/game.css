@@ -206,6 +206,17 @@
   gap: 6px;
   margin-top: 10px;
 }
+/* Graveyard and exile share a row (owner 2026-10-21). */
+.gs-zone-pair {
+  display: flex;
+  gap: 6px;
+}
+.gs-zone-pair .gs-zone {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 9px;
+}
+
 .gs-zone {
   display: flex;
   align-items: center;
