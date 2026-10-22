@@ -28,7 +28,7 @@ time** (owner decision, 2026-10-22):
 | # | Feature | Status | Spec |
 |---|---|---|---|
 | 0001 | Sacrifice and surveil — "which creature do you sacrifice?" (Eldrazi Monument, Diabolic Edict) and "surveil N"; the two unbuilt questions most likely to stop a game | **Approved** 2026-10-22 — building (with "destroy" too) | `docs/features/0001-sacrifice-and-surveil.md` |
-| — | The other unbuilt Forge questions — a game that reaches one ends with an error. Next most likely: choosing what to destroy, ordering your own triggers and blockers, piles (Fact or Fiction), exert/enlist, attack taxes (Ghostly Prison), voting, splice. The full list and how likely each is: `docs/history/phases/phase-06/PHASE_06_EXIT_GATE.md` ("Unsupported Forge paths") | Planned | — |
+| Phase 8 | **Every Forge question, answered and proven** — a record of all 170 questions and cost kinds Forge can put to a player, generated from Forge itself; a CI gate so none can be skipped; a real-game proof for each; the 31 missing questions (Un-set ones included) and 31 missing costs built, in order of how many cards need them. 0001 is its Part 1 | **DRAFT** — for the owner to lock | `PHASE_08_EVERY_FORGE_QUESTION_DRAFT.md` |
 | — | Commander | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | Two-Headed Giant | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | A match that survives a server restart (today it ends with no winner; P6-AZ) | Idea | — |

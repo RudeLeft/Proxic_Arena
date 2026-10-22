@@ -5,6 +5,9 @@
 surveil"); approved 2026-10-22 with D1 yes (destroy too), D2 ask anyway,
 D3 card pictures (scry moves to the same look)
 
+Part 1 of Phase 8 (`PHASE_08_EVERY_FORGE_QUESTION_DRAFT.md`, owner
+2026-10-22), whose record of every Forge question these three join.
+
 ## Why
 
 Two of the 42 unbuilt Forge questions, and the two most likely to stop a

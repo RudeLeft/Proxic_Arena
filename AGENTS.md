@@ -58,6 +58,13 @@ this section was "Current phase".)*
 **Approved feature specs:** `docs/features/0001-sacrifice-and-surveil.md`
 (2026-10-22). Update this line when one is approved or done.
 
+**Phase 8** (owner, 2026-10-22: "a real Phase 8"): every Forge question,
+answered and proven — `PHASE_08_EVERY_FORGE_QUESTION_DRAFT.md`. **DRAFT**:
+no Phase 8 work beyond 0001 until the owner locks it. Large work may still
+be a phase, locked and closed at an exit gate as Phases 1–7 were; its
+document lives at the top level while active and moves to
+`docs/history/phases/` at its close.
+
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,
 typed ids, visibility, bootstrap, resources).
@@ -170,9 +177,10 @@ is now one approved feature at a time. These were "phase" rules; each
 keeps its number and its substance.)*
 
 - **PHASE-001 — MUST:** Check the **Current work** section above before
-  implementing. Build only what an owner-approved feature spec covers (or
-  maintenance as that section defines it); do not start an unapproved
-  feature because the approved one is blocked or boring. _REVIEW._
+  implementing. Build only what an owner-approved feature spec or a LOCKED
+  phase covers (or maintenance as that section defines it); do not start
+  unapproved work because the approved work is blocked or boring.
+  _REVIEW._
 - **PHASE-002 — MUST NOT:** Silently change an approved feature spec, or
   anything in `docs/history/` — the frozen phase documents are never
   edited at all. Amendments to an approved spec are explicit, dated and
