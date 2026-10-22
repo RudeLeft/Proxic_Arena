@@ -238,7 +238,50 @@ public final class GameHost {
 
     void failUnsupported(String method) {
         failure.compareAndSet(null, new UnsupportedOperationException(
-                "Forge asked for " + method + ", which this adapter does not implement"));
+                "Forge asked for " + method + ", which this adapter does not implement" + whereNow()));
+    }
+
+    /**
+     * When and from what a failure came, for the record (owner 2026-10-22).
+     *
+     * A game that stopped at Eldrazi Monument's upkeep trigger said only
+     * "choosePermanentsToSacrifice"; finding the card took the game log.
+     * Admins and logs only -- never the players' screen (owner). Nothing
+     * hidden: the turn, the step, and what is on the stack, which both
+     * players can see.
+     */
+    private String whereNow() {
+        Game g = game;
+        if (g == null) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        try {
+            forge.game.phase.PhaseHandler phase = g.getPhaseHandler();
+            b.append(" -- turn ").append(phase.getTurn());
+            if (phase.getPlayerTurn() != null) {
+                b.append(", ").append(phase.getPlayerTurn().getName()).append("'s");
+            }
+            b.append(' ').append(phase.getPhase());
+            forge.game.zone.MagicStack stack = g.getStack();
+            if (!stack.isEmpty()) {
+                forge.game.spellability.SpellAbility sa = stack.peekAbility();
+                b.append(stack.isResolving() ? ", while resolving " : ", with on top of the stack ")
+                        .append(sa.getHostCard() == null ? sa.toString() : sa.getHostCard().getName());
+                if (sa.isTrigger()) {
+                    b.append("'s trigger");
+                } else if (sa.isActivatedAbility()) {
+                    b.append("'s ability");
+                }
+                if (sa.getActivatingPlayer() != null) {
+                    b.append(" (").append(sa.getActivatingPlayer().getName()).append(')');
+                }
+            }
+        } catch (RuntimeException e) {
+            // A description must never hide the failure it describes.
+            b.append(" (where: unknown)");
+        }
+        return b.toString();
     }
 
     /**

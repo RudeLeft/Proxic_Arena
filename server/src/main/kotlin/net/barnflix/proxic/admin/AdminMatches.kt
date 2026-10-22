@@ -31,6 +31,8 @@ data class AdminMatchView(
     val players: String,
     /** The record's size in bytes; null when none is kept (too old, or never written). */
     val recordBytes: Long?,
+    /** How it ended, in a line: Forge's result, or why it stopped. Admin only. */
+    val ending: String? = null,
 )
 
 @Serializable
@@ -46,6 +48,7 @@ class AdminMatches(
             connection.prepareStatement(
                 """
                 SELECT m.match_id, m.status, m.created_at, m.ended_at,
+                       m.result_summary, m.failure_code, m.failure_detail,
                        string_agg(p.display_name_snapshot, ' vs ' ORDER BY p.seat_number) AS players
                   FROM match m
                   LEFT JOIN match_participant p ON p.match_id = m.match_id
@@ -68,6 +71,13 @@ class AdminMatches(
                                     endedAt = rows.getTimestamp("ended_at")?.toInstant()?.toString(),
                                     players = rows.getString("players").orEmpty(),
                                     recordBytes = file.takeIf { it.isFile }?.length(),
+                                    ending =
+                                        endingOf(
+                                            rows.getString("status"),
+                                            rows.getString("result_summary"),
+                                            rows.getString("failure_code"),
+                                            rows.getString("failure_detail"),
+                                        ),
                                 ),
                             )
                         }
@@ -101,7 +111,24 @@ class AdminMatches(
         call.respondFile(file)
     }
 
-    private companion object {
-        const val RECENT = 50
+    internal companion object {
+        private const val RECENT = 50
+
+        /**
+         * How a match ended, for the Admin list (owner 2026-10-22): a game
+         * that stopped at Eldrazi Monument's trigger said only "Stopped".
+         */
+        fun endingOf(
+            status: String,
+            summary: String?,
+            failureCode: String?,
+            failureDetail: String?,
+        ): String? =
+            when (status) {
+                "ENDED" -> summary
+                "FAILED_RUNTIME" -> "Stopped: " + (failureDetail ?: failureCode ?: "no reason recorded")
+                "FAILED_STARTUP" -> "Did not start: " + (failureCode ?: "no reason recorded")
+                else -> null
+            }
     }
 }

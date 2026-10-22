@@ -596,6 +596,7 @@ function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
             ) : (
               <span className="pa-admin-signin-address">No record kept</span>
             )}
+            {m.ending && <span className="pa-admin-record-ending">{m.ending}</span>}
           </li>
         ))}
       </ul>

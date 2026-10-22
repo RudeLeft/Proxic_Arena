@@ -14,6 +14,9 @@ import javax.sql.DataSource
 // so a lifecycle rule can be read without stepping over a prepared
 // statement.
 
+/** The worker's reason a match stopped, as long as anybody needs to read it. */
+private const val MAX_FAILURE_DETAIL = 2000
+
 internal class MatchRecords(private val dataSource: DataSource) {
     /** §6.17 — Forge reached the running milestone. */
     fun recordRunning(
@@ -105,13 +108,15 @@ internal class MatchRecords(private val dataSource: DataSource) {
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 "UPDATE match SET status = ?, result_summary = ?, failure_code = ?, " +
-                    "ended_at = ? WHERE match_id = ? AND status = 'RUNNING'",
+                    "failure_detail = ?, ended_at = ? WHERE match_id = ? AND status = 'RUNNING'",
             ).use {
                 it.setString(1, if (failed) "FAILED_RUNTIME" else "ENDED")
                 it.setString(2, if (failed) null else summaryOf(outcome))
                 it.setString(3, if (failed) "WORKER_STOPPED" else null)
-                it.setTimestamp(4, java.sql.Timestamp.from(at))
-                it.setObject(5, matchId)
+                // Why, for the Admin page (V016); never for the players.
+                it.setString(4, if (failed) outcome.detail?.take(MAX_FAILURE_DETAIL) else null)
+                it.setTimestamp(5, java.sql.Timestamp.from(at))
+                it.setObject(6, matchId)
                 it.executeUpdate()
             }
         }

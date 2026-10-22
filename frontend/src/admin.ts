@@ -40,6 +40,8 @@ export interface AdminMatch {
   endedAt: string | null;
   players: string;
   recordBytes: number | null;
+  /** How it ended: Forge's result, or why it stopped (owner 2026-10-22). */
+  ending: string | null;
 }
 
 export interface AdminMatches {

@@ -1747,6 +1747,15 @@ main.pa-main {
   box-sizing: border-box;
   border-top: 1px solid var(--pa-line-soft);
 }
+/* How the match ended, on its own line under the row (owner 2026-10-22). */
+.pa-admin-record-ending {
+  flex: 1 1 100%;
+  padding-left: 112px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--pa-faint);
+  overflow-wrap: anywhere;
+}
 .pa-admin-record .pa-admin-signin-at {
   width: 96px;
 }
