@@ -15,6 +15,13 @@
 #   browser  29 tests: the CSP breaking Pixi, an origin check that
 #            refused the app's own requests, a login page nobody
 #            could reach. Server tests passed through all three.
+#
+# The long tiers run on several machines at once (owner, 2026-10-21:
+# "the checks take longer and longer"): server tests in two halves,
+# the Mechanics Lab in two, the browser suite in three. The repository
+# is public, so the extra machines cost nothing, and every half is
+# defined as "the rest" or by Playwright's own sharding -- a new test
+# can never fall between them.
 
 name: CI
 
@@ -97,10 +104,14 @@ jobs:
         working-directory: frontend
 
   server-tests:
-    name: Server tests
+    name: Server tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-java@v4.5.0
@@ -131,7 +142,9 @@ jobs:
           docker rm "$id" > /dev/null
           ls -la forge-worker/target/
 
-      - run: ./gradlew :server:test --no-daemon
+      # Half 1 is the deck, match and admin packages; half 2 is
+      # everything else (server/build.gradle.kts).
+      - run: ./gradlew :server:test -PtestShard=${{ matrix.shard }} --no-daemon
 
       # A test that skips itself is not a test that passed. Phase 1
       # shipped two that silently never ran; this is the same failure
@@ -147,12 +160,17 @@ jobs:
 
 
   mechanics-lab:
-    name: Mechanics Lab
+    name: Mechanics Lab (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     needs: build
     # Its own job since 2026-10-20: fifteen scenario games after the
     # server suite ran the Server tests job into its 45-minute limit.
+    # Two machines since 2026-10-21: alternate scenarios on each.
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-java@v4.5.0
@@ -196,6 +214,7 @@ jobs:
         env:
           res: spikes/forge-phase0a/forge-upstream/forge-gui/res
           jar: forge-worker/target/forge-worker-0.1.0.jar
+          shard: ${{ matrix.shard }}
         run: |
           # Kept, and uploaded when the job fails: a hung scenario prints
           # nothing, and its trace is the only account of what it waited on.
@@ -207,6 +226,7 @@ jobs:
               mindslaver characteristics player-state mana-choice alternate-win \
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost \
+            | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
               'timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1;
                s=$?; [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
@@ -214,9 +234,12 @@ jobs:
           # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
           # stay playable. A benchmark: 110 s without the patch, ~41 s with it
           # on a development machine; the CI budget is generous.
-          timeout 900 python3 -I scripts/check-token-speed.py "$jar" "$res" 100
-          # §6.29: a player's pregame thinking time is not Forge's start budget.
-          python3 -I scripts/check-start-budget.py "$jar" "$res"
+          if [ "$shard" = 1 ]; then
+            timeout 900 python3 -I scripts/check-token-speed.py "$jar" "$res" 100
+          else
+            # §6.29: a player's pregame thinking time is not Forge's start budget.
+            python3 -I scripts/check-start-budget.py "$jar" "$res"
+          fi
           # P6-L, over every game above: no question reaches a seat before
           # the state it refers to.
           python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
@@ -227,15 +250,21 @@ jobs:
       - uses: actions/upload-artifact@v4.4.3
         if: failure()
         with:
-          name: mechanics-lab-traces
+          name: mechanics-lab-traces-${{ matrix.shard }}
           path: ${{ runner.temp }}/lab-traces/
           retention-days: 7
 
   browser-tests:
-    name: Browser tests
+    name: Browser tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 45
+    # Three machines, each with its own server and database, so the
+    # test accounts on one cannot trip over another's.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0
@@ -371,7 +400,7 @@ jobs:
           # The bundled Chromium; the msedge channel is a Windows
           # workaround and does not exist here.
           PROXIC_E2E_CHANNEL: bundled
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/3
 
       - name: Server log, if anything failed
         if: failure()
@@ -380,7 +409,7 @@ jobs:
       - uses: actions/upload-artifact@v4.4.3
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           retention-days: 7
 

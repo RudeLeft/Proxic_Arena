@@ -330,7 +330,9 @@ def improvise():
 
 
 def affinity():
-    g = game("affinity", [("Island", 20), ("Ornithopter", 20), ("Thoughtcast", 20)])
+    # Half Ornithopters: four of them is the whole setup, and at a third
+    # of the deck a CI run once drew only three in eighteen turns.
+    g = game("affinity", [("Island", 15), ("Ornithopter", 30), ("Thoughtcast", 15)])
     done = {"card": None, "hand_before": None}
 
     def policy(g, f):
@@ -365,7 +367,8 @@ def affinity():
     found = {"resolved": bool(done["card"] and resolved(g)),
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
              "islands": len(g.mine(1, name="Island")),
-             "thopters_tapped": [c.get("tapped") for c in g.mine(1, name="Ornithopter")]}
+             "thopters_tapped": [c.get("tapped") for c in g.mine(1, name="Ornithopter")],
+             "turn": g.turn, "stopped": g.stopped_badly()}
     if not done["cast"]:
         return "inconclusive", "never had four Ornithopters and an Island", found
     problems = []

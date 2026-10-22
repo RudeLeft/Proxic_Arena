@@ -160,4 +160,17 @@ tasks.test {
     //
     // 1.44 is supported by every engine we target (Docker 25+).
     systemProperty("api.version", "1.44")
+
+    // CI runs the suite as two halves on two machines at once
+    // (-PtestShard=1 or 2; owner 2026-10-21, "the checks take longer and
+    // longer"). Split by package, about seven minutes each. Half 2 is
+    // "everything NOT in half 1", so a new package can never fall
+    // between them. No property: the whole suite, as always.
+    val shardOne = listOf("**/proxic/deck/**", "**/proxic/match/**", "**/proxic/admin/**")
+    when (project.findProperty("testShard")?.toString()) {
+        "1" -> include(shardOne)
+        "2" -> exclude(shardOne)
+        null -> Unit
+        else -> throw GradleException("testShard is 1 or 2")
+    }
 }
