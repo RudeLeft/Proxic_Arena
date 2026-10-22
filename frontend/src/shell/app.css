@@ -1265,6 +1265,12 @@ main.pa-main {
 .pa-start {
   min-width: 206px;
 }
+.pa-host-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px 14px;
+  margin-left: auto;
+}
 .pa-start-dead,
 .pa-start-dead:disabled {
   opacity: 1;
@@ -1284,17 +1290,6 @@ main.pa-main {
   font-size: 11px;
   line-height: 1.55;
   color: var(--pa-faint);
-}
-.pa-link-button {
-  appearance: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #9ccbff;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
 }
 /* Across the bottom, filling whatever height the page has left. */
 .pa-chat {

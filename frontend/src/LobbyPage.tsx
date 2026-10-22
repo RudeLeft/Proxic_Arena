@@ -926,7 +926,9 @@ function YourRoom({
       <span className="pa-spacer" />
 
       {iHost ? (
-        <>
+        // One group: on a narrow window the host's buttons move to the next
+        // line together, on the right, rather than one at a time.
+        <span className="pa-host-actions">
           <button
             type="button"
             className={`pa-button pa-start${canStart ? " pa-button-brass" : " pa-start-dead"}`}
@@ -940,6 +942,18 @@ function YourRoom({
               Cancel
             </button>
           )}
+          {/* With the other host actions (owner, 2026-10-22): it had sat at the
+              end of the help sentence, where it read as part of the note. */}
+          {guest && !preparing && !starting && (
+            <button
+              type="button"
+              className="pa-button pa-button-quiet"
+              disabled={busy}
+              onClick={() => onRemove(guest.userId)}
+            >
+              Remove {guest.displayName}
+            </button>
+          )}
           <button
             type="button"
             className="pa-button pa-button-close"
@@ -948,7 +962,7 @@ function YourRoom({
           >
             Close room
           </button>
-        </>
+        </span>
       ) : (
         <button type="button" className="pa-small-button" disabled={busy} onClick={onLeave}>
           Leave seat
@@ -970,19 +984,6 @@ function YourRoom({
           "Start match lights when both seats are filled and both players are ready."
         ) : (
           "Each player chooses their own deck; nobody else sees which."
-        )}
-        {iHost && guest && !preparing && !starting && (
-          <>
-            {" "}
-            <button
-              type="button"
-              className="pa-link-button"
-              disabled={busy}
-              onClick={() => onRemove(guest.userId)}
-            >
-              Remove {guest.displayName}
-            </button>
-          </>
         )}
       </p>
     </div>
