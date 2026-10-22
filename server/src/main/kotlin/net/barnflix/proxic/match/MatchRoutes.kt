@@ -311,8 +311,12 @@ private fun Route.matchAssetRoute(
                     HttpStatusCode.NotFound,
                     ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
                 )
+        // The table gets the 384-px copy made at import (§2.134); the close-up
+        // asks for the full scan (?size=full, PHASE_07 AMENDMENT 8), under the
+        // same authorisation -- a size is no more visible than its picture.
+        val full = call.request.queryParameters["size"] == "full"
         val file =
-            store.displayPath(assetId).takeIf { it.isFile }
+            (if (full) null else store.displayPath(assetId).takeIf { it.isFile })
                 ?: store.originalPath(assetId).takeIf { it.isFile }
                 ?: return@get call.respond(
                     HttpStatusCode.NotFound,

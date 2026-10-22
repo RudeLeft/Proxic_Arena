@@ -260,6 +260,15 @@ test("three matches at once stay separate, and one crashing leaves the others pl
       expect(viaOther.status(), "another match's route does not serve this match's art").toBe(404);
       const direct = await all[1]!.host.request.get(src);
       expect(direct.status(), "a non-participant cannot use this match's route").toBe(404);
+      // The close-up's full scan (AMENDMENT 8): exactly the same rule.
+      const fullViaOther = await all[1]!.host.request.get(
+        `/api/matches/${otherMatch}/assets/${assetId}?size=full`,
+      );
+      expect(fullViaOther.status(), "nor its full-size picture").toBe(404);
+      const fullDirect = await all[1]!.host.request.get(`${src}?size=full`);
+      expect(fullDirect.status(), "nor the full size by this match's route").toBe(404);
+      const fullOwn = await all[0]!.host.request.get(`${src}?size=full`);
+      expect(fullOwn.status(), "a participant gets the full scan").toBe(200);
       leakChecked = true;
     }
 

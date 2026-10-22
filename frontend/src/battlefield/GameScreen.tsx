@@ -1055,7 +1055,10 @@ function Inspect({
         }}
       >
         {card?.art && !hidden ? (
-          <img className="gs-inspect-art" src={artUrl(card.art)} alt="" />
+          // The full scan for the close-up (AMENDMENT 8): the table's copy is
+          // 384 px wide, and this is drawn at up to 300 px times the screen's
+          // scaling.
+          <img className="gs-inspect-art" src={`${artUrl(card.art)}?size=full`} alt="" />
         ) : (
           <div className="gs-inspect-art gs-inspect-noart">
             {hidden ? "Face down" : "No picture"}
