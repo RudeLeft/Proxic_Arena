@@ -27,7 +27,8 @@ time** (owner decision, 2026-10-22):
 
 | # | Feature | Status | Spec |
 |---|---|---|---|
-| — | The 42 unbuilt Forge questions — a game that reaches one ends with an error. Most likely first: "each player sacrifices" (Diabolic Edict), choosing what to destroy, surveil, ordering your own triggers and blockers, piles (Fact or Fiction), exert/enlist, attack taxes (Ghostly Prison), voting, splice. The full list and how likely each is: `docs/history/phases/phase-06/PHASE_06_EXIT_GATE.md` ("Unsupported Forge paths") | Planned | — |
+| 0001 | Sacrifice and surveil — "which creature do you sacrifice?" (Eldrazi Monument, Diabolic Edict) and "surveil N"; the two unbuilt questions most likely to stop a game | Draft — for approval | `docs/features/0001-sacrifice-and-surveil.md` |
+| — | The other unbuilt Forge questions — a game that reaches one ends with an error. Next most likely: choosing what to destroy, ordering your own triggers and blockers, piles (Fact or Fiction), exert/enlist, attack taxes (Ghostly Prison), voting, splice. The full list and how likely each is: `docs/history/phases/phase-06/PHASE_06_EXIT_GATE.md` ("Unsupported Forge paths") | Planned | — |
 | — | Commander | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | Two-Headed Giant | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | A match that survives a server restart (today it ends with no winner; P6-AZ) | Idea | — |
