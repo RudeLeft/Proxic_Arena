@@ -34,6 +34,9 @@ and checks the result on the board:
                   the one they picked, and only their own were offered
   sting           Lethal Sting: put a -1/-1 counter on a creature you
                   control, as a cost (CostPutCounter) -- on the one picked
+  converge        Painful Truths paid with Reflecting Pool: colour or
+                  colourless (chooseColorAllowColorless) -- blue, so
+                  converge counts two colours: lose 2, draw 2
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -671,12 +674,88 @@ def elspeth():
     return outcome(problems, f"Elspeth's +1: the counter picked, {st['picked']}, is the keyword the Lions gained", found)
 
 
+def converge():
+    """Painful Truths, converge: draw X, lose X, X = colours of mana spent.
+    Paid Swamp {B}, Reflecting Pool, Wastes {C}: the Pool's colour is the
+    whole difference -- blue makes X 2; colourless (the first option) or
+    black makes it 1."""
+    g = game("converge", [("Swamp", 10), ("Island", 10), ("Wastes", 10), ("Reflecting Pool", 10),
+                          ("Painful Truths", 20)])
+    st = {"cast": None, "asked": [], "picked": None, "before": None, "after": None}
+    order = ["Reflecting Pool", "Swamp", "Island", "Wastes"]
+
+    def lands():
+        return {c.get("name") for c in g.mine(1) if c.get("kind") == "land"}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat != 1:
+            return DEFAULT
+        # The page asks it as chooseColor, with "Colourless" among the answers.
+        if k == "chooseColor" and "Colourless" in [o.get("label") for o in f["options"]]:
+            st["asked"].append((seat, k, [o.get("label") for o in f["options"]]))
+            o = next((o for o in f["options"] if o.get("label") == "blue"), None)
+            st["picked"] = o and "blue"
+            return o["actionId"] if o else DEFAULT
+        if k == "applyManaToCost" and st["cast"]:
+            # {B} from the Swamp, then the Pool, then the Wastes' {C}: never the Island.
+            for want in ("Swamp", "Reflecting Pool", "Wastes"):
+                o = next((o for o in f["options"] if (o.get("label") or "").startswith(want)), None)
+                if o:
+                    return o["actionId"]
+            return DEFAULT
+        if k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            for land in order:
+                if land not in lands():
+                    o = g.option(f, name=land, land=True)
+                    if o:
+                        return o
+            untapped = {c.get("name") for c in g.untapped_lands(1)}
+            if not st["cast"] and set(order) <= lands() and {"Swamp", "Reflecting Pool", "Wastes"} <= untapped:
+                o = cast(g, f, "Painful Truths")
+                if o:
+                    st["cast"] = card_of(o)
+                    me = g.player(1, 1) or {}
+                    st["before"] = {"life": me.get("life"), "hand": len(g.zone(1, "hand"))}
+                    return o
+            return g.play_land(f)
+        return DEFAULT
+
+    def until(g):
+        done = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if done and stack_empty(g) and st["after"] is None:
+            me = g.player(1, 1) or {}
+            st["after"] = {"life": me.get("life"), "hand": len(g.zone(1, "hand"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "before": st["before"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["picked"]:
+        return "inconclusive", "Reflecting Pool never asked colour or colourless while paying", found
+    problems = []
+    seat, kind, labels = next(a for a in st["asked"] if "Colourless" in a[2])
+    if seat != 1:
+        problems.append("the opponent was asked about seat 1's mana")
+    if labels[0] != "Colourless" or "blue" not in labels:
+        problems.append(f"expected colourless or a colour, blue among them: {labels}")
+    before, after = st["before"], st["after"] or {}
+    # The Truths left the hand (-1) and drew X = 2 (+2).
+    if after.get("life") != before["life"] - 2 or after.get("hand") != before["hand"] - 1 + 2:
+        problems.append(f"blue makes X = 2 (lose 2, draw 2): life {before['life']} -> {after.get('life')}, "
+                        f"hand {before['hand']} -> {after.get('hand')}")
+    return outcome(problems, "Reflecting Pool: blue picked over colourless, so converge counted two colours "
+                             "-- 2 life lost, 2 cards drawn", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
              "clone-yes": lambda: clone(True), "clone-no": lambda: clone(False), "venture": venture,
              "blaze": blaze, "axe": axe, "axe-five": lambda: axe(True), "reckoning": reckoning, "sting": sting, "guildmage": guildmage,
-             "elspeth": elspeth}
+             "elspeth": elspeth, "converge": converge}
 
 if __name__ == "__main__":
     codes = []

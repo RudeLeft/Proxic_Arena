@@ -93,7 +93,7 @@ Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	U
 Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	UNBUILT		reveal any number from hand (Blackmail, Ivy Seer)	35 cards	LoudFailureTest
 Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		ante is not played	-	PENDING: a test asserting it
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
-Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Pentad Prism-style mana	PENDING: reached only by Reflecting Pool-style mana that could be colourless, paying a generic cost -- the colour picked leaves nothing on the board to check yet
+Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Reflecting Pool, Exotic Orchard-style mana when a colourless land is out	scripts/check-you-choose.py
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
 Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	scripts/check-you-choose.py
