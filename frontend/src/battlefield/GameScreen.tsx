@@ -540,7 +540,9 @@ function TopBar({ board }: { board: Snapshot }) {
         <span className="gs-turn-key">Turn</span>
         <span className="gs-turn-value">{board.turn}</span>
       </div>
-      <ol className="gs-steps" aria-label="Steps of the turn">
+      {/* data-step: the step the game is IN; the highlight may still be
+          walking towards it. */}
+      <ol className="gs-steps" aria-label="Steps of the turn" data-step={STEPS[target]?.label}>
         {STEPS.map((step, i) => (
           <li
             key={step.label}

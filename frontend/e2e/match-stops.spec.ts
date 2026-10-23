@@ -25,8 +25,17 @@ const OPPONENT = ["COMBAT_DECLARE_ATTACKERS", "COMBAT_DECLARE_BLOCKERS"];
 
 const turnOf = async (page: Page) =>
   Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0);
+// The step the game is in -- not the highlight, which walks through the
+// steps passed (owner 2026-10-22) and so can still read "Cleanup" while the
+// game asks in the next turn's Main 1 (CI, 2026-10-22).
 const stepOf = async (page: Page) =>
-  ((await page.locator(".gs-step-now").allTextContents())[0] ?? "").trim();
+  (
+    (
+      await page
+        .locator(".gs-steps")
+        .evaluateAll((els) => els.map((el) => el.getAttribute("data-step")))
+    )[0] ?? ""
+  ).trim();
 
 test("with the default stops, turns flow to the main phases and nobody is asked at an empty step", async ({
   browser,
@@ -63,7 +72,9 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
       }
       let acted = false;
       for (const page of [host, guest]) {
-        const act = matchPanel(page).locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)");
+        const act = matchPanel(page).locator(
+          "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)",
+        );
         if ((await act.count()) === 0) {
           // A question that is not a priority pass (attackers, a target):
           // always asked, answered with its first choice or a pass.
