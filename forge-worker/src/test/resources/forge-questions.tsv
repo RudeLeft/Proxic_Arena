@@ -49,10 +49,10 @@ C CostPayLife	ASKS	confirmPayment	Pay life (confirmed when optional)	fetch lands
 C CostPayShards	UNREACHABLE		Forge Adventure mode only: never in a Proxic game	-	PENDING: a test asserting it
 C CostPromiseGift	UNBUILT		Pay the cost PromiseGift	Bloomburrow gift — count to confirm	LoudFailureTest
 C CostPutCardToLib	UNBUILT		Pay the cost PutCardToLib	11 cards — put a card on top of a library	LoudFailureTest
-C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	PENDING: no Mechanics Lab game asks CostPutCounter yet
+C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	scripts/check-you-choose.py
 C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a counter on you	LoudFailureTest
 C CostRemoveAnyCounter	UNBUILT		Pay the cost RemoveAnyCounter	with counters — remove any counter	LoudFailureTest
-C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	PENDING: no Mechanics Lab game asks CostRemoveCounter yet
+C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
 C CostReturn	UNBUILT		Pay the cost Return	94 cards — return a permanent to hand (Daze, Gush)	LoudFailureTest
 C CostReveal	UNBUILT		Pay the cost Reveal	76 cards — reveal a card from hand (Land Grant)	LoudFailureTest
 C CostRevealChosen	UNBUILT		Pay the cost RevealChosen	with reveal — reveal the chosen card	LoudFailureTest
@@ -64,7 +64,7 @@ C CostUnattach	UNBUILT		Pay the cost Unattach	rare	LoudFailureTest
 C CostUntap	UNBUILT		Pay the cost Untap	18 cards — the untap symbol {Q}	LoudFailureTest
 C CostUntapType	UNBUILT		Pay the cost UntapType	3 cards — untap permanents	LoudFailureTest
 Q addKeywordCost(SpellAbility,Cost,KeywordInterface,String)	ROUTES-TO		Forge forwards this to chooseNumberForKeywordCost	-	-> Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)
-Q announceRequirements(SpellAbility,int,int,String)	ASKS	announceRequirements	Choose X: how much to pay for X	Fireball, Stroke of Genius, every {X} cost	PENDING: no Mechanics Lab game asks announceRequirements yet
+Q announceRequirements(SpellAbility,int,int,String)	ASKS	announceRequirements	Choose X: how much to pay for X	Fireball, Stroke of Genius, every {X} cost	scripts/check-you-choose.py
 Q applyManaToCost(ManaCostBeingPaid,SpellAbility,String,ManaConversionMatrix,boolean)	ASKS	applyManaToCost,chooseManaAbility	Pay a mana cost: what to tap, or floating mana to spend	every spell with a mana cost	scripts/check-alternate-win.py,scripts/check-mana-choice.py
 Q arrangeForScry(CardCollection)	ASKS	arrangeForScry	Scry 2 or more: the cards for the bottom, then the order on top	Preordain, Serum Visions, Lost Well	scripts/check-surveil.py
 Q arrangeForSurveil(CardCollection)	ASKS	arrangeForSurveil	Surveil: keep on top or put into the graveyard, then the order	Consider, Price of Fame, Notion Rain	scripts/check-surveil.py
@@ -80,7 +80,7 @@ Q chooseCardName(SpellAbility,List,String)	ASKS	chooseCardName	Name a card	Pithi
 Q chooseCardName(SpellAbility,Predicate,String,String)	ASKS	chooseCardName	Name a card	Pithing Needle, Phyrexian Revoker, Meddling Mage	scripts/check-card-name.py
 Q chooseCardsForConvokeOrImprovise(SpellAbility,ManaCost,CardCollectionView,boolean,boolean,Integer)	ASKS	chooseCardsForConvokeOrImprovise	Convoke or improvise: which creatures or artifacts to tap	Chord of Calling, Reckless Fireweaver	scripts/check-costs.py
 Q chooseCardsForCost(CardCollectionView,SpellAbility,CostPartWithList,int,boolean,String)	UNBUILT		"unless its controller sacrifices / discards / returns…" (Daze-style taxes paid with cards)	~200 cards	LoudFailureTest
-Q chooseCardsForEffect(CardCollectionView,SpellAbility,String,int,int,boolean,Map)	ASKS	chooseEntitiesForEffect,chooseSingleEntityForEffect	Choose cards for an effect	Karn Liberated, Mutate, many effects	PENDING: shares its questions with others; no game yet shown to reach this path
+Q chooseCardsForEffect(CardCollectionView,SpellAbility,String,int,int,boolean,Map)	ASKS	chooseEntitiesForEffect,chooseSingleEntityForEffect	Choose cards for an effect	Karn Liberated, Mutate, many effects	scripts/check-you-choose.py
 Q chooseCardsForEffectMultiple(Map,SpellAbility,String,boolean)	UNBUILT		look and sort into several places (Harper Recruiter)	12 cards	LoudFailureTest
 Q chooseCardsForSplice(SpellAbility,List)	UNBUILT		splice onto Arcane	30 cards	LoudFailureTest
 Q chooseCardsForZoneChange(ZoneType,List,SpellAbility,CardCollection,int,int,DelayedReveal,String,Player)	ASKS	chooseEntitiesForEffect	Choose cards to move: search a library, return from a graveyard	Demonic Tutor-style searches, Raise Dead	scripts/check-modes.py
@@ -93,7 +93,7 @@ Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	U
 Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	UNBUILT		reveal any number from hand (Blackmail, Ivy Seer)	35 cards	LoudFailureTest
 Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		ante is not played	-	PENDING: a test asserting it
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
-Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Pentad Prism-style mana	PENDING: no Mechanics Lab game asks chooseColor yet
+Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Pentad Prism-style mana	PENDING: reached only by Reflecting Pool-style mana that could be colourless, paying a generic cost -- the colour picked leaves nothing on the board to check yet
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
 Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	PENDING: no Mechanics Lab game asks chooseCounterType yet
@@ -121,14 +121,14 @@ Q chooseRollToModify(List)	UNBUILT		change a roll	with the dice cards	LoudFailur
 Q chooseRollToSwap(List)	UNBUILT		swap rolls	with the dice cards	LoudFailureTest
 Q chooseSaToActivateFromOpeningHand(List)	ASKS	chooseSaToActivateFromOpeningHand	Begin the game with a card from your opening hand	Leylines, Gemstone Caverns	scripts/check-leyline.py
 Q chooseSector(Card,String,List)	UNBUILT		Un-set: Unfinity sectors	71 cards across the three	LoudFailureTest
-Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	PENDING: no Mechanics Lab game asks chooseSingleCardFace yet
-Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNBUILT		venture into the dungeon: which dungeon	45 cards	LoudFailureTest
+Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	scripts/check-you-choose.py
+Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNREACHABLE		Choose a card face from all of Forge's cards by a filter: never called by Forge's rules at the pinned version (only inside Forge's desktop, to name a card -- Proxic answers naming as chooseCardName)	-	PENDING: a test asserting it is never called
 Q chooseSingleCardForZoneChange(ZoneType,List,SpellAbility,CardCollection,DelayedReveal,String,boolean,Player)	ASKS	chooseSingleEntityForEffect	Choose one card to move	a single tutor, a single return	scripts/check-panglacial-wurm.py
 Q chooseSingleCardState(SpellAbility,List,String,Map)	UNBUILT		unlock a door (Duskmourn Rooms)	30 cards	LoudFailureTest
 Q chooseSingleEntityForEffect(FCollectionView,DelayedReveal,SpellAbility,String,boolean,Player,Map)	ASKS	chooseSingleEntityForEffect	Choose one thing for an effect	Karn Liberated, Mutate, Initiative	scripts/check-karn.py
 Q chooseSingleReplacementEffect(List)	ASKS	chooseSingleReplacementEffect	Which replacement effect applies first	two replacement effects at once (Leyline + Battle)	scripts/check-leyline.py
 Q chooseSingleSpellForEffect(List,SpellAbility,String,Map)	ASKS	chooseSingleSpellForEffect	Choose one ability for an effect	Undercity rooms, modal triggers	scripts/check-tracked-state.py
-Q chooseSingleStaticAbility(List)	ASKS	chooseSingleStaticAbility	Which static ability applies first	rare layered statics	PENDING: no Mechanics Lab game asks chooseSingleStaticAbility yet
+Q chooseSingleStaticAbility(List)	ENGINE		Which cost reduction applies first: Forge's own order, as its desktop does unless 'full control' is on (Forge asks it only for cost reductions)	rare layered statics	scripts/check-costs.py
 Q chooseSomeType(String,SpellAbility,Collection,boolean)	ASKS	chooseSomeType	Choose a type: creature type, land type	Mind Bend, Cavern of Souls, Kindred cards	scripts/check-text-effects.py
 Q chooseSpellAbilitiesForEffect(List,SpellAbility,String,int,Map)	ASKS	chooseSpellAbilitiesForEffect	Choose what an effect does	Mind Bend-style text changes	scripts/check-text-effects.py
 Q chooseSpellAbilityToPlay()	ASKS	chooseSpellAbilityToPlay	Your move: play a land, cast, activate, or pass	every game	scripts/check-printings.py
@@ -141,7 +141,7 @@ Q complainCardsCantPlayWell(Deck)	NOT-A-QUESTION		Forge's warning about AI-unfri
 Q confirmAction(SpellAbility,PlayerActionConfirmMode,String,List,Card,Map)	ASKS	confirmAction	Confirm an optional action ("you may")	Mutate, Battle, many "you may" effects	scripts/check-multiface.py
 Q confirmBidAction(SpellAbility,PlayerActionConfirmMode,String,int,Player)	UNBUILT		bid life (Mages' Contest)	3 cards	LoudFailureTest
 Q confirmPayment(CostPart,String,SpellAbility)	ASKS	confirmPayment	Confirm paying an optional cost	Force of Will, energy, life payments	scripts/check-mindslaver.py
-Q confirmReplacementEffect(ReplacementEffect,SpellAbility,GameEntity,String)	ASKS	confirmReplacementEffect	Apply an optional replacement effect?	"you may have it enter tapped"	PENDING: no Mechanics Lab game asks confirmReplacementEffect yet
+Q confirmReplacementEffect(ReplacementEffect,SpellAbility,GameEntity,String)	ASKS	confirmReplacementEffect	Apply an optional replacement effect?	"you may have it enter tapped"	scripts/check-you-choose.py
 Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	confirmStaticApplication	Apply an optional static ability?	rare optional statics	PENDING: no Mechanics Lab game asks confirmStaticApplication yet
 Q confirmTrigger(WrappedAbility)	ASKS	confirmTrigger	Use an optional triggered ability?	"whenever ..., you may" triggers	scripts/check-you-choose.py
 Q declareAttackers(Player,Combat)	ASKS	declareAttackers,chooseDefender	Declare attackers (and what each attacks)	every game; battles and planeswalkers	scripts/check-face-down.py,scripts/check-shapes.py
@@ -150,7 +150,7 @@ Q divideShield(Card,Map,int)	UNBUILT		dividing a damage-prevention shield among 
 Q endTempShowCards()	NOT-A-QUESTION		Stop showing cards shown for a moment (Forge's desktop)	-	-
 Q enlistAttackers(List)	UNBUILT		enlist	15 cards	LoudFailureTest
 Q exertAttackers(List)	UNBUILT		exert (Glorybringer)	36 cards	LoudFailureTest
-Q getAbilityToPlay(Card,List,ITriggerEvent)	ASKS	getAbilityToPlay	A card with several things it can do: which one	Mutate cards, dual-ability permanents	PENDING: no Mechanics Lab game asks getAbilityToPlay yet
+Q getAbilityToPlay(Card,List,ITriggerEvent)	ASKS	getAbilityToPlay	A card with several things it can do: which one	Mutate cards, dual-ability permanents	scripts/check-you-choose.py
 Q getAnteResult()	NOT-A-QUESTION		Ante: not played	-	-
 Q getCostDecisionMaker(Player,SpellAbility,boolean)	ROUTES-TO		Forge forwards this to getCostDecisionMaker	-	-> Q getCostDecisionMaker(Player,SpellAbility,boolean,String)
 Q getCostDecisionMaker(Player,SpellAbility,boolean,String)	ENGINE		Hands Forge the cost payer (MatchCostDecision)	-	scripts/check-costs.py
