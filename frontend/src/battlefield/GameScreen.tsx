@@ -58,6 +58,8 @@ const STEPS: { label: string; phases: string[] }[] = [
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 const NOTICE_MS = 7000;
+/** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
+const HOLD_MS = 1500;
 
 export function GameScreen({
   match,
@@ -88,12 +90,36 @@ export function GameScreen({
     };
   }, [match.matchId, live]);
 
+  // Owner 2026-10-22: a spell the other player cast, that you could not
+  // answer, resolved before it was ever drawn -- it read as being skipped.
+  // A board that shows it on the stack is held HOLD_MS before the next is
+  // drawn, unless a question for you arrives first (then you see it on
+  // the question's board anyway).
+  const latest = game.board;
+  const [held, setHeld] = useState<Snapshot | null>(null);
+  const askedNow = !finished && game.decision !== null;
+  const spotlight = game.spotlight;
+  const askedRef = useRef(askedNow);
+  askedRef.current = askedNow;
+  useEffect(() => {
+    // Only when you are not asked: a question shows the stack itself.
+    if (spotlight && !askedRef.current) setHeld(spotlight);
+  }, [spotlight]);
+  useEffect(() => {
+    if (askedNow) setHeld(null);
+  }, [askedNow]);
+  useEffect(() => {
+    if (!held) return undefined;
+    const timer = window.setTimeout(() => setHeld(null), HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [held]);
+
   // The snapshot before this one, for where arriving cards came from.
   const frames = useRef<{ current: Snapshot | null; previous: Snapshot | null }>({
     current: null,
     previous: null,
   });
-  const board = game.board;
+  const board = held && !askedNow ? held : latest;
   if (board && board !== frames.current.current) {
     frames.current = { current: board, previous: frames.current.current };
   }
@@ -335,7 +361,9 @@ export function GameScreen({
 
       <div className="gs-corner">
         <img className="gs-logo" src={logo} alt="Proxic Arena" />
-        <p className="gs-status" role="status">
+        {/* Owner 2026-10-22: nothing written under the logo -- the screen
+            stays clean. Still said to a screen reader. */}
+        <p className="gs-status pa-visually-hidden" role="status">
           {finished
             ? "Game over."
             : match.status === "LAUNCHING"
@@ -468,8 +496,41 @@ function nameOf(board: Snapshot | null, id: string): string {
 
 // --- top bar ------------------------------------------------------------------------
 
+/** How long the step bar rests on each step it passes (owner 2026-10-22). */
+const STEP_MS = 240;
+
 function TopBar({ board }: { board: Snapshot }) {
-  const now = STEPS.findIndex((step) => step.phases.includes(board.phase));
+  const target = STEPS.findIndex((step) => step.phases.includes(board.phase));
+  // Owner 2026-10-22: steps nobody stops at went by in one jump, and the
+  // game felt fast-forwarded. The bar walks through what was passed, a
+  // beat on each, into the next turn too. It only shows; the game is
+  // never held for it.
+  const [now, setNow] = useState(target);
+  const from = useRef({ turn: board.turn, index: target });
+  useEffect(() => {
+    const was = from.current;
+    from.current = { turn: board.turn, index: target };
+    const path: number[] = [];
+    if (target >= 0 && was.index >= 0 && board.turn === was.turn && target > was.index) {
+      for (let i = was.index + 1; i <= target; i++) path.push(i);
+    } else if (target >= 0 && was.index >= 0 && board.turn === was.turn + 1) {
+      for (let i = was.index + 1; i < STEPS.length; i++) path.push(i);
+      for (let i = 0; i <= target; i++) path.push(i);
+    } else {
+      path.push(target);
+    }
+    setNow(path[0]!);
+    let k = 0;
+    const timer = window.setInterval(() => {
+      k += 1;
+      if (k >= path.length) {
+        window.clearInterval(timer);
+        return;
+      }
+      setNow(path[k]!);
+    }, STEP_MS);
+    return () => window.clearInterval(timer);
+  }, [board.turn, target]);
   return (
     <div className="gs-top">
       <div className="gs-turn" aria-label={`Turn ${board.turn}`}>
@@ -668,6 +729,12 @@ function Rail({
   const top = board.stack[0];
   const priorityName =
     board.players.find((p) => p.seat === board.prioritySeat)?.name ?? "The other player";
+  // Their spell on the stack and you not asked (it is being shown, or you
+  // had nothing to answer with): it is theirs that is going on.
+  const theirSpell = top && top.controller !== null && top.controller !== mySeat ? top : null;
+  const waitingOn = theirSpell
+    ? (board.players.find((p) => p.seat === theirSpell.controller)?.name ?? "The other player")
+    : priorityName;
   const myPriority = question?.context === "priority";
   const words = passWords(board, mySeat);
   return (
@@ -762,12 +829,12 @@ function Rail({
         </div>
       ) : !question ? (
         <div className="gs-waiting" role="status">
+          {/* Owner 2026-10-22: one plain line. */}
           <span className="gs-waiting-word">
             <span aria-hidden="true" className="gs-priority-dot" />
-            {board.prioritySeat === mySeat ? "Your priority" : `${priorityName} to act`}
-          </span>
-          <span className="gs-waiting-sub">
-            {board.prioritySeat === mySeat ? "Working it out…" : "You will get priority back"}
+            {board.prioritySeat === mySeat && !theirSpell
+              ? "One moment"
+              : `Waiting for ${waitingOn}`}
           </span>
         </div>
       ) : (

@@ -461,6 +461,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (byId.isEmpty()) {
             // Everything Forge offered has already failed here.
             // Passing is the honest answer and ends the window.
+            showTheirStack();
             return null;
         }
 
@@ -521,6 +522,7 @@ public final class MatchController extends GeneratedControllerBase {
                 actedForSeat != authorisedSeat, byId, unpayable)) {
             // Not asked: nothing set for this question may ride on the next.
             host.offerUnavailable(java.util.Map.of());
+            showTheirStack();
             return null;
         }
 
@@ -903,6 +905,22 @@ public final class MatchController extends GeneratedControllerBase {
             boolean effect) {
         return forge.game.player.PlaySpellAbility.payManaCost(
                 this, toPay, costPartMana, sa, player, prompt, matrix, effect);
+    }
+
+    /**
+     * Passed for, with the OTHER player's spell or ability on the stack:
+     * send the board first, so both see what was cast (owner 2026-10-22 --
+     * a spell nobody could answer resolved before it was ever drawn, and
+     * read as being skipped; the page holds it a moment). Both ways of
+     * passing for a player come here: nothing at all to do, and the
+     * player's stops. Public: the stack is.
+     */
+    private void showTheirStack() {
+        forge.game.zone.MagicStack stack = player.getGame().getStack();
+        if (!stack.isEmpty() && stack.peekAbility().getActivatingPlayer() != null
+                && !player.equals(stack.peekAbility().getActivatingPlayer())) {
+            host.publishSnapshots();
+        }
     }
 
     /**

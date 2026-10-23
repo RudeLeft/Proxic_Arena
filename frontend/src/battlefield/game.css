@@ -382,6 +382,9 @@ button.gs-zone:not(:disabled):hover {
 .gs-waiting-word {
   display: flex;
   align-items: center;
+  max-width: 200px;
+  text-align: center;
+  line-height: 1.15;
   gap: 7px;
   font-family: "Barlow Condensed", "Segoe UI", sans-serif;
   font-weight: 700;
@@ -511,11 +514,6 @@ button.gs-zone:not(:disabled):hover {
   display: block;
   height: 44px;
   width: auto;
-}
-.gs-status {
-  margin: 0;
-  font-size: 10px;
-  color: #8a8f98;
 }
 .gs-menu-button {
   margin: 0;

@@ -297,6 +297,61 @@ describe("the board", () => {
     expect(state.board?.turn).toBe(3);
   });
 
+  /**
+   * Owner 2026-10-22 — a spell the other player cast, that nobody could
+   * answer, is followed by the next board within milliseconds; the page
+   * must still have it to show.
+   */
+  it("keeps the board that brought the other player's spell, after the next arrives", () => {
+    const theirs = {
+      type: "MATCH_SNAPSHOT",
+      state: {
+        ...SNAPSHOT.state,
+        stateRevision: 11,
+        stack: [{ id: "card:90", name: "Goblin Warchief", controller: 2 }],
+      },
+    };
+    const after = {
+      type: "MATCH_SNAPSHOT",
+      state: { ...SNAPSHOT.state, stateRevision: 12, stack: [] },
+    };
+    const state = apply([
+      { type: "MATCH_SNAPSHOT", state: { ...SNAPSHOT.state, stack: [] } },
+      theirs,
+      after,
+    ]);
+    expect(state.board?.stack).toHaveLength(0);
+    expect(state.spotlight?.stack[0]?.name).toBe("Goblin Warchief");
+  });
+
+  it("does not hold your own spell, or one already shown", () => {
+    const mine = {
+      type: "MATCH_SNAPSHOT",
+      state: {
+        ...SNAPSHOT.state,
+        stateRevision: 11,
+        stack: [{ id: "card:9", name: "Shock", controller: 1 }],
+      },
+    };
+    expect(
+      apply([{ type: "MATCH_SNAPSHOT", state: { ...SNAPSHOT.state, stack: [] } }, mine]).spotlight,
+    ).toBeNull();
+    const theirs = { id: "card:90", name: "Goblin Warchief", controller: 2 };
+    const first = apply([
+      { type: "MATCH_SNAPSHOT", state: { ...SNAPSHOT.state, stack: [theirs] } },
+    ]);
+    const again = apply(
+      [
+        {
+          type: "MATCH_SNAPSHOT",
+          state: { ...SNAPSHOT.state, stateRevision: 11, stack: [theirs] },
+        },
+      ],
+      first,
+    );
+    expect(again.spotlight).toBe(first.spotlight);
+  });
+
   it("takes a newer one", () => {
     const state = apply([
       SNAPSHOT,

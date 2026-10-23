@@ -305,6 +305,14 @@ export interface MatchState {
   /** The board, or null before the first snapshot arrives. */
   board: Snapshot | null;
   /**
+   * Owner 2026-10-22 — the last board that brought something the OTHER
+   * player put on the stack. Kept here, not left to the screen, because
+   * when nobody could answer it the next board arrives milliseconds
+   * later and the page would never draw this one; the screen shows it
+   * for a moment.
+   */
+  spotlight: Snapshot | null;
+  /**
    * PHASE_07 §7.55 — a concession: "SENT" once the server has passed
    * it to Forge (the game's end follows), or why it was not taken.
    */
@@ -318,6 +326,7 @@ export const EMPTY_MATCH: MatchState = {
   awaiting: null,
   notice: null,
   board: null,
+  spotlight: null,
   concession: null,
 };
 
@@ -345,7 +354,12 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       // ordered on one socket, but a reconnect sends the stored
       // snapshot while the live one may already be in flight.
       if (state.board && board.stateRevision < state.board.stateRevision) return state;
-      return { ...state, board };
+      const before = new Set((state.board?.stack ?? []).map((entry) => entry.id));
+      const fresh = board.stack.some(
+        (entry) =>
+          entry.controller !== null && entry.controller !== board.seat && !before.has(entry.id),
+      );
+      return { ...state, board, spotlight: fresh ? board : state.spotlight };
     }
 
     case "MATCH_STEP": {

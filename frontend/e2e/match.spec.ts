@@ -108,7 +108,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // player holds priority in Magic.
     await expect(matchPanel(waiting).getByRole("heading", { name: /Your move/ })).toHaveCount(0);
     // PHASE_07: the rail says whose move it is, by name.
-    await expect(matchPanel(waiting).locator(".gs-waiting")).toContainText(/to act/);
+    await expect(matchPanel(waiting).locator(".gs-waiting")).toContainText(/Waiting for/);
 
     // §6.50 — the actions are FORGE's, and there may be NONE.
     //

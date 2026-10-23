@@ -339,10 +339,11 @@ export async function startAMatch(
   await settlePregame(host, guest);
 
   // §6.17 — both learn Forge is up WITHOUT refreshing.
-  await expect(matchPanel(host).getByText(/The game is running/)).toBeVisible({
+  // Said to a screen reader, not shown (owner 2026-10-22): present, not visible.
+  await expect(matchPanel(host).getByText(/The game is running/)).toBeAttached({
     timeout: 600_000,
   });
-  await expect(matchPanel(guest).getByText(/The game is running/)).toBeVisible({
+  await expect(matchPanel(guest).getByText(/The game is running/)).toBeAttached({
     timeout: 600_000,
   });
 }

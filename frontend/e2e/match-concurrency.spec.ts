@@ -296,7 +296,7 @@ test("three matches at once stay separate, and one crashing leaves the others pl
       await expect(
         matchPanel(pair.host).getByText(/The game is running/),
         `${pair.label} survives`,
-      ).toBeVisible({
+      ).toBeAttached({
         timeout: 120_000,
       });
     }
