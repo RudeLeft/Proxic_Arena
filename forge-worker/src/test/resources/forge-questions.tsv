@@ -68,7 +68,7 @@ Q announceRequirements(SpellAbility,int,int,String)	ASKS	announceRequirements	Ch
 Q applyManaToCost(ManaCostBeingPaid,SpellAbility,String,ManaConversionMatrix,boolean)	ASKS	applyManaToCost,chooseManaAbility	Pay a mana cost: what to tap, or floating mana to spend	every spell with a mana cost	scripts/check-alternate-win.py,scripts/check-mana-choice.py
 Q arrangeForScry(CardCollection)	ASKS	arrangeForScry	Scry 2 or more: the cards for the bottom, then the order on top	Preordain, Serum Visions, Lost Well	scripts/check-surveil.py
 Q arrangeForSurveil(CardCollection)	ASKS	arrangeForSurveil	Surveil: keep on top or put into the graveyard, then the order	Consider, Price of Fame, Notion Rain	scripts/check-surveil.py
-Q assignCombatDamage(Card,CardCollectionView,CardCollectionView,int,GameEntity,boolean)	ASKS	assignCombatDamage	Assign combat damage among several blockers	any attacker blocked by two or more creatures	PENDING: no Mechanics Lab game asks assignCombatDamage yet
+Q assignCombatDamage(Card,CardCollectionView,CardCollectionView,int,GameEntity,boolean)	ASKS	assignCombatDamage	Assign combat damage among several blockers	any attacker blocked by two or more creatures	scripts/check-combat-choices.py
 Q autoPassCancel()	NOT-A-QUESTION		A hint to Forge's desktop screen: stop auto-passing	-	-
 Q awaitNextInput()	NOT-A-QUESTION		A hint to Forge's desktop screen: input is coming	-	-
 Q canPlayUnlimitedLands()	NOT-A-QUESTION		A property: unlimited land drops (a cheat, never on)	-	-
@@ -96,7 +96,7 @@ Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Ion
 Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Pentad Prism-style mana	PENDING: reached only by Reflecting Pool-style mana that could be colourless, paying a generic cost -- the colour picked leaves nothing on the board to check yet
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
 Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
-Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	PENDING: no Mechanics Lab game asks chooseCounterType yet
+Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	scripts/check-you-choose.py
 Q chooseDiceToReroll(List)	UNBUILT		dice you may reroll	4+ cards	LoudFailureTest
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
 Q chooseFlipResult(SpellAbility,Player,boolean)	UNBUILT		Krark's Thumb	1 card	LoudFailureTest
@@ -142,7 +142,7 @@ Q confirmAction(SpellAbility,PlayerActionConfirmMode,String,List,Card,Map)	ASKS	
 Q confirmBidAction(SpellAbility,PlayerActionConfirmMode,String,int,Player)	UNBUILT		bid life (Mages' Contest)	3 cards	LoudFailureTest
 Q confirmPayment(CostPart,String,SpellAbility)	ASKS	confirmPayment	Confirm paying an optional cost	Force of Will, energy, life payments	scripts/check-mindslaver.py
 Q confirmReplacementEffect(ReplacementEffect,SpellAbility,GameEntity,String)	ASKS	confirmReplacementEffect	Apply an optional replacement effect?	"you may have it enter tapped"	scripts/check-you-choose.py
-Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	confirmStaticApplication	Apply an optional static ability?	rare optional statics	PENDING: no Mechanics Lab game asks confirmStaticApplication yet
+Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	confirmStaticApplication	Apply an optional static ability?	Lone Wolf, Thorn Elemental (damage as though unblocked)	scripts/check-combat-choices.py
 Q confirmTrigger(WrappedAbility)	ASKS	confirmTrigger	Use an optional triggered ability?	"whenever ..., you may" triggers	scripts/check-you-choose.py
 Q declareAttackers(Player,Combat)	ASKS	declareAttackers,chooseDefender	Declare attackers (and what each attacks)	every game; battles and planeswalkers	scripts/check-face-down.py,scripts/check-shapes.py
 Q declareBlockers(Player,Combat)	ASKS	declareBlockers,chooseBlockTarget	Declare blockers (and what each blocks)	every game	scripts/check-blocks.py,scripts/check-board-data.py

@@ -34,6 +34,9 @@ and checks the result on the board:
                   the one they picked, and only their own were offered
   sting           Lethal Sting: put a -1/-1 counter on a creature you
                   control, as a cost (CostPutCounter) -- on the one picked
+  elspeth         Elspeth Resplendent's +1: which kind of counter
+                  (chooseCounterType) -- the LAST, and the creature has
+                  that keyword, and no other offered
   guildmage       Zameck Guildmage: remove a +1/+1 counter from a creature
                   you control, as a cost (CostRemoveCounter) -- from the
                   one picked; the other keeps its counter
@@ -59,6 +62,22 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
+BASICS = {"Plains", "Island", "Swamp", "Mountain", "Forest"}
+
+
+class LandKeeper(Game):
+    """Discards down to hand size from the spells, keeping the lands: the
+    harness's first-card default threw lands away, and a game stuck short
+    of mana never reaches the card it exists for."""
+
+    def default(self, frame):
+        if frame.get("kind") == "chooseCardsToDiscardToMaximumHandSize":
+            spare = [o for o in frame.get("options", []) if (o.get("label") or "") not in BASICS]
+            if spare:
+                return spare[0]["actionId"]
+        return super().default(frame)
+
+
 def game(name, seat1, seat2=BEARS):
     if not TRACES:
         trace = ""
@@ -66,7 +85,7 @@ def game(name, seat1, seat2=BEARS):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"you-choose-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace)
 
 
 def stack_empty(g):
@@ -137,7 +156,7 @@ def protect(name, spell, kind):
 
 
 def pioneer(yes):
-    g = game(f"pioneer-{'yes' if yes else 'no'}", [("Forest", 30), ("Elvish Pioneer", 30)])
+    g = game(f"pioneer-{'yes' if yes else 'no'}", [("Forest", 36), ("Elvish Pioneer", 24)])
     st = {"cast": False, "asked": [], "before": None, "after": None}
 
     def lands(seat=1):
@@ -285,10 +304,14 @@ def venture():
 
     def until(g):
         if st["picked"] and stack_empty(g) and st["after"] is None:
-            st["after"] = {seat: (g.player(seat, 1) or {}).get("command") for seat in (1, 2)}
+            views = {seat: (g.player(seat, 1) or {}).get("command") for seat in (1, 2)}
+            st["since"] = st.get("since") or g.turn
+            # Each player's board arrives separately: wait for both to show it.
+            if all(any(st["picked"] in str(c) for c in v or []) for v in views.values()) or g.turn > st["since"] + 1:
+                st["after"] = views
         return st["after"] is not None
 
-    g.run(policy, until=until, max_turn=12)
+    g.run(policy, until=until, max_turn=14)
     found = {"asked": st["asked"], "picked": st["picked"], "command": st["after"], "stopped": g.stopped_badly()}
     if not st["asked"]:
         return "inconclusive", "Nadaar never ventured", found
@@ -305,7 +328,7 @@ def venture():
 
 
 def blaze():
-    g = game("blaze", [("Mountain", 30), ("Blaze", 30)])
+    g = game("blaze", [("Mountain", 36), ("Blaze", 24)])
     st = {"cast": False, "asked": [], "x": None, "before": None, "after": None}
 
     def policy(g, f):
@@ -322,15 +345,16 @@ def blaze():
             if not stack_empty(g):
                 return None
             if not st["cast"] and len(g.untapped_lands(1)) >= 4 and cast(g, f, "Blaze"):
-                st["cast"], st["before"] = True, (g.player(1, 2) or {}).get("life")
+                st["cast"], st["before"] = card_of(cast(g, f, "Blaze")), (g.player(1, 2) or {}).get("life")
                 return cast(g, f, "Blaze")
             return g.play_land(f)
         return DEFAULT
 
     def until(g):
         # X is chosen while casting, before the spell is on the stack: wait
-        # for Blaze to resolve, into the graveyard.
-        resolved = g.zone(1, "graveyard", owner=1, name="Blaze")
+        # for THIS Blaze to resolve, into the graveyard (another may have
+        # been discarded down to hand size).
+        resolved = any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
         if st["x"] and resolved and stack_empty(g) and st["after"] is None:
             st["after"] = (g.player(1, 2) or {}).get("life")
         return st["after"] is not None
@@ -352,9 +376,9 @@ def blaze():
 def axe(pay=False):
     """pay=False: discard a card (the first option). pay=True: pay {5}, the
     LAST option -- so a worker that takes the first could not pass both."""
-    g = game("axe-five" if pay else "axe", [("Mountain", 30), ("Lightning Axe", 30)])
+    g = game("axe-five" if pay else "axe", [("Mountain", 36), ("Lightning Axe", 24)])
     st = {"cast": False, "abilities": [], "discard": [], "discarded": None, "target": None, "after": None,
-          "axes": []}
+          "axes": [], "grave_before": []}
 
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
@@ -363,6 +387,9 @@ def axe(pay=False):
             want = "{5}" if pay else "iscard"
             return next((o["actionId"] for o in f["options"]
                          if want in (o.get("label") or "").split("(Additional cost:")[-1]), DEFAULT)
+        if k == "chooseCardsToDiscardToMaximumHandSize" and seat == 1:
+            # Down to seven: spare Axes go, the Mountains the {5} needs stay.
+            return next((o["actionId"] for o in f["options"] if o.get("label") == "Lightning Axe"), DEFAULT)
         if k == "CostDiscard":
             st["discard"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"])))
             st["discarded"] = card_of(f["options"][-1]["actionId"])
@@ -381,18 +408,22 @@ def axe(pay=False):
                 o = cast(g, f, "Lightning Axe")
                 if o:
                     st["cast"], st["axes"] = True, [card_of(o)]
+                    st["grave_before"] = [c["id"] for c in g.zone(1, "graveyard", owner=1)]
                     return o
             return g.play_land(f)
         return DEFAULT
 
     def until(g):
-        if (st["discarded"] or pay) and st["cast"] and g.zone(1, "graveyard", owner=1, name="Lightning Axe")                 and stack_empty(g) and st["after"] is None:
+        # The Axe that was CAST, resolved: another may have been discarded
+        # down to hand size earlier, and would look the same.
+        resolved = st["axes"] and any(c["id"] == st["axes"][0] for c in g.zone(1, "graveyard", owner=1))
+        if (st["discarded"] or pay) and resolved and stack_empty(g) and st["after"] is None:
             st["after"] = {"grave": [c["id"] for c in g.zone(1, "graveyard", owner=1)],
                            "hand": [c["id"] for c in g.zone(1, "hand")],
                            "bears": [c["id"] for c in g.zone(1, "graveyard", owner=2)]}
         return st["after"] is not None
 
-    g.run(policy, until=until, max_turn=16)
+    g.run(policy, until=until, max_turn=20)
     found = {k: st[k] for k in ("abilities", "discard", "discarded", "target", "after")}
     found["stopped"] = g.stopped_badly()
     if not st["abilities"] or not st["after"] or (not pay and not st["discarded"]):
@@ -403,7 +434,7 @@ def axe(pay=False):
     if len(st["abilities"][0][1]) != 2:
         problems.append(f"expected discard or pay {{5}}: {st['abilities'][0][1]}")
     if pay:
-        others = [c for c in st["after"]["grave"] if c not in st["axes"]]
+        others = [c for c in st["after"]["grave"] if c not in st["axes"] and c not in st["grave_before"]]
         if st["discard"] or others:
             problems.append(f"paid {{5}}, but a card was discarded: {st['discard']} {others}")
     elif st["discarded"] not in st["after"]["grave"] or st["discarded"] in st["after"]["hand"]:
@@ -415,7 +446,7 @@ def axe(pay=False):
 
 
 def reckoning():
-    g = game("reckoning", [("Plains", 24), ("Savannah Lions", 20), ("Divine Reckoning", 16)])
+    g = game("reckoning", [("Plains", 28), ("Savannah Lions", 18), ("Divine Reckoning", 14)])
     st = {"cast": False, "asked": [], "after": None}
 
     def creatures(seat):
@@ -442,7 +473,10 @@ def reckoning():
 
     def until(g):
         if len(st["asked"]) >= 2 and stack_empty(g) and st["after"] is None:
-            st["after"] = {1: creatures(1), 2: creatures(2)}
+            # Both sides as seat 1's board shows them: seat 2's own view may
+            # not have caught up with the snapshot that just arrived.
+            st["after"] = {seat: sorted(c["id"] for c in g.zone(1, "battlefield", owner=seat)
+                                        if c.get("kind") == "creature") for seat in (1, 2)}
         return st["after"] is not None
 
     g.run(policy, until=until, max_turn=24)
@@ -488,13 +522,14 @@ def sting():
             if not st["cast"] and len(mine()) >= 2 and theirs(g, "Grizzly Bears"):
                 o = cast(g, f, "Lethal Sting")
                 if o:
-                    st["cast"] = True
+                    st["cast"] = card_of(o)
                     return o
             return g.play_land(f) or (cast(g, f, "Walking Corpse") if len(mine()) < 3 else None)
         return DEFAULT
 
     def until(g):
-        if st["picked"] and g.zone(1, "graveyard", owner=1, name="Lethal Sting") and stack_empty(g)                 and st["after"] is None:
+        sting_done = any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["picked"] and sting_done and stack_empty(g) and st["after"] is None:
             st["after"] = {cid: (counters_of(c), c.get("power"), c.get("toughness")) for cid, c in mine().items()}
         return st["after"] is not None
 
@@ -577,11 +612,71 @@ def guildmage():
                             "was drawn", found)
 
 
+def elspeth():
+    g = game("elspeth", [("Plains", 30), ("Savannah Lions", 16), ("Elspeth Resplendent", 14)])
+    st = {"used": False, "asked": [], "picked": None, "lions": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseCounterType":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            st["picked"] = f["options"][-1].get("label")
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1 and st["used"]:
+            o = next((o for o in f["options"] if card_of(o["actionId"]) == st["lions"]), None)
+            return o["actionId"] if o else DEFAULT
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            lions = g.mine(1, name="Savannah Lions")
+            if not st["used"] and lions and g.mine(1, name="Elspeth Resplendent"):
+                o = next((o["actionId"] for o in f["options"]
+                          if (o.get("label") or "").startswith("Elspeth Resplendent") and "+1" in (o.get("label") or "")),
+                         None)
+                if o:
+                    st["used"], st["lions"] = True, lions[0]["id"]
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Elspeth Resplendent") and lions and cast(g, f, "Elspeth Resplendent"):
+                return cast(g, f, "Elspeth Resplendent")
+            return None if lions else cast(g, f, "Savannah Lions")
+        return DEFAULT
+
+    def until(g):
+        if st["picked"] and stack_empty(g) and st["after"] is None:
+            c = next((c for c in g.mine(1) if c["id"] == st["lions"]), None)
+            st["after"] = c and {"keywords": c.get("keywords"), "counters": counters_of(c),
+                                 "pt": (c.get("power"), c.get("toughness"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Elspeth's +1 never asked which kind of counter", found
+    problems = []
+    if any(seat != 1 for seat, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's counter")
+    if len(st["asked"][0][1]) < 2:
+        problems.append(f"no real choice: {st['asked'][0][1]}")
+    after = st["after"] or {}
+    if st["picked"] not in (after.get("keywords") or []):
+        problems.append(f"picked {st['picked']!r}, but the Lions have {after.get('keywords')}")
+    others = [o for o in st["asked"][0][1] if o != st["picked"] and o in (after.get("keywords") or [])]
+    if others:
+        problems.append(f"the Lions also have {others}, which were not picked")
+    if after.get("pt") != (3, 2):
+        problems.append(f"the +1/+1 counter should make the Lions 3/2: {after.get('pt')}")
+    return outcome(problems, f"Elspeth's +1: the counter picked, {st['picked']}, is the keyword the Lions gained", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
              "clone-yes": lambda: clone(True), "clone-no": lambda: clone(False), "venture": venture,
-             "blaze": blaze, "axe": axe, "axe-five": lambda: axe(True), "reckoning": reckoning, "sting": sting, "guildmage": guildmage}
+             "blaze": blaze, "axe": axe, "axe-five": lambda: axe(True), "reckoning": reckoning, "sting": sting, "guildmage": guildmage,
+             "elspeth": elspeth}
 
 if __name__ == "__main__":
     codes = []
