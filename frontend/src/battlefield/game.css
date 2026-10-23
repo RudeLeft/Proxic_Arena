@@ -608,6 +608,33 @@ button.gs-zone:not(:disabled):hover {
 .gs-question-slim .gs-pass {
   margin: 0 0 0 auto;
 }
+/* Spec 0001 D3: the cards a scry or surveil shows you, as the board draws
+ * cards, in a row inside the question. */
+.gs-question-looking {
+  width: auto;
+  max-width: min(760px, 64vw);
+  max-height: 70vh;
+}
+.gs-looking {
+  --card-h: 168px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 4px;
+  list-style: none;
+}
+.gs-looking-slot {
+  position: relative;
+  width: calc(var(--card-h) * 0.716);
+  height: var(--card-h);
+}
+/* Shown, not chosen from: full strength, never the faded disabled button. */
+.gs-looking .bf-card:disabled {
+  opacity: 1;
+  cursor: default;
+}
 .gs-question-title {
   margin: 0;
   font-family: "Barlow Condensed", "Segoe UI", sans-serif;

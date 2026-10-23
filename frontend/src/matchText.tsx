@@ -204,7 +204,9 @@ export function headingFor(kind: string): string {
     case "chooseSpellAbilitiesForEffect":
       return "Choose what it does";
     case "arrangeForScry":
-      return "Order the top of your library";
+      return "Scry";
+    case "arrangeForSurveil":
+      return "Surveil";
     case "willPutCardOnTop":
       return "Top or bottom";
     case "CostPutCounter":
@@ -319,10 +321,11 @@ export function hintFor(kind: string, options: number): string {
     case "CostRemoveCounter":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
+    case "arrangeForSurveil":
     case "willPutCardOnTop":
-      // A scry names library cards: worth saying they are shown to
-      // this player alone, as Forge shows them.
-      return "Only you can see these cards. This cannot be skipped.";
+      // Library cards: worth saying they are shown to this player
+      // alone, as Forge shows them (spec 0001: as pictures).
+      return "Only you can see these cards. The line above says what to do with them.";
     case "chooseNumber":
       return "These are the numbers allowed. This cannot be skipped.";
     default:

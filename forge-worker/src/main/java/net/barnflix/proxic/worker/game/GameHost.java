@@ -833,6 +833,38 @@ public final class GameHost {
         return subject;
     }
 
+    /**
+     * Spec 0001 D3 -- the cards a question is about that no zone shows
+     * this player: a scry's or a surveil's top cards, as pictures. Each is
+     * described exactly as a snapshot would describe it to [viewer], so a
+     * card Forge has not let them look at goes out nameless (HID). Only
+     * on the decision, which goes to the asking seat alone.
+     *
+     * Unlike the facts above, NOT cleared per question: a surveil asks
+     * several in a row about the same cards, so whoever sets it clears it
+     * ([#stopLooking]), in a finally.
+     */
+    private volatile com.google.gson.JsonArray looking = null;
+
+    void lookingAt(Iterable<forge.game.card.Card> cards, forge.game.player.PlayerView viewer) {
+        Game current = game;
+        if (current == null) {
+            return;
+        }
+        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
+        com.google.gson.JsonArray out = new com.google.gson.JsonArray();
+        cards.forEach(card -> out.add(ViewerSnapshot.describeFor(card, viewer, seats)));
+        looking = out;
+    }
+
+    void stopLooking() {
+        looking = null;
+    }
+
+    public com.google.gson.JsonArray looking() {
+        return looking;
+    }
+
     private static final java.util.regex.Pattern OBJECT =
             java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
 

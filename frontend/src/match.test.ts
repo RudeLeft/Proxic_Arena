@@ -822,6 +822,46 @@ describe("why a card cannot act (B7)", () => {
   });
 });
 
+describe("the cards a question shows (spec 0001 D3)", () => {
+  it("reads them as cards, dropping anything that is not one", () => {
+    const state = reduceMatch(EMPTY_MATCH, {
+      type: "DECISION_REQUEST",
+      decisionId: 9,
+      actedForSeat: 1,
+      stateVersion: 3,
+      kind: "arrangeForSurveil",
+      options: [{ actionId: "card:12", label: "Island (12)", objectId: "card:12" }],
+      looking: [
+        {
+          id: "card:12",
+          seat: 1,
+          name: "Island",
+          known: true,
+          kind: "land",
+          types: "Basic Land — Island",
+        },
+        { name: "no id" },
+        "not a card",
+      ],
+    });
+    expect(state.decision?.looking.map((card) => [card.id, card.name, card.known])).toEqual([
+      ["card:12", "Island", true],
+    ]);
+  });
+
+  it("is empty for every other question", () => {
+    const state = reduceMatch(EMPTY_MATCH, {
+      type: "DECISION_REQUEST",
+      decisionId: 9,
+      actedForSeat: 1,
+      stateVersion: 3,
+      kind: "chooseSpellAbilityToPlay",
+      options: [],
+    });
+    expect(state.decision?.looking).toEqual([]);
+  });
+});
+
 /**
  * Owner 2026-10-22 — Cancel says what it backs out of: the whole cast,
  * with any mana refunded, so nothing is spent.

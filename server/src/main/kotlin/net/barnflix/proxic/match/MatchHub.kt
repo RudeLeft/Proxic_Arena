@@ -173,6 +173,9 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.about.isNotEmpty()) {
             putJsonObject("about") { request.about.forEach { (key, value) -> put(key, value) } }
         }
+        if (request.looking.isNotEmpty()) {
+            putJsonArray("looking") { request.looking.forEach { add(it) } }
+        }
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(

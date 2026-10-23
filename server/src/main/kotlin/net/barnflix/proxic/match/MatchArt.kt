@@ -97,43 +97,9 @@ class MatchArt(
     ): JsonObject {
         val allowed = shown.computeIfAbsent(viewerSeat) { ConcurrentHashMap.newKeySet() }
 
-        fun card(entry: JsonObject): JsonObject {
-            // §6.124 — a card the viewer may not identify carries no
-            // reference. `known` is the worker's own answer to "may
-            // this viewer see what this is".
-            if (entry["known"]?.jsonPrimitive?.booleanOrNull != true) {
-                return entry
-            }
-            val name = entry["name"]?.jsonPrimitive?.content ?: return entry
-            // §6.128 — a token is in nobody's package. Said here, not left
-            // to no name matching: a package may carry pictures by face
-            // name (§7.59), and one could share a token's name.
-            if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return entry
-            // The art belongs to the deck of whoever OWNS the card,
-            // not the viewer: that is the whole reason §6.122 exists
-            // as a match-scoped route rather than a Deck Depot one.
-            val owner = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
-            // The exact printing first, when the deck carried art for
-            // it; the name otherwise, as before.
-            val printing = entry["printing"]?.jsonPrimitive?.content
-            // §7.59 — a face that is not a front (a card turned over) has its
-            // own picture when the deck carried one, by that face's name;
-            // otherwise none -- never the front's.
-            val asset =
-                bySeat[owner]?.let { art ->
-                    printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
-                } ?: return entry
-
-            allowed.add(asset)
-            return buildJsonObject {
-                entry.forEach { (key, value) -> put(key, value) }
-                put("art", JsonPrimitive(asset))
-            }
-        }
-
         fun zone(key: String): JsonArray? =
             (state[key] as? JsonArray)?.let { cards ->
-                JsonArray(cards.map { card(it.jsonObject) })
+                JsonArray(cards.map { card(it.jsonObject, allowed) })
             }
 
         return buildJsonObject {
@@ -146,6 +112,56 @@ class MatchArt(
                     }
                 put(key, rewritten ?: value)
             }
+        }
+    }
+
+    /**
+     * Spec 0001 D3 — the same, for the cards a question shows the asked
+     * player (a scry's, a surveil's top cards): sending them is what lets
+     * that seat fetch their pictures, as for anything else it is shown.
+     */
+    fun annotateCards(
+        cards: List<JsonObject>,
+        viewerSeat: Int,
+    ): List<JsonObject> {
+        val allowed = shown.computeIfAbsent(viewerSeat) { ConcurrentHashMap.newKeySet() }
+        return cards.map { card(it, allowed) }
+    }
+
+    private fun card(
+        entry: JsonObject,
+        allowed: MutableSet<String>,
+    ): JsonObject {
+        // §6.124 — a card the viewer may not identify carries no
+        // reference. `known` is the worker's own answer to "may
+        // this viewer see what this is".
+        if (entry["known"]?.jsonPrimitive?.booleanOrNull != true) {
+            return entry
+        }
+        val name = entry["name"]?.jsonPrimitive?.content ?: return entry
+        // §6.128 — a token is in nobody's package. Said here, not left
+        // to no name matching: a package may carry pictures by face
+        // name (§7.59), and one could share a token's name.
+        if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return entry
+        // The art belongs to the deck of whoever OWNS the card,
+        // not the viewer: that is the whole reason §6.122 exists
+        // as a match-scoped route rather than a Deck Depot one.
+        val owner = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
+        // The exact printing first, when the deck carried art for
+        // it; the name otherwise, as before.
+        val printing = entry["printing"]?.jsonPrimitive?.content
+        // §7.59 — a face that is not a front (a card turned over) has its
+        // own picture when the deck carried one, by that face's name;
+        // otherwise none -- never the front's.
+        val asset =
+            bySeat[owner]?.let { art ->
+                printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
+            } ?: return entry
+
+        allowed.add(asset)
+        return buildJsonObject {
+            entry.forEach { (key, value) -> put(key, value) }
+            put("art", JsonPrimitive(asset))
         }
     }
 

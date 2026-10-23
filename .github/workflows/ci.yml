@@ -230,7 +230,7 @@ jobs:
               mindslaver characteristics player-state mana-choice alternate-win \
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
-              library-order mana-pool sacrifice \
+              library-order mana-pool sacrifice surveil \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
               'run() { timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
@@ -413,6 +413,12 @@ jobs:
       - name: Build the sacrifice deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/sacrifice-deck.zip" protocol/fixtures/sacrifice-deck
+
+      # And looking at your library (spec 0001, F-0001-H, D3): surveil and
+      # scry, the cards as pictures to the player looking, alone.
+      - name: Build the surveil deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/surveil-deck.zip" protocol/fixtures/surveil-deck
 
       - run: npm ci
         working-directory: frontend

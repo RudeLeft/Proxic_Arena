@@ -26,7 +26,7 @@ import {
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
 import { NameSearch, cancelWords, headingFor, hintFor, matchUrl, resultText } from "../matchText";
-import { Board } from "./Board";
+import { Board, CardFace, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
@@ -427,6 +427,7 @@ export function GameScreen({
           onToggleAll={() => setListOpen((open) => !open)}
           onAnswer={answer}
           onSearch={search}
+          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
         />
       )}
 
@@ -873,6 +874,7 @@ function QuestionBar({
   onToggleAll,
   onAnswer,
   onSearch,
+  artUrl,
 }: {
   decision: NonNullable<MatchState["decision"]>;
   question: Question;
@@ -884,6 +886,7 @@ function QuestionBar({
   onToggleAll: () => void;
   onAnswer: (actionId: string | null) => void;
   onSearch: (query: string) => void;
+  artUrl: (art: string) => string;
 }) {
   // Declaring attackers or blockers is answered on the board and the act
   // button (owner 2026-10-22); the list, opened from the menu, still works.
@@ -927,6 +930,67 @@ function QuestionBar({
     decision.actedForSeat === mySeat
       ? headingFor(decision.kind)
       : `Playing for seat ${decision.actedForSeat}`;
+  // Spec 0001 D3 (owner 2026-10-22): a scry's or a surveil's cards, shown
+  // to you alone as pictures, and clicked like the board. A card no
+  // option is about is only shown -- or, while others are still being
+  // chosen, already chosen.
+  if (!all && decision.looking.length > 0) {
+    const byCard = new Map<string, DecisionOption>();
+    for (const o of decision.options) if (o.objectId) byCard.set(o.objectId, o);
+    const shown = new Set(decision.looking.map((card) => card.id));
+    const choosing = decision.looking.some((card) => byCard.has(card.id));
+    const rest = decision.options.filter((o) => !o.objectId || !shown.has(o.objectId));
+    return (
+      <div className="gs-question gs-question-looking" data-kind={decision.kind}>
+        <h2 className="gs-question-title">{heading}</h2>
+        {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
+        {notice && (
+          <p className="gs-question-notice" role="alert">
+            {notice}
+          </p>
+        )}
+        <ul className="gs-looking bf-asking" aria-label="The cards you are looking at">
+          {decision.looking.map((card) => {
+            const pick = byCard.get(card.id);
+            const chosen = choosing && !pick;
+            const look = lookOf(card.kind, card.types);
+            return (
+              <li key={card.id} className="gs-looking-slot">
+                <button
+                  type="button"
+                  className={`bf-card bf-look-${look}${pick ? " bf-choosable" : ""}${chosen ? " bf-dim" : ""}`}
+                  disabled={busy || !pick}
+                  data-object-id={card.id}
+                  data-choosable={pick ? "true" : undefined}
+                  aria-label={`${card.name}${pick ? ", can be chosen" : chosen ? ", chosen" : ""}`}
+                  onClick={() => pick && onAnswer(pick.actionId)}
+                >
+                  <CardFace
+                    name={card.name}
+                    look={look}
+                    type={shortType(card.types)}
+                    pt={figure(card)}
+                    art={card.art ? artUrl(card.art) : null}
+                    faceDown={card.faceDown}
+                    known={card.known}
+                  />
+                  {chosen && <span className="bf-state">CHOSEN</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {rest.length > 0 && <ul className="gs-options">{rest.map(option)}</ul>}
+        <p className="gs-question-foot">{hintFor(decision.kind, decision.options.length)}</p>
+        {/* "No more": the rules allow stopping here (none, or no more). */}
+        {question.canPass && (
+          <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
+            Done
+          </button>
+        )}
+      </div>
+    );
+  }
   // Everything asked is on the board (a target, a land to tap): the
   // board is the answer, so the question is one line over the table,
   // never a box in the middle of it (AMENDMENT 12).

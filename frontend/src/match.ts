@@ -100,6 +100,12 @@ export interface Decision {
    * undoes. Null when the server says nothing.
    */
   about: DecisionAbout | null;
+  /**
+   * Spec 0001 D3 (owner 2026-10-22) — the cards this question shows you
+   * alone (a scry's or a surveil's top cards), as pictures, described as
+   * a snapshot describes a card. Empty for every other question.
+   */
+  looking: SnapshotCard[];
 }
 
 /** The spell or ability a question is about. */
@@ -748,6 +754,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     results: null,
     unavailable: asReasons(message["unavailable"]),
     about: asAbout(message["about"]),
+    looking: asCards(message["looking"]),
   };
 }
 

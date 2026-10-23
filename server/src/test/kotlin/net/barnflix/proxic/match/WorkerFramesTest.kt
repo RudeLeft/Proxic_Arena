@@ -151,6 +151,25 @@ class WorkerFramesTest {
         assertTrue(!decisionMessage(request.copy(about = emptyMap())).toString().contains("about"))
     }
 
+    /** Spec 0001 D3 -- the cards a surveil shows reach the asked player, as sent. */
+    @Test
+    fun `the cards a question shows reach the browser`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"8","actedForSeat":1,"authorisedSeat":1,"kind":"arrangeForSurveil",
+                     "stateVersion":"4","options":[],
+                     "looking":[{"id":"card:12","seat":1,"name":"Island","known":true},"not a card"]}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertEquals(1, request.looking.size, "a card is an object; anything else is dropped")
+        val sent = decisionMessage(request).toString()
+        assertTrue(sent.contains("\"looking\":[{\"id\":\"card:12\""), sent)
+        assertTrue(!decisionMessage(request.copy(looking = emptyList())).toString().contains("looking"))
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

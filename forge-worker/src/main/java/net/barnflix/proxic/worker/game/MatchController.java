@@ -1561,6 +1561,12 @@ public final class MatchController extends GeneratedControllerBase {
      */
     private <T extends forge.game.GameEntity> java.util.List<T> pickSeveral(
             String kind, Iterable<T> options, int min, int max, String title, String context) {
+        return pickSeveral(kind, options, min, max, title, context, "or pass");
+    }
+
+    /** The same, with what ends the picking named as the page names it ("then Done"). */
+    private <T extends forge.game.GameEntity> java.util.List<T> pickSeveral(
+            String kind, Iterable<T> options, int min, int max, String title, String context, String stop) {
         java.util.List<T> chosen = new java.util.ArrayList<>();
         java.util.List<T> remaining = new java.util.ArrayList<>();
         options.forEach(remaining::add);
@@ -1584,7 +1590,8 @@ public final class MatchController extends GeneratedControllerBase {
                     ? title
                     : title + (mandatory
                         ? " (" + (min - chosen.size()) + " more needed)"
-                        : " (up to " + (max - chosen.size()) + " more, or pass)");
+                        : " (up to " + (chosen.isEmpty() ? String.valueOf(max) : (max - chosen.size()) + " more")
+                                + ", " + stop + ")");
             if (chosen.isEmpty() && !context.isEmpty()) {
                 prompt = prompt + " " + context;
             }
@@ -1872,10 +1879,13 @@ public final class MatchController extends GeneratedControllerBase {
      * bottom. Several: which go to the BOTTOM (any number, none
      * included), then the order of the rest on top, first chosen =
      * top card (Forge's GameAction.scry reverses the list it gets
-     * back for exactly that reading). The cards are named in the
-     * question, which goes to the scrying player alone. Was a loud
-     * stub, reached by the Undercity's Lost Well (White Plume
-     * Adventurer, 2026-10-20) -- and by every scry card there is.
+     * back for exactly that reading). Was a loud stub, reached by the
+     * Undercity's Lost Well (White Plume Adventurer, 2026-10-20) -- and
+     * by every scry card there is.
+     *
+     * Spec 0001 D3 (owner 2026-10-22): the cards are shown as pictures,
+     * to the scrying player alone, and clicked -- the same look as
+     * surveil.
      */
     @Override
     public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection>
@@ -1885,30 +1895,87 @@ public final class MatchController extends GeneratedControllerBase {
                     ? org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null)
                     : org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN);
         }
-        forge.game.card.CardCollection toBottom = new forge.game.card.CardCollection(chooseEntitiesForEffect(
-                topN, 0, topN.size(), null, null,
-                "Scry " + topN.size() + ": choose the cards to put on the BOTTOM of your library", null, null));
-        java.util.List<forge.game.card.Card> remaining = new java.util.ArrayList<>(topN);
-        remaining.removeAll(toBottom);
-        forge.game.card.CardCollection toTop = new forge.game.card.CardCollection();
-        while (remaining.size() > 1) {
-            java.util.List<String> names = new java.util.ArrayList<>();
-            remaining.forEach(card -> names.add(String.valueOf(card)));
-            int picked = askIndex("arrangeForScry", names, true,
-                    "Which goes on TOP of your library" + (toTop.isEmpty() ? "" : ", under " + toTop.get(toTop.size() - 1)) + "?");
-            toTop.add(remaining.remove(Math.max(picked, 0)));
-        }
-        toTop.addAll(remaining);
-        return org.apache.commons.lang3.tuple.ImmutablePair.of(toTop.isEmpty() ? null : toTop,
-                toBottom.isEmpty() ? null : toBottom);
+        return arrange("arrangeForScry", topN,
+                "Scry " + topN.size() + ": click any cards to put on the bottom of your library");
     }
 
     /** Top or bottom of the library, for one card -- Forge's own question. */
     @Override
     public boolean willPutCardOnTop(forge.game.card.Card card) {
-        int picked = askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
-                "Put " + card + " on the top or the bottom of your library?");
-        return picked != 1;
+        java.util.List<forge.game.card.Card> one = java.util.List.of(card);
+        return looking(one, () -> askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
+                "Put " + ViewerSnapshot.nameFor(card, player.getView())
+                        + " on the top or the bottom of your library?")) != 1;
+    }
+
+    /**
+     * Surveil -- spec 0001, a port of Forge's human controller. One card:
+     * keep it on top, or put it into the graveyard. Several: which go to
+     * the GRAVEYARD (any number, none included), then the order of the
+     * rest on top, first chosen = top card (Player.surveil reverses the
+     * list, as scry's caller does). Shown as pictures to the surveilling
+     * player alone (0001 D3); the graveyard makes the ones put there
+     * public. Was a loud stub: every "surveil N" stopped the match.
+     */
+    @Override
+    public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection>
+            arrangeForSurveil(forge.game.card.CardCollection topN) {
+        if (topN.size() == 1) {
+            forge.game.card.Card card = topN.get(0);
+            int picked = looking(topN, () -> askIndex("arrangeForSurveil",
+                    java.util.List.of("Keep it on top", "Put it into your graveyard"), true,
+                    "Surveil 1: " + ViewerSnapshot.nameFor(card, player.getView())
+                            + " -- keep it on top of your library, or put it into your graveyard?"));
+            return picked == 1
+                    ? org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN)
+                    : org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null);
+        }
+        return arrange("arrangeForSurveil", topN,
+                "Surveil " + topN.size() + ": click any cards to put into your graveyard");
+    }
+
+    /**
+     * Scry's and surveil's shared shape: first the cards to send AWAY
+     * (bottom, or graveyard) -- any number, none included, a pass when
+     * done -- then the order of the rest on top, one click per card, the
+     * first clicked going on top. Returns (top, away) as Forge wants it.
+     */
+    private org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection>
+            arrange(String kind, forge.game.card.CardCollection topN, String awayTitle) {
+        forge.game.card.CardCollection away = new forge.game.card.CardCollection(
+                looking(topN, () -> pickSeveral(kind, topN, 0, topN.size(), awayTitle, "", "then Done")));
+        java.util.List<forge.game.card.Card> remaining = new java.util.ArrayList<>(topN);
+        remaining.removeAll(away);
+        forge.game.card.CardCollection toTop = new forge.game.card.CardCollection();
+        while (remaining.size() > 1) {
+            String under = toTop.isEmpty() ? ""
+                    : ", under " + ViewerSnapshot.nameFor(toTop.get(toTop.size() - 1), player.getView());
+            java.util.List<forge.game.card.Card> left = remaining;
+            toTop.add(looking(left, () -> pickSeveral(kind, left, 1, 1,
+                    "Which goes on top of your library" + under + "?", "")).get(0));
+            remaining.remove(toTop.get(toTop.size() - 1));
+        }
+        toTop.addAll(remaining);
+        return org.apache.commons.lang3.tuple.ImmutablePair.of(toTop.isEmpty() ? null : toTop,
+                away.isEmpty() ? null : away);
+    }
+
+    /**
+     * Ask while this player is LOOKING at [cards] (spec 0001 D3): Forge
+     * lets them see the cards for the question (as its own desktop does,
+     * tempShowCard), the question carries them as pictures, and both end
+     * with it -- in a finally, so a question that fails leaves nothing
+     * shown.
+     */
+    private <R> R looking(java.util.List<forge.game.card.Card> cards, java.util.function.Supplier<R> ask) {
+        cards.forEach(card -> card.addMayLookTemp(player));
+        try {
+            host.lookingAt(cards, player.getView());
+            return ask.get();
+        } finally {
+            host.stopLooking();
+            cards.forEach(card -> card.removeMayLookTemp(player));
+        }
     }
 
     /** What a player reads for each ability: its own description. */

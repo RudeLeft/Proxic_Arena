@@ -59,6 +59,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
                 (frame["about"] as? JsonObject).orEmpty().mapNotNull { (key, value) ->
                     (value as? JsonPrimitive)?.contentOrNull?.let { key to it }
                 }.toMap(),
+            looking = (frame["looking"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject },
         )
     }.getOrNull()
 

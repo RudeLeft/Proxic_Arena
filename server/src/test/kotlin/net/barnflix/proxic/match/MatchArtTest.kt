@@ -130,6 +130,26 @@ class MatchArtTest {
     }
 
     /**
+     * Spec 0001 D3 — the cards a question shows (a surveil's top cards)
+     * wear their pictures, and being shown them authorises exactly those
+     * -- for the seat asked, not the other.
+     */
+    @Test
+    fun `the cards a question shows carry their art for the asked seat only`() {
+        val art = art()
+        val looking =
+            listOf(card("card:20", bob, "Black Lotus"), card("card:21", bob, "Plains", known = false))
+                .map { Json.parseToJsonElement(it).jsonObject }
+
+        val shown = art.annotateCards(looking, bob)
+
+        assertEquals(secret, shown[0]["art"]?.jsonPrimitive?.content)
+        assertNull(shown[1]["art"], "a card the asker may not identify gets none")
+        assertTrue(art.mayFetch(bob, secret))
+        assertFalse(art.mayFetch(alice, secret), "the other player was shown nothing")
+    }
+
+    /**
      * P6-Z, §6.129 — seeing one card does not open the package.
      *
      * Alice has been shown a Plains from Bob's deck. The Black

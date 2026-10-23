@@ -104,8 +104,17 @@ class MatchDecisions(
 
     private fun ask(
         live: LiveMatch,
-        request: DecisionRequest,
+        asked: DecisionRequest,
     ) {
+        // Spec 0001 D3 -- the cards being looked at wear their pictures,
+        // for the asked seat only; annotated before storing, as a
+        // snapshot is, so a reconnect is sent the same.
+        val request =
+            if (asked.looking.isEmpty()) {
+                asked
+            } else {
+                asked.copy(looking = live.art.annotateCards(asked.looking, asked.authorisedSeat))
+            }
         live.nowAsking(request)
         val user = live.authorisedUser()
         if (user == null) {

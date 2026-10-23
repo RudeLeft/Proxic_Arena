@@ -319,6 +319,10 @@ public final class WorkerMain {
                         if (GAME.subject() != null) {
                             ask.add("about", GAME.subject());
                         }
+                        // Spec 0001 D3 -- the library cards this player is looking at.
+                        if (GAME.looking() != null) {
+                            ask.add("looking", GAME.looking());
+                        }
                         send(ask);
                     });
                     // §6.40 — one snapshot per viewer, and the

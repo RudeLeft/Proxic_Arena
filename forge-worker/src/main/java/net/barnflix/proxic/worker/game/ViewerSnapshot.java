@@ -456,6 +456,11 @@ final class ViewerSnapshot {
         return out;
     }
 
+    /** A card as [viewer] may know it -- a question's "looking at" cards (spec 0001 D3). */
+    static JsonObject describeFor(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
+        return describe(card, viewer, seatOf);
+    }
+
     private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         CardView view = card.getView();
         JsonObject entry = new JsonObject();

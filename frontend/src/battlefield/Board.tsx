@@ -190,8 +190,8 @@ export interface BoardProps {
 
 /** The canvas's palette, by what a card is (§7.40: the type also shows
  * as a glyph and words, never colour alone). */
-type Look = "land" | "creature" | "artifact" | "walker";
-function lookOf(kind: string, types: string): Look {
+export type Look = "land" | "creature" | "artifact" | "walker";
+export function lookOf(kind: string, types: string): Look {
   if (kind === "creature") return "creature";
   if (kind === "land") return "land";
   if (/\bPlaneswalker\b/.test(types)) return "walker";
@@ -221,14 +221,14 @@ function Glyph({ look, className }: { look: Look; className: string }) {
 
 /** The type line's first part, as the canvas's bottom bar shows it:
  * "Creature — Angel" reads "Creature". */
-function shortType(types: string): string {
+export function shortType(types: string): string {
   const head = types.split(/\s+—\s+/)[0] ?? "";
   return head.replace(/\bBasic\s+/, "");
 }
 
 /** Current power/toughness, or a planeswalker's loyalty, from Forge
  * (§7.20) -- never printed values. */
-function figure(card: {
+export function figure(card: {
   power: number | null;
   toughness: number | null;
   counters?: readonly { name: string; count: number }[];
@@ -238,7 +238,7 @@ function figure(card: {
   return loyalty ? String(loyalty.count) : "";
 }
 
-function CardFace({
+export function CardFace({
   name,
   look,
   type,

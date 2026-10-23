@@ -19,6 +19,7 @@ function decision(kind: string, options: Decision["options"], mandatory = false)
     results: null,
     unavailable: {},
     about: null,
+    looking: [],
   };
 }
 const option = (actionId: string, objectId: string | null, label = actionId) => ({

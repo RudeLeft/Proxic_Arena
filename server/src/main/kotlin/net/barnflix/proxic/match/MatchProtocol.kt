@@ -1,5 +1,7 @@
 package net.barnflix.proxic.match
 
+import kotlinx.serialization.json.JsonObject
+
 // What the worker says, as types — PHASE_06 §6.98-§6.104.
 //
 // The wire is line-delimited JSON on a pipe (§6.24: no port, no
@@ -98,6 +100,14 @@ data class DecisionRequest(
      * spell; passed through untouched to that seat only.
      */
     val about: Map<String, String> = emptyMap(),
+    /**
+     * Spec 0001 D3 — the cards the asking player is LOOKING at (a scry's,
+     * a surveil's top cards), described as a snapshot describes a card to
+     * that player. The worker built them for the asker alone; the server
+     * adds their pictures for that seat ([MatchArt.annotateCards]) and
+     * passes them to that seat only, as the whole question goes.
+     */
+    val looking: List<JsonObject> = emptyList(),
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */
