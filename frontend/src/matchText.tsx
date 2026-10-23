@@ -251,6 +251,8 @@ export function headingFor(kind: string): string {
       return "Choose what to behold";
     case "CostCollectEvidence":
       return "Collect evidence";
+    case "CostBlight":
+      return "Blight";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -368,6 +370,7 @@ export function hintFor(kind: string, options: number): string {
     case "CostExert":
     case "CostBehold":
     case "CostCollectEvidence":
+    case "CostBlight":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

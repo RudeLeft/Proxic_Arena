@@ -35,6 +35,8 @@ with options no default would take, and checks the board:
   evidence    Forensic Researcher, collect evidence 3: the LAST graveyard
               card each time, Done once the total is 3 -- exactly those
               are exiled, and the Bears is tapped
+  blight      Sting-Slinger, blight 1 (CostBlight): the LAST creature
+              offered gets the -1/-1 counter, the opponent loses 2
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -820,12 +822,84 @@ def evidence():
                              "was tapped", found)
 
 
+def blight():
+    """Sting-Slinger, {1}{R} {T} blight 1: 2 damage to each opponent
+    (CostBlight). Every creature seat 1 controls is offered; the LAST gets
+    the -1/-1 counter, no other creature does, and the opponent loses 2."""
+    g = game("blight", [("Mountain", 30), ("Hill Giant", 15), ("Sting-Slinger", 15)])
+    st = {"used": False, "asked": [], "picked": None, "mine": None, "life": None, "after": None, "turn": None}
+
+    def creatures():
+        return sorted(c["id"] for c in g.mine(1) if c.get("kind") == "creature")
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostBlight":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["mine"] = creatures()
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            slingers = [c for c in g.mine(1, name="Sting-Slinger") if not c.get("sick") and not c.get("tapped")]
+            if not st["used"] and slingers and g.mine(1, name="Hill Giant") and len(g.untapped_lands(1)) >= 2:
+                o = g.option(f, name="Sting-Slinger", zone="battlefield", contains="damage")
+                if o:
+                    st["used"], st["turn"] = True, g.turn
+                    st["life"] = (g.player(1, 2) or {}).get("life")
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["used"]:
+                return None
+            if not g.mine(1, name="Sting-Slinger"):
+                return cast(g, f, "Sting-Slinger")
+            return None if g.mine(1, name="Hill Giant") else cast(g, f, "Hill Giant")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        life = (g.player(1, 2) or {}).get("life")
+        done = (st["life"] is not None and life is not None and life < st["life"]) or \
+            (st["turn"] is not None and g.turn > st["turn"])
+        if st["picked"] and done and stack_empty(g) and st["after"] is None:
+            st["after"] = {"life": life, "counters": {c["id"]: {k["name"]: k["count"] for k in c.get("counters", []) or []}
+                                                      for c in g.mine(1) if c.get("kind") == "creature"}}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"asked": st["asked"], "picked": st["picked"], "life": st["life"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Sting-Slinger never blighted", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked which of seat 1's creatures to blight")
+    if offered != st["mine"] or len(offered) < 2:
+        problems.append(f"offered {offered}, not exactly seat 1's creatures {st['mine']} (two or more)")
+    if prompt != "Blight 1: put one -1/-1 counter on a creature you control.":
+        problems.append(f"the question should say blight in plain words: {prompt!r}")
+    counted = {cid: v.get("M1M1") for cid, v in st["after"]["counters"].items() if v.get("M1M1")}
+    if counted != {st["picked"]: 1}:
+        problems.append(f"exactly one -1/-1 counter, on {st['picked']}: {counted}")
+    if st["life"] - st["after"]["life"] != 2:
+        problems.append(f"the opponent loses 2: {st['life']} -> {st['after']['life']}")
+    return outcome(problems, "Sting-Slinger: the creature picked got the -1/-1 counter, and the opponent lost 2",
+                   found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
              "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
              "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False),
-             "behold": behold, "evidence": evidence}
+             "behold": behold, "evidence": evidence, "blight": blight}
 
 if __name__ == "__main__":
     codes = []

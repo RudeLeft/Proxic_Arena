@@ -553,6 +553,27 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Blight N -- put N -1/-1 counters on a creature you control (23 cards,
+     * Lorwyn Eclipsed). Forge pays it as its put-a-counter cost; this
+     * asks it in blight's own words. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostBlight cost) {
+        int amount = cost.getAbilityAmount(ability);
+        forge.game.card.CardCollectionView valid = forge.game.card.CardLists.filter(
+                forge.game.card.CardLists.getValidCards(
+                        source.getGame().getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                        cost.getType().split(";"), player, ability.getHostCard(), ability),
+                forge.game.card.CardPredicates.canReceiveCounters(cost.getCounter()));
+        if (valid.isEmpty()) {
+            return null;
+        }
+        Card chosen = pickOne(valid, "CostBlight", "Blight " + amount + ": put "
+                + forge.util.Lang.nounWithNumeral(amount, "-1/-1 counter") + " on a creature you control.");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

@@ -26,7 +26,7 @@ entry	status	asks	name	cards	evidence
 C CostAddMana	UNBUILT		Pay the cost AddMana	rare	LoudFailureTest
 C CostBehold	ASKS	CostBehold	Behold as a cost: one you control or one from your hand, exactly that many, one click each	25 cards: Kinsbaile Aspirant, Champion of the Clachan	scripts/check-cost-kinds.py
 C CostBeholdExile	ASKS	CostBehold	Behold and exile it: the same choice as behold, then exiled	the champions: Champion of the Clachan, Champions of the Shoal	scripts/check-cost-kinds.py
-C CostBlight	UNBUILT		Pay the cost Blight	23 cards — blight	LoudFailureTest
+C CostBlight	ASKS	CostBlight	Blight N: which creature you control gets the -1/-1 counters	23 cards: Sting-Slinger, Boggart Mischief, Cinder Strike	scripts/check-cost-kinds.py
 C CostChooseColor	UNBUILT		Pay the cost ChooseColor	2 cards	LoudFailureTest
 C CostChooseCreatureType	UNBUILT		Pay the cost ChooseCreatureType	with the above	LoudFailureTest
 C CostCollectEvidence	ASKS	CostCollectEvidence	Collect evidence N: graveyard cards one at a time until their total mana value is N, then more or Done	25 cards: Forensic Researcher, Sample Collector, Cryptex	scripts/check-cost-kinds.py
