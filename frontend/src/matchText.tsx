@@ -213,6 +213,14 @@ export function headingFor(kind: string): string {
       return "Choose where the counter goes";
     case "CostRemoveCounter":
       return "Choose where to take a counter from";
+    case "CostTapType":
+      return "Choose what to tap";
+    case "CostSacrifice":
+      return "Choose what to sacrifice";
+    case "CostDiscard":
+      return "Choose what to discard";
+    case "CostExile":
+      return "Choose what to exile";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -319,6 +327,10 @@ export function hintFor(kind: string, options: number): string {
       return "You pay for what you choose. The list grows as the board can pay for more.";
     case "CostPutCounter":
     case "CostRemoveCounter":
+    case "CostTapType":
+    case "CostSacrifice":
+    case "CostDiscard":
+    case "CostExile":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

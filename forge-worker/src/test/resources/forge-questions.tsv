@@ -59,7 +59,7 @@ C CostRevealChosen	UNBUILT		Pay the cost RevealChosen	with reveal — reveal the
 C CostRollDice	UNBUILT		Pay the cost RollDice	rare	LoudFailureTest
 C CostSacrifice	ASKS	CostSacrifice	Sacrifice as a cost	Village Rites, Fling, Viscera Seer	scripts/check-agent-of-kotis.py
 C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated ability	scripts/check-mana-pool.py
-C CostTapType	UNBUILT		Pay the cost TapType	239 cards — tap untapped creatures/artifacts you control (Hecatomb, Springleaf Drum)	LoudFailureTest
+C CostTapType	ASKS	CostTapType	Tap untapped creatures or artifacts you control as a cost -- a number, sharing a type, or enough power to crew	239 cards: Springleaf Drum, Hecatomb, Diversionary Tactics; every Vehicle's crew	scripts/check-cost-kinds.py
 C CostUnattach	UNBUILT		Pay the cost Unattach	rare	LoudFailureTest
 C CostUntap	UNBUILT		Pay the cost Untap	18 cards — the untap symbol {Q}	LoudFailureTest
 C CostUntapType	UNBUILT		Pay the cost UntapType	3 cards — untap permanents	LoudFailureTest

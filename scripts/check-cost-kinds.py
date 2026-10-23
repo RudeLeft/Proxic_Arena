@@ -1,0 +1,218 @@
+"""Costs built in Phase 8: what the player picks is what pays. PHASE_08 P8-F.
+
+    python -I scripts/check-cost-kinds.py <worker.jar> <res-root> [trace-dir] [scenario...]
+
+Each scenario is its own small game (Mechanics Lab, Layer B), answers
+with options no default would take, and checks the board:
+
+  tap-two     Diversionary Tactics, "tap two untapped creatures you
+              control" (CostTapType): three Lions offered, the LAST two
+              picked are the two tapped, the third stays untapped; the
+              target is tapped
+  crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
+              LAST Lion offered crews it, then Done -- that Lion is tapped,
+              the others are not, and the Copter is a creature
+
+Only the paying player is asked; the cross-game checks read these traces
+in CI.
+
+Exit 0 when every scenario held, 1 when one did not, 2 when one never
+reached its moment.
+"""
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lab import DEFAULT, Game, card_of  # noqa: E402
+
+JAR, RES = sys.argv[1], sys.argv[2]
+ARG = sys.argv[3] if len(sys.argv) > 3 else ""
+TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
+ONLY = [a for a in sys.argv[3:] if a != TRACES]
+BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
+BASICS = {"Plains", "Island", "Swamp", "Mountain", "Forest"}
+
+
+class LandKeeper(Game):
+    """Discards down to hand size from the spells, keeping the lands."""
+
+    def default(self, frame):
+        if frame.get("kind") == "chooseCardsToDiscardToMaximumHandSize":
+            spare = [o for o in frame.get("options", []) if (o.get("label") or "") not in BASICS]
+            if spare:
+                return spare[0]["actionId"]
+        return super().default(frame)
+
+
+def game(name, seat1, seat2=BEARS):
+    if not TRACES:
+        trace = ""
+    elif TRACES.endswith(".jsonl"):
+        trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
+    else:
+        trace = os.path.join(TRACES, f"cost-{name}.jsonl")
+    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace)
+
+
+def stack_empty(g):
+    return not g.state.get(1, {}).get("stack") and not g.state.get(2, {}).get("stack")
+
+
+def cast(g, f, name):
+    o = g.option(f, name=name, zone="hand", land=False)
+    if o and any(x["actionId"] == o and x.get("payable") is False for x in f["options"]):
+        return None
+    return o
+
+
+def outcome(problems, ok, found):
+    if found.get("stopped"):
+        problems = problems + [found["stopped"]]
+    return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
+
+
+def lions(g):
+    return {c["id"]: c for c in g.mine(1, name="Savannah Lions")}
+
+
+def tap_two():
+    g = game("tap-two", [("Plains", 30), ("Savannah Lions", 18), ("Diversionary Tactics", 12)])
+    st = {"used": False, "asked": [], "picked": [], "target": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostTapType":
+            offered = [card_of(o["actionId"]) for o in f["options"] if card_of(o["actionId"])]
+            st["asked"].append((seat, sorted(offered), f.get("prompt")))
+            pick = f["options"][-1]["actionId"]
+            st["picked"].append(card_of(pick))
+            return pick
+        if k == "chooseTargetsFor" and seat == 1 and st["used"]:
+            o = next((o for o in f["options"] if (o.get("label") or "").startswith("Grizzly Bears")), None)
+            st["target"] = o and card_of(o["actionId"])
+            return o["actionId"] if o else DEFAULT
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            ready = [c for c in lions(g).values() if not c.get("tapped")]
+            bears = [c for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears") if not c.get("tapped")]
+            if not st["used"] and len(ready) >= 3 and bears and g.mine(1, name="Diversionary Tactics"):
+                o = g.option(f, name="Diversionary Tactics", zone="battlefield")
+                if o:
+                    st["used"], st["before"] = True, sorted(c["id"] for c in ready)
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Diversionary Tactics") and len(lions(g)) >= 3:
+                o = cast(g, f, "Diversionary Tactics")
+                if o:
+                    return o
+            return cast(g, f, "Savannah Lions") if len(lions(g)) < 3 else None
+        return DEFAULT
+
+    def until(g):
+        if len(st["picked"]) >= 2 and stack_empty(g) and st["after"] is None:
+            st["after"] = {"tapped": sorted(cid for cid, c in lions(g).items() if c.get("tapped")),
+                           "untapped": sorted(cid for cid, c in lions(g).items() if not c.get("tapped")),
+                           "target_tapped": any(c["id"] == st["target"] and c.get("tapped")
+                                                for c in g.zone(1, "battlefield", owner=2))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "target": st["target"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if len(st["picked"]) < 2:
+        return "inconclusive", "Diversionary Tactics' tap cost was never asked twice", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked to pay seat 1's cost")
+    if len(st["asked"][0][1]) < 3:
+        problems.append(f"three untapped Lions should be offered: {st['asked'][0][1]}")
+    after = st["after"]
+    if sorted(st["picked"]) != after["tapped"]:
+        problems.append(f"picked {sorted(st['picked'])} to tap, but tapped are {after['tapped']}")
+    if not after["untapped"]:
+        problems.append("the Lion not picked should stay untapped")
+    if not after["target_tapped"]:
+        problems.append(f"the target Bears {st['target']} should be tapped")
+    return outcome(problems, "Diversionary Tactics: the two Lions picked paid the cost, the third stayed untapped, "
+                             "and the target was tapped", found)
+
+
+def crew():
+    g = game("crew", [("Plains", 30), ("Savannah Lions", 18), ("Smuggler's Copter", 12)])
+    st = {"used": False, "asked": [], "picked": None, "copter": None, "after": None, "turn": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostTapType":
+            labels = [o.get("label") for o in f["options"]]
+            st["asked"].append((seat, labels, f.get("prompt")))
+            if st["picked"] is None:
+                lion = [o for o in f["options"] if card_of(o["actionId"])][-1]
+                st["picked"] = card_of(lion["actionId"])
+                return lion["actionId"]
+            return "cost:done"
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            copters = g.mine(1, name="Smuggler's Copter")
+            ready = [c for c in lions(g).values() if not c.get("tapped")]
+            if not st["used"] and copters and len(ready) >= 2:
+                o = g.option(f, name="Smuggler's Copter", zone="battlefield", contains="Crew")
+                if o:
+                    st["used"], st["copter"], st["turn"] = True, copters[0]["id"], g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not copters and cast(g, f, "Smuggler's Copter"):
+                return cast(g, f, "Smuggler's Copter")
+            return cast(g, f, "Savannah Lions") if len(lions(g)) < 2 else None
+        return DEFAULT
+
+    def until(g):
+        # Crew's cost is paid before the ability is on the stack: wait for
+        # the Copter to become a creature, or for the turn to move on.
+        copter = next((c for c in g.mine(1) if c["id"] == st["copter"]), {})
+        done = copter.get("kind") == "creature" or (st["turn"] is not None and g.turn > st["turn"])
+        if st["picked"] and done and stack_empty(g) and st["after"] is None:
+            st["after"] = {"tapped": sorted(cid for cid, c in lions(g).items() if c.get("tapped")),
+                           "copter": copter.get("kind")}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"asked": st["asked"][:3], "picked": st["picked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["picked"]:
+        return "inconclusive", "Smuggler's Copter was never crewed", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked to crew seat 1's Copter")
+    if len(st["asked"]) < 2 or "Done" not in st["asked"][1][1]:
+        problems.append(f"after one Lion (power 2 >= 1) the crew should offer Done: {st['asked'][:2]}")
+    if st["after"]["tapped"] != [st["picked"]]:
+        problems.append(f"crewed with {st['picked']}, but tapped are {st['after']['tapped']}")
+    if st["after"]["copter"] != "creature":
+        problems.append(f"the crewed Copter should be a creature: {st['after']['copter']}")
+    return outcome(problems, "Smuggler's Copter: crewed by the Lion picked, which alone is tapped; the Copter is a "
+                             "creature", found)
+
+
+SCENARIOS = {"tap-two": tap_two, "crew": crew}
+
+if __name__ == "__main__":
+    codes = []
+    for name, scenario in SCENARIOS.items():
+        if ONLY and name not in ONLY:
+            continue
+        verdict_, message, found = scenario()
+        codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
+        print(f"{name}: {verdict_.upper()}: {message}")
+        if verdict_ != "ok":
+            print("  " + json.dumps(found, default=str)[:1200])
+        sys.stdout.flush()
+    sys.exit(1 if 1 in codes else max(codes, default=0))

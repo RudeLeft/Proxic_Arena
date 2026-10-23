@@ -1100,6 +1100,10 @@ const CANCEL_KINDS = new Set([
   "chooseManaAbility",
   "CostPutCounter",
   "CostRemoveCounter",
+  "CostTapType",
+  "CostSacrifice",
+  "CostDiscard",
+  "CostExile",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */

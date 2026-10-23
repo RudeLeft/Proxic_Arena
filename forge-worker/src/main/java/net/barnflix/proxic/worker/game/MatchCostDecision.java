@@ -390,6 +390,135 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Tap untapped permanents you control as a cost -- Phase 8, 239 cards
+     * (Springleaf Drum, Hecatomb, Glare of Subdual) and every Vehicle's
+     * crew. A port of Forge's human path, three forms:
+     *   a number of them      exactly that many, one click each
+     *   sharing a type        one at a time, each narrowing the next
+     *   total power (crew)    until the power is enough, then Done (more
+     *                         may be tapped; Forge allows it)
+     * Cancelling, where Forge allows it, cancels the spell or ability.
+     * Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostTapType cost) {
+        String type = cost.getType();
+        final String amount = cost.getAmount();
+        if ("OriginalHost".equals(type)) {
+            Card original = ability.getOriginalHost();
+            return original.canTap() ? PaymentDecision.card(original) : null;
+        }
+        boolean sameType = type.contains(".sharesCreatureTypeWith");
+        if (sameType) {
+            type = type.replace(".sharesCreatureTypeWith", "");
+        }
+        Integer power = null;
+        if (type.contains("+withTotalPowerGE")) {
+            String p = type.split("withTotalPowerGE")[1];
+            power = Integer.parseInt(p);
+            type = type.replace("+withTotalPowerGE" + p, "");
+        }
+        forge.game.card.CardCollection list = forge.game.card.CardLists.getValidCards(
+                player.getCardsIn(forge.game.zone.ZoneType.Battlefield), type.split(";"), player, source, ability);
+        list = forge.game.card.CardLists.filter(list, ability.isCrew()
+                ? forge.game.card.CardPredicates.CAN_CREW : forge.game.card.CardPredicates.CAN_TAP);
+        Integer needed = "Any".equals(amount) ? null : cost.getAbilityAmount(ability);
+        if (needed != null && needed == 0) {
+            return PaymentDecision.number(0);
+        }
+        String what = cost.getDescriptiveType();
+
+        if (power != null) {
+            // Crew and its kin: any of them, until their power is enough.
+            forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+            forge.game.card.CardCollection left = new forge.game.card.CardCollection(list);
+            while (!left.isEmpty()) {
+                int have = forge.game.card.CardLists.getTotalPower(chosen, ability);
+                boolean enough = have >= power;
+                Card next = pickOrDone(left, "CostTapType", (ability.isCrew() ? "Crew " + power : "Tap")
+                        + ": tap creatures with total power " + power + " or more (" + have + " so far)"
+                        + (enough ? " -- or Done." : "."), enough);
+                if (next == null) {
+                    break;
+                }
+                chosen.add(next);
+                left.remove(next);
+            }
+            return forge.game.card.CardLists.getTotalPower(chosen, ability) >= power
+                    ? PaymentDecision.card(chosen) : null;
+        }
+        if (sameType) {
+            final forge.game.card.CardCollection candidates = list;
+            forge.game.card.CardCollection left = forge.game.card.CardLists.filter(candidates, c12 -> {
+                for (Card other : candidates) {
+                    if (!other.equals(c12) && other.sharesCreatureTypeWith(c12)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            forge.game.card.CardCollection tapped = new forge.game.card.CardCollection();
+            for (int i = 0; i < (needed == null ? 0 : needed); i++) {
+                Card next = pickOne(left, "CostTapType", "Tap " + needed + " " + what
+                        + " that share a creature type (" + (i + 1) + " of " + needed + ").");
+                if (next == null) {
+                    return null;
+                }
+                tapped.add(next);
+                left = forge.game.card.CardLists.filter(left, c1 -> c1 != next && c1.sharesCreatureTypeWith(next));
+            }
+            return PaymentDecision.card(tapped);
+        }
+        if (needed == null) {
+            forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+            forge.game.card.CardCollection left = new forge.game.card.CardCollection(list);
+            while (!left.isEmpty()) {
+                Card next = pickOrDone(left, "CostTapType", "Tap any number of " + what + " ("
+                        + chosen.size() + " so far) -- or Done.", true);
+                if (next == null) {
+                    break;
+                }
+                chosen.add(next);
+                left.remove(next);
+            }
+            return PaymentDecision.card(chosen);
+        }
+        if (needed > list.size()) {
+            return null;
+        }
+        java.util.List<Card> chosen = pickCards(list, needed, "CostTapType", "Tap " + needed + " " + what + ".");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
+     * One card, or -- when [done] -- "Done" (null): enough has been chosen.
+     * Without [done] a pass cancels, as pickOne's does (null too: the
+     * callers tell the two apart by whether enough was chosen).
+     */
+    private Card pickOrDone(forge.game.card.CardCollectionView cards, String kind, String prompt, boolean done) {
+        java.util.LinkedHashMap<String, Card> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (Card card : cards) {
+            String id = "cost:card:" + card.getId();
+            byId.put(id, card);
+            labels.put(id, card.getName());
+        }
+        if (done) {
+            labels.put("cost:done", "Done");
+        }
+        host.offerSubject(ability);
+        try {
+            String choice = host.gate().ask(
+                    actedForSeat, authorisedSeat, kind, new java.util.ArrayList<>(labels.keySet()),
+                    false, prompt, pending -> host.publishDecision(pending, labels));
+            return DecisionGate.PASS.equals(choice) || "cost:done".equals(choice) ? null : byId.get(choice);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
      * Pay energy — Aether Hub's "{T}, Pay {E}: Add one mana of any
      * colour", Aetherworks Marvel. A port of Forge's human path: if
      * the player has the energy, confirm, and pay. It was a loud stub,
