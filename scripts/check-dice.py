@@ -67,6 +67,11 @@ def outcome(problems, ok, found):
     return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
 
 
+def sources(g):
+    """Untapped mana sources: the lands, and Ebony Fly itself ({T}: add {C})."""
+    return len(g.untapped_lands(1)) + len([c for c in g.mine(1, name="Ebony Fly") if not c.get("tapped")])
+
+
 def rolls_in(f):
     return [int(m.group(1)) for o in f["options"] for m in [ROLL.match(o.get("label") or "")] if m]
 
@@ -98,7 +103,7 @@ def fly_game(name, extra_cards, ready, answer, lands_needed=4, max_turn=24):
                 o = g.option(f, name="Ebony Fly", zone="battlefield", contains="Roll")
                 if o:
                     st["rolled"], st["turn"], st["fly"] = True, g.turn, flies[0]["id"]
-                    st["lands"] = len(g.untapped_lands(1))
+                    st["lands"] = sources(g)
                     return o
             land = g.play_land(f)
             if land:
@@ -118,7 +123,7 @@ def fly_game(name, extra_cards, ready, answer, lands_needed=4, max_turn=24):
         if st["rolled"] and stack_empty(g) and st["after"] is None and \
                 (st["asked"] or g.turn > st["turn"]):
             fly = next((c for c in g.mine(1) if c["id"] == st["fly"]), {})
-            st["after"] = {"power": fly.get("power"), "lands": len(g.untapped_lands(1)),
+            st["after"] = {"power": fly.get("power"), "lands": sources(g),
                            "board": {c["id"]: (c.get("name"), c.get("power"),
                                                {k["name"]: k["count"] for k in c.get("counters", []) or []})
                                      for c in g.mine(1) if c.get("kind") == "creature"}}
@@ -145,7 +150,8 @@ def reroll():
     if len(st["asked"][0][1]) != 1 or not st["asked"][0][2].startswith("You rolled "):
         problems.append(f"one die offered, and the question shows the roll: {st['asked'][0]}")
     if st["lands"] - st["after"]["lands"] != 5:
-        problems.append(f"{{4}} for the roll and Monitor's {{1}}: five lands tapped, got {st['lands'] - st['after']['lands']}")
+        problems.append(f"{{4}} for the roll and Monitor's {{1}}: five mana sources tapped (lands, or the Fly "
+                        f"itself), got {st['lands'] - st['after']['lands']}")
     if not 1 <= (st["after"]["power"] or 0) <= 6:
         problems.append(f"the Fly is the new roll, 1 to 6: {st['after']['power']}")
     return outcome(problems, f"Monitor Monitor: the die rerolled for {{1}}, the Fly is a {st['after']['power']}", found)
