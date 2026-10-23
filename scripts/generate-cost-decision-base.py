@@ -38,7 +38,7 @@ methods = "\n".join(
     f"""
     @Override
     public PaymentDecision visit({cost} cost) {{
-        return loud("{cost}");
+        return loud("{cost}", source);
     }}"""
     for cost in seen
 )
@@ -89,16 +89,21 @@ public abstract class GeneratedCostDecisionBase extends CostDecisionMakerBase {{
      * twice, and still finished reporting a winner, because Forge
      * caught it inside its own effect code. A cost is paid deeper
      * inside Forge than a decision is asked, not shallower.
+     *
+     * The card being paid for is named (PHASE_08 P8-G), as the
+     * controller stubs name theirs: the stack does not hold a spell
+     * while its costs are being paid.
      */
-    protected static PaymentDecision loud(String costType) {{
+    protected static PaymentDecision loud(String costType, Card source) {{
         REACHED_COSTS.merge(costType, 1, Integer::sum);
-        System.err.println("[COST REACHED] " + costType);
+        String asked = costType + GeneratedControllerBase.about(source);
+        System.err.println("[COST REACHED] " + asked);
         // Shared with the controller stubs deliberately: "Forge
         // asked for something this adapter cannot represent" is one
         // fact about the match, whichever surface it came through.
-        GeneratedControllerBase.notifyStubReached("cost " + costType);
+        GeneratedControllerBase.notifyStubReached("cost " + asked);
         throw new UnsupportedOperationException(
-                "Proxic does not implement the cost " + costType);
+                "Proxic does not implement the cost " + asked);
     }}
 {methods}
 }}

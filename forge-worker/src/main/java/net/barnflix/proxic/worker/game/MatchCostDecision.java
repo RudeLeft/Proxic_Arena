@@ -266,7 +266,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 "FromTopGrave", "+withTotalCMCEQ", "+withTotalCMCGE",
                 "+withTotalManaSymbols_", "+withSharedCardType", "+withTypesGE"}) {
             if (type.contains(variant)) {
-                return loud("CostExile " + variant);
+                return loud("CostExile " + variant, source);
             }
         }
 
@@ -303,13 +303,13 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 return chosen == null ? null : PaymentDecision.card(chosen);
             }
             if (zone == forge.game.zone.ZoneType.Library) {
-                return loud("CostExile from the top of a library");
+                return loud("CostExile from the top of a library", source);
             }
         }
 
         if (cost.zoneRestriction == 0) {
             // Forge first asks WHOSE zone, then which cards in it.
-            return loud("CostExile from any player's zone");
+            return loud("CostExile from any player's zone", source);
         }
 
         // exileFromMiscZone: a triggered ability exiling its one
@@ -364,7 +364,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         if (type.contains("+WithDifferentNames")) {
-            return loud("CostSacrifice +WithDifferentNames");
+            return loud("CostSacrifice +WithDifferentNames", source);
         }
 
         forge.game.card.CardCollectionView list =
@@ -1336,7 +1336,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return PaymentDecision.card(new forge.game.card.CardCollection(forge.util.Aggregates.random(hand, count)));
         }
         if (type.contains("+WithSameName")) {
-            return loud("CostDiscard+WithSameName");
+            return loud("CostDiscard+WithSameName", source);
         }
         if (type.contains("+WithDifferentNames")) {
             forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();

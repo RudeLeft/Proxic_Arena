@@ -69,7 +69,8 @@ import java.util.function.Predicate;
  * behavioural hole into a visible list.
  *
  * DO NOT hand-edit. Regenerate if the Forge pin moves; the diff is then
- * the decision-surface change.
+ * the decision-surface change. Each stub passes its own arguments to
+ * `loud` (PHASE_08 P8-G, 2026-10-23), so a regeneration keeps that.
  */
 public abstract class GeneratedControllerBase extends PlayerController {
 
@@ -129,17 +130,51 @@ public abstract class GeneratedControllerBase extends PlayerController {
         watcher.accept(what);
     }
 
-    protected static void loud(String method) {
+    protected static void loud(String method, Object... arguments) {
         REACHED_STUBS.merge(method, 1, Integer::sum);
         if (SURVEY) {
             return;
         }
-        System.err.println("[STUB REACHED] PlayerController." + method);
+        String asked = method + about(arguments);
+        System.err.println("[STUB REACHED] PlayerController." + asked);
         // BEFORE the throw, because the throw is the part that can
         // be swallowed.
-        watcher.accept(method);
+        watcher.accept(asked);
         throw new UnsupportedOperationException(
-                "Phase 0A adapter does not implement " + method);
+                "Phase 0A adapter does not implement " + asked);
+    }
+
+    /**
+     * The card a question is about, from the question's own arguments --
+     * PHASE_08 P8-G, "names the card that asked".
+     *
+     * The stack alone is not enough: a question asked as a creature
+     * enters (Space Beleren's sectors) comes after its spell has left
+     * the stack, and the stop said only "chooseSector -- turn 8". A
+     * single Card, or the card behind a SpellAbility, is named; a
+     * collection never is (a library search would list a library). A
+     * card the opponent could not see -- face down, or in a hand or
+     * library -- is "a hidden card": this text reaches the server log
+     * and the admin's match record, and no further, but it still tells
+     * nobody what they could not have seen at the table.
+     */
+    static String about(Object... arguments) {
+        java.util.LinkedHashSet<String> cards = new java.util.LinkedHashSet<>();
+        for (Object argument : arguments) {
+            forge.game.card.Card card = argument instanceof forge.game.card.Card c ? c
+                    : argument instanceof forge.game.spellability.SpellAbility sa ? sa.getHostCard()
+                    : null;
+            if (card != null) {
+                cards.add(publicName(card));
+            }
+        }
+        return cards.isEmpty() ? "" : ", about " + String.join(" and ", cards);
+    }
+
+    private static String publicName(forge.game.card.Card card) {
+        forge.game.zone.Zone zone = card.getZone();
+        boolean hidden = card.isFaceDown() || zone == null || zone.getZoneType().isHidden();
+        return hidden ? "a hidden card" : card.getName();
     }
 
     public static void printReachedStubs() {
@@ -150,402 +185,402 @@ public abstract class GeneratedControllerBase extends PlayerController {
 
     @Override
     public forge.game.spellability.SpellAbility getAbilityToPlay(forge.game.card.Card a0, java.util.List<forge.game.spellability.SpellAbility> a1, forge.util.ITriggerEvent a2) {
-        loud("getAbilityToPlay");
+        loud("getAbilityToPlay", a0, a1, a2);
         return null;
     }
 
     @Override
     public void playSpellAbilityNoStack(forge.game.spellability.SpellAbility a0, boolean a1) {
-        loud("playSpellAbilityNoStack");
+        loud("playSpellAbilityNoStack", a0, a1);
     }
 
     @Override
     public java.util.List<forge.game.spellability.SpellAbility> orderSimultaneousSa(java.util.List<forge.game.spellability.SpellAbility> a0) {
-        loud("orderSimultaneousSa");
+        loud("orderSimultaneousSa", a0);
         return null;
     }
 
     @Override
     public void orderAndPlaySimultaneousSa(java.util.List<forge.game.spellability.SpellAbility> a0) {
-        loud("orderAndPlaySimultaneousSa");
+        loud("orderAndPlaySimultaneousSa", a0);
     }
 
     @Override
     public boolean playTrigger(forge.game.card.Card a0, forge.game.trigger.WrappedAbility a1, boolean a2) {
-        loud("playTrigger");
+        loud("playTrigger", a0, a1, a2);
         return false;
     }
 
     @Override
     public boolean playSaFromPlayEffect(forge.game.spellability.SpellAbility a0) {
-        loud("playSaFromPlayEffect");
+        loud("playSaFromPlayEffect", a0);
         return false;
     }
 
     @Override
     public java.util.List<forge.item.PaperCard> sideboard(forge.deck.Deck a0, forge.game.GameType a1, java.lang.String a2) {
-        loud("sideboard");
+        loud("sideboard", a0, a1, a2);
         return null;
     }
 
     @Override
     public java.util.List<forge.item.PaperCard> chooseCardsYouWonToAddToDeck(java.util.List<forge.item.PaperCard> a0) {
-        loud("chooseCardsYouWonToAddToDeck");
+        loud("chooseCardsYouWonToAddToDeck", a0);
         return null;
     }
 
     @Override
     public java.util.Map<forge.game.card.Card, java.lang.Integer> assignCombatDamage(forge.game.card.Card a0, forge.game.card.CardCollectionView a1, forge.game.card.CardCollectionView a2, int a3, forge.game.GameEntity a4, boolean a5) {
-        loud("assignCombatDamage");
+        loud("assignCombatDamage", a0, a1, a2, a3, a4, a5);
         return null;
     }
 
     @Override
     public java.util.Map<forge.game.GameEntity, java.lang.Integer> divideShield(forge.game.card.Card a0, java.util.Map<forge.game.GameEntity, java.lang.Integer> a1, int a2) {
-        loud("divideShield");
+        loud("divideShield", a0, a1, a2);
         return null;
     }
 
     @Override
     public java.util.Map<java.lang.Byte, java.lang.Integer> specifyManaCombo(forge.game.spellability.SpellAbility a0, forge.card.ColorSet a1, int a2, boolean a3) {
-        loud("specifyManaCombo");
+        loud("specifyManaCombo", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView choosePermanentsToSacrifice(forge.game.spellability.SpellAbility a0, int a1, int a2, forge.game.card.CardCollectionView a3, java.lang.String a4) {
-        loud("choosePermanentsToSacrifice");
+        loud("choosePermanentsToSacrifice", a0, a1, a2, a3, a4);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView choosePermanentsToDestroy(forge.game.spellability.SpellAbility a0, int a1, int a2, forge.game.card.CardCollectionView a3, java.lang.String a4) {
-        loud("choosePermanentsToDestroy");
+        loud("choosePermanentsToDestroy", a0, a1, a2, a3, a4);
         return null;
     }
 
     @Override
     public java.lang.Integer announceRequirements(forge.game.spellability.SpellAbility a0, int a1, int a2, java.lang.String a3) {
-        loud("announceRequirements");
+        loud("announceRequirements", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public forge.game.spellability.TargetChoices chooseNewTargetsFor(forge.game.spellability.SpellAbility a0, java.util.function.Predicate<forge.game.GameObject> a1, boolean a2) {
-        loud("chooseNewTargetsFor");
+        loud("chooseNewTargetsFor", a0, a1, a2);
         return null;
     }
 
     @Override
     public boolean chooseTargetsFor(forge.game.spellability.SpellAbility a0) {
-        loud("chooseTargetsFor");
+        loud("chooseTargetsFor", a0);
         return false;
     }
 
     @Override
     public org.apache.commons.lang3.tuple.Pair<forge.game.spellability.SpellAbilityStackInstance, forge.game.GameObject> chooseTarget(forge.game.spellability.SpellAbility a0, java.util.List<org.apache.commons.lang3.tuple.Pair<forge.game.spellability.SpellAbilityStackInstance, forge.game.GameObject>> a1) {
-        loud("chooseTarget");
+        loud("chooseTarget", a0, a1);
         return null;
     }
 
     @Override
     public boolean helpPayForAssistSpell(forge.game.mana.ManaCostBeingPaid a0, forge.game.spellability.SpellAbility a1, int a2, int a3) {
-        loud("helpPayForAssistSpell");
+        loud("helpPayForAssistSpell", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public forge.game.player.Player choosePlayerToAssistPayment(forge.util.collect.FCollectionView<forge.game.player.Player> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, int a3) {
-        loud("choosePlayerToAssistPayment");
+        loud("choosePlayerToAssistPayment", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsForEffect(forge.game.card.CardCollectionView a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, int a3, int a4, boolean a5, java.util.Map<java.lang.String, java.lang.Object> a6) {
-        loud("chooseCardsForEffect");
+        loud("chooseCardsForEffect", a0, a1, a2, a3, a4, a5, a6);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollection chooseCardsForEffectMultiple(java.util.Map<java.lang.String, forge.game.card.CardCollection> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, boolean a3) {
-        loud("chooseCardsForEffectMultiple");
+        loud("chooseCardsForEffectMultiple", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public <T extends forge.game.GameEntity> T chooseSingleEntityForEffect(forge.util.collect.FCollectionView<T> a0, forge.game.player.DelayedReveal a1, forge.game.spellability.SpellAbility a2, java.lang.String a3, boolean a4, forge.game.player.Player a5, java.util.Map<java.lang.String, java.lang.Object> a6) {
-        loud("chooseSingleEntityForEffect");
+        loud("chooseSingleEntityForEffect", a0, a1, a2, a3, a4, a5, a6);
         return null;
     }
 
     @Override
     public <T extends forge.game.GameEntity> java.util.List<T> chooseEntitiesForEffect(forge.util.collect.FCollectionView<T> a0, int a1, int a2, forge.game.player.DelayedReveal a3, forge.game.spellability.SpellAbility a4, java.lang.String a5, forge.game.player.Player a6, java.util.Map<java.lang.String, java.lang.Object> a7) {
-        loud("chooseEntitiesForEffect");
+        loud("chooseEntitiesForEffect", a0, a1, a2, a3, a4, a5, a6, a7);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.spellability.SpellAbility> chooseSpellAbilitiesForEffect(java.util.List<forge.game.spellability.SpellAbility> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, int a3, java.util.Map<java.lang.String, java.lang.Object> a4) {
-        loud("chooseSpellAbilitiesForEffect");
+        loud("chooseSpellAbilitiesForEffect", a0, a1, a2, a3, a4);
         return null;
     }
 
     @Override
     public forge.game.spellability.SpellAbility chooseSingleSpellForEffect(java.util.List<forge.game.spellability.SpellAbility> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, java.util.Map<java.lang.String, java.lang.Object> a3) {
-        loud("chooseSingleSpellForEffect");
+        loud("chooseSingleSpellForEffect", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public boolean confirmAction(forge.game.spellability.SpellAbility a0, forge.game.player.PlayerActionConfirmMode a1, java.lang.String a2, java.util.List<java.lang.String> a3, forge.game.card.Card a4, java.util.Map<java.lang.String, java.lang.Object> a5) {
-        loud("confirmAction");
+        loud("confirmAction", a0, a1, a2, a3, a4, a5);
         return false;
     }
 
     @Override
     public boolean confirmBidAction(forge.game.spellability.SpellAbility a0, forge.game.player.PlayerActionConfirmMode a1, java.lang.String a2, int a3, forge.game.player.Player a4) {
-        loud("confirmBidAction");
+        loud("confirmBidAction", a0, a1, a2, a3, a4);
         return false;
     }
 
     @Override
     public boolean confirmReplacementEffect(forge.game.replacement.ReplacementEffect a0, forge.game.spellability.SpellAbility a1, forge.game.GameEntity a2, java.lang.String a3) {
-        loud("confirmReplacementEffect");
+        loud("confirmReplacementEffect", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public boolean confirmStaticApplication(forge.game.card.Card a0, forge.game.player.PlayerActionConfirmMode a1, java.lang.String a2, java.lang.String a3) {
-        loud("confirmStaticApplication");
+        loud("confirmStaticApplication", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public boolean confirmTrigger(forge.game.trigger.WrappedAbility a0) {
-        loud("confirmTrigger");
+        loud("confirmTrigger", a0);
         return false;
     }
 
     @Override
     public java.util.List<forge.game.card.Card> exertAttackers(java.util.List<forge.game.card.Card> a0) {
-        loud("exertAttackers");
+        loud("exertAttackers", a0);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.card.Card> enlistAttackers(java.util.List<forge.game.card.Card> a0) {
-        loud("enlistAttackers");
+        loud("enlistAttackers", a0);
         return null;
     }
 
     @Override
     public void declareAttackers(forge.game.player.Player a0, forge.game.combat.Combat a1) {
-        loud("declareAttackers");
+        loud("declareAttackers", a0, a1);
     }
 
     @Override
     public void declareBlockers(forge.game.player.Player a0, forge.game.combat.Combat a1) {
-        loud("declareBlockers");
+        loud("declareBlockers", a0, a1);
     }
 
     @Override
     public forge.game.card.CardCollection orderBlockers(forge.game.card.Card a0, forge.game.card.CardCollection a1) {
-        loud("orderBlockers");
+        loud("orderBlockers", a0, a1);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollection orderBlocker(forge.game.card.Card a0, forge.game.card.Card a1, forge.game.card.CardCollection a2) {
-        loud("orderBlocker");
+        loud("orderBlocker", a0, a1, a2);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollection orderAttackers(forge.game.card.Card a0, forge.game.card.CardCollection a1) {
-        loud("orderAttackers");
+        loud("orderAttackers", a0, a1);
         return null;
     }
 
     @Override
     public void reveal(forge.game.card.CardCollectionView a0, forge.game.zone.ZoneType a1, forge.game.player.Player a2, java.lang.String a3, boolean a4) {
-        loud("reveal");
+        loud("reveal", a0, a1, a2, a3, a4);
     }
 
     @Override
     public void reveal(java.util.List<forge.game.card.CardView> a0, forge.game.zone.ZoneType a1, forge.game.player.PlayerView a2, java.lang.String a3, boolean a4) {
-        loud("reveal");
+        loud("reveal", a0, a1, a2, a3, a4);
     }
 
     @Override
     public void notifyOfValue(forge.game.spellability.SpellAbility a0, forge.game.GameObject a1, java.lang.String a2) {
-        loud("notifyOfValue");
+        loud("notifyOfValue", a0, a1, a2);
     }
 
     @Override
     public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection> arrangeForScry(forge.game.card.CardCollection a0) {
-        loud("arrangeForScry");
+        loud("arrangeForScry", a0);
         return null;
     }
 
     @Override
     public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection> arrangeForSurveil(forge.game.card.CardCollection a0) {
-        loud("arrangeForSurveil");
+        loud("arrangeForSurveil", a0);
         return null;
     }
 
     @Override
     public boolean willPutCardOnTop(forge.game.card.Card a0) {
-        loud("willPutCardOnTop");
+        loud("willPutCardOnTop", a0);
         return false;
     }
 
     @Override
     public forge.game.card.CardCollectionView orderMoveToZoneList(forge.game.card.CardCollectionView a0, forge.game.zone.ZoneType a1, forge.game.spellability.SpellAbility a2) {
-        loud("orderMoveToZoneList");
+        loud("orderMoveToZoneList", a0, a1, a2);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsToDiscardFrom(forge.game.player.Player a0, forge.game.spellability.SpellAbility a1, forge.game.card.CardCollection a2, int a3, int a4, forge.game.card.CardCollectionView a5) {
-        loud("chooseCardsToDiscardFrom");
+        loud("chooseCardsToDiscardFrom", a0, a1, a2, a3, a4, a5);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsToDiscardUnlessType(int a0, forge.game.card.CardCollectionView a1, java.lang.String[] a2, forge.game.spellability.SpellAbility a3) {
-        loud("chooseCardsToDiscardUnlessType");
+        loud("chooseCardsToDiscardUnlessType", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsToDiscardToMaximumHandSize(int a0) {
-        loud("chooseCardsToDiscardToMaximumHandSize");
+        loud("chooseCardsToDiscardToMaximumHandSize", a0);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsToDelve(int a0, forge.game.card.CardCollection a1) {
-        loud("chooseCardsToDelve");
+        loud("chooseCardsToDelve", a0, a1);
         return null;
     }
 
     @Override
     public java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> chooseCardsForConvokeOrImprovise(forge.game.spellability.SpellAbility a0, forge.card.mana.ManaCost a1, forge.game.card.CardCollectionView a2, boolean a3, boolean a4, java.lang.Integer a5) {
-        loud("chooseCardsForConvokeOrImprovise");
+        loud("chooseCardsForConvokeOrImprovise", a0, a1, a2, a3, a4, a5);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.card.Card> chooseCardsForSplice(forge.game.spellability.SpellAbility a0, java.util.List<forge.game.card.Card> a1) {
-        loud("chooseCardsForSplice");
+        loud("chooseCardsForSplice", a0, a1);
         return null;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsToRevealFromHand(int a0, int a1, forge.game.card.CardCollectionView a2) {
-        loud("chooseCardsToRevealFromHand");
+        loud("chooseCardsToRevealFromHand", a0, a1, a2);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.spellability.SpellAbility> chooseSaToActivateFromOpeningHand(java.util.List<forge.game.spellability.SpellAbility> a0) {
-        loud("chooseSaToActivateFromOpeningHand");
+        loud("chooseSaToActivateFromOpeningHand", a0);
         return null;
     }
 
     @Override
     public forge.game.player.Player chooseStartingPlayer(boolean a0) {
-        loud("chooseStartingPlayer");
+        loud("chooseStartingPlayer", a0);
         return null;
     }
 
     @Override
     public forge.game.zone.PlayerZone chooseStartingHand(java.util.List<forge.game.zone.PlayerZone> a0) {
-        loud("chooseStartingHand");
+        loud("chooseStartingHand", a0);
         return null;
     }
 
     @Override
     public forge.game.mana.Mana chooseManaFromPool(java.util.List<forge.game.mana.Mana> a0) {
-        loud("chooseManaFromPool");
+        loud("chooseManaFromPool", a0);
         return null;
     }
 
     @Override
     public java.lang.String chooseSomeType(java.lang.String a0, forge.game.spellability.SpellAbility a1, java.util.Collection<java.lang.String> a2, boolean a3) {
-        loud("chooseSomeType");
+        loud("chooseSomeType", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public java.lang.String chooseSector(forge.game.card.Card a0, java.lang.String a1, java.util.List<java.lang.String> a2) {
-        loud("chooseSector");
+        loud("chooseSector", a0, a1, a2);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.card.Card> chooseContraptionsToCrank(java.util.List<forge.game.card.Card> a0) {
-        loud("chooseContraptionsToCrank");
+        loud("chooseContraptionsToCrank", a0);
         return null;
     }
 
     @Override
     public int chooseSprocket(forge.game.card.Card a0, java.util.List<java.lang.Integer> a1) {
-        loud("chooseSprocket");
+        loud("chooseSprocket", a0, a1);
         return 0;
     }
 
     @Override
     public forge.game.PlanarDice choosePDRollToIgnore(java.util.List<forge.game.PlanarDice> a0) {
-        loud("choosePDRollToIgnore");
+        loud("choosePDRollToIgnore", a0);
         return null;
     }
 
     @Override
     public java.lang.Integer chooseRollToIgnore(java.util.List<java.lang.Integer> a0) {
-        loud("chooseRollToIgnore");
+        loud("chooseRollToIgnore", a0);
         return null;
     }
 
     @Override
     public java.util.List<java.lang.Integer> chooseDiceToReroll(java.util.List<java.lang.Integer> a0) {
-        loud("chooseDiceToReroll");
+        loud("chooseDiceToReroll", a0);
         return null;
     }
 
     @Override
     public java.lang.Integer chooseRollToModify(java.util.List<java.lang.Integer> a0) {
-        loud("chooseRollToModify");
+        loud("chooseRollToModify", a0);
         return null;
     }
 
     @Override
     public forge.game.ability.effects.RollDiceEffect.DieRollResult chooseRollToSwap(java.util.List<forge.game.ability.effects.RollDiceEffect.DieRollResult> a0) {
-        loud("chooseRollToSwap");
+        loud("chooseRollToSwap", a0);
         return null;
     }
 
     @Override
     public java.lang.String chooseRollSwapValue(java.util.List<java.lang.String> a0, java.lang.Integer a1, int a2, int a3) {
-        loud("chooseRollSwapValue");
+        loud("chooseRollSwapValue", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public java.lang.Object vote(forge.game.spellability.SpellAbility a0, java.lang.String a1, java.util.List<java.lang.Object> a2, com.google.common.collect.ListMultimap<java.lang.Object, forge.game.player.Player> a3, forge.game.player.Player a4, boolean a5) {
-        loud("vote");
+        loud("vote", a0, a1, a2, a3, a4, a5);
         return null;
     }
 
     @Override
     public boolean mulliganKeepHand(forge.game.player.Player a0, int a1) {
-        loud("mulliganKeepHand");
+        loud("mulliganKeepHand", a0, a1);
         return false;
     }
 
     @Override
     public forge.game.card.CardCollectionView tuckCardsViaMulligan(forge.game.card.CardCollectionView a0, int a1) {
-        loud("tuckCardsViaMulligan");
+        loud("tuckCardsViaMulligan", a0, a1);
         return null;
     }
 
@@ -557,220 +592,220 @@ public abstract class GeneratedControllerBase extends PlayerController {
 
     @Override
     public boolean playChosenSpellAbility(forge.game.spellability.SpellAbility a0) {
-        loud("playChosenSpellAbility");
+        loud("playChosenSpellAbility", a0);
         return false;
     }
 
     @Override
     public java.util.List<forge.game.spellability.AbilitySub> chooseModeForAbility(forge.game.spellability.SpellAbility a0, java.util.List<forge.game.spellability.AbilitySub> a1, int a2, int a3, boolean a4) {
-        loud("chooseModeForAbility");
+        loud("chooseModeForAbility", a0, a1, a2, a3, a4);
         return null;
     }
 
     @Override
     public int chooseNumberForCostReduction(forge.game.spellability.SpellAbility a0, int a1, int a2) {
-        loud("chooseNumberForCostReduction");
+        loud("chooseNumberForCostReduction", a0, a1, a2);
         return 0;
     }
 
     @Override
     public int chooseNumberForKeywordCost(forge.game.spellability.SpellAbility a0, forge.game.cost.Cost a1, forge.game.keyword.KeywordInterface a2, java.lang.String a3, int a4) {
-        loud("chooseNumberForKeywordCost");
+        loud("chooseNumberForKeywordCost", a0, a1, a2, a3, a4);
         return 0;
     }
 
     @Override
     public int chooseNumber(forge.game.spellability.SpellAbility a0, java.lang.String a1, int a2, int a3) {
-        loud("chooseNumber");
+        loud("chooseNumber", a0, a1, a2, a3);
         return 0;
     }
 
     @Override
     public int chooseNumber(forge.game.spellability.SpellAbility a0, java.lang.String a1, java.util.List<java.lang.Integer> a2, forge.game.player.Player a3) {
-        loud("chooseNumber");
+        loud("chooseNumber", a0, a1, a2, a3);
         return 0;
     }
 
     @Override
     public boolean chooseBinary(forge.game.spellability.SpellAbility a0, java.lang.String a1, forge.game.player.PlayerController.BinaryChoiceType a2, java.lang.Boolean a3) {
-        loud("chooseBinary");
+        loud("chooseBinary", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public boolean chooseFlipResult(forge.game.spellability.SpellAbility a0, forge.game.player.Player a1, boolean a2) {
-        loud("chooseFlipResult");
+        loud("chooseFlipResult", a0, a1, a2);
         return false;
     }
 
     @Override
     public byte chooseColor(java.lang.String a0, forge.game.spellability.SpellAbility a1, forge.card.ColorSet a2) {
-        loud("chooseColor");
+        loud("chooseColor", a0, a1, a2);
         return 0;
     }
 
     @Override
     public byte chooseColorAllowColorless(java.lang.String a0, forge.game.card.Card a1, forge.card.ColorSet a2) {
-        loud("chooseColorAllowColorless");
+        loud("chooseColorAllowColorless", a0, a1, a2);
         return 0;
     }
 
     @Override
     public forge.card.ColorSet chooseColors(java.lang.String a0, forge.game.spellability.SpellAbility a1, int a2, int a3, forge.card.ColorSet a4) {
-        loud("chooseColors");
+        loud("chooseColors", a0, a1, a2, a3, a4);
         return null;
     }
 
     @Override
     public forge.card.ICardFace chooseSingleCardFace(forge.game.spellability.SpellAbility a0, java.lang.String a1, java.util.function.Predicate<forge.card.ICardFace> a2, java.lang.String a3) {
-        loud("chooseSingleCardFace");
+        loud("chooseSingleCardFace", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public forge.card.ICardFace chooseSingleCardFace(forge.game.spellability.SpellAbility a0, java.util.List<forge.card.ICardFace> a1, java.lang.String a2) {
-        loud("chooseSingleCardFace");
+        loud("chooseSingleCardFace", a0, a1, a2);
         return null;
     }
 
     @Override
     public forge.game.card.CardState chooseSingleCardState(forge.game.spellability.SpellAbility a0, java.util.List<forge.game.card.CardState> a1, java.lang.String a2, java.util.Map<java.lang.String, java.lang.Object> a3) {
-        loud("chooseSingleCardState");
+        loud("chooseSingleCardState", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public boolean chooseCardsPile(forge.game.spellability.SpellAbility a0, forge.game.card.CardCollectionView a1, forge.game.card.CardCollectionView a2, java.lang.String a3) {
-        loud("chooseCardsPile");
+        loud("chooseCardsPile", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public forge.game.card.CounterType chooseCounterType(java.util.List<forge.game.card.CounterType> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, java.util.Map<java.lang.String, java.lang.Object> a3) {
-        loud("chooseCounterType");
+        loud("chooseCounterType", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public java.lang.String chooseKeywordForPump(java.util.List<java.lang.String> a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, forge.game.card.Card a3) {
-        loud("chooseKeywordForPump");
+        loud("chooseKeywordForPump", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public boolean confirmPayment(forge.game.cost.CostPart a0, java.lang.String a1, forge.game.spellability.SpellAbility a2) {
-        loud("confirmPayment");
+        loud("confirmPayment", a0, a1, a2);
         return false;
     }
 
     @Override
     public forge.game.replacement.ReplacementEffect chooseSingleReplacementEffect(java.util.List<forge.game.replacement.ReplacementEffect> a0) {
-        loud("chooseSingleReplacementEffect");
+        loud("chooseSingleReplacementEffect", a0);
         return null;
     }
 
     @Override
     public forge.game.staticability.StaticAbility chooseSingleStaticAbility(java.util.List<forge.game.staticability.StaticAbility> a0) {
-        loud("chooseSingleStaticAbility");
+        loud("chooseSingleStaticAbility", a0);
         return null;
     }
 
     @Override
     public java.lang.String chooseProtectionType(forge.game.spellability.SpellAbility a0, java.util.List<java.lang.String> a1) {
-        loud("chooseProtectionType");
+        loud("chooseProtectionType", a0, a1);
         return null;
     }
 
     @Override
     public void revealAnte(java.lang.String a0, com.google.common.collect.Multimap<forge.game.player.Player, forge.item.PaperCard> a1) {
-        loud("revealAnte");
+        loud("revealAnte", a0, a1);
     }
 
     @Override
     public void revealAISkipCards(java.lang.String a0, java.util.Map<forge.game.player.Player, java.util.Map<forge.deck.DeckSection, java.util.List<? extends forge.item.PaperCard>>> a1) {
-        loud("revealAISkipCards");
+        loud("revealAISkipCards", a0, a1);
     }
 
     @Override
     public void revealUnsupported(java.util.Map<forge.game.player.Player, java.util.List<forge.item.PaperCard>> a0) {
-        loud("revealUnsupported");
+        loud("revealUnsupported", a0);
     }
 
     @Override
     public java.util.List<forge.game.spellability.OptionalCostValue> chooseOptionalCosts(forge.game.spellability.SpellAbility a0, java.util.List<forge.game.spellability.OptionalCostValue> a1) {
-        loud("chooseOptionalCosts");
+        loud("chooseOptionalCosts", a0, a1);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.cost.CostPart> orderCosts(java.util.List<forge.game.cost.CostPart> a0) {
-        loud("orderCosts");
+        loud("orderCosts", a0);
         return null;
     }
 
     @Override
     public boolean payCostToPreventEffect(forge.game.cost.Cost a0, forge.game.spellability.SpellAbility a1, boolean a2, forge.util.collect.FCollectionView<forge.game.player.Player> a3) {
-        loud("payCostToPreventEffect");
+        loud("payCostToPreventEffect", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost a0, forge.game.spellability.SpellAbility a1) {
-        loud("payCostDuringRoll");
+        loud("payCostDuringRoll", a0, a1);
         return false;
     }
 
     @Override
     public boolean payCombatCost(forge.game.card.Card a0, forge.game.cost.Cost a1, forge.game.spellability.SpellAbility a2, java.lang.String a3) {
-        loud("payCombatCost");
+        loud("payCombatCost", a0, a1, a2, a3);
         return false;
     }
 
     @Override
     public boolean payManaCost(forge.card.mana.ManaCost a0, forge.game.cost.CostPartMana a1, forge.game.spellability.SpellAbility a2, java.lang.String a3, forge.game.mana.ManaConversionMatrix a4, boolean a5) {
-        loud("payManaCost");
+        loud("payManaCost", a0, a1, a2, a3, a4, a5);
         return false;
     }
 
     @Override
     public boolean applyManaToCost(forge.game.mana.ManaCostBeingPaid a0, forge.game.spellability.SpellAbility a1, java.lang.String a2, forge.game.mana.ManaConversionMatrix a3, boolean a4) {
-        loud("applyManaToCost");
+        loud("applyManaToCost", a0, a1, a2, a3, a4);
         return false;
     }
 
     @Override
     public forge.game.card.CardCollectionView chooseCardsForCost(forge.game.card.CardCollectionView a0, forge.game.spellability.SpellAbility a1, forge.game.cost.CostPartWithList a2, int a3, boolean a4, java.lang.String a5) {
-        loud("chooseCardsForCost");
+        loud("chooseCardsForCost", a0, a1, a2, a3, a4, a5);
         return null;
     }
 
     @Override
     public forge.game.cost.CostDecisionMakerBase getCostDecisionMaker(forge.game.player.Player a0, forge.game.spellability.SpellAbility a1, boolean a2, java.lang.String a3) {
-        loud("getCostDecisionMaker");
+        loud("getCostDecisionMaker", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public java.lang.String chooseCardName(forge.game.spellability.SpellAbility a0, java.util.function.Predicate<forge.card.ICardFace> a1, java.lang.String a2, java.lang.String a3) {
-        loud("chooseCardName");
+        loud("chooseCardName", a0, a1, a2, a3);
         return null;
     }
 
     @Override
     public java.lang.String chooseCardName(forge.game.spellability.SpellAbility a0, java.util.List<forge.card.ICardFace> a1, java.lang.String a2) {
-        loud("chooseCardName");
+        loud("chooseCardName", a0, a1, a2);
         return null;
     }
 
     @Override
     public forge.game.card.Card chooseSingleCardForZoneChange(forge.game.zone.ZoneType a0, java.util.List<forge.game.zone.ZoneType> a1, forge.game.spellability.SpellAbility a2, forge.game.card.CardCollection a3, forge.game.player.DelayedReveal a4, java.lang.String a5, boolean a6, forge.game.player.Player a7) {
-        loud("chooseSingleCardForZoneChange");
+        loud("chooseSingleCardForZoneChange", a0, a1, a2, a3, a4, a5, a6, a7);
         return null;
     }
 
     @Override
     public java.util.List<forge.game.card.Card> chooseCardsForZoneChange(forge.game.zone.ZoneType a0, java.util.List<forge.game.zone.ZoneType> a1, forge.game.spellability.SpellAbility a2, forge.game.card.CardCollection a3, int a4, int a5, forge.game.player.DelayedReveal a6, java.lang.String a7, forge.game.player.Player a8) {
-        loud("chooseCardsForZoneChange");
+        loud("chooseCardsForZoneChange", a0, a1, a2, a3, a4, a5, a6, a7, a8);
         return null;
     }
 

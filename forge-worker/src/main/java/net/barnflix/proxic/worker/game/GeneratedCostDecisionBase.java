@@ -44,215 +44,220 @@ public abstract class GeneratedCostDecisionBase extends CostDecisionMakerBase {
      * twice, and still finished reporting a winner, because Forge
      * caught it inside its own effect code. A cost is paid deeper
      * inside Forge than a decision is asked, not shallower.
+     *
+     * The card being paid for is named (PHASE_08 P8-G), as the
+     * controller stubs name theirs: the stack does not hold a spell
+     * while its costs are being paid.
      */
-    protected static PaymentDecision loud(String costType) {
+    protected static PaymentDecision loud(String costType, Card source) {
         REACHED_COSTS.merge(costType, 1, Integer::sum);
-        System.err.println("[COST REACHED] " + costType);
+        String asked = costType + GeneratedControllerBase.about(source);
+        System.err.println("[COST REACHED] " + asked);
         // Shared with the controller stubs deliberately: "Forge
         // asked for something this adapter cannot represent" is one
         // fact about the match, whichever surface it came through.
-        GeneratedControllerBase.notifyStubReached("cost " + costType);
+        GeneratedControllerBase.notifyStubReached("cost " + asked);
         throw new UnsupportedOperationException(
-                "Proxic does not implement the cost " + costType);
+                "Proxic does not implement the cost " + asked);
     }
 
     @Override
     public PaymentDecision visit(CostBehold cost) {
-        return loud("CostBehold");
+        return loud("CostBehold", source);
     }
 
     @Override
     public PaymentDecision visit(CostBeholdExile cost) {
-        return loud("CostBeholdExile");
+        return loud("CostBeholdExile", source);
     }
 
     @Override
     public PaymentDecision visit(CostGainControl cost) {
-        return loud("CostGainControl");
+        return loud("CostGainControl", source);
     }
 
     @Override
     public PaymentDecision visit(CostChooseColor cost) {
-        return loud("CostChooseColor");
+        return loud("CostChooseColor", source);
     }
 
     @Override
     public PaymentDecision visit(CostChooseCreatureType cost) {
-        return loud("CostChooseCreatureType");
+        return loud("CostChooseCreatureType", source);
     }
 
     @Override
     public PaymentDecision visit(CostCollectEvidence cost) {
-        return loud("CostCollectEvidence");
+        return loud("CostCollectEvidence", source);
     }
 
     @Override
     public PaymentDecision visit(CostDiscard cost) {
-        return loud("CostDiscard");
+        return loud("CostDiscard", source);
     }
 
     @Override
     public PaymentDecision visit(CostDamage cost) {
-        return loud("CostDamage");
+        return loud("CostDamage", source);
     }
 
     @Override
     public PaymentDecision visit(CostDraw cost) {
-        return loud("CostDraw");
+        return loud("CostDraw", source);
     }
 
     @Override
     public PaymentDecision visit(CostExile cost) {
-        return loud("CostExile");
+        return loud("CostExile", source);
     }
 
     @Override
     public PaymentDecision visit(CostExileFromStack cost) {
-        return loud("CostExileFromStack");
+        return loud("CostExileFromStack", source);
     }
 
     @Override
     public PaymentDecision visit(CostExiledMoveToGrave cost) {
-        return loud("CostExiledMoveToGrave");
+        return loud("CostExiledMoveToGrave", source);
     }
 
     @Override
     public PaymentDecision visit(CostExert cost) {
-        return loud("CostExert");
+        return loud("CostExert", source);
     }
 
     @Override
     public PaymentDecision visit(CostEnlist cost) {
-        return loud("CostEnlist");
+        return loud("CostEnlist", source);
     }
 
     @Override
     public PaymentDecision visit(CostFlipCoin cost) {
-        return loud("CostFlipCoin");
+        return loud("CostFlipCoin", source);
     }
 
     @Override
     public PaymentDecision visit(CostForage cost) {
-        return loud("CostForage");
+        return loud("CostForage", source);
     }
 
     @Override
     public PaymentDecision visit(CostRollDice cost) {
-        return loud("CostRollDice");
+        return loud("CostRollDice", source);
     }
 
     @Override
     public PaymentDecision visit(CostMill cost) {
-        return loud("CostMill");
+        return loud("CostMill", source);
     }
 
     @Override
     public PaymentDecision visit(CostAddMana cost) {
-        return loud("CostAddMana");
+        return loud("CostAddMana", source);
     }
 
     @Override
     public PaymentDecision visit(CostPayLife cost) {
-        return loud("CostPayLife");
+        return loud("CostPayLife", source);
     }
 
     @Override
     public PaymentDecision visit(CostPayEnergy cost) {
-        return loud("CostPayEnergy");
+        return loud("CostPayEnergy", source);
     }
 
     @Override
     public PaymentDecision visit(CostGainLife cost) {
-        return loud("CostGainLife");
+        return loud("CostGainLife", source);
     }
 
     @Override
     public PaymentDecision visit(CostPartMana cost) {
-        return loud("CostPartMana");
+        return loud("CostPartMana", source);
     }
 
     @Override
     public PaymentDecision visit(CostPromiseGift cost) {
-        return loud("CostPromiseGift");
+        return loud("CostPromiseGift", source);
     }
 
     @Override
     public PaymentDecision visit(CostPutCardToLib cost) {
-        return loud("CostPutCardToLib");
+        return loud("CostPutCardToLib", source);
     }
 
     @Override
     public PaymentDecision visit(CostTap cost) {
-        return loud("CostTap");
+        return loud("CostTap", source);
     }
 
     @Override
     public PaymentDecision visit(CostSacrifice cost) {
-        return loud("CostSacrifice");
+        return loud("CostSacrifice", source);
     }
 
     @Override
     public PaymentDecision visit(CostReturn cost) {
-        return loud("CostReturn");
+        return loud("CostReturn", source);
     }
 
     @Override
     public PaymentDecision visit(CostReveal cost) {
-        return loud("CostReveal");
+        return loud("CostReveal", source);
     }
 
     @Override
     public PaymentDecision visit(CostRevealChosen cost) {
-        return loud("CostRevealChosen");
+        return loud("CostRevealChosen", source);
     }
 
     @Override
     public PaymentDecision visit(CostRemoveAnyCounter cost) {
-        return loud("CostRemoveAnyCounter");
+        return loud("CostRemoveAnyCounter", source);
     }
 
     @Override
     public PaymentDecision visit(CostRemoveCounter cost) {
-        return loud("CostRemoveCounter");
+        return loud("CostRemoveCounter", source);
     }
 
     @Override
     public PaymentDecision visit(CostPutCounter cost) {
-        return loud("CostPutCounter");
+        return loud("CostPutCounter", source);
     }
 
     @Override
     public PaymentDecision visit(CostPutCounterYou cost) {
-        return loud("CostPutCounterYou");
+        return loud("CostPutCounterYou", source);
     }
 
     @Override
     public PaymentDecision visit(CostUntapType cost) {
-        return loud("CostUntapType");
+        return loud("CostUntapType", source);
     }
 
     @Override
     public PaymentDecision visit(CostUntap cost) {
-        return loud("CostUntap");
+        return loud("CostUntap", source);
     }
 
     @Override
     public PaymentDecision visit(CostUnattach cost) {
-        return loud("CostUnattach");
+        return loud("CostUnattach", source);
     }
 
     @Override
     public PaymentDecision visit(CostTapType cost) {
-        return loud("CostTapType");
+        return loud("CostTapType", source);
     }
 
     @Override
     public PaymentDecision visit(CostPayShards cost) {
-        return loud("CostPayShards");
+        return loud("CostPayShards", source);
     }
 
     @Override
     public PaymentDecision visit(CostBlight cost) {
-        return loud("CostBlight");
+        return loud("CostBlight", source);
     }
 }
