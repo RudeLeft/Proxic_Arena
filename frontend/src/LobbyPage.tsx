@@ -61,6 +61,9 @@ export default function LobbyPage() {
   // later", not an answer, so it is remembered here and nowhere else.
   const [setAsideFor, setSetAsideFor] = useState<string | null>(null);
   const [needRoomFor, setNeedRoomFor] = useState<PlayerRow | null>(null);
+  // Owner 2026-10-22: removing a player asks first -- a misclick otherwise
+  // throws a friend out of the room.
+  const [removing, setRemoving] = useState<string | null>(null);
 
   // §5.119 — a refresh lands you back in the room, and §6.114 back in
   // the match. Asked over HTTP as well as awaited on the socket,
@@ -314,9 +317,7 @@ export default function LobbyPage() {
           onCancelStart={() => {
             if (room) void run(() => cancelPreparation(room.roomId));
           }}
-          onRemove={(userId) => {
-            if (room) void run(() => removeMember(room.roomId, userId, room.revision));
-          }}
+          onRemove={(userId) => setRemoving(userId)}
           onClose={() => {
             if (room) void runLeaving(() => closeRoom(room.roomId));
           }}
@@ -327,6 +328,23 @@ export default function LobbyPage() {
       </div>
 
       <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
+
+      {removing && room && (
+        <Dialog
+          label="Remove a player"
+          title={`Remove ${room.members.find((m) => m.userId === removing)?.displayName ?? "this player"} from the room?`}
+          sub="They go back to the lobby and their seat opens. You can invite them again."
+          primary="Remove"
+          onPrimary={() => {
+            const userId = removing;
+            setRemoving(null);
+            void run(() => removeMember(room.roomId, userId, room.revision));
+          }}
+          secondary="Keep them"
+          onSecondary={() => setRemoving(null)}
+          onDismiss={() => setRemoving(null)}
+        />
+      )}
 
       {inviteBoxOpen && invitation && (
         <Dialog

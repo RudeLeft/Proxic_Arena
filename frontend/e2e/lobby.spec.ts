@@ -217,6 +217,32 @@ test("leaving a room gives the lobby back without a refresh", async ({ browser }
   });
 });
 
+/**
+ * Owner 2026-10-22: Remove sits with the host's buttons and asks first --
+ * a misclick would otherwise throw a friend out of the room.
+ */
+test("removing a player asks first; keeping them changes nothing", async ({ browser }) => {
+  await twoPlayers(browser, async (host, guest) => {
+    await openRoom(host);
+    await inviteIn(host, guest, secondUser);
+    const remove = yourRoom(host).getByRole("button", {
+      name: new RegExp(`^Remove ${secondUser}$`),
+    });
+
+    await remove.click();
+    const ask = host.getByRole("dialog");
+    await expect(ask).toContainText(`Remove ${secondUser} from the room?`);
+    await ask.getByRole("button", { name: "Keep them" }).click();
+    await expect(host.getByRole("dialog")).toHaveCount(0);
+    await expect(yourRoom(host).locator(".pa-room-taken"), "kept").toHaveText("2/2");
+
+    await remove.click();
+    await host.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+    await expect(yourRoom(host).locator(".pa-room-taken"), "removed").toHaveText("1/2");
+    await expect(guest.getByRole("button", { name: "Open a room" })).toBeEnabled();
+  });
+});
+
 test("the lobby survives a refresh, name and all", async ({ browser }) => {
   // §5.119 — the page asks GET /api/rooms/current on load, so this is
   // the one test that proves that path is wired.
