@@ -191,5 +191,5 @@ Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one g
 Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	ASKS	specifyManaCombo	Add N mana in any combination of colours: which colour, one mana at a time	88 cards: Manamorphose, Firebrand Archer-style combination mana	scripts/check-cost-kinds.py
 Q tempShowCards(Iterable)	NOT-A-QUESTION		Show cards for a moment (Forge's desktop)	-	-
 Q tuckCardsViaMulligan(CardCollectionView,int)	ASKS	tuckCardsViaMulligan	After a mulligan: which cards go to the bottom	every mulligan	scripts/check-mulligan.py
-Q vote(SpellAbility,String,List,ListMultimap,Player,boolean)	UNBUILT		Council's Judgment, Expropriate	37 cards	LoudFailureTest
+Q vote(SpellAbility,String,List,ListMultimap,Player,boolean)	ASKS	chooseSingleEntityForEffect	Council's Judgment, Expropriate	37 cards	scripts/check-you-choose.py
 Q willPutCardOnTop(Card)	ASKS	willPutCardOnTop	One card: top or bottom of the library	Opt, scry 1	scripts/check-surveil.py

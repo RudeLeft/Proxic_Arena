@@ -46,6 +46,8 @@ and checks the result on the board:
   cascade-no      the same, No: nothing is cast
   spellskite      Spellskite against Arc Lightning on two Lions (chooseTarget):
                   the LAST target offered is changed to Spellskite
+  vote            Council's Judgment (vote): both players vote for the LAST
+                  Bears offered; that one is exiled, the other stays
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -950,6 +952,64 @@ def spellskite():
     return outcome(problems, "Spellskite: the target picked was changed to Spellskite, which took the damage", found)
 
 
+def vote():
+    """Council's Judgment: each player votes for a nonland permanent the
+    caster does not control (vote, through "choose one"). Both vote for the
+    LAST Bears offered; that one is exiled, the other stays."""
+    g = game("vote", [("Plains", 30), ("Council's Judgment", 30)])
+    st = {"cast": None, "votes": [], "picked": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseSingleEntityForEffect" and st["cast"] and "ote" in (f.get("prompt") or ""):
+            offered = sorted(card_of(o["actionId"]) for o in f["options"])
+            st["votes"].append((seat, offered, f.get("prompt")))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None and len(theirs(g, "Grizzly Bears")) >= 2:
+                o = cast(g, f, "Council's Judgment")
+                if o:
+                    st["cast"] = card_of(o)
+                    st["bears"] = sorted(c["id"] for c in theirs(g, "Grizzly Bears"))
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["votes"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"bears": sorted(c["id"] for c in theirs(g, "Grizzly Bears")),
+                           "exile": [c["id"] for c in g.zone(1, "exile", owner=2)]}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"votes": st["votes"], "picked": st["picked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if len(st["votes"]) < 2 or not st["after"]:
+        return "inconclusive", "Council's Judgment never had both players vote", found
+    problems = []
+    if sorted(seat for seat, _, _ in st["votes"]) != [1, 2]:
+        problems.append(f"each player votes once: {[s for s, _, _ in st['votes']]}")
+    for seat, offered, _ in st["votes"]:
+        if len(offered) < 2:
+            problems.append(f"seat {seat} had no real vote: {offered}")
+    for seat, _, prompt in st["votes"]:
+        if prompt != "Council's Judgment: vote for one":
+            problems.append(f"seat {seat}'s question should name the card and say vote, nothing more: {prompt!r}")
+    if st["picked"] not in st["after"]["exile"] or st["picked"] in st["after"]["bears"]:
+        problems.append(f"both voted for {st['picked']}: it should be exiled: {st['after']}")
+    if len(st["after"]["bears"]) < 1:
+        problems.append(f"the Bears nobody voted for should stay: {st['after']}")
+    return outcome(problems, "Council's Judgment: both players voted, and the Bears they voted for was exiled", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -958,7 +1018,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite}
+             "spellskite": spellskite, "vote": vote}
 
 if __name__ == "__main__":
     codes = []

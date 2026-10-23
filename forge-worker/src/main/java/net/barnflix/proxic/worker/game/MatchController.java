@@ -1854,6 +1854,39 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * A vote -- Phase 8, 37 cards (Council's Judgment, Expropriate, the
+     * Will of the council and Council's dilemma cards). A port of Forge's
+     * human controller: a vote between named choices is "choose what it
+     * does", one between things on the board is "choose one" -- both already
+     * answered. Forge counts the votes and tells everyone. Was a loud stub.
+     */
+    @Override
+    public Object vote(SpellAbility sa, String prompt, List<Object> options,
+            com.google.common.collect.ListMultimap<Object, Player> votes, Player forPlayer, boolean optional) {
+        // Forge's prompt is "Council's Judgment (47) Vote:" -- its own card
+        // number has no place on the page. A vote comes from a resolving
+        // spell or ability, so the card's name is public.
+        String asked = sa.getHostCard().getName() + ": vote for one";
+        if (sa.hasParam("Choices")) {
+            List<SpellAbility> modes = new java.util.ArrayList<>();
+            for (Object o : options) {
+                if (o instanceof SpellAbility mode) {
+                    modes.add(mode);
+                }
+            }
+            List<SpellAbility> chosen = chooseSpellAbilitiesForEffect(modes, sa, asked, 1, null);
+            return chosen.isEmpty() ? null : chosen.get(0);
+        }
+        forge.util.collect.FCollection<forge.game.GameEntity> entities = new forge.util.collect.FCollection<>();
+        for (Object o : options) {
+            if (o instanceof forge.game.GameEntity entity) {
+                entities.add(entity);
+            }
+        }
+        return chooseSingleEntityForEffect(entities, null, sa, asked, optional, null, null);
+    }
+
+    /**
      * One of several labelled choices, by index, or -1 for a pass --
      * the shape the three ports below share.
      */
