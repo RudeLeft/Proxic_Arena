@@ -54,6 +54,8 @@ and checks the result on the board:
   piles           Fact or Fiction: the opponent puts one card in pile 1; the
                   caster chooses pile 2 (the LAST answer) and gets exactly
                   its four cards
+  gift            Alchemist's Gift: deathtouch or lifelink -- Lifelink (the
+                  LAST): the Bears has lifelink, not deathtouch
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1145,6 +1147,67 @@ def piles():
                              "to the graveyard", found)
 
 
+def gift():
+    """Alchemist's Gift on seat 1's own Bears: "your choice of deathtouch or
+    lifelink" (chooseKeywordForPump) -- Lifelink, the LAST answer. The Bears
+    is a 3/3 with lifelink and without deathtouch."""
+    g = game("gift", [("Swamp", 20), ("Forest", 16), ("Grizzly Bears", 12), ("Alchemist's Gift", 12)])
+    st = {"cast": None, "bears": None, "asked": [], "after": None}
+
+    def keywords(c):
+        return [k.lower() for k in (c or {}).get("keywords", []) or []]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseKeywordForPump":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            bears = g.mine(1, name="Grizzly Bears")
+            if not bears:
+                return cast(g, f, "Grizzly Bears")
+            if st["cast"] is None:
+                o = cast(g, f, "Alchemist's Gift")
+                if o:
+                    st["cast"], st["bears"] = card_of(o), bears[0]["id"]
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            bear = next((c for c in g.mine(1) if c["id"] == st["bears"]), {})
+            st["after"] = {"keywords": keywords(bear), "pt": (bear.get("power"), bear.get("toughness"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "bears": st["bears"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Alchemist's Gift never asked which keyword", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked which keyword seat 1's spell grants")
+    if labels != ["Deathtouch", "Lifelink"]:
+        problems.append(f"one answer per keyword: {labels}")
+    if prompt != "Alchemist's Gift: choose what Grizzly Bears gains.":
+        problems.append(f"the question should name the card and the creature: {prompt!r}")
+    kws = st["after"]["keywords"]
+    if "lifelink" not in kws or "deathtouch" in kws or st["after"]["pt"] != (3, 3):
+        problems.append(f"chose Lifelink: a 3/3 with lifelink, no deathtouch: {st['after']}")
+    return outcome(problems, "Alchemist's Gift: Lifelink chosen, and the Bears gained exactly that", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1153,7 +1216,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift}
 
 if __name__ == "__main__":
     codes = []

@@ -100,7 +100,7 @@ Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which k
 Q chooseDiceToReroll(List)	UNBUILT		dice you may reroll	4+ cards	LoudFailureTest
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
 Q chooseFlipResult(SpellAbility,Player,boolean)	UNBUILT		Krark's Thumb	1 card	LoudFailureTest
-Q chooseKeywordForPump(List,SpellAbility,String,Card)	UNBUILT		"flying or first strike, your choice" (Steel Seraph)	32 cards	LoudFailureTest
+Q chooseKeywordForPump(List,SpellAbility,String,Card)	ASKS	chooseKeywordForPump	Your choice of keyword for a pump ("deathtouch or lifelink"): one answer per keyword	32 cards: Alchemist's Gift, Argivian Avenger	scripts/check-you-choose.py
 Q chooseManaFromPool(List)	UNBUILT		choosing which floating mana pays a cost; when Forge asks a person this, to find	rare	LoudFailureTest
 Q chooseModeForAbility(SpellAbility,List,int,int,boolean)	ASKS	chooseModeForAbility	Choose a mode	Cryptic Command, Escalate, Spree, Pawprint	scripts/check-modes.py
 Q chooseNewTargetsFor(SpellAbility,Predicate,boolean)	ASKS	chooseTargetsFor	Choose new targets for a copy	Krark, the Thumbless; Twincast	scripts/check-coin-flip.py

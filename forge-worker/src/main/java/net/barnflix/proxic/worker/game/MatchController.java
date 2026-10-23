@@ -2136,6 +2136,23 @@ public final class MatchController extends GeneratedControllerBase {
         return title + ": " + String.join(", ", names);
     }
 
+    /**
+     * "Your choice of deathtouch or lifelink" -- Alchemist's Gift and the
+     * other KWChoice pumps. A port of Forge's human controller: one answer
+     * per keyword; a lone option needs no question. Was a loud stub.
+     */
+    @Override
+    public String chooseKeywordForPump(List<String> options, SpellAbility sa, String prompt,
+            forge.game.card.Card tgtCard) {
+        if (options.size() <= 1) {
+            return options.isEmpty() ? null : options.get(0);
+        }
+        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String who = tgtCard == null ? "it" : ViewerSnapshot.nameFor(tgtCard, player.getView());
+        return options.get(Math.max(0, askIndex("chooseKeywordForPump", options, true,
+                card + ": choose what " + who + " gains.")));
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {

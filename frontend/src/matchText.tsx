@@ -165,6 +165,8 @@ export function headingFor(kind: string): string {
       return "Reveal from your hand";
     case "chooseCardsPile":
       return "Choose a pile";
+    case "chooseKeywordForPump":
+      return "Choose what it gains";
     case "orderSimultaneousAbilities":
       return "Choose what resolves first";
     case "chooseSingleReplacementEffect":
