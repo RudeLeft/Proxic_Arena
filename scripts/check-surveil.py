@@ -21,6 +21,9 @@ time, with nothing to say so.
   preordain-order     scry, moved to the same look (0001 D3): Preordain,
                       scry 2, none to the bottom, the LAST offered on top
                       -- its own draw is that card
+  opt-top             scry 1 (Phase 8, willPutCardOnTop): Opt, "Top" --
+                      its own draw is that card
+  opt-bottom          the same, "Bottom" -- the card drawn is another
 
 Every scenario also checks spec 0001 D3 and HID: each surveil question
 carries the cards as pictures (`looking`, names known) to the surveilling
@@ -277,8 +280,31 @@ def preordain():
     return verdict_of(g, watch, trace, problems, "Preordain: scry shows the cards, and the one put on top was drawn")
 
 
+def opt(top):
+    label = "Top" if top else "Bottom"
+
+    def answer(g, f, watch):
+        return next(o["actionId"] for o in f["options"] if o.get("label") == label)
+
+    g, watch, trace = run(f"opt-{'top' if top else 'bottom'}", [("Island", 40), ("Opt", 20)], answer,
+                          lambda g, w: w.answered and len(w.drawn) >= 1)
+    if not watch.questions or not watch.drawn:
+        return verdict_of(g, watch, trace, [], "")
+    looked = watch.questions[0][2][0]["id"]
+    problems = []
+    if [q[0] for q in watch.questions if "top or the bottom" not in q[0]]:
+        problems.append(f"scry 1 asked {[q[0] for q in watch.questions]}, not top or bottom")
+    if top and watch.drawn[0] != looked:
+        problems.append(f"kept {looked} on top, but Opt drew {watch.drawn[0]}")
+    if not top and watch.drawn[0] == looked:
+        problems.append(f"put {looked} on the bottom, but Opt drew it")
+    return verdict_of(g, watch, trace, problems,
+                      "Opt: the card kept on top was drawn" if top else "Opt: the card put on the bottom was not drawn")
+
+
 SCENARIOS = {"consider-top": lambda: consider(True), "consider-graveyard": lambda: consider(False),
-             "fame-away": lambda: fame(False), "fame-order": lambda: fame(True), "preordain-order": preordain}
+             "fame-away": lambda: fame(False), "fame-order": lambda: fame(True), "preordain-order": preordain,
+             "opt-top": lambda: opt(True), "opt-bottom": lambda: opt(False)}
 
 if __name__ == "__main__":
     codes = []

@@ -190,6 +190,6 @@ Q revealUnsupported(Map)	ENGINE		Records cards Forge cannot run, for the game re
 Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one game per match, no sideboard in Open Format	-	PENDING: a test asserting no sideboarding
 Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	UNBUILT		"add N mana in any combination of colours"	88 cards	LoudFailureTest
 Q tempShowCards(Iterable)	NOT-A-QUESTION		Show cards for a moment (Forge's desktop)	-	-
-Q tuckCardsViaMulligan(CardCollectionView,int)	ASKS	tuckCardsViaMulligan	After a mulligan: which cards go to the bottom	every mulligan	PENDING: no Mechanics Lab game asks tuckCardsViaMulligan yet
+Q tuckCardsViaMulligan(CardCollectionView,int)	ASKS	tuckCardsViaMulligan	After a mulligan: which cards go to the bottom	every mulligan	scripts/check-mulligan.py
 Q vote(SpellAbility,String,List,ListMultimap,Player,boolean)	UNBUILT		Council's Judgment, Expropriate	37 cards	LoudFailureTest
-Q willPutCardOnTop(Card)	ASKS	willPutCardOnTop	One card: top or bottom of the library	Opt, scry 1	PENDING: no Mechanics Lab game asks willPutCardOnTop yet
+Q willPutCardOnTop(Card)	ASKS	willPutCardOnTop	One card: top or bottom of the library	Opt, scry 1	scripts/check-surveil.py
