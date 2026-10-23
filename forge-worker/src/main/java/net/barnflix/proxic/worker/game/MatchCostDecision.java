@@ -665,19 +665,42 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (cost.getCntPlayers() == Integer.MAX_VALUE) {
             return PaymentDecision.players(can);
         }
+        forge.game.player.Player chosen = pickPlayer(can, "CostGainLife",
+                source.getName() + ": choose an opponent to gain " + amount + " life.");
+        return chosen == null ? null : PaymentDecision.players(java.util.List.of(chosen));
+    }
+
+    /**
+     * Promise a gift (Bloomburrow, 27 cards) -- which opponent receives it.
+     * Forge's human path asks a "choose one" that needs no question with a
+     * single opponent, so a two-player game asks nothing. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostPromiseGift cost) {
+        java.util.List<forge.game.player.Player> opponents = new java.util.ArrayList<>();
+        cost.getPotentialPlayers(player, ability).forEach(opponents::add);
+        if (opponents.size() == 1) {
+            return PaymentDecision.players(opponents);
+        }
+        forge.game.player.Player chosen = pickPlayer(opponents, "CostPromiseGift",
+                source.getName() + ": choose an opponent to promise the gift to.");
+        return chosen == null ? null : PaymentDecision.players(java.util.List.of(chosen));
+    }
+
+    /** One of these players, by name, or none (cancels the cost). */
+    private forge.game.player.Player pickPlayer(java.util.List<forge.game.player.Player> players, String kind,
+            String prompt) {
         java.util.LinkedHashMap<String, forge.game.player.Player> byId = new java.util.LinkedHashMap<>();
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        for (forge.game.player.Player opp : can) {
-            byId.put("player:" + opp.getId(), opp);
-            labels.put("player:" + opp.getId(), opp.getName());
+        for (forge.game.player.Player p : players) {
+            byId.put("player:" + p.getId(), p);
+            labels.put("player:" + p.getId(), p.getName());
         }
         try {
-            String choice = host.gate().ask(actedForSeat, authorisedSeat, "CostGainLife",
-                    new java.util.ArrayList<>(byId.keySet()), false,
-                    source.getName() + ": choose an opponent to gain " + amount + " life.",
+            String choice = host.gate().ask(actedForSeat, authorisedSeat, kind,
+                    new java.util.ArrayList<>(byId.keySet()), false, prompt,
                     pending -> host.publishDecision(pending, labels));
-            forge.game.player.Player chosen = choice == null ? null : byId.get(choice);
-            return chosen == null ? null : PaymentDecision.players(java.util.List.of(chosen));
+            return choice == null ? null : byId.get(choice);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return null;

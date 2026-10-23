@@ -54,6 +54,9 @@ with options no default would take, and checks the board:
   untap-type  Halo Fountain (CostUntapType): the LAST of two tapped Lions
               untaps, the other stays tapped, a Citizen made
   reduction   Urza's Filter: the whole {2} off, nothing asked
+  gift-yes    Blooming Blast, gift promised (CostPromiseGift, one opponent:
+              no question): a Treasure for them, and 3 damage
+  gift-no     the same, not promised: neither
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1402,6 +1405,73 @@ def urza_filter():
                    found)
 
 
+def gift(promise):
+    """Blooming Blast: 2 damage to target creature; gift a Treasure -- if the
+    gift was promised, 3 damage to that creature's controller too. The
+    promise is the optional cost; with one opponent, who receives it
+    (CostPromiseGift) needs no question. Promised: the opponent gets a
+    Treasure and loses 3. Not: neither. The Bears dies either way."""
+    g = game(f"gift-{'yes' if promise else 'no'}", [("Mountain", 36), ("Blooming Blast", 24)])
+    st = {"cast": None, "bears": None, "offered": [], "asked_gift": [], "life": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseOptionalCosts" and seat == 1:
+            st["offered"].append([o.get("label") for o in f["options"]])
+            o = next((o["actionId"] for o in f["options"] if "ift" in (o.get("label") or "")), None)
+            return o if promise and len(st["offered"]) == 1 else None
+        if k == "CostPromiseGift":
+            st["asked_gift"].append(seat)
+            return DEFAULT
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            bears = g.zone(1, "battlefield", owner=2, name="Grizzly Bears")
+            if st["cast"] is None and bears:
+                o = cast(g, f, "Blooming Blast")
+                if o:
+                    st["cast"], st["bears"] = card_of(o), bears[0]["id"]
+                    st["life"] = (g.player(1, 2) or {}).get("life")
+                    return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "treasures": len([c for c in g.zone(1, "battlefield", owner=2) if c.get("token")]),
+                           "bears_dead": not any(c["id"] == st["bears"] for c in g.zone(1, "battlefield", owner=2))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"offered": st["offered"], "asked_gift": st["asked_gift"], "life": st["life"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["offered"] or not st["after"]:
+        return "inconclusive", "Blooming Blast was never cast with its gift offered", found
+    problems = []
+    if st["asked_gift"]:
+        problems.append(f"one opponent: who receives the gift needs no question: {st['asked_gift']}")
+    after, lost = st["after"], st["life"] - st["after"]["life"]
+    if not after["bears_dead"]:
+        problems.append("the Bears takes 2 and dies either way")
+    if promise and (after["treasures"] != 1 or lost != 3):
+        problems.append(f"promised: the opponent gets a Treasure and loses 3, got {after['treasures']} and {lost}")
+    if not promise and (after["treasures"] != 0 or lost != 0):
+        problems.append(f"not promised: no Treasure, no damage, got {after['treasures']} and {lost}")
+    return outcome(problems, "Blooming Blast: gift promised -- a Treasure for the opponent, and 3 damage" if promise
+                   else "Blooming Blast: no gift -- no Treasure, no damage to the player", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -1411,7 +1481,8 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "salvo-yes": lambda: salvo(True), "salvo-no": lambda: salvo(False), "untap": signaler,
              "mill-yes": lambda: concoction(True), "mill-no": lambda: concoction(False), "forage": forage,
              "gain-life": invigorate, "to-library": leashling,
-             "untap-type": fountain, "reduction": urza_filter}
+             "untap-type": fountain, "reduction": urza_filter,
+             "gift-yes": lambda: gift(True), "gift-no": lambda: gift(False)}
 
 if __name__ == "__main__":
     codes = []
