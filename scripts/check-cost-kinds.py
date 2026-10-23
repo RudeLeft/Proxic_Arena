@@ -24,6 +24,8 @@ with options no default would take, and checks the board:
               holds exactly those
   charge      Charge of the Forever-Beast (CostReveal): the LAST creature
               offered is revealed, and deals exactly its power
+  draw-yes    Academy Wall's loot (CostDraw, a yes or no): yes draws a card
+  draw-no     the same, no: nothing drawn
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -548,9 +550,70 @@ def charge():
                              "exactly that much", found)
 
 
+def academy_wall(yes):
+    """Academy Wall: casting an instant, you may draw a card (CostDraw, a
+    yes or no), then discard one. Yes: the library is one card smaller;
+    no: unchanged."""
+    g = game(f"draw-{'yes' if yes else 'no'}", [("Island", 30), ("Academy Wall", 10), ("Unsummon", 20)])
+    st = {"cast": None, "asked": [], "library": None, "after": None}
+
+    def library():
+        return (g.player(1, 1) or {}).get("libraryCount")
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and seat == 1 and "draw" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            st["library"] = library()
+            return "confirm:yes" if yes else None
+        if k == "confirmTrigger" and seat == 1:
+            return "confirm:yes"
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Grizzly Bears")),
+                        DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Academy Wall"):
+                return cast(g, f, "Academy Wall")
+            bears = g.zone(1, "battlefield", owner=2, name="Grizzly Bears")
+            if st["cast"] is None and bears:
+                o = cast(g, f, "Unsummon")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = library()
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "library": [st["library"], st["after"]], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Academy Wall's draw cost was never asked", found
+    problems = []
+    if any(seat != 1 for seat, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's draw cost")
+    want = st["library"] - 1 if yes else st["library"]
+    if st["after"] != want:
+        problems.append(f"{'paid' if yes else 'declined'}: library {st['library']} -> {st['after']}, expected {want}")
+    return outcome(problems, "Academy Wall: paid, and a card was drawn" if yes
+                   else "Academy Wall: declined, and nothing was drawn", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
-             "gush": gush, "manamorphose": manamorphose, "charge": charge}
+             "gush": gush, "manamorphose": manamorphose, "charge": charge,
+             "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False)}
 
 if __name__ == "__main__":
     codes = []

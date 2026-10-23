@@ -390,6 +390,28 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Draw cards as a cost -- Phase 8, 52 cards (Academy Wall, Daring
+     * Saboteur's loot, Baral). A port of Forge's human path: a yes or no,
+     * "Draw 1 card?". Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostDraw cost) {
+        if (!cost.canPay(ability, player, isEffect())) {
+            return null;
+        }
+        int needed = cost.getAbilityAmount(ability);
+        java.util.List<forge.game.player.Player> who = cost.getPotentialPlayers(player, ability);
+        String card = source == null ? "" : source.getName() + ": ";
+        String draw = who.contains(player) && who.size() == 1 ? "draw " : "have that player draw ";
+        if (!confirm(card + draw + forge.util.Lang.nounWithNumeralExceptOne(needed, "card") + "?")) {
+            return null;
+        }
+        PaymentDecision decision = PaymentDecision.players(who);
+        decision.c = needed;
+        return decision;
+    }
+
+    /**
      * Reveal cards from your hand as a cost -- Phase 8, 76 cards (Charge of
      * the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards). A port
      * of Forge's human path: the card itself, or the whole hand, without

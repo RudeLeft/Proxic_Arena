@@ -32,7 +32,7 @@ C CostChooseCreatureType	UNBUILT		Pay the cost ChooseCreatureType	with the above
 C CostCollectEvidence	UNBUILT		Pay the cost CollectEvidence	25 cards — collect evidence	LoudFailureTest
 C CostDamage	UNBUILT		Pay the cost Damage	18 cards — damage to yourself (Browbeat)	LoudFailureTest
 C CostDiscard	ASKS	CostDiscard	Discard as a cost	Faithless Looting, Wild Mongrel	scripts/check-modes.py
-C CostDraw	UNBUILT		Pay the cost Draw	52 cards — draw as a cost	LoudFailureTest
+C CostDraw	ASKS	confirmPayment	Draw cards as a cost: a yes or no ("Academy Wall: draw a card?")	52 cards: Academy Wall, Daring Saboteur, Baral, Fetid Gargantua	scripts/check-cost-kinds.py
 C CostEnlist	UNBUILT		Pay the cost Enlist	with enlist	LoudFailureTest
 C CostExert	UNBUILT		Pay the cost Exert	with exert	LoudFailureTest
 C CostExile	ASKS	CostExile	Exile as a cost	Force of Will, Delve-like costs	scripts/check-costs.py
