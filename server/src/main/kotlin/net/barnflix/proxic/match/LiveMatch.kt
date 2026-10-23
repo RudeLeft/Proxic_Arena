@@ -124,12 +124,14 @@ class LiveMatch(
      * either order. An unconditional clear would silently discard
      * a live question, and the players would sit looking at a game
      * that was waiting for them.
+     *
+     * True when this cleared it -- nobody is asked now (spec 0002) --
+     * and false when the next question had already taken its place.
      */
-    fun answered(decisionId: Long) {
+    fun answered(decisionId: Long): Boolean =
         pending.getAndUpdate { current ->
             if (current?.decisionId == decisionId) null else current
-        }
-    }
+        }?.decisionId == decisionId
 
     /**
      * Who may answer the question outstanding right now.

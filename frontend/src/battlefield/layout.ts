@@ -91,6 +91,13 @@ export interface LayoutCard {
   /** A token (§7.61 B12). Absent until the worker sends it: then no
    * token piles. */
   token?: boolean;
+  /**
+   * Spec 0003 — what this attacker attacks ("player:2", "card:N"), set
+   * only while it is attacking and unblocked: such identical tokens pile
+   * together, one card and one fire line. A blocked attacker has none and
+   * stands alone, so its block can be drawn.
+   */
+  attackPile?: string;
 }
 
 export interface LayoutInput {
@@ -226,15 +233,22 @@ function isBasicLand(card: LayoutCard): boolean {
  * pile (§7.58, §7.52a L8); identical tokens pile too (§7.52a L5). A card
  * piles only when nothing about it differs from its twins: anything that
  * could make one of them a different choice -- counters, an attachment,
- * combat, summoning sickness, a changed characteristic -- keeps it out.
+ * blocking or being blocked, summoning sickness, a changed characteristic
+ * -- keeps it out.
+ *
+ * Attacking no longer does (spec 0003, owner 2026-10-23, amending §7.52a
+ * L5's "not in combat"): 300 Goblin tokens attacking one player split into
+ * 300 cards and 300 fire lines and stalled the page. Unblocked attackers
+ * of the same thing pile, as `attackPile` says.
  */
 function pileKey(card: LayoutCard, attachedHosts: ReadonlySet<string>): string | null {
   const pileable = isBasicLand(card) || card.token === true;
   if (!pileable || card.faceDown || !card.known) return null;
   if (card.counters.length > 0 || card.attachedTo !== null || attachedHosts.has(card.id))
     return null;
-  if (card.attacking || card.blocking) return null;
+  if (card.blocking || (card.attacking && card.attackPile === undefined)) return null;
   return JSON.stringify([
+    card.attacking ? card.attackPile : null,
     card.seat,
     card.name,
     card.types,

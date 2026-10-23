@@ -342,6 +342,13 @@ export interface MatchState {
    * it to Forge (the game's end follows), or why it was not taken.
    */
   concession: string | null;
+  /**
+   * Spec 0002 — who the server says is being asked: `{ seat: null }`
+   * when nobody is and the rules engine is working; null before it has
+   * said (an older server never does, and the screen then guesses from
+   * priority as it used to).
+   */
+  asking: { seat: number | null } | null;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -353,6 +360,7 @@ export const EMPTY_MATCH: MatchState = {
   board: null,
   spotlight: null,
   concession: null,
+  asking: null,
 };
 
 /**
@@ -436,6 +444,14 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       // The notice goes too: whatever it said was about the
       // question being removed.
       return { ...state, decision: null, awaiting: null, notice: null };
+    }
+
+    case "MATCH_ASKING": {
+      // Spec 0002 — a seat, or null for nobody; anything else is ignored.
+      const seat = message["seat"];
+      if (seat === null) return { ...state, asking: { seat: null } };
+      const asked = asNumber(seat);
+      return asked === null ? state : { ...state, asking: { seat: asked } };
     }
 
     case "DECISION_OPTIONS": {
@@ -882,6 +898,8 @@ export function connectMatch(
         connection: "reconnecting",
         decision: null,
         awaiting: null,
+        // Spec 0002 — told again on reconnect; stale meanwhile.
+        asking: null,
       }));
       const wait = delays[Math.min(attempt, delays.length - 1)] ?? 0;
       attempt += 1;

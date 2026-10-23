@@ -28,6 +28,8 @@ time** (owner decision, 2026-10-22):
 | # | Feature | Status | Spec |
 |---|---|---|---|
 | 0001 | Sacrifice and surveil — "which creature do you sacrifice?" (Eldrazi Monument, Diabolic Edict) and "surveil N"; the two unbuilt questions most likely to stop a game | **Approved** 2026-10-22 — building (with "destroy" too) | `docs/features/0001-sacrifice-and-surveil.md` |
+| 0002 | "Resolving…", not "Waiting for" the other player — while the rules engine works (Krenko making Goblins) and nobody is asked, both screens say so instead of each blaming the other | **Approved** 2026-10-23 — building | `docs/features/0002-resolving-not-waiting.md` |
+| 0003 | Big boards stay playable — 300 attacking Goblin tokens are one pile with one fire line, not 300 cards and lines; where a big board's time goes, measured before any speed change | **Approved** 2026-10-23 — building | `docs/features/0003-big-boards.md` |
 | Phase 8 | **Every Forge question, answered and proven** — a record of all 170 questions and cost kinds Forge can put to a player, generated from Forge itself; a CI gate so none can be skipped; a real-game proof for each; the 31 missing questions (Un-set ones included) and 31 missing costs built, in order of how many cards need them. 0001 is its Part 1 | **LOCKED** 2026-10-22 — active, Part 1 (0001) first | `PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md` |
 | — | Commander | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | Two-Headed Giant | Planned (owner decision 2026-10-17; not scoped) | — |

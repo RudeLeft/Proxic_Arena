@@ -71,7 +71,20 @@ class MatchDecisionsTest {
             ) {
                 told += "${name(userId)}/STEP:${state["phase"]}"
             }
+
+            // Spec 0002 -- kept apart from `told`, whose exact order the
+            // tests above pin.
+            override suspend fun asking(
+                matchId: UUID,
+                userId: UUID,
+                seat: Int?,
+            ) {
+                asked += "${name(userId)}/ASKING:${seat ?: "nobody"}"
+            }
         }
+
+    /** Spec 0002 — every MATCH_ASKING, in order. */
+    private val asked = mutableListOf<String>()
 
     private fun name(userId: UUID) = if (userId == alice) "alice" else "bob"
 
@@ -212,6 +225,76 @@ class MatchDecisionsTest {
         decisions.handle(live, WorkerEvent.Answered(1))
 
         assertEquals(null, live.pending())
+    }
+
+    /**
+     * F-0002-A. The owner's report: RudeLeft tapped Krenko, and while the
+     * engine made Goblins RudeLeft's screen said "Waiting for Pat" and
+     * Pat's "Waiting for RudeLeft". Everyone is told who is asked, and,
+     * once an answer goes in with nothing new yet, that nobody is.
+     */
+    @Test
+    fun `everyone is told who is asked, and when nobody is`() {
+        val decisions = MatchDecisions(announcer)
+        val live = live()
+
+        decisions.handle(live, WorkerEvent.Decision(question(1, authorised = 1)))
+        decisions.handle(live, WorkerEvent.Answered(1))
+        decisions.handle(live, WorkerEvent.Decision(question(2, authorised = 2)))
+
+        assertEquals(
+            listOf(
+                "alice/ASKING:1",
+                "bob/ASKING:1",
+                "alice/ASKING:nobody",
+                "bob/ASKING:nobody",
+                "alice/ASKING:2",
+                "bob/ASKING:2",
+            ),
+            asked,
+        )
+    }
+
+    /**
+     * The receipt and the next question come from different threads, so
+     * the next question can be handled first. "Nobody is asked" then would
+     * be false -- Bob is -- and both screens would say "Resolving…" over a
+     * live question.
+     */
+    @Test
+    fun `a late receipt does not say nobody is asked`() {
+        val decisions = MatchDecisions(announcer)
+        val live = live()
+        decisions.handle(live, WorkerEvent.Decision(question(1, authorised = 1)))
+        decisions.handle(live, WorkerEvent.Decision(question(2, authorised = 2)))
+        asked.clear()
+
+        decisions.handle(live, WorkerEvent.Answered(1))
+
+        assertTrue(asked.isEmpty(), "told $asked while seat 2 was being asked")
+        assertEquals(2L, live.pending()?.decisionId)
+    }
+
+    /** Under Mindslaver the seat that ANSWERS is named: Bob decides Alice's turn. */
+    @Test
+    fun `under a control effect the deciding seat is the one named`() {
+        val decisions = MatchDecisions(announcer)
+
+        decisions.handle(live(), WorkerEvent.Decision(question(1, authorised = 2, actedFor = 1)))
+
+        assertEquals(listOf("alice/ASKING:2", "bob/ASKING:2"), asked)
+    }
+
+    /** The message itself: a seat, or an explicit null -- and nothing about the question. */
+    @Test
+    fun `the asking message carries a seat and nothing else`() {
+        val some = askingMessage(2)
+        val none = askingMessage(null)
+
+        assertEquals("MATCH_ASKING", some["type"]?.toString()?.trim('"'))
+        assertEquals("2", some["seat"].toString())
+        assertEquals(kotlinx.serialization.json.JsonNull, none["seat"])
+        assertEquals(setOf("protocolVersion", "type", "messageId", "seat"), some.keys)
     }
 
     private companion object {

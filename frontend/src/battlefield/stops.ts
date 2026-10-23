@@ -109,3 +109,37 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
       return { word: "Next", sub: "On through combat" };
   }
 }
+
+/**
+ * Spec 0002 — the rail's line when nothing is asked of you.
+ *
+ * `asking` is who the server says is being asked (`seat: null`: nobody,
+ * the rules engine is working), or null when it has not said; `lastAsked`
+ * the last seat it named; `resolving` true once nobody has been asked for
+ * long enough to say so. Owner report 2026-10-23: while Krenko made
+ * Goblins, each player's screen said it was waiting for the other.
+ */
+export function waitingLine(
+  board: Snapshot,
+  mySeat: number,
+  asking: { seat: number | null } | null,
+  lastAsked: number | null,
+  resolving: boolean,
+): string {
+  const nameOf = (seat: number | null) =>
+    board.players.find((p) => p.seat === seat)?.name ?? "the other player";
+  const top = board.stack[0];
+  if (asking === null) {
+    // Never told (an older server): guessed from priority, as before. Their
+    // spell on the stack and you not asked: it is theirs that is going on.
+    const theirSpell = top && top.controller !== null && top.controller !== mySeat ? top : null;
+    if (board.prioritySeat === mySeat && !theirSpell) return "One moment";
+    return `Waiting for ${nameOf(theirSpell ? theirSpell.controller : board.prioritySeat)}`;
+  }
+  if (asking.seat === null && resolving) return top ? `Resolving ${top.name}…` : "Resolving…";
+  // Nobody, but only for a moment: questions follow each other in
+  // milliseconds, so the line stays on whoever was last asked.
+  const seat = asking.seat ?? lastAsked;
+  if (seat === null || seat === mySeat) return "One moment";
+  return `Waiting for ${nameOf(seat)}`;
+}

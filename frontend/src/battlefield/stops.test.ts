@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { Snapshot } from "../match";
-import { fetchStops, passWords, saveStops } from "./stops";
+import { fetchStops, passWords, saveStops, waitingLine } from "./stops";
 
 function board(
   phase: string,
@@ -78,5 +78,39 @@ describe("stops over HTTP", () => {
       Promise.resolve(new Response(JSON.stringify({ own: "MAIN1" }), { status: 200 })),
     );
     expect(await fetchStops(nonsense as unknown as typeof fetch)).toBeNull();
+  });
+});
+
+// Spec 0002 -- owner report 2026-10-23: while Krenko made Goblins, each
+// screen said it was waiting for the other player.
+describe("waitingLine", () => {
+  const krenko = { name: "Krenko, Mob Boss", controller: 1 };
+  const table = (prioritySeat: number, stack: object[] = []) =>
+    ({ ...board("MAIN1", 1, stack as { name: string }[]), prioritySeat }) as Snapshot;
+
+  it("while nobody is asked, both players read Resolving, naming the top of the stack", () => {
+    const busy = table(2, [krenko]);
+    expect(waitingLine(busy, 1, { seat: null }, 2, true)).toBe("Resolving Krenko, Mob Boss…");
+    expect(waitingLine(busy, 2, { seat: null }, 2, true)).toBe("Resolving Krenko, Mob Boss…");
+    expect(waitingLine(table(2), 1, { seat: null }, 2, true)).toBe("Resolving…");
+  });
+
+  it("names the seat the server says is asked, not the one with priority", () => {
+    // Priority says seat 2; the server says seat 1 is deciding.
+    expect(waitingLine(table(2), 2, { seat: 1 }, 1, false)).toBe("Waiting for Alice");
+    expect(waitingLine(table(2), 1, { seat: 1 }, 1, false)).toBe("One moment");
+  });
+
+  it("between two questions, stays on whoever was last asked rather than flicker", () => {
+    expect(waitingLine(table(2), 1, { seat: null }, 2, false)).toBe("Waiting for Bob");
+    expect(waitingLine(table(2), 1, { seat: null }, null, false)).toBe("One moment");
+  });
+
+  it("guesses from priority as before when the server has never said", () => {
+    expect(waitingLine(table(2), 1, null, null, false)).toBe("Waiting for Bob");
+    expect(waitingLine(table(1), 1, null, null, false)).toBe("One moment");
+    // Their spell on the stack: it is theirs that is going on.
+    const theirs = table(1, [{ name: "Shock", controller: 2 }]);
+    expect(waitingLine(theirs, 1, null, null, false)).toBe("Waiting for Bob");
   });
 });

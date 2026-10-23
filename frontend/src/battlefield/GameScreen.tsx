@@ -31,7 +31,14 @@ import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
-import { STOP_STEPS, fetchStops, passWords, saveStops, type StopSettings } from "./stops";
+import {
+  STOP_STEPS,
+  fetchStops,
+  passWords,
+  saveStops,
+  waitingLine,
+  type StopSettings,
+} from "./stops";
 import "./game.css";
 
 /** The canvas's eight steps; Forge's phase names fold into them. */
@@ -292,6 +299,7 @@ export function GameScreen({
               board={board}
               question={question}
               mySeat={board.seat}
+              asking={game.asking}
               busy={busy}
               onPick={pick}
               onPass={() => answer(null)}
@@ -698,10 +706,41 @@ function SeatBlock({
   );
 }
 
+/** Spec 0002 — how long nobody must be asked before the rail says "Resolving…". */
+const RESOLVING_AFTER_MS = 500;
+
+/**
+ * Spec 0002 — true once nobody has been asked for [RESOLVING_AFTER_MS]:
+ * questions follow each other in milliseconds, and saying "Resolving…"
+ * for each gap would flicker.
+ */
+function useResolving(asking: { seat: number | null } | null): boolean {
+  const nobody = asking !== null && asking.seat === null;
+  const [quiet, setQuiet] = useState(false);
+  useEffect(() => {
+    setQuiet(false);
+    if (!nobody) return undefined;
+    const timer = setTimeout(() => setQuiet(true), RESOLVING_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [nobody]);
+  return nobody && quiet;
+}
+
+/** Spec 0002 — the last seat the server said was asked. */
+function useLastAsked(asking: { seat: number | null } | null): number | null {
+  const [last, setLast] = useState<number | null>(null);
+  const seat = asking?.seat ?? null;
+  useEffect(() => {
+    if (seat !== null) setLast(seat);
+  }, [seat]);
+  return seat ?? last;
+}
+
 function Rail({
   board,
   question,
   mySeat,
+  asking,
   busy,
   onPick,
   onPass,
@@ -715,6 +754,8 @@ function Rail({
   board: Snapshot;
   question: Question | null;
   mySeat: number;
+  /** Spec 0002 — who the server says is being asked; null before it says. */
+  asking: { seat: number | null } | null;
   busy: boolean;
   onPick: (id: string) => void;
   onPass: () => void;
@@ -732,14 +773,8 @@ function Rail({
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
   const top = board.stack[0];
-  const priorityName =
-    board.players.find((p) => p.seat === board.prioritySeat)?.name ?? "The other player";
-  // Their spell on the stack and you not asked (it is being shown, or you
-  // had nothing to answer with): it is theirs that is going on.
-  const theirSpell = top && top.controller !== null && top.controller !== mySeat ? top : null;
-  const waitingOn = theirSpell
-    ? (board.players.find((p) => p.seat === theirSpell.controller)?.name ?? "The other player")
-    : priorityName;
+  const resolving = useResolving(asking);
+  const lastAsked = useLastAsked(asking);
   const myPriority = question?.context === "priority";
   const words = passWords(board, mySeat);
   return (
@@ -837,9 +872,7 @@ function Rail({
           {/* Owner 2026-10-22: one plain line. */}
           <span className="gs-waiting-word">
             <span aria-hidden="true" className="gs-priority-dot" />
-            {board.prioritySeat === mySeat && !theirSpell
-              ? "One moment"
-              : `Waiting for ${waitingOn}`}
+            {waitingLine(board, mySeat, asking, lastAsked, resolving)}
           </span>
         </div>
       ) : (

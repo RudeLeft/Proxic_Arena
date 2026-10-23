@@ -912,3 +912,19 @@ describe("what Cancel says", () => {
     expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out — nothing happens" });
   });
 });
+
+// Spec 0002 (F-0002-B) -- who is being asked, as the server says it.
+describe("who is being asked", () => {
+  it("is unknown until the server says, then the latest seat or nobody", () => {
+    expect(EMPTY_MATCH.asking).toBeNull();
+    const asked = reduceMatch(EMPTY_MATCH, { type: "MATCH_ASKING", seat: 2 });
+    expect(asked.asking).toEqual({ seat: 2 });
+    expect(reduceMatch(asked, { type: "MATCH_ASKING", seat: null }).asking).toEqual({ seat: null });
+  });
+
+  it("ignores a frame with no usable seat rather than claiming nobody", () => {
+    const asked = reduceMatch(EMPTY_MATCH, { type: "MATCH_ASKING", seat: 2 });
+    expect(reduceMatch(asked, { type: "MATCH_ASKING" }).asking).toEqual({ seat: 2 });
+    expect(reduceMatch(asked, { type: "MATCH_ASKING", seat: "x" }).asking).toEqual({ seat: 2 });
+  });
+});

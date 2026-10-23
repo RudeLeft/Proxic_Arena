@@ -413,6 +413,70 @@ describe("Board lines and effects", () => {
     expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
   });
 
+  // Spec 0003 -- owner report 2026-10-23: 300 attacking Goblin tokens drew
+  // 300 cards and 300 fire lines fanned across the screen, and the page
+  // stalled. Unblocked identical attackers of one thing are one pile, one
+  // line, one swoop; a blocked one steps out with its own shield line.
+  function horde(step: 4 | 5, blockedOne: boolean) {
+    const s = combatScript(step);
+    const base = s.board.battlefield.find((c) => c.id === "card:203")!;
+    const goblins = Array.from({ length: 300 }, (_, i) => ({
+      ...base,
+      id: `card:${5000 + i}`,
+      enteredAt: 5000,
+      attacking: true,
+      tapped: true,
+    }));
+    const guide = s.board.battlefield.find((c) => c.id === "card:211")!;
+    const blocked = blockedOne ? [{ blocker: guide.id, attacker: "card:5000" }] : [];
+    return (
+      <Board
+        battlefield={[...s.board.battlefield, ...goblins]}
+        hand={s.board.hand}
+        viewerSeat={s.board.viewerSeat}
+        artUrl={art}
+        arrivals={new Map()}
+        departures={new Map()}
+        combat={{
+          attackers: goblins.map((g) => ({ id: g.id, target: { player: 1 } })),
+          blocks: blocked,
+        }}
+        stack={[]}
+        damage={
+          step === 5
+            ? {
+                key: "horde",
+                hits: goblins.map((g) => ({ source: g.id, target: { player: 1 }, amount: 1 })),
+              }
+            : null
+        }
+      />
+    );
+  }
+
+  it("300 identical attackers are one pile, one fire line and one swoop (spec 0003)", () => {
+    const view = render(horde(4, false));
+    const fire = view.container.querySelectorAll('[data-line="attack"]');
+    expect(fire).toHaveLength(1);
+    expect(fire[0]!.getAttribute("data-count")).toBe("300");
+    const piles = view.container.querySelectorAll('[data-pile="300"]');
+    expect(piles).toHaveLength(1);
+    view.rerender(horde(5, false));
+    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(1);
+    // One number on the player hit, for all 300.
+    expect(view.container.querySelector('[data-damage-number="player:1"]')!.textContent).toBe(
+      "−300",
+    );
+  });
+
+  it("a blocked attacker steps out of the pile with its own lines (spec 0003)", () => {
+    const c = render(horde(4, true)).container;
+    expect(c.querySelectorAll('[data-pile="299"]')).toHaveLength(1);
+    expect(c.querySelector('[data-object-id="card:5000"]')!.getAttribute("data-pile")).toBeNull();
+    expect(lines(c, "attack")).toHaveLength(2);
+    expect(lines(c, "block")).toEqual(["card:211>card:5000"]);
+  });
+
   it("a creature the same update killed waits for its impact before it leaves", () => {
     const view = render(scene(9));
     view.rerender(scene(10)); // Shock resolves: 2 damage, White Knight dies

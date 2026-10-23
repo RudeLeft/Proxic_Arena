@@ -29,8 +29,10 @@ class MatchDecisions(
 
             // §6.103 — the gate accepted an answer, so the
             // question is closed. Cleared by id, because the NEXT
-            // question may already have arrived.
-            is WorkerEvent.Answered -> live.answered(event.decisionId)
+            // question may already have arrived -- and then nobody
+            // is told "nobody is asked" (spec 0002), because somebody is.
+            is WorkerEvent.Answered ->
+                if (live.answered(event.decisionId)) everyone(live) { user -> announcer.asking(live.match.matchId, user, null) }
 
             is WorkerEvent.Snapshot -> {
                 // §6.121 — the asset step, and the only place it
@@ -143,6 +145,22 @@ class MatchDecisions(
             .filterNot { it == user }
             .distinct()
             .forEach { other -> tell { announcer.cleared(live.match.matchId, other) } }
+
+        // Spec 0002 -- and everyone learns WHO is asked, so nobody's
+        // screen guesses it from priority: the AUTHORISED seat, the
+        // one actually deciding (under Mindslaver, the controller).
+        everyone(live) { other -> announcer.asking(live.match.matchId, other, request.authorisedSeat) }
+    }
+
+    /** Say something to every participant, once each. */
+    private fun everyone(
+        live: LiveMatch,
+        block: suspend (java.util.UUID) -> Unit,
+    ) {
+        live.match.participants
+            .map { it.userId }
+            .distinct()
+            .forEach { user -> tell { block(user) } }
     }
 
     /**

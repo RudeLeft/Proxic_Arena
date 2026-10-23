@@ -66,6 +66,9 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
+MATCH_ASKING            seat: the seat being asked now, or null -- nobody is,
+                        the rules engine is working. To every participant,
+                        on every change and on connect (spec 0002)
 DECISION_OPTIONS        decisionId, query, total, options   (search results)
 DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
@@ -76,6 +79,14 @@ A `DECISION_REQUEST` reaches only the player Forge is waiting on.
 `actedForSeat` says whose decision it is (under Mindslaver, somebody
 else's); who is *authorised* is the server's conclusion and is not sent
 (§6.38, §6.100).
+
+`MATCH_ASKING` (spec 0002, 2026-10-23) names the seat that is deciding —
+the authorised one, so under Mindslaver the controller — to both players,
+because "who is thinking" is what a real table shows and the screen
+otherwise guessed it from priority ("Waiting for Pat" while nobody was
+asked). It is a label only: nothing is answered on its strength, the
+server still decides who may answer, and nothing about the question
+travels with it.
 
 ### Browser → server
 

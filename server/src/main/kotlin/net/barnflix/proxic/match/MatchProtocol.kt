@@ -326,6 +326,18 @@ interface DecisionAnnouncer {
         reason: String,
     ) = Unit
 
+    /**
+     * Spec 0002 — which seat is being asked now, or null: nobody is, the
+     * rules engine is working. Public, to every participant: who is
+     * thinking is what a real table shows, and nothing about the question
+     * travels. A default, like [options].
+     */
+    suspend fun asking(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        seat: Int?,
+    ) = Unit
+
     companion object {
         val NONE =
             object : DecisionAnnouncer {

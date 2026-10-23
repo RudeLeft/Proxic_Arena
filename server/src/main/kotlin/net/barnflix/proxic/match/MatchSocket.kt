@@ -86,6 +86,9 @@ fun Route.matchSocket(
             runtime.pendingFor(matchId, userId)?.let { question ->
                 send(Frame.Text(decisionMessage(question).toString()))
             }
+            // Spec 0002 — and who is being asked, so a returning player's
+            // screen does not guess it from priority.
+            runtime.askingFor(matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
 
             for (frame in incoming) {
                 val text = (frame as? Frame.Text)?.readText() ?: continue

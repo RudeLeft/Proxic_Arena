@@ -130,6 +130,14 @@ class MatchHub : DecisionAnnouncer {
     ) {
         sendTo(matchId, userId, decisionOptionsMessage(found))
     }
+
+    override suspend fun asking(
+        matchId: UUID,
+        userId: UUID,
+        seat: Int?,
+    ) {
+        sendTo(matchId, userId, askingMessage(seat))
+    }
 }
 
 private fun envelope(
@@ -254,6 +262,16 @@ fun snapshotMessage(state: JsonObject): JsonObject =
 
 /** Nothing is waiting on you. Carries no game information at all. */
 fun clearedMessage(): JsonObject = envelope("DECISION_CLEARED") { }
+
+/**
+ * Spec 0002 — the seat being asked, or `null`: nobody, the rules engine
+ * is working. A seat number and nothing else; the question itself goes
+ * only to the player it is for.
+ */
+fun askingMessage(seat: Int?): JsonObject =
+    envelope("MATCH_ASKING") {
+        if (seat == null) put("seat", kotlinx.serialization.json.JsonNull) else put("seat", seat)
+    }
 
 /** §6.110 — the greeting, before any decision. */
 fun matchHelloMessage(

@@ -56,7 +56,9 @@ is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
 **Approved feature specs:** `docs/features/0001-sacrifice-and-surveil.md`
-(2026-10-22). Update this line when one is approved or done.
+(2026-10-22); `docs/features/0002-resolving-not-waiting.md` and
+`docs/features/0003-big-boards.md` (2026-10-23).
+Update this line when one is approved or done.
 
 **Phase 8** (owner, 2026-10-22: "a real Phase 8"): every Forge question,
 answered and proven — `PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`.

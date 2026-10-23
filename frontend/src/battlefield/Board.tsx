@@ -365,6 +365,8 @@ interface Line {
   start: Point;
   end: Point;
   lane: number;
+  /** How many relationships it stands for: a pile's members are one line. */
+  count: number;
 }
 
 const refKey = (ref: TargetRef) => ("player" in ref ? `player:${ref.player}` : ref.object);
@@ -443,9 +445,21 @@ export function Board({
     return () => observer.disconnect();
   }, []);
 
+  // Spec 0003 — unblocked attackers say what they attack, so identical
+  // ones pile (one card, one fire line) instead of 300 of each.
+  const laidOut = useMemo(() => {
+    if (!combat) return battlefield;
+    const aims = new Map(combat.attackers.map((a) => [a.id, refKey(a.target)]));
+    const blocked = new Set(combat.blocks.map((b) => b.attacker));
+    return battlefield.map((card) =>
+      card.attacking && aims.has(card.id) && !blocked.has(card.id)
+        ? { ...card, attackPile: aims.get(card.id)! }
+        : card,
+    );
+  }, [battlefield, combat]);
   const result = useMemo(
-    () => (viewport ? layout({ battlefield, hand, viewerSeat }, viewport) : null),
-    [battlefield, hand, viewerSeat, viewport],
+    () => (viewport ? layout({ battlefield: laidOut, hand, viewerSeat }, viewport) : null),
+    [laidOut, hand, viewerSeat, viewport],
   );
   const byId = useMemo(() => new Map(battlefield.map((card) => [card.id, card])), [battlefield]);
 
@@ -714,9 +728,17 @@ export function Board({
       bySource.set(hit.source, [...(bySource.get(hit.source) ?? []), hit.target]);
     }
     let swooped = false;
+    // One swoop per drawn card: a pile of attacking tokens moves as one,
+    // not once per token on the same element (owner report 2026-10-23).
+    const moving = new Map<string, Point>();
     for (const [source, targets] of bySource) {
       if (still || !attackers.has(source)) continue;
       const from = positions.get(source);
+      const already = from ? moving.get(from.item) : undefined;
+      if (already) {
+        landed.set(source, already);
+        continue;
+      }
       const element = from ? elements.current.get(from.item) : undefined;
       if (!from || !element || typeof element.animate !== "function") continue;
       const boxes = targets.flatMap((t) => ("object" in t ? [at(t.object)?.box ?? []].flat() : []));
@@ -729,6 +751,7 @@ export function Board({
             : null;
       if (!landing) continue;
       landed.set(source, centreOf(landing, from.origin));
+      moving.set(from.item, centreOf(landing, from.origin));
       const rest = placement(from.box, g.cardW, g.cardH, from.origin).transform;
       const there = placement(landing, g.cardW, g.cardH, from.origin).transform;
       element.style.zIndex = String(Z_SWOOP);
@@ -917,9 +940,18 @@ export function Board({
   // The stack, drawn as cards at the right edge of the play area.
   const spot = stackSpotBoxes(g, (stack ?? []).length);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
-  const lines: Line[] = [];
-  const add = (kind: LineKind, from: string, to: string, start: Point, end: Point) =>
-    lines.push({ key: `${kind}:${from}:${to}`, kind, from, to, start, end, lane: 0 });
+  // One line per DRAWN thing, not per object: a pile of 300 Goblin tokens
+  // attacking is one card on the table, so it is one fire line (owner
+  // report 2026-10-23: 300 lines, each blurred and fanned into its own
+  // lane, buried the screen and stalled the page).
+  const drawn = (id: string) => positions.get(id)?.item ?? id;
+  const byKey = new Map<string, Line>();
+  const add = (kind: LineKind, from: string, to: string, start: Point, end: Point) => {
+    const key = `${kind}:${drawn(from)}:${to.startsWith("player:") ? to : drawn(to)}`;
+    const same = byKey.get(key);
+    if (same) same.count += 1;
+    else byKey.set(key, { key, kind, from, to, start, end, lane: 0, count: 1 });
+  };
   for (const a of combat?.attackers ?? []) {
     const from = centre(a.id);
     const aim = refPoint(a.target);
@@ -960,9 +992,13 @@ export function Board({
       );
     }
   }
+  const lines = [...byKey.values()];
   // Several lines into one thing spread into lanes (the mock's).
   const into = new Map<string, Line[]>();
-  for (const line of lines) into.set(line.to, [...(into.get(line.to) ?? []), line]);
+  for (const line of lines) {
+    const to = line.to.startsWith("player:") ? line.to : drawn(line.to);
+    into.set(to, [...(into.get(to) ?? []), line]);
+  }
   for (const group of into.values()) {
     group.forEach((line, i) => (line.lane = i - (group.length - 1) / 2));
   }
@@ -1119,6 +1155,7 @@ export function Board({
                 data-line={line.kind}
                 data-from={line.from}
                 data-to={line.to}
+                data-count={line.count > 1 ? line.count : undefined}
                 data-start={`${line.start.x.toFixed(1)},${line.start.y.toFixed(1)}`}
                 data-end={`${line.end.x.toFixed(1)},${line.end.y.toFixed(1)}`}
               >
