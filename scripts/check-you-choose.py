@@ -68,6 +68,10 @@ and checks the result on the board:
   assist          Huddle Up, assist: the caster picks the opponent, who pays
                   the most offered (2, the LAST) -- one Island and exactly
                   two Forests are tapped
+  contest         Mages' Contest: bidding 1, 3, 4 -- seat 1 loses 4, the Bears
+                  is countered
+  thumb           Krark's Thumb: two different flips, Heads called -- Tails
+                  (the LAST) counts: the Bangchuckers hits itself
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1541,6 +1545,140 @@ def assist():
     return outcome(problems, "Huddle Up with assist: the opponent paid the 2, the caster only the blue", found)
 
 
+def contest():
+    """Mages' Contest against the opponent's Bears spell: bidding (yes or no,
+    confirmBidAction, then how much). Seat 1 lets its opening bid of 1
+    stand; the opponent tops it by 2 (to 3); seat 1 tops by 1 (to 4); both
+    then stop. Seat 1 wins at 4: it loses 4 life and the Bears is
+    countered."""
+    g = game("contest", [("Mountain", 36), ("Mages' Contest", 24)])
+    st = {"cast": None, "asked": [], "raised": {1: 0, 2: 0}, "life": None, "bears": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmBidAction":
+            # A yes or no carries its question on the Yes answer.
+            st["asked"].append((seat, (f["options"][0].get("label") or "")))
+            if st["life"] is None:
+                st["life"] = ((g.player(1, 1) or {}).get("life"), (g.player(1, 2) or {}).get("life"))
+            top = (seat == 2 and st["raised"][2] == 0) or (seat == 1 and st["raised"][2] == 1 and st["raised"][1] == 0)
+            if top:
+                st["raised"][seat] += 1
+            return "confirm:yes" if top else "confirm:no"
+        if k == "chooseNumber" and any(st["raised"].values()):
+            return "number:2" if seat == 2 else "number:1"
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if "Grizzly Bears" in (o.get("label") or "")), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            # Once seat 1 has had time for three lands to answer with.
+            if st["bears"] is None and g.state.get(2, {}).get("activeSeat") == 2 and g.turn >= 7:
+                o = cast(g, f, "Grizzly Bears")
+                if o:
+                    st["bears"] = card_of(o)
+                return o
+            return None
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            land = None if not stack_empty(g) else g.play_land(f)
+            if land:
+                return land
+            theirs_on_stack = any(c.get("name") == "Grizzly Bears" for c in g.state.get(1, {}).get("stack") or [])
+            if st["cast"] is None and theirs_on_stack and len(g.untapped_lands(1)) >= 3:
+                o = cast(g, f, "Mages' Contest")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"life": ((g.player(1, 1) or {}).get("life"), (g.player(1, 2) or {}).get("life")),
+                           "countered": any(c["id"] == st["bears"] for c in g.zone(1, "graveyard", owner=2))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Mages' Contest never reached its bidding", found
+    problems = []
+    seats = [seat for seat, _ in st["asked"]]
+    if seats[:4] != [1, 2, 1, 2] or set(seats) != {1, 2}:
+        problems.append(f"the players are asked in turn, the caster first: {seats}")
+    if not st["asked"][0][1].startswith("Yes — Mages' Contest: top the bid? The highest bid is 1 life, by "):
+        problems.append(f"the question names the highest bid and bidder: {st['asked'][0][1]!r}")
+    (me0, them0), (me1, them1) = st["life"], st["after"]["life"]
+    if (me0 - me1, them0 - them1) != (4, 0) or not st["after"]["countered"]:
+        problems.append(f"seat 1 wins at 4: loses 4, the opponent nothing, the Bears countered: "
+                        f"{(me0 - me1, them0 - them1)} {st['after']}")
+    return outcome(problems, "Mages' Contest: the bidding went 1, 3, 4 -- seat 1 lost 4 and the Bears was countered",
+                   found)
+
+
+def thumb():
+    """Krark's Thumb: flip two coins and ignore one. Goblin Bangchuckers'
+    controller calls Heads; when the two flips differ, they choose which
+    counts (chooseFlipResult) -- Tails, the LAST, a loss: the Bangchuckers
+    deals 2 to itself and dies; the opponent takes nothing."""
+    g = game("thumb", [("Mountain", 30), ("Krark's Thumb", 10), ("Goblin Bangchuckers", 20)], [("Forest", 60)])
+    st = {"asked": [], "used": None, "life": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseBinary" and seat == 1:
+            return f["options"][0]["actionId"]  # the call: Heads
+        if k == "chooseFlipResult":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["life"] = (g.player(1, 2) or {}).get("life")
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            ready = [c for c in g.mine(1, name="Goblin Bangchuckers") if not c.get("sick") and not c.get("tapped")]
+            if not st["asked"] and ready and g.mine(1, name="Krark's Thumb"):
+                o = g.option(f, name="Goblin Bangchuckers", zone="battlefield")
+                if o:
+                    st["used"] = card_of(o)
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Krark's Thumb"):
+                return cast(g, f, "Krark's Thumb")
+            return None if g.mine(1, name="Goblin Bangchuckers") else cast(g, f, "Goblin Bangchuckers")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            used = next((c for c in g.zone(1, "graveyard", owner=1) if c["id"] == st["used"]), None)
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"), "died": used is not None}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=40)
+    found = {"asked": st["asked"], "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Krark's Thumb never gave two different flips", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1 or labels != ["Heads", "Tails"] or prompt != "Goblin Bangchuckers: choose which flip counts.":
+        problems.append(f"the flipper chooses which result counts, worded plainly: {st['asked'][0]}")
+    if st["after"]["life"] != st["life"] or not st["after"]["died"]:
+        problems.append(f"chose to lose: the Bangchuckers dies, the opponent takes nothing: {st['life']} {st['after']}")
+    return outcome(problems, "Krark's Thumb: Tails counted against a call of Heads -- the Bangchuckers hit itself",
+                   found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1551,7 +1689,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
              "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door,
              "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False),
-             "gargantuan": gargantuan, "assist": assist}
+             "gargantuan": gargantuan, "assist": assist, "contest": contest, "thumb": thumb}
 
 if __name__ == "__main__":
     codes = []

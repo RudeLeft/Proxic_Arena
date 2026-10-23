@@ -265,6 +265,12 @@ export function headingFor(kind: string): string {
       return "Choose an opponent";
     case "CostPutCardToLib":
       return "Choose what to put on top";
+    case "CostUntapType":
+      return "Choose what to untap";
+    case "confirmBidAction":
+      return "Bid life";
+    case "chooseFlipResult":
+      return "Choose a flip";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -389,6 +395,7 @@ export function hintFor(kind: string, options: number): string {
     case "CostForage":
     case "CostGainLife":
     case "CostPutCardToLib":
+    case "CostUntapType":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

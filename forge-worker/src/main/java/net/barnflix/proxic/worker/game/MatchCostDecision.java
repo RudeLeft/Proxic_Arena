@@ -715,6 +715,29 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Untap permanents as a cost -- Halo Fountain ("untap a tapped creature
+     * you control"), Benthic Explorers, Crackleburr. A port of Forge's human
+     * path: exactly that many, one click each, from what can untap. Was a
+     * loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostUntapType cost) {
+        forge.game.card.CardCollection list = forge.game.card.CardLists.filter(
+                forge.game.card.CardLists.getValidCards(
+                        player.getGame().getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                        cost.getType().split(";"), player, source, ability),
+                c -> c.canUntap(null, false) && (c.getCounters(forge.game.card.CounterEnumType.STUN) == 0
+                        || c.canRemoveCounters(forge.game.card.CounterEnumType.STUN)));
+        int needed = cost.getAbilityAmount(ability);
+        if (list.size() < needed) {
+            return null;
+        }
+        java.util.List<Card> chosen = pickCards(list, needed, "CostUntapType", "Untap "
+                + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

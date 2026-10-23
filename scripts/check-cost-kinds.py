@@ -51,6 +51,9 @@ with options no default would take, and checks the board:
               by name, gains 3; nothing tapped; the Bears +4/+4
   to-library  Leashling (CostPutCardToLib): the LAST card in hand goes on
               top -- and is the next draw; Leashling returns
+  untap-type  Halo Fountain (CostUntapType): the LAST of two tapped Lions
+              untaps, the other stays tapped, a Citizen made
+  reduction   Urza's Filter: the whole {2} off, nothing asked
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1274,6 +1277,131 @@ def leashling():
                              "returned", found)
 
 
+def fountain():
+    """Halo Fountain, {W} {T}, untap a tapped creature you control: create a
+    1/1 Citizen (CostUntapType). Two Lions tapped by attacking: the LAST
+    offered untaps, the other stays tapped, and the token is made."""
+    g = game("untap-type", [("Plains", 30), ("Savannah Lions", 18), ("Halo Fountain", 12)], [("Forest", 60)])
+    st = {"attacked": [], "turn": None, "used": False, "asked": [], "picked": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostUntapType":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if k == "declareAttackers" and seat == 1:
+            if st["turn"] is not None and g.turn != st["turn"]:
+                return None
+            ready = [c["id"] for c in g.mine(1, name="Savannah Lions") if not c.get("sick") and not c.get("tapped")]
+            # The Fountain's {W} must still be there in the second main phase.
+            spare = g.untapped_lands(1) and any(not c.get("tapped") for c in g.mine(1, name="Halo Fountain"))
+            if not g.mine(1, name="Halo Fountain") or (not st["attacked"] and (len(ready) < 2 or not spare)):
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in ready
+                      and card_of(o["actionId"]) not in st["attacked"]), None)
+            if o and len(st["attacked"]) < 2:
+                st["attacked"].append(card_of(o))
+                st["turn"] = g.turn
+                return o
+            return None
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            phase = g.state.get(1, {}).get("phase")
+            if len(st["attacked"]) == 2 and not st["used"] and g.turn == st["turn"] and phase == "MAIN2":
+                o = g.option(f, name="Halo Fountain", zone="battlefield", contains="Citizen")
+                if o:
+                    st["used"] = True
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["attacked"]:
+                return None
+            if not g.mine(1, name="Halo Fountain") and cast(g, f, "Halo Fountain"):
+                return cast(g, f, "Halo Fountain")
+            return cast(g, f, "Savannah Lions") if len(g.mine(1, name="Savannah Lions")) < 2 else None
+        if k == "declareBlockers":
+            return None
+        return DEFAULT
+
+    def until(g):
+        tokens = [c for c in g.mine(1) if c.get("token")]
+        if st["picked"] and stack_empty(g) and st["after"] is None and (tokens or g.turn > st["turn"]):
+            st["after"] = {"tapped": {c["id"]: bool(c.get("tapped")) for c in g.mine(1, name="Savannah Lions")},
+                           "tokens": len(tokens)}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"attacked": st["attacked"], "asked": st["asked"], "picked": st["picked"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Halo Fountain never untapped a creature", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1 or offered != sorted(st["attacked"]):
+        problems.append(f"offered {offered}, not exactly the two tapped Lions {st['attacked']}")
+    other = [a for a in st["attacked"] if a != st["picked"]]
+    tapped = st["after"]["tapped"]
+    if tapped.get(st["picked"]) is not False or any(tapped.get(a) is not True for a in other) or st["after"]["tokens"] != 1:
+        problems.append(f"{st['picked']} untapped, {other} still tapped, one token: {st['after']}")
+    return outcome(problems, "Halo Fountain: the Lions picked untapped, the other stayed tapped, a Citizen made", found)
+
+
+def urza_filter():
+    """Urza's Filter: multicolored spells cost up to {2} less
+    (chooseNumberForCostReduction: no question -- the whole reduction, as
+    Forge's own screen does). Knight of Autumn ({1}{G}{W}) then taps only
+    two lands."""
+    g = game("reduction", [("Forest", 15), ("Plains", 15), ("Urza's Filter", 10), ("Knight of Autumn", 20)])
+    st = {"cast": None, "lands": None, "after": None, "asked": []}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseNumberForCostReduction":
+            st["asked"].append(seat)
+        if k in ("chooseModeForAbility", "chooseSpellAbilitiesForEffect"):
+            return DEFAULT
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Urza's Filter"):
+                return cast(g, f, "Urza's Filter")
+            if st["cast"] is None:
+                o = cast(g, f, "Knight of Autumn")
+                if o:
+                    st["cast"], st["lands"] = card_of(o), len(g.untapped_lands(1))
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        landed = st["cast"] and any(c["id"] == st["cast"] for c in g.mine(1))
+        if landed and stack_empty(g) and st["after"] is None:
+            st["after"] = len(g.untapped_lands(1))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"lands": [st["lands"], st["after"]], "asked": st["asked"], "stopped": g.stopped_badly()}
+    if st["after"] is None:
+        return "inconclusive", "Knight of Autumn was never cast with Urza's Filter out", found
+    problems = []
+    if st["lands"] - st["after"] != 2:
+        problems.append(f"the whole {{2}} off: two lands tapped, got {st['lands'] - st['after']}")
+    if st["asked"]:
+        problems.append(f"no question, as Forge's own screen: {st['asked']}")
+    return outcome(problems, "Urza's Filter: the full {2} off -- Knight of Autumn tapped two lands, nothing asked",
+                   found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -1282,7 +1410,8 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "behold": behold, "evidence": evidence, "blight": blight,
              "salvo-yes": lambda: salvo(True), "salvo-no": lambda: salvo(False), "untap": signaler,
              "mill-yes": lambda: concoction(True), "mill-no": lambda: concoction(False), "forage": forage,
-             "gain-life": invigorate, "to-library": leashling}
+             "gain-life": invigorate, "to-library": leashling,
+             "untap-type": fountain, "reduction": urza_filter}
 
 if __name__ == "__main__":
     codes = []

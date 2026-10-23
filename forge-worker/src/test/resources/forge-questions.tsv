@@ -62,7 +62,7 @@ C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated
 C CostTapType	ASKS	CostTapType	Tap untapped creatures or artifacts you control as a cost -- a number, sharing a type, or enough power to crew	239 cards: Springleaf Drum, Hecatomb, Diversionary Tactics; every Vehicle's crew	scripts/check-cost-kinds.py
 C CostUnattach	UNBUILT		Pay the cost Unattach	rare	LoudFailureTest
 C CostUntap	ENGINE		The untap symbol {Q}: nothing to choose, the card untaps (Forge's own screen asks nothing)	18 cards: Patrol Signaler, Order of Whiteclay	scripts/check-cost-kinds.py
-C CostUntapType	UNBUILT		Pay the cost UntapType	3 cards — untap permanents	LoudFailureTest
+C CostUntapType	ASKS	CostUntapType	Untap permanents as a cost: exactly that many, one click each	3 cards: Halo Fountain, Benthic Explorers, Crackleburr	scripts/check-cost-kinds.py
 Q addKeywordCost(SpellAbility,Cost,KeywordInterface,String)	ROUTES-TO		Forge forwards this to chooseNumberForKeywordCost	-	-> Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)
 Q announceRequirements(SpellAbility,int,int,String)	ASKS	announceRequirements	Choose X: how much to pay for X	Fireball, Stroke of Genius, every {X} cost	scripts/check-you-choose.py
 Q applyManaToCost(ManaCostBeingPaid,SpellAbility,String,ManaConversionMatrix,boolean)	ASKS	applyManaToCost,chooseManaAbility	Pay a mana cost: what to tap, or floating mana to spend	every spell with a mana cost	scripts/check-alternate-win.py,scripts/check-mana-choice.py
@@ -99,7 +99,7 @@ Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 card
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	scripts/check-you-choose.py
 Q chooseDiceToReroll(List)	UNBUILT		dice you may reroll	4+ cards	LoudFailureTest
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
-Q chooseFlipResult(SpellAbility,Player,boolean)	UNBUILT		Krark's Thumb	1 card	LoudFailureTest
+Q chooseFlipResult(SpellAbility,Player,boolean)	ASKS	chooseFlipResult	Krark's Thumb: which of two different flips counts (heads or tails, or win or lose)	1 card: Krark's Thumb	scripts/check-you-choose.py
 Q chooseKeywordForPump(List,SpellAbility,String,Card)	ASKS	chooseKeywordForPump	Your choice of keyword for a pump ("deathtouch or lifelink"): one answer per keyword	32 cards: Alchemist's Gift, Argivian Avenger	scripts/check-you-choose.py
 Q chooseManaFromPool(List)	UNBUILT		choosing which floating mana pays a cost; when Forge asks a person this, to find	rare	LoudFailureTest
 Q chooseModeForAbility(SpellAbility,List,int,int,boolean)	ASKS	chooseModeForAbility	Choose a mode	Cryptic Command, Escalate, Spree, Pawprint	scripts/check-modes.py
@@ -107,7 +107,7 @@ Q chooseNewTargetsFor(SpellAbility,Predicate,boolean)	ASKS	chooseTargetsFor	Choo
 Q chooseNumber(SpellAbility,String,List,Player)	ASKS	chooseNumber	Choose a number	Marvel of Engineering-style counts, Spell Pierce X	scripts/check-tracked-state.py
 Q chooseNumber(SpellAbility,String,int,int)	ASKS	chooseNumber	Choose a number	Marvel of Engineering-style counts, Spell Pierce X	scripts/check-tracked-state.py
 Q chooseNumber(SpellAbility,String,int,int,Map)	ROUTES-TO		Forge forwards this to chooseNumber	-	-> Q chooseNumber(SpellAbility,String,int,int)
-Q chooseNumberForCostReduction(SpellAbility,int,int)	UNBUILT		"reduce by up to" (Mana Matrix)	3 cards	LoudFailureTest
+Q chooseNumberForCostReduction(SpellAbility,int,int)	ENGINE		"Up to {2} less": the whole reduction, no question (Forge's own screen asks only in full-control mode)	3 cards: Urza's Filter, Mana Matrix, Planar Gate	scripts/check-cost-kinds.py
 Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)	ASKS	chooseNumberForKeywordCost	How many times to pay a keyword's extra cost (Multikicker, Replicate, Squad); yes or no for once-only ones (Offspring, Casualty, Conspire)	104 cards: Everflowing Chalice, Rust-Shield Rampager, Squad and Replicate cards	scripts/check-cost-kinds.py
 Q chooseOptionalCosts(SpellAbility,List)	ASKS	chooseOptionalCosts	Pay an optional extra cost: kicker, entwine	Kicker, Entwine, Buyback	scripts/check-modes.py
 Q choosePDRollToIgnore(List)	UNBUILT		Planar die rolled more than once: which roll to ignore	2 cards together: Fractured Powerstone (rolls the planar die) with Ichor Elixir (roll one more, ignore one)	LoudFailureTest
@@ -139,7 +139,7 @@ Q chooseTarget(SpellAbility,List)	ASKS	chooseTarget	Which of a spell's targets t
 Q chooseTargetsFor(SpellAbility)	ASKS	chooseTargetsFor,divideAsYouChoose	Choose targets (and divide damage among them)	Lightning Bolt, Fireball split, every targeted spell	scripts/check-concede.py,scripts/check-shapes.py
 Q complainCardsCantPlayWell(Deck)	NOT-A-QUESTION		Forge's warning about AI-unfriendly cards: not for people	-	-
 Q confirmAction(SpellAbility,PlayerActionConfirmMode,String,List,Card,Map)	ASKS	confirmAction	Confirm an optional action ("you may")	Mutate, Battle, many "you may" effects	scripts/check-multiface.py
-Q confirmBidAction(SpellAbility,PlayerActionConfirmMode,String,int,Player)	UNBUILT		bid life (Mages' Contest)	3 cards	LoudFailureTest
+Q confirmBidAction(SpellAbility,PlayerActionConfirmMode,String,int,Player)	ASKS	confirmBidAction	Bid life: top the bid, yes or no, naming the highest bid and bidder; then by how much	3 cards: Mages' Contest	scripts/check-you-choose.py
 Q confirmPayment(CostPart,String,SpellAbility)	ASKS	confirmPayment	Confirm paying an optional cost	Force of Will, energy, life payments	scripts/check-mindslaver.py
 Q confirmReplacementEffect(ReplacementEffect,SpellAbility,GameEntity,String)	ASKS	confirmReplacementEffect	Apply an optional replacement effect?	"you may have it enter tapped"	scripts/check-you-choose.py
 Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	confirmStaticApplication	Apply an optional static ability?	Lone Wolf, Thorn Elemental (damage as though unblocked)	scripts/check-combat-choices.py

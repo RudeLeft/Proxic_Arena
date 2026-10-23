@@ -1114,6 +1114,7 @@ const CANCEL_KINDS = new Set([
   "CostForage",
   "CostGainLife",
   "CostPutCardToLib",
+  "CostUntapType",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */

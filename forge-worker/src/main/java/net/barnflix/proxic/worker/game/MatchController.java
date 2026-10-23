@@ -2320,6 +2320,43 @@ public final class MatchController extends GeneratedControllerBase {
         }
     }
 
+    /**
+     * "Cost up to {2} less" -- Urza's Filter, Mana Matrix, Planar Gate. Forge's
+     * human controller asks only in its full-control mode; otherwise the
+     * whole reduction, no question. The same here. Was a loud stub.
+     */
+    @Override
+    public int chooseNumberForCostReduction(SpellAbility sa, int min, int max) {
+        return max;
+    }
+
+    /**
+     * Bid life -- Mages' Contest: top the bid, or let it stand. A port of
+     * Forge's human controller: a yes or no, naming the highest bid and
+     * bidder; yes is followed by "by how much" (chooseNumber). Was a loud
+     * stub.
+     */
+    @Override
+    public boolean confirmBidAction(SpellAbility sa, forge.game.player.PlayerActionConfirmMode bidlife, String string,
+            int bid, Player winner) {
+        String card = sa.getHostCard() == null ? "Bid" : sa.getHostCard().getName();
+        return askYesNo("confirmBidAction", card + ": top the bid? The highest bid is " + bid + " life, by "
+                + winner.getName() + ".", false);
+    }
+
+    /**
+     * Which coin flip counts -- Krark's Thumb ("flip two coins and ignore
+     * one"). A port of Forge's human controller: heads or tails when the
+     * flip was a call, else win or lose. Was a loud stub.
+     */
+    @Override
+    public boolean chooseFlipResult(SpellAbility sa, Player flipper, boolean call) {
+        java.util.List<String> labels = call ? java.util.List.of("Heads", "Tails") : java.util.List.of("Win the flip",
+                "Lose the flip");
+        String card = sa.getHostCard() == null ? "Coin flip" : sa.getHostCard().getName();
+        return askIndex("chooseFlipResult", labels, true, card + ": choose which flip counts.") == 0;
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {
