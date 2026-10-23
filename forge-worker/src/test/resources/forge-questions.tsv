@@ -24,8 +24,8 @@
 #
 entry	status	asks	name	cards	evidence
 C CostAddMana	UNBUILT		Pay the cost AddMana	rare	LoudFailureTest
-C CostBehold	UNBUILT		Pay the cost Behold	25 cards — behold	LoudFailureTest
-C CostBeholdExile	UNBUILT		Pay the cost BeholdExile	with behold	LoudFailureTest
+C CostBehold	ASKS	CostBehold	Behold as a cost: one you control or one from your hand, exactly that many, one click each	25 cards: Kinsbaile Aspirant, Champion of the Clachan	scripts/check-cost-kinds.py
+C CostBeholdExile	ASKS	CostBehold	Behold and exile it: the same choice as behold, then exiled	the champions: Champion of the Clachan, Champions of the Shoal	scripts/check-cost-kinds.py
 C CostBlight	UNBUILT		Pay the cost Blight	23 cards — blight	LoudFailureTest
 C CostChooseColor	UNBUILT		Pay the cost ChooseColor	2 cards	LoudFailureTest
 C CostChooseCreatureType	UNBUILT		Pay the cost ChooseCreatureType	with the above	LoudFailureTest

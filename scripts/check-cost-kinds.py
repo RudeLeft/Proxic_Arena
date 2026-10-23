@@ -29,6 +29,9 @@ with options no default would take, and checks the board:
   exert-yes   Steward of Solidarity's ability, exert it (CostExert, a yes
               or no): a Warrior token, and the Steward stays tapped next turn
   exert-no    the same, no: no token, nothing tapped
+  behold      Champion of the Clachan, behold a Kithkin and exile it
+              (CostBeholdExile): every other Kithkin on the battlefield and
+              in hand offered; the LAST is exiled, the rest stay
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -671,11 +674,78 @@ def steward(yes):
                    else "Steward of Solidarity: declined, nothing made, nothing tapped", found)
 
 
+def behold():
+    """Champion of the Clachan: as an additional cost, behold a Kithkin and
+    exile it (CostBeholdExile). Offered: every Goldmeadow Harrier on seat
+    1's battlefield and in its hand. The LAST one offered is exiled, the
+    rest stay where they were, and the Champion resolves."""
+    g = game("behold", [("Plains", 30), ("Goldmeadow Harrier", 18), ("Champion of the Clachan", 12)])
+    st = {"cast": None, "asked": [], "picked": None, "kithkin": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostBehold":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            # Every Kithkin seat 1 has -- the other Champions in hand are
+            # Kithkin too -- except the Champion being cast.
+            st["kithkin"] = sorted(c["id"] for c in g.mine(1) + g.zone(1, "hand")
+                                   if "Kithkin" in (c.get("types") or "") and c["id"] != st["cast"])
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None and len(g.mine(1, name="Goldmeadow Harrier")) >= 2:
+                o = cast(g, f, "Champion of the Clachan")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+                return None
+            return cast(g, f, "Goldmeadow Harrier")
+        return DEFAULT
+
+    def until(g):
+        landed = st["cast"] and any(c["id"] == st["cast"] for c in g.mine(1))
+        if st["asked"] and landed and stack_empty(g) and st["after"] is None:
+            st["after"] = {"exile": sorted(c["id"] for c in g.zone(1, "exile", owner=1)),
+                           "battlefield": sorted(c["id"] for c in g.mine(1)),
+                           "hand": sorted(c["id"] for c in g.zone(1, "hand"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "picked": st["picked"], "kithkin": st["kithkin"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Champion of the Clachan never resolved after a behold", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked what seat 1 beholds")
+    if offered != sorted(st["kithkin"]):
+        problems.append(f"offered {offered}, not exactly seat 1's Kithkin on the battlefield and in hand {st['kithkin']}")
+    if "Kithkin" not in (prompt or "") or "(" in (prompt or ""):
+        problems.append(f"the question should say what to behold, plainly: {prompt!r}")
+    after = st["after"]
+    if after["exile"] != [st["picked"]]:
+        problems.append(f"exactly the Kithkin picked, {st['picked']}, should be exiled: {after['exile']}")
+    rest = [c for c in st["kithkin"] if c != st["picked"]]
+    if any(c not in after["battlefield"] + after["hand"] for c in rest):
+        problems.append(f"the others stay where they were: {rest} vs {after}")
+    return outcome(problems, "Champion of the Clachan: the Kithkin picked was beheld and exiled, the rest stayed",
+                   found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
              "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
-             "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False)}
+             "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False),
+             "behold": behold}
 
 if __name__ == "__main__":
     codes = []

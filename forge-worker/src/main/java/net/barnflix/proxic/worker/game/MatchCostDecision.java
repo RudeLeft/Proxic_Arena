@@ -496,6 +496,34 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Behold as a cost -- "behold a Dragon": choose one you control or
+     * reveal one from your hand (25 cards, Lorwyn Eclipsed); the champions'
+     * "behold a Kithkin and exile it" is the same choice, then exiled. A
+     * port of Forge's human path: exactly that many, one click each, from
+     * your battlefield and hand together. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostBehold cost) {
+        int needed = cost.getAbilityAmount(ability);
+        forge.game.card.CardCollectionView valid = forge.game.card.CardLists.getValidCards(
+                player.getCardsIn(cost.getRevealFrom()), cost.getType().split(";"), player, source, ability);
+        if (valid.size() < needed) {
+            return null;
+        }
+        String what = forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType());
+        java.util.List<Card> chosen = pickCards(valid, needed, "CostBehold",
+                (cost instanceof forge.game.cost.CostBeholdExile ? "Behold and exile " : "Behold ") + what
+                        + ": one you control, or one from your hand.");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /** Behold, then exile what was beheld: the same choice. */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostBeholdExile cost) {
+        return visit((forge.game.cost.CostBehold) cost);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes
