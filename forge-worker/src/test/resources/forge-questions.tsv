@@ -92,9 +92,9 @@ Q chooseCardsToDiscardToMaximumHandSize(int)	ASKS	chooseCardsToDiscardToMaximumH
 Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	UNBUILT		Thirst for Knowledge, Wrench Mind	15 cards	LoudFailureTest
 Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	UNBUILT		reveal any number from hand (Blackmail, Ivy Seer)	35 cards	LoudFailureTest
 Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		ante is not played	-	PENDING: a test asserting it
-Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	PENDING: no Mechanics Lab game asks chooseColor yet
+Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
 Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Pentad Prism-style mana	PENDING: no Mechanics Lab game asks chooseColor yet
-Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	PENDING: no Mechanics Lab game asks chooseColors yet
+Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
 Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	PENDING: no Mechanics Lab game asks chooseCounterType yet
 Q chooseDiceToReroll(List)	UNBUILT		dice you may reroll	4+ cards	LoudFailureTest
@@ -114,7 +114,7 @@ Q choosePDRollToIgnore(List)	UNREACHABLE		Planechase is not played	-	PENDING: a 
 Q choosePermanentsToDestroy(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToDestroy	Destroy one of your own permanents of your choice	Imperial Edict, Wei Assassins	scripts/check-sacrifice.py
 Q choosePermanentsToSacrifice(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToSacrifice	Sacrifice one of your permanents (an effect, not a cost)	Eldrazi Monument, Diabolic Edict, Innocent Blood	scripts/check-sacrifice.py
 Q choosePlayerToAssistPayment(FCollectionView,SpellAbility,String,int)	UNBUILT		assist (Gang Up)	16 cards	LoudFailureTest
-Q chooseProtectionType(SpellAbility,List)	ASKS	chooseProtectionType	Choose what protection is from	Gods Willing, Mother of Runes	PENDING: no Mechanics Lab game asks chooseProtectionType yet
+Q chooseProtectionType(SpellAbility,List)	ASKS	chooseProtectionType	Choose what protection is from	Gods Willing, Mother of Runes	scripts/check-you-choose.py
 Q chooseRollSwapValue(List,Integer,int,int)	UNBUILT		the value swapped	with the dice cards	LoudFailureTest
 Q chooseRollToIgnore(List)	UNBUILT		ignore a roll	with the dice cards	LoudFailureTest
 Q chooseRollToModify(List)	UNBUILT		change a roll	with the dice cards	LoudFailureTest
@@ -143,7 +143,7 @@ Q confirmBidAction(SpellAbility,PlayerActionConfirmMode,String,int,Player)	UNBUI
 Q confirmPayment(CostPart,String,SpellAbility)	ASKS	confirmPayment	Confirm paying an optional cost	Force of Will, energy, life payments	scripts/check-mindslaver.py
 Q confirmReplacementEffect(ReplacementEffect,SpellAbility,GameEntity,String)	ASKS	confirmReplacementEffect	Apply an optional replacement effect?	"you may have it enter tapped"	PENDING: no Mechanics Lab game asks confirmReplacementEffect yet
 Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	confirmStaticApplication	Apply an optional static ability?	rare optional statics	PENDING: no Mechanics Lab game asks confirmStaticApplication yet
-Q confirmTrigger(WrappedAbility)	ASKS	confirmTrigger	Use an optional triggered ability?	"whenever ..., you may" triggers	PENDING: no Mechanics Lab game asks confirmTrigger yet
+Q confirmTrigger(WrappedAbility)	ASKS	confirmTrigger	Use an optional triggered ability?	"whenever ..., you may" triggers	scripts/check-you-choose.py
 Q declareAttackers(Player,Combat)	ASKS	declareAttackers,chooseDefender	Declare attackers (and what each attacks)	every game; battles and planeswalkers	scripts/check-face-down.py,scripts/check-shapes.py
 Q declareBlockers(Player,Combat)	ASKS	declareBlockers,chooseBlockTarget	Declare blockers (and what each blocks)	every game	scripts/check-blocks.py,scripts/check-board-data.py
 Q divideShield(Card,Map,int)	UNBUILT		dividing a damage-prevention shield among several creatures; cards to find	rare	LoudFailureTest

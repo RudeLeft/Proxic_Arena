@@ -11,6 +11,10 @@ in both seats' views.
   mind-bend  Mind Bend: the player chooses "change a basic land type",
              then Forest -> Island; Shanodin Dryads' forestwalk becomes
              islandwalk
+  mind-bend-colour
+             Mind Bend, "change a colour word" (Phase 8: chooseColor):
+             black, then the LAST colour offered; White Knight's
+             protection from black becomes protection from that colour
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
@@ -164,7 +168,70 @@ def mind_bend():
                             "islandwalk, not forestwalk, to both players", found)
 
 
-SCENARIOS = {"march": march, "mind-bend": mind_bend}
+def mind_bend_colour():
+    g = game("mind-bend-colour", [("Island", 30), ("Mind Bend", 30)], [("Plains", 30), ("White Knight", 30)])
+    st = {"knight": None, "before": None, "asked": [], "cast": False, "new": None}
+
+    def policy(g, f):
+        kind = f.get("kind")
+        if f["authorisedSeat"] == 2:
+            if kind == "chooseSpellAbilityToPlay":
+                return g.play_land(f) or (None if g.mine(2, name="White Knight")
+                                          else g.option(f, name="White Knight", zone="hand", land=False))
+            return DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            knights = g.zone(1, "battlefield", owner=2, name="White Knight")
+            if knights and not st["cast"] and g.untapped_lands(1):
+                o = cast(g, f, "Mind Bend")
+                if o:
+                    st["cast"], st["knight"], st["before"] = True, knights[0]["id"], shape(knights[0])
+                    return o
+            return None
+        if not st["cast"]:
+            return DEFAULT
+        if kind == "chooseTargetsFor":
+            return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["knight"]), None)
+        if kind == "chooseSpellAbilitiesForEffect":
+            st["asked"].append((kind, [o.get("label") for o in f["options"]]))
+            return next((o["actionId"] for o in f["options"] if "olor" in (o.get("label") or "")), None)
+        if kind == "chooseColor":
+            labels = [o.get("label") or "" for o in f["options"]]
+            st["asked"].append((kind, f.get("prompt"), labels))
+            if st["asked"] and sum(1 for a in st["asked"] if a[0] == "chooseColor") == 1:
+                return next((o["actionId"] for o in f["options"] if (o.get("label") or "").lower() == "black"), DEFAULT)
+            st["new"] = labels[-1]
+            return f["options"][-1]["actionId"]
+        return DEFAULT
+
+    g.run(policy, until=lambda g: st["cast"] and not g.state.get(1, {}).get("stack") and all(
+        g.zone(seat, "graveyard", owner=1, name="Mind Bend") for seat in (1, 2)), max_turn=16)
+    now = seen(g, st["knight"]) if st["knight"] else {}
+    found = {"before": st["before"], "after": {s: shape(c) for s, c in now.items()}, "asked": st["asked"],
+             "stopped": g.stopped_badly()}
+    if not st["cast"] or not g.zone(1, "graveyard", owner=1, name="Mind Bend"):
+        return "inconclusive", "never cast Mind Bend at White Knight", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    colours = [a for a in st["asked"] if a[0] == "chooseColor"]
+    if len(colours) != 2:
+        problems.append(f"expected the old colour word, then the new: {colours}")
+    elif len(colours[1][2]) < 2:
+        problems.append(f"the new colour was no choice: {colours[1][2]}")
+    if "Protection from black" not in ((st["before"] or {}).get("keywords") or []):
+        problems.append(f"White Knight should start with protection from black: {st['before']}")
+    # Exactly these words: the board once showed "Protection from from black".
+    want = f"Protection from {(st['new'] or '?').lower()}"
+    for seat, c in found["after"].items():
+        protections = [k for k in (c or {}).get("keywords") or [] if k.startswith("Protection")]
+        if protections != [want]:
+            problems.append(f"seat {seat}: protection from black should now read {want!r}: {protections}")
+    return result(problems, f"the player changed black to {st['new']}; White Knight shows {want} to both "
+                            "players", found)
+
+
+SCENARIOS = {"march": march, "mind-bend": mind_bend, "mind-bend-colour": mind_bend_colour}
 
 if __name__ == "__main__":
     import json

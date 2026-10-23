@@ -2452,7 +2452,8 @@ public final class MatchController extends GeneratedControllerBase {
             String answer =
                     askOne(
                             "chooseColors",
-                            message + (mandatory
+                            // One colour, required: the message says it.
+                            min == 1 && max == 1 ? message : message + (mandatory
                                     ? " (" + (min - taken) + " more needed)"
                                     : " (up to " + (max - taken) + " more, or pass)"),
                             labels,

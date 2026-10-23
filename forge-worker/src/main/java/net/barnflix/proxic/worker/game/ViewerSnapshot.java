@@ -456,6 +456,8 @@ final class ViewerSnapshot {
         return out;
     }
 
+    private static final String DOUBLED_FROM = "Protection from from ";
+
     /** A card as [viewer] may know it -- a question's "looking at" cards (spec 0001 D3). */
     static JsonObject describeFor(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         return describe(card, viewer, seatOf);
@@ -612,6 +614,13 @@ final class ViewerSnapshot {
         JsonArray keywords = new JsonArray();
         for (forge.game.keyword.KeywordInterface keyword : card.getUnhiddenKeywords()) {
             String title = keyword.getTitle();
+            // A printed "Protection from black" is titled "Protection from
+            // from black" by Forge (KeywordWithType keeps the card's own
+            // "from", Protection.getTitle adds another) -- found by Phase
+            // 8's Mind Bend game. Words only: the rules read the keyword.
+            if (title != null && title.startsWith(DOUBLED_FROM)) {
+                title = "Protection from " + title.substring(DOUBLED_FROM.length());
+            }
             if (title != null && !title.isBlank()) {
                 keywords.add(title);
             }
