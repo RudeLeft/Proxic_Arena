@@ -84,7 +84,7 @@ Q chooseCardsForEffect(CardCollectionView,SpellAbility,String,int,int,boolean,Ma
 Q chooseCardsForEffectMultiple(Map,SpellAbility,String,boolean)	UNBUILT		look and sort into several places (Harper Recruiter)	12 cards	LoudFailureTest
 Q chooseCardsForSplice(SpellAbility,List)	UNBUILT		splice onto Arcane	30 cards	LoudFailureTest
 Q chooseCardsForZoneChange(ZoneType,List,SpellAbility,CardCollection,int,int,DelayedReveal,String,Player)	ASKS	chooseEntitiesForEffect	Choose cards to move: search a library, return from a graveyard	Demonic Tutor-style searches, Raise Dead	scripts/check-modes.py
-Q chooseCardsPile(SpellAbility,CardCollectionView,CardCollectionView,String)	UNBUILT		two piles (Fact or Fiction, Steam Augury)	32 cards	LoudFailureTest
+Q chooseCardsPile(SpellAbility,CardCollectionView,CardCollectionView,String)	ASKS	chooseCardsPile	Which of two piles: each answer names its cards, or counts a face-down pile	32 cards: Fact or Fiction, Steam Augury	scripts/check-you-choose.py
 Q chooseCardsToDelve(int,CardCollection)	ASKS	chooseEntitiesForEffect	Delve: which graveyard cards to exile to pay	Treasure Cruise, Murderous Cut	scripts/check-costs.py
 Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int)	ROUTES-TO		Forge forwards this to chooseCardsToDiscardFrom	-	-> Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollectionView)
 Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollectionView)	ASKS	chooseEntitiesForEffect	Discard from a hand (yours, or one you can see)	Thoughtseize, Duress, Mind Rot	scripts/check-modes.py

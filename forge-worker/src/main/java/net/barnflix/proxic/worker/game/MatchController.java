@@ -2105,6 +2105,37 @@ public final class MatchController extends GeneratedControllerBase {
                 most == 1 ? "Reveal a card from your hand." : "Reveal cards from your hand.", ""));
     }
 
+    /**
+     * Which of two piles -- Fact or Fiction, Steam Augury, the "separate
+     * into two piles" cards. Two answers, each naming its pile's cards as
+     * this player may see them; a pile Forge keeps face down ("FaceDown"
+     * One: the first, True: both) is only counted. True is the first pile.
+     * Was a loud stub.
+     */
+    @Override
+    public boolean chooseCardsPile(SpellAbility sa, forge.game.card.CardCollectionView pile1,
+            forge.game.card.CardCollectionView pile2, String faceUp) {
+        boolean firstShown = "False".equals(faceUp);
+        boolean secondShown = !"True".equals(faceUp);
+        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        return askIndex("chooseCardsPile",
+                java.util.List.of(pile("Pile 1", pile1, firstShown), pile("Pile 2", pile2, secondShown)),
+                true, card + ": choose a pile.") == 0;
+    }
+
+    /** "Pile 1: Island, Lightning Bolt", or "Pile 1: 2 face-down cards". */
+    private String pile(String title, forge.game.card.CardCollectionView cards, boolean shown) {
+        if (cards.isEmpty()) {
+            return title + ": no cards";
+        }
+        if (!shown) {
+            return title + ": " + forge.util.Lang.nounWithNumeral(cards.size(), "face-down card");
+        }
+        java.util.List<String> names = new java.util.ArrayList<>();
+        cards.forEach(c -> names.add(ViewerSnapshot.nameFor(c, player.getView())));
+        return title + ": " + String.join(", ", names);
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {

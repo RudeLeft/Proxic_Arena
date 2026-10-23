@@ -51,6 +51,9 @@ and checks the result on the board:
   blackmail       Blackmail: the opponent picks the three to reveal (the LAST
                   three); the caster chooses from exactly those, and that
                   one is discarded
+  piles           Fact or Fiction: the opponent puts one card in pile 1; the
+                  caster chooses pile 2 (the LAST answer) and gets exactly
+                  its four cards
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1077,6 +1080,71 @@ def blackmail():
                    found)
 
 
+def piles():
+    """Fact or Fiction: the opponent separates the top five into two piles
+    (one card into pile 1), and the caster chooses (chooseCardsPile) --
+    pile 2, the LAST answer. Exactly pile 2's four cards reach the hand;
+    pile 1's card goes to the graveyard. Each answer names its cards."""
+    g = game("piles", [("Island", 30), ("Fact or Fiction", 30)])
+    st = {"cast": None, "five": None, "pile1": [], "asked": [], "hand": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseEntitiesForEffect" and seat == 2 and st["cast"]:
+            if st["five"] is None:
+                st["five"] = sorted(card_of(o["actionId"]) for o in f["options"])
+            if not st["pile1"]:
+                st["pile1"].append(card_of(f["options"][0]["actionId"]))
+                return f["options"][0]["actionId"]
+            return None
+        if k == "chooseCardsPile":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["hand"] = sorted(c["id"] for c in g.zone(1, "hand"))
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None:
+                o = cast(g, f, "Fact or Fiction")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"hand": sorted(c["id"] for c in g.zone(1, "hand")),
+                           "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=1))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"five": st["five"], "pile1": st["pile1"], "asked": st["asked"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"] or not st["five"]:
+        return "inconclusive", "Fact or Fiction never reached its piles", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the separating player was asked to choose the pile")
+    if len(labels) != 2 or not labels[0].startswith("Pile 1: ") or not labels[1].startswith("Pile 2: ") \
+            or len(labels[1].split(", ")) != 4 or "(" in "".join(labels):
+        problems.append(f"two answers naming one card and four cards, no internal numbers: {labels}")
+    pile2 = [c for c in st["five"] if c not in st["pile1"]]
+    if any(c not in st["after"]["hand"] for c in pile2) or len(st["after"]["hand"]) != len(st["hand"]) + 4:
+        problems.append(f"pile 2 {pile2} should be exactly what reached the hand: {st['hand']} -> {st['after']['hand']}")
+    if st["pile1"][0] not in st["after"]["grave"]:
+        problems.append(f"pile 1 {st['pile1']} should be in the graveyard: {st['after']['grave']}")
+    return outcome(problems, "Fact or Fiction: pile 2 chosen, its four cards reached the hand, pile 1 went "
+                             "to the graveyard", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1085,7 +1153,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote, "blackmail": blackmail}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles}
 
 if __name__ == "__main__":
     codes = []
