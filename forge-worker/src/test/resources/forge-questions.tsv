@@ -124,7 +124,7 @@ Q chooseSector(Card,String,List)	UNBUILT		Un-set: Unfinity sectors	71 cards acro
 Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	scripts/check-you-choose.py
 Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNREACHABLE		Choose a card face from all of Forge's cards by a filter: never called by Forge's rules at the pinned version (only inside Forge's desktop, to name a card -- Proxic answers naming as chooseCardName)	-	UnreachableQuestionsTest
 Q chooseSingleCardForZoneChange(ZoneType,List,SpellAbility,CardCollection,DelayedReveal,String,boolean,Player)	ASKS	chooseSingleEntityForEffect	Choose one card to move	a single tutor, a single return	scripts/check-panglacial-wurm.py
-Q chooseSingleCardState(SpellAbility,List,String,Map)	UNBUILT		unlock a door (Duskmourn Rooms)	30 cards	LoudFailureTest
+Q chooseSingleCardState(SpellAbility,List,String,Map)	ASKS	chooseSingleCardState	Which door of a Room to lock or unlock: one answer per door, saying whether it is locked	30 cards: Keys to the House, Ghostly Dancers, Marina Vendrell	scripts/check-you-choose.py
 Q chooseSingleEntityForEffect(FCollectionView,DelayedReveal,SpellAbility,String,boolean,Player,Map)	ASKS	chooseSingleEntityForEffect	Choose one thing for an effect	Karn Liberated, Mutate, Initiative	scripts/check-karn.py
 Q chooseSingleReplacementEffect(List)	ASKS	chooseSingleReplacementEffect	Which replacement effect applies first	two replacement effects at once (Leyline + Battle)	scripts/check-leyline.py
 Q chooseSingleSpellForEffect(List,SpellAbility,String,Map)	ASKS	chooseSingleSpellForEffect	Choose one ability for an effect	Undercity rooms, modal triggers	scripts/check-tracked-state.py

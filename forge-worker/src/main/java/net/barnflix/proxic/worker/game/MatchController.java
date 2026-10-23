@@ -2167,6 +2167,32 @@ public final class MatchController extends GeneratedControllerBase {
                 "You pay each card's splice cost, and its effect is added; the card stays in your hand.");
     }
 
+    /**
+     * Which door of a Room -- Keys to the House and Ghostly Dancers' "lock
+     * or unlock a door". A port of Forge's human controller: one answer per
+     * door, saying whether it is locked now; a lone door needs no question.
+     * Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardState chooseSingleCardState(SpellAbility sa, List<forge.game.card.CardState> states,
+            String message, java.util.Map<String, Object> params) {
+        if (states.size() <= 1) {
+            return states.isEmpty() ? null : states.get(0);
+        }
+        forge.game.card.Card room = params != null && params.get("Object") instanceof forge.game.card.Card c ? c : null;
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        for (forge.game.card.CardState state : states) {
+            String door = state.getName();
+            if (room != null) {
+                door += room.getLockedRooms().contains(state.getStateName()) ? " (locked)" : " (unlocked)";
+            }
+            labels.add(door);
+        }
+        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String what = message == null ? "choose one." : message.replace("Choose Room to ", "choose a door to ") + ".";
+        return states.get(Math.max(0, askIndex("chooseSingleCardState", labels, true, card + ": " + what)));
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {

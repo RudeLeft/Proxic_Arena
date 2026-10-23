@@ -58,6 +58,8 @@ and checks the result on the board:
                   LAST): the Bears has lifelink, not deathtouch
   splice          Lava Spike with two Glacial Rays in hand: splice the LAST
                   one -- exactly 5 damage, and both Rays stay in hand
+  door            Keys to the House, lock or unlock a door: Elegant Rotunda
+                  (the LAST, locked) unlocks -- its +1/+1 counter lands
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1270,6 +1272,79 @@ def splice():
     return outcome(problems, "Lava Spike with one Glacial Ray spliced: 5 damage, both Rays still in hand", found)
 
 
+def door():
+    """Grand Entryway cast (its Glimmer token made), then Keys to the House:
+    "lock or unlock a door" (chooseSingleCardState) -- Elegant Rotunda, the
+    LAST door, locked: it unlocks, and its trigger puts a +1/+1 counter on
+    the Glimmer. Each answer says whether that door is locked."""
+    g = game("door", [("Plains", 36), ("Grand Entryway // Elegant Rotunda", 12), ("Keys to the House", 12)])
+    st = {"room": None, "used": False, "asked": [], "glimmer": None, "after": None, "turn": None}
+
+    def glimmers():
+        return [c for c in g.mine(1) if c.get("token")]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseSingleCardState":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["glimmer"] = [c["id"] for c in glimmers()]
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1 and st["asked"]:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") in (st["glimmer"] or [])), None)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            rooms = [c for c in g.mine(1) if "Grand Entryway" in (c.get("name") or "")]
+            keys = g.mine(1, name="Keys to the House")
+            if rooms and keys and glimmers() and not st["used"] and len(g.untapped_lands(1)) >= 3:
+                o = g.option(f, name="Keys to the House", zone="battlefield", contains="ock")
+                if o:
+                    st["used"], st["turn"] = True, g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not rooms:
+                o = next((o["actionId"] for o in f["options"]
+                          if (o.get("label") or "").startswith("Grand Entryway")
+                          and o.get("payable") is not False), None)
+                if o:
+                    st["room"] = card_of(o)
+                    return o
+            if not keys:
+                return cast(g, f, "Keys to the House")
+            return None
+        return DEFAULT
+
+    def until(g):
+        # The door's trigger goes on the stack after the answer: read at
+        # the end of that turn, when it has long resolved.
+        if st["asked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+                "END_OF_TURN", "CLEANUP") and g.turn == st["turn"]:
+            st["after"] = {c["id"]: {k["name"]: k["count"] for k in c.get("counters", []) or []}
+                           for c in glimmers()}
+        overdue = st["turn"] is not None and g.turn > st["turn"]
+        return st["after"] is not None or overdue
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"asked": st["asked"], "glimmer": st["glimmer"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Keys to the House never asked which door", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked which of seat 1's doors")
+    if labels != ["Grand Entryway (unlocked)", "Elegant Rotunda (locked)"]:
+        problems.append(f"one answer per door, saying which is locked: {labels}")
+    if prompt != "Keys to the House: choose a door to lock or unlock.":
+        problems.append(f"the question should name the card and say door: {prompt!r}")
+    if [v.get("P1P1") for v in st["after"].values()] != [1]:
+        problems.append(f"Elegant Rotunda unlocked: its trigger puts a +1/+1 counter on the Glimmer: {st['after']}")
+    return outcome(problems, "Keys to the House: Elegant Rotunda chosen, unlocked, and its counter landed", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1278,7 +1353,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door}
 
 if __name__ == "__main__":
     codes = []
