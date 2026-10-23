@@ -57,6 +57,11 @@ with options no default would take, and checks the board:
   gift-yes    Blooming Blast, gift promised (CostPromiseGift, one opponent:
               no question): a Treasure for them, and 3 damage
   gift-no     the same, not promised: neither
+  counter-yes Moonlit Lamenter, remove a counter from this creature
+              (CostRemoveAnyCounter, a yes or no): the counter gone, a draw
+  counter-no  the same, no: neither
+  counter-pick  Fain, the Broker, a counter from a creature you control: the
+              LAST Lamenter offered loses its counter, a Treasure made
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1472,6 +1477,132 @@ def gift(promise):
                    else "Blooming Blast: no gift -- no Treasure, no damage to the player", found)
 
 
+def lamenter(yes):
+    """Moonlit Lamenter (enters with a -1/-1 counter), {1}{W} remove a
+    counter from this creature: draw a card (CostRemoveAnyCounter, the card
+    itself with one kind: a yes or no). Yes: the counter is gone and a card
+    drawn. No: neither."""
+    g = game(f"counter-{'yes' if yes else 'no'}", [("Plains", 36), ("Moonlit Lamenter", 24)])
+    st = {"used": None, "asked": [], "hand": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "counter from Moonlit Lamenter" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            st["hand"] = len(g.zone(1, "hand"))
+            return "confirm:yes" if yes else None
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            mine = [c for c in g.mine(1, name="Moonlit Lamenter") if (c.get("counters") or [])]
+            if st["used"] is None and mine and len(g.untapped_lands(1)) >= 2:
+                o = g.option(f, name="Moonlit Lamenter", zone="battlefield", contains="Draw")
+                if o:
+                    st["used"] = mine[0]["id"]
+                    return o
+            return None if g.mine(1, name="Moonlit Lamenter") else cast(g, f, "Moonlit Lamenter")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            me = next((c for c in g.mine(1) if c["id"] == st["used"]), {})
+            st["after"] = {"hand": len(g.zone(1, "hand")),
+                           "counters": {k["name"]: k["count"] for k in me.get("counters", []) or []}}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=14)
+    found = {"asked": st["asked"], "hand": st["hand"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Moonlit Lamenter never offered to remove its counter", found
+    problems = []
+    if st["asked"] != [(1, "Remove one counter from Moonlit Lamenter?")]:
+        problems.append(f"seat 1 alone, asked once, plainly: {st['asked']}")
+    after = st["after"]
+    if yes and (after["counters"].get("M1M1") or after["hand"] != st["hand"] + 1):
+        problems.append(f"removed: the counter gone and a card drawn: {st['hand']} -> {after}")
+    if not yes and (after["counters"].get("M1M1") != 1 or after["hand"] != st["hand"]):
+        problems.append(f"declined: the counter stays and nothing drawn: {st['hand']} -> {after}")
+    return outcome(problems, "Moonlit Lamenter: the counter removed and a card drawn" if yes
+                   else "Moonlit Lamenter: declined -- the counter stays, nothing drawn", found)
+
+
+def fain():
+    """Fain, the Broker: {T}, remove a counter from a creature you control:
+    create a Treasure (CostRemoveAnyCounter). Two Moonlit Lamenters carry a
+    -1/-1 counter each: the LAST offered loses its counter, the other
+    keeps it, and a Treasure is made."""
+    g = game("counter-pick", [("Plains", 18), ("Swamp", 18), ("Moonlit Lamenter", 14), ("Fain, the Broker", 10)])
+    st = {"used": False, "asked": [], "picked": None, "turn": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostRemoveAnyCounter":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            ready = [c for c in g.mine(1, name="Fain, the Broker") if not c.get("sick") and not c.get("tapped")]
+            if not st["used"] and ready and len(g.mine(1, name="Moonlit Lamenter")) >= 2:
+                o = g.option(f, name="Fain, the Broker", zone="battlefield", contains="Treasure")
+                if o:
+                    st["used"], st["turn"] = True, g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["used"]:
+                return None
+            if not g.mine(1, name="Fain, the Broker") and cast(g, f, "Fain, the Broker"):
+                return cast(g, f, "Fain, the Broker")
+            if len(g.mine(1, name="Moonlit Lamenter")) >= 2:
+                return None
+            # From the hand only: a Lamenter on the battlefield offers its own
+            # ability under the same name, and that would spend its counter.
+            in_hand = {c["id"] for c in g.zone(1, "hand") if c.get("name") == "Moonlit Lamenter"}
+            return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in in_hand
+                         and o.get("payable") is not False), None)
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        tokens = [c for c in g.mine(1) if c.get("token")]
+        if st["picked"] and stack_empty(g) and st["after"] is None and (tokens or g.turn > st["turn"]):
+            st["after"] = {"counters": {c["id"]: {k["name"]: k["count"] for k in c.get("counters", []) or []}
+                                        for c in g.mine(1, name="Moonlit Lamenter")},
+                           "treasures": len(tokens)}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Fain never removed a counter", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    lamenters = sorted(st["after"]["counters"])
+    if seat != 1 or offered != lamenters:
+        problems.append(f"offered {offered}, not exactly the Lamenters with counters {lamenters}")
+    counters = st["after"]["counters"]
+    other = [c for c in lamenters if c != st["picked"]]
+    if counters.get(st["picked"], {}).get("M1M1") or any(counters[c].get("M1M1") != 1 for c in other):
+        problems.append(f"{st['picked']} loses its counter, the other keeps it: {counters}")
+    if st["after"]["treasures"] != 1:
+        problems.append(f"one Treasure: {st['after']['treasures']}")
+    return outcome(problems, "Fain: the counter came off the Lamenter picked, the other kept it, a Treasure made",
+                   found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -1482,7 +1613,8 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "mill-yes": lambda: concoction(True), "mill-no": lambda: concoction(False), "forage": forage,
              "gain-life": invigorate, "to-library": leashling,
              "untap-type": fountain, "reduction": urza_filter,
-             "gift-yes": lambda: gift(True), "gift-no": lambda: gift(False)}
+             "gift-yes": lambda: gift(True), "gift-no": lambda: gift(False),
+             "counter-yes": lambda: lamenter(True), "counter-no": lambda: lamenter(False), "counter-pick": fain}
 
 if __name__ == "__main__":
     codes = []

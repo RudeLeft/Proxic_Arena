@@ -761,6 +761,65 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Remove counters of any kind as a cost -- "remove a counter from this
+     * creature" (Moonlit Lamenter, Glen Elendra Guardian), "from a creature
+     * you control" (Fain, the Broker); 39 cards. A port of Forge's human
+     * path, one counter at a time: which permanent, then which kind when it
+     * has several. The card itself with one kind of counter is a yes or
+     * no, as for the planeswalker-style counter cost. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostRemoveAnyCounter cost) {
+        int needed = cost.getAbilityAmount(ability);
+        forge.game.card.CardCollectionView list = cost.payCostFromSource()
+                ? new forge.game.card.CardCollection(ability.getHostCard())
+                : forge.game.card.CardLists.getValidCards(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                        cost.getType().split(";"), player, source, ability);
+        final forge.game.GameEntityCounterTable table = new forge.game.GameEntityCounterTable();
+        String what = forge.util.Lang.nounWithNumeral(needed,
+                (cost.counter == null ? "" : cost.counter.getName() + " ") + "counter");
+        for (int left = needed; left > 0; left--) {
+            forge.game.card.CardCollection holding = forge.game.card.CardLists.filter(list,
+                    c -> !removable(table, c, cost.counter).isEmpty());
+            if (holding.isEmpty()) {
+                return null;
+            }
+            Card card;
+            if (cost.payCostFromSource()) {
+                card = holding.get(0);
+                if (left == needed && removable(table, card, cost.counter).elementSet().size() == 1
+                        && !confirm("Remove " + what + " from " + card.getName() + "?")) {
+                    return null;
+                }
+            } else {
+                card = pickOne(holding, "CostRemoveAnyCounter", "Remove " + what
+                        + (left == needed ? "" : " (" + left + " more)") + ": from which permanent?");
+                if (card == null) {
+                    return null;
+                }
+            }
+            java.util.List<forge.game.card.CounterType> kinds =
+                    new java.util.ArrayList<>(removable(table, card, cost.counter).elementSet());
+            forge.game.card.CounterType kind = kinds.size() == 1 ? kinds.get(0)
+                    : card.getController().getController().chooseCounterType(kinds, ability,
+                            "Which kind of counter to remove from " + card.getName() + "?", null);
+            if (kind == null) {
+                return null;
+            }
+            table.put(null, card, kind, 1);
+        }
+        return decide(table);
+    }
+
+    /** The counters still on [card] after [table], of [type] if given, that can be removed. */
+    private static com.google.common.collect.Multiset<forge.game.card.CounterType> removable(
+            forge.game.GameEntityCounterTable table, Card card, forge.game.card.CounterType type) {
+        com.google.common.collect.Multiset<forge.game.card.CounterType> kinds = table.filterToRemove(card);
+        kinds.elementSet().removeIf(k -> (type != null && !k.equals(type)) || !card.canRemoveCounters(k));
+        return kinds;
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

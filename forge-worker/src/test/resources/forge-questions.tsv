@@ -51,7 +51,7 @@ C CostPromiseGift	ENGINE		Promise a gift: which opponent receives it -- with one
 C CostPutCardToLib	ASKS	CostPutCardToLib	Put cards on top of your library from hand or graveyard, one click each (the one same-graveyard card stays loud)	11 cards: Leashling, Hidden Retreat, Penance	scripts/check-cost-kinds.py
 C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	scripts/check-you-choose.py
 C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a counter on you	LoudFailureTest
-C CostRemoveAnyCounter	UNBUILT		Pay the cost RemoveAnyCounter	with counters — remove any counter	LoudFailureTest
+C CostRemoveAnyCounter	ASKS	CostRemoveAnyCounter	Remove counters of any kind as a cost: one at a time, which permanent then which kind; the card itself with one kind is a yes or no	39 cards: Moonlit Lamenter, Fain the Broker, Glen Elendra Guardian	scripts/check-cost-kinds.py
 C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
 C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
 C CostReveal	ASKS	CostReveal	Reveal cards from your hand as a cost (shown to the other player)	76 cards: Charge of the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards	scripts/check-cost-kinds.py

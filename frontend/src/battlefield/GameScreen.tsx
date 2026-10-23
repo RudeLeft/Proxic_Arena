@@ -1115,6 +1115,7 @@ const CANCEL_KINDS = new Set([
   "CostGainLife",
   "CostPutCardToLib",
   "CostUntapType",
+  "CostRemoveAnyCounter",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */
