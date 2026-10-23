@@ -81,6 +81,11 @@ with options no default would take, and checks the board:
               of the opponent's becomes seat 1's
   roll-dice   Clay Golem (CostRollDice, a yes or no): monstrous with 1-8
               counters
+  pool-tie    Manamorphose makes red and green; checking Mind Stone ({2})
+              ties them (chooseManaFromPool, answered as Forge's screen: no
+              question) -- the worker log shows no stub, Mind Stone is cast
+  reveal-chosen  Stalking Leonin (CostRevealChosen, nothing to ask): the
+              opponent's attacking Bears is exiled
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -94,6 +99,7 @@ reached its moment.
 import json
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lab import DEFAULT, Game, card_of  # noqa: E402
@@ -2043,6 +2049,141 @@ def golem():
     return outcome(problems, f"Clay Golem: rolled, and became monstrous with {st['after'].get('P1P1')} counters", found)
 
 
+def pool_tie():
+    """Manamorphose makes red and green. Checking whether Mind Stone ({2})
+    is affordable runs Forge's automatic pool payment, where red and green
+    tie for the generic (two red would be the same mana, merged) and Forge
+    asks which (chooseManaFromPool: the first, no question, as Forge's own
+    screen). The proof is the worker's own log -- no "[STUB REACHED]", no
+    failed payment check -- and Mind Stone is then cast from the pool."""
+    # The Lab deletes a worker's log at the end unless LAB_STDERR is set:
+    # kept set until the log has been read.
+    log = os.path.join(tempfile.mkdtemp(), "pool-tie.stderr.log")
+    os.environ["LAB_STDERR"] = log
+    g = game("pool-tie", [("Mountain", 18), ("Forest", 18), ("Manamorphose", 12), ("Mind Stone", 12)])
+    st = {"morph": None, "stone": None, "asked": 0, "after": None}
+    want = ["red", "green"]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "specifyManaCombo":
+            st["asked"] += 1
+            colour = want[min(st["asked"] - 1, 1)]
+            return next((o["actionId"] for o in f["options"] if o.get("label") == colour), DEFAULT)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            pool = (g.player(1, 1) or {}).get("manaPool") or {}
+            if st["morph"] and st["stone"] is None and stack_empty(g) and pool == {"R": 1, "G": 1}:
+                o = cast(g, f, "Mind Stone")
+                if o:
+                    st["stone"] = card_of(o)
+                return o
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f, prefer="Forest" if not g.mine(1, name="Forest") else "Mountain")
+            if land:
+                return land
+            if st["morph"] is None and any(c.get("name") == "Mind Stone" for c in g.zone(1, "hand")):
+                o = cast(g, f, "Manamorphose")
+                if o:
+                    st["morph"] = card_of(o)
+                return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        landed = st["stone"] and any(c["id"] == st["stone"] for c in g.mine(1))
+        if landed and stack_empty(g) and st["after"] is None:
+            st["after"] = True
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    try:
+        worker_log = open(log, encoding="utf-8", errors="replace").read()
+    except OSError:
+        worker_log = None
+    finally:
+        del os.environ["LAB_STDERR"]
+    if worker_log is None:
+        return "inconclusive", "the worker's log could not be read", {"log": log}
+    found = {"morph": st["morph"], "stone": st["stone"], "stopped": g.stopped_badly(), "log_lines": len(worker_log.splitlines()),
+             "log": [l for l in worker_log.splitlines() if "STUB" in l or "payment check failed" in l][:5]}
+    if not st["stone"] or not st["after"]:
+        return "inconclusive", "Mind Stone was never cast from a red and green pool", found
+    problems = []
+    if "chooseManaFromPool" in worker_log:
+        problems.append("Forge's pool payment reached the loud stub: chooseManaFromPool is not answered")
+    if "payment check failed" in worker_log:
+        problems.append(f"an affordability check failed: {found['log']}")
+    return outcome(problems, "red and green floating: the tie was answered without a question, and Mind Stone "
+                             "was cast from the pool", found)
+
+
+def leonin():
+    """Stalking Leonin secretly chooses an opponent as it enters; "reveal the
+    player you chose: exile target creature that's attacking you if it's
+    controlled by the chosen player" (CostRevealChosen: the choice was made
+    already, nothing to ask). The opponent's Bears attacks and is exiled."""
+    g = game("reveal-chosen", [("Plains", 36), ("Stalking Leonin", 24)])
+    st = {"leonin": None, "attacked": None, "used": False, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "declareAttackers" and seat == 2:
+            ready = [c["id"] for c in g.mine(2, name="Grizzly Bears") if not c.get("sick") and not c.get("tapped")]
+            if st["attacked"] or not ready or not st["leonin"]:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == ready[0]), None)
+            if o:
+                st["attacked"] = ready[0]
+            return o
+        if k == "declareAttackers" and seat == 1:
+            return None
+        if k == "declareBlockers":
+            return None
+        if k == "chooseTargetsFor" and seat == 1 and st["used"]:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["attacked"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            return g.play_land(f) or (None if g.mine(2, name="Grizzly Bears") else cast(g, f, "Grizzly Bears"))
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            attacking = any(c["id"] == st["attacked"] and c.get("attacking")
+                            for c in g.zone(1, "battlefield", owner=2))
+            if attacking and not st["used"] and stack_empty(g):
+                o = g.option(f, name="Stalking Leonin", zone="battlefield", contains="attacking")
+                if o:
+                    st["used"] = True
+                return o
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["leonin"] is None:
+                o = cast(g, f, "Stalking Leonin")
+                if o:
+                    st["leonin"] = card_of(o)
+                return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        exiled = st["attacked"] and any(c["id"] == st["attacked"] for c in g.zone(1, "exile", owner=2))
+        if st["used"] and stack_empty(g) and st["after"] is None and \
+                (exiled or g.state.get(1, {}).get("phase") in ("MAIN2", "END_OF_TURN")):
+            st["after"] = bool(exiled)
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"leonin": st["leonin"], "attacked": st["attacked"], "used": st["used"], "exiled": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["used"] or st["after"] is None:
+        return "inconclusive", "the Bears never attacked into Stalking Leonin", found
+    problems = [] if st["after"] else ["the chosen player revealed: the attacking Bears is exiled"]
+    return outcome(problems, "Stalking Leonin: the chosen opponent revealed, nothing asked, and the attacking "
+                             "Bears was exiled", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -2058,7 +2199,8 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "from-exile": strangler, "unattach-yes": lambda: bola(True), "unattach-no": lambda: bola(False),
              "from-stack": nivmagus, "creature-type": caller,
              "add-mana": braid, "flip-yes": lambda: minotaur(True), "flip-no": lambda: minotaur(False),
-             "gain-control": herald, "roll-dice": golem}
+             "gain-control": herald, "roll-dice": golem, "pool-tie": pool_tie,
+             "reveal-chosen": leonin}
 
 if __name__ == "__main__":
     codes = []

@@ -55,7 +55,7 @@ C CostRemoveAnyCounter	ASKS	CostRemoveAnyCounter	Remove counters of any kind as 
 C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
 C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
 C CostReveal	ASKS	CostReveal	Reveal cards from your hand as a cost (shown to the other player)	76 cards: Charge of the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards	scripts/check-cost-kinds.py
-C CostRevealChosen	ENGINE		Reveal the card or player chosen earlier: nothing to choose (Forge's own screen asks nothing)	Stalking Leonin, Guardian Archon, Emissary of Grudges, A Killer Among Us	PENDING: these cards make a secret choice first; a game reaching the reveal is still to come
+C CostRevealChosen	ENGINE		Reveal the card or player chosen earlier: nothing to choose (Forge's own screen asks nothing)	Stalking Leonin, Guardian Archon, Emissary of Grudges, A Killer Among Us	scripts/check-cost-kinds.py
 C CostRollDice	ASKS	confirmPayment	Roll dice as a cost: a yes or no ("Roll one d8 for Clay Golem?")	1 card: Clay Golem	scripts/check-cost-kinds.py
 C CostSacrifice	ASKS	CostSacrifice	Sacrifice as a cost	Village Rites, Fling, Viscera Seer	scripts/check-agent-of-kotis.py
 C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated ability	scripts/check-mana-pool.py
@@ -101,7 +101,7 @@ Q chooseDiceToReroll(List)	ASKS	chooseDiceToReroll	Which dice to reroll (Monitor
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
 Q chooseFlipResult(SpellAbility,Player,boolean)	ASKS	chooseFlipResult	Krark's Thumb: which of two different flips counts (heads or tails, or win or lose)	1 card: Krark's Thumb	scripts/check-you-choose.py
 Q chooseKeywordForPump(List,SpellAbility,String,Card)	ASKS	chooseKeywordForPump	Your choice of keyword for a pump ("deathtouch or lifelink"): one answer per keyword	32 cards: Alchemist's Gift, Argivian Avenger	scripts/check-you-choose.py
-Q chooseManaFromPool(List)	ENGINE		Which floating mana pays when Forge's automatic pool payment finds several equal: the first, as Forge's own screen does (Proxic's payments ask the colour)	rare	PENDING: only Forge's automatic payment from the pool reaches it; Proxic pays by the colour the player picks
+Q chooseManaFromPool(List)	ENGINE		Which floating mana pays when Forge's automatic pool payment finds a tie (red and green for a generic): the first, as Forge's own screen -- reached by every affordability check with mixed mana floating	Manamorphose + Mind Stone	scripts/check-cost-kinds.py
 Q chooseModeForAbility(SpellAbility,List,int,int,boolean)	ASKS	chooseModeForAbility	Choose a mode	Cryptic Command, Escalate, Spree, Pawprint	scripts/check-modes.py
 Q chooseNewTargetsFor(SpellAbility,Predicate,boolean)	ASKS	chooseTargetsFor	Choose new targets for a copy	Krark, the Thumbless; Twincast	scripts/check-coin-flip.py
 Q chooseNumber(SpellAbility,String,List,Player)	ASKS	chooseNumber	Choose a number	Marvel of Engineering-style counts, Spell Pierce X	scripts/check-tracked-state.py
