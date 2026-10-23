@@ -63,6 +63,8 @@ and checks the result on the board:
   thirst-artifact Thirst for Knowledge, discard two unless an artifact: the
                   LAST artifact offered -- it alone is discarded, asked once
   thirst-two      the same, non-artifacts: asked twice, both discarded
+  gargantuan      Gift of the Gargantuan: one question per kind -- the LAST
+                  creature taken, the land passed: exactly it reaches the hand
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1413,6 +1415,65 @@ def thirst(artifact):
                    else "Thirst for Knowledge: two non-artifacts picked, both discarded", found)
 
 
+def gargantuan():
+    """Gift of the Gargantuan: look at the top four; you may take a creature
+    card and/or a land card (chooseCardsForEffectMultiple: one "up to one"
+    question per kind, each naming it). The LAST creature offered is
+    taken, the land question passed: exactly that creature reaches the
+    hand, and no land does."""
+    g = game("gargantuan", [("Forest", 24), ("Grizzly Bears", 24), ("Gift of the Gargantuan", 12)])
+    st = {"cast": None, "asked": [], "picked": None, "hand": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if k == "chooseEntitiesForEffect" and seat == 1 and prompt.startswith("Gift of the Gargantuan: choose up to one"):
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), prompt))
+            if st["hand"] is None:
+                st["hand"] = sorted(c["id"] for c in g.zone(1, "hand"))
+            if " creature card" in prompt and st["picked"] is None:
+                st["picked"] = card_of(f["options"][-1]["actionId"])
+                return f["options"][-1]["actionId"]
+            return None
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None:
+                o = cast(g, f, "Gift of the Gargantuan")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = sorted(c["id"] for c in g.zone(1, "hand"))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "picked": st["picked"], "hand": st["hand"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["picked"] or st["after"] is None:
+        return "inconclusive", "Gift of the Gargantuan never offered a creature", found
+    problems = []
+    kinds = sorted("creature" if " creature card" in p else "land" if " land card" in p else p for _, _, p in st["asked"])
+    if any(seat != 1 for seat, _, _ in st["asked"]) or len(set(kinds)) != len(kinds):
+        problems.append(f"one question per kind, to the caster: {st['asked']}")
+    if "creature" not in kinds or any(k not in ("creature", "land") for k in kinds):
+        problems.append(f"each question names its kind, creature or land: {kinds}")
+    gained = [c for c in st["after"] if c not in st["hand"]]
+    if gained != [st["picked"]]:
+        problems.append(f"exactly the creature picked, {st['picked']}, reaches the hand: gained {gained}")
+    return outcome(problems, "Gift of the Gargantuan: the creature picked reached the hand, and no land", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1422,7 +1483,8 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
              "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door,
-             "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False)}
+             "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False),
+             "gargantuan": gargantuan}
 
 if __name__ == "__main__":
     codes = []

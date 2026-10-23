@@ -2234,6 +2234,28 @@ public final class MatchController extends GeneratedControllerBase {
         return chosen;
     }
 
+    /**
+     * "You may take a creature card and/or a land card from among them" --
+     * Gift of the Gargantuan, Harper Recruiter, Kiora. A port of Forge's
+     * human controller: one "up to one" question per kind of card, each
+     * naming its kind. Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardCollection chooseCardsForEffectMultiple(
+            java.util.Map<String, forge.game.card.CardCollection> validMap, SpellAbility sa, String title,
+            boolean isOptional) {
+        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        forge.game.card.CardCollection result = new forge.game.card.CardCollection();
+        for (java.util.Map.Entry<String, forge.game.card.CardCollection> e : validMap.entrySet()) {
+            // "Creature", "Card.Cleric", "Card.withFlying" -> "creature", "cleric", "flying".
+            String kind = e.getKey().replace("Card.", "").replace("with", "");
+            kind = kind.matches("[A-Za-z ]+") ? kind.toLowerCase() : "matching";
+            result.addAll(chooseCardsForEffect(e.getValue(), sa, card + ": choose up to one " + kind + " card.",
+                    0, 1, isOptional, null));
+        }
+        return result;
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {
