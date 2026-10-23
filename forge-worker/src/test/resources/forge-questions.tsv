@@ -54,8 +54,8 @@ C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a coun
 C CostRemoveAnyCounter	UNBUILT		Pay the cost RemoveAnyCounter	with counters — remove any counter	LoudFailureTest
 C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
 C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
-C CostReveal	UNBUILT		Pay the cost Reveal	76 cards — reveal a card from hand (Land Grant)	LoudFailureTest
-C CostRevealChosen	UNBUILT		Pay the cost RevealChosen	with reveal — reveal the chosen card	LoudFailureTest
+C CostReveal	ASKS	CostReveal	Reveal cards from your hand as a cost (shown to the other player)	76 cards: Charge of the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards	scripts/check-cost-kinds.py
+C CostRevealChosen	ENGINE		Reveal the card or player chosen earlier: nothing to choose (Forge's own screen asks nothing)	Stalking Leonin, Guardian Archon, Emissary of Grudges, A Killer Among Us	PENDING: these cards make a secret choice first; a game reaching the reveal is still to come
 C CostRollDice	UNBUILT		Pay the cost RollDice	rare	LoudFailureTest
 C CostSacrifice	ASKS	CostSacrifice	Sacrifice as a cost	Village Rites, Fling, Viscera Seer	scripts/check-agent-of-kotis.py
 C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated ability	scripts/check-mana-pool.py

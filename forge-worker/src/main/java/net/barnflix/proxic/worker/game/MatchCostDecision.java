@@ -390,6 +390,69 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Reveal cards from your hand as a cost -- Phase 8, 76 cards (Charge of
+     * the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards). A port
+     * of Forge's human path: the card itself, or the whole hand, without
+     * asking; exactly as many as qualify, revealed without asking (Forge's
+     * own shortcut); otherwise the player picks -- for "the same colour",
+     * each pick sharing a colour with the first. Forge reveals them to the
+     * other player. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostReveal cost) {
+        if (cost.payCostFromSource()) {
+            return PaymentDecision.card(source);
+        }
+        if ("Hand".equals(cost.getType())) {
+            return PaymentDecision.card(player.getCardsIn(forge.game.zone.ZoneType.Hand));
+        }
+        int needed = cost.getAbilityAmount(ability);
+        if (needed == 0) {
+            return PaymentDecision.number(0);
+        }
+        forge.game.card.CardCollectionView from = player.getCardsIn(cost.getRevealFrom());
+        if ("SameColor".equals(cost.getType())) {
+            final forge.game.card.CardCollectionView all = from;
+            forge.game.card.CardCollection left = forge.game.card.CardLists.filter(all, c -> {
+                for (Card other : all) {
+                    if (!other.equals(c) && other.sharesColorWith(c)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            forge.game.card.CardCollection shown = new forge.game.card.CardCollection();
+            for (int i = 0; i < needed; i++) {
+                Card next = pickOne(left, "CostReveal", "Reveal " + needed + " cards of the same colour ("
+                        + (i + 1) + " of " + needed + ").");
+                if (next == null) {
+                    return null;
+                }
+                shown.add(next);
+                left = forge.game.card.CardLists.filter(left, c -> c != next && c.sharesColorWith(next));
+            }
+            return PaymentDecision.card(shown);
+        }
+        forge.game.card.CardCollectionView valid = forge.game.card.CardLists.getValidCards(
+                from, cost.getType().split(";"), player, source, ability);
+        if (valid.size() < needed) {
+            return null;
+        }
+        if (!ability.isCastFromPlayEffect() && valid.size() == needed) {
+            return PaymentDecision.card(valid);
+        }
+        java.util.List<Card> chosen = pickCards(valid, needed, "CostReveal",
+                "Reveal " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /** "Reveal the chosen card" -- the choice was made already; nothing to ask (Forge's human path). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostRevealChosen cost) {
+        return PaymentDecision.number(1);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

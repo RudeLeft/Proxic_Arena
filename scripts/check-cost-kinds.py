@@ -22,6 +22,8 @@ with options no default would take, and checks the board:
               (the LAST each time) go back to hand, the third stays
   manamorphose  Manamorphose (specifyManaCombo): blue then black -- the pool
               holds exactly those
+  charge      Charge of the Forever-Beast (CostReveal): the LAST creature
+              offered is revealed, and deals exactly its power
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -480,9 +482,73 @@ def manamorphose():
     return outcome(problems, "Manamorphose: blue and black picked, and exactly those are floating", found)
 
 
+def charge():
+    """Charge of the Forever-Beast: reveal a creature card from your hand
+    (CostReveal); damage equal to its power to Indomitable Ancients (2/10,
+    so it lives and shows the damage). The opponent is told the card."""
+    g = game("charge", [("Forest", 26), ("Charge of the Forever-Beast", 14), ("Grizzly Bears", 10),
+                        ("Hill Giant", 10)], [("Plains", 30), ("Indomitable Ancients", 30)])
+    st = {"cast": None, "asked": [], "picked": None, "power": None, "target": None, "after": None}
+    POWER = {"Grizzly Bears": 2, "Hill Giant": 3}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostReveal":
+            st["asked"].append((seat, [(card_of(o["actionId"]), o.get("label")) for o in f["options"]]))
+            # A creature NOT named like the first offered: a worker that took
+            # the first would deal a different amount.
+            first = f["options"][0].get("label")
+            last = [o for o in f["options"] if o.get("label") != first][-1]
+            st["picked"], st["power"] = card_of(last["actionId"]), POWER.get(last.get("label"))
+            return last["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            o = next((o for o in f["options"] if (o.get("label") or "").startswith("Indomitable Ancients")), None)
+            st["target"] = o and card_of(o["actionId"])
+            return o["actionId"] if o else DEFAULT
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Indomitable Ancients") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            names = {c.get("name") for c in g.zone(1, "hand")}
+            ancients = g.zone(1, "battlefield", owner=2, name="Indomitable Ancients")
+            if st["cast"] is None and ancients and {"Grizzly Bears", "Hill Giant"} <= names:
+                o = cast(g, f, "Charge of the Forever-Beast")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["picked"] and resolved and stack_empty(g) and st["after"] is None:
+            target = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["target"]), {})
+            st["after"] = {"damage": target.get("damage"), "told": g.notices.get(2, [])[-3:]}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "power": st["power"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["after"]:
+        return "inconclusive", "Charge of the Forever-Beast never resolved with a reveal asked", found
+    problems = []
+    if any(seat != 1 for seat, _ in st["asked"]):
+        problems.append("the opponent was asked to reveal seat 1's card")
+    if len({label for _, label in st["asked"][0][1]}) < 2:
+        problems.append(f"a real choice of creatures: {st['asked'][0][1]}")
+    if st["after"]["damage"] != st["power"]:
+        problems.append(f"revealed power {st['power']}, but the Ancients took {st['after']['damage']}")
+    return outcome(problems, f"Charge of the Forever-Beast: the creature revealed (power {st['power']}) dealt "
+                             "exactly that much", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
-             "gush": gush, "manamorphose": manamorphose}
+             "gush": gush, "manamorphose": manamorphose, "charge": charge}
 
 if __name__ == "__main__":
     codes = []

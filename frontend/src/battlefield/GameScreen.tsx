@@ -1105,6 +1105,7 @@ const CANCEL_KINDS = new Set([
   "CostDiscard",
   "CostExile",
   "CostReturn",
+  "CostReveal",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */
