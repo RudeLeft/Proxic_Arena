@@ -14,6 +14,9 @@ never calls). These need Forge's card files, or a real game:
                 Plan, a Conspiracy. A deck holding it is refused before the
                 game (Forge's variant cards never resolve into a Proxic
                 deck), while the same deck without it plays
+  unknown-card  revealUnsupported: Forge marks a card "unsupported" only when
+                its card files do not have it. A deck naming such a card
+                is refused before the game, so Forge never gets to say so
   ante          revealAnte -- reachable after all, and now TOLD: a deck with
                 Contract from Below starts (it was a loud stop, so it could
                 not), its owner is told the ante cards were taken out, the
@@ -114,7 +117,16 @@ def ante():
         ("ok", "a deck with ante cards plays; its owner is told they were taken out, the opponent is not", found)
 
 
-SCENARIOS = {"shards": shards, "backup-plan": backup_plan, "ante": ante}
+def unknown_card():
+    g = game("unknown-card", [("Swamp", 59), ("Zzyzx Not A Real Card", 1)])
+    g.run(lambda g, f: DEFAULT, until=lambda g: g.turn >= 2, max_turn=3)
+    found = {"stopped": g.stopped_badly(), "turn": g.turn, "notices": g.notices}
+    if (g.error or {}).get("errorCode") != "DECK_UNRESOLVED":
+        return "wrong", f"a deck naming a card Forge does not have should be refused before the game: {found}", found
+    return "ok", "a deck naming a card Forge does not have is refused before the game", found
+
+
+SCENARIOS = {"shards": shards, "backup-plan": backup_plan, "unknown-card": unknown_card, "ante": ante}
 
 if __name__ == "__main__":
     codes = []

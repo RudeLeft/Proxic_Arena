@@ -947,7 +947,7 @@ public final class MatchController extends GeneratedControllerBase {
             boolean effect) {
         try {
             return new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
-                    .pay(toPay, ability, effect);
+                    .pay(toPay, ability, effect, prompt);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
@@ -1836,11 +1836,14 @@ public final class MatchController extends GeneratedControllerBase {
     public boolean payCostToPreventEffect(
             forge.game.cost.Cost cost, SpellAbility sa, boolean alreadyPaid,
             forge.util.collect.FCollectionView<Player> allPayers) {
+        // What paying is for, and what passing does -- the mana question
+        // shows it (it would otherwise read bare "tap something for mana").
         String prompt = null;
+        String card = sa.getHostCard() == null ? "it" : ViewerSnapshot.nameFor(sa.getHostCard(), player.getView());
         if (sa.isKeyword(forge.game.keyword.Keyword.ECHO)) {
-            prompt = "Pay Echo?";
+            prompt = "Echo for " + card + ": pay it, or pass and " + card + " is sacrificed.";
         } else if (sa.isKeyword(forge.game.keyword.Keyword.CUMULATIVE_UPKEEP)) {
-            prompt = "Cumulative upkeep for " + sa.getHostCard();
+            prompt = "Cumulative upkeep for " + card + ": pay all of it, or pass and " + card + " is sacrificed.";
         }
         return forge.game.player.PlaySpellAbility.payCostDuringAbilityResolve(this, player, cost, sa, prompt);
     }

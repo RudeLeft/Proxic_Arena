@@ -100,6 +100,17 @@ final class ManaPayment {
     private static final String POOL_LETTERS = "WUBRGC";
 
     boolean pay(ManaCostBeingPaid toPay, SpellAbility paidFor, boolean effect) throws InterruptedException {
+        return pay(toPay, paidFor, effect, null);
+    }
+
+    /**
+     * The same, saying what the mana is FOR when Forge does -- "Echo for
+     * Goblin War Buggy: pay it, or pass and it is sacrificed". Without it
+     * a payment no spell was cast for read as bare "tap something for
+     * mana" (found proving Phase 8's payCostToPreventEffect).
+     */
+    boolean pay(ManaCostBeingPaid toPay, SpellAbility paidFor, boolean effect, String prompt)
+            throws InterruptedException {
         String lastRemaining = toPay.toString();
         int stalled = 0;
         // P6-AN, Dismember: a Phyrexian symbol may be paid with 2 life
@@ -138,6 +149,8 @@ final class ManaPayment {
                             authorisedSeat,
                             "applyManaToCost",
                             new ArrayList<>(labels.keySet()),
+                            false,
+                            prompt == null || prompt.isBlank() ? null : prompt,
                             pending -> host.publishDecision(pending, labels));
 
             if (DecisionGate.PASS.equals(choice)) {

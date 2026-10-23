@@ -174,19 +174,19 @@ Q orderCosts(List)	ENGINE		The order a spell's costs are paid in: Forge's own or
 Q orderMoveToZoneList(CardCollectionView,ZoneType,SpellAbility)	ASKS	orderMoveToZoneList	Put cards in order (on top of a library, ...)	Brainstorm, Karn Liberated	scripts/check-karn.py
 Q orderSimultaneousSa(List)	UNREACHABLE		never called by Forge's rules at the pinned version	-	UnreachableQuestionsTest
 Q payCombatCost(Card,Cost,SpellAbility,String)	UNBUILT		attack/block taxes (Ghostly Prison, Propaganda, War Tax)	35 cards	LoudFailureTest
-Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions	-	PENDING: no Mechanics Lab game rolls dice with a cost yet
-Q payCostToPreventEffect(Cost,SpellAbility,boolean,FCollectionView)	ENGINE		Pays echo, cumulative upkeep, "unless you pay" through Forge's own payment questions	-	PENDING: no Mechanics Lab game pays echo or cumulative upkeep yet
+Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions	-	PENDING: reached only after chooseDiceToReroll or chooseRollToModify, both unbuilt loud stops -- proven when they are built
+Q payCostToPreventEffect(Cost,SpellAbility,boolean,FCollectionView)	ENGINE		Pays echo, cumulative upkeep, "unless you pay" through Forge's own payment questions -- the mana question says what it is for and what passing does	Goblin War Buggy (echo), Mystic Remora (cumulative upkeep), Mana Leak	scripts/check-you-choose.py
 Q payManaCost(ManaCost,CostPartMana,SpellAbility,String,ManaConversionMatrix,boolean)	ENGINE		Pays a mana cost through Forge's own payment loop (which asks applyManaToCost)	-	scripts/check-mana-pool.py
 Q playChosenSpellAbility(SpellAbility)	ENGINE		Plays the spell or ability the player chose	-	scripts/check-costs.py
-Q playSaFromPlayEffect(SpellAbility)	ENGINE		Casts a spell an effect lets you cast	-	PENDING: no Mechanics Lab game casts from an effect yet
-Q playSpellAbilityNoStack(SpellAbility,boolean)	ENGINE		Plays an ability that does not use the stack	-	PENDING: proof to name
+Q playSaFromPlayEffect(SpellAbility)	ENGINE		Casts a spell an effect lets you cast	Bloodbraid Elf (cascade), Discover, "you may cast" effects	scripts/check-you-choose.py
+Q playSpellAbilityNoStack(SpellAbility,boolean)	ENGINE		Runs a replacement effect's own ability, off the stack (Clone's "enter as a copy" is one)	Clone, every "instead" replacement	scripts/check-you-choose.py
 Q playTrigger(Card,WrappedAbility,boolean)	ENGINE		Puts the player's triggered ability on the stack	-	scripts/check-tracked-state.py
 Q resetAtEndOfTurn()	NOT-A-QUESTION		Housekeeping at the end of a turn	-	-
 Q reveal(CardCollectionView,ZoneType,Player,String,boolean)	TELLS		Shows a player cards: "look at", "reveal" -- to that player only when private	-	scripts/check-multiface.py
 Q reveal(List,ZoneType,PlayerView,String,boolean)	TELLS		Shows a player cards: "look at", "reveal" -- to that player only when private	-	scripts/check-multiface.py
 Q revealAISkipCards(String,Map)	UNREACHABLE		Forge's warning about cards its computer player cannot play: sent only with cards a controller complained about, and the worker's never complains	-	UnreachableQuestionsTest
 Q revealAnte(String,Multimap)	TELLS		Tells a player every copy of their ante cards was taken out before the game: ante is not played (was a loud stop -- such a deck could not start)	Contract from Below, Darkpact, Jeweled Bird, Amulet of Quoz, Demonic Attorney, Rebirth, Timmerian Fiends	scripts/check-unreachable.py
-Q revealUnsupported(Map)	ENGINE		Records cards Forge cannot run, for the game record	-	PENDING: proof to name
+Q revealUnsupported(Map)	UNREACHABLE		Forge's notice of cards it has no rules for: only a card its files do not have, and a deck naming one is refused before the game	-	scripts/check-unreachable.py
 Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one game per match, no sideboard in Open Format	-	UnreachableQuestionsTest
 Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	UNBUILT		"add N mana in any combination of colours"	88 cards	LoudFailureTest
 Q tempShowCards(Iterable)	NOT-A-QUESTION		Show cards for a moment (Forge's desktop)	-	-

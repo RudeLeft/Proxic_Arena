@@ -37,6 +37,13 @@ and checks the result on the board:
   converge        Painful Truths paid with Reflecting Pool: colour or
                   colourless (chooseColorAllowColorless) -- blue, so
                   converge counts two colours: lose 2, draw 2
+  echo-pay        Goblin War Buggy's echo (payCostToPreventEffect): the
+                  mana question says "Echo for Goblin War Buggy" and what
+                  passing does; paid, the Buggy stays
+  echo-no         the same, passed: the Buggy is sacrificed
+  cascade-yes     Bloodbraid Elf's cascade (playSaFromPlayEffect): Yes, and
+                  the Grizzly Bears it revealed is cast for free
+  cascade-no      the same, No: nothing is cast
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -750,12 +757,120 @@ def converge():
                              "-- 2 life lost, 2 cards drawn", found)
 
 
+def echo(pay):
+    """Goblin War Buggy, echo {1}{R}: at its controller's next upkeep, pay
+    or it is sacrificed (payCostToPreventEffect). The mana question says
+    what it is for."""
+    g = game(f"echo-{'pay' if pay else 'no'}", [("Mountain", 36), ("Goblin War Buggy", 24)])
+    st = {"buggy": None, "cast_turn": None, "prompts": [], "declined": False, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if k == "applyManaToCost" and "Echo" in prompt:
+            st["prompts"].append((seat, prompt))
+            if pay:
+                return DEFAULT
+            st["declined"] = True
+            return None
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            if st["buggy"] is None:
+                o = cast(g, f, "Goblin War Buggy")
+                if o:
+                    st["buggy"], st["cast_turn"] = card_of(o), g.turn
+                    return o
+            return g.play_land(f)
+        return DEFAULT
+
+    def until(g):
+        # Asked, or its controller's next turn is over without asking.
+        overdue = st["cast_turn"] is not None and g.turn >= st["cast_turn"] + 3
+        if (st["prompts"] or overdue) and stack_empty(g) and st["after"] is None                 and g.state.get(1, {}).get("phase") != "UPKEEP":
+            st["after"] = {"on": any(c["id"] == st["buggy"] for c in g.mine(1)),
+                           "grave": any(c["id"] == st["buggy"] for c in g.zone(1, "graveyard", owner=1))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"buggy": st["buggy"], "prompts": st["prompts"][:2], "after": st["after"], "stopped": g.stopped_badly()}
+    if st["buggy"] is None:
+        return "inconclusive", "Goblin War Buggy was never cast", found
+    if not st["prompts"]:
+        return outcome([f"its next upkeep went by and its echo was never asked: {st['after']}"], "", found)
+    problems = []
+    if any(seat != 1 for seat, _ in st["prompts"]):
+        problems.append("the opponent was asked to pay seat 1's echo")
+    if "Goblin War Buggy" not in st["prompts"][0][1] or "sacrificed" not in st["prompts"][0][1]:
+        problems.append(f"the question should say whose echo and what passing does: {st['prompts'][0][1]!r}")
+    after = st["after"] or {}
+    if pay and not after.get("on"):
+        problems.append(f"echo paid, but the Buggy is gone: {after}")
+    if not pay and (after.get("on") or not after.get("grave")):
+        problems.append(f"echo not paid, so the Buggy should be sacrificed: {after}")
+    return outcome(problems, "echo paid, and the Buggy stays" if pay else "echo not paid, and the Buggy was sacrificed",
+                   found)
+
+
+def cascade(yes):
+    """Bloodbraid Elf, cascade: the Grizzly Bears it reveals may be cast
+    without paying (playSaFromPlayEffect, through Forge's Play effect)."""
+    g = game(f"cascade-{'yes' if yes else 'no'}",
+             [("Mountain", 14), ("Forest", 14), ("Bloodbraid Elf", 12), ("Grizzly Bears", 20)])
+    st = {"elf": None, "asked": [], "before": None, "after": None}
+
+    def bears():
+        return sorted(c["id"] for c in g.mine(1, name="Grizzly Bears"))
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmAction" and st["elf"] and seat == 1 and "Grizzly Bears" in " ".join(
+                o.get("label") or "" for o in f["options"]):
+            st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            return next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Yes")), DEFAULT) \
+                if yes else next((o["actionId"] for o in f["options"] if o.get("label") == "No"), None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f, prefer="Forest" if not g.mine(1, name="Forest") else "Mountain")
+            if land:
+                return land
+            if st["elf"] is None:
+                o = cast(g, f, "Bloodbraid Elf")
+                if o:
+                    st["elf"], st["before"] = card_of(o), bears()
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        elf_down = st["elf"] and any(c["id"] == st["elf"] for c in g.mine(1))
+        if st["asked"] and elf_down and stack_empty(g) and st["after"] is None:
+            st["after"] = bears()
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "before": st["before"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Bloodbraid Elf's cascade never offered a Grizzly Bears", found
+    problems = []
+    new = [b for b in st["after"] if b not in (st["before"] or [])]
+    if yes and len(new) != 1:
+        problems.append(f"said Yes: the revealed Bears should be cast, new Bears {new}")
+    if not yes and new:
+        problems.append(f"said No: no Bears should be cast, but {new} arrived")
+    return outcome(problems, "cascade: Yes, and the revealed Grizzly Bears was cast for free" if yes
+                   else "cascade: No, and nothing was cast", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
              "clone-yes": lambda: clone(True), "clone-no": lambda: clone(False), "venture": venture,
              "blaze": blaze, "axe": axe, "axe-five": lambda: axe(True), "reckoning": reckoning, "sting": sting, "guildmage": guildmage,
-             "elspeth": elspeth, "converge": converge}
+             "elspeth": elspeth, "converge": converge,
+             "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
+             "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False)}
 
 if __name__ == "__main__":
     codes = []
