@@ -85,6 +85,22 @@ test("attachments are drawn with what they modify, on either side of the table",
         continue;
       }
       const panel = matchPanel(live);
+      // Nobody fights, so the board stays readable. Combat is the act
+      // button (owner 2026-10-22), which with nothing chosen declares no
+      // attack or no block -- checked FIRST: a combat question shows no
+      // wording until its list is opened, so the branches below took the
+      // guest's "Grizzly Bears" attack option for the Pacifism target and
+      // attacked every turn until the host died (turn 50, 2026-10-22).
+      const combat = panel.locator("button.gs-act-combat");
+      if ((await combat.count()) > 0) {
+        await combat
+          .first()
+          .click({ timeout: 10_000 })
+          .catch(() => undefined);
+        answered += 1;
+        await live.waitForTimeout(40);
+        continue;
+      }
       const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
       const options = await choices(live);
