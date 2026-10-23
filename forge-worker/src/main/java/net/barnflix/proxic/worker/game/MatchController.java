@@ -1681,6 +1681,62 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Pay with cards, while something resolves -- Phase 8, ~200 cards: "...
+     * unless you return an untapped Island" (Coral Atoll and the karoos),
+     * "unless you sacrifice a creature" (Bellowing Mauler), discard,
+     * reveal, put into a library, tap. A port of Forge's human controller:
+     * exactly [amount] of Forge's list, one click each; a pass, where the
+     * payment is optional, declines the whole payment. Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsForCost(
+            forge.game.card.CardCollectionView options, SpellAbility sa,
+            forge.game.cost.CostPartWithList cost, int amount, boolean isOptional, String prompt) {
+        if (amount <= 0) {
+            return forge.game.card.CardCollection.EMPTY;
+        }
+        if (options == null || options.size() < amount) {
+            return null;
+        }
+        host.offerSubject(sa, player.getView());
+        // Forge's template leaves "%d" for its own screen to fill, and names
+        // cards with their ids ("Coral Atoll (7)"): filled, and taken out.
+        String what = prompt == null || prompt.isBlank() ? "Choose cards to pay with"
+                : prompt.replaceAll(" \\(\\d+\\)", "").replace("( ", "(").replace(" )", ")");
+        boolean saysOr = what.contains("(or:");
+        java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
+        options.forEach(left::add);
+        forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+        while (chosen.size() < amount) {
+            java.util.LinkedHashMap<String, forge.game.card.Card> byId = new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (forge.game.card.Card card : left) {
+                String id = "card:" + card.getId();
+                byId.put(id, card);
+                labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
+            }
+            String count = amount > 1 && !what.contains("%d") ? " (" + (chosen.size() + 1) + " of " + amount + ")" : "";
+            String line = what.replace("%d", String.valueOf(amount - chosen.size()));
+            try {
+                String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseCardsForCost",
+                        new java.util.ArrayList<>(byId.keySet()), !isOptional,
+                        line + count + (isOptional && !saysOr ? " -- or pass, and do not pay." : ""),
+                        pending -> host.publishDecision(pending, labels));
+                forge.game.card.Card picked = byId.get(choice);
+                if (picked == null) {
+                    return null; // passed: the payment is declined
+                }
+                chosen.add(picked);
+                left.remove(picked);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        return chosen;
+    }
+
+    /**
      * One of several labelled choices, by index, or -1 for a pass --
      * the shape the three ports below share.
      */

@@ -9,6 +9,10 @@ with options no default would take, and checks the board:
               control" (CostTapType): three Lions offered, the LAST two
               picked are the two tapped, the third stays untapped; the
               target is tapped
+  atoll-pay   Coral Atoll enters (chooseCardsForCost): the LAST untapped
+              Island offered goes back to hand, and the Atoll stays; the
+              question says what it takes, with the number filled in
+  atoll-no    the same, declined: the Atoll is sacrificed
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -202,7 +206,65 @@ def crew():
                              "creature", found)
 
 
-SCENARIOS = {"tap-two": tap_two, "crew": crew}
+def atoll(pay):
+    """Coral Atoll enters: return an untapped Island you control, or it is
+    sacrificed (chooseCardsForCost, optional)."""
+    g = game(f"atoll-{'pay' if pay else 'no'}", [("Island", 40), ("Coral Atoll", 20)])
+    st = {"atoll": None, "asked": [], "picked": None, "islands": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseCardsForCost":
+            offered = sorted(card_of(o["actionId"]) for o in f["options"])
+            st["asked"].append((seat, offered, f.get("prompt")))
+            if not pay:
+                return None
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            untapped = [c for c in g.mine(1, name="Island") if not c.get("tapped")]
+            if st["atoll"] is None and len(untapped) >= 2:
+                o = g.option(f, name="Coral Atoll", land=True)
+                if o:
+                    st["atoll"], st["islands"] = card_of(o), sorted(c["id"] for c in untapped)
+                    return o
+            return g.option(f, name="Island", land=True)
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            st["after"] = {"atoll": any(c["id"] == st["atoll"] for c in g.mine(1)),
+                           "atoll_grave": any(c["id"] == st["atoll"] for c in g.zone(1, "graveyard", owner=1)),
+                           "hand": [c["id"] for c in g.zone(1, "hand")],
+                           "islands": sorted(c["id"] for c in g.mine(1, name="Island"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "picked": st["picked"], "islands_before": st["islands"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Coral Atoll's return cost was never asked", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked to pay seat 1's Coral Atoll")
+    if offered != st["islands"]:
+        problems.append(f"offered {offered}, not exactly the untapped Islands {st['islands']}")
+    if "%d" in (prompt or "") or "Island" not in (prompt or ""):
+        problems.append(f"the question should say what it takes, filled in: {prompt!r}")
+    after = st["after"]
+    if pay:
+        if not after["atoll"] or st["picked"] not in after["hand"] or st["picked"] in after["islands"]:
+            problems.append(f"returned {st['picked']}: it should be in hand and the Atoll kept: {after}")
+    elif after["atoll"] or not after["atoll_grave"]:
+        problems.append(f"declined: Coral Atoll should be sacrificed: {after}")
+    return outcome(problems, "Coral Atoll: the Island picked went back to hand, and the Atoll stayed" if pay
+                   else "Coral Atoll: declined, and the Atoll was sacrificed", found)
+
+
+SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False)}
 
 if __name__ == "__main__":
     codes = []

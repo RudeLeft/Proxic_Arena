@@ -79,7 +79,7 @@ Q chooseBinary(SpellAbility,String,BinaryChoiceType,Map)	ROUTES-TO		Forge forwar
 Q chooseCardName(SpellAbility,List,String)	ASKS	chooseCardName	Name a card	Pithing Needle, Phyrexian Revoker, Meddling Mage	scripts/check-card-name.py
 Q chooseCardName(SpellAbility,Predicate,String,String)	ASKS	chooseCardName	Name a card	Pithing Needle, Phyrexian Revoker, Meddling Mage	scripts/check-card-name.py
 Q chooseCardsForConvokeOrImprovise(SpellAbility,ManaCost,CardCollectionView,boolean,boolean,Integer)	ASKS	chooseCardsForConvokeOrImprovise	Convoke or improvise: which creatures or artifacts to tap	Chord of Calling, Reckless Fireweaver	scripts/check-costs.py
-Q chooseCardsForCost(CardCollectionView,SpellAbility,CostPartWithList,int,boolean,String)	UNBUILT		"unless its controller sacrifices / discards / returns…" (Daze-style taxes paid with cards)	~200 cards	LoudFailureTest
+Q chooseCardsForCost(CardCollectionView,SpellAbility,CostPartWithList,int,boolean,String)	ASKS	chooseCardsForCost	Pay with cards while something resolves: "unless you return / discard / reveal / tap" -- or pass and do not pay	~200 cards: Coral Atoll and the karoo lands, discard-unless and reveal-unless effects	scripts/check-cost-kinds.py
 Q chooseCardsForEffect(CardCollectionView,SpellAbility,String,int,int,boolean,Map)	ASKS	chooseEntitiesForEffect,chooseSingleEntityForEffect	Choose cards for an effect	Karn Liberated, Mutate, many effects	scripts/check-you-choose.py
 Q chooseCardsForEffectMultiple(Map,SpellAbility,String,boolean)	UNBUILT		look and sort into several places (Harper Recruiter)	12 cards	LoudFailureTest
 Q chooseCardsForSplice(SpellAbility,List)	UNBUILT		splice onto Arcane	30 cards	LoudFailureTest
