@@ -103,7 +103,11 @@ whether the phase is accepted. A deck per row, or mix them:
 | Your choices | Council's Judgment, Fact or Fiction, Clone, Blaze, Lightning Axe, Bloodbraid Elf | Votes, piles, copy-or-not, X, cascade yes or no, all asked |
 | Combat | Lone Wolf, Glory-Bound Initiate, Ghostly Prison, a big creature double-blocked | Damage split, exert, the attack tax asked |
 | Dice | Monitor Monitor, Xenosquirrels, Clay Golem | The roll is shown; reroll and nudge asked |
-| Un-sets | Wrench-Rigger with 15 Goblin Slingshots in the deck list, Space Beleren with creatures | The Slingshots go to their own deck; assembling asks for a sprocket and the board shows it; Beleren's sectors show on the cards |
+| Un-sets | Wrench-Rigger and the Steamfloggers with 15 different Contraptions (one of each) in the deck list, Space Beleren with creatures | The Contraptions go to their own deck; assembling asks for a sprocket and the board shows it; Beleren's sectors show on the cards |
+
+Ready-made lists, to open in the Deck Builder (Open Deck) and export
+for Arena: `Test Deck/Phase 8/` -- Blue White Choices, Black Red
+Sacrifice (60 each), Red Green Contraptions (60 + 15 Contraptions).
 
 ---
 

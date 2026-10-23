@@ -1,0 +1,17 @@
+// P8 Test 1 - Blue White Choices (vintage)
+
+4 Consider
+4 Opt
+2 Preordain
+3 Fact or Fiction
+3 Council's Judgment
+2 Clone
+2 Gush
+3 Ghostly Prison
+4 Smuggler's Copter
+4 Glory-Bound Initiate
+3 Monitor Monitor
+2 Space Beleren
+3 Coral Atoll
+11 Island
+10 Plains

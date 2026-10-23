@@ -1,0 +1,16 @@
+// P8 Test 2 - Black Red Sacrifice (vintage)
+
+4 Diabolic Edict
+3 Innocent Blood
+2 Imperial Edict
+2 Price of Fame
+3 Sinister Concoction
+3 Blazing Salvo
+3 Lightning Axe
+3 Blaze
+4 Xenosquirrels
+3 Clay Golem
+2 Eldrazi Monument
+2 Everflowing Chalice
+13 Swamp
+13 Mountain

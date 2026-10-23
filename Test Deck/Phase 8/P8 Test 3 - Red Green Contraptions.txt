@@ -1,0 +1,27 @@
+// P8 Test 3 - Red Green Contraptions (vintage)
+
+4 Wrench-Rigger
+4 Steamflogger Temp
+4 Steamflogger Service Rep
+4 Joyride Rigger
+4 Steamflogger Boss
+4 Cogmentor
+4 Bloodbraid Elf
+4 Lone Wolf
+14 Mountain
+14 Forest
+1 Goblin Slingshot
+1 Auto-Key
+1 Boomflinger
+1 Buzz Buggy
+1 Dogsnail Engine
+1 Bee-Bee Gun
+1 Hard Hat Area
+1 Head Banger
+1 Inflation Station
+1 Oaken Power Suit
+1 Pet Project
+1 Rapid Prototyper
+1 Targeting Rocket
+1 Thud-for-Duds
+1 Twiddlestick Charger
