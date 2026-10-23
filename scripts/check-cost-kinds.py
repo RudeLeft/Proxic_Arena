@@ -71,6 +71,15 @@ with options no default would take, and checks the board:
               from the stack -- no damage, two counters
   creature-type  Caller of the Hunt (CostChooseCreatureType): Bear chosen
               with two Bears out -- a 2/2
+  add-mana    Braid of Fire's upkeep (CostAddMana, nothing to choose):
+              paid, it stays
+  flip-yes    Karplusan Minotaur's upkeep (CostFlipCoin, a yes or no): it stays
+  flip-no     the same, no: it is sacrificed
+  gain-control  Herald of Leshrac's upkeep (CostGainControl, through
+              chooseCardsForCost): the LAST land
+              of the opponent's becomes seat 1's
+  roll-dice   Clay Golem (CostRollDice, a yes or no): monstrous with 1-8
+              counters
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1877,6 +1886,159 @@ def caller():
     return outcome(problems, f"Caller of the Hunt: Bear chosen, and it is a {power}/{toughness}", found)
 
 
+def upkeep_game(name, deck, card, answer, extra=None, seat2=None):
+    """Cast [card], then watch its first cumulative upkeep: [answer] the
+    payment question (yes/no) and report whether [card] is still there
+    once that upkeep has passed."""
+    g = game(name, deck, seat2 or [("Forest", 60)])
+    st = {"cast": None, "turn": None, "asked": [], "after": None, "extra": {}}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if extra:
+            got = extra(g, f, st)
+            if got is not None:
+                return got
+        # Forge's own yes or no carries its question on the Yes answer.
+        said = prompt or ((f.get("options") or [{}])[0].get("label") or "")
+        if k == "confirmPayment" and seat == 1 and st["cast"] and (card in said or "{R}" in said):
+            st["asked"].append((seat, said))
+            return "confirm:yes" if answer else None
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None:
+                o = cast(g, f, card)
+                if o:
+                    st["cast"], st["turn"] = card_of(o), g.turn
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        past = st["turn"] is not None and g.turn >= st["turn"] + 2 and \
+            g.state.get(1, {}).get("phase") in ("MAIN1", "MAIN2")
+        if st["asked"] and past and stack_empty(g) and st["after"] is None:
+            st["after"] = any(c["id"] == st["cast"] for c in g.mine(1))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=40)
+    return g, st
+
+
+def braid():
+    """Braid of Fire's cumulative upkeep, "add {R}" (CostAddMana: nothing to
+    choose once Forge has asked whether to pay). Paid: the Braid stays."""
+    g, st = upkeep_game("add-mana", [("Mountain", 36), ("Braid of Fire", 24)], "Braid of Fire", True)
+    found = {"asked": st["asked"], "stayed": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Braid of Fire's upkeep was never asked", found
+    problems = [] if st["after"] else ["paid: Braid of Fire stays"]
+    return outcome(problems, "Braid of Fire: its upkeep paid with {R}, and it stayed", found)
+
+
+def minotaur(yes):
+    """Karplusan Minotaur's cumulative upkeep, "flip a coin" (CostFlipCoin, a
+    yes or no). Yes: it stays. No: it is sacrificed."""
+    g, st = upkeep_game(f"flip-{'yes' if yes else 'no'}", [("Mountain", 36), ("Karplusan Minotaur", 24)],
+                        "Karplusan Minotaur", yes)
+    found = {"asked": st["asked"], "stayed": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Karplusan Minotaur's upkeep was never asked", found
+    problems = []
+    if st["asked"][0] != (1, "Flip one coin for Karplusan Minotaur?"):
+        problems.append(f"the question says what it costs: {st['asked'][0]}")
+    if st["after"] != yes:
+        problems.append(f"{'flipped: it stays' if yes else 'declined: it is sacrificed'}, stayed={st['after']}")
+    return outcome(problems, "Karplusan Minotaur: flipped, and it stayed" if yes
+                   else "Karplusan Minotaur: declined, and it was sacrificed", found)
+
+
+def herald():
+    """Herald of Leshrac's cumulative upkeep: gain control of a land you
+    don't control (CostGainControl -- Forge pays it at resolution through
+    chooseCardsForCost). The LAST opponent's land offered becomes seat
+    1's; the Herald stays."""
+    def extra(g, f, st):
+        if f.get("kind") == "chooseCardsForCost" and "gain control" in (f.get("prompt") or ""):
+            st["extra"]["offered"] = sorted(card_of(o["actionId"]) for o in f["options"])
+            st["extra"]["theirs"] = sorted(c["id"] for c in g.zone(1, "battlefield", owner=2) if c.get("kind") == "land")
+            st["extra"]["picked"] = card_of(f["options"][-1]["actionId"])
+            st["asked"].append((f["authorisedSeat"], f.get("prompt")))
+            return f["options"][-1]["actionId"]
+        return None
+    # Seven mana: mostly Swamps, since the end-of-turn discard throws lands away.
+    g, st = upkeep_game("gain-control", [("Swamp", 52), ("Herald of Leshrac", 8)], "Herald of Leshrac", True, extra)
+    found = {"asked": st["asked"], "extra": st["extra"], "stayed": st["after"], "stopped": g.stopped_badly()}
+    if not st["extra"] or st["after"] is None:
+        return "inconclusive", "Herald of Leshrac's upkeep was never paid", found
+    problems = []
+    x = st["extra"]
+    if x["offered"] != x["theirs"]:
+        problems.append(f"offered {x['offered']}, not exactly the opponent's lands {x['theirs']}")
+    if not any(c["id"] == x["picked"] for c in g.mine(1)):
+        problems.append(f"{x['picked']} should now be seat 1's")
+    if not st["after"]:
+        problems.append("paid: the Herald stays")
+    return outcome(problems, "Herald of Leshrac: the land picked became seat 1's, and the Herald stayed", found)
+
+
+def golem():
+    """Clay Golem, {6} and roll a d8: monstrosity X (CostRollDice, a yes or
+    no). Yes: it becomes monstrous with 1 to 8 +1/+1 counters."""
+    g = game("roll-dice", [("Plains", 40), ("Clay Golem", 20)], [("Forest", 60)])
+    st = {"used": False, "asked": [], "golem": None, "after": None, "turn": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "Roll" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            return "confirm:yes"
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            ready = [c for c in g.mine(1, name="Clay Golem") if not c.get("sick")]
+            if not st["used"] and ready and len(g.untapped_lands(1)) >= 6:
+                o = g.option(f, name="Clay Golem", zone="battlefield", contains="Monstrosity")
+                if o:
+                    st["used"], st["golem"], st["turn"] = True, ready[0]["id"], g.turn
+                    return o
+            return None if g.mine(1, name="Clay Golem") else cast(g, f, "Clay Golem")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            me = next((c for c in g.mine(1) if c["id"] == st["golem"]), {})
+            st["after"] = {k["name"]: k["count"] for k in me.get("counters", []) or []}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"asked": st["asked"], "counters": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Clay Golem's die roll was never asked", found
+    problems = []
+    if st["asked"][0] != (1, "Roll one d8 for Clay Golem?"):
+        problems.append(f"the question says what it costs: {st['asked'][0]}")
+    if not 1 <= (st["after"].get("P1P1") or 0) <= 8:
+        problems.append(f"monstrous: 1 to 8 +1/+1 counters, got {st['after']}")
+    return outcome(problems, f"Clay Golem: rolled, and became monstrous with {st['after'].get('P1P1')} counters", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -1890,7 +2052,9 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "gift-yes": lambda: gift(True), "gift-no": lambda: gift(False),
              "counter-yes": lambda: lamenter(True), "counter-no": lambda: lamenter(False), "counter-pick": fain,
              "from-exile": strangler, "unattach-yes": lambda: bola(True), "unattach-no": lambda: bola(False),
-             "from-stack": nivmagus, "creature-type": caller}
+             "from-stack": nivmagus, "creature-type": caller,
+             "add-mana": braid, "flip-yes": lambda: minotaur(True), "flip-no": lambda: minotaur(False),
+             "gain-control": herald, "roll-dice": golem}
 
 if __name__ == "__main__":
     codes = []

@@ -23,7 +23,7 @@
 #             holds every piece of evidence to existing and running in CI.
 #
 entry	status	asks	name	cards	evidence
-C CostAddMana	UNBUILT		Pay the cost AddMana	rare	LoudFailureTest
+C CostAddMana	ENGINE		Add mana as a cost (Braid of Fire's upkeep): nothing to choose once Forge has asked whether to pay	1 card: Braid of Fire	scripts/check-cost-kinds.py
 C CostBehold	ASKS	CostBehold	Behold as a cost: one you control or one from your hand, exactly that many, one click each	25 cards: Kinsbaile Aspirant, Champion of the Clachan	scripts/check-cost-kinds.py
 C CostBeholdExile	ASKS	CostBehold	Behold and exile it: the same choice as behold, then exiled	the champions: Champion of the Clachan, Champions of the Shoal	scripts/check-cost-kinds.py
 C CostBlight	ASKS	CostBlight	Blight N: which creature you control gets the -1/-1 counters	23 cards: Sting-Slinger, Boggart Mischief, Cinder Strike	scripts/check-cost-kinds.py
@@ -38,9 +38,9 @@ C CostExert	ASKS	confirmPayment	Exert the card itself as a cost: a yes or no ("E
 C CostExile	ASKS	CostExile	Exile as a cost	Force of Will, Delve-like costs	scripts/check-costs.py
 C CostExileFromStack	ASKS	CostExileFromStack	Exile spells from the stack as a cost: one at a time, named by the stack's description	4 cards: Nivmagus Elemental, Dragon's Approach, Synthesis Pod	scripts/check-cost-kinds.py
 C CostExiledMoveToGrave	ASKS	CostExiledMoveToGrave	Put exiled cards into their owners' graveyards as a cost: exactly that many, one click each	16 cards: Wasteland Strangler, Blight Herder, Processor Assault	scripts/check-cost-kinds.py
-C CostFlipCoin	UNBUILT		Pay the cost FlipCoin	rare	LoudFailureTest
+C CostFlipCoin	ASKS	confirmPayment	Flip a coin as a cost: a yes or no ("Flip one coin for Karplusan Minotaur?")	1 card: Karplusan Minotaur	scripts/check-cost-kinds.py
 C CostForage	ASKS	CostForage	Forage: "sacrifice a Food?" when there is one, else three graveyard cards, one click each	10 cards: Bushy Bodyguard, Camellia, Corpseberry Cultivator	scripts/check-cost-kinds.py
-C CostGainControl	UNBUILT		Pay the cost GainControl	rare	LoudFailureTest
+C CostGainControl	ASKS	chooseCardsForCost	Gain control as a cost: which permanents, through the choose-cards-to-pay question (its only card, Herald of Leshrac, pays it in cumulative upkeep)	1 card: Herald of Leshrac	scripts/check-cost-kinds.py
 C CostGainLife	ASKS	CostGainLife	An opponent gains life as a cost: which opponent, by name	5 cards: Invigorate, Skyshroud Cutter, Wall of Shards	scripts/check-cost-kinds.py
 C CostMill	ASKS	confirmPayment	Mill as a cost: a yes or no ("Mill one card?")	9 cards: Sinister Concoction, Deranged Assistant, Millikin	scripts/check-cost-kinds.py
 C CostPartMana	ENGINE		The mana part of a cost: paid by the mana questions	every activated ability	scripts/check-mana-cost.py
@@ -56,7 +56,7 @@ C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from wher
 C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
 C CostReveal	ASKS	CostReveal	Reveal cards from your hand as a cost (shown to the other player)	76 cards: Charge of the Forever-Beast, Draconic Roar, the reveal-a-Dragon cards	scripts/check-cost-kinds.py
 C CostRevealChosen	ENGINE		Reveal the card or player chosen earlier: nothing to choose (Forge's own screen asks nothing)	Stalking Leonin, Guardian Archon, Emissary of Grudges, A Killer Among Us	PENDING: these cards make a secret choice first; a game reaching the reveal is still to come
-C CostRollDice	UNBUILT		Pay the cost RollDice	rare	LoudFailureTest
+C CostRollDice	ASKS	confirmPayment	Roll dice as a cost: a yes or no ("Roll one d8 for Clay Golem?")	1 card: Clay Golem	scripts/check-cost-kinds.py
 C CostSacrifice	ASKS	CostSacrifice	Sacrifice as a cost	Village Rites, Fling, Viscera Seer	scripts/check-agent-of-kotis.py
 C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated ability	scripts/check-mana-pool.py
 C CostTapType	ASKS	CostTapType	Tap untapped creatures or artifacts you control as a cost -- a number, sharing a type, or enough power to crew	239 cards: Springleaf Drum, Hecatomb, Diversionary Tactics; every Vehicle's crew	scripts/check-cost-kinds.py

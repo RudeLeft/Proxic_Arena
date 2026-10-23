@@ -927,6 +927,50 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         }
     }
 
+    /** Add mana as a cost -- Braid of Fire's cumulative upkeep: nothing to choose (Forge's human path). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostAddMana cost) {
+        return PaymentDecision.number(cost.getAbilityAmount(ability));
+    }
+
+    /** Flip coins as a cost -- Karplusan Minotaur's cumulative upkeep: a yes or no (Forge's human path). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostFlipCoin cost) {
+        int amount = cost.getAbilityAmount(ability);
+        return confirm("Flip " + forge.util.Lang.nounWithNumeral(amount, "coin") + " for " + source.getName() + "?")
+                ? PaymentDecision.number(amount) : null;
+    }
+
+    /** Roll dice as a cost -- Clay Golem: a yes or no (Forge's human path). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostRollDice cost) {
+        int amount = cost.getAbilityAmount(ability);
+        return confirm("Roll " + forge.util.Lang.nounWithNumeral(amount, "d" + cost.getType()) + " for "
+                + source.getName() + "?") ? PaymentDecision.number(amount) : null;
+    }
+
+    /**
+     * Gain control of permanents as a cost. Its only card, Herald of
+     * Leshrac, pays it in cumulative upkeep, where Forge asks
+     * chooseCardsForCost; this asks the same question, so there is one way
+     * it reads. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostGainControl cost) {
+        int needed = cost.getAbilityAmount(ability);
+        forge.game.card.CardCollectionView valid = forge.game.card.CardLists.filter(
+                forge.game.card.CardLists.getValidCards(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                        cost.getType().split(";"), player, source, ability),
+                c -> c.canBeControlledBy(player));
+        if (valid.size() < needed) {
+            return null;
+        }
+        String desc = cost.getTypeDescription() == null ? cost.getType() : cost.getTypeDescription();
+        forge.game.card.CardCollectionView chosen = player.getController().chooseCardsForCost(valid, ability, cost,
+                needed, false, "Gain control of " + forge.util.Lang.nounWithNumeralExceptOne(needed, desc) + ".");
+        return chosen == null || chosen.size() < needed ? null : PaymentDecision.card(chosen);
+    }
+
     /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
