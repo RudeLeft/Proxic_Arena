@@ -390,6 +390,36 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Return permanents you control to their owner's hand as a cost --
+     * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
+     * bounce lands. A port of Forge's human path: the card itself is a yes
+     * or no; otherwise exactly that many of Forge's list, one click each.
+     * Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostReturn cost) {
+        int needed = cost.getAbilityAmount(ability);
+        if (cost.payCostFromSource()) {
+            Card card = ability.getHostCard();
+            if (card.getController() == player && card.isInPlay()
+                    && confirm("Return " + card.getName() + " to its owner's hand?")) {
+                return PaymentDecision.card(card);
+            }
+            return null;
+        }
+        forge.game.card.CardCollectionView valid = forge.game.card.CardLists.getValidCards(
+                ability.getActivatingPlayer().getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                cost.getType().split(";"), player, source, ability);
+        if (valid.size() < needed) {
+            return null;
+        }
+        java.util.List<Card> chosen = pickCards(valid, needed, "CostReturn",
+                "Return " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
+                        + (needed == 1 ? " to its" : " to their") + " owner's hand.");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
      * Tap untapped permanents you control as a cost -- Phase 8, 239 cards
      * (Springleaf Drum, Hecatomb, Glare of Subdual) and every Vehicle's
      * crew. A port of Forge's human path, three forms:

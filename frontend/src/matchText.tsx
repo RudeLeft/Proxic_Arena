@@ -225,6 +225,8 @@ export function headingFor(kind: string): string {
       return "Choose what to discard";
     case "CostExile":
       return "Choose what to exile";
+    case "CostReturn":
+      return "Choose what to return to hand";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -335,6 +337,7 @@ export function hintFor(kind: string, options: number): string {
     case "CostSacrifice":
     case "CostDiscard":
     case "CostExile":
+    case "CostReturn":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

@@ -18,6 +18,8 @@ with options no default would take, and checks the board:
   offspring-yes  Rust-Shield Rampager, offspring (the same question, yes or
               no): a 1/1 token copy enters
   offspring-no   the same, no: no token
+  gush        Gush instead of its mana (CostReturn): the two Islands picked
+              (the LAST each time) go back to hand, the third stays
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -368,8 +370,69 @@ def offspring(yes):
                    else "offspring not paid, and no token", found)
 
 
+def gush():
+    """Gush instead of its mana: return two Islands you control (CostReturn).
+    Three Islands out; the LAST offered each time go back to hand, the
+    third stays; Gush draws two."""
+    g = game("gush", [("Island", 36), ("Gush", 24)])
+    st = {"cast": None, "asked": [], "picked": [], "islands": None, "hand": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostReturn":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["picked"].append(card_of(f["options"][-1]["actionId"]))
+            return f["options"][-1]["actionId"]
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            islands = g.mine(1, name="Island")
+            if st["cast"] is None and len(islands) >= 3:
+                alt = [o for o in f["options"] if (o.get("label") or "").startswith("Gush")
+                       and "return two Islands" in (o.get("label") or "")]
+                if alt:
+                    st["cast"] = card_of(alt[0]["actionId"])
+                    st["islands"] = sorted(c["id"] for c in islands)
+                    st["hand"] = len(g.zone(1, "hand"))
+                    return alt[0]["actionId"]
+            return g.play_land(f)
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if len(st["picked"]) >= 2 and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"islands": sorted(c["id"] for c in g.mine(1, name="Island")),
+                           "hand": [c["id"] for c in g.zone(1, "hand")]}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "picked": st["picked"], "islands_before": st["islands"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if len(st["picked"]) < 2 or not st["after"]:
+        return "inconclusive", "Gush's return cost was never asked twice", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked to pay seat 1's Gush")
+    if st["asked"][0][1] != st["islands"]:
+        problems.append(f"offered {st['asked'][0][1]}, not exactly the Islands {st['islands']}")
+    if "two Islands" not in (st["asked"][0][2] or ""):
+        problems.append(f"the question should say what it takes: {st['asked'][0][2]!r}")
+    after = st["after"]
+    if any(i not in after["hand"] or i in after["islands"] for i in st["picked"]):
+        problems.append(f"returned {st['picked']}: both should be in hand, off the battlefield: {after}")
+    kept = [i for i in st["islands"] if i not in st["picked"]]
+    if any(i not in after["islands"] for i in kept):
+        problems.append(f"{kept} were not picked and should stay on the battlefield")
+    # Gush left the hand (-1), two Islands came back (+2), two cards drawn (+2).
+    if len(after["hand"]) != st["hand"] - 1 + 2 + 2:
+        problems.append(f"hand {st['hand']} -> {len(after['hand'])}: Gush, two Islands back, two drawn")
+    return outcome(problems, "Gush: the two Islands picked went back to hand, the third stayed, and two cards "
+                             "were drawn", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
-             "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False)}
+             "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
+             "gush": gush}
 
 if __name__ == "__main__":
     codes = []

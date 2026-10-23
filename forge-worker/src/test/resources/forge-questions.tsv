@@ -53,7 +53,7 @@ C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-
 C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a counter on you	LoudFailureTest
 C CostRemoveAnyCounter	UNBUILT		Pay the cost RemoveAnyCounter	with counters — remove any counter	LoudFailureTest
 C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
-C CostReturn	UNBUILT		Pay the cost Return	94 cards — return a permanent to hand (Daze, Gush)	LoudFailureTest
+C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
 C CostReveal	UNBUILT		Pay the cost Reveal	76 cards — reveal a card from hand (Land Grant)	LoudFailureTest
 C CostRevealChosen	UNBUILT		Pay the cost RevealChosen	with reveal — reveal the chosen card	LoudFailureTest
 C CostRollDice	UNBUILT		Pay the cost RollDice	rare	LoudFailureTest
