@@ -108,6 +108,10 @@ def sector():
         if st["picked"] and stack_empty(g) and st["after"] is None:
             st["after"] = {c["id"]: {k["name"]: k["count"] for k in c.get("counters", []) or []}
                            for c in g.mine(1, name="Savannah Lions")}
+            # The board shows each creature's sector, to both players.
+            st["shown"] = {seat: {c["id"]: c.get("sector") for c in g.zone(seat, "battlefield", owner=1,
+                                                                         name="Savannah Lions")}
+                           for seat in (1, 2)}
         return st["after"] is not None
 
     g.run(policy, until=until, max_turn=24)
@@ -122,6 +126,10 @@ def sector():
         problems.append(f"one answer per sector: {st['asked']}")
     if not any(p.startswith("Assign Savannah Lions to a sector") for _, _, p in st["asked"]):
         problems.append(f"the assignment names the creature: {[p for _, _, p in st['asked']]}")
+    for seat in (1, 2):
+        for cid, where in st["assigned"].items():
+            if st["shown"][seat].get(cid) != where:
+                problems.append(f"seat {seat}'s board should show {cid} in {where}: {st['shown'][seat]}")
     for cid, where in st["assigned"].items():
         got = (st["after"].get(cid) or {}).get("P1P1")
         if where == "Gamma" and got != 1:
@@ -151,6 +159,9 @@ def contraption(crank):
             st["crank"].append((seat, len(f["options"]), f.get("prompt")))
             rigger = next((c for c in g.mine(1) if c["id"] == st["rigger"]), {})
             st["before"], st["turn"] = rigger.get("power"), g.turn
+            # The board shows the sprocket, to both players.
+            st["shown"] = [c.get("sprocket") for seat in (1, 2)
+                           for c in g.zone(seat, "battlefield", owner=1, name="Goblin Slingshot")]
             return f["options"][0]["actionId"] if crank and len(st["crank"]) == 1 else None
         if seat == 2 and k == "chooseSpellAbilityToPlay":
             return g.play_land(f)
@@ -186,6 +197,8 @@ def contraption(crank):
     seat, labels, prompt = st["sprocket"][0]
     if seat != 1 or [l.split(" ")[1] for l in labels] != ["1", "2", "3"] or             not prompt.startswith("Assemble Goblin Slingshot onto a sprocket"):
         problems.append(f"seat 1 assembles the Slingshot onto sprocket 1, 2 or 3: {st['sprocket'][0]}")
+    if st.get("shown") != [3, 3]:
+        problems.append(f"both boards should show the Slingshot on sprocket 3: {st.get('shown')}")
     if not st["crank"][0][2].startswith("Crank which Contraptions on sprocket 3?"):
         problems.append(f"it was put on sprocket 3, so it is offered when sprocket 3 cranks: {st['crank'][0]}")
     gained = (st["after"] or 0) - (st["before"] or 0)

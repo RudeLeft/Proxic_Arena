@@ -1325,6 +1325,8 @@ function Inspect({
               {card.tapped && <p>Tapped</p>}
               {card.sick && <p>Summoning sick</p>}
               {card.ringBearer && <p>Ring-bearer</p>}
+              {card.sector && <p>Sector {card.sector}</p>}
+              {card.sprocket && <p>On sprocket {card.sprocket}</p>}
               {card.token && <p>Token</p>}
             </>
           )}

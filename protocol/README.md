@@ -182,6 +182,10 @@ player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
 card.ringBearer           true on the Ring-bearer, for every viewer
+card.sector               Un-sets: a creature's sector (Alpha, Beta, Gamma), for
+                          every viewer -- set while a "space sculptor" is out
+card.sprocket             Un-sets: the sprocket (1-3) a Contraption is on, for
+                          every viewer
 ```
 
 Value notices use Forge's own wording, per viewer: "Krark, the

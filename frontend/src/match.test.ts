@@ -490,6 +490,25 @@ describe("board detail", () => {
     ).toBe(false);
   });
 
+  it("reads an Un-set sector and sprocket, and nothing that is not one", () => {
+    const base = {
+      id: "card:8",
+      seat: 1,
+      name: "Bear",
+      kind: "creature",
+      power: 2,
+      toughness: 2,
+      known: true,
+    };
+    const card = apply([withCreature({ ...base, sector: "Gamma", sprocket: 2 })]).board
+      ?.battlefield[0];
+    expect(card?.sector).toBe("Gamma");
+    expect(card?.sprocket).toBe(2);
+    const none = apply([withCreature({ ...base, sprocket: "2" })]).board?.battlefield[0];
+    expect(none?.sector).toBeNull();
+    expect(none?.sprocket).toBeNull();
+  });
+
   /**
    * §6.42 again, and the reason the worker returns early for a
    * hidden card: a face-down creature's real power and toughness

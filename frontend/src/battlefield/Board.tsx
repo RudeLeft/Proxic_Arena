@@ -86,6 +86,10 @@ export interface BoardCard extends LayoutCard {
   art: string | null;
   /** The Ring-bearer (public): marked on the card, in words too. */
   ringBearer?: boolean;
+  /** Un-sets (public): the creature's sector, marked like the Ring-bearer. */
+  sector?: string;
+  /** Un-sets (public): the sprocket a Contraption is on. */
+  sprocket?: number;
 }
 
 export interface BoardHandCard {
@@ -519,6 +523,8 @@ export function Board({
         lead.tapped ? "tapped" : "",
         lead.attacking ? "attacking" : "",
         lead.ringBearer ? "Ring-bearer" : "",
+        lead.sector ? `sector ${lead.sector}` : "",
+        lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
         side === "viewer" ? "yours" : "opponent's",
         ...act(slot.ids).words,
@@ -569,6 +575,8 @@ export function Board({
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
               {lead.ringBearer && <span className="bf-ring">Ring-bearer</span>}
+              {lead.sector && <span className="bf-zone">{lead.sector}</span>}
+              {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
             {attached.length > 0 && (
               // Auras and Equipment as name tags across the host's picture

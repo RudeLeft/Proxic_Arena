@@ -44,6 +44,34 @@ export default function DevBoardPage() {
     [scene, start, change, seed],
   );
 
+  // ?unsets=1 -- the Un-set markers (Phase 8 Amendment 1): every creature in
+  // a sector, in turn, and a Contraption on sprocket 2 for each player.
+  const unsets = params.get("unsets") === "1";
+  const sectors = ["Alpha", "Beta", "Gamma"];
+  const battlefield = unsets
+    ? [
+        ...now.board.battlefield.map((card, i) =>
+          card.kind === "creature" ? { ...card, sector: sectors[i % 3]! } : card,
+        ),
+        ...[1, 2].map((seat) => ({
+          ...now.board.battlefield.find(
+            (card) => card.kind === "artifact" || card.kind === "creature",
+          )!,
+          id: `card:slingshot-${seat}`,
+          seat,
+          name: "Goblin Slingshot",
+          kind: "artifact",
+          types: "Artifact — Contraption",
+          power: null,
+          toughness: null,
+          tapped: false,
+          attacking: false,
+          sprocket: 2,
+          art: null,
+        })),
+      ]
+    : now.board.battlefield;
+
   const next = () => {
     const after = new URLSearchParams(params);
     after.set("change", String(change + 1));
@@ -53,7 +81,7 @@ export default function DevBoardPage() {
   return (
     <div className="bf-page">
       <Board
-        battlefield={now.board.battlefield}
+        battlefield={battlefield}
         hand={now.board.hand}
         viewerSeat={now.board.viewerSeat}
         artUrl={asIs}

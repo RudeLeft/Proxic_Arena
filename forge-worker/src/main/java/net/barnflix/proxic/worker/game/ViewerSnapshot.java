@@ -646,6 +646,15 @@ final class ViewerSnapshot {
             entry.addProperty("ringBearer", true);
         }
 
+        // Phase 8 Amendment 1, Un-sets (public): the sector a creature is
+        // in (space sculptor) and the sprocket a Contraption is on.
+        if (card.getSector() != null) {
+            entry.addProperty("sector", card.getSector());
+        }
+        if (card.isContraption() && card.getSprocket() >= 1 && card.getSprocket() <= 3) {
+            entry.addProperty("sprocket", card.getSprocket());
+        }
+
         // Auras and equipment are drawn WITH what they modify,
         // which is the only arrangement that reads correctly: an
         // equipment in its own row tells you nothing about which

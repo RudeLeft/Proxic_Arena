@@ -189,6 +189,10 @@ export interface SnapshotCard {
   attachedTo: string | null;
   /** The Ring-bearer (the Ring's abilities are its alone). Public. */
   ringBearer: boolean;
+  /** Un-sets (public): a creature's sector (Alpha, Beta, Gamma), else null. */
+  sector: string | null;
+  /** Un-sets (public): the sprocket a Contraption is on (1-3), else null. */
+  sprocket: number | null;
   /** §7.61 B11 — Forge's game timestamp: arrival order in a row. */
   enteredAt: number | null;
   /** §7.61 B12 — a token (they pile when identical). */
@@ -619,6 +623,8 @@ function asCards(value: unknown): SnapshotCard[] {
       keywords: asNotices(row["keywords"]),
       attachedTo: asString(row["attachedTo"]),
       ringBearer: row["ringBearer"] === true,
+      sector: asString(row["sector"]),
+      sprocket: typeof row["sprocket"] === "number" ? row["sprocket"] : null,
       // §6.123 — a content hash or nothing.
       //
       // Validated to the same shape the server validates, so a

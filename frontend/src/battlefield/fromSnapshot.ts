@@ -46,6 +46,8 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ...(card.enteredAt !== null ? { enteredAt: card.enteredAt } : {}),
     token: card.token,
     ringBearer: card.ringBearer,
+    ...(card.sector ? { sector: card.sector } : {}),
+    ...(card.sprocket ? { sprocket: card.sprocket } : {}),
     art: card.art,
   };
 }

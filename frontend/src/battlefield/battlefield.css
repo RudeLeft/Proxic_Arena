@@ -615,6 +615,25 @@
   white-space: nowrap;
 }
 
+/* Un-sets (public): a creature's sector, a Contraption's sprocket -- a word
+ * on the card like the Ring-bearer, lower down and cooler, so the two never
+ * read as one. */
+.bf-zone {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border: 1px solid #5fb8c9;
+  border-radius: 2px;
+  background: rgb(10 13 17 / 88%);
+  color: #cfeef4;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.07);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
 /* Mana costs as symbols, at the right of a card's name bar (owner
  * 2026-10-21): hand and stack cards, and close up. The cost the cast would
  * take right now; a green edge when it is less than printed, red when more. */
