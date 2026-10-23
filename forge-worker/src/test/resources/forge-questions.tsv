@@ -108,7 +108,7 @@ Q chooseNumber(SpellAbility,String,List,Player)	ASKS	chooseNumber	Choose a numbe
 Q chooseNumber(SpellAbility,String,int,int)	ASKS	chooseNumber	Choose a number	Marvel of Engineering-style counts, Spell Pierce X	scripts/check-tracked-state.py
 Q chooseNumber(SpellAbility,String,int,int,Map)	ROUTES-TO		Forge forwards this to chooseNumber	-	-> Q chooseNumber(SpellAbility,String,int,int)
 Q chooseNumberForCostReduction(SpellAbility,int,int)	UNBUILT		"reduce by up to" (Mana Matrix)	3 cards	LoudFailureTest
-Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)	UNBUILT		Offspring, Multikicker (Everflowing Chalice), Casualty, Replicate, Squad, Conspire	104 cards	LoudFailureTest
+Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)	ASKS	chooseNumberForKeywordCost	How many times to pay a keyword's extra cost (Multikicker, Replicate, Squad); yes or no for once-only ones (Offspring, Casualty, Conspire)	104 cards: Everflowing Chalice, Rust-Shield Rampager, Squad and Replicate cards	scripts/check-cost-kinds.py
 Q chooseOptionalCosts(SpellAbility,List)	ASKS	chooseOptionalCosts	Pay an optional extra cost: kicker, entwine	Kicker, Entwine, Buyback	scripts/check-modes.py
 Q choosePDRollToIgnore(List)	UNBUILT		Planar die rolled more than once: which roll to ignore	2 cards together: Fractured Powerstone (rolls the planar die) with Ichor Elixir (roll one more, ignore one)	LoudFailureTest
 Q choosePermanentsToDestroy(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToDestroy	Destroy one of your own permanents of your choice	Imperial Edict, Wei Assassins	scripts/check-sacrifice.py

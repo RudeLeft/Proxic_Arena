@@ -217,6 +217,8 @@ export function headingFor(kind: string): string {
       return "Choose what to tap";
     case "chooseCardsForCost":
       return "Choose what to pay with";
+    case "chooseNumberForKeywordCost":
+      return "Pay it extra times?";
     case "CostSacrifice":
       return "Choose what to sacrifice";
     case "CostDiscard":
@@ -342,6 +344,8 @@ export function hintFor(kind: string, options: number): string {
       return "Only you can see these cards. The line above says what to do with them.";
     case "chooseNumber":
       return "These are the numbers allowed. This cannot be skipped.";
+    case "chooseNumberForKeywordCost":
+      return "Each time costs that much more, and does that much more. None is an answer.";
     case "chooseCardsForCost":
       // An "unless you pay" while something resolves: passing is a real
       // answer -- the line above says what happens then.

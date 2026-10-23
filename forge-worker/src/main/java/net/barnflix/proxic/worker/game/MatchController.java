@@ -1737,6 +1737,41 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * How many times to pay a keyword's extra cost -- Phase 8, 104 cards:
+     * Multikicker (Everflowing Chalice), Replicate, Squad; and, for "up to
+     * once" (Offspring, Casualty, Conspire -- Forge's addKeywordCost
+     * routes here with max 1), yes or no. A port of Forge's human
+     * controller: a pass is none. The counts offered grow with what the
+     * board can pay, as for X (ceilingFor). Was a loud stub.
+     */
+    @Override
+    public int chooseNumberForKeywordCost(SpellAbility sa, forge.game.cost.Cost cost,
+            forge.game.keyword.KeywordInterface keyword, String prompt, int max) {
+        if (max <= 0) {
+            return 0;
+        }
+        host.offerSubject(sa);
+        String what = prompt == null || prompt.isBlank() ? keyword.getTitle() : prompt;
+        if (max == 1) {
+            return askYesNo("chooseNumberForKeywordCost", what, false) ? 1 : 0;
+        }
+        int ceiling = ceilingFor(0, max);
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int value = 0; value <= ceiling; value++) {
+            labels.put("number:" + value, String.valueOf(value));
+        }
+        try {
+            String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseNumberForKeywordCost",
+                    new java.util.ArrayList<>(labels.keySet()), false, what + " -- how many times?",
+                    pending -> host.publishDecision(pending, labels));
+            return choice == null || !choice.startsWith("number:") ? 0 : Integer.parseInt(choice.substring(7));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return 0;
+        }
+    }
+
+    /**
      * One of several labelled choices, by index, or -1 for a pass --
      * the shape the three ports below share.
      */

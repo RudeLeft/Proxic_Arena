@@ -13,6 +13,11 @@ with options no default would take, and checks the board:
               Island offered goes back to hand, and the Atoll stays; the
               question says what it takes, with the number filled in
   atoll-no    the same, declined: the Atoll is sacrificed
+  chalice     Everflowing Chalice, multikicker (chooseNumberForKeywordCost):
+              kicked twice -- two charge counters
+  offspring-yes  Rust-Shield Rampager, offspring (the same question, yes or
+              no): a 1/1 token copy enters
+  offspring-no   the same, no: no token
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -264,7 +269,107 @@ def atoll(pay):
                    else "Coral Atoll: declined, and the Atoll was sacrificed", found)
 
 
-SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False)}
+def counters_of(c):
+    return {k["name"]: k["count"] for k in (c or {}).get("counters", []) or []}
+
+
+def chalice():
+    """Everflowing Chalice, multikicker {2}: kicked twice (not the first
+    count offered, 0), it enters with two charge counters."""
+    g = game("chalice", [("Plains", 40), ("Everflowing Chalice", 20)])
+    st = {"cast": None, "asked": [], "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseNumberForKeywordCost":
+            ids = [o["actionId"] for o in f["options"]]
+            st["asked"].append((seat, ids, f.get("prompt")))
+            return "number:2" if "number:2" in ids else DEFAULT
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None and len(g.untapped_lands(1)) >= 4:
+                o = cast(g, f, "Everflowing Chalice")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        chalice = next((c for c in g.mine(1) if c["id"] == st["cast"]), None)
+        if st["asked"] and chalice and stack_empty(g) and st["after"] is None:
+            st["after"] = counters_of(chalice)
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=14)
+    found = {"asked": st["asked"], "counters": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Everflowing Chalice never asked how many times to kick", found
+    problems = []
+    seat, ids, _ = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked about seat 1's multikicker")
+    if ids[0] != "number:0" or "number:2" not in ids:
+        problems.append(f"0 first, 2 among the counts: {ids}")
+    if (st["after"] or {}).get("CHARGE") != 2:
+        problems.append(f"kicked twice, so two charge counters: {st['after']}")
+    return outcome(problems, "Everflowing Chalice: kicked twice, and it entered with two charge counters", found)
+
+
+def offspring(yes):
+    """Rust-Shield Rampager, offspring {2}: yes or no (Forge's addKeywordCost,
+    max 1) -- yes makes a 1/1 token copy when it enters."""
+    g = game(f"offspring-{'yes' if yes else 'no'}", [("Forest", 36), ("Rust-Shield Rampager", 24)])
+    st = {"cast": None, "asked": [], "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseNumberForKeywordCost":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            return "confirm:yes" if yes else "confirm:no"
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None and len(g.untapped_lands(1)) >= 6:
+                o = cast(g, f, "Rust-Shield Rampager")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        landed = any(c["id"] == st["cast"] for c in g.mine(1))
+        if st["asked"] and landed and stack_empty(g) and st["after"] is None:
+            st["after"] = [(c["id"], c.get("power"), c.get("toughness")) for c in g.mine(1, name="Rust-Shield Rampager")
+                           if c.get("token")]
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "tokens": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Rust-Shield Rampager never asked about offspring", found
+    problems = []
+    if any(seat != 1 for seat, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's offspring")
+    tokens = st["after"] or []
+    if yes and [(p, t) for _, p, t in tokens] != [(1, 1)]:
+        problems.append(f"offspring paid: one 1/1 token copy, got {tokens}")
+    if not yes and tokens:
+        problems.append(f"offspring not paid: no token, got {tokens}")
+    return outcome(problems, "offspring paid, and a 1/1 token copy entered" if yes
+                   else "offspring not paid, and no token", found)
+
+
+SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
+             "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False)}
 
 if __name__ == "__main__":
     codes = []
