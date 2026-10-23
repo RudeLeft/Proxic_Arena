@@ -1,5 +1,6 @@
 package net.barnflix.proxic.match
 
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.barnflix.proxic.ServerConfig
@@ -236,15 +237,6 @@ class MatchRuntime(
         userId: UUID,
     ): kotlinx.serialization.json.JsonObject? = live[matchId]?.snapshotFor(userId)
 
-    /**
-     * Spec 0002 — who is being asked, for a connection that just arrived:
-     * public, so every participant gets it. Null when no match is live here.
-     */
-    fun askingFor(matchId: UUID): kotlinx.serialization.json.JsonObject? {
-        val running = live[matchId] ?: return null
-        return askingMessage(running.pending()?.authorisedSeat)
-    }
-
     /** §6.111 — what to re-send to a connection that just arrived. */
     fun pendingFor(
         matchId: UUID,
@@ -284,4 +276,16 @@ class MatchRuntime(
             live.remove(matchId)?.worker?.stop()
         }
     }
+}
+
+/**
+ * Spec 0002 — who is being asked, for a connection that just arrived:
+ * public, so every participant gets it. Null when no match is live here.
+ */
+fun askingFor(
+    runtime: MatchRuntime,
+    matchId: UUID,
+): JsonObject? {
+    val running = runtime.liveMatch(matchId) ?: return null
+    return askingMessage(running.pending()?.authorisedSeat)
 }

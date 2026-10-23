@@ -32,7 +32,9 @@ class MatchDecisions(
             // question may already have arrived -- and then nobody
             // is told "nobody is asked" (spec 0002), because somebody is.
             is WorkerEvent.Answered ->
-                if (live.answered(event.decisionId)) everyone(live) { user -> announcer.asking(live.match.matchId, user, null) }
+                if (live.answered(event.decisionId)) {
+                    everyone(live) { user -> announcer.asking(live.match.matchId, user, null) }
+                }
 
             is WorkerEvent.Snapshot -> {
                 // §6.121 — the asset step, and the only place it

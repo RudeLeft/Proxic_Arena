@@ -22,14 +22,13 @@ import java.util.concurrent.ConcurrentHashMap
 // answer from any of them wins, which the gate enforces rather
 // than this.
 
-private class Connection(
+internal class Connection(
     val connectionId: String,
     val outgoing: SendChannel<Frame>,
 )
 
-class MatchHub : DecisionAnnouncer {
-    private val log = LoggerFactory.getLogger(MatchHub::class.java)
-
+/** The connections watching each match, by user. */
+class MatchWatchers {
     private val watchers =
         ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, MutableSet<Connection>>>()
 
@@ -56,6 +55,17 @@ class MatchHub : DecisionAnnouncer {
         if (forMatch.isEmpty()) watchers.remove(matchId)
     }
 
+    internal fun of(
+        matchId: UUID,
+        userId: UUID,
+    ): List<Connection> = watchers[matchId]?.get(userId)?.toList().orEmpty()
+}
+
+class MatchHub : DecisionAnnouncer {
+    private val log = LoggerFactory.getLogger(MatchHub::class.java)
+
+    val watchers = MatchWatchers()
+
     /** Everything leaves the building through here. */
     suspend fun sendTo(
         matchId: UUID,
@@ -63,7 +73,7 @@ class MatchHub : DecisionAnnouncer {
         message: JsonObject,
     ) {
         val text = message.toString()
-        watchers[matchId]?.get(userId)?.toList()?.forEach { connection ->
+        watchers.of(matchId, userId).forEach { connection ->
             // A NEW Frame per connection. A Frame carries a
             // ByteBuffer whose position is consumed on write, so
             // one frame handed to several connections arrives

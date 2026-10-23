@@ -63,7 +63,7 @@ fun Route.matchSocket(
         }
 
         val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
-        hub.open(matchId, userId, connectionId, outgoing)
+        hub.watchers.open(matchId, userId, connectionId, outgoing)
 
         try {
             // §6.110 — hello first, and NOT a decision before it.
@@ -88,7 +88,7 @@ fun Route.matchSocket(
             }
             // Spec 0002 — and who is being asked, so a returning player's
             // screen does not guess it from priority.
-            runtime.askingFor(matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+            askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
 
             for (frame in incoming) {
                 val text = (frame as? Frame.Text)?.readText() ?: continue
@@ -97,7 +97,7 @@ fun Route.matchSocket(
                 }
             }
         } finally {
-            hub.close(matchId, userId, connectionId)
+            hub.watchers.close(matchId, userId, connectionId)
         }
     }
 }
