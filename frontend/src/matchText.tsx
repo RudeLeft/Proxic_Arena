@@ -289,6 +289,8 @@ export function headingFor(kind: string): string {
       return "Exchange a roll";
     case "chooseRollSwapValue":
       return "Power or toughness";
+    case "chooseSector":
+      return "Choose a sector";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":

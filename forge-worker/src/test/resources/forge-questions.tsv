@@ -120,7 +120,7 @@ Q chooseRollToIgnore(List)	ASKS	chooseRollToIgnore	Which roll to ignore (Bambooz
 Q chooseRollToModify(List)	ASKS	chooseRollToModify	Which roll to change by one, or none (Xenosquirrels, Night Shift of the Living Dead)	Un-set: Xenosquirrels, Night Shift of the Living Dead	scripts/check-dice.py
 Q chooseRollToSwap(List)	ASKS	chooseRollToSwap	Which roll to exchange with a creature's power or toughness, or none (Vedalken Squirrel-Whacker)	Un-set: Vedalken Squirrel-Whacker	scripts/check-dice.py
 Q chooseSaToActivateFromOpeningHand(List)	ASKS	chooseSaToActivateFromOpeningHand	Begin the game with a card from your opening hand	Leylines, Gemstone Caverns	scripts/check-leyline.py
-Q chooseSector(Card,String,List)	UNBUILT		Un-set: Unfinity sectors	71 cards across the three	LoudFailureTest
+Q chooseSector(Card,String,List)	ASKS	chooseSector	A sector (Unfinity's space sculptor): each creature assigned by its controller, and effects that pick one -- one answer per sector	Un-set: Space Beleren	scripts/check-unset.py
 Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	scripts/check-you-choose.py
 Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNREACHABLE		Choose a card face from all of Forge's cards by a filter: never called by Forge's rules at the pinned version (only inside Forge's desktop, to name a card -- Proxic answers naming as chooseCardName)	-	UnreachableQuestionsTest
 Q chooseSingleCardForZoneChange(ZoneType,List,SpellAbility,CardCollection,DelayedReveal,String,boolean,Player)	ASKS	chooseSingleEntityForEffect	Choose one card to move	a single tutor, a single return	scripts/check-panglacial-wurm.py

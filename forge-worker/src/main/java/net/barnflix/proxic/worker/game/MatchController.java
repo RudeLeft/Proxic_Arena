@@ -2418,6 +2418,19 @@ public final class MatchController extends GeneratedControllerBase {
         return picked < 0 ? null : swapChoices.get(picked);
     }
 
+    /**
+     * A sector -- Unfinity's "space sculptor" (Space Beleren): each creature
+     * is assigned to Alpha, Beta or Gamma by its controller, and some
+     * effects pick one sector. A port of Forge's human controller: one
+     * answer per sector. Phase 8 Amendment 1. Was a loud stub.
+     */
+    @Override
+    public String chooseSector(forge.game.card.Card assignee, String ai, List<String> sectors) {
+        String prompt = assignee == null ? "Choose a sector."
+                : "Assign " + ViewerSnapshot.nameFor(assignee, player.getView()) + " to a sector.";
+        return sectors.get(Math.max(0, askIndex("chooseSector", sectors, true, prompt)));
+    }
+
     private static List<String> rollLabels(List<Integer> rolls) {
         List<String> labels = new java.util.ArrayList<>();
         rolls.forEach(r -> labels.add("Roll: " + r));

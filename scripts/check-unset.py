@@ -1,0 +1,142 @@
+"""Un-set questions: the answer is what happens. PHASE_08 P8-I, Amendment 1.
+
+    python -I scripts/check-unset.py <worker.jar> <res-root> [trace-dir] [scenario...]
+
+Phase 8 Amendment 1 (owner, 2026-10-23): every Un-set question is built.
+Each scenario is its own small game (Mechanics Lab, Layer B):
+
+  sector      Space Beleren ("space sculptor"): each creature is assigned a
+              sector by its controller (chooseSector) -- the first Lions to
+              Gamma, the second to Alpha; then Beleren's -1 picks Gamma: a
+              +1/+1 counter on the Gamma Lions only
+
+The dice questions Un-set cards reach are in check-dice.py.
+
+Exit 0 when every scenario held, 1 when one did not, 2 when one never
+reached its moment.
+"""
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lab import DEFAULT, Game, card_of  # noqa: E402
+
+JAR, RES = sys.argv[1], sys.argv[2]
+ARG = sys.argv[3] if len(sys.argv) > 3 else ""
+TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
+ONLY = [a for a in sys.argv[3:] if a != TRACES]
+LANDS_ONLY = [("Forest", 60)]
+
+
+def game(name, seat1, seat2=LANDS_ONLY):
+    if not TRACES:
+        trace = ""
+    elif TRACES.endswith(".jsonl"):
+        trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
+    else:
+        trace = os.path.join(TRACES, f"unset-{name}.jsonl")
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+
+
+def stack_empty(g):
+    return not g.state.get(1, {}).get("stack") and not g.state.get(2, {}).get("stack")
+
+
+def cast(g, f, name):
+    in_hand = {c["id"] for c in g.zone(1, "hand") if c.get("name") == name}
+    return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in in_hand
+                 and o.get("payable") is not False and "Play land" not in (o.get("label") or "")), None)
+
+
+def outcome(problems, ok, found):
+    if found.get("stopped"):
+        problems = problems + [found["stopped"]]
+    return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
+
+
+def sector():
+    g = game("sector", [("Plains", 16), ("Island", 16), ("Space Beleren", 12), ("Savannah Lions", 16)])
+    st = {"assigned": {}, "asked": [], "used": False, "picked": None, "turn": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if k == "chooseSector":
+            labels = [o.get("label") for o in f["options"]]
+            st["asked"].append((seat, labels, prompt))
+            if prompt.startswith("Assign "):
+                lions = [c["id"] for c in g.mine(1, name="Savannah Lions") if c["id"] not in st["assigned"]]
+                want = "Gamma" if not st["assigned"] else "Alpha"
+                if lions:
+                    st["assigned"][lions[0]] = want
+                return next(o["actionId"] for o in f["options"] if o.get("label") == want)
+            st["picked"] = "Gamma"
+            return next(o["actionId"] for o in f["options"] if o.get("label") == "Gamma")
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            beleren = g.mine(1, name="Space Beleren")
+            if not st["used"] and beleren and len(st["assigned"]) >= 2:
+                o = g.option(f, name="Space Beleren", zone="battlefield", contains="sector of your choice")
+                if o:
+                    st["used"], st["turn"] = True, g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["used"]:
+                return None
+            if len(g.mine(1, name="Savannah Lions")) < 2:
+                o = cast(g, f, "Savannah Lions")
+                if o:
+                    return o
+            return None if beleren else cast(g, f, "Space Beleren")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["picked"] and stack_empty(g) and st["after"] is None:
+            st["after"] = {c["id"]: {k["name"]: k["count"] for k in c.get("counters", []) or []}
+                           for c in g.mine(1, name="Savannah Lions")}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"assigned": st["assigned"], "asked": st["asked"][:4], "picked": st["picked"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["picked"] or not st["after"]:
+        return "inconclusive", "Space Beleren never chose a sector with two Lions assigned", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's sectors")
+    if any(labels != ["Alpha", "Beta", "Gamma"] for _, labels, _ in st["asked"]):
+        problems.append(f"one answer per sector: {st['asked']}")
+    if not any(p.startswith("Assign Savannah Lions to a sector") for _, _, p in st["asked"]):
+        problems.append(f"the assignment names the creature: {[p for _, _, p in st['asked']]}")
+    for cid, where in st["assigned"].items():
+        got = (st["after"].get(cid) or {}).get("P1P1")
+        if where == "Gamma" and got != 1:
+            problems.append(f"{cid} is in Gamma: one +1/+1 counter, got {st['after'].get(cid)}")
+        if where != "Gamma" and got:
+            problems.append(f"{cid} is in {where}: no counter, got {st['after'].get(cid)}")
+    return outcome(problems, "Space Beleren: the Lions in Gamma got the counter, the one in Alpha did not", found)
+
+
+SCENARIOS = {"sector": sector}
+
+if __name__ == "__main__":
+    codes = []
+    for name, scenario in SCENARIOS.items():
+        if ONLY and name not in ONLY:
+            continue
+        verdict_, message, found = scenario()
+        codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
+        print(f"{name}: {verdict_.upper()}: {message}")
+        if verdict_ != "ok":
+            print("  " + json.dumps(found, default=str)[:1200])
+        sys.stdout.flush()
+    # A wrong answer outranks a game that never got there.
+    sys.exit(1 if 1 in codes else max(codes, default=0))
