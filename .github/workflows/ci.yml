@@ -94,6 +94,11 @@ jobs:
       # edited without regenerating, and the ledger is lying.
       - run: python3 scripts/mechanics-lab-ledger.py --check
 
+      # PHASE_08 P8-C, P8-D: every piece of evidence the record of Forge's
+      # questions names exists and runs in CI. (The worker's own build holds
+      # the record to the compiled code: ForgeQuestionRecordTest.)
+      - run: python3 -I scripts/check-question-record.py
+
       - run: npm ci
         working-directory: frontend
       - run: npx tsc --noEmit
@@ -259,6 +264,9 @@ jobs:
           # PHASE_07 P7-C, over the same games: every permanent Forge put on a
           # battlefield has a row, the one its current type line says.
           python3 -I scripts/check-kinds.py "$traces"/*.jsonl
+          # PHASE_08: every question these games asked, for the job below,
+          # which reads both halves of the Lab together.
+          python3 -I scripts/check-questions-asked.py --summarise "$traces"/*.jsonl             > "$RUNNER_TEMP/questions-asked-$shard.txt"
 
       - uses: actions/upload-artifact@v4.4.3
         if: failure()
@@ -266,6 +274,30 @@ jobs:
           name: mechanics-lab-traces-${{ matrix.shard }}
           path: ${{ runner.temp }}/lab-traces/
           retention-days: 7
+
+      - uses: actions/upload-artifact@v4.4.3
+        with:
+          name: questions-asked-${{ matrix.shard }}
+          path: ${{ runner.temp }}/questions-asked-${{ matrix.shard }}.txt
+          retention-days: 7
+
+  # PHASE_08: a question the record says Proxic answers must have been
+  # asked in this run's Mechanics Lab games -- both halves of them. A
+  # scenario that stops reaching its question fails here, instead of
+  # passing for a check that no longer checks anything.
+  questions-asked:
+    name: Every answered question was asked
+    runs-on: ubuntu-latest
+    needs: mechanics-lab
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          pattern: questions-asked-*
+          merge-multiple: true
+          path: asked
+      - run: python3 -I scripts/check-questions-asked.py asked/*.txt
 
   browser-tests:
     name: Browser tests (${{ matrix.shard }}/4)
@@ -453,7 +485,7 @@ jobs:
   publish:
     name: Promote to latest
     runs-on: ubuntu-latest
-    needs: [build, checks, server-tests, mechanics-lab, browser-tests]
+    needs: [build, checks, server-tests, mechanics-lab, questions-asked, browser-tests]
     # Only main publishes. A pull request gets the full gate and
     # changes nothing anyone can deploy.
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
