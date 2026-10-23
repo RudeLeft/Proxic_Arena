@@ -93,7 +93,13 @@ class MatchPreflight(
         val entries = entriesOf(deckId) ?: return gone()
         if (entries.isEmpty()) return gone()
 
-        // Forge's half first since Phase 8 Amendment 3: which cards are
+        // Proxic's free half first: a deck illegal whatever Forge says
+        // does not need a JVM to be told so.
+        OpenFormat.certainViolations(ParsedDeck(null, entries)).takeIf { it.isNotEmpty() }?.let { certain ->
+            return DeckCheck(DeckVerdict.INVALID_FOR_PRESET, certain.joinToString("; ") { it.detail })
+        }
+
+        // Then Forge's, since Phase 8 Amendment 3: which cards are
         // Contraptions or Attractions -- outside the 60–65 -- is Forge's
         // reading of the card. §5.99 — the message that reaches a
         // browser is ours; Forge's own diagnostics, paths and traces are

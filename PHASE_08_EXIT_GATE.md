@@ -86,6 +86,25 @@ triggers resolve, and a game that never reached its moment is
 - **Forge patches 0001 and 0002 are carried locally**, not upstreamed.
 - **The planar die** cannot be rolled outside Planechase, which Proxic
   does not play (proven, not built).
+- **The Deck Builder's Arena export** (its own project): it caps a deck
+  at 65 cards, Contraptions included, and picks printings Forge lacks,
+  which Arena refuses. The owner is fixing both there (2026-10-23).
+- **"Each slice a release" was missed:** Phase 8 shipped as builds, with
+  no release or changelog entry since 1.0.0. One release closes it
+  ("Next", step 3).
+
+## The final check (2026-10-23)
+
+A comb of this phase against its locked text, and a code review of
+everything it added (about 3,000 lines of game code). The comb found the
+missed releases and the Deck Builder gap above; everything else promised
+has its evidence. The review found three real faults, fixed with tests:
+with the card checker down, a legal Contraption deck was refused as "too
+large"; decks illegal whatever Forge says were sent to Forge first (a
+worker started for nothing); a face-down creature offered in a cost
+question had no name. A fourth was hardened (the cost-check guard now
+restores itself). One noted, not changed: a question interrupted as a
+match is being stopped falls back to its first answer.
 
 ---
 

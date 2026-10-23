@@ -1126,7 +1126,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         for (Card card : cards) {
             String id = "cost:card:" + card.getId();
             byId.put(id, card);
-            labels.put(id, card.getName());
+            labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
         }
         if (done) {
             labels.put("cost:done", "Done");
@@ -1287,7 +1287,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             // §6.46 -- typed, like every other object id.
             String id = "cost:card:" + card.getId();
             byId.put(id, card);
-            labels.put(id, card.getName());
+            labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
         }
         // What backing out of this cost undoes (owner 2026-10-22).
         host.offerSubject(ability);

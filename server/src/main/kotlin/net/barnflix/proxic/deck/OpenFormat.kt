@@ -69,6 +69,19 @@ object OpenFormat {
     fun isBasicLand(name: String): Boolean = name.substringBefore(" // ").trim().lowercase() in BASIC_LAND_NAMES
 
     /**
+     * The violations that hold whatever Forge says about the cards, so a
+     * deck can be refused before Forge is asked (which costs a worker).
+     * Taking cards out to a contraption or attraction deck only makes the
+     * main deck smaller, so "too few" stands; more than 4 copies breaks
+     * the main deck's limit and the side decks' one-of alike. Only "too
+     * many" waits for Forge: those extra cards may be Contraptions.
+     */
+    fun certainViolations(deck: ParsedDeck): List<DeckViolation> {
+        val forgeDecides = "DECK_TOO_LARGE"
+        return validate(deck).filterNot { it.code == forgeDecides }
+    }
+
+    /**
      * Every violation, not just the first.
      *
      * A player fixing one problem at a time, with an upload between

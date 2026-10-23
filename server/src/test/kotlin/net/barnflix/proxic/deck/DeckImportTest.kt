@@ -189,6 +189,48 @@ class DeckImportTest {
         assertEquals(0, rowCount("deck_entry"))
     }
 
+    /**
+     * Phase 8 Amendment 3 — with the card checker down, a deck with
+     * Contraptions is "could not be checked", never "too large": without
+     * Forge's reading its fifteen Contraptions would count as main-deck
+     * cards (code review, 2026-10-23).
+     */
+    @Test
+    fun `a contraption deck is not called illegal when the card checker is down`() {
+        val noWorker =
+            ServerConfig(
+                host = "0.0.0.0",
+                port = 0,
+                databaseUrl = container!!.jdbcUrl,
+                forgeWorkerJar = File(dataRoot, "no-such-worker.jar").path,
+                dataRoot = dataRoot.path,
+                forgeResRoot = resRoot.path,
+                databasePasswordValue = container!!.password,
+                databaseUserValue = container!!.username,
+            )
+        val down = DeckImporter(noWorker, database!!.dataSource(), CardResolver(noWorker))
+        val contraptions =
+            listOf(
+                "Goblin Slingshot", "Auto-Key", "Boomflinger", "Buzz Buggy", "Dogsnail Engine", "Bee-Bee Gun",
+                "Hard Hat Area", "Head Banger", "Inflation Station", "Oaken Power Suit", "Pet Project",
+                "Rapid Prototyper", "Targeting Rocket", "Thud-for-Duds", "Twiddlestick Charger",
+            )
+        val zip = File("build/contraptions-unchecked.zip")
+        ZipOutputStream(zip.outputStream()).use { out ->
+            out.putNextEntry(ZipEntry("Contraptions.txt"))
+            out.write(
+                ("// Contraptions\n\n60 Mountain [FRA:287]\n" + contraptions.joinToString("") { "1 $it\n" })
+                    .toByteArray(),
+            )
+            out.closeEntry()
+        }
+
+        val result = down.import(zip, zip.name, owner)
+        assertTrue(result is ImportResult.Rejected, "got $result")
+        assertEquals("CARDS_NOT_RESOLVED", (result as ImportResult.Rejected).code, "got ${result.problems}")
+        assertEquals(0, rowCount("imported_deck"))
+    }
+
     /** §2.47, owner decision D2 — one unresolvable card rejects the deck. */
     @Test
     fun `a deck with an unknown card is refused entirely`() {

@@ -341,6 +341,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (sa.isLandAbility() || sa.isManaAbility()) {
             return true;
         }
+        boolean wasChecking = CHECKING.get();
         CHECKING.set(true);
         try {
             return forge.ai.ComputerUtilMana.canPayManaCost(sa, payer, 0, false)
@@ -349,7 +350,7 @@ public final class MatchController extends GeneratedControllerBase {
             System.err.println("proxic: payment check failed for " + sa + ": " + e);
             return true;
         } finally {
-            CHECKING.set(false);
+            CHECKING.set(wasChecking);
         }
     }
 
@@ -501,6 +502,7 @@ public final class MatchController extends GeneratedControllerBase {
             if (!sa.isSpell() || sa.getPayCosts() == null) {
                 continue;
             }
+            boolean wasChecking = CHECKING.get();
             CHECKING.set(true);
             try {
                 forge.game.mana.ManaCostBeingPaid now = forge.ai.ComputerUtilMana.calculateManaCost(
@@ -509,7 +511,7 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (RuntimeException e) {
                 System.err.println("proxic: cost check failed for " + sa + ": " + e);
             } finally {
-                CHECKING.set(false);
+                CHECKING.set(wasChecking);
             }
         }
         host.offerCosts(costs);

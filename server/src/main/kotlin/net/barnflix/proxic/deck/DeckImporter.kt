@@ -166,20 +166,12 @@ class DeckImporter(
                 is DeckParseResult.Ok -> parsed.deck
             }
 
-        // 7. Forge resolution (§2.46–§2.49). Asked BEFORE legality since
-        // Phase 8 Amendment 3: which cards are Contraptions or Attractions
-        // -- and so outside the 60–65 -- is Forge's reading of the card.
-        val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
-
-        // §2.44, §2.45 — Open Format legality.
-        val sections = resolutions.values.mapNotNull { r -> r.section?.let { r.name to it } }.toMap()
-        val violations = OpenFormat.validate(deck, sections)
-        if (violations.isNotEmpty()) {
-            return ImportResult.Rejected(
-                "DECK_NOT_LEGAL",
-                "The deck is not legal in Open Format.",
-                violations.map { it.detail },
-            )
+        // §2.44, §2.45 — Open Format legality, the part that needs no
+        // Forge: resolving 65 cards costs a worker; refusing a 40-card
+        // deck costs nothing.
+        val certain = OpenFormat.certainViolations(deck)
+        if (certain.isNotEmpty()) {
+            return notLegal(certain)
         }
 
         // PHASE_07 §7.65 -- one of your names already? Asked here,
@@ -191,10 +183,20 @@ class DeckImporter(
             return ImportResult.NameTaken(displayName)
         }
 
+        // 7. Forge resolution (§2.46–§2.49). Asked BEFORE the rest of
+        // legality since Phase 8 Amendment 3: which cards are Contraptions
+        // or Attractions -- and so outside the 60–65 -- is Forge's reading
+        // of the card.
+        val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
         val unresolved =
             deck.entries.filter {
                 resolutions[it.name.lowercase()]?.status != CardResolution.Status.RESOLVED
             }
+        val violations = legalityByForge(deck, resolutions.values)
+        if (violations.isNotEmpty()) {
+            return notLegal(violations)
+        }
+
         if (unresolved.isNotEmpty()) {
             // Owner decision D2: one unresolvable card rejects the
             // whole import. Never a degraded or flagged deck, and
@@ -236,6 +238,28 @@ class DeckImporter(
             ),
         )
     }
+
+    /**
+     * The rest of Open Format legality, with Forge's reading of which cards
+     * are Contraptions or Attractions. With no answer from Forge there is no
+     * reading either: nothing is said here, and the cards are reported as
+     * not checked -- never a deck with Contraptions as too large.
+     */
+    private fun legalityByForge(
+        deck: ParsedDeck,
+        resolutions: Collection<CardResolution>,
+    ): List<DeckViolation> {
+        if (resolutions.any { it.status == CardResolution.Status.UNAVAILABLE }) return emptyList()
+        val sections = resolutions.mapNotNull { r -> r.section?.let { r.name to it } }.toMap()
+        return OpenFormat.validate(deck, sections)
+    }
+
+    private fun notLegal(violations: List<DeckViolation>) =
+        ImportResult.Rejected(
+            "DECK_NOT_LEGAL",
+            "The deck is not legal in Open Format.",
+            violations.map { it.detail },
+        )
 
     /**
      * Extract, validate and store each image, returning the problems.

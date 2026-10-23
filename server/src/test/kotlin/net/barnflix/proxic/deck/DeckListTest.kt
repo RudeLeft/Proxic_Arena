@@ -231,6 +231,19 @@ class OpenFormatTest {
     }
 
     @Test
+    fun `what is illegal whatever Forge says is known before Forge is asked`() {
+        // Too few and too many copies stand however Forge reads the cards...
+        val short = deckOf("40 Mountain [FRA:287]", "5 Fiery Temper [INR:154]")
+        assertEquals(
+            setOf("DECK_TOO_SMALL", "TOO_MANY_COPIES"),
+            OpenFormat.certainViolations(short).map { it.code }.toSet(),
+        )
+        // ...but 75 cards may be 60 and fifteen Contraptions: that waits for Forge.
+        val big = deckOf(*(listOf("60 Mountain [FRA:287]") + contraptions.map { "1 $it" }).toTypedArray())
+        assertEquals(emptyList(), OpenFormat.certainViolations(big))
+    }
+
+    @Test
     fun `an attraction deck needs ten`() {
         val attractions = (1..9).map { "Attraction $it" }
         val deck = deckOf(*(listOf("60 Mountain [FRA:287]") + attractions.map { "1 $it" }).toTypedArray())
