@@ -793,13 +793,22 @@ public final class GameHost {
     private volatile com.google.gson.JsonObject subject = null;
 
     void offerSubject(forge.game.spellability.SpellAbility sa) {
+        offerSubject(sa, null);
+    }
+
+    /**
+     * The same, for a question about ANOTHER player's card (an Edict asks
+     * its target): named as [viewer] may know it, so a face-down source
+     * stays "Face-down" (P6-I). Null: the asker's own card, its real name.
+     */
+    void offerSubject(forge.game.spellability.SpellAbility sa, forge.game.player.PlayerView viewer) {
         if (sa == null || sa.getHostCard() == null) {
             subject = null;
             return;
         }
         forge.game.card.Card card = sa.getHostCard();
         com.google.gson.JsonObject about = new com.google.gson.JsonObject();
-        about.addProperty("name", card.getName());
+        about.addProperty("name", viewer == null ? card.getName() : ViewerSnapshot.nameFor(card, viewer));
         about.addProperty("kind", sa.isSpell() ? "spell" : sa.isTrigger() ? "trigger" : "ability");
         if (sa.isSpell()) {
             forge.game.zone.Zone from = card.getCastFrom();

@@ -230,7 +230,7 @@ jobs:
               mindslaver characteristics player-state mana-choice alternate-win \
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
-              library-order mana-pool \
+              library-order mana-pool sacrifice \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
               'run() { timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
@@ -407,6 +407,12 @@ jobs:
       - name: Build the interaction deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/interaction-deck.zip" protocol/fixtures/interaction-deck
+
+      # And sacrificing (spec 0001, F-0001-H): Innocent Blood, answered by
+      # clicking your own creature on the board.
+      - name: Build the sacrifice deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/sacrifice-deck.zip" protocol/fixtures/sacrifice-deck
 
       - run: npm ci
         working-directory: frontend

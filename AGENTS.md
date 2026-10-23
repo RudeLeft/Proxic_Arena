@@ -514,6 +514,15 @@ locking geometry that has not been observed rendering
 any major architecture decision not covered by an approved feature spec
 ```
 
+- **ESC-001 — MUST:** Every question for the owner is asked as a prompt —
+  the question tool, with the choices, a recommendation and a game
+  example in plain English — never only in the text of a reply, where it
+  can be missed. That covers decisions, approvals, "which do you
+  prefer" and anything waiting on the owner. A reply that ends on a
+  question in prose is unfinished. (Owner, 2026-10-22: "Anytime you
+  have a question you have to ask it as a prompt … We don't want to miss
+  questions.")
+
 ---
 
 ## The one-line version

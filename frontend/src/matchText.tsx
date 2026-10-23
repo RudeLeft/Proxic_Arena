@@ -171,6 +171,10 @@ export function headingFor(kind: string): string {
       return "Choose one";
     case "chooseEntitiesForEffect":
       return "Choose from these";
+    case "choosePermanentsToSacrifice":
+      return "Sacrifice";
+    case "choosePermanentsToDestroy":
+      return "Destroy";
     case "orderMoveToZoneList":
       return "Put them in order";
     case "mulliganKeepHand":
@@ -298,6 +302,13 @@ export function hintFor(kind: string, options: number): string {
       // count -- how many more are needed, or how many more are
       // allowed -- so this says what the clicking IS.
       return "Pick them one at a time. The line above says how many more.";
+    case "choosePermanentsToSacrifice":
+    case "choosePermanentsToDestroy":
+      // Spec 0001: an edict asks YOU about your own, even on the
+      // other player's spell -- so this says whose choice it is.
+      // Asked even with one to choose (0001 D2): you see what you
+      // lose before it goes.
+      return "It is your choice: click one of yours on the board.";
     case "announceRequirements":
       // Says what the number COSTS, because that is the part a
       // list of numbers does not show. Not "the list stops at

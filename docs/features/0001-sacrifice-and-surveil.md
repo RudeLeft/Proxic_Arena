@@ -91,7 +91,7 @@ who sacrifices what — Forge's rules, untouched (ARCH-002).
 | F-0001-F | Surveil 2 (Price of Fame): chosen cards to the graveyard; the rest on top in the order picked — the next draws prove it | real game |
 | F-0001-G | No surveilled card reaches the other player before it is public | `check-hidden-hands` over F/G games |
 | F-0001-H | In the browser: a sacrifice is clicked on the board; a surveil is answered in the question line; neither shows a Cancel | browser test |
-| F-0001-I | The Mechanics Lab ledger lists the new cards as passing | ledger |
+| F-0001-I | ~~The Mechanics Lab ledger lists the new cards as passing~~ The Phase 8 question record lists the new questions as proven, each with its game (Amendment 1) | Phase 8 record |
 | F-0001-O | The owner plays a game with Eldrazi Monument (or Edict) and a surveil card and accepts it | owner |
 
 ## Decisions for the owner
@@ -116,4 +116,11 @@ who sacrifices what — Forge's rules, untouched (ARCH-002).
 
 ## Amendments
 
-None.
+1. **2026-10-22 — F-0001-I's proof moves to the Phase 8 record.** The
+   Mechanics Lab ledger lists only the cards in the owner's read-only
+   test-deck list, and none of this spec's cards (Eldrazi Monument,
+   Diabolic Edict, Innocent Blood, Imperial Edict, the surveil cards) are
+   on it, so the ledger has no line to mark them passed. Their proof is
+   recorded where Phase 8 keeps every question's: its record, each
+   question tied to the game that proves it. Owner, 2026-10-22: "Phase 8
+   record".

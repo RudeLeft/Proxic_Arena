@@ -1544,17 +1544,26 @@ public final class MatchController extends GeneratedControllerBase {
             String title,
             Player targetedPlayer,
             java.util.Map<String, Object> params) {
-        java.util.List<T> chosen = new java.util.ArrayList<>();
         if (optionList == null || optionList.isEmpty()) {
-            return chosen;
+            return new java.util.ArrayList<>();
         }
-        java.util.List<T> remaining = new java.util.ArrayList<>();
-        optionList.forEach(remaining::add);
-
         // Shown with the first question only. Repeating seven card
         // names above every pick is noise, and the player has
         // already read them.
-        String context = revealed(delayedReveal);
+        return pickSeveral("chooseEntitiesForEffect", optionList, min, max, title, revealed(delayedReveal));
+    }
+
+    /**
+     * Several of `options`, one question per pick, between min and max --
+     * the loop chooseEntitiesForEffect, sacrifice and destroy share. Each
+     * pick is its own question of `kind`, so the board answers it with a
+     * click and the record sees which question it was.
+     */
+    private <T extends forge.game.GameEntity> java.util.List<T> pickSeveral(
+            String kind, Iterable<T> options, int min, int max, String title, String context) {
+        java.util.List<T> chosen = new java.util.ArrayList<>();
+        java.util.List<T> remaining = new java.util.ArrayList<>();
+        options.forEach(remaining::add);
 
         while (chosen.size() < max && !remaining.isEmpty()) {
             java.util.LinkedHashMap<String, T> byId = new java.util.LinkedHashMap<>();
@@ -1570,8 +1579,10 @@ public final class MatchController extends GeneratedControllerBase {
             }
 
             boolean mandatory = chosen.size() < min;
-            String prompt = title
-                    + (mandatory
+            // A lone required pick needs no count: the title says it.
+            String prompt = min == 1 && max == 1
+                    ? title
+                    : title + (mandatory
                         ? " (" + (min - chosen.size()) + " more needed)"
                         : " (up to " + (max - chosen.size()) + " more, or pass)");
             if (chosen.isEmpty() && !context.isEmpty()) {
@@ -1584,7 +1595,7 @@ public final class MatchController extends GeneratedControllerBase {
                         host.gate().ask(
                                 actedForSeat,
                                 authorisedSeat,
-                                "chooseEntitiesForEffect",
+                                kind,
                                 new java.util.ArrayList<>(byId.keySet()),
                                 mandatory,
                                 prompt,
@@ -1614,6 +1625,52 @@ public final class MatchController extends GeneratedControllerBase {
             chosen.add(picked);
         }
         return chosen;
+    }
+
+    /**
+     * "Sacrifice a creature" as an EFFECT -- Eldrazi Monument, Diabolic
+     * Edict, Innocent Blood, Emerge, Balance (Phase 8 Part 1, spec 0001).
+     * Was a loud stub: Eldrazi Monument stopped the owner's game at turn
+     * 10 (2026-10-22). A port of Forge's own human controller
+     * (choosePermanentsTo): never more than there are; asked even when
+     * only one is legal (owner, 0001 D2) -- you see what you lose; a pass
+     * only when Forge allows none (an optional Emerge).
+     */
+    @Override
+    public forge.game.card.CardCollectionView choosePermanentsToSacrifice(
+            SpellAbility sa, int min, int max, forge.game.card.CardCollectionView valid, String message) {
+        return choosePermanents("choosePermanentsToSacrifice", "Sacrifice", sa, min, max, valid, message);
+    }
+
+    /** Destroying your own permanents of your choice -- the same question (0001 D1). */
+    @Override
+    public forge.game.card.CardCollectionView choosePermanentsToDestroy(
+            SpellAbility sa, int min, int max, forge.game.card.CardCollectionView valid, String message) {
+        return choosePermanents("choosePermanentsToDestroy", "Destroy", sa, min, max, valid, message);
+    }
+
+    private forge.game.card.CardCollectionView choosePermanents(
+            String kind, String verb, SpellAbility sa, int min, int max,
+            forge.game.card.CardCollectionView valid, String message) {
+        int most = Math.min(max, valid == null ? 0 : valid.size());
+        if (most <= 0) {
+            return forge.game.card.CardCollection.EMPTY;
+        }
+        int least = Math.min(min, most);
+        host.offerSubject(sa, player.getView());
+        // Forge's own English, and what is asking -- often the other
+        // player's card: "Diabolic Edict: sacrifice a creature".
+        String what = message == null || message.isBlank() ? "permanent" : message;
+        String count = least == most
+                ? forge.util.Lang.nounWithNumeralExceptOne(most, what)
+                : (least == 0 ? "up to " : forge.util.Lang.getNumeral(least) + " to ")
+                        + forge.util.Lang.getNumeral(most) + " " + forge.util.Lang.getPlural(what);
+        forge.game.card.Card source = sa == null ? null : sa.getHostCard();
+        String title = source == null
+                ? verb + " " + count
+                : ViewerSnapshot.nameFor(source, player.getView()) + ": "
+                        + verb.toLowerCase(java.util.Locale.ROOT) + " " + count;
+        return new forge.game.card.CardCollection(pickSeveral(kind, valid, least, most, title, ""));
     }
 
     /**
