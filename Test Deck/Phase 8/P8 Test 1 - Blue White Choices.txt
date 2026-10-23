@@ -1,17 +1,17 @@
 // P8 Test 1 - Blue White Choices (vintage)
 
-4 Consider
-4 Opt
-2 Preordain
-3 Fact or Fiction
-3 Council's Judgment
-2 Clone
-2 Gush
-3 Ghostly Prison
-4 Smuggler's Copter
-4 Glory-Bound Initiate
-3 Monitor Monitor
-2 Space Beleren
-3 Coral Atoll
-11 Island
-10 Plains
+4 Consider [MID:44]
+4 Opt [M21:59]
+2 Preordain [M11:70]
+3 Fact or Fiction [INV:57]
+3 Council's Judgment [CLU:57]
+2 Clone [M10:45]
+2 Gush [MMQ:82]
+3 Ghostly Prison [CHK:10]
+4 Smuggler's Copter [KLD:235]
+4 Glory-Bound Initiate [AKH:16]
+3 Monitor Monitor [UNF:52]
+2 Space Beleren [UNF:178]
+3 Coral Atoll [VIS:160]
+11 Island [M21:263]
+10 Plains [M21:260]
