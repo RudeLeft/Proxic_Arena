@@ -142,7 +142,10 @@ def reasons():
         active = s1.get("activeSeat")
         for obj, text in why.items():
             name = hand.get(obj)
-            if f.get("kind") == "chooseSpellAbilityToPlay" and name == "Mountain" and active == 1                     and seen["land"] is None:
+            # In a main phase with nothing on the stack: anywhere else "main
+            # phase only" is the right reason (a CI run caught it in upkeep).
+            main = s1.get("phase") in ("MAIN1", "MAIN2") and not s1.get("stack")
+            if f.get("kind") == "chooseSpellAbilityToPlay" and name == "Mountain" and active == 1 and main                     and seen["land"] is None:
                 seen["land"] = text
             if f.get("kind") == "chooseSpellAbilityToPlay" and name == "Goblin Piker" and active == 2                     and seen["timing"] is None:
                 seen["timing"] = text
