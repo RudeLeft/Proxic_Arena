@@ -341,14 +341,27 @@ public final class MatchController extends GeneratedControllerBase {
         if (sa.isLandAbility() || sa.isManaAbility()) {
             return true;
         }
+        CHECKING.set(true);
         try {
             return forge.ai.ComputerUtilMana.canPayManaCost(sa, payer, 0, false)
                     && forge.game.cost.CostPayment.canPayAdditionalCosts(sa.getPayCosts(), sa, false, payer);
         } catch (RuntimeException e) {
             System.err.println("proxic: payment check failed for " + sa + ": " + e);
             return true;
+        } finally {
+            CHECKING.set(false);
         }
     }
+
+    /**
+     * True while this thread is only CHECKING a cost (payable(), the cost
+     * shown on a card): nothing asked then is a real question. Forge's
+     * assist step asks "who helps pay?" even in its own test mode
+     * (CostAdjustment.adjustCostByAssist ignores `test`), so without this
+     * an assist card in hand asked both players at every priority (found
+     * proving Huddle Up, 2026-10-23).
+     */
+    private static final ThreadLocal<Boolean> CHECKING = ThreadLocal.withInitial(() -> false);
 
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
@@ -488,12 +501,15 @@ public final class MatchController extends GeneratedControllerBase {
             if (!sa.isSpell() || sa.getPayCosts() == null) {
                 continue;
             }
+            CHECKING.set(true);
             try {
                 forge.game.mana.ManaCostBeingPaid now = forge.ai.ComputerUtilMana.calculateManaCost(
                         sa.getPayCosts(), sa, player, true, 0, false);
                 costs.put(option.getKey(), now.toManaCost().toString());
             } catch (RuntimeException e) {
                 System.err.println("proxic: cost check failed for " + sa + ": " + e);
+            } finally {
+                CHECKING.set(false);
             }
         }
         host.offerCosts(costs);
@@ -2254,6 +2270,54 @@ public final class MatchController extends GeneratedControllerBase {
                     0, 1, isOptional, null));
         }
         return result;
+    }
+
+    /**
+     * Assist, the caster's side -- Gang Up, Huddle Up: which other player
+     * may help pay the generic mana, or none. Forge's human controller
+     * asks it as an optional "choose one". Was a loud stub.
+     */
+    @Override
+    public Player choosePlayerToAssistPayment(forge.util.collect.FCollectionView<Player> optionList, SpellAbility sa,
+            String title, int max) {
+        if (CHECKING.get()) {
+            return null; // a cost being checked, not paid: no one is asked
+        }
+        String card = sa.getHostCard() == null ? "This spell" : sa.getHostCard().getName();
+        return chooseSingleEntityForEffect(optionList, null, sa,
+                card + " has assist: choose a player to help pay up to " + max + " generic mana, or pass.",
+                true, null, null);
+    }
+
+    /**
+     * Assist, the helper's side: how much of the generic mana to pay (0 is
+     * no help, and the spell goes on), then pay it as any mana payment.
+     * A port of Forge's human controller -- as there, a payment started
+     * and not finished cancels the spell. Was a loud stub.
+     */
+    @Override
+    public boolean helpPayForAssistSpell(forge.game.mana.ManaCostBeingPaid cost, SpellAbility sa, int max,
+            int requested) {
+        String card = sa.getHostCard() == null ? "a spell" : sa.getHostCard().getName();
+        String caster = sa.getActivatingPlayer() == null ? "Your opponent" : sa.getActivatingPlayer().getName();
+        int willPay = chooseNumber(sa, caster + " is casting " + card + " with assist: how much of its generic mana"
+                + " will you pay? (0 is none)", 0, max);
+        if (willPay <= 0) {
+            return true;
+        }
+        forge.game.mana.ManaCostBeingPaid assist =
+                new forge.game.mana.ManaCostBeingPaid(forge.card.mana.ManaCost.get(willPay));
+        try {
+            if (new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
+                    .pay(assist, sa, false, "Assist: pay " + willPay + " for " + caster + "'s " + card + ".")) {
+                cost.decreaseGenericMana(willPay);
+                return true;
+            }
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /** The same, for a cost paid during a die roll. */

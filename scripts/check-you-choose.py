@@ -65,6 +65,9 @@ and checks the result on the board:
   thirst-two      the same, non-artifacts: asked twice, both discarded
   gargantuan      Gift of the Gargantuan: one question per kind -- the LAST
                   creature taken, the land passed: exactly it reaches the hand
+  assist          Huddle Up, assist: the caster picks the opponent, who pays
+                  the most offered (2, the LAST) -- one Island and exactly
+                  two Forests are tapped
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1474,6 +1477,70 @@ def gargantuan():
     return outcome(problems, "Gift of the Gargantuan: the creature picked reached the hand, and no land", found)
 
 
+def assist():
+    """Huddle Up ({2}{U}, assist): the caster chooses the opponent to help
+    (choosePlayerToAssistPayment); the opponent, asked themselves, pays the
+    most offered -- 2, the LAST (helpPayForAssistSpell) -- with two Forests.
+    The caster taps one Island, the helper exactly two Forests."""
+    g = game("assist", [("Island", 30), ("Huddle Up", 30)], [("Forest", 60)])
+    st = {"cast": None, "asked": [], "lands": None, "after": None}
+
+    def untapped(seat, name):
+        return len([c for c in g.mine(seat, name=name) if not c.get("tapped")])
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if "has assist" in prompt:
+            st["asked"].append((seat, "who", [o.get("objectId") for o in f["options"]], prompt))
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), None)
+        if "with assist" in prompt:
+            st["asked"].append((seat, "how much", [o["actionId"] for o in f["options"]], prompt))
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None and untapped(1, "Island") >= 3 and untapped(2, "Forest") >= 2:
+                o = cast(g, f, "Huddle Up")
+                if o:
+                    st["cast"] = card_of(o)
+                    st["lands"] = (untapped(1, "Island"), untapped(2, "Forest"))
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = (untapped(1, "Island"), untapped(2, "Forest"))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "lands": [st["lands"], st["after"]], "stopped": g.stopped_badly()}
+    if len(st["asked"]) > 2:
+        # Forge's affordability check reaches the assist step too; only
+        # the real cast may ask (found 2026-10-23: asked at every priority).
+        return "wrong", (f"asked once each, when the spell is cast -- not while its cost is checked: "
+                         f"{len(st['asked'])} questions"), found
+    if len(st["asked"]) < 2 or not st["after"]:
+        return "inconclusive", "Huddle Up's assist was never offered and answered", found
+    problems = []
+    who, much = st["asked"][0], st["asked"][1]
+    if who[0] != 1 or who[1] != "who" or "player:2" not in who[2]:
+        problems.append(f"the caster chooses who helps, and the opponent is offered: {who}")
+    if much[0] != 2 or much[1] != "how much" or much[2][0] != "number:0" or much[2][-1] != "number:2":
+        problems.append(f"the helper, asked themselves, chooses 0 to 2: {much}")
+    spent = (st["lands"][0] - st["after"][0], st["lands"][1] - st["after"][1])
+    if spent != (1, 2):
+        problems.append(f"the caster pays {{U}} and the helper the 2: Islands and Forests tapped {spent}, want (1, 2)")
+    return outcome(problems, "Huddle Up with assist: the opponent paid the 2, the caster only the blue", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1484,7 +1551,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
              "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door,
              "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False),
-             "gargantuan": gargantuan}
+             "gargantuan": gargantuan, "assist": assist}
 
 if __name__ == "__main__":
     codes = []
