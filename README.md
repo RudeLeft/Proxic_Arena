@@ -15,6 +15,11 @@ the eight phases proved is in `docs/history/phases/`; what changed in
 each release is `CHANGELOG.md`; what is next, and how new features are
 specified and approved, is `ROADMAP.md`.
 
+**Phase 8 is active** (`PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`): a
+complete, generated record of every question Forge can put to a player,
+a CI gate so none can be skipped, a real-game proof for each, and the
+ones not yet answered built.
+
 **Everything except health and version requires a session**, the
 status page included. Accounts are created by an administrator with
 `arena-admin`; there is no self-registration. See

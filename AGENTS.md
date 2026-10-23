@@ -59,8 +59,8 @@ this section was "Current phase".)*
 (2026-10-22). Update this line when one is approved or done.
 
 **Phase 8** (owner, 2026-10-22: "a real Phase 8"): every Forge question,
-answered and proven — `PHASE_08_EVERY_FORGE_QUESTION_DRAFT.md`. **DRAFT**:
-no Phase 8 work beyond 0001 until the owner locks it. Large work may still
+answered and proven — `PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`.
+**LOCKED 2026-10-22 and ACTIVE**; its Part 1 is spec 0001. Large work may still
 be a phase, locked and closed at an exit gate as Phases 1–7 were; its
 document lives at the top level while active and moves to
 `docs/history/phases/` at its close.

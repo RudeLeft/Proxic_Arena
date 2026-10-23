@@ -12,7 +12,9 @@ and 1-7 all passed their gates; Phase 7 was signed off by the owner
 `docs/history/phases/` and are never edited. **Work is now one feature
 at a time**: only on a feature spec the owner has approved
 (`docs/features/`, listed in `ROADMAP.md`); see AGENTS.md "Current
-work".
+work". **Phase 8 is LOCKED (2026-10-22) and active** — every Forge
+question, answered and proven (`PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`);
+its Part 1 is spec 0001.
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.

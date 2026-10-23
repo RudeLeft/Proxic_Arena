@@ -1,7 +1,9 @@
 # Phase 8 — Every Forge question, answered and proven
 
-**Status: DRAFT — for the owner to lock.** Nothing in it is built until it
-is LOCKED (AGENTS PHASE-001); 0001 continues, as its Part 1.
+**Status: LOCKED 2026-10-22 by the owner ("Yes lock it") — ACTIVE.**
+Changes from here are dated, owner-approved amendments at the end of this
+document, never edits to the text above them (AGENTS PHASE-002). Part 1 is
+spec 0001.
 
 **Owner, 2026-10-22:** "create a phase 8 … all Forge calls / questions we
 have built and all of the ones we are missing … a 100% complete list … a
