@@ -139,6 +139,8 @@ export function headingFor(kind: string): string {
   switch (kind) {
     case "chooseTargetsFor":
       return "Choose a target";
+    case "chooseTarget":
+      return "Change which target?";
     case "getAbilityToPlay":
       return "Choose which ability";
     case "chooseManaAbility":

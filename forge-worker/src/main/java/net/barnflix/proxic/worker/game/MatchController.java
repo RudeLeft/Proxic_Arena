@@ -1803,6 +1803,57 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Which of a spell's targets to change -- Phase 8, 43 cards (Spellskite,
+     * Deflecting Swat: "change the target of target spell to this"). Forge
+     * asks only when the spell has two or more; a port of its human
+     * controller: one of them, "old target -- the spell". Was a loud stub.
+     */
+    @Override
+    public org.apache.commons.lang3.tuple.Pair<forge.game.spellability.SpellAbilityStackInstance, forge.game.GameObject>
+            chooseTarget(SpellAbility sa,
+                    List<org.apache.commons.lang3.tuple.Pair<forge.game.spellability.SpellAbilityStackInstance,
+                            forge.game.GameObject>> allTargets) {
+        if (allTargets == null || allTargets.isEmpty()) {
+            return null;
+        }
+        if (allTargets.size() == 1) {
+            return allTargets.get(0);
+        }
+        // Each option IS the object targeted -- "card:N" or "player:N" -- so the
+        // board lights it and a click answers. Two Lions targeted read the
+        // same in words ("Savannah Lions -- Arc Lightning"); on the board
+        // they are two different cards.
+        java.util.LinkedHashMap<String, Integer> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int n = 0; n < allTargets.size(); n++) {
+            forge.game.GameObject it = allTargets.get(n).getRight();
+            String id = it instanceof forge.game.card.Card card ? "card:" + card.getId()
+                    : it instanceof Player p ? "player:" + p.getId() : "target:" + n;
+            if (byId.containsKey(id)) {
+                id = id + ":" + n; // the same object in two places of one spell
+            }
+            String name = it instanceof forge.game.card.Card card
+                    ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(it);
+            String spell = allTargets.get(n).getLeft().getSourceCard() == null ? "the spell"
+                    : allTargets.get(n).getLeft().getSourceCard().getName();
+            byId.put(id, n);
+            labels.put(id, name + " -- targeted by " + spell);
+        }
+        host.offerSubject(sa, player.getView());
+        try {
+            String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseTarget",
+                    new java.util.ArrayList<>(byId.keySet()), true,
+                    (sa.getHostCard() == null ? "" : sa.getHostCard().getName() + ": ") + "which target do you change?",
+                    pending -> host.publishDecision(pending, labels));
+            Integer picked = byId.get(choice);
+            return allTargets.get(picked == null ? 0 : picked);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return allTargets.get(0);
+        }
+    }
+
+    /**
      * One of several labelled choices, by index, or -1 for a pass --
      * the shape the three ports below share.
      */

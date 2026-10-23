@@ -44,6 +44,8 @@ and checks the result on the board:
   cascade-yes     Bloodbraid Elf's cascade (playSaFromPlayEffect): Yes, and
                   the Grizzly Bears it revealed is cast for free
   cascade-no      the same, No: nothing is cast
+  spellskite      Spellskite against Arc Lightning on two Lions (chooseTarget):
+                  the LAST target offered is changed to Spellskite
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -863,6 +865,91 @@ def cascade(yes):
                    else "cascade: No, and nothing was cast", found)
 
 
+def spellskite():
+    """Seat 2's Arc Lightning splits 3 damage among seat 1's creatures;
+    seat 1 answers with Spellskite: which target to change (chooseTarget).
+    The LAST offered keeps its damage off; Spellskite takes it instead."""
+    g = game("spellskite", [("Plains", 30), ("Spellskite", 10), ("Savannah Lions", 20)],
+             [("Mountain", 34), ("Arc Lightning", 26)])
+    st = {"arc": False, "skite": False, "asked": [], "picked": None, "after": None, "targets": []}
+
+    def mine():
+        return {c["id"]: c for c in g.mine(1) if c.get("kind") == "creature"}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseTarget":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2:
+            if k == "chooseSpellAbilityToPlay":
+                lions = [c for c in g.zone(2, "battlefield", owner=1) if c.get("name") == "Savannah Lions"]
+                if not st["arc"] and len(lions) >= 2 and g.zone(2, "battlefield", owner=1, name="Spellskite")                         and stack_empty(g) and cast(g, f, "Arc Lightning"):
+                    st["arc"] = True
+                    return cast(g, f, "Arc Lightning")
+                return g.play_land(f) if stack_empty(g) else None
+            if k == "chooseTargetsFor" and st["arc"]:
+                # Seat 1's Lions, one each: two targets, so there is a choice.
+                lions = [o for o in f["options"] if (o.get("label") or "").startswith("Savannah Lions")
+                         and card_of(o["actionId"]) not in st["targets"]]
+                if lions and len(st["targets"]) < 2:
+                    st["targets"].append(card_of(lions[0]["actionId"]))
+                    return lions[0]["actionId"]
+                return None
+            return DEFAULT
+        if k == "chooseSpellAbilityToPlay":
+            stack = g.state.get(1, {}).get("stack") or []
+            if st["arc"] and not st["skite"] and any("Arc Lightning" in (e.get("name") or "") for e in stack):
+                o = g.option(f, name="Spellskite", zone="battlefield")
+                if o:
+                    st["skite"] = True
+                    return o
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Spellskite") and cast(g, f, "Spellskite"):
+                return cast(g, f, "Spellskite")
+            return cast(g, f, "Savannah Lions") if len(g.mine(1, name="Savannah Lions")) < 2 else None
+        if k == "chooseTargetsFor" and st["skite"]:
+            # The spell on the stack, not the card: changing a card's targets does nothing.
+            return next((o["actionId"] for o in f["options"]
+                         if (o.get("label") or "").startswith("on the stack: Arc Lightning")), DEFAULT)
+        return DEFAULT
+
+    def until(g):
+        arc_done = any(c.get("name") == "Arc Lightning" for c in g.zone(1, "graveyard", owner=2))
+        if st["asked"] and arc_done and stack_empty(g) and st["after"] is None:
+            st["after"] = {"creatures": {cid: (c.get("name"), c.get("damage")) for cid, c in mine().items()},
+                           "grave": [c["id"] for c in g.zone(1, "graveyard", owner=1)]}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"targets": st["targets"], "asked": st["asked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"]:
+        return "inconclusive", "Spellskite never asked which target to change", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's Spellskite")
+    if len(st["asked"][0][1]) < 2:
+        problems.append(f"two targets, two options: {st['asked'][0][1]}")
+    after = st["after"]
+    skite = [v for v in after["creatures"].values() if v[0] == "Spellskite"]
+    if not skite or not skite[0][1]:
+        problems.append(f"Spellskite should take the changed damage: {after}")
+    # The other Lion took its share (1 or 2 of 3, a 2/1 dies); one Lion was spared.
+    # The Lion picked lives; the other took its share and died (a 2/1).
+    spared = st["picked"]
+    other = [t for t in st["targets"] if t != spared]
+    if spared not in after["creatures"]:
+        problems.append(f"the Lion picked, {spared}, should be spared: {after}")
+    if any(t in after["creatures"] for t in other):
+        problems.append(f"the Lion not picked, {other}, kept its damage and should have died: {after}")
+    return outcome(problems, "Spellskite: the target picked was changed to Spellskite, which took the damage", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -870,7 +957,8 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "blaze": blaze, "axe": axe, "axe-five": lambda: axe(True), "reckoning": reckoning, "sting": sting, "guildmage": guildmage,
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
-             "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False)}
+             "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
+             "spellskite": spellskite}
 
 if __name__ == "__main__":
     codes = []
