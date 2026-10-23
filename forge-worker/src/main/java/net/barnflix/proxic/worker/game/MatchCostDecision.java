@@ -972,6 +972,19 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Counters on yourself as a cost -- The Serpent Society's ward, "get five
+     * poison counters" (CostPutCounterYou). A port of Forge's human path: a
+     * yes or no. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostPutCounterYou cost) {
+        int amount = cost.getAbilityAmount(ability);
+        return confirm(source.getName() + ": get " + forge.util.Lang.nounWithNumeral(amount,
+                cost.getCounter().getName().toLowerCase(java.util.Locale.ROOT) + " counter") + "?")
+                ? PaymentDecision.number(amount) : null;
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

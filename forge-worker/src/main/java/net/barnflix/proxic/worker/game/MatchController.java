@@ -867,7 +867,9 @@ public final class MatchController extends GeneratedControllerBase {
                     "divideAsYouChoose",
                     new java.util.ArrayList<>(labels.keySet()),
                     true,
-                    "How much " + verb + target + "? (" + left + " left to assign)",
+                    "How much " + verb + (target instanceof forge.game.card.Card card
+                            ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(target))
+                            + "? (" + left + " left to assign)",
                     pending -> host.publishDecision(pending, labels));
             ability.addDividedAllocation(target, Integer.parseInt(choice.substring("divide:".length())));
             return true;
@@ -2463,6 +2465,62 @@ public final class MatchController extends GeneratedControllerBase {
         }
         return pickSeveral("chooseContraptionsToCrank", contraptions, 0, contraptions.size(),
                 "Crank which Contraptions on sprocket " + player.getCrankCounter() + "?", "");
+    }
+
+    /**
+     * Which floating mana pays, when Forge's own automatic payment from
+     * the pool finds several equally good. Forge's human controller asks
+     * only in its full-control mode and otherwise takes the first; the
+     * same here. Proxic's own payments ask for the colour (ManaPayment),
+     * so only Forge's automatic paths -- a cost being checked -- reach
+     * this. Was a loud stub.
+     */
+    @Override
+    public forge.game.mana.Mana chooseManaFromPool(List<forge.game.mana.Mana> manaChoices) {
+        return manaChoices.get(0);
+    }
+
+    /**
+     * Dividing a damage-prevention shield -- Harm's Way, Shining Shoal,
+     * Refraction Trap: when one source would damage several of yours at
+     * once and the shield cannot cover it all. A port of Forge's human
+     * controller (its "assign" dialog): how much of the shield each one
+     * gets, up to the damage it would take; the last takes what is left.
+     * Was a loud stub.
+     */
+    @Override
+    public java.util.Map<forge.game.GameEntity, Integer> divideShield(forge.game.card.Card effectSource,
+            java.util.Map<forge.game.GameEntity, Integer> affected, int shieldAmount) {
+        java.util.Map<forge.game.GameEntity, Integer> result = new java.util.LinkedHashMap<>();
+        List<forge.game.GameEntity> order = new java.util.ArrayList<>(affected.keySet());
+        int left = shieldAmount;
+        // Forge's shield is an effect card named "Harm's Way (56)'s Effect":
+        // the card that made it is the name a player knows.
+        forge.game.card.Card maker = effectSource == null ? null
+                : effectSource.getEffectSource() != null ? effectSource.getEffectSource() : effectSource;
+        String source = maker == null ? "The shield" : maker.getName();
+        for (int i = 0; i < order.size() && left > 0; i++) {
+            forge.game.GameEntity entity = order.get(i);
+            int most = Math.min(left, affected.get(entity));
+            if (i == order.size() - 1) {
+                result.put(entity, most);
+                break;
+            }
+            String who = entity instanceof forge.game.card.Card card
+                    ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(entity);
+            List<String> amounts = new java.util.ArrayList<>();
+            for (int amount = 0; amount <= most; amount++) {
+                amounts.add(String.valueOf(amount));
+            }
+            int picked = Math.max(0, askIndex("divideShield", amounts, true, source + ": how much of the "
+                    + shieldAmount + " prevented goes to " + who + "? (" + left + " left; it would take "
+                    + affected.get(entity) + ")"));
+            if (picked > 0) {
+                result.put(entity, picked);
+            }
+            left -= picked;
+        }
+        return result;
     }
 
     private static List<String> rollLabels(List<Integer> rolls) {

@@ -295,6 +295,8 @@ export function headingFor(kind: string): string {
       return "Choose a sprocket";
     case "chooseContraptionsToCrank":
       return "Crank Contraptions";
+    case "divideShield":
+      return "Divide the shield";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":

@@ -27,7 +27,7 @@ C CostAddMana	ENGINE		Add mana as a cost (Braid of Fire's upkeep): nothing to ch
 C CostBehold	ASKS	CostBehold	Behold as a cost: one you control or one from your hand, exactly that many, one click each	25 cards: Kinsbaile Aspirant, Champion of the Clachan	scripts/check-cost-kinds.py
 C CostBeholdExile	ASKS	CostBehold	Behold and exile it: the same choice as behold, then exiled	the champions: Champion of the Clachan, Champions of the Shoal	scripts/check-cost-kinds.py
 C CostBlight	ASKS	CostBlight	Blight N: which creature you control gets the -1/-1 counters	23 cards: Sting-Slinger, Boggart Mischief, Cinder Strike	scripts/check-cost-kinds.py
-C CostChooseColor	UNBUILT		Pay the cost ChooseColor	2 cards	LoudFailureTest
+C CostChooseColor	UNREACHABLE		Choose a colour as a cost: no card script at the pin uses it (choosing a colour as an effect is chooseColor, built)	none	UnreachableQuestionsTest
 C CostChooseCreatureType	ASKS	chooseSomeType	Choose a creature type as a cost: the type question	2 cards: Caller of the Hunt, Celestial Reunion	scripts/check-cost-kinds.py
 C CostCollectEvidence	ASKS	CostCollectEvidence	Collect evidence N: graveyard cards one at a time until their total mana value is N, then more or Done	25 cards: Forensic Researcher, Sample Collector, Cryptex	scripts/check-cost-kinds.py
 C CostDamage	ASKS	confirmPayment	Take damage as a cost ("unless that player has it deal 5 damage to them"): a yes or no, asked of whoever may pay	18 cards: Blazing Salvo, Browbeat, Book Burning	scripts/check-cost-kinds.py
@@ -50,7 +50,7 @@ C CostPayShards	UNREACHABLE		Pay with shards: no card in Forge's card files has 
 C CostPromiseGift	ENGINE		Promise a gift: which opponent receives it -- with one opponent no question, as Forge's own screen	27 cards: Blooming Blast, Dawn's Truce, Crumb and Get It	scripts/check-cost-kinds.py
 C CostPutCardToLib	ASKS	CostPutCardToLib	Put cards on top of your library from hand or graveyard, one click each (the one same-graveyard card stays loud)	11 cards: Leashling, Hidden Retreat, Penance	scripts/check-cost-kinds.py
 C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	scripts/check-you-choose.py
-C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a counter on you	LoudFailureTest
+C CostPutCounterYou	ASKS	confirmPayment	Counters on yourself as a cost (The Serpent Society's ward, five poison): a yes or no	1 card: The Serpent Society	scripts/check-you-choose.py
 C CostRemoveAnyCounter	ASKS	CostRemoveAnyCounter	Remove counters of any kind as a cost: one at a time, which permanent then which kind; the card itself with one kind is a yes or no	39 cards: Moonlit Lamenter, Fain the Broker, Glen Elendra Guardian	scripts/check-cost-kinds.py
 C CostRemoveCounter	ASKS	CostRemoveCounter	Remove a counter as a cost: from where	Spike-style costs	scripts/check-you-choose.py
 C CostReturn	ASKS	CostReturn	Return permanents you control to hand as a cost	94 cards: Daze, Gush (instead of their mana), the bounce lands	scripts/check-cost-kinds.py
@@ -101,7 +101,7 @@ Q chooseDiceToReroll(List)	ASKS	chooseDiceToReroll	Which dice to reroll (Monitor
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
 Q chooseFlipResult(SpellAbility,Player,boolean)	ASKS	chooseFlipResult	Krark's Thumb: which of two different flips counts (heads or tails, or win or lose)	1 card: Krark's Thumb	scripts/check-you-choose.py
 Q chooseKeywordForPump(List,SpellAbility,String,Card)	ASKS	chooseKeywordForPump	Your choice of keyword for a pump ("deathtouch or lifelink"): one answer per keyword	32 cards: Alchemist's Gift, Argivian Avenger	scripts/check-you-choose.py
-Q chooseManaFromPool(List)	UNBUILT		choosing which floating mana pays a cost; when Forge asks a person this, to find	rare	LoudFailureTest
+Q chooseManaFromPool(List)	ENGINE		Which floating mana pays when Forge's automatic pool payment finds several equal: the first, as Forge's own screen does (Proxic's payments ask the colour)	rare	PENDING: only Forge's automatic payment from the pool reaches it; Proxic pays by the colour the player picks
 Q chooseModeForAbility(SpellAbility,List,int,int,boolean)	ASKS	chooseModeForAbility	Choose a mode	Cryptic Command, Escalate, Spree, Pawprint	scripts/check-modes.py
 Q chooseNewTargetsFor(SpellAbility,Predicate,boolean)	ASKS	chooseTargetsFor	Choose new targets for a copy	Krark, the Thumbless; Twincast	scripts/check-coin-flip.py
 Q chooseNumber(SpellAbility,String,List,Player)	ASKS	chooseNumber	Choose a number	Marvel of Engineering-style counts, Spell Pierce X	scripts/check-tracked-state.py
@@ -146,7 +146,7 @@ Q confirmStaticApplication(Card,PlayerActionConfirmMode,String,String)	ASKS	conf
 Q confirmTrigger(WrappedAbility)	ASKS	confirmTrigger	Use an optional triggered ability?	"whenever ..., you may" triggers	scripts/check-you-choose.py
 Q declareAttackers(Player,Combat)	ASKS	declareAttackers,chooseDefender	Declare attackers (and what each attacks)	every game; battles and planeswalkers	scripts/check-face-down.py,scripts/check-shapes.py
 Q declareBlockers(Player,Combat)	ASKS	declareBlockers,chooseBlockTarget	Declare blockers (and what each blocks)	every game	scripts/check-blocks.py,scripts/check-board-data.py
-Q divideShield(Card,Map,int)	UNBUILT		dividing a damage-prevention shield among several creatures; cards to find	rare	LoudFailureTest
+Q divideShield(Card,Map,int)	ASKS	divideShield	How much of a damage shield goes to each thing it protects, up to the damage each would take	4 cards: Harm's Way, Shining Shoal, Refraction Trap, Divine Deflection	scripts/check-you-choose.py
 Q endTempShowCards()	NOT-A-QUESTION		Stop showing cards shown for a moment (Forge's desktop)	-	-
 Q enlistAttackers(List)	ASKS	enlistAttackers	Which attackers enlist as they attack: any of them, one click each, then Pass	15 cards: Benalish Faithbonder, Coalition Warbrute	scripts/check-combat-choices.py
 Q exertAttackers(List)	ASKS	exertAttackers	Which attackers to exert as they attack: any of them, one click each, then Pass	34 cards: Glorybringer, Glory-Bound Initiate, Ahn-Crop Crasher	scripts/check-combat-choices.py

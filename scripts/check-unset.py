@@ -204,7 +204,12 @@ if __name__ == "__main__":
     for name, scenario in SCENARIOS.items():
         if ONLY and name not in ONLY:
             continue
-        verdict_, message, found = scenario()
+        # A game that never reached its moment proves nothing either way:
+        # up to two more, each a fresh shuffle. A WRONG answer is final.
+        for _ in range(3):
+            verdict_, message, found = scenario()
+            if verdict_ != "inconclusive":
+                break
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
         print(f"{name}: {verdict_.upper()}: {message}")
         if verdict_ != "ok":

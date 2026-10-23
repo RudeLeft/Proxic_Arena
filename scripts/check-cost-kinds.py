@@ -651,7 +651,7 @@ def academy_wall(yes):
             st["after"] = library()
         return st["after"] is not None
 
-    g.run(policy, until=until, max_turn=16)
+    g.run(policy, until=until, max_turn=26)
     found = {"asked": st["asked"], "library": [st["library"], st["after"]], "stopped": g.stopped_badly()}
     if not st["asked"]:
         return "inconclusive", "Academy Wall's draw cost was never asked", found
@@ -766,7 +766,7 @@ def behold():
                            "hand": sorted(c["id"] for c in g.zone(1, "hand"))}
         return st["after"] is not None
 
-    g.run(policy, until=until, max_turn=16)
+    g.run(policy, until=until, max_turn=26)
     found = {"asked": st["asked"], "picked": st["picked"], "kithkin": st["kithkin"], "after": st["after"],
              "stopped": g.stopped_badly()}
     if not st["asked"] or not st["after"]:
@@ -2065,7 +2065,12 @@ if __name__ == "__main__":
     for name, scenario in SCENARIOS.items():
         if ONLY and name not in ONLY:
             continue
-        verdict_, message, found = scenario()
+        # A game that never reached its moment proves nothing either way:
+        # up to two more, each a fresh shuffle. A WRONG answer is final.
+        for _ in range(3):
+            verdict_, message, found = scenario()
+            if verdict_ != "inconclusive":
+                break
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
         print(f"{name}: {verdict_.upper()}: {message}")
         if verdict_ != "ok":

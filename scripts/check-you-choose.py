@@ -72,6 +72,13 @@ and checks the result on the board:
                   is countered
   thumb           Krark's Thumb: two different flips, Heads called -- Tails
                   (the LAST) counts: the Bangchuckers hits itself
+  shield          Harm's Way against Pyroclasm, two Lions: the 2 of shield all
+                  to the first (divideShield) -- it lives, the other dies, the
+                  opponent takes the 2
+  ward-pay        Lightning Bolt at The Serpent Society, ward, get five poison
+                  counters (CostPutCounterYou, a yes or no): yes -- five
+                  poison, the Bolt hits
+  ward-no         the same, no: the Bolt is countered
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1679,6 +1686,154 @@ def thumb():
                    found)
 
 
+def shield():
+    """Harm's Way against the opponent's Pyroclasm, with two Savannah Lions:
+    the next 2 damage from Pyroclasm to seat 1's things is redirected to
+    the opponent. Pyroclasm would deal 4, so the 2 is divided
+    (divideShield): all of it -- the LAST answer -- to the first Lions
+    asked about. That one survives, the other dies, the opponent loses 2."""
+    g = game("shield", [("Plains", 30), ("Savannah Lions", 18), ("Harm's Way", 12)],
+             [("Mountain", 36), ("Pyroclasm", 24)])
+    st = {"pyro": None, "way": None, "asked": [], "lions": None, "life": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "divideShield":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            return f["options"][-1]["actionId"]
+        if seat == 1 and st["way"] and k in ("chooseSingleEntityForEffect", "chooseSingleCardForEffect") \
+                and any("Pyroclasm" in (o.get("label") or "") for o in f["options"]):
+            return next(o["actionId"] for o in f["options"] if "Pyroclasm" in (o.get("label") or ""))
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            lions = g.zone(2, "battlefield", owner=1, name="Savannah Lions")
+            plains = [c for c in g.zone(2, "battlefield", owner=1, name="Plains") if not c.get("tapped")]
+            # Only once seat 1 holds an answer (the harness sees both hands).
+            ready = any(c.get("name") == "Harm's Way" for c in g.zone(1, "hand"))
+            if st["pyro"] is None and len(lions) >= 2 and plains and ready:
+                o = cast(g, f, "Pyroclasm")
+                if o:
+                    st["pyro"] = card_of(o)
+                    st["lions"] = sorted(c["id"] for c in lions)
+                    st["life"] = (g.player(2, 2) or {}).get("life")
+                return o
+            return None
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            pyro_on_stack = any(c.get("name") == "Pyroclasm" for c in g.state.get(1, {}).get("stack") or [])
+            if pyro_on_stack and st["way"] is None:
+                o = cast(g, f, "Harm's Way")
+                if o:
+                    st["way"] = card_of(o)
+                return o
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if len(g.mine(1, name="Savannah Lions")) < 2 and len(g.untapped_lands(1)) >= 2:
+                return cast(g, f, "Savannah Lions")
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["pyro"] and any(c["id"] == st["pyro"] for c in g.zone(1, "graveyard", owner=2))
+        if st["way"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"lions": sorted(c["id"] for c in g.mine(1, name="Savannah Lions") if c["id"] in st["lions"]),
+                           "life": (g.player(1, 2) or {}).get("life")}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"asked": st["asked"], "lions": st["lions"], "life": st["life"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Harm's Way never had to divide its shield against Pyroclasm", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1 or labels != ["0", "1", "2"] or not prompt.startswith("Harm's Way: how much of the 2 prevented goes"):
+        problems.append(f"seat 1 divides the 2, 0 to 2 for the first Lions, worded plainly: {st['asked'][0]}")
+    if "(" in prompt.split("goes to ")[1].split("?")[0]:
+        problems.append(f"the creature is named without internal numbers: {prompt!r}")
+    if len(st["after"]["lions"]) != 1:
+        problems.append(f"all 2 prevented for one Lions: exactly one survives, got {st['after']['lions']}")
+    if st["life"] - st["after"]["life"] != 2:
+        problems.append(f"the 2 prevented is redirected to the opponent: {st['life']} -> {st['after']['life']}")
+    return outcome(problems, "Harm's Way: the shield went to one Lions, it lived, the other died, the opponent took 2",
+                   found)
+
+
+def serpent(pay):
+    """Lightning Bolt at The Serpent Society, whose ward is "get five poison
+    counters" (CostPutCounterYou, a yes or no, asked of the Bolt's caster).
+    Yes: five poison counters, and the Bolt deals its 3. No: the Bolt is
+    countered, no poison, no damage."""
+    g = game(f"ward-{'pay' if pay else 'no'}", [("Mountain", 36), ("Lightning Bolt", 24)],
+             [("Swamp", 18), ("Forest", 18), ("The Serpent Society", 24)])
+    st = {"bolt": None, "serpent": None, "asked": [], "after": None}
+
+    def poison(g):
+        return next((k["count"] for k in (g.player(1, 1) or {}).get("counters", []) or []
+                     if k["name"].upper() == "POISON"), 0)
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "poison" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            return "confirm:yes" if pay else None
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["serpent"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            return g.play_land(f) or (None if g.mine(2, name="The Serpent Society")
+                                      else cast(g, f, "The Serpent Society"))
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            serpents = g.zone(1, "battlefield", owner=2, name="The Serpent Society")
+            if st["bolt"] is None and serpents:
+                o = cast(g, f, "Lightning Bolt")
+                if o:
+                    st["bolt"], st["serpent"] = card_of(o), serpents[0]["id"]
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        done = st["bolt"] and any(c["id"] == st["bolt"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and done and stack_empty(g) and st["after"] is None:
+            serpent = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["serpent"]), {})
+            st["after"] = {"poison": poison(g), "damage": serpent.get("damage")}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "The Serpent Society's ward was never asked", found
+    problems = []
+    if st["asked"] != [(1, "The Serpent Society: get five poison counters?")]:
+        problems.append(f"the Bolt's caster, asked once, plainly: {st['asked']}")
+    after = st["after"]
+    if pay and (after["poison"] != 5 or after["damage"] != 3):
+        problems.append(f"paid: five poison counters and 3 damage on the Serpent: {after}")
+    if not pay and (after["poison"] or after["damage"]):
+        problems.append(f"declined: the Bolt countered, no poison, no damage: {after}")
+    return outcome(problems, "The Serpent Society's ward paid: five poison, and the Bolt hit" if pay
+                   else "The Serpent Society's ward declined: the Bolt was countered", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1689,14 +1844,20 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
              "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door,
              "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False),
-             "gargantuan": gargantuan, "assist": assist, "contest": contest, "thumb": thumb}
+             "gargantuan": gargantuan, "assist": assist, "contest": contest, "thumb": thumb, "shield": shield,
+             "ward-pay": lambda: serpent(True), "ward-no": lambda: serpent(False)}
 
 if __name__ == "__main__":
     codes = []
     for name, scenario in SCENARIOS.items():
         if ONLY and name not in ONLY:
             continue
-        result, message, found = scenario()
+        # A game that never reached its moment proves nothing either way:
+        # up to two more, each a fresh shuffle. A WRONG answer is final.
+        for _ in range(3):
+            result, message, found = scenario()
+            if result != "inconclusive":
+                break
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[result])
         print(f"{name}: {result.upper()}: {message}")
         if result != "ok":

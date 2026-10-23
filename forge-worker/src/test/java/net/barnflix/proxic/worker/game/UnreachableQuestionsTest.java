@@ -60,6 +60,40 @@ class UnreachableQuestionsTest {
                 .orElseThrow(() -> new AssertionError("Forge's resources not found in " + candidates
                         + " -- set -Dforge.res=<forge-gui/res>"));
         forge.util.Localizer.getInstance().initialize("en-US", res.toAbsolutePath() + "/languages");
+        cardsFolder = res.resolve("cardsfolder");
+    }
+
+    private static Path cardsFolder;
+
+    /**
+     * No card pays a cost of choosing a colour (CostChooseColor, script
+     * "ChooseColor<"): in every card script Forge has at the pin, joke
+     * sets included, none uses it, so Forge never asks it. (Choosing a
+     * colour as an EFFECT is another question, chooseColor, built.)
+     */
+    @Test
+    void noCardPaysTheChooseAColourCost() throws Exception {
+        assertTrue(cardsUsing("ChooseColor<").isEmpty(),
+                "a card now pays ChooseColor<...> as a cost -- build CostChooseColor: " + cardsUsing("ChooseColor<"));
+    }
+
+    /** A search that finds nothing proves nothing: the same search finds a cost that is used. */
+    @Test
+    void theCardSearchFindsACostThatIsUsed() throws Exception {
+        assertTrue(cardsUsing("AddCounterYou<").stream().anyMatch(f -> f.endsWith("the_serpent_society.txt")),
+                "the search should find The Serpent Society's AddCounterYou ward");
+    }
+
+    private static List<String> cardsUsing(String text) throws Exception {
+        try (Stream<Path> files = Files.walk(cardsFolder)) {
+            List<String> found = new ArrayList<>();
+            for (Path file : files.filter(f -> f.toString().endsWith(".txt")).collect(Collectors.toList())) {
+                if (Files.readString(file).contains(text)) {
+                    found.add(file.getFileName().toString());
+                }
+            }
+            return found;
+        }
     }
 
     /**
