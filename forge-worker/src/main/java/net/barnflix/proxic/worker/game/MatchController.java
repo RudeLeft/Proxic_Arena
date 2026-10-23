@@ -2078,6 +2078,18 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Which attackers enlist, as they attack -- Benalish Faithbonder and the
+     * other enlist creatures. Any number, none included, one click each,
+     * then Pass; each then picks the creature it taps (CostEnlist, paid
+     * through payCombatCost). Was a loud stub.
+     */
+    @Override
+    public List<forge.game.card.Card> enlistAttackers(List<forge.game.card.Card> attackers) {
+        return pickSeveral("enlistAttackers", attackers, 0, attackers.size(), "Enlist with which attackers?",
+                "Each taps a creature you control that isn't attacking and adds its power until end of turn.");
+    }
+
+    /**
      * Which attackers to exert, as they attack -- Glorybringer, the
      * Amonkhet exert creatures (CR 508.1g). Any number, none included,
      * one click each, then Pass; Forge's human controller asks the same

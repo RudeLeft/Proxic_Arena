@@ -161,6 +161,8 @@ export function headingFor(kind: string): string {
       return "Assign combat damage";
     case "exertAttackers":
       return "Exert attackers";
+    case "enlistAttackers":
+      return "Enlist attackers";
     case "chooseCardsToRevealFromHand":
       return "Reveal from your hand";
     case "chooseCardsPile":
@@ -255,6 +257,8 @@ export function headingFor(kind: string): string {
       return "Collect evidence";
     case "CostBlight":
       return "Blight";
+    case "CostEnlist":
+      return "Choose what to enlist";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -293,6 +297,8 @@ export function hintFor(kind: string, options: number): string {
       return "One point at a time, so nothing is assigned for you.";
     case "exertAttackers":
       return "Click each attacker to exert, one at a time. Pass when you are done.";
+    case "enlistAttackers":
+      return "Click each attacker to enlist, one at a time. Pass when you are done.";
     case "chooseCounterType":
       // The prompt above already names the card, because Forge
       // wrote it. What this adds is that the kind MATTERS: these
@@ -373,6 +379,7 @@ export function hintFor(kind: string, options: number): string {
     case "CostBehold":
     case "CostCollectEvidence":
     case "CostBlight":
+    case "CostEnlist":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

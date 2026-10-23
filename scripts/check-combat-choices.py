@@ -18,6 +18,10 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
                   attackers?" (exertAttackers) -- the LAST one, then Done:
                   7 damage, 4 life, and next turn that one alone stays tapped
   exert-none      the same, Done at once: 6 damage, nothing gained, both untap
+  enlist-last     a Faithbonder attacks: "Enlist with which attackers?" --
+                  it; the creature to tap (CostEnlist) -- the LAST at home:
+                  1 + its power in damage, and only it tapped
+  enlist-none     the same, none enlisted: 1 damage, nothing else tapped
   prison-pay      Ghostly Prison: a Bears attacks only if {2} is paid
                   (payCombatCost); the mana question names it -- paid: 2 damage
   prison-no       the same, passed: it does not attack
@@ -332,9 +336,95 @@ def prison(pay):
                    else "Ghostly Prison: passed, and the Bears did not attack", found)
 
 
+def enlist(pick):
+    """One Benalish Faithbonder (1/3, enlist) attacks an empty board while a
+    Savannah Lions and another Faithbonder stay home. "Enlist with which
+    attackers?" (enlistAttackers) -- it, then Done; the creature to tap
+    (CostEnlist) -- the LAST offered: the opponent loses 1 + its power, and
+    only it is tapped. Or none: 1 damage, nothing else tapped."""
+    g = game(f"enlist-{'last' if pick else 'none'}",
+             [("Plains", 30), ("Benalish Faithbonder", 15), ("Savannah Lions", 15)], [("Forest", 60)])
+    st = {"attacker": None, "asked": [], "helpers": None, "picked": None, "power": None, "turn": None,
+          "life": None, "after": None}
+
+    def ready():
+        return [c for c in g.mine(1) if c.get("kind") == "creature" and not c.get("sick") and not c.get("tapped")]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "enlistAttackers":
+            st["asked"].append((seat, k, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            if pick and not any(a[1] == "enlistAttackers" for a in st["asked"][:-1]):
+                return f["options"][-1]["actionId"]
+            return None
+        if k == "CostEnlist":
+            st["asked"].append((seat, k, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            chosen = f["options"][-1]
+            st["picked"] = card_of(chosen["actionId"])
+            st["power"] = next((c.get("power") for c in g.mine(1) if c["id"] == st["picked"]), None)
+            return chosen["actionId"]
+        if k == "declareAttackers" and seat == 1:
+            if st["attacker"]:
+                return None
+            bonders = [c["id"] for c in ready() if c.get("name") == "Benalish Faithbonder"]
+            if not bonders or len(ready()) < 3:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == bonders[0]), None)
+            if o:
+                st["attacker"], st["turn"] = bonders[0], g.turn
+                st["helpers"] = sorted(c["id"] for c in ready() if c["id"] != bonders[0])
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            if st["attacker"]:
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if len(g.mine(1, name="Benalish Faithbonder")) < 2:
+                return cast(g, f, "Benalish Faithbonder")
+            return None if g.mine(1, name="Savannah Lions") else cast(g, f, "Savannah Lions")
+        return DEFAULT
+
+    def until(g):
+        if st["attacker"] and st["after"] is None and g.turn == st["turn"] and \
+                g.state.get(1, {}).get("phase") in ("MAIN2", "END_OF_TURN"):
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "tapped": sorted(c["id"] for c in g.mine(1) if c.get("tapped") and c.get("kind") == "creature"
+                                            and c["id"] != st["attacker"])}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"attacker": st["attacker"], "helpers": st["helpers"], "asked": st["asked"], "picked": st["picked"],
+             "power": st["power"], "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not any(a[1] == "enlistAttackers" for a in st["asked"]) or not st["after"]:
+        return "inconclusive", "a Faithbonder never attacked with creatures to enlist", found
+    problems = []
+    if any(seat != 1 for seat, _, _, _ in st["asked"]):
+        problems.append("the defending player was asked about enlisting")
+    first = next(a for a in st["asked"] if a[1] == "enlistAttackers")
+    if first[2] != [st["attacker"]]:
+        problems.append(f"offered {first[2]}, not exactly the attacking Faithbonder {st['attacker']}")
+    lost = st["life"] - st["after"]["life"]
+    if pick:
+        cost = [a for a in st["asked"] if a[1] == "CostEnlist"]
+        if not cost or cost[0][2] != st["helpers"]:
+            problems.append(f"the creatures to tap should be exactly the ones at home {st['helpers']}: {cost}")
+        if lost != 1 + (st["power"] or 0) or st["after"]["tapped"] != [st["picked"]]:
+            problems.append(f"enlisted {st['picked']} (power {st['power']}): {1 + (st['power'] or 0)} damage and it "
+                            f"alone tapped, got {lost} and {st['after']['tapped']}")
+    elif lost != 1 or st["after"]["tapped"] or any(a[1] == "CostEnlist" for a in st["asked"]):
+        problems.append(f"none enlisted: 1 damage, nothing else tapped, got {lost} and {st['after']['tapped']}")
+    return outcome(problems, "enlisted the creature picked: its power added, and it alone tapped" if pick
+                   else "enlisted none: 1 damage, nothing else tapped", found)
+
+
 SCENARIOS = {"double-block": double_block, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
              "exert-last": lambda: exert(True), "exert-none": lambda: exert(False),
-             "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False)}
+             "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False),
+             "enlist-last": lambda: enlist(True), "enlist-none": lambda: enlist(False)}
 
 if __name__ == "__main__":
     codes = []

@@ -592,6 +592,24 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Enlist -- tap a creature you control that isn't attacking (and could
+     * attack); the enlisting attacker gets its power. A port of Forge's
+     * human path: one click, from Forge's list. Cancelling means the
+     * attacker doesn't enlist and, as Forge has it, doesn't attack.
+     * Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostEnlist cost) {
+        forge.game.card.CardCollectionView list = forge.game.cost.CostEnlist.getCardsForEnlisting(player);
+        if (list.isEmpty()) {
+            return null;
+        }
+        Card chosen = pickOne(list, "CostEnlist", source.getName()
+                + " enlists: tap a creature that isn't attacking, and add its power.");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

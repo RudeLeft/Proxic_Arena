@@ -1110,6 +1110,7 @@ const CANCEL_KINDS = new Set([
   "CostBehold",
   "CostCollectEvidence",
   "CostBlight",
+  "CostEnlist",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */
