@@ -222,8 +222,8 @@ class OpenFormatTest {
             OpenFormat.validate(small, few.associateWith { "CONTRAPTIONS" })
                 .any { it.code == "CONTRAPTIONS_DECK_TOO_SMALL" },
         )
-        val twice = deckOf(*(listOf("60 Mountain [FRA:287]", "2 Contraption 1") +
-            contraptions.drop(1).map { "1 $it" }).toTypedArray())
+        val lines = listOf("60 Mountain [FRA:287]", "2 Contraption 1") + contraptions.drop(1).map { "1 $it" }
+        val twice = deckOf(*lines.toTypedArray())
         val violation =
             OpenFormat.validate(twice, contraptions.associateWith { "CONTRAPTIONS" })
                 .single { it.code == "TOO_MANY_COPIES" }
