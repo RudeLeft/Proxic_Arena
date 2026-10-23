@@ -28,7 +28,7 @@ C CostBehold	ASKS	CostBehold	Behold as a cost: one you control or one from your 
 C CostBeholdExile	ASKS	CostBehold	Behold and exile it: the same choice as behold, then exiled	the champions: Champion of the Clachan, Champions of the Shoal	scripts/check-cost-kinds.py
 C CostBlight	ASKS	CostBlight	Blight N: which creature you control gets the -1/-1 counters	23 cards: Sting-Slinger, Boggart Mischief, Cinder Strike	scripts/check-cost-kinds.py
 C CostChooseColor	UNBUILT		Pay the cost ChooseColor	2 cards	LoudFailureTest
-C CostChooseCreatureType	UNBUILT		Pay the cost ChooseCreatureType	with the above	LoudFailureTest
+C CostChooseCreatureType	ASKS	chooseSomeType	Choose a creature type as a cost: the type question	2 cards: Caller of the Hunt, Celestial Reunion	scripts/check-cost-kinds.py
 C CostCollectEvidence	ASKS	CostCollectEvidence	Collect evidence N: graveyard cards one at a time until their total mana value is N, then more or Done	25 cards: Forensic Researcher, Sample Collector, Cryptex	scripts/check-cost-kinds.py
 C CostDamage	ASKS	confirmPayment	Take damage as a cost ("unless that player has it deal 5 damage to them"): a yes or no, asked of whoever may pay	18 cards: Blazing Salvo, Browbeat, Book Burning	scripts/check-cost-kinds.py
 C CostDiscard	ASKS	CostDiscard	Discard as a cost	Faithless Looting, Wild Mongrel	scripts/check-modes.py
@@ -36,8 +36,8 @@ C CostDraw	ASKS	confirmPayment	Draw cards as a cost: a yes or no ("Academy Wall:
 C CostEnlist	ASKS	CostEnlist	Enlist: which creature at home to tap; its power is added	the enlist cards	scripts/check-combat-choices.py
 C CostExert	ASKS	confirmPayment	Exert the card itself as a cost: a yes or no ("Exert Steward of Solidarity?"); every exert cost is this form	2 cards: Steward of Solidarity, Arena of Glory	scripts/check-cost-kinds.py
 C CostExile	ASKS	CostExile	Exile as a cost	Force of Will, Delve-like costs	scripts/check-costs.py
-C CostExileFromStack	UNBUILT		Pay the cost ExileFromStack	rare	LoudFailureTest
-C CostExiledMoveToGrave	UNBUILT		Pay the cost ExiledMoveToGrave	rare	LoudFailureTest
+C CostExileFromStack	ASKS	CostExileFromStack	Exile spells from the stack as a cost: one at a time, named by the stack's description	4 cards: Nivmagus Elemental, Dragon's Approach, Synthesis Pod	scripts/check-cost-kinds.py
+C CostExiledMoveToGrave	ASKS	CostExiledMoveToGrave	Put exiled cards into their owners' graveyards as a cost: exactly that many, one click each	16 cards: Wasteland Strangler, Blight Herder, Processor Assault	scripts/check-cost-kinds.py
 C CostFlipCoin	UNBUILT		Pay the cost FlipCoin	rare	LoudFailureTest
 C CostForage	ASKS	CostForage	Forage: "sacrifice a Food?" when there is one, else three graveyard cards, one click each	10 cards: Bushy Bodyguard, Camellia, Corpseberry Cultivator	scripts/check-cost-kinds.py
 C CostGainControl	UNBUILT		Pay the cost GainControl	rare	LoudFailureTest
@@ -60,7 +60,7 @@ C CostRollDice	UNBUILT		Pay the cost RollDice	rare	LoudFailureTest
 C CostSacrifice	ASKS	CostSacrifice	Sacrifice as a cost	Village Rites, Fling, Viscera Seer	scripts/check-agent-of-kotis.py
 C CostTap	ENGINE		Tap the permanent the ability is on: no choice	every activated ability	scripts/check-mana-pool.py
 C CostTapType	ASKS	CostTapType	Tap untapped creatures or artifacts you control as a cost -- a number, sharing a type, or enough power to crew	239 cards: Springleaf Drum, Hecatomb, Diversionary Tactics; every Vehicle's crew	scripts/check-cost-kinds.py
-C CostUnattach	UNBUILT		Pay the cost Unattach	rare	LoudFailureTest
+C CostUnattach	ASKS	confirmPayment	Unattach as a cost: one card is a yes or no ("Unattach Leonin Bola?"), several one click each	9 cards: Leonin Bola, Heartseeker, Shuriken	scripts/check-cost-kinds.py
 C CostUntap	ENGINE		The untap symbol {Q}: nothing to choose, the card untaps (Forge's own screen asks nothing)	18 cards: Patrol Signaler, Order of Whiteclay	scripts/check-cost-kinds.py
 C CostUntapType	ASKS	CostUntapType	Untap permanents as a cost: exactly that many, one click each	3 cards: Halo Fountain, Benthic Explorers, Crackleburr	scripts/check-cost-kinds.py
 Q addKeywordCost(SpellAbility,Cost,KeywordInterface,String)	ROUTES-TO		Forge forwards this to chooseNumberForKeywordCost	-	-> Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)

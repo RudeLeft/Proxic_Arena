@@ -269,6 +269,12 @@ export function headingFor(kind: string): string {
       return "Choose what to untap";
     case "CostRemoveAnyCounter":
       return "Choose where to remove a counter";
+    case "CostExiledMoveToGrave":
+      return "Choose from exile";
+    case "CostUnattach":
+      return "Choose what to unattach";
+    case "CostExileFromStack":
+      return "Choose a spell to exile";
     case "confirmBidAction":
       return "Bid life";
     case "chooseFlipResult":
@@ -399,6 +405,9 @@ export function hintFor(kind: string, options: number): string {
     case "CostPutCardToLib":
     case "CostUntapType":
     case "CostRemoveAnyCounter":
+    case "CostExiledMoveToGrave":
+    case "CostUnattach":
+    case "CostExileFromStack":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":

@@ -1116,6 +1116,9 @@ const CANCEL_KINDS = new Set([
   "CostPutCardToLib",
   "CostUntapType",
   "CostRemoveAnyCounter",
+  "CostExiledMoveToGrave",
+  "CostUnattach",
+  "CostExileFromStack",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */

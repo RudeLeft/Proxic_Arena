@@ -62,6 +62,15 @@ with options no default would take, and checks the board:
   counter-no  the same, no: neither
   counter-pick  Fain, the Broker, a counter from a creature you control: the
               LAST Lamenter offered loses its counter, a Treasure made
+  from-exile  Wasteland Strangler (CostExiledMoveToGrave): the LAST exiled
+              Bears goes to the graveyard, the other stays exiled
+  unattach-yes  Leonin Bola (CostUnattach, a yes or no): yes -- unattached,
+              the Bears tapped
+  unattach-no the same, no: still attached, nothing tapped
+  from-stack  Nivmagus Elemental (CostExileFromStack): its own Bolt exiled
+              from the stack -- no damage, two counters
+  creature-type  Caller of the Hunt (CostChooseCreatureType): Bear chosen
+              with two Bears out -- a 2/2
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1603,6 +1612,271 @@ def fain():
                    found)
 
 
+def strangler():
+    """Swords to Plowshares exiles two of the opponent's Bears; then Wasteland
+    Strangler enters: "you may put a card an opponent owns from exile into
+    its owner's graveyard" (CostExiledMoveToGrave). The LAST exiled Bears
+    offered goes to the graveyard, the other stays in exile, and a third
+    Bears gets -3/-3."""
+    g = game("from-exile", [("Plains", 15), ("Swamp", 15), ("Swords to Plowshares", 14), ("Wasteland Strangler", 16)])
+    st = {"swords": 0, "cast": None, "asked": [], "picked": None, "exiled": None, "target": None, "after": None}
+
+    def theirs_bears():
+        return [c["id"] for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears")]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostExiledMoveToGrave":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["exiled"] = sorted(c["id"] for c in g.zone(1, "exile", owner=2))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if k == "confirmTrigger" and seat == 1:
+            return "confirm:yes"
+        if k == "chooseTargetsFor" and seat == 1:
+            bears = theirs_bears()
+            if st["cast"] and bears:
+                st["target"] = bears[0]
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") in bears), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            exiled = len(g.zone(1, "exile", owner=2))
+            if exiled < 2 and theirs_bears():
+                return cast(g, f, "Swords to Plowshares")
+            if exiled >= 2 and st["cast"] is None and theirs_bears():
+                o = cast(g, f, "Wasteland Strangler")
+                if o:
+                    st["cast"] = card_of(o)
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["picked"] and stack_empty(g) and st["after"] is None:
+            st["after"] = {"grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2)),
+                           "exile": sorted(c["id"] for c in g.zone(1, "exile", owner=2)),
+                           "target_alive": st["target"] in theirs_bears()}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "exiled": st["exiled"], "picked": st["picked"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Wasteland Strangler never processed an exiled card", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1 or offered != st["exiled"] or len(offered) < 2:
+        problems.append(f"offered {offered}, not exactly the opponent's exiled cards {st['exiled']} (two or more)")
+    after = st["after"]
+    if st["picked"] not in after["grave"] or st["picked"] in after["exile"]:
+        problems.append(f"{st['picked']} goes from exile to the graveyard: {after}")
+    if any(c not in after["exile"] for c in st["exiled"] if c != st["picked"]):
+        problems.append(f"the other exiled card stays in exile: {after}")
+    if after["target_alive"]:
+        problems.append("the cost was paid, so the targeted Bears gets -3/-3 and dies")
+    return outcome(problems, "Wasteland Strangler: the exiled Bears picked went to the graveyard, the other stayed",
+                   found)
+
+
+def bola(yes):
+    """Leonin Bola on a Savannah Lions: "{T}, unattach Leonin Bola: tap target
+    creature" (CostUnattach, one card: a yes or no). Yes: the Bears is
+    tapped and the Bola unattached. No: neither."""
+    g = game(f"unattach-{'yes' if yes else 'no'}", [("Plains", 30), ("Savannah Lions", 15), ("Leonin Bola", 15)])
+    st = {"used": False, "asked": [], "bears": None, "turn": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "Unattach" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            return "confirm:yes" if yes else None
+        if k == "chooseTargetsFor" and seat == 1:
+            if st["used"]:
+                return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+            return next((o["actionId"] for o in f["options"]
+                         if any(c["id"] == o.get("objectId") for c in g.mine(1, name="Savannah Lions"))), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            bola_on = [c for c in g.mine(1, name="Leonin Bola") if c.get("attachedTo")]
+            lions = [c for c in g.mine(1, name="Savannah Lions") if not c.get("sick") and not c.get("tapped")]
+            bears = [c for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears") if not c.get("tapped")]
+            if bola_on and lions and bears and not st["used"]:
+                o = g.option(f, name="Savannah Lions", zone="battlefield", contains="Tap target")
+                if o:
+                    st["used"], st["bears"], st["turn"] = True, bears[0]["id"], g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["used"]:
+                return None
+            if not g.mine(1, name="Savannah Lions"):
+                return cast(g, f, "Savannah Lions")
+            if not g.mine(1, name="Leonin Bola"):
+                return cast(g, f, "Leonin Bola")
+            if not bola_on:
+                return g.option(f, name="Leonin Bola", zone="battlefield", contains="Equip")
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            bear = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["bears"]), {})
+            st["after"] = {"bears_tapped": bool(bear.get("tapped")),
+                           "attached": bool([c for c in g.mine(1, name="Leonin Bola") if c.get("attachedTo")])}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"asked": st["asked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Leonin Bola's unattach was never asked", found
+    problems = []
+    if st["asked"] != [(1, "Unattach Leonin Bola?")]:
+        problems.append(f"seat 1 alone, asked once, plainly: {st['asked']}")
+    after = st["after"]
+    if yes and (not after["bears_tapped"] or after["attached"]):
+        problems.append(f"unattached: the Bears tapped, the Bola off: {after}")
+    if not yes and (after["bears_tapped"] or not after["attached"]):
+        problems.append(f"declined: nothing tapped, the Bola still on: {after}")
+    return outcome(problems, "Leonin Bola: unattached, and the Bears was tapped" if yes
+                   else "Leonin Bola: declined -- still attached, nothing tapped", found)
+
+
+def nivmagus():
+    """Nivmagus Elemental: exile an instant or sorcery spell you control from
+    the stack: two +1/+1 counters (CostExileFromStack). Seat 1's own
+    Lightning Bolt, aimed at the opponent, is exiled from the stack: it
+    deals nothing, and the Elemental gets its counters."""
+    g = game("from-stack", [("Mountain", 18), ("Island", 12), ("Nivmagus Elemental", 12), ("Lightning Bolt", 18)],
+             [("Forest", 60)])
+    st = {"bolt": None, "used": False, "asked": [], "life": None, "after": None, "niv": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostExileFromStack":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            mine_on_stack = any(c.get("name") == "Lightning Bolt" and c.get("controller") == 1
+                                for c in g.state.get(1, {}).get("stack") or [])
+            if mine_on_stack and not st["used"]:
+                o = g.option(f, name="Nivmagus Elemental", zone="battlefield", contains="Exile")
+                if o:
+                    st["used"] = True
+                    st["niv"] = card_of(o)
+                    return o
+                return None
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Nivmagus Elemental"):
+                return cast(g, f, "Nivmagus Elemental")
+            if st["bolt"] is None:
+                o = cast(g, f, "Lightning Bolt")
+                if o:
+                    st["bolt"] = card_of(o)
+                    st["life"] = (g.player(1, 2) or {}).get("life")
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None:
+            niv = next((c for c in g.mine(1, name="Nivmagus Elemental")), {})
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "bolt_exiled": any(c["id"] == st["bolt"] for c in g.zone(1, "exile", owner=1)),
+                           "counters": {k["name"]: k["count"] for k in niv.get("counters", []) or []}}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Nivmagus Elemental never exiled a spell from the stack", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1 or len(labels) != 1 or "Lightning Bolt" not in labels[0] or "(" in labels[0]:
+        problems.append(f"seat 1 is offered its Lightning Bolt, named plainly: {st['asked'][0]}")
+    after = st["after"]
+    if not after["bolt_exiled"] or after["life"] != st["life"] or after["counters"].get("P1P1") != 2:
+        problems.append(f"the Bolt exiled, no damage, two counters: {st['life']} {after}")
+    return outcome(problems, "Nivmagus Elemental: the Bolt was exiled from the stack, and two counters landed", found)
+
+
+def caller():
+    """Caller of the Hunt: as an additional cost, choose a creature type
+    (CostChooseCreatureType, through the type question); its power and
+    toughness are the number of creatures of that type. Bear chosen with
+    two Grizzly Bears out: Caller is a 2/2."""
+    g = game("creature-type", [("Forest", 30), ("Grizzly Bears", 16), ("Caller of the Hunt", 14)], [("Island", 60)])
+    st = {"cast": None, "asked": [], "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseSomeType":
+            st["asked"].append((seat, len(f["options"]), f.get("prompt")))
+            return next((o["actionId"] for o in f["options"] if o.get("label") == "Bear"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if len(g.mine(1, name="Grizzly Bears")) < 2:
+                return cast(g, f, "Grizzly Bears")
+            if st["cast"] is None:
+                o = cast(g, f, "Caller of the Hunt")
+                if o:
+                    st["cast"] = card_of(o)
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        me = next((c for c in g.mine(1) if c["id"] == st["cast"]), None)
+        died = any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and (me or died) and stack_empty(g) and st["after"] is None:
+            st["after"] = ((me or {}).get("power", 0), (me or {}).get("toughness", 0),
+                           len(g.mine(1, name="Grizzly Bears")))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Caller of the Hunt never asked for its creature type", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked seat 1's creature type")
+    power, toughness, bears = st["after"]
+    if (power, toughness) != (bears, bears):
+        problems.append(f"Bear chosen with {bears} Bears out: a {bears}/{bears}, got {power}/{toughness}")
+    return outcome(problems, f"Caller of the Hunt: Bear chosen, and it is a {power}/{toughness}", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
@@ -1614,7 +1888,9 @@ SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True),
              "gain-life": invigorate, "to-library": leashling,
              "untap-type": fountain, "reduction": urza_filter,
              "gift-yes": lambda: gift(True), "gift-no": lambda: gift(False),
-             "counter-yes": lambda: lamenter(True), "counter-no": lambda: lamenter(False), "counter-pick": fain}
+             "counter-yes": lambda: lamenter(True), "counter-no": lambda: lamenter(False), "counter-pick": fain,
+             "from-exile": strangler, "unattach-yes": lambda: bola(True), "unattach-no": lambda: bola(False),
+             "from-stack": nivmagus, "creature-type": caller}
 
 if __name__ == "__main__":
     codes = []

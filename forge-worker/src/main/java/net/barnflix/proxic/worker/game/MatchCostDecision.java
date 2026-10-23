@@ -820,6 +820,114 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Put cards from exile into their owners' graveyards as a cost -- the
+     * processors (Wasteland Strangler, Blight Herder; 16 cards). A port of
+     * Forge's human path: exactly that many, one click each; a card whose
+     * face its chooser cannot see is offered as "Face-down". Was a loud
+     * stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostExiledMoveToGrave cost) {
+        int needed = cost.getAbilityAmount(ability);
+        forge.game.player.Player activator = ability.getActivatingPlayer();
+        forge.game.card.CardCollection list = forge.game.card.CardLists.getValidCards(
+                activator.getGame().getCardsIn(forge.game.zone.ZoneType.Exile), cost.getType().split(";"),
+                activator, source, ability);
+        if (list.size() < needed) {
+            return null;
+        }
+        java.util.List<Card> chosen = pickCards(list, needed, "CostExiledMoveToGrave", "Put "
+                + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
+                + " from exile into " + (needed == 1 ? "its owner's graveyard." : "their owners' graveyards."));
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
+     * Unattach as a cost -- Heartseeker, Blinding Powder ("unattach this
+     * Equipment"; 9 cards). A port of Forge's human path: one card is a yes
+     * or no; several, exactly that many, one click each. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostUnattach cost) {
+        forge.game.card.CardCollection attached = cost.findCardToUnattach(source, player, ability);
+        if (attached.size() == 1) {
+            return confirm("Unattach " + attached.getFirst().getName() + "?")
+                    ? PaymentDecision.card(attached.getFirst()) : null;
+        }
+        if (attached.size() > 1) {
+            java.util.List<Card> chosen = pickCards(attached, cost.getAbilityAmount(ability), "CostUnattach",
+                    "Unattach " + cost.getDescriptiveType() + ".");
+            return chosen == null ? null : PaymentDecision.card(chosen);
+        }
+        return null;
+    }
+
+    /**
+     * Exile spells from the stack as a cost -- Nivmagus Elemental, Dragon's
+     * Approach (4 cards). A port of Forge's human path: one spell at a time,
+     * named by Forge's own stack description; "All" needs no choice. Was a
+     * loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostExileFromStack cost) {
+        java.util.List<SpellAbility> spells = new java.util.ArrayList<>();
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        for (forge.game.spellability.SpellAbilityStackInstance si : player.getGame().getStack()) {
+            Card card = si.getSourceCard();
+            SpellAbility root = si.getSpellAbility().getRootAbility();
+            if (card.isValid(cost.getType().split(";"), ability.getActivatingPlayer(), source, ability)
+                    && root.isSpell()) {
+                spells.add(root);
+                texts.add(root.getStackDescription().replaceAll(" \\(\\d+\\)", "")
+                        + (card.isCopiedSpell() ? " (a copy)" : ""));
+            }
+        }
+        if ("All".equals(cost.getType())) {
+            return PaymentDecision.spellabilities(spells);
+        }
+        int needed = cost.getAbilityAmount(ability);
+        if (spells.size() < needed) {
+            return null;
+        }
+        java.util.List<SpellAbility> exiled = new java.util.ArrayList<>();
+        for (int i = 0; i < needed; i++) {
+            int picked = pickText(texts, "CostExileFromStack", "Exile a spell from the stack ("
+                    + (needed - i) + " more): which one?");
+            if (picked < 0) {
+                return null;
+            }
+            exiled.add(spells.remove(picked));
+            texts.remove(picked);
+        }
+        return PaymentDecision.spellabilities(exiled);
+    }
+
+    /** Choose a creature type as a cost -- Caller of the Hunt, Celestial Reunion (Forge's type question). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostChooseCreatureType cost) {
+        String choice = player.getController().chooseSomeType("Creature", ability,
+                forge.card.CardType.getAllCreatureTypes(), true);
+        return choice == null ? null : PaymentDecision.type(choice);
+    }
+
+    /** One of these texts, by index, or -1 when passed (cancels the cost). */
+    private int pickText(java.util.List<String> texts, String kind, String prompt) {
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < texts.size(); i++) {
+            labels.put(kind + ":" + i, texts.get(i));
+        }
+        try {
+            String choice = host.gate().ask(actedForSeat, authorisedSeat, kind,
+                    new java.util.ArrayList<>(labels.keySet()), false, prompt,
+                    pending -> host.publishDecision(pending, labels));
+            return choice == null ? -1 : Integer.parseInt(choice.substring(kind.length() + 1));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return -1;
+        }
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes
