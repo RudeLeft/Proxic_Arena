@@ -171,6 +171,8 @@ export function headingFor(kind: string): string {
       return "Splice";
     case "chooseSingleCardState":
       return "Choose a door";
+    case "chooseCardsToDiscardUnlessType":
+      return "Discard";
     case "orderSimultaneousAbilities":
       return "Choose what resolves first";
     case "chooseSingleReplacementEffect":

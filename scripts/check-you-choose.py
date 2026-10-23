@@ -60,6 +60,9 @@ and checks the result on the board:
                   one -- exactly 5 damage, and both Rays stay in hand
   door            Keys to the House, lock or unlock a door: Elegant Rotunda
                   (the LAST, locked) unlocks -- its +1/+1 counter lands
+  thirst-artifact Thirst for Knowledge, discard two unless an artifact: the
+                  LAST artifact offered -- it alone is discarded, asked once
+  thirst-two      the same, non-artifacts: asked twice, both discarded
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1345,6 +1348,71 @@ def door():
     return outcome(problems, "Keys to the House: Elegant Rotunda chosen, unlocked, and its counter landed", found)
 
 
+def thirst(artifact):
+    """Thirst for Knowledge: draw three, then discard two cards unless you
+    discard an artifact (chooseCardsToDiscardUnlessType), one at a time.
+    An artifact (the LAST offered): that card alone is discarded, asked
+    once. Non-artifacts: asked twice, both discarded."""
+    g = game(f"thirst-{'artifact' if artifact else 'two'}",
+             [("Island", 30), ("Thirst for Knowledge", 15), ("Ornithopter", 15)])
+    st = {"cast": None, "asked": [], "picked": [], "grave": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseCardsToDiscardUnlessType":
+            hand = {c["id"]: c for c in g.zone(1, "hand")}
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            if st["grave"] is None:
+                st["grave"] = sorted(c["id"] for c in g.zone(1, "graveyard", owner=1))
+            fits = [o for o in f["options"]
+                    if ("Artifact" in (hand.get(card_of(o["actionId"]), {}).get("types") or "")) == artifact]
+            pick = (fits or f["options"])[-1]["actionId"]
+            st["picked"].append(card_of(pick))
+            return pick
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            hand = g.zone(1, "hand")
+            has = sum(1 for c in hand if "Artifact" in (c.get("types") or ""))
+            if st["cast"] is None and has >= 1 and len(hand) - has >= 3:
+                o = cast(g, f, "Thirst for Knowledge")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = sorted(c["id"] for c in g.zone(1, "graveyard", owner=1) if c["id"] != st["cast"])
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": [(a, len(b), c) for a, b, c in st["asked"]], "picked": st["picked"], "grave": st["grave"],
+             "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Thirst for Knowledge never asked for its discard", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked what seat 1 discards")
+    if st["asked"][0][2] != "Discard 2 cards, or one artifact card.":
+        problems.append(f"the question should say both ways out: {st['asked'][0][2]!r}")
+    discarded = sorted(c for c in st["after"] if c not in (st["grave"] or []))
+    want = 1 if artifact else 2
+    if len(st["asked"]) != want or discarded != sorted(st["picked"]):
+        problems.append(f"{'an artifact ends it: one question' if artifact else 'two non-artifacts: two questions'}"
+                        f", and exactly the cards picked {st['picked']} discarded: asked {len(st['asked'])}, "
+                        f"discarded {discarded}")
+    return outcome(problems, "Thirst for Knowledge: the artifact picked was the only discard" if artifact
+                   else "Thirst for Knowledge: two non-artifacts picked, both discarded", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1353,7 +1421,8 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice, "door": door,
+             "thirst-artifact": lambda: thirst(True), "thirst-two": lambda: thirst(False)}
 
 if __name__ == "__main__":
     codes = []

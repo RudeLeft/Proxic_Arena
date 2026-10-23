@@ -2193,6 +2193,35 @@ public final class MatchController extends GeneratedControllerBase {
         return states.get(Math.max(0, askIndex("chooseSingleCardState", labels, true, card + ": " + what)));
     }
 
+    /**
+     * "Discard two cards unless you discard an artifact card" -- Thirst for
+     * Knowledge, Wrench Mind. A port of Forge's human controller: one card
+     * at a time, and the first card of that type ends it. Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsToDiscardUnlessType(
+            int num, forge.game.card.CardCollectionView hand, String[] uTypes, SpellAbility sa) {
+        String type = String.join(" or ", java.util.Arrays.stream(uTypes).map(String::toLowerCase).toList());
+        forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+        java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
+        hand.forEach(left::add);
+        while (chosen.size() < num && !left.isEmpty()) {
+            java.util.List<forge.game.card.Card> one = pickSeveral("chooseCardsToDiscardUnlessType", left, 1, 1,
+                    "Discard " + num + " cards, or one " + type + " card"
+                            + (chosen.isEmpty() ? "." : " (" + (num - chosen.size()) + " more, or one " + type + ")."), "");
+            if (one.isEmpty()) {
+                break;
+            }
+            forge.game.card.Card card = one.get(0);
+            chosen.add(card);
+            left.remove(card);
+            if (card.isValid(uTypes, sa.getActivatingPlayer(), sa.getHostCard(), sa)) {
+                break;
+            }
+        }
+        return chosen;
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {

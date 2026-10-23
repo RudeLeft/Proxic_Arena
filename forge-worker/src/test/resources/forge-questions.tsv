@@ -89,7 +89,7 @@ Q chooseCardsToDelve(int,CardCollection)	ASKS	chooseEntitiesForEffect	Delve: whi
 Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int)	ROUTES-TO		Forge forwards this to chooseCardsToDiscardFrom	-	-> Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollectionView)
 Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollectionView)	ASKS	chooseEntitiesForEffect	Discard from a hand (yours, or one you can see)	Thoughtseize, Duress, Mind Rot	scripts/check-modes.py
 Q chooseCardsToDiscardToMaximumHandSize(int)	ASKS	chooseCardsToDiscardToMaximumHandSize	Discard down to your maximum hand size	every game	scripts/check-characteristics.py
-Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	UNBUILT		Thirst for Knowledge, Wrench Mind	15 cards	LoudFailureTest
+Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	ASKS	chooseCardsToDiscardUnlessType	"Discard two unless you discard an artifact": one card at a time; a card of that type ends it	15 cards: Thirst for Knowledge, Wrench Mind	scripts/check-you-choose.py
 Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	ASKS	chooseCardsToRevealFromHand	Which cards to reveal from your own hand, one click each -- asked of the hand's owner	35 cards: Blackmail, Ivy Seer	scripts/check-you-choose.py
 Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		Ante: which won cards join your deck -- asked only when the rules play for ante, and Proxic's never do	-	UnreachableQuestionsTest
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
