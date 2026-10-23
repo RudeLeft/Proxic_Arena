@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
+  answer,
   boardCards,
   choices,
   clearEverything,
@@ -96,7 +97,7 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
         const generic = panel.getByRole("heading", { name: other });
         const choice = await choices(page);
         if ((await generic.count()) > 0 && (await choice.count()) > 0) {
-          await choice.first().click();
+          await answer(choice);
           handled = true;
           break;
         }

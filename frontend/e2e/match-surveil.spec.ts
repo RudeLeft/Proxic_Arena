@@ -17,22 +17,25 @@
 //
 //   node scripts/make-ci-deck.mjs "Test Deck/surveil-deck.zip" protocol/fixtures/surveil-deck
 
-import { test, expect, type Locator } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, question, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  question,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "surveil-deck.zip");
 const LOOKING = ".gs-question-looking";
 const SPELLS = /^(Consider|Notion Rain|Preordain|Opt|Serum Visions)/;
 
-/** A DOM click: fanned hand cards overlap, so a pointer click can land on a neighbour. */
-const click = (l: Locator) =>
-  l
-    .first()
-    .evaluate((e) => (e as HTMLElement).click(), undefined, { timeout: 5000 })
-    .catch(() => undefined);
+/** A DOM click, and no wait when there is nothing to click (see clickNow). */
+const click = clickNow;
 
 test("surveil and scry show their cards to the player looking, and are answered by clicking", async ({
   browser,

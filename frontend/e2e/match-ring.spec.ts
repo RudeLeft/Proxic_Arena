@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
+  answer,
   cardCount,
   choices,
   clearEverything,
@@ -120,9 +121,9 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
         pick = 0;
       }
       if (pick >= 0) {
-        await options.nth(pick).click();
+        await answer(options.nth(pick));
       } else {
-        await panel.getByRole("button", { name: "Pass" }).click();
+        await answer(panel.getByRole("button", { name: "Pass" }));
       }
       await live.waitForTimeout(40);
     }

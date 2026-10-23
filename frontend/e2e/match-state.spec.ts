@@ -15,6 +15,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
+  answer,
   cardCount,
   choices,
   clearEverything,
@@ -110,9 +111,9 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         if (find(/still owing/) >= 0 || find(/^Pay the cost/) >= 0 || labels.length) pick = 0;
       }
       if (pick >= 0) {
-        await options.nth(pick).click();
+        await answer(options.nth(pick));
       } else {
-        await panel.getByRole("button", { name: "Pass" }).click();
+        await answer(panel.getByRole("button", { name: "Pass" }));
       }
       await live.waitForTimeout(40);
     }

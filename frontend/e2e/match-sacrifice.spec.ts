@@ -15,13 +15,14 @@
 //
 //   node scripts/make-ci-deck.mjs "Test Deck/sacrifice-deck.zip" protocol/fixtures/sacrifice-deck
 
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   boardCards,
   clearEverything,
+  clickNow,
   matchPanel,
   question,
   sharedDeck,
@@ -31,12 +32,8 @@ import {
 const pkg = join(process.cwd(), "..", "Test Deck", "sacrifice-deck.zip");
 const SACRIFICE = '.gs-question[data-kind="choosePermanentsToSacrifice"]';
 
-/** A DOM click: fanned hand cards overlap, so a pointer click can land on a neighbour. */
-const click = (l: Locator) =>
-  l
-    .first()
-    .evaluate((e) => (e as HTMLElement).click(), undefined, { timeout: 5000 })
-    .catch(() => undefined);
+/** A DOM click, and no wait when there is nothing to click (see clickNow). */
+const click = clickNow;
 
 /** A side's creatures on the battlefield: everything but its Swamps. */
 const creatures = (page: Page, side: "viewer" | "opponent") =>

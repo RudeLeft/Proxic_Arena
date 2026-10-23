@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import {
+  answer,
   cardCount,
   choices,
   clearEverything,
@@ -157,9 +158,9 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         pick = 0;
       }
       if (pick >= 0) {
-        await options.nth(pick).click();
+        await answer(options.nth(pick));
       } else {
-        await panel.getByRole("button", { name: "Pass" }).click();
+        await answer(panel.getByRole("button", { name: "Pass" }));
       }
       answered += 1;
       await live.waitForTimeout(40);

@@ -9,21 +9,23 @@
 // deck (protocol/fixtures/interaction-deck): Mountains, burn that needs a
 // target, and creatures with nothing to activate.
 
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
 const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
 
-/** A DOM click: fanned hand cards overlap, so a pointer click can land on a neighbour. */
-const click = (l: Locator) =>
-  l
-    .first()
-    .evaluate((e) => (e as HTMLElement).click(), undefined, { timeout: 5000 })
-    .catch(() => undefined);
+/** A DOM click, and no wait when there is nothing to click (see clickNow). */
+const click = clickNow;
 
 const opponentLife = async (page: Page) =>
   Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");

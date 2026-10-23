@@ -24,6 +24,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
 import {
+  answer,
   choices,
   clearEverything,
   handCards,
@@ -209,15 +210,15 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       const options = await choices(live);
 
       if ((await land.count()) > 0) {
-        await land.first().click();
+        await answer(land);
       } else if ((await options.count()) > 0 && step % 3 === 0) {
         // Occasionally take a real action, so creatures reach
         // the battlefield rather than only lands.
-        await options.first().click();
+        await answer(options);
       } else {
         const pass = matchPanel(live).getByRole("button", { name: "Pass" });
         if ((await pass.count()) === 0) break;
-        await pass.click();
+        await answer(pass);
       }
       await live.waitForTimeout(120);
     }

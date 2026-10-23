@@ -221,6 +221,49 @@ export async function choices(page: Page): Promise<Locator> {
   return page.locator(".gs-question").getByRole("listitem").getByRole("button");
 }
 
+/**
+ * Click an answer in a scripted game loop, or report that it could not be
+ * clicked now -- never wait for it. The loop reads the screen again on its
+ * next pass, which is the right thing whenever the click did not land.
+ *
+ * Why (CI, 2026-10-23): after a click the page disables every option until
+ * the server replies (`busy`), so a loop can read a question that is
+ * already answered. It then clicked a disabled "Island -- still owing {1}";
+ * the next question (Declare attackers) has no `.gs-question` list, and the
+ * unbounded click waited out the whole 20-minute test. A real pointer click
+ * still (TEST-003), only bounded, and nothing disabled.
+ */
+export async function answer(target: Locator): Promise<boolean> {
+  const enabled = await target.evaluateAll(
+    (els) => els.length > 0 && !(els[0] as HTMLButtonElement).disabled,
+  );
+  if (!enabled) return false;
+  return target
+    .first()
+    .click({ timeout: 5_000 })
+    .then(
+      () => true,
+      () => false,
+    );
+}
+
+/**
+ * A DOM click on the first match, for the board-clicking game loops: fanned
+ * hand cards overlap, so a pointer click can land on a neighbour.
+ *
+ * Nothing there is not waited for. The seat that is not being asked has no
+ * Pass, and every loop pass used to wait 5 s for one: ~115 such waits were
+ * 575 of the sacrifice test's 600 s in CI (2026-10-23), a turn every ~90 s,
+ * and the game never reached Innocent Blood.
+ */
+export async function clickNow(target: Locator): Promise<void> {
+  if ((await target.count()) === 0) return;
+  await target
+    .first()
+    .evaluate((e) => (e as HTMLElement).click(), undefined, { timeout: 5_000 })
+    .catch(() => undefined);
+}
+
 /** "No": the act button under the stack on your move, else the question's Pass. */
 export const passButton = (page: Page) => page.locator("button.gs-act, button.gs-pass");
 

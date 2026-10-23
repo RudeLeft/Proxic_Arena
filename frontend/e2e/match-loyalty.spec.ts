@@ -24,7 +24,14 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
-import { choices, clearEverything, isAsked, matchPanel, startAMatch } from "./match-helpers";
+import {
+  answer,
+  choices,
+  clearEverything,
+  isAsked,
+  matchPanel,
+  startAMatch,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -379,13 +386,11 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       const pick = elspeth >= 0 ? elspeth : land >= 0 ? land : action;
 
       if (pick >= 0) {
-        await options.nth(pick).click();
-        answered += 1;
+        if (await answer(options.nth(pick))) answered += 1;
       } else {
         const pass = matchPanel(live).getByRole("button", { name: "Pass" });
         if ((await pass.count()) === 0) break;
-        await pass.click();
-        answered += 1;
+        if (await answer(pass)) answered += 1;
       }
       await live.waitForTimeout(40);
     }

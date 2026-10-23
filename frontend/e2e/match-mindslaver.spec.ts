@@ -22,6 +22,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
+  answer,
   cardCount,
   choices,
   clearEverything,
@@ -119,9 +120,9 @@ test("under Mindslaver the controller answers for the other player and sees thei
         pick = 0;
       }
       if (pick >= 0) {
-        await options.nth(pick).click();
+        await answer(options.nth(pick));
       } else {
-        await panel.getByRole("button", { name: "Pass" }).click();
+        await answer(panel.getByRole("button", { name: "Pass" }));
       }
       await live.waitForTimeout(40);
     }
