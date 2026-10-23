@@ -2153,6 +2153,20 @@ public final class MatchController extends GeneratedControllerBase {
                 card + ": choose what " + who + " gains.")));
     }
 
+    /**
+     * Which cards in hand to splice onto the Arcane spell being cast --
+     * Glacial Ray, Desperate Ritual. A port of Forge's human controller:
+     * any of them, none included, one click each, then Pass. Each one's
+     * splice cost is added to the spell's and its effect follows it; the
+     * spliced card stays in hand. Was a loud stub.
+     */
+    @Override
+    public List<forge.game.card.Card> chooseCardsForSplice(SpellAbility sa, List<forge.game.card.Card> cards) {
+        String spell = sa.getHostCard() == null ? "the spell" : sa.getHostCard().getName();
+        return pickSeveral("chooseCardsForSplice", cards, 0, cards.size(), "Splice onto " + spell + "?",
+                "You pay each card's splice cost, and its effect is added; the card stays in your hand.");
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {

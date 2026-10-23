@@ -56,6 +56,8 @@ and checks the result on the board:
                   its four cards
   gift            Alchemist's Gift: deathtouch or lifelink -- Lifelink (the
                   LAST): the Bears has lifelink, not deathtouch
+  splice          Lava Spike with two Glacial Rays in hand: splice the LAST
+                  one -- exactly 5 damage, and both Rays stay in hand
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1208,6 +1210,66 @@ def gift():
     return outcome(problems, "Alchemist's Gift: Lifelink chosen, and the Bears gained exactly that", found)
 
 
+def splice():
+    """Lava Spike (3 to a player, Arcane) cast with two Glacial Rays in hand:
+    "Splice onto Lava Spike?" (chooseCardsForSplice) -- the LAST one, then
+    Pass. The opponent loses exactly 5 (3 + 2), and both Rays stay in hand."""
+    g = game("splice", [("Mountain", 30), ("Lava Spike", 10), ("Glacial Ray", 20)])
+    st = {"cast": None, "asked": [], "picked": None, "rays": None, "life": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseCardsForSplice":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            if st["picked"] is None:
+                st["picked"] = card_of(f["options"][-1]["actionId"])
+                return f["options"][-1]["actionId"]
+            return None
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            rays = [c["id"] for c in g.zone(1, "hand") if c.get("name") == "Glacial Ray"]
+            if st["cast"] is None and len(rays) >= 2 and len(g.untapped_lands(1)) >= 3:
+                o = cast(g, f, "Lava Spike")
+                if o:
+                    st["cast"], st["rays"] = card_of(o), sorted(rays)
+                    st["life"] = (g.player(1, 2) or {}).get("life")
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "hand": sorted(c["id"] for c in g.zone(1, "hand"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "picked": st["picked"], "rays": st["rays"], "life": st["life"],
+             "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Lava Spike was never cast with two Glacial Rays to splice", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the opponent was asked what seat 1 splices")
+    if offered != st["rays"]:
+        problems.append(f"offered {offered}, not exactly the Glacial Rays in hand {st['rays']}")
+    if st["life"] - st["after"]["life"] != 5:
+        problems.append(f"one Ray spliced: 3 + 2 = 5 damage, got {st['life'] - st['after']['life']}")
+    if any(r not in st["after"]["hand"] for r in st["rays"]):
+        problems.append(f"a spliced card stays in hand: {st['rays']} vs {st['after']['hand']}")
+    return outcome(problems, "Lava Spike with one Glacial Ray spliced: 5 damage, both Rays still in hand", found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1216,7 +1278,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail, "piles": piles, "gift": gift, "splice": splice}
 
 if __name__ == "__main__":
     codes = []

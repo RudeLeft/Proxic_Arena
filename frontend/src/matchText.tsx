@@ -167,6 +167,8 @@ export function headingFor(kind: string): string {
       return "Choose a pile";
     case "chooseKeywordForPump":
       return "Choose what it gains";
+    case "chooseCardsForSplice":
+      return "Splice";
     case "orderSimultaneousAbilities":
       return "Choose what resolves first";
     case "chooseSingleReplacementEffect":
