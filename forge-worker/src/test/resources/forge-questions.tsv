@@ -39,16 +39,16 @@ C CostExile	ASKS	CostExile	Exile as a cost	Force of Will, Delve-like costs	scrip
 C CostExileFromStack	UNBUILT		Pay the cost ExileFromStack	rare	LoudFailureTest
 C CostExiledMoveToGrave	UNBUILT		Pay the cost ExiledMoveToGrave	rare	LoudFailureTest
 C CostFlipCoin	UNBUILT		Pay the cost FlipCoin	rare	LoudFailureTest
-C CostForage	UNBUILT		Pay the cost Forage	10 cards — forage (Bloomburrow)	LoudFailureTest
+C CostForage	ASKS	CostForage	Forage: "sacrifice a Food?" when there is one, else three graveyard cards, one click each	10 cards: Bushy Bodyguard, Camellia, Corpseberry Cultivator	scripts/check-cost-kinds.py
 C CostGainControl	UNBUILT		Pay the cost GainControl	rare	LoudFailureTest
-C CostGainLife	UNBUILT		Pay the cost GainLife	5 cards — an opponent gains life (Invigorate)	LoudFailureTest
-C CostMill	UNBUILT		Pay the cost Mill	9 cards — mill as a cost	LoudFailureTest
+C CostGainLife	ASKS	CostGainLife	An opponent gains life as a cost: which opponent, by name	5 cards: Invigorate, Skyshroud Cutter, Wall of Shards	scripts/check-cost-kinds.py
+C CostMill	ASKS	confirmPayment	Mill as a cost: a yes or no ("Mill one card?")	9 cards: Sinister Concoction, Deranged Assistant, Millikin	scripts/check-cost-kinds.py
 C CostPartMana	ENGINE		The mana part of a cost: paid by the mana questions	every activated ability	scripts/check-mana-cost.py
 C CostPayEnergy	ASKS	confirmPayment	Pay energy (confirmed)	Aether Hub, energy cards	scripts/check-player-state.py
 C CostPayLife	ASKS	confirmPayment	Pay life (confirmed when optional)	fetch lands, Phyrexian costs	scripts/check-costs.py
 C CostPayShards	UNREACHABLE		Pay with shards: no card in Forge's card files has such a cost (Forge's Adventure mode only)	-	scripts/check-unreachable.py
 C CostPromiseGift	UNBUILT		Pay the cost PromiseGift	Bloomburrow gift — count to confirm	LoudFailureTest
-C CostPutCardToLib	UNBUILT		Pay the cost PutCardToLib	11 cards — put a card on top of a library	LoudFailureTest
+C CostPutCardToLib	ASKS	CostPutCardToLib	Put cards on top of your library from hand or graveyard, one click each (the one same-graveyard card stays loud)	11 cards: Leashling, Hidden Retreat, Penance	scripts/check-cost-kinds.py
 C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	scripts/check-you-choose.py
 C CostPutCounterYou	UNBUILT		Pay the cost PutCounterYou	with counters — a counter on you	LoudFailureTest
 C CostRemoveAnyCounter	UNBUILT		Pay the cost RemoveAnyCounter	with counters — remove any counter	LoudFailureTest

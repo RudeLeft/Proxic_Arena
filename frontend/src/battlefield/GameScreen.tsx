@@ -1111,6 +1111,9 @@ const CANCEL_KINDS = new Set([
   "CostCollectEvidence",
   "CostBlight",
   "CostEnlist",
+  "CostForage",
+  "CostGainLife",
+  "CostPutCardToLib",
 ]);
 
 /** The two combat questions, answered on the board and the act button. */

@@ -610,6 +610,111 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Mill as a cost -- Sinister Concoction, Deranged Assistant: a yes or no
+     * (Forge's human path). Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostMill cost) {
+        int amount = cost.getAbilityAmount(ability);
+        return confirm("Mill " + forge.util.Lang.nounWithNumeral(amount, "card") + "?")
+                ? PaymentDecision.number(amount) : null;
+    }
+
+    /**
+     * Forage -- sacrifice a Food, or exile three cards from your graveyard
+     * (Bloomburrow). A port of Forge's human path: with a Food, "sacrifice
+     * a Food?" first (no means the graveyard instead); then which Food, or
+     * which three cards. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostForage cost) {
+        forge.game.card.CardCollection food = forge.game.card.CardLists.filter(
+                player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                forge.game.card.CardPredicates.isType("Food"),
+                forge.game.card.CardPredicates.canBeSacrificedBy(ability, isEffect()));
+        forge.game.card.CardCollection grave = forge.game.card.CardLists.filter(
+                player.getCardsIn(forge.game.zone.ZoneType.Graveyard),
+                forge.game.card.CardPredicates.canExiledBy(ability, isEffect()));
+        if (!food.isEmpty() && confirm("Forage by sacrificing a Food? (Or pass to exile three cards from your"
+                + " graveyard.)")) {
+            Card one = pickOne(food, "CostForage", "Forage: sacrifice a Food.");
+            return one == null ? null : PaymentDecision.card(one);
+        }
+        if (grave.size() >= 3) {
+            java.util.List<Card> chosen = pickCards(grave, 3, "CostForage",
+                    "Forage: exile three cards from your graveyard.");
+            return chosen == null ? null : PaymentDecision.card(chosen);
+        }
+        return null;
+    }
+
+    /**
+     * "Have an opponent gain 3 life" as a cost -- Invigorate, Skyshroud
+     * Cutter. A port of Forge's human path: which opponent, or none to
+     * cancel; "each other player" needs no choice. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostGainLife cost) {
+        int amount = cost.getAbilityAmount(ability);
+        java.util.List<forge.game.player.Player> can = new java.util.ArrayList<>();
+        for (forge.game.player.Player opp : cost.getPotentialTargets(player, ability)) {
+            if (opp.canGainLife()) {
+                can.add(opp);
+            }
+        }
+        if (cost.getCntPlayers() == Integer.MAX_VALUE) {
+            return PaymentDecision.players(can);
+        }
+        java.util.LinkedHashMap<String, forge.game.player.Player> byId = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        for (forge.game.player.Player opp : can) {
+            byId.put("player:" + opp.getId(), opp);
+            labels.put("player:" + opp.getId(), opp.getName());
+        }
+        try {
+            String choice = host.gate().ask(actedForSeat, authorisedSeat, "CostGainLife",
+                    new java.util.ArrayList<>(byId.keySet()), false,
+                    source.getName() + ": choose an opponent to gain " + amount + " life.",
+                    pending -> host.publishDecision(pending, labels));
+            forge.game.player.Player chosen = choice == null ? null : byId.get(choice);
+            return chosen == null ? null : PaymentDecision.players(java.util.List.of(chosen));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
+     * Put cards on top of your library as a cost -- Leashling and Hidden
+     * Retreat (from hand), the graveyard ones (Reito Lantern-style). A port
+     * of Forge's human path for the card itself (a yes or no), the hand and
+     * your graveyard: exactly that many, one click each. The one "from the
+     * same graveyard" card stays the loud stub. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostPutCardToLib cost) {
+        if (cost.payCostFromSource()) {
+            return source.getZone() == player.getZone(cost.getFrom())
+                    && confirm("Put " + source.getName() + " on top of your library?")
+                    ? PaymentDecision.card(source) : null;
+        }
+        if (cost.isSameZone()) {
+            return super.visit(cost);
+        }
+        int needed = cost.getAbilityAmount(ability);
+        forge.game.card.CardCollection list = forge.game.card.CardLists.getValidCards(
+                player.getCardsIn(cost.getFrom()), cost.getType().split(";"), player, source, ability);
+        if (list.size() < needed) {
+            return null;
+        }
+        String from = cost.getFrom() == forge.game.zone.ZoneType.Hand ? "hand" : "graveyard";
+        java.util.List<Card> chosen = pickCards(list, needed, "CostPutCardToLib", "Put "
+                + forge.util.Lang.nounWithNumeralExceptOne(needed, "card") + " from your " + from
+                + " on top of your library.");
+        return chosen == null ? null : PaymentDecision.card(chosen);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

@@ -42,6 +42,15 @@ with options no default would take, and checks the board:
   salvo-no    the same, no: the Bears dies, no life lost
   untap       Patrol Signaler's {Q} (CostUntap, nothing asked): it untaps
               and makes a token
+  mill-yes    Sinister Concoction's mill (CostMill, a yes or no): yes --
+              one card milled, the Bears destroyed
+  mill-no     the same, no: nothing milled, nothing destroyed
+  forage      Bushy Bodyguard forages from the graveyard (CostForage): the
+              LAST three offered are exiled; two +1/+1 counters
+  gain-life   Invigorate's alternative cost (CostGainLife): the opponent,
+              by name, gains 3; nothing tapped; the Bears +4/+4
+  to-library  Leashling (CostPutCardToLib): the LAST card in hand goes on
+              top -- and is the next draw; Leashling returns
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -1010,13 +1019,270 @@ def signaler():
     return outcome(problems, "Patrol Signaler: {Q} paid -- it untapped, and a Kithkin token was made", found)
 
 
+def concoction(yes):
+    """Sinister Concoction: {B}, pay 1 life, mill a card, discard a card,
+    sacrifice it: destroy target creature. The mill (CostMill) is a yes or
+    no. Yes: the library is one card smaller and the Bears is destroyed.
+    No: nothing is milled and the Bears lives. (What was paid before the
+    mill is Forge's to give back: a cancelled activation refunds only what
+    its rollback can, and a sacrifice it cannot -- not checked here.)"""
+    g = game(f"mill-{'yes' if yes else 'no'}", [("Swamp", 36), ("Sinister Concoction", 24)])
+    st = {"used": False, "asked": [], "library": None, "bears": None, "after": None, "turn": None}
+
+    def library():
+        return (g.player(1, 1) or {}).get("libraryCount")
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if k == "confirmPayment" and prompt.startswith("Mill "):
+            st["asked"].append((seat, prompt))
+            st["library"] = library()
+            return "confirm:yes" if yes else None
+        if k == "confirmPayment" and seat == 1:
+            return "confirm:yes"
+        if k == "CostDiscard" and seat == 1:
+            return f["options"][0]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            bears = g.zone(1, "battlefield", owner=2, name="Grizzly Bears")
+            # Seat 1's own main phase: no draw step between asking and reading.
+            mine = g.state.get(1, {}).get("activeSeat") == 1 and g.state.get(1, {}).get("phase") in ("MAIN1", "MAIN2")
+            if not st["used"] and mine and bears and g.mine(1, name="Sinister Concoction") and g.untapped_lands(1):
+                o = g.option(f, name="Sinister Concoction", zone="battlefield")
+                if o:
+                    st["used"], st["bears"], st["turn"] = True, bears[0]["id"], g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            return None if g.mine(1, name="Sinister Concoction") else cast(g, f, "Sinister Concoction")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        gone = st["bears"] and not any(c["id"] == st["bears"] for c in g.zone(1, "battlefield", owner=2))
+        # Declined: read at once, before a later draw changes the library.
+        if st["asked"] and stack_empty(g) and st["after"] is None and (gone or not yes):
+            st["after"] = {"library": library(), "bears_gone": bool(gone),
+                           "concoction": bool(g.mine(1, name="Sinister Concoction"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "library": st["library"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Sinister Concoction's mill was never asked", found
+    problems = []
+    if [seat for seat, _ in st["asked"]] != [1] or st["asked"][0][1] != "Mill one card?":
+        problems.append(f"seat 1 alone, asked once, \"Mill one card?\": {st['asked']}")
+    after = st["after"]
+    if yes and (after["library"] != st["library"] - 1 or not after["bears_gone"] or after["concoction"]):
+        problems.append(f"milled: library {st['library']} -> {after['library']}, the Bears destroyed, the "
+                        f"Concoction sacrificed: {after}")
+    if not yes and (after["library"] != st["library"] or after["bears_gone"]):
+        problems.append(f"declined: nothing milled, the Bears alive: {after}")
+    return outcome(problems, "Sinister Concoction: milled, and the Bears was destroyed" if yes
+                   else "Sinister Concoction: declined, nothing milled, nothing destroyed", found)
+
+
+def forage():
+    """Bushy Bodyguard enters; "you may forage" (yes); no Food, so exile
+    three cards from the graveyard (CostForage): the LAST three offered.
+    Exactly those are exiled, and the Bodyguard gets two +1/+1 counters."""
+    g = game("forage", [("Forest", 30), ("Giant Growth", 18), ("Bushy Bodyguard", 12)])
+    st = {"cast": None, "asked": [], "picked": [], "grave": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostForage":
+            cards = [o for o in f["options"] if card_of(o["actionId"]) and card_of(o["actionId"]) not in st["picked"]]
+            st["asked"].append((seat, len(f["options"]), f.get("prompt")))
+            if st["grave"] is None:
+                st["grave"] = sorted(c["id"] for c in g.zone(1, "graveyard", owner=1))
+            st["picked"].append(card_of(cards[-1]["actionId"]))
+            return cards[-1]["actionId"]
+        if k == "confirmTrigger" and seat == 1:
+            return "confirm:yes"
+        if k == "chooseNumberForKeywordCost":
+            return "confirm:no"
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            grave = g.zone(1, "graveyard", owner=1)
+            if st["cast"] is None and len(grave) >= 4:
+                o = cast(g, f, "Bushy Bodyguard")
+                if o:
+                    st["cast"] = card_of(o)
+                return o
+            # Fill the graveyard: Giant Growth on the opponent's Bears.
+            if st["cast"] is None and g.zone(1, "battlefield", owner=2, name="Grizzly Bears"):
+                return cast(g, f, "Giant Growth")
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        body = next((c for c in g.mine(1) if c["id"] == st["cast"]), None)
+        if st["picked"] and body and stack_empty(g) and st["after"] is None:
+            st["after"] = {"exile": sorted(c["id"] for c in g.zone(1, "exile", owner=1)),
+                           "counters": {k["name"]: k["count"] for k in body.get("counters", []) or []}}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": st["asked"], "picked": st["picked"], "grave": st["grave"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["picked"] or not st["after"]:
+        return "inconclusive", "Bushy Bodyguard never foraged from the graveyard", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]) or len(st["asked"]) != 3:
+        problems.append(f"three picks, all seat 1's: {st['asked']}")
+    if st["asked"][0][2] != "Forage: exile three cards from your graveyard. (3 more needed)" and \
+            not (st["asked"][0][2] or "").startswith("Forage: exile three cards from your graveyard."):
+        problems.append(f"the question should say what forage takes: {st['asked'][0][2]!r}")
+    if st["after"]["exile"] != sorted(st["picked"]):
+        problems.append(f"exactly the three picked {st['picked']} exiled: {st['after']['exile']}")
+    if st["after"]["counters"].get("P1P1") != 2:
+        problems.append(f"foraged, so two +1/+1 counters: {st['after']['counters']}")
+    return outcome(problems, "Bushy Bodyguard: the three cards picked were exiled, and it got two counters", found)
+
+
+def invigorate():
+    """Invigorate's alternative cost -- an opponent gains 3 life instead of
+    paying (CostGainLife): which opponent is asked. The opponent gains 3,
+    no land is tapped for it, and the Bears gets +4/+4."""
+    g = game("gain-life", [("Forest", 30), ("Grizzly Bears", 15), ("Invigorate", 15)])
+    st = {"cast": None, "asked": [], "life": None, "lands": None, "bears": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostGainLife":
+            st["asked"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["life"] = (g.player(1, 2) or {}).get("life")
+            return f["options"][-1]["actionId"]
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            bears = g.mine(1, name="Grizzly Bears")
+            if st["cast"] is None and bears:
+                o = next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Invigorate")
+                          and "life" in (o.get("label") or "")), None)
+                if o:
+                    st["cast"], st["bears"] = card_of(o), bears[0]["id"]
+                    st["lands"] = len(g.untapped_lands(1))
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            return None if bears else cast(g, f, "Grizzly Bears")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            bear = next((c for c in g.mine(1) if c["id"] == st["bears"]), {})
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"), "lands": len(g.untapped_lands(1)),
+                           "pt": (bear.get("power"), bear.get("toughness"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "life": st["life"], "lands": st["lands"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Invigorate was never cast for its alternative cost", found
+    problems = []
+    seat, labels, prompt = st["asked"][0]
+    if seat != 1 or labels != ["Bob"] or prompt != "Invigorate: choose an opponent to gain 3 life.":
+        problems.append(f"the caster chooses which opponent, by name: {st['asked']}")
+    after = st["after"]
+    if after["life"] - st["life"] != 3 or after["lands"] != st["lands"] or after["pt"] != (6, 6):
+        problems.append(f"the opponent gains 3, no land tapped, the Bears 6/6: {st['life']} {st['lands']} -> {after}")
+    return outcome(problems, "Invigorate: the opponent gained 3, nothing tapped, the Bears got +4/+4", found)
+
+
+def leashling():
+    """Leashling: put a card from your hand on top of your library: return
+    it to hand (CostPutCardToLib). The LAST card offered goes on top: it
+    leaves the hand, Leashling returns, and the next draw is that card."""
+    g = game("to-library", [("Plains", 30), ("Leashling", 30)])
+    st = {"used": False, "asked": [], "picked": None, "turn": None, "after": None, "drawn": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostPutCardToLib":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["picked"] = card_of(f["options"][-1]["actionId"])
+            return f["options"][-1]["actionId"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            if not st["used"] and g.mine(1, name="Leashling") and len(g.zone(1, "hand")) >= 2:
+                o = g.option(f, name="Leashling", zone="battlefield", contains="Return")
+                if o:
+                    st["used"], st["turn"] = True, g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            return None if g.mine(1, name="Leashling") or st["used"] else cast(g, f, "Leashling")
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        hand = [c["id"] for c in g.zone(1, "hand")]
+        if st["picked"] and stack_empty(g) and st["after"] is None and not g.mine(1, name="Leashling"):
+            st["after"] = {"picked_in_hand": st["picked"] in hand,
+                           "leashling_in_hand": any(c.get("name") == "Leashling" for c in g.zone(1, "hand"))}
+        if st["after"] and st["drawn"] is None and g.turn >= st["turn"] + 2 and \
+                g.state.get(1, {}).get("phase") == "MAIN1":
+            st["drawn"] = st["picked"] in hand
+        return st["drawn"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"asked": st["asked"], "picked": st["picked"], "after": st["after"], "drawn": st["drawn"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or st["drawn"] is None:
+        return "inconclusive", "Leashling never returned itself", found
+    problems = []
+    if st["asked"][0][0] != 1 or st["asked"][0][2] != "Put a card from your hand on top of your library.":
+        problems.append(f"seat 1 asked, in plain words: {st['asked']}")
+    if st["after"]["picked_in_hand"] or not st["after"]["leashling_in_hand"]:
+        problems.append(f"the card picked leaves the hand and Leashling returns: {st['after']}")
+    if not st["drawn"]:
+        problems.append("the card picked was put on top, so it is the next card drawn")
+    return outcome(problems, "Leashling: the card picked went on top -- and was the next draw -- and Leashling "
+                             "returned", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
              "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
              "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False),
              "behold": behold, "evidence": evidence, "blight": blight,
-             "salvo-yes": lambda: salvo(True), "salvo-no": lambda: salvo(False), "untap": signaler}
+             "salvo-yes": lambda: salvo(True), "salvo-no": lambda: salvo(False), "untap": signaler,
+             "mill-yes": lambda: concoction(True), "mill-no": lambda: concoction(False), "forage": forage,
+             "gain-life": invigorate, "to-library": leashling}
 
 if __name__ == "__main__":
     codes = []

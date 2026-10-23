@@ -259,6 +259,12 @@ export function headingFor(kind: string): string {
       return "Blight";
     case "CostEnlist":
       return "Choose what to enlist";
+    case "CostForage":
+      return "Forage";
+    case "CostGainLife":
+      return "Choose an opponent";
+    case "CostPutCardToLib":
+      return "Choose what to put on top";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":
@@ -380,6 +386,9 @@ export function hintFor(kind: string, options: number): string {
     case "CostCollectEvidence":
     case "CostBlight":
     case "CostEnlist":
+    case "CostForage":
+    case "CostGainLife":
+    case "CostPutCardToLib":
       return "This is part of paying for what you are doing. Cancel (or Esc) backs out.";
     case "arrangeForScry":
     case "arrangeForSurveil":
