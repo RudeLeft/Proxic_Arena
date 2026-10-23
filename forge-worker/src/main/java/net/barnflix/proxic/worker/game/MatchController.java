@@ -1772,6 +1772,37 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * "Add N mana in any combination of colours" -- Phase 8, 88 cards
+     * (Manamorphose, Firebrand Archer...). Forge's human screen spreads N
+     * among the colours, each at most once when they must differ; here, one
+     * mana at a time: "Mana 1 of 2: which colour?". Was a loud stub.
+     */
+    @Override
+    public java.util.Map<Byte, Integer> specifyManaCombo(SpellAbility sa, forge.card.ColorSet colorSet,
+            int manaAmount, boolean different) {
+        java.util.Map<Byte, Integer> result = new java.util.HashMap<>();
+        int most = different ? 1 : manaAmount;
+        String source = sa == null || sa.getHostCard() == null ? "" : sa.getHostCard().getName() + ": ";
+        for (int n = 1; n <= manaAmount; n++) {
+            java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            for (byte color : forge.card.mana.ManaAtom.MANATYPES) {
+                if (color != forge.card.mana.ManaAtom.COLORLESS && colorSet.hasAnyColor(color)
+                        && result.getOrDefault(color, 0) < most) {
+                    labels.put("color:" + color, forge.card.MagicColor.toLongString(color));
+                }
+            }
+            if (labels.isEmpty()) {
+                break;
+            }
+            String answer = askOne("specifyManaCombo", source + "mana " + n + " of " + manaAmount
+                    + (different ? ", each a different colour" : "") + ": which colour?", labels, true);
+            String id = answer == null ? labels.keySet().iterator().next() : answer;
+            result.merge(Byte.parseByte(id.substring("color:".length())), 1, Integer::sum);
+        }
+        return result;
+    }
+
+    /**
      * One of several labelled choices, by index, or -1 for a pass --
      * the shape the three ports below share.
      */

@@ -188,7 +188,7 @@ Q revealAISkipCards(String,Map)	UNREACHABLE		Forge's warning about cards its com
 Q revealAnte(String,Multimap)	TELLS		Tells a player every copy of their ante cards was taken out before the game: ante is not played (was a loud stop -- such a deck could not start)	Contract from Below, Darkpact, Jeweled Bird, Amulet of Quoz, Demonic Attorney, Rebirth, Timmerian Fiends	scripts/check-unreachable.py
 Q revealUnsupported(Map)	UNREACHABLE		Forge's notice of cards it has no rules for: only a card its files do not have, and a deck naming one is refused before the game	-	scripts/check-unreachable.py
 Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one game per match, no sideboard in Open Format	-	UnreachableQuestionsTest
-Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	UNBUILT		"add N mana in any combination of colours"	88 cards	LoudFailureTest
+Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	ASKS	specifyManaCombo	Add N mana in any combination of colours: which colour, one mana at a time	88 cards: Manamorphose, Firebrand Archer-style combination mana	scripts/check-cost-kinds.py
 Q tempShowCards(Iterable)	NOT-A-QUESTION		Show cards for a moment (Forge's desktop)	-	-
 Q tuckCardsViaMulligan(CardCollectionView,int)	ASKS	tuckCardsViaMulligan	After a mulligan: which cards go to the bottom	every mulligan	scripts/check-mulligan.py
 Q vote(SpellAbility,String,List,ListMultimap,Player,boolean)	UNBUILT		Council's Judgment, Expropriate	37 cards	LoudFailureTest

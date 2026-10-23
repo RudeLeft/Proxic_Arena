@@ -20,6 +20,8 @@ with options no default would take, and checks the board:
   offspring-no   the same, no: no token
   gush        Gush instead of its mana (CostReturn): the two Islands picked
               (the LAST each time) go back to hand, the third stays
+  manamorphose  Manamorphose (specifyManaCombo): blue then black -- the pool
+              holds exactly those
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -430,9 +432,57 @@ def gush():
                              "were drawn", found)
 
 
+def manamorphose():
+    """Manamorphose: two mana in any combination (specifyManaCombo). Blue,
+    then black (white is first) -- the pool then holds exactly those."""
+    g = game("manamorphose", [("Mountain", 20), ("Forest", 20), ("Manamorphose", 20)])
+    st = {"cast": None, "asked": [], "after": None}
+    want = ["blue", "black"]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "specifyManaCombo":
+            labels = [o.get("label") for o in f["options"]]
+            st["asked"].append((seat, labels, f.get("prompt")))
+            colour = want[min(len(st["asked"]) - 1, 1)]
+            return next((o["actionId"] for o in f["options"] if o.get("label") == colour), DEFAULT)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f, prefer="Forest" if not g.mine(1, name="Forest") else "Mountain")
+            if land:
+                return land
+            if st["cast"] is None:
+                o = cast(g, f, "Manamorphose")
+                if o:
+                    st["cast"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if len(st["asked"]) >= 2 and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = (g.player(1, 1) or {}).get("manaPool") or {}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "pool": st["after"], "stopped": g.stopped_badly()}
+    if len(st["asked"]) < 2:
+        return "inconclusive", "Manamorphose never asked both colours", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's mana")
+    if st["asked"][0][1][:1] == ["blue"] or "blue" not in st["asked"][0][1]:
+        problems.append(f"the five colours, blue not first: {st['asked'][0][1]}")
+    if st["after"] != {"U": 1, "B": 1}:
+        problems.append(f"blue then black picked, so the pool should be one of each: {st['after']}")
+    return outcome(problems, "Manamorphose: blue and black picked, and exactly those are floating", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
-             "gush": gush}
+             "gush": gush, "manamorphose": manamorphose}
 
 if __name__ == "__main__":
     codes = []

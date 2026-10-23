@@ -190,6 +190,8 @@ export function headingFor(kind: string): string {
     case "chooseColor":
     case "chooseColors":
       return "Choose a colour";
+    case "specifyManaCombo":
+      return "Choose the mana's colours";
     case "chooseProtectionType":
       return "Choose protection";
     case "chooseCardName":
