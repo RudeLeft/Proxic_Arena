@@ -620,6 +620,7 @@ public final class MatchController extends GeneratedControllerBase {
         for (SpellAbility sa : abilities) {
             byId.put("action:" + byId.size() + ":card:" + hostCard.getId(), sa);
         }
+        host.offerSubject(hostCard);
         try {
             String choice =
                     host.gate().ask(
@@ -776,6 +777,7 @@ public final class MatchController extends GeneratedControllerBase {
             }
             onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
 
+            host.offerSubject(ability);
             try {
                 String choice =
                         host.gate().ask(

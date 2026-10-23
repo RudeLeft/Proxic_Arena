@@ -132,6 +132,25 @@ class WorkerFramesTest {
         assertTrue(!plain.contains("unavailable"), plain)
     }
 
+    /** Owner 2026-10-22 -- what Cancel backs out of reaches the browser. */
+    @Test
+    fun `what a question is about reaches the browser`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"7","actedForSeat":1,"authorisedSeat":1,"kind":"chooseTargetsFor",
+                     "stateVersion":"3","options":[],
+                     "about":{"name":"Lightning Bolt","kind":"spell","from":"hand"}}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertTrue(request.about == mapOf("name" to "Lightning Bolt", "kind" to "spell", "from" to "hand"))
+        val sent = decisionMessage(request).toString()
+        assertTrue(sent.contains("\"about\":{\"name\":\"Lightning Bolt\",\"kind\":\"spell\",\"from\":\"hand\"}"), sent)
+        assertTrue(!decisionMessage(request.copy(about = emptyMap())).toString().contains("about"))
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

@@ -4,7 +4,7 @@
 // the game connection lives. The panel itself was removed 2026-10-22.
 
 import { useEffect, useState } from "react";
-import type { Decision } from "./match";
+import type { Decision, DecisionAbout } from "./match";
 import type { MatchView } from "./lobby";
 
 /**
@@ -322,4 +322,29 @@ export function hintFor(kind: string, options: number): string {
 export function matchUrl(matchId: string): string {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   return `${scheme}://${location.host}/ws/matches/${matchId}`;
+}
+
+/**
+ * What Cancel says (owner 2026-10-22: "cancel all, by name"): backing out
+ * undoes the whole thing -- Forge returns the card where it came from and
+ * refunds any mana paid -- so nothing is spent.
+ */
+export function cancelWords(about: DecisionAbout | null): { word: string; sub: string } {
+  if (!about) return { word: "Cancel", sub: "Back out — nothing happens" };
+  switch (about.kind) {
+    case "spell":
+      return {
+        word: `Cancel ${about.name}`,
+        sub: `Back to your ${about.from ?? "hand"} · nothing is spent`,
+      };
+    case "ability":
+      return {
+        word: `Cancel ${about.name}`,
+        sub: "Its ability is not activated · nothing is spent",
+      };
+    case "trigger":
+      return { word: `Cancel ${about.name}`, sub: "Its trigger does nothing" };
+    default:
+      return { word: "Cancel", sub: `Nothing is done with ${about.name}` };
+  }
 }

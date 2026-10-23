@@ -170,6 +170,9 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.unavailable.isNotEmpty()) {
             putJsonObject("unavailable") { request.unavailable.forEach { (id, why) -> put(id, why) } }
         }
+        if (request.about.isNotEmpty()) {
+            putJsonObject("about") { request.about.forEach { (key, value) -> put(key, value) } }
+        }
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(

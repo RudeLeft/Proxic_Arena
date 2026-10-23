@@ -315,6 +315,10 @@ public final class WorkerMain {
                             why.forEach(reasons::addProperty);
                             ask.add("unavailable", reasons);
                         }
+                        // What backing out of this question undoes (owner 2026-10-22).
+                        if (GAME.subject() != null) {
+                            ask.add("about", GAME.subject());
+                        }
                         send(ask);
                     });
                     // §6.40 — one snapshot per viewer, and the

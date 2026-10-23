@@ -91,6 +91,13 @@ data class DecisionRequest(
      * the question goes to and nobody else.
      */
     val unavailable: Map<String, String> = emptyMap(),
+    /**
+     * Owner 2026-10-22 — what a question that can be backed out of is
+     * about ("name", "kind": spell/ability/trigger/card, and a spell's
+     * "from"), so Cancel can say what it undoes. The asking player's own
+     * spell; passed through untouched to that seat only.
+     */
+    val about: Map<String, String> = emptyMap(),
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */

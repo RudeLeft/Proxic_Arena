@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { EMPTY_MATCH, concessionText, reduceMatch, type MatchState } from "./match";
+import { cancelWords } from "./matchText";
 
 function apply(messages: Record<string, unknown>[], from: MatchState = EMPTY_MATCH): MatchState {
   return messages.reduce(reduceMatch, from);
@@ -818,5 +819,37 @@ describe("why a card cannot act (B7)", () => {
       options: [],
     });
     expect(state.decision?.unavailable).toEqual({});
+  });
+});
+
+/**
+ * Owner 2026-10-22 — Cancel says what it backs out of: the whole cast,
+ * with any mana refunded, so nothing is spent.
+ */
+describe("what Cancel says", () => {
+  it("reads what the question is about from the server", () => {
+    const state = apply([
+      {
+        ...QUESTION,
+        kind: "chooseTargetsFor",
+        about: { name: "Arc Trail", kind: "spell", from: "hand" },
+      },
+    ]);
+    expect(state.decision?.about).toEqual({ name: "Arc Trail", kind: "spell", from: "hand" });
+    expect(apply([QUESTION]).decision?.about).toBeNull();
+  });
+
+  it("names the spell and where it goes back to, or says nothing happens", () => {
+    expect(cancelWords({ name: "Arc Trail", kind: "spell", from: "hand" })).toEqual({
+      word: "Cancel Arc Trail",
+      sub: "Back to your hand · nothing is spent",
+    });
+    expect(cancelWords({ name: "Faithless Looting", kind: "spell", from: "graveyard" }).sub).toBe(
+      "Back to your graveyard · nothing is spent",
+    );
+    expect(cancelWords({ name: "Gingerbrute", kind: "ability", from: null }).sub).toContain(
+      "not activated",
+    );
+    expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out — nothing happens" });
   });
 });

@@ -371,6 +371,18 @@ button.gs-zone:not(:disabled):hover {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+/* "Cancel Lightning Bolt" (owner 2026-10-22): a spell's name can be long,
+ * so the word is smaller and may take two lines. */
+.gs-act-cancel .gs-act-word {
+  max-width: 204px;
+  font-size: 15px;
+  line-height: 1.05;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 .gs-act-sub {
   font-size: 9px;
   letter-spacing: 0.04em;

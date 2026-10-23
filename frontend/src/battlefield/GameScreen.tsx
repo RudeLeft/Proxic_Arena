@@ -25,7 +25,7 @@ import {
   type SnapshotPlayer,
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
-import { NameSearch, headingFor, hintFor, matchUrl, resultText } from "../matchText";
+import { NameSearch, cancelWords, headingFor, hintFor, matchUrl, resultText } from "../matchText";
 import { Board } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
@@ -311,11 +311,13 @@ export function GameScreen({
                   : null
               }
               cancel={
-                !!decision &&
-                !!question &&
+                decision &&
+                question &&
                 CANCEL_KINDS.has(decision.kind) &&
                 question.canPass &&
                 !listOpen
+                  ? cancelWords(decision.about)
+                  : null
               }
               onAnswer={answer}
               onPassTurn={() => {
@@ -715,8 +717,8 @@ function Rail({
   onPass: () => void;
   /** Declaring attackers or blockers: the act button is the combat button. */
   combat: CombatButton | null;
-  /** A question whose "no" backs out (a target, a payment): the act button cancels. */
-  cancel: boolean;
+  /** A question whose "no" backs out (a target, a payment): what Cancel says. */
+  cancel: { word: string; sub: string } | null;
   onAnswer: (actionId: string | null) => void;
   /** §7.53 extra — pass now, and no more stops this turn. */
   onPassTurn: () => void;
@@ -801,10 +803,10 @@ function Rail({
           className="gs-act gs-act-cancel"
           disabled={busy}
           onClick={() => onAnswer(null)}
-          aria-label="Cancel: back out, nothing happens. Escape does the same."
+          aria-label={`${cancel.word}: ${cancel.sub}`}
         >
-          <span className="gs-act-word">Cancel</span>
-          <span className="gs-act-sub">Back out — nothing happens · Esc</span>
+          <span className="gs-act-word">{cancel.word}</span>
+          <span className="gs-act-sub">{cancel.sub} · Esc</span>
         </button>
       ) : myPriority ? (
         <div className="gs-act-group">

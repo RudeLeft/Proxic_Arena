@@ -94,6 +94,21 @@ export interface Decision {
    * — it can't attack yet." Shown when such a card is clicked.
    */
   unavailable: Record<string, string>;
+  /**
+   * Owner 2026-10-22 — what a question you can back out of is about (the
+   * spell being cast, the ability being paid for), so Cancel says what it
+   * undoes. Null when the server says nothing.
+   */
+  about: DecisionAbout | null;
+}
+
+/** The spell or ability a question is about. */
+export interface DecisionAbout {
+  name: string;
+  /** "spell" | "ability" | "trigger" | "card" */
+  kind: string;
+  /** For a spell: the zone it is cast from ("hand", "graveyard", …). */
+  from: string | null;
 }
 
 /** What one search matched: the best few, and how many there were. */
@@ -732,7 +747,14 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     optionCount: asNumber(message["optionCount"]) ?? 0,
     results: null,
     unavailable: asReasons(message["unavailable"]),
+    about: asAbout(message["about"]),
   };
+}
+
+function asAbout(value: unknown): DecisionAbout | null {
+  const pairs = asReasons(value);
+  if (!pairs["name"]) return null;
+  return { name: pairs["name"], kind: pairs["kind"] ?? "spell", from: pairs["from"] ?? null };
 }
 
 function asReasons(value: unknown): Record<string, string> {

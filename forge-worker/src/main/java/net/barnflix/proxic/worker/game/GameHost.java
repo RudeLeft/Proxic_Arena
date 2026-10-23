@@ -783,6 +783,47 @@ public final class GameHost {
         return unavailable;
     }
 
+    /**
+     * Owner 2026-10-22 -- what a question that can be backed out of is
+     * ABOUT: the spell or ability being cast, paid for or targeted, so the
+     * page's Cancel says what backing out undoes ("Cancel Lightning Bolt --
+     * back to your hand"). The asking player's own spell, sent to that
+     * player only. Same lifetime as the three above.
+     */
+    private volatile com.google.gson.JsonObject subject = null;
+
+    void offerSubject(forge.game.spellability.SpellAbility sa) {
+        if (sa == null || sa.getHostCard() == null) {
+            subject = null;
+            return;
+        }
+        forge.game.card.Card card = sa.getHostCard();
+        com.google.gson.JsonObject about = new com.google.gson.JsonObject();
+        about.addProperty("name", card.getName());
+        about.addProperty("kind", sa.isSpell() ? "spell" : sa.isTrigger() ? "trigger" : "ability");
+        if (sa.isSpell()) {
+            forge.game.zone.Zone from = card.getCastFrom();
+            about.addProperty("from", from == null
+                    ? "hand" : from.getZoneType().name().toLowerCase(java.util.Locale.ROOT));
+        }
+        subject = about;
+    }
+
+    void offerSubject(forge.game.card.Card card) {
+        if (card == null) {
+            subject = null;
+            return;
+        }
+        com.google.gson.JsonObject about = new com.google.gson.JsonObject();
+        about.addProperty("name", card.getName());
+        about.addProperty("kind", "card");
+        subject = about;
+    }
+
+    public com.google.gson.JsonObject subject() {
+        return subject;
+    }
+
     private static final java.util.regex.Pattern OBJECT =
             java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
 
@@ -835,6 +876,7 @@ public final class GameHost {
         unpayable = java.util.Set.of(); // only for the question it was set for
         costs = java.util.Map.of();
         unavailable = java.util.Map.of();
+        subject = null;
     }
 
     /**

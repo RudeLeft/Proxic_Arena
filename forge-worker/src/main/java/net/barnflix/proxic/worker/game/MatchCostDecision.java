@@ -535,6 +535,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             byId.put(id, card);
             labels.put(id, card.getName());
         }
+        // What backing out of this cost undoes (owner 2026-10-22).
+        host.offerSubject(ability);
         try {
             String choice =
                     host.gate().ask(

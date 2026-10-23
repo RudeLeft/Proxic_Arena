@@ -131,6 +131,7 @@ final class ManaPayment {
                         + (player.getLife() - lifeToLose) + " life — " + remaining(toPay));
             }
 
+            host.offerSubject(paidFor);
             String choice =
                     host.gate().ask(
                             actedForSeat,
@@ -312,7 +313,7 @@ final class ManaPayment {
             return false;
         }
 
-        SpellAbility chosen = usable.size() == 1 ? usable.get(0) : chooseAbility(card, usable);
+        SpellAbility chosen = usable.size() == 1 ? usable.get(0) : chooseAbility(card, usable, paidFor);
         if (chosen == null) {
             return false;
         }
@@ -352,7 +353,7 @@ final class ManaPayment {
      * a player who taps the wrong permanent should be able to back
      * out rather than being forced to spend it.
      */
-    private SpellAbility chooseAbility(Card card, List<SpellAbility> usable)
+    private SpellAbility chooseAbility(Card card, List<SpellAbility> usable, SpellAbility paidFor)
             throws InterruptedException {
         LinkedHashMap<String, SpellAbility> byId = new LinkedHashMap<>();
         LinkedHashMap<String, String> labels = new LinkedHashMap<>();
@@ -361,6 +362,7 @@ final class ManaPayment {
             byId.put(id, ability);
             labels.put(id, card.getName() + " — " + ability);
         }
+        host.offerSubject(paidFor);
         String choice =
                 host.gate().ask(
                         actedForSeat,
