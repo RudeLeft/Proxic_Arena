@@ -46,7 +46,7 @@ C CostMill	UNBUILT		Pay the cost Mill	9 cards — mill as a cost	LoudFailureTest
 C CostPartMana	ENGINE		The mana part of a cost: paid by the mana questions	every activated ability	scripts/check-mana-cost.py
 C CostPayEnergy	ASKS	confirmPayment	Pay energy (confirmed)	Aether Hub, energy cards	scripts/check-player-state.py
 C CostPayLife	ASKS	confirmPayment	Pay life (confirmed when optional)	fetch lands, Phyrexian costs	scripts/check-costs.py
-C CostPayShards	UNREACHABLE		Forge Adventure mode only: never in a Proxic game	-	PENDING: a test asserting it
+C CostPayShards	UNREACHABLE		Pay with shards: no card in Forge's card files has such a cost (Forge's Adventure mode only)	-	scripts/check-unreachable.py
 C CostPromiseGift	UNBUILT		Pay the cost PromiseGift	Bloomburrow gift — count to confirm	LoudFailureTest
 C CostPutCardToLib	UNBUILT		Pay the cost PutCardToLib	11 cards — put a card on top of a library	LoudFailureTest
 C CostPutCounter	ASKS	CostPutCounter	Put a counter as a cost: where	rare chosen-counter costs	scripts/check-you-choose.py
@@ -91,7 +91,7 @@ Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollec
 Q chooseCardsToDiscardToMaximumHandSize(int)	ASKS	chooseCardsToDiscardToMaximumHandSize	Discard down to your maximum hand size	every game	scripts/check-characteristics.py
 Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	UNBUILT		Thirst for Knowledge, Wrench Mind	15 cards	LoudFailureTest
 Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	UNBUILT		reveal any number from hand (Blackmail, Ivy Seer)	35 cards	LoudFailureTest
-Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		ante is not played	-	PENDING: a test asserting it
+Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		Ante: which won cards join your deck -- asked only when the rules play for ante, and Proxic's never do	-	UnreachableQuestionsTest
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
 Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Reflecting Pool, Exotic Orchard-style mana when a colourless land is out	scripts/check-you-choose.py
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
@@ -110,7 +110,7 @@ Q chooseNumber(SpellAbility,String,int,int,Map)	ROUTES-TO		Forge forwards this t
 Q chooseNumberForCostReduction(SpellAbility,int,int)	UNBUILT		"reduce by up to" (Mana Matrix)	3 cards	LoudFailureTest
 Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)	UNBUILT		Offspring, Multikicker (Everflowing Chalice), Casualty, Replicate, Squad, Conspire	104 cards	LoudFailureTest
 Q chooseOptionalCosts(SpellAbility,List)	ASKS	chooseOptionalCosts	Pay an optional extra cost: kicker, entwine	Kicker, Entwine, Buyback	scripts/check-modes.py
-Q choosePDRollToIgnore(List)	UNREACHABLE		Planechase is not played	-	PENDING: a test asserting it
+Q choosePDRollToIgnore(List)	UNBUILT		Planar die rolled more than once: which roll to ignore	2 cards together: Fractured Powerstone (rolls the planar die) with Ichor Elixir (roll one more, ignore one)	LoudFailureTest
 Q choosePermanentsToDestroy(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToDestroy	Destroy one of your own permanents of your choice	Imperial Edict, Wei Assassins	scripts/check-sacrifice.py
 Q choosePermanentsToSacrifice(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToSacrifice	Sacrifice one of your permanents (an effect, not a cost)	Eldrazi Monument, Diabolic Edict, Innocent Blood	scripts/check-sacrifice.py
 Q choosePlayerToAssistPayment(FCollectionView,SpellAbility,String,int)	UNBUILT		assist (Gang Up)	16 cards	LoudFailureTest
@@ -122,7 +122,7 @@ Q chooseRollToSwap(List)	UNBUILT		swap rolls	with the dice cards	LoudFailureTest
 Q chooseSaToActivateFromOpeningHand(List)	ASKS	chooseSaToActivateFromOpeningHand	Begin the game with a card from your opening hand	Leylines, Gemstone Caverns	scripts/check-leyline.py
 Q chooseSector(Card,String,List)	UNBUILT		Un-set: Unfinity sectors	71 cards across the three	LoudFailureTest
 Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	scripts/check-you-choose.py
-Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNREACHABLE		Choose a card face from all of Forge's cards by a filter: never called by Forge's rules at the pinned version (only inside Forge's desktop, to name a card -- Proxic answers naming as chooseCardName)	-	PENDING: a test asserting it is never called
+Q chooseSingleCardFace(SpellAbility,String,Predicate,String)	UNREACHABLE		Choose a card face from all of Forge's cards by a filter: never called by Forge's rules at the pinned version (only inside Forge's desktop, to name a card -- Proxic answers naming as chooseCardName)	-	UnreachableQuestionsTest
 Q chooseSingleCardForZoneChange(ZoneType,List,SpellAbility,CardCollection,DelayedReveal,String,boolean,Player)	ASKS	chooseSingleEntityForEffect	Choose one card to move	a single tutor, a single return	scripts/check-panglacial-wurm.py
 Q chooseSingleCardState(SpellAbility,List,String,Map)	UNBUILT		unlock a door (Duskmourn Rooms)	30 cards	LoudFailureTest
 Q chooseSingleEntityForEffect(FCollectionView,DelayedReveal,SpellAbility,String,boolean,Player,Map)	ASKS	chooseSingleEntityForEffect	Choose one thing for an effect	Karn Liberated, Mutate, Initiative	scripts/check-karn.py
@@ -133,7 +133,7 @@ Q chooseSomeType(String,SpellAbility,Collection,boolean)	ASKS	chooseSomeType	Cho
 Q chooseSpellAbilitiesForEffect(List,SpellAbility,String,int,Map)	ASKS	chooseSpellAbilitiesForEffect	Choose what an effect does	Mind Bend-style text changes	scripts/check-text-effects.py
 Q chooseSpellAbilityToPlay()	ASKS	chooseSpellAbilityToPlay	Your move: play a land, cast, activate, or pass	every game	scripts/check-printings.py
 Q chooseSprocket(Card,List)	UNBUILT		Un-set: Unfinity sprockets	71 cards across the three	LoudFailureTest
-Q chooseStartingHand(List)	UNREACHABLE		Backup Plan, a Conspiracy-draft card that is never in a deck	-	PENDING: a test asserting it
+Q chooseStartingHand(List)	UNREACHABLE		Backup Plan's extra starting hands: a Conspiracy, and a deck holding one is refused before the game (Forge's variant cards never resolve into a Proxic deck)	-	scripts/check-unreachable.py
 Q chooseStartingPlayer(boolean)	ASKS	chooseStartingPlayer	Play or draw	every game	scripts/check-printings.py
 Q chooseTarget(SpellAbility,List)	UNBUILT		change a spell's target (Redirect, Deflection, Shunt)	43 cards	LoudFailureTest
 Q chooseTargetsFor(SpellAbility)	ASKS	chooseTargetsFor,divideAsYouChoose	Choose targets (and divide damage among them)	Lightning Bolt, Fireball split, every targeted spell	scripts/check-concede.py,scripts/check-shapes.py
@@ -167,12 +167,12 @@ Q isOrderedZone()	NOT-A-QUESTION		A property: is a zone ordered	-	-
 Q mulliganKeepHand(Player,int)	ASKS	mulliganKeepHand	Keep this hand or mulligan	every game	scripts/check-printings.py
 Q notifyOfValue(SpellAbility,GameObject,String)	TELLS		Tells a player a value Forge settled: a coin flip, a choice made	-	scripts/check-coin-flip.py
 Q orderAndPlaySimultaneousSa(List)	ASKS	orderSimultaneousAbilities	Order your triggered abilities that happen together	Energy and day/night triggers	scripts/check-player-state.py
-Q orderAttackers(Card,CardCollection)	UNREACHABLE		Forge's old damage-assignment-order rule, off in every Proxic game	-	PENDING: a test asserting it
-Q orderBlocker(Card,Card,CardCollection)	UNREACHABLE		same rule, off	-	PENDING: a test asserting it
-Q orderBlockers(Card,CardCollection)	UNREACHABLE		same rule, off	-	PENDING: a test asserting it
+Q orderAttackers(Card,CardCollection)	UNREACHABLE		Forge's old damage-assignment-order rule, off in every Proxic game	-	UnreachableQuestionsTest
+Q orderBlocker(Card,Card,CardCollection)	UNREACHABLE		same rule, off	-	UnreachableQuestionsTest
+Q orderBlockers(Card,CardCollection)	UNREACHABLE		same rule, off	-	UnreachableQuestionsTest
 Q orderCosts(List)	ENGINE		The order a spell's costs are paid in: Forge's own order, as its desktop does unless 'full control' is on	-	scripts/check-costs.py
 Q orderMoveToZoneList(CardCollectionView,ZoneType,SpellAbility)	ASKS	orderMoveToZoneList	Put cards in order (on top of a library, ...)	Brainstorm, Karn Liberated	scripts/check-karn.py
-Q orderSimultaneousSa(List)	UNREACHABLE		never called by Forge's rules at the pinned version	-	PENDING: a test asserting it
+Q orderSimultaneousSa(List)	UNREACHABLE		never called by Forge's rules at the pinned version	-	UnreachableQuestionsTest
 Q payCombatCost(Card,Cost,SpellAbility,String)	UNBUILT		attack/block taxes (Ghostly Prison, Propaganda, War Tax)	35 cards	LoudFailureTest
 Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions	-	PENDING: no Mechanics Lab game rolls dice with a cost yet
 Q payCostToPreventEffect(Cost,SpellAbility,boolean,FCollectionView)	ENGINE		Pays echo, cumulative upkeep, "unless you pay" through Forge's own payment questions	-	PENDING: no Mechanics Lab game pays echo or cumulative upkeep yet
@@ -184,10 +184,10 @@ Q playTrigger(Card,WrappedAbility,boolean)	ENGINE		Puts the player's triggered a
 Q resetAtEndOfTurn()	NOT-A-QUESTION		Housekeeping at the end of a turn	-	-
 Q reveal(CardCollectionView,ZoneType,Player,String,boolean)	TELLS		Shows a player cards: "look at", "reveal" -- to that player only when private	-	scripts/check-multiface.py
 Q reveal(List,ZoneType,PlayerView,String,boolean)	TELLS		Shows a player cards: "look at", "reveal" -- to that player only when private	-	scripts/check-multiface.py
-Q revealAISkipCards(String,Map)	UNREACHABLE		asked of Forge's computer player only	-	PENDING: a test asserting it
-Q revealAnte(String,Multimap)	UNREACHABLE		ante is not played	-	PENDING: a test asserting it
+Q revealAISkipCards(String,Map)	UNREACHABLE		Forge's warning about cards its computer player cannot play: sent only with cards a controller complained about, and the worker's never complains	-	UnreachableQuestionsTest
+Q revealAnte(String,Multimap)	TELLS		Tells a player every copy of their ante cards was taken out before the game: ante is not played (was a loud stop -- such a deck could not start)	Contract from Below, Darkpact, Jeweled Bird, Amulet of Quoz, Demonic Attorney, Rebirth, Timmerian Fiends	scripts/check-unreachable.py
 Q revealUnsupported(Map)	ENGINE		Records cards Forge cannot run, for the game record	-	PENDING: proof to name
-Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one game per match, no sideboard in Open Format	-	PENDING: a test asserting no sideboarding
+Q sideboard(Deck,GameType,String)	UNREACHABLE		Sideboarding between games: one game per match, no sideboard in Open Format	-	UnreachableQuestionsTest
 Q specifyManaCombo(SpellAbility,ColorSet,int,boolean)	UNBUILT		"add N mana in any combination of colours"	88 cards	LoudFailureTest
 Q tempShowCards(Iterable)	NOT-A-QUESTION		Show cards for a moment (Forge's desktop)	-	-
 Q tuckCardsViaMulligan(CardCollectionView,int)	ASKS	tuckCardsViaMulligan	After a mulligan: which cards go to the bottom	every mulligan	scripts/check-mulligan.py

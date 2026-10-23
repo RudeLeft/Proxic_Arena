@@ -3376,6 +3376,27 @@ public final class MatchController extends GeneratedControllerBase {
                 to != null && to.equals(player.getView()), message, addSuffix);
     }
 
+    /**
+     * Ante cards taken out before the game -- Phase 8. Forge removes any
+     * card that says "remove this from your deck if you're not playing
+     * for ante" (Contract from Below, Darkpact, Jeweled Bird...) and
+     * announces it here. Was a loud stub, so a deck holding one could not
+     * even start a game. Each player is told about their OWN cards only:
+     * less than Forge shows, never more.
+     */
+    @Override
+    public void revealAnte(String message, com.google.common.collect.Multimap<Player, forge.item.PaperCard> removed) {
+        java.util.Collection<forge.item.PaperCard> mine = removed == null ? java.util.List.of() : removed.get(player);
+        if (mine.isEmpty()) {
+            return;
+        }
+        // Forge takes out every copy; it names each card once.
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        mine.forEach(card -> names.add(card.getName()));
+        host.note(actedForSeat, "Every copy of " + String.join(", ", names)
+                + " was taken out of your deck before the game: ante is not played.");
+    }
+
     /** Forge's human wording, as a notice to this player only. */
     private void tellRevealed(
             java.util.List<String> names,

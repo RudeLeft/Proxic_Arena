@@ -111,6 +111,20 @@ public final class GameHost {
      * that. Conflating the two would report RUNNING for a game that
      * threw during its first upkeep.
      */
+    /**
+     * The rules every Proxic game is played under. One place, because
+     * Phase 8's proofs that some of Forge's questions cannot arise read
+     * them here (UnreachableQuestionsTest): no ante (Forge's default),
+     * no legacy damage-assignment ordering of blockers (default off),
+     * and one game per match, so Forge never offers sideboarding between
+     * games.
+     */
+    static GameRules matchRules() {
+        GameRules rules = new GameRules(GameType.Constructed);
+        rules.setGamesPerMatch(1);
+        return rules;
+    }
+
     public void start(List<Seat> seats, String matchName) {
         // A reached stub must fail THIS match, whatever Forge does
         // with the exception. Set per start, so the host that is
@@ -134,9 +148,7 @@ public final class GameHost {
         // as far as Forge is concerned — the bounds Open Format adds
         // are Proxic's and were already enforced at import and at
         // preparation (FMT-002).
-        GameRules rules = new GameRules(GameType.Constructed);
-        rules.setGamesPerMatch(1);
-        Match match = new Match(rules, registered, matchName);
+        Match match = new Match(matchRules(), registered, matchName);
         Game created = match.createGame();
         this.game = created;
         // §6.70 — the game epoch, counted by FORGE's own event,
