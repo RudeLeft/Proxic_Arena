@@ -499,7 +499,7 @@ def charge():
             # the first would deal a different amount.
             first = f["options"][0].get("label")
             last = [o for o in f["options"] if o.get("label") != first][-1]
-            st["picked"], st["power"] = card_of(last["actionId"]), POWER.get(last.get("label"))
+            st["picked"], st["power"], st["name"] = card_of(last["actionId"]), POWER.get(last.get("label")), last.get("label")
             return last["actionId"]
         if k == "chooseTargetsFor" and seat == 1:
             o = next((o for o in f["options"] if (o.get("label") or "").startswith("Indomitable Ancients")), None)
@@ -527,7 +527,7 @@ def charge():
         resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
         if st["picked"] and resolved and stack_empty(g) and st["after"] is None:
             target = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["target"]), {})
-            st["after"] = {"damage": target.get("damage"), "told": g.notices.get(2, [])[-3:]}
+            st["after"] = {"damage": target.get("damage"), "told": g.notices.get(2, [])}
         return st["after"] is not None
 
     g.run(policy, until=until, max_turn=24)
@@ -540,6 +540,8 @@ def charge():
         problems.append("the opponent was asked to reveal seat 1's card")
     if len({label for _, label in st["asked"][0][1]}) < 2:
         problems.append(f"a real choice of creatures: {st['asked'][0][1]}")
+    if not any(st["name"] in n for n in st["after"]["told"]):
+        problems.append(f"a revealed card is shown to the other player: seat 2 was not told {st['name']}")
     if st["after"]["damage"] != st["power"]:
         problems.append(f"revealed power {st['power']}, but the Ancients took {st['after']['damage']}")
     return outcome(problems, f"Charge of the Forever-Beast: the creature revealed (power {st['power']}) dealt "

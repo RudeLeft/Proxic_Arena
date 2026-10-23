@@ -19,7 +19,11 @@ that can be followed), so the test is by id:
   questions   no option offered to this seat names such a card
   events      no notice to this seat names a card that is ONLY in an
               opponent's hand: no copy of that name is anywhere this
-              seat can see, and none was revealed to it
+              seat can see, and none was revealed to it -- in otherHands,
+              or by Forge's own reveal to this seat ("Looking at Alice's
+              hand: Hill Giant", the worker's wording of PlayerController
+              .reveal, which Forge calls only for the players it shows the
+              cards to: a card revealed to pay a cost, Phase 8)
 
 Asset URLs are attached by the server to cards a snapshot names, and
 logs (the worker's stderr) are never sent to a browser at all; both
@@ -33,6 +37,9 @@ import json
 import re
 import sys
 from collections import Counter
+
+# Forge revealing cards to this seat, as MatchController.tellRevealed words it.
+REVEAL = re.compile(r"^Looking at [^:]+: (.+)$")
 
 CARD = re.compile(r"card:(\d+)")
 
@@ -99,6 +106,10 @@ def check(path, totals, leaks):
                         leaks.append(f"{path}:{number} rev {rev}: seat {viewer}'s snapshot carries "
                                      f"{card}, in seat {other}'s hand")
                     if viewer == view.get("seat"):
+                        for text in view.get("notices", []):
+                            shown = REVEAL.match(text)
+                            if shown:
+                                revealed.setdefault(viewer, set()).update(shown.group(1).split(", "))
                         only_hidden = {c["name"] for c in theirs.get("hand", [])} \
                             - names_in(view) - revealed.get(viewer, set())
                         for text in view.get("notices", []):
