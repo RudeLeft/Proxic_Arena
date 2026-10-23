@@ -142,6 +142,9 @@ public final class WorkerMain {
                         if (resolution.category != null) {
                             item.addProperty("category", resolution.category);
                         }
+                        if (resolution.section != null) {
+                            item.addProperty("section", resolution.section.toUpperCase(java.util.Locale.ROOT));
+                        }
                         out.add(item);
                     }
                     response.add("cards", out);
@@ -179,6 +182,11 @@ public final class WorkerMain {
                     JsonArray unresolved = new JsonArray();
                     built.unresolved.forEach(unresolved::add);
                     response.add("unresolved", unresolved);
+                    // Phase 8 Amendment 3: contraption and attraction cards,
+                    // which are not in the main deck's count.
+                    JsonObject sections = new JsonObject();
+                    built.sections.forEach(sections::addProperty);
+                    response.add("sections", sections);
                     send(response);
                 } catch (RuntimeException e) {
                     send(error("BUILD_FAILED", e.getClass().getSimpleName()));

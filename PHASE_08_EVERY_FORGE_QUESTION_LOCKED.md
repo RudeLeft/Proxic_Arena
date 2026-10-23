@@ -182,6 +182,18 @@ does not play); a computer opponent; an import warning (D2).
   sacrifices last. No Forge patch was needed: Forge asks the controller
   for this order (`orderCosts`), and the record's row says so. Proven by
   `check-cost-kinds.py` mill-no, with a mutant (Forge's order) caught.
+- **Amendment 3 — contraption decks, and the joke sets** (owner,
+  2026-10-23, two prompts). A Contraption or Attraction in a deck list
+  goes to its own deck by card type, as Forge reads the card, outside
+  the 60-65 and the copy limit, each following Forge's Constructed rule
+  (at least 15 Contraptions or 10 Attractions, one copy of each) --
+  AGENTS FMT-002 amended, `docs/architecture/OPEN_FORMAT.md` amended.
+  And the pool includes every silver-bordered set: Forge was started
+  without its non-legal cards, so Unstable's Contraptions and the cards
+  that assemble them could not even be imported. Proven by
+  `check-unset.py` (a Goblin Slingshot assembled from the contraption
+  deck onto the sprocket picked, then cranked) and the server's Open
+  Format tests.
 
 ## Appendix — the 170 entries, 2026-10-22
 

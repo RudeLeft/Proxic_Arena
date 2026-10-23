@@ -95,7 +95,7 @@ Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		Ante: which won cards join you
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
 Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Reflecting Pool, Exotic Orchard-style mana when a colourless land is out	scripts/check-you-choose.py
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
-Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
+Q chooseContraptionsToCrank(List)	ASKS	chooseContraptionsToCrank	Which Contraptions on this turn's sprocket to crank: any, one click each, then pass	Un-set: every Contraption (Goblin Slingshot...), assembled by Wrench-Rigger and others	scripts/check-unset.py
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	scripts/check-you-choose.py
 Q chooseDiceToReroll(List)	ASKS	chooseDiceToReroll	Which dice to reroll (Monitor Monitor): any, one click each, then pass	Un-set: Monitor Monitor	scripts/check-dice.py
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
@@ -132,7 +132,7 @@ Q chooseSingleStaticAbility(List)	ENGINE		Which cost reduction applies first: Fo
 Q chooseSomeType(String,SpellAbility,Collection,boolean)	ASKS	chooseSomeType	Choose a type: creature type, land type	Mind Bend, Cavern of Souls, Kindred cards	scripts/check-text-effects.py
 Q chooseSpellAbilitiesForEffect(List,SpellAbility,String,int,Map)	ASKS	chooseSpellAbilitiesForEffect	Choose what an effect does	Mind Bend-style text changes	scripts/check-text-effects.py
 Q chooseSpellAbilityToPlay()	ASKS	chooseSpellAbilityToPlay	Your move: play a land, cast, activate, or pass	every game	scripts/check-printings.py
-Q chooseSprocket(Card,List)	UNBUILT		Un-set: Unfinity sprockets	71 cards across the three	LoudFailureTest
+Q chooseSprocket(Card,List)	ASKS	chooseSprocket	Which sprocket a Contraption is assembled onto: each says how many are there and which cranks next turn	Un-set: Wrench-Rigger, Steamflogger Boss	scripts/check-unset.py
 Q chooseStartingHand(List)	UNREACHABLE		Backup Plan's extra starting hands: a Conspiracy, and a deck holding one is refused before the game (Forge's variant cards never resolve into a Proxic deck)	-	scripts/check-unreachable.py
 Q chooseStartingPlayer(boolean)	ASKS	chooseStartingPlayer	Play or draw	every game	scripts/check-printings.py
 Q chooseTarget(SpellAbility,List)	ASKS	chooseTarget	Which of a spell's targets to change (asked when it has two or more): click the target	43 cards: Spellskite, Deflecting Swat, Redirect-style effects	scripts/check-you-choose.py

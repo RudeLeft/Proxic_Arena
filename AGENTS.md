@@ -134,6 +134,9 @@ you were asked to do, stop and say so.
   mulligan variants, or any runtime player count above 2. A seat
   model that can hold four is in scope; a game that seats four is
   not. _USER to change._
+  **Note 2026-10-23 (owner, Phase 8 Amendment 3):** the one-copy rule
+  for Contraption and Attraction decks (FMT-002) is those Un-set side
+  decks' own rule, not a singleton rule for the deck.
 - **FMT-002 — MUST:** Enforce deck legality in Proxic, not Forge.
   `DeckFormat.Constructed` is min 60 with **no maximum**; Open Format
   is **max 65**. They are different rules, so the check cannot be
@@ -142,6 +145,13 @@ you were asked to do, stop and say so.
   60-65 cards inclusive, max 4 copies of a card, **basic lands
   unlimited**, **no sideboard**. Neither size bound matches Forge's
   Constructed (min 60, no maximum). _REVIEW._
+  **AMENDED 2026-10-23 (owner decision, Phase 8 Amendment 3).**
+  Contraptions and Attractions (the Un-sets) go to their own small
+  decks, sorted by card type as Forge reads the card, and are not in
+  the 60-65 or the copy count; each such deck follows Forge's
+  Constructed rule: at least 15 Contraptions or 10 Attractions, one
+  copy of each. The card pool includes the silver-bordered sets (Forge
+  is started with its non-legal cards loaded).
 - **FMT-004 — MUST NOT:** Use `DeckFormat.canHaveAnyNumberOf()` as the
   copy-limit exemption test. It exempts basic lands *and* cards
   keyworded "A deck can have any number of cards named CARDNAME"

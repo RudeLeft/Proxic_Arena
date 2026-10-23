@@ -2431,6 +2431,40 @@ public final class MatchController extends GeneratedControllerBase {
         return sectors.get(Math.max(0, askIndex("chooseSector", sectors, true, prompt)));
     }
 
+    /**
+     * Which sprocket a Contraption is assembled onto -- Unstable (Phase 8
+     * Amendments 1 and 3). A port of Forge's human controller: one answer
+     * per sprocket, each saying how many Contraptions are on it already
+     * and which one is cranked next turn. Was a loud stub.
+     */
+    @Override
+    public int chooseSprocket(forge.game.card.Card assignee, List<Integer> sprockets) {
+        int next = (player.getCrankCounter() % 3) + 1;
+        List<String> labels = new java.util.ArrayList<>();
+        for (int sprocket : sprockets) {
+            int there = forge.game.card.CardLists.count(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
+                    forge.game.card.CardPredicates.isContraptionOnSprocket(sprocket));
+            labels.add("Sprocket " + sprocket + (there > 0 ? " (" + there + " there)" : "")
+                    + (sprocket == next ? " -- cranked next turn" : ""));
+        }
+        return sprockets.get(Math.max(0, askIndex("chooseSprocket", labels, true,
+                "Assemble " + ViewerSnapshot.nameFor(assignee, player.getView()) + " onto a sprocket.")));
+    }
+
+    /**
+     * Which Contraptions on this turn's sprocket to crank -- Unstable. A
+     * port of Forge's human controller: any of them, none included, one
+     * click each, then Pass. Was a loud stub.
+     */
+    @Override
+    public List<forge.game.card.Card> chooseContraptionsToCrank(List<forge.game.card.Card> contraptions) {
+        if (contraptions.isEmpty()) {
+            return contraptions;
+        }
+        return pickSeveral("chooseContraptionsToCrank", contraptions, 0, contraptions.size(),
+                "Crank which Contraptions on sprocket " + player.getCrankCounter() + "?", "");
+    }
+
     private static List<String> rollLabels(List<Integer> rolls) {
         List<String> labels = new java.util.ArrayList<>();
         rolls.forEach(r -> labels.add("Roll: " + r));

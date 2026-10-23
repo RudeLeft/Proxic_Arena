@@ -10,6 +10,12 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
               Gamma, the second to Alpha; then Beleren's -1 picks Gamma: a
               +1/+1 counter on the Gamma Lions only
 
+  crank-yes   Wrench-Rigger assembles a Goblin Slingshot from the contraption
+              deck (sorted there by card type) onto sprocket 3, the LAST
+              (chooseSprocket); when sprocket 3 cranks it is offered
+              (chooseContraptionsToCrank) and cranked: +2/+0
+  crank-no    the same, not cranked: no bonus
+
 The dice questions Un-set cards reach are in check-dice.py.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
@@ -125,7 +131,73 @@ def sector():
     return outcome(problems, "Space Beleren: the Lions in Gamma got the counter, the one in Alpha did not", found)
 
 
-SCENARIOS = {"sector": sector}
+def contraption(crank):
+    """Wrench-Rigger assembles a Contraption from seat 1's contraption deck
+    -- fifteen Goblin Slingshots, put there by card type (Phase 8
+    Amendment 3) -- onto a sprocket (chooseSprocket): 3, the LAST. The
+    crank question then comes on a turn whose sprocket is 3
+    (chooseContraptionsToCrank). Cranked: creatures get +2/+0. Not: no
+    bonus."""
+    g = game(f"crank-{'yes' if crank else 'no'}",
+             [("Mountain", 30), ("Wrench-Rigger", 30), ("Goblin Slingshot", 15)])
+    st = {"sprocket": [], "crank": [], "rigger": None, "before": None, "after": None, "turn": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseSprocket":
+            st["sprocket"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            return f["options"][-1]["actionId"]
+        if k == "chooseContraptionsToCrank":
+            st["crank"].append((seat, len(f["options"]), f.get("prompt")))
+            rigger = next((c for c in g.mine(1) if c["id"] == st["rigger"]), {})
+            st["before"], st["turn"] = rigger.get("power"), g.turn
+            return f["options"][0]["actionId"] if crank and len(st["crank"]) == 1 else None
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["rigger"] is None:
+                o = cast(g, f, "Wrench-Rigger")
+                if o:
+                    st["rigger"] = card_of(o)
+                return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["crank"] and st["after"] is None and stack_empty(g) and g.turn == st["turn"] and                 g.state.get(1, {}).get("phase") in ("MAIN1", "MAIN2", "END_OF_TURN"):
+            rigger = next((c for c in g.mine(1) if c["id"] == st["rigger"]), {})
+            st["after"] = rigger.get("power")
+        return st["after"] is not None
+
+    # Sprocket 3 cranks every third turn of seat 1's: room for a late Rigger.
+    g.run(policy, until=until, max_turn=30)
+    found = {"sprocket": st["sprocket"], "crank": st["crank"], "power": [st["before"], st["after"]],
+             "stopped": g.stopped_badly()}
+    if not st["sprocket"] or not st["crank"] or st["after"] is None:
+        return "inconclusive", "a Contraption was never assembled and then offered for cranking", found
+    problems = []
+    seat, labels, prompt = st["sprocket"][0]
+    if seat != 1 or [l.split(" ")[1] for l in labels] != ["1", "2", "3"] or             not prompt.startswith("Assemble Goblin Slingshot onto a sprocket"):
+        problems.append(f"seat 1 assembles the Slingshot onto sprocket 1, 2 or 3: {st['sprocket'][0]}")
+    if not st["crank"][0][2].startswith("Crank which Contraptions on sprocket 3?"):
+        problems.append(f"it was put on sprocket 3, so it is offered when sprocket 3 cranks: {st['crank'][0]}")
+    gained = (st["after"] or 0) - (st["before"] or 0)
+    if crank and gained != 2:
+        problems.append(f"cranked Goblin Slingshot: +2/+0, got {st['before']} -> {st['after']}")
+    if not crank and gained:
+        problems.append(f"not cranked: no bonus, got {st['before']} -> {st['after']}")
+    return outcome(problems, "Goblin Slingshot on sprocket 3, cranked when sprocket 3 came: +2/+0" if crank
+                   else "Goblin Slingshot on sprocket 3, not cranked: no bonus", found)
+
+
+SCENARIOS = {"sector": sector, "crank-yes": lambda: contraption(True), "crank-no": lambda: contraption(False)}
 
 if __name__ == "__main__":
     codes = []

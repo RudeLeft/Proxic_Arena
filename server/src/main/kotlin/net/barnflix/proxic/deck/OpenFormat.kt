@@ -14,6 +14,12 @@ package net.barnflix.proxic.deck
  * 2 players
  * ```
  *
+ * Phase 8 Amendment 3 (owner, 2026-10-23): Contraptions and Attractions
+ * (the Un-sets) go to their own small decks, sorted by card type -- as
+ * Forge reads the card -- and are not in the 60–65 or the copy count.
+ * Each such deck follows its own Constructed rule, as Forge has it: at
+ * least 15 Contraptions or 10 Attractions, one copy of each.
+ *
  * §2.45: legality is **Proxic's own determination**. Forge's
  * `DeckFormat` is not consulted, and the decklist's own header is
  * not trusted — a real export of a 65-card mono-red deck declared
@@ -35,6 +41,9 @@ object OpenFormat {
     const val MIN_CARDS = 60
     const val MAX_CARDS = 65
     const val MAX_COPIES = 4
+
+    /** Phase 8 Amendment 3 — the side decks, and the least each may hold. */
+    val SIDE_DECKS = mapOf("CONTRAPTIONS" to 15, "ATTRACTIONS" to 10)
 
     /**
      * The five basic land names.
@@ -65,10 +74,42 @@ object OpenFormat {
      * A player fixing one problem at a time, with an upload between
      * each, is a worse experience than one list of everything wrong.
      */
-    fun validate(deck: ParsedDeck): List<DeckViolation> {
+    fun validate(
+        deck: ParsedDeck,
+        /** Card name (any case) to CONTRAPTIONS or ATTRACTIONS, as Forge reads it; absent is the main deck. */
+        sections: Map<String, String> = emptyMap(),
+    ): List<DeckViolation> {
         val violations = mutableListOf<DeckViolation>()
+        val sectionOf = sections.mapKeys { it.key.lowercase() }
+        val (sideEntries, mainEntries) = deck.entries.partition { it.name.lowercase() in sectionOf }
 
-        val total = deck.totalCards
+        SIDE_DECKS.forEach { (section, least) ->
+            val cards = sideEntries.filter { sectionOf[it.name.lowercase()] == section }
+            if (cards.isEmpty()) return@forEach
+            val word = if (section == "CONTRAPTIONS") "Contraption" else "Attraction"
+            val total = cards.sumOf { it.quantity }
+            if (total < least) {
+                violations +=
+                    DeckViolation(
+                        "${section}_DECK_TOO_SMALL",
+                        "A ${word.lowercase()} deck needs at least $least ${word}s, or none; this deck has $total.",
+                    )
+            }
+            cards.groupBy { it.name.lowercase() }.forEach { (_, same) ->
+                val copies = same.sumOf { it.quantity }
+                if (copies > 1) {
+                    violations +=
+                        DeckViolation(
+                            "TOO_MANY_COPIES",
+                            "A ${word.lowercase()} deck allows one copy of each; this deck has $copies of " +
+                                "\"${same.first().name}\".",
+                            same.first().lineNumber,
+                        )
+                }
+            }
+        }
+
+        val total = mainEntries.sumOf { it.quantity }
         if (total < MIN_CARDS) {
             violations +=
                 DeckViolation(
@@ -87,7 +128,7 @@ object OpenFormat {
         // Copies are counted across LINES, not per line: the same card
         // can legitimately appear twice with different printings, and
         // three plus two is still five copies.
-        deck.entries
+        mainEntries
             .filterNot { isBasicLand(it.name) }
             .groupBy { it.name.lowercase() }
             .forEach { (_, sameCard) ->

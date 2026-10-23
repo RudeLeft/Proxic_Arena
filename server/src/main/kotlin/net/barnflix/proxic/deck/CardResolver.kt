@@ -31,6 +31,11 @@ data class CardResolution(
     val actualNumber: String? = null,
     /** PHASE_07 Amendment 10 — LAND, CREATURE or SPELL, as Forge reads the card. */
     val category: String? = null,
+    /**
+     * Phase 8 Amendment 3 — CONTRAPTIONS or ATTRACTIONS for a card that goes
+     * to its own deck, as Forge reads it; null for the main deck.
+     */
+    val section: String? = null,
 ) {
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
@@ -40,6 +45,8 @@ data class ForgeDeckBuild(
     val totalCards: Int,
     val countsByName: Map<String, Int>,
     val unresolved: List<String>,
+    /** Phase 8 Amendment 3 — contraption and attraction cards: name to section. */
+    val sections: Map<String, String> = emptyMap(),
 )
 
 class CardResolver(private val config: ServerConfig) {
@@ -132,6 +139,9 @@ class CardResolver(private val config: ServerConfig) {
                     it.value.jsonPrimitive.content.toIntOrNull() ?: 0
                 }.orEmpty(),
             unresolved = reply["unresolved"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(),
+            sections =
+                reply["sections"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content }
+                    ?.filterValues { it in OpenFormat.SIDE_DECKS }.orEmpty(),
         )
     }
 
@@ -274,6 +284,9 @@ class CardResolver(private val config: ServerConfig) {
                 category =
                     (card["category"] as? JsonPrimitive)?.content
                         ?.takeIf { it in setOf("LAND", "CREATURE", "SPELL") },
+                section =
+                    (card["section"] as? JsonPrimitive)?.content
+                        ?.takeIf { it in OpenFormat.SIDE_DECKS },
             )
         }
     }

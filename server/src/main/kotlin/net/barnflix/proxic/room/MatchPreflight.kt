@@ -93,18 +93,10 @@ class MatchPreflight(
         val entries = entriesOf(deckId) ?: return gone()
         if (entries.isEmpty()) return gone()
 
-        // Proxic's half first, because it is free. A 70-card deck
-        // does not need a JVM to be told it is a 70-card deck.
-        val violations = OpenFormat.validate(ParsedDeck(null, entries))
-        if (violations.isNotEmpty()) {
-            return DeckCheck(
-                DeckVerdict.INVALID_FOR_PRESET,
-                violations.joinToString("; ") { it.detail },
-            )
-        }
-
-        // Forge's half. §5.99 — the message that reaches a browser
-        // is ours; Forge's own diagnostics, paths and traces are
+        // Forge's half first since Phase 8 Amendment 3: which cards are
+        // Contraptions or Attractions -- outside the 60–65 -- is Forge's
+        // reading of the card. §5.99 — the message that reaches a
+        // browser is ours; Forge's own diagnostics, paths and traces are
         // not forwarded.
         val built =
             runCatching { resolver.buildDeck(entries) }.getOrNull()
@@ -112,6 +104,14 @@ class MatchPreflight(
                     DeckVerdict.FORGE_RESOLUTION_ERROR,
                     "The deck could not be checked right now. Try again in a moment.",
                 )
+
+        val violations = OpenFormat.validate(ParsedDeck(null, entries), built.sections)
+        if (violations.isNotEmpty()) {
+            return DeckCheck(
+                DeckVerdict.INVALID_FOR_PRESET,
+                violations.joinToString("; ") { it.detail },
+            )
+        }
 
         if (built.unresolved.isNotEmpty()) {
             val names = built.unresolved.take(MAX_NAMED).joinToString(", ")

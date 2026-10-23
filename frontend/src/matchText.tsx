@@ -291,6 +291,10 @@ export function headingFor(kind: string): string {
       return "Power or toughness";
     case "chooseSector":
       return "Choose a sector";
+    case "chooseSprocket":
+      return "Choose a sprocket";
+    case "chooseContraptionsToCrank":
+      return "Crank Contraptions";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":

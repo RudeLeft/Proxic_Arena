@@ -166,10 +166,14 @@ class DeckImporter(
                 is DeckParseResult.Ok -> parsed.deck
             }
 
-        // §2.44, §2.45 — Open Format legality, before Forge is asked
-        // anything. Resolving 65 cards costs ~3 seconds; refusing an
-        // illegal deck costs nothing.
-        val violations = OpenFormat.validate(deck)
+        // 7. Forge resolution (§2.46–§2.49). Asked BEFORE legality since
+        // Phase 8 Amendment 3: which cards are Contraptions or Attractions
+        // -- and so outside the 60–65 -- is Forge's reading of the card.
+        val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
+
+        // §2.44, §2.45 — Open Format legality.
+        val sections = resolutions.values.mapNotNull { r -> r.section?.let { r.name to it } }.toMap()
+        val violations = OpenFormat.validate(deck, sections)
         if (violations.isNotEmpty()) {
             return ImportResult.Rejected(
                 "DECK_NOT_LEGAL",
@@ -187,8 +191,6 @@ class DeckImporter(
             return ImportResult.NameTaken(displayName)
         }
 
-        // 7. Forge resolution (§2.46–§2.49).
-        val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
         val unresolved =
             deck.entries.filter {
                 resolutions[it.name.lowercase()]?.status != CardResolution.Status.RESOLVED

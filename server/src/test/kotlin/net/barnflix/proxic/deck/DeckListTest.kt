@@ -199,4 +199,44 @@ class OpenFormatTest {
         assertTrue(violation.detail.contains("Fiery Temper"), violation.detail)
         assertEquals(4, violation.line)
     }
+
+    // Phase 8 Amendment 3 — Contraptions and Attractions go to their own
+    // decks, as Forge reads the card (the sections map), outside the 60–65.
+
+    /** Fifteen distinct Contraption names, one copy each. */
+    private val contraptions = (1..15).map { "Contraption $it" }
+
+    @Test
+    fun `contraptions are not in the 60 to 65 and a fifteen-card contraption deck is legal`() {
+        val deck = deckOf(*(listOf("60 Mountain [FRA:287]") + contraptions.map { "1 $it" }).toTypedArray())
+        assertEquals(emptyList(), OpenFormat.validate(deck, contraptions.associateWith { "CONTRAPTIONS" }))
+        // Without Forge's reading they would be counted, and the deck is 75.
+        assertTrue(OpenFormat.validate(deck).any { it.code == "DECK_TOO_LARGE" })
+    }
+
+    @Test
+    fun `a contraption deck needs fifteen and one copy of each`() {
+        val few = contraptions.take(14)
+        val small = deckOf(*(listOf("60 Mountain [FRA:287]") + few.map { "1 $it" }).toTypedArray())
+        assertTrue(
+            OpenFormat.validate(small, few.associateWith { "CONTRAPTIONS" })
+                .any { it.code == "CONTRAPTIONS_DECK_TOO_SMALL" },
+        )
+        val twice = deckOf(*(listOf("60 Mountain [FRA:287]", "2 Contraption 1") +
+            contraptions.drop(1).map { "1 $it" }).toTypedArray())
+        val violation =
+            OpenFormat.validate(twice, contraptions.associateWith { "CONTRAPTIONS" })
+                .single { it.code == "TOO_MANY_COPIES" }
+        assertTrue(violation.detail.contains("Contraption 1"), violation.detail)
+    }
+
+    @Test
+    fun `an attraction deck needs ten`() {
+        val attractions = (1..9).map { "Attraction $it" }
+        val deck = deckOf(*(listOf("60 Mountain [FRA:287]") + attractions.map { "1 $it" }).toTypedArray())
+        assertTrue(
+            OpenFormat.validate(deck, attractions.associateWith { "ATTRACTIONS" })
+                .any { it.code == "ATTRACTIONS_DECK_TOO_SMALL" },
+        )
+    }
 }

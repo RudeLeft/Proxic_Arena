@@ -21,6 +21,13 @@ players          2
 
 No Commander. No Two-Headed Giant. No other preset.
 
+**Amendment, 2026-10-23 (owner, Phase 8 Amendment 3).** The pool
+includes the silver-bordered sets: Forge is started with its non-legal
+cards loaded. Contraptions and Attractions (Unstable, Unfinity) are
+sorted by card type into their own small decks, outside the 60-65 and
+the copy limit; each follows Forge's Constructed rule -- at least 15
+Contraptions or 10 Attractions, one copy of each.
+
 Everything in the phase documents that assumes a choice of formats, a
 preset catalog, a command zone, teams, or shared life is out of scope
 and has been stripped.

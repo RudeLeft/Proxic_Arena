@@ -65,11 +65,16 @@ public final class ForgeRuntime {
 
         CardStorageReader cards = new CardStorageReader(root + "/cardsfolder", null, false);
         CardStorageReader tokens = new CardStorageReader(root + "/tokenscripts", null, false);
+        // loadNonLegalCards TRUE -- owner, 2026-10-23 (Phase 8 Amendment
+        // 3): Open Format's pool is unrestricted, joke sets included.
+        // Forge otherwise leaves out every silver-bordered card, and
+        // Unstable's Contraptions and the cards that assemble them could
+        // not even be imported.
         new StaticData(
                 cards, tokens, null, null,
                 root + "/editions", root + "/editions",
                 root + "/blockdata", root + "/setlookup",
-                "Latest", false, false, false, false);
+                "Latest", false, true, false, false);
 
         loaded = true;
     }
@@ -133,8 +138,18 @@ public final class ForgeRuntime {
         for (PaperCard card : built.deck.getMain().toFlatList()) {
             counts.merge(card.getName(), 1, Integer::sum);
         }
+        // The cards that went to a contraption or attraction deck, by name.
+        java.util.Map<String, String> sections = new java.util.TreeMap<>();
+        for (forge.deck.DeckSection side : java.util.List.of(
+                forge.deck.DeckSection.Contraptions, forge.deck.DeckSection.Attractions)) {
+            if (built.deck.has(side)) {
+                for (PaperCard card : built.deck.get(side).toFlatList()) {
+                    sections.put(card.getName(), side.name().toUpperCase(java.util.Locale.ROOT));
+                }
+            }
+        }
         return new DeckBuild(
-                built.deck.getMain().toFlatList().size(), counts, built.unresolved);
+                built.deck.getMain().toFlatList().size(), counts, built.unresolved, sections);
     }
 
     /**
@@ -163,13 +178,20 @@ public final class ForgeRuntime {
             String lookupName = entry.name.contains(" // ")
                     ? entry.name.substring(0, entry.name.indexOf(" // ")).trim()
                     : entry.name;
-            PaperCard card = StaticData.instance().getCommonCards()
-                    .getCard(lookupName, resolution.actualSet, resolution.actualNumber);
+            PaperCard card = lookup(lookupName, resolution.actualSet, resolution.actualNumber);
             if (card == null) {
                 unresolved.add(entry.name + " (LOOKUP_FAILED)");
                 continue;
             }
-            main.add(card, entry.quantity);
+            // Phase 8 Amendment 3 (owner, 2026-10-23): a Contraption or an
+            // Attraction goes to its own deck, by Forge's own test of the
+            // card, and Forge deals those decks from these sections.
+            String section = Resolution.sectionOf(card);
+            if (section == null) {
+                main.add(card, entry.quantity);
+            } else {
+                deck.getOrCreate(forge.deck.DeckSection.valueOf(section)).add(card, entry.quantity);
+            }
         }
 
         return new BuiltDeck(deck, unresolved);
@@ -206,12 +228,15 @@ public final class ForgeRuntime {
         public final int totalCards;
         public final java.util.Map<String, Integer> countsByName;
         public final java.util.List<String> unresolved;
+        /** Cards in a contraption or attraction deck: name to CONTRAPTIONS or ATTRACTIONS. */
+        public final java.util.Map<String, String> sections;
 
         DeckBuild(int totalCards, java.util.Map<String, Integer> countsByName,
-                java.util.List<String> unresolved) {
+                java.util.List<String> unresolved, java.util.Map<String, String> sections) {
             this.totalCards = totalCards;
             this.countsByName = countsByName;
             this.unresolved = unresolved;
+            this.sections = sections;
         }
     }
 
@@ -227,24 +252,30 @@ public final class ForgeRuntime {
          * Forge's type line decides; null when Forge found no card.
          */
         public final String category;
+        /**
+         * Phase 8 Amendment 3: CONTRAPTIONS or ATTRACTIONS for a card
+         * that goes to its own deck, else null (the main deck).
+         */
+        public final String section;
 
         private Resolution(String status, String detail, String actualSet, String actualNumber,
-                String category) {
+                String category, String section) {
             this.status = status;
             this.detail = detail;
             this.actualSet = actualSet;
             this.actualNumber = actualNumber;
             this.category = category;
+            this.section = section;
         }
 
         static Resolution resolved(PaperCard card) {
             return new Resolution("RESOLVED", null, card.getEdition(),
-                    card.getCollectorNumber(), categoryOf(card));
+                    card.getCollectorNumber(), categoryOf(card), sectionOf(card));
         }
 
         static Resolution notFound(String name) {
             return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
-                    null, null, null);
+                    null, null, null, null);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
@@ -252,7 +283,15 @@ public final class ForgeRuntime {
                     "PRINTING_MISMATCH",
                     "Requested " + requested + ", Forge returned "
                             + got.getEdition() + "/" + got.getCollectorNumber() + ".",
-                    got.getEdition(), got.getCollectorNumber(), categoryOf(got));
+                    got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got));
+        }
+
+        /** Forge's own test: the deck a Contraption or an Attraction belongs in, else null. */
+        static String sectionOf(PaperCard card) {
+            if (forge.deck.DeckSection.Contraptions.validate(card)) {
+                return "Contraptions";
+            }
+            return forge.deck.DeckSection.Attractions.validate(card) ? "Attractions" : null;
         }
 
         /**
@@ -289,6 +328,31 @@ public final class ForgeRuntime {
      * mismatch is an import outcome rather than a silent success
      * (§2.49).
      */
+    /**
+     * A card by name, and set and number when given. Forge files
+     * Contraptions and Attractions with its "variant" cards (planes,
+     * schemes...), so those two -- and only those, Phase 8 Amendment 3 --
+     * are looked up there too; a plane or a scheme stays not found.
+     */
+    private static PaperCard lookup(String name, String setCode, String collectorNumber) {
+        StaticData data = StaticData.instance();
+        PaperCard card = find(data.getCommonCards(), name, setCode, collectorNumber);
+        if (card != null) {
+            return card;
+        }
+        PaperCard variant = find(data.getVariantCards(), name, setCode, collectorNumber);
+        return variant != null && Resolution.sectionOf(variant) != null ? variant : null;
+    }
+
+    private static PaperCard find(forge.card.CardDb db, String name, String setCode, String collectorNumber) {
+        if (setCode == null || setCode.isBlank()) {
+            return db.getCard(name);
+        }
+        return collectorNumber == null || collectorNumber.isBlank()
+                ? db.getCard(name, setCode)
+                : db.getCard(name, setCode, collectorNumber);
+    }
+
     public Resolution resolve(String requestedName, String setCode, String collectorNumber) {
         ensureLoaded();
         StaticData data = StaticData.instance();
@@ -315,19 +379,17 @@ public final class ForgeRuntime {
 
         // A name-only entry resolves by name, which is well defined.
         if (setCode == null || setCode.isBlank()) {
-            PaperCard byName = data.getCommonCards().getCard(name);
+            PaperCard byName = lookup(name, null, null);
             return byName == null ? Resolution.notFound(name) : Resolution.resolved(byName);
         }
 
-        PaperCard card = (collectorNumber == null || collectorNumber.isBlank())
-                ? data.getCommonCards().getCard(name, setCode)
-                : data.getCommonCards().getCard(name, setCode, collectorNumber);
+        PaperCard card = lookup(name, setCode, collectorNumber);
 
         if (card == null) {
             // Fall back to name alone, so a card Forge knows under a
             // printing we cannot match is NOT_FOUND only when the
             // name itself is unknown.
-            PaperCard byName = data.getCommonCards().getCard(name);
+            PaperCard byName = lookup(name, null, null);
             if (byName == null) {
                 return Resolution.notFound(name);
             }
