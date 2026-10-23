@@ -524,6 +524,35 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Collect evidence N -- exile cards from your graveyard with total mana
+     * value N or more (25 cards, Murders at Karlov Manor). A port of
+     * Forge's human path, in the crew form: one card at a time until the
+     * total is enough, then more or Done. Cancelling, before it is enough,
+     * cancels the spell or ability. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostCollectEvidence cost) {
+        forge.game.card.CardCollection left = forge.game.card.CardLists.filter(
+                player.getCardsIn(forge.game.zone.ZoneType.Graveyard),
+                forge.game.card.CardPredicates.canExiledBy(ability, isEffect()));
+        int total = forge.game.ability.AbilityUtils.calculateAmount(source, cost.getAmount(), ability);
+        forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+        while (!left.isEmpty()) {
+            int have = forge.game.card.CardLists.getTotalCMC(chosen);
+            boolean enough = have >= total;
+            Card next = pickOrDone(left, "CostCollectEvidence", "Collect evidence " + total
+                    + ": exile cards from your graveyard with total mana value " + total + " or more ("
+                    + have + " so far)" + (enough ? " -- or Done." : "."), enough);
+            if (next == null) {
+                break;
+            }
+            chosen.add(next);
+            left.remove(next);
+        }
+        return forge.game.card.CardLists.getTotalCMC(chosen) >= total ? PaymentDecision.card(chosen) : null;
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

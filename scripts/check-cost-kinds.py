@@ -32,6 +32,9 @@ with options no default would take, and checks the board:
   behold      Champion of the Clachan, behold a Kithkin and exile it
               (CostBeholdExile): every other Kithkin on the battlefield and
               in hand offered; the LAST is exiled, the rest stay
+  evidence    Forensic Researcher, collect evidence 3: the LAST graveyard
+              card each time, Done once the total is 3 -- exactly those
+              are exiled, and the Bears is tapped
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -740,12 +743,89 @@ def behold():
                    found)
 
 
+def evidence():
+    """Forensic Researcher, {T} + collect evidence 3: tap target creature you
+    don't control (CostCollectEvidence). The graveyard holds four or more
+    Opts (mana value 1): the LAST offered each time, until the total is 3,
+    then Done. Exactly those three are exiled, the rest stay, and the
+    Bears is tapped."""
+    g = game("evidence", [("Island", 26), ("Opt", 20), ("Forensic Researcher", 14)])
+    st = {"used": False, "asked": [], "picked": [], "grave": None, "bears": None, "after": None, "turn": None}
+
+    def grave():
+        return sorted(c["id"] for c in g.zone(1, "graveyard", owner=1))
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "CostCollectEvidence":
+            cards = [o for o in f["options"] if card_of(o["actionId"])]
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in cards), f.get("prompt")))
+            if len(st["picked"]) < 3:
+                st["picked"].append(card_of(cards[-1]["actionId"]))
+                return cards[-1]["actionId"]
+            return "cost:done"
+        if k == "chooseTargetsFor" and seat == 1 and st["used"]:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            researchers = [c for c in g.mine(1, name="Forensic Researcher") if not c.get("sick") and not c.get("tapped")]
+            bears = [c for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears") if not c.get("tapped")]
+            opts = [c for c in g.zone(1, "graveyard", owner=1) if c.get("name") == "Opt"]
+            if not st["used"] and researchers and bears and len(opts) >= 4:
+                o = g.option(f, name="Forensic Researcher", zone="battlefield", contains="Tap target creature")
+                if o:
+                    st["used"], st["turn"], st["bears"], st["grave"] = True, g.turn, bears[0]["id"], grave()
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name="Forensic Researcher"):
+                o = cast(g, f, "Forensic Researcher")
+                if o:
+                    return o
+            return None if st["used"] else cast(g, f, "Opt")
+        return DEFAULT
+
+    def until(g):
+        bear = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["bears"]), {})
+        done = bear.get("tapped") or (st["turn"] is not None and g.turn > st["turn"])
+        if st["picked"] and done and stack_empty(g) and st["after"] is None:
+            st["after"] = {"grave": grave(), "exile": sorted(c["id"] for c in g.zone(1, "exile", owner=1)),
+                           "bears_tapped": bool(bear.get("tapped"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"asked": [(a, len(b), c) for a, b, c in st["asked"]], "picked": st["picked"], "grave": st["grave"],
+             "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Forensic Researcher never collected evidence", found
+    problems = []
+    if any(seat != 1 for seat, _, _ in st["asked"]):
+        problems.append("the opponent was asked what seat 1 collects")
+    if st["asked"][0][1] != st["grave"]:
+        problems.append(f"offered {st['asked'][0][1]}, not exactly seat 1's graveyard {st['grave']}")
+    if len(st["asked"]) != 4 or "Done" not in (st["asked"][3][2] or "") or "Done" in (st["asked"][2][2] or ""):
+        problems.append(f"three picks, and Done offered only once the total is 3: {found['asked']}")
+    after = st["after"]
+    if after["exile"] != sorted(st["picked"]):
+        problems.append(f"exactly the three picked {st['picked']} should be exiled: {after['exile']}")
+    if any(c not in after["grave"] for c in st["grave"] if c not in st["picked"]):
+        problems.append(f"the rest of the graveyard stays: {st['grave']} -> {after['grave']}")
+    if not after["bears_tapped"]:
+        problems.append("the ability resolved, so the Bears is tapped")
+    return outcome(problems, "Forensic Researcher: the three Opts picked were exiled, the rest stayed, the Bears "
+                             "was tapped", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
              "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
              "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False),
-             "behold": behold}
+             "behold": behold, "evidence": evidence}
 
 if __name__ == "__main__":
     codes = []
