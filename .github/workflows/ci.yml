@@ -212,7 +212,9 @@ jobs:
       # which proves nothing, so it fails too. Three at a time: each is
       # its own worker process and none depends on timing. Each prints its
       # whole output when it finishes, so the log stays readable. Each has
-      # five minutes (the slowest takes about one): a hung scenario once
+      # five minutes -- you-choose and cost-kinds ten: they hold forty-odd
+      # games each and took about three minutes on a development machine
+      # (Phase 8 P8-F, 2026-10-23) -- because a hung scenario once
       # ran the whole job into its time limit, and a killed job keeps no
       # log at all, so nobody could tell which one it was.
       # An INCONCLUSIVE scenario (exit 2) never reached its moment -- the
@@ -235,16 +237,17 @@ jobs:
               mindslaver characteristics player-state mana-choice alternate-win \
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
-              library-order mana-pool sacrifice surveil mulligan you-choose combat-choices unreachable cost-kinds \
+              library-order mana-pool sacrifice surveil mulligan you-choose combat-choices unreachable cost-kinds dice \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
-              'run() { timeout 300 python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
+              'limit=300; case $0 in you-choose|cost-kinds) limit=600;; esac;
+               run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then
                  echo "== $0 never reached its moment: one more game, fresh shuffle";
                  cp "$traces/$0.log" "$traces/$0.first-try.log"; run; s=$?;
                fi;
-               [ $s = 124 ] && echo "== $0 HUNG: no result in 5 minutes";
+               [ $s = 124 ] && echo "== $0 HUNG: no result in $((limit / 60)) minutes";
                echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
           # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
           # stay playable. A benchmark: 110 s without the patch, ~41 s with it

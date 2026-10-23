@@ -97,7 +97,7 @@ Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colo
 Q chooseColors(String,SpellAbility,int,int,ColorSet)	ASKS	chooseColors	Choose several colours	rare multi-colour choices	scripts/check-you-choose.py
 Q chooseContraptionsToCrank(List)	UNBUILT		Un-set: Unstable contraptions	71 cards across the three	LoudFailureTest
 Q chooseCounterType(List,SpellAbility,String,Map)	ASKS	chooseCounterType	Which kind of counter	Proliferate choices, Vivien's Arkbow	scripts/check-you-choose.py
-Q chooseDiceToReroll(List)	UNBUILT		dice you may reroll	4+ cards	LoudFailureTest
+Q chooseDiceToReroll(List)	ASKS	chooseDiceToReroll	Which dice to reroll (Monitor Monitor): any, one click each, then pass	Un-set: Monitor Monitor	scripts/check-dice.py
 Q chooseEntitiesForEffect(FCollectionView,int,int,DelayedReveal,SpellAbility,String,Player,Map)	ASKS	chooseEntitiesForEffect	Choose several things, one click at a time	Entwine, Spree, Delve, Battle defenders	scripts/check-costs.py
 Q chooseFlipResult(SpellAbility,Player,boolean)	ASKS	chooseFlipResult	Krark's Thumb: which of two different flips counts (heads or tails, or win or lose)	1 card: Krark's Thumb	scripts/check-you-choose.py
 Q chooseKeywordForPump(List,SpellAbility,String,Card)	ASKS	chooseKeywordForPump	Your choice of keyword for a pump ("deathtouch or lifelink"): one answer per keyword	32 cards: Alchemist's Gift, Argivian Avenger	scripts/check-you-choose.py
@@ -110,15 +110,15 @@ Q chooseNumber(SpellAbility,String,int,int,Map)	ROUTES-TO		Forge forwards this t
 Q chooseNumberForCostReduction(SpellAbility,int,int)	ENGINE		"Up to {2} less": the whole reduction, no question (Forge's own screen asks only in full-control mode)	3 cards: Urza's Filter, Mana Matrix, Planar Gate	scripts/check-cost-kinds.py
 Q chooseNumberForKeywordCost(SpellAbility,Cost,KeywordInterface,String,int)	ASKS	chooseNumberForKeywordCost	How many times to pay a keyword's extra cost (Multikicker, Replicate, Squad); yes or no for once-only ones (Offspring, Casualty, Conspire)	104 cards: Everflowing Chalice, Rust-Shield Rampager, Squad and Replicate cards	scripts/check-cost-kinds.py
 Q chooseOptionalCosts(SpellAbility,List)	ASKS	chooseOptionalCosts	Pay an optional extra cost: kicker, entwine	Kicker, Entwine, Buyback	scripts/check-modes.py
-Q choosePDRollToIgnore(List)	UNBUILT		Planar die rolled more than once: which roll to ignore	2 cards together: Fractured Powerstone (rolls the planar die) with Ichor Elixir (roll one more, ignore one)	LoudFailureTest
+Q choosePDRollToIgnore(List)	UNREACHABLE		Planar die rolled more than once: Forge rolls nothing outside a Planechase game, and Proxic never plays one	Fractured Powerstone with Ichor Elixir	scripts/check-dice.py
 Q choosePermanentsToDestroy(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToDestroy	Destroy one of your own permanents of your choice	Imperial Edict, Wei Assassins	scripts/check-sacrifice.py
 Q choosePermanentsToSacrifice(SpellAbility,int,int,CardCollectionView,String)	ASKS	choosePermanentsToSacrifice	Sacrifice one of your permanents (an effect, not a cost)	Eldrazi Monument, Diabolic Edict, Innocent Blood	scripts/check-sacrifice.py
 Q choosePlayerToAssistPayment(FCollectionView,SpellAbility,String,int)	ASKS	chooseSingleEntityForEffect	Assist, the caster: which other player may help pay the generic mana, or pass -- asked when the spell is cast, never while its cost is only checked	16 cards: Huddle Up, Gang Up, Bring Down	scripts/check-you-choose.py
 Q chooseProtectionType(SpellAbility,List)	ASKS	chooseProtectionType	Choose what protection is from	Gods Willing, Mother of Runes	scripts/check-you-choose.py
-Q chooseRollSwapValue(List,Integer,int,int)	UNBUILT		the value swapped	with the dice cards	LoudFailureTest
-Q chooseRollToIgnore(List)	UNBUILT		ignore a roll	with the dice cards	LoudFailureTest
-Q chooseRollToModify(List)	UNBUILT		change a roll	with the dice cards	LoudFailureTest
-Q chooseRollToSwap(List)	UNBUILT		swap rolls	with the dice cards	LoudFailureTest
+Q chooseRollSwapValue(List,Integer,int,int)	ASKS	chooseRollSwapValue	Exchange the roll with power or with toughness, each shown, or neither	Un-set: Vedalken Squirrel-Whacker	scripts/check-dice.py
+Q chooseRollToIgnore(List)	ASKS	chooseRollToIgnore	Which roll to ignore (Bamboozling Beeble)	Un-set: Bamboozling Beeble	scripts/check-dice.py
+Q chooseRollToModify(List)	ASKS	chooseRollToModify	Which roll to change by one, or none (Xenosquirrels, Night Shift of the Living Dead)	Un-set: Xenosquirrels, Night Shift of the Living Dead	scripts/check-dice.py
+Q chooseRollToSwap(List)	ASKS	chooseRollToSwap	Which roll to exchange with a creature's power or toughness, or none (Vedalken Squirrel-Whacker)	Un-set: Vedalken Squirrel-Whacker	scripts/check-dice.py
 Q chooseSaToActivateFromOpeningHand(List)	ASKS	chooseSaToActivateFromOpeningHand	Begin the game with a card from your opening hand	Leylines, Gemstone Caverns	scripts/check-leyline.py
 Q chooseSector(Card,String,List)	UNBUILT		Un-set: Unfinity sectors	71 cards across the three	LoudFailureTest
 Q chooseSingleCardFace(SpellAbility,List,String)	ASKS	chooseSingleCardFace	Choose a face, or a dungeon	Venture into the dungeon, modal faces	scripts/check-you-choose.py
@@ -170,11 +170,11 @@ Q orderAndPlaySimultaneousSa(List)	ASKS	orderSimultaneousAbilities	Order your tr
 Q orderAttackers(Card,CardCollection)	UNREACHABLE		Forge's old damage-assignment-order rule, off in every Proxic game	-	UnreachableQuestionsTest
 Q orderBlocker(Card,Card,CardCollection)	UNREACHABLE		same rule, off	-	UnreachableQuestionsTest
 Q orderBlockers(Card,CardCollection)	UNREACHABLE		same rule, off	-	UnreachableQuestionsTest
-Q orderCosts(List)	ENGINE		The order a spell's costs are paid in: Forge's own order, as its desktop does unless 'full control' is on	-	scripts/check-costs.py
+Q orderCosts(List)	ENGINE		The order a cost's parts are paid in: chosen for the player, what can be given back first and sacrifices last, so backing out loses nothing (Phase 8 Amendment 2)	-	scripts/check-cost-kinds.py
 Q orderMoveToZoneList(CardCollectionView,ZoneType,SpellAbility)	ASKS	orderMoveToZoneList	Put cards in order (on top of a library, ...)	Brainstorm, Karn Liberated	scripts/check-karn.py
 Q orderSimultaneousSa(List)	UNREACHABLE		never called by Forge's rules at the pinned version	-	UnreachableQuestionsTest
 Q payCombatCost(Card,Cost,SpellAbility,String)	ENGINE		Pays a cost to attack or block (and exert) through Forge's own payment questions -- the mana question names the creature and says passing means it doesn't attack	35 cards: Ghostly Prison, Propaganda, War Cadence	scripts/check-combat-choices.py
-Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions	-	PENDING: reached only after chooseDiceToReroll or chooseRollToModify, both unbuilt loud stops -- proven when they are built
+Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions: Monitor Monitor's {1} to reroll	Un-set: Monitor Monitor, Xenosquirrels	scripts/check-dice.py
 Q payCostToPreventEffect(Cost,SpellAbility,boolean,FCollectionView)	ENGINE		Pays echo, cumulative upkeep, "unless you pay" through Forge's own payment questions -- the mana question says what it is for and what passing does	Goblin War Buggy (echo), Mystic Remora (cumulative upkeep), Mana Leak	scripts/check-you-choose.py
 Q payManaCost(ManaCost,CostPartMana,SpellAbility,String,ManaConversionMatrix,boolean)	ENGINE		Pays a mana cost through Forge's own payment loop (which asks applyManaToCost)	-	scripts/check-mana-pool.py
 Q playChosenSpellAbility(SpellAbility)	ENGINE		Plays the spell or ability the player chose	-	scripts/check-costs.py

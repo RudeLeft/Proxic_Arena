@@ -44,7 +44,8 @@ with options no default would take, and checks the board:
               and makes a token
   mill-yes    Sinister Concoction's mill (CostMill, a yes or no): yes --
               one card milled, the Bears destroyed
-  mill-no     the same, no: nothing milled, nothing destroyed
+  mill-no     the same, no -- asked before the sacrifice and discard: nothing
+              milled, nothing destroyed, the Concoction kept
   forage      Bushy Bodyguard forages from the graveyard (CostForage): the
               LAST three offered are exiled; two +1/+1 counters
   gain-life   Invigorate's alternative cost (CostGainLife): the opponent,
@@ -1052,11 +1053,11 @@ def concoction(yes):
     """Sinister Concoction: {B}, pay 1 life, mill a card, discard a card,
     sacrifice it: destroy target creature. The mill (CostMill) is a yes or
     no. Yes: the library is one card smaller and the Bears is destroyed.
-    No: nothing is milled and the Bears lives. (What was paid before the
-    mill is Forge's to give back: a cancelled activation refunds only what
-    its rollback can, and a sacrifice it cannot -- not checked here.)"""
+    No: nothing is milled, the Bears lives -- and, since the yes-or-no
+    costs are asked before the point of no return (Phase 8 Amendment 2),
+    the Concoction is still there and no card was discarded."""
     g = game(f"mill-{'yes' if yes else 'no'}", [("Swamp", 36), ("Sinister Concoction", 24)])
-    st = {"used": False, "asked": [], "library": None, "bears": None, "after": None, "turn": None}
+    st = {"used": False, "asked": [], "library": None, "bears": None, "after": None, "turn": None, "hand": None}
 
     def library():
         return (g.player(1, 1) or {}).get("libraryCount")
@@ -1067,6 +1068,7 @@ def concoction(yes):
         if k == "confirmPayment" and prompt.startswith("Mill "):
             st["asked"].append((seat, prompt))
             st["library"] = library()
+            st["hand"] = len(g.zone(1, "hand"))
             return "confirm:yes" if yes else None
         if k == "confirmPayment" and seat == 1:
             return "confirm:yes"
@@ -1099,7 +1101,7 @@ def concoction(yes):
         gone = st["bears"] and not any(c["id"] == st["bears"] for c in g.zone(1, "battlefield", owner=2))
         # Declined: read at once, before a later draw changes the library.
         if st["asked"] and stack_empty(g) and st["after"] is None and (gone or not yes):
-            st["after"] = {"library": library(), "bears_gone": bool(gone),
+            st["after"] = {"library": library(), "bears_gone": bool(gone), "hand": len(g.zone(1, "hand")),
                            "concoction": bool(g.mine(1, name="Sinister Concoction"))}
         return st["after"] is not None
 
@@ -1114,10 +1116,12 @@ def concoction(yes):
     if yes and (after["library"] != st["library"] - 1 or not after["bears_gone"] or after["concoction"]):
         problems.append(f"milled: library {st['library']} -> {after['library']}, the Bears destroyed, the "
                         f"Concoction sacrificed: {after}")
-    if not yes and (after["library"] != st["library"] or after["bears_gone"]):
-        problems.append(f"declined: nothing milled, the Bears alive: {after}")
+    if not yes and (after["library"] != st["library"] or after["bears_gone"] or not after["concoction"]
+                    or after["hand"] != st["hand"]):
+        problems.append(f"declined before the point of no return: nothing milled, the Bears alive, the Concoction "
+                        f"kept, nothing discarded: hand {st['hand']} -> {after}")
     return outcome(problems, "Sinister Concoction: milled, and the Bears was destroyed" if yes
-                   else "Sinister Concoction: declined, nothing milled, nothing destroyed", found)
+                   else "Sinister Concoction: declined -- nothing milled, nothing destroyed, nothing lost", found)
 
 
 def forage():

@@ -2357,6 +2357,77 @@ public final class MatchController extends GeneratedControllerBase {
         return askIndex("chooseFlipResult", labels, true, card + ": choose which flip counts.") == 0;
     }
 
+    // ---- dice -------------------------------------------------------------
+    //
+    // Phase 8 Amendment 1: the dice questions, which only Un-set cards
+    // reach -- rerolling (Monitor Monitor), nudging a roll (Xenosquirrels,
+    // Night Shift of the Living Dead), swapping one with a creature's power
+    // or toughness (Vedalken Squirrel-Whacker), ignoring one (Bamboozling
+    // Beeble). Ports of Forge's human controller; a roll is offered as its
+    // number, in the order rolled.
+
+    /** Which dice to reroll: any of them, one click each, then Done. Was a loud stub. */
+    @Override
+    public List<Integer> chooseDiceToReroll(List<Integer> rolls) {
+        List<Integer> left = new java.util.ArrayList<>(rolls);
+        List<Integer> chosen = new java.util.ArrayList<>();
+        while (!left.isEmpty()) {
+            int picked = askIndex("chooseDiceToReroll", rollLabels(left), false, "You rolled " + rollList(rolls)
+                    + ". Choose dice to reroll" + (chosen.isEmpty() ? ", or pass." : " (" + rollList(chosen)
+                    + " chosen), or pass when done."));
+            if (picked < 0) {
+                break;
+            }
+            chosen.add(left.remove(picked));
+        }
+        return chosen;
+    }
+
+    /** Which roll to change by one, or none. Was a loud stub. */
+    @Override
+    public Integer chooseRollToModify(List<Integer> rolls) {
+        int picked = askIndex("chooseRollToModify", rollLabels(rolls), false,
+                "You rolled " + rollList(rolls) + ". Choose a roll to change by one, or pass.");
+        return picked < 0 ? null : rolls.get(picked);
+    }
+
+    /** Which roll to ignore (one must be). Was a loud stub. */
+    @Override
+    public Integer chooseRollToIgnore(List<Integer> rolls) {
+        int picked = askIndex("chooseRollToIgnore", rollLabels(rolls), true,
+                "Rolled " + rollList(rolls) + ". Choose a roll to ignore.");
+        return rolls.get(Math.max(0, picked));
+    }
+
+    /** Which result to exchange with a creature's power or toughness, or none. Was a loud stub. */
+    @Override
+    public forge.game.ability.effects.RollDiceEffect.DieRollResult chooseRollToSwap(
+            List<forge.game.ability.effects.RollDiceEffect.DieRollResult> rolls) {
+        List<String> labels = new java.util.ArrayList<>();
+        rolls.forEach(r -> labels.add("Roll: " + r.getModifiedValue()));
+        int picked = askIndex("chooseRollToSwap", labels, false,
+                "Choose a roll to exchange with a creature's power or toughness, or pass.");
+        return picked < 0 ? null : rolls.get(picked);
+    }
+
+    /** Exchange the roll with power or with toughness, or neither. Was a loud stub. */
+    @Override
+    public String chooseRollSwapValue(List<String> swapChoices, Integer currentResult, int power, int toughness) {
+        int picked = askIndex("chooseRollSwapValue", swapChoices, false, "Exchange the roll of " + currentResult
+                + " with power (" + power + ") or toughness (" + toughness + ")? Pass for neither.");
+        return picked < 0 ? null : swapChoices.get(picked);
+    }
+
+    private static List<String> rollLabels(List<Integer> rolls) {
+        List<String> labels = new java.util.ArrayList<>();
+        rolls.forEach(r -> labels.add("Roll: " + r));
+        return labels;
+    }
+
+    private static String rollList(List<Integer> rolls) {
+        return String.join(", ", rolls.stream().map(String::valueOf).toList());
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {
@@ -2818,19 +2889,43 @@ public final class MatchController extends GeneratedControllerBase {
     /**
      * In what order are the parts of a cost paid — §6.91.
      *
-     * NOT ASKED, and that is Forge's own answer rather than a
-     * shortcut. Its human controller returns the order it was
-     * given unless the player has switched on a FULL CONTROL flag
-     * (ChooseCostOrder), an expert option that is off by default
-     * and that Proxic has no equivalent of.
-     *
-     * So this takes nothing away: tapping before paying mana or
-     * the other way round changes nothing a player can act on,
-     * which is why Forge hides the question too.
+     * NOT ASKED: the order is chosen for the player, and the rules let
+     * them pay in any order (CR 601.2h). Phase 8 Amendment 2 (owner,
+     * 2026-10-23): ask before the point of no return. Forge pays each
+     * part as soon as it is decided, and backing out later gives back
+     * only what Forge can refund -- tapping, counters, energy, mana -- so
+     * declining Sinister Concoction's mill after its sacrifice lost the
+     * Concoction. So: what Forge can give back first, then the yes-or-no
+     * costs that spend only resources (life, mill, damage, a draw, a
+     * flip), then the ones that pick cards to lose, and sacrifices last.
+     * Forge's own order holds within each group. Its human controller
+     * keeps Forge's order unless a "full control" option is on.
      */
     @Override
     public List<forge.game.cost.CostPart> orderCosts(List<forge.game.cost.CostPart> costs) {
-        return costs;
+        List<forge.game.cost.CostPart> ordered = new java.util.ArrayList<>(costs);
+        ordered.sort(java.util.Comparator.comparingInt(MatchController::pointOfNoReturn));
+        return ordered;
+    }
+
+    /** 0 can be given back, 1 spends a resource on a yes or no, 2 picks cards to lose, 3 sacrifices. */
+    static int pointOfNoReturn(forge.game.cost.CostPart part) {
+        if (part instanceof forge.game.cost.CostPartMana || part instanceof forge.game.cost.CostTap
+                || part instanceof forge.game.cost.CostTapType || part instanceof forge.game.cost.CostUntap
+                || part instanceof forge.game.cost.CostUntapType || part instanceof forge.game.cost.CostPutCounter
+                || part instanceof forge.game.cost.CostPayEnergy) {
+            return 0;
+        }
+        if (part instanceof forge.game.cost.CostPayLife || part instanceof forge.game.cost.CostMill
+                || part instanceof forge.game.cost.CostDamage || part instanceof forge.game.cost.CostDraw
+                || part instanceof forge.game.cost.CostFlipCoin || part instanceof forge.game.cost.CostRollDice
+                || part instanceof forge.game.cost.CostGainLife || part instanceof forge.game.cost.CostAddMana) {
+            return 1;
+        }
+        if (part instanceof forge.game.cost.CostSacrifice) {
+            return 3;
+        }
+        return 2;
     }
 
     // ---- values that are not game objects ------------------------------

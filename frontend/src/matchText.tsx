@@ -279,6 +279,16 @@ export function headingFor(kind: string): string {
       return "Bid life";
     case "chooseFlipResult":
       return "Choose a flip";
+    case "chooseDiceToReroll":
+      return "Reroll dice";
+    case "chooseRollToModify":
+      return "Change a roll";
+    case "chooseRollToIgnore":
+      return "Ignore a roll";
+    case "chooseRollToSwap":
+      return "Exchange a roll";
+    case "chooseRollSwapValue":
+      return "Power or toughness";
     case "confirmTrigger":
     case "confirmAction":
     case "confirmPayment":

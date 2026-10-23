@@ -160,6 +160,29 @@ does not play); a computer opponent; an import warning (D2).
   playable only through the cards that create them; or another way. To be
   decided before that slice, with a recommendation then.
 
+## Amendments
+
+- **Amendment 1 — D5 decided: all of them** (owner, 2026-10-23, asked
+  with the choice of "leave them out", "dice only" or "all of them").
+  Every Un-set question is built: contraptions, sectors and sprockets,
+  and the dice questions only Un-set cards reach (rerolling, nudging,
+  swapping, ignoring a roll -- Monitor Monitor, Xenosquirrels, Vedalken
+  Squirrel-Whacker, Bamboozling Beeble), including a way to bring a
+  contraption deck to the table. How that deck is carried (the package,
+  the Deck Builder's export) is a design question put to the owner
+  before that slice is built.
+- **Amendment 2 — ask before the point of no return** (owner,
+  2026-10-23). Forge pays each part of a cost as soon as it is decided,
+  and backing out later gives back only what it can refund (tapping,
+  counters, energy, mana): declining Sinister Concoction's mill after its
+  sacrifice lost the Concoction, as on Forge's desktop. Proxic now pays
+  the parts in an order the rules allow (CR 601.2h): what can be given
+  back first, then the yes-or-no costs that spend only resources (life,
+  mill, damage, a draw, a flip), then those that pick cards to lose,
+  sacrifices last. No Forge patch was needed: Forge asks the controller
+  for this order (`orderCosts`), and the record's row says so. Proven by
+  `check-cost-kinds.py` mill-no, with a mutant (Forge's order) caught.
+
 ## Appendix — the 170 entries, 2026-10-22
 
 Generated from the compiled worker and Forge at the pin
