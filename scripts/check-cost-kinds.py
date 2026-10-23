@@ -37,6 +37,11 @@ with options no default would take, and checks the board:
               are exiled, and the Bears is tapped
   blight      Sting-Slinger, blight 1 (CostBlight): the LAST creature
               offered gets the -1/-1 counter, the opponent loses 2
+  salvo-yes   Blazing Salvo, unless its controller takes 5 (CostDamage,
+              asked of THAT player): yes -- 5 life lost, the Bears lives
+  salvo-no    the same, no: the Bears dies, no life lost
+  untap       Patrol Signaler's {Q} (CostUntap, nothing asked): it untaps
+              and makes a token
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -894,12 +899,124 @@ def blight():
                    found)
 
 
+def salvo(yes):
+    """Blazing Salvo: 3 damage to target creature unless its controller has
+    it deal 5 damage to them (CostDamage, asked of THAT player). Yes: they
+    lose 5 and the Bears lives. No: the Bears dies, no life lost."""
+    g = game(f"salvo-{'yes' if yes else 'no'}", [("Mountain", 36), ("Blazing Salvo", 24)])
+    st = {"cast": None, "bears": None, "asked": [], "life": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "damage to you" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            st["life"] = (g.player(1, 2) or {}).get("life")
+            return "confirm:yes" if yes else None
+        if k == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == st["bears"]), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or (cast(g, f, "Grizzly Bears") if stack_empty(g) else None)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            bears = g.zone(1, "battlefield", owner=2, name="Grizzly Bears")
+            if st["cast"] is None and bears:
+                o = cast(g, f, "Blazing Salvo")
+                if o:
+                    st["cast"], st["bears"] = card_of(o), bears[0]["id"]
+                    return o
+            return None
+        if k in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "bears": any(c["id"] == st["bears"] for c in g.zone(1, "battlefield", owner=2))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"asked": st["asked"], "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "Blazing Salvo's damage choice was never asked", found
+    problems = []
+    if [seat for seat, _ in st["asked"]] != [2]:
+        problems.append(f"only the Bears' controller is asked, once: {st['asked']}")
+    if st["asked"][0][1] != "Have Blazing Salvo deal 5 damage to you?":
+        problems.append(f"the question should say what it costs: {st['asked'][0][1]!r}")
+    lost = st["life"] - st["after"]["life"]
+    if yes and (lost != 5 or not st["after"]["bears"]):
+        problems.append(f"took it: 5 life lost and the Bears lives, got {lost} and {st['after']}")
+    if not yes and (lost != 0 or st["after"]["bears"]):
+        problems.append(f"declined: no life lost and the Bears dies, got {lost} and {st['after']}")
+    return outcome(problems, "Blazing Salvo: took the 5, and the Bears lived" if yes
+                   else "Blazing Salvo: declined, and the Bears died", found)
+
+
+def signaler():
+    """Patrol Signaler, {1}{W} {Q}: create a 1/1 Kithkin (CostUntap, nothing
+    to ask). Tapped by attacking, then used: it untaps and the token is
+    made."""
+    g = game("untap", [("Plains", 36), ("Patrol Signaler", 24)], [("Forest", 60)])
+    st = {"attacked": None, "used": False, "turn": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "declareAttackers" and seat == 1:
+            ready = [c["id"] for c in g.mine(1, name="Patrol Signaler") if not c.get("sick") and not c.get("tapped")]
+            if st["attacked"] or not ready:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == ready[0]), None)
+            if o:
+                st["attacked"], st["turn"] = ready[0], g.turn
+            return o
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            me = next((c for c in g.mine(1) if c["id"] == st["attacked"]), {})
+            if st["attacked"] and not st["used"] and me.get("tapped") and g.turn == st["turn"] \
+                    and len(g.untapped_lands(1)) >= 2:
+                o = g.option(f, name="Patrol Signaler", zone="battlefield", contains="Kithkin")
+                if o:
+                    st["used"] = True
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            return None if g.mine(1, name="Patrol Signaler") else cast(g, f, "Patrol Signaler")
+        return DEFAULT
+
+    def until(g):
+        me = next((c for c in g.mine(1) if c["id"] == st["attacked"]), {})
+        tokens = [c["id"] for c in g.mine(1) if c.get("token")]
+        if st["used"] and stack_empty(g) and st["after"] is None and (tokens or g.turn > st["turn"]):
+            st["after"] = {"tokens": tokens, "tapped": bool(me.get("tapped"))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"attacked": st["attacked"], "used": st["used"], "after": st["after"], "stopped": g.stopped_badly()}
+    if not st["used"] or not st["after"]:
+        return "inconclusive", "Patrol Signaler was never tapped and then used", found
+    problems = []
+    if len(st["after"]["tokens"]) != 1 or st["after"]["tapped"]:
+        problems.append(f"the untap cost paid: one token, and the Signaler untapped: {st['after']}")
+    return outcome(problems, "Patrol Signaler: {Q} paid -- it untapped, and a Kithkin token was made", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
              "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
              "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False),
-             "behold": behold, "evidence": evidence, "blight": blight}
+             "behold": behold, "evidence": evidence, "blight": blight,
+             "salvo-yes": lambda: salvo(True), "salvo-no": lambda: salvo(False), "untap": signaler}
 
 if __name__ == "__main__":
     codes = []

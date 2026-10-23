@@ -574,6 +574,24 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Take damage as a cost -- Blazing Salvo, Browbeat, Book Burning: "unless
+     * that player has it deal 5 damage to them". A port of Forge's human
+     * path: a yes or no, asked of whoever may pay. Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostDamage cost) {
+        int amount = cost.getAbilityAmount(ability);
+        return confirm("Have " + source.getName() + " deal " + amount + " damage to you?")
+                ? PaymentDecision.number(amount) : null;
+    }
+
+    /** The untap symbol {Q}: nothing to choose -- the card untaps (Forge's human path). */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostUntap cost) {
+        return PaymentDecision.number(1);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes
