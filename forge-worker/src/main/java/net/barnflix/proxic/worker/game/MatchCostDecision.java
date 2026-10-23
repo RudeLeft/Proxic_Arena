@@ -475,6 +475,27 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     }
 
     /**
+     * Exert as a cost -- Arena of Glory's "Exert this land", Steward of
+     * Solidarity. Every exert cost there is exerts the card itself (36 of
+     * 36), so this is Forge's human path for that: a yes or no. Any other
+     * form stays the loud stub, so a new card is noticed. (Exerting as a
+     * creature attacks is not asked here: Forge pays that from the creature
+     * after "Exert which attackers?".) Was a loud stub.
+     */
+    @Override
+    public PaymentDecision visit(forge.game.cost.CostExert cost) {
+        if (cost.payCostFromSource()) {
+            Card card = ability.getHostCard();
+            if (card.getController() == ability.getActivatingPlayer() && card.isInPlay()
+                    && confirm("Exert " + card.getName() + "? It doesn't untap during your next untap step.")) {
+                return PaymentDecision.card(card);
+            }
+            return null;
+        }
+        return super.visit(cost);
+    }
+
+    /**
      * Return permanents you control to their owner's hand as a cost --
      * Phase 8, 94 cards: Daze and Gush (instead of their mana), the
      * bounce lands. A port of Forge's human path: the card itself is a yes

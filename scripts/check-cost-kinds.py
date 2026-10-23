@@ -26,6 +26,9 @@ with options no default would take, and checks the board:
               offered is revealed, and deals exactly its power
   draw-yes    Academy Wall's loot (CostDraw, a yes or no): yes draws a card
   draw-no     the same, no: nothing drawn
+  exert-yes   Steward of Solidarity's ability, exert it (CostExert, a yes
+              or no): a Warrior token, and the Steward stays tapped next turn
+  exert-no    the same, no: no token, nothing tapped
   crew        Smuggler's Copter, crew 1 (CostTapType, total power): the
               LAST Lion offered crews it, then Done -- that Lion is tapped,
               the others are not, and the Copter is a creature
@@ -610,10 +613,69 @@ def academy_wall(yes):
                    else "Academy Wall: declined, and nothing was drawn", found)
 
 
+def steward(yes):
+    """Steward of Solidarity: {T}, exert it: create a 1/1 Warrior (CostExert,
+    a yes or no on the card itself). Yes: a token, and the Steward stays
+    tapped through seat 1's next untap. No: no token, the Steward untapped."""
+    g = game(f"exert-{'yes' if yes else 'no'}", [("Plains", 36), ("Steward of Solidarity", 24)])
+    st = {"used": None, "asked": [], "turn": None, "made": None, "after": None}
+
+    def tokens():
+        return sorted(c["id"] for c in g.mine(1) if c.get("token"))
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "confirmPayment" and "Exert" in (f.get("prompt") or ""):
+            st["asked"].append((seat, f.get("prompt")))
+            return "confirm:yes" if yes else None
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            ready = [c for c in g.mine(1, name="Steward of Solidarity") if not c.get("sick") and not c.get("tapped")]
+            if st["used"] is None and ready:
+                o = g.option(f, name="Steward of Solidarity", zone="battlefield")
+                if o:
+                    st["used"], st["turn"] = ready[0]["id"], g.turn
+                    return o
+            land = g.play_land(f)
+            if land:
+                return land
+            return None if g.mine(1, name="Steward of Solidarity") else cast(g, f, "Steward of Solidarity")
+        return DEFAULT
+
+    def until(g):
+        phase = g.state.get(1, {}).get("phase")
+        steward = next((c for c in g.mine(1) if c["id"] == st["used"]), {})
+        if st["asked"] and st["made"] is None and stack_empty(g) and g.turn == st["turn"] and phase == "MAIN2":
+            st["made"] = {"tokens": tokens(), "tapped": bool(steward.get("tapped"))}
+        if st["made"] and st["after"] is None and g.turn >= st["turn"] + 2 and phase == "MAIN1":
+            st["after"] = bool(steward.get("tapped"))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"asked": st["asked"], "made": st["made"], "tapped_next_turn": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Steward of Solidarity's exert cost was never asked", found
+    problems = []
+    if any(seat != 1 for seat, _ in st["asked"]):
+        problems.append("the opponent was asked about seat 1's exert cost")
+    if yes:
+        if len(st["made"]["tokens"]) != 1:
+            problems.append(f"exerted: one Warrior token, got {st['made']}")
+        if st["after"] is not True:
+            problems.append("exerted: the Steward stays tapped through the next untap step")
+    else:
+        if st["made"]["tokens"] or st["made"]["tapped"]:
+            problems.append(f"declined: no token and the Steward untapped, got {st['made']}")
+    return outcome(problems, "Steward of Solidarity: exerted, a Warrior made, and it stayed tapped" if yes
+                   else "Steward of Solidarity: declined, nothing made, nothing tapped", found)
+
+
 SCENARIOS = {"tap-two": tap_two, "crew": crew, "atoll-pay": lambda: atoll(True), "atoll-no": lambda: atoll(False),
              "chalice": chalice, "offspring-yes": lambda: offspring(True), "offspring-no": lambda: offspring(False),
              "gush": gush, "manamorphose": manamorphose, "charge": charge,
-             "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False)}
+             "draw-yes": lambda: academy_wall(True), "draw-no": lambda: academy_wall(False),
+             "exert-yes": lambda: steward(True), "exert-no": lambda: steward(False)}
 
 if __name__ == "__main__":
     codes = []

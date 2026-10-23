@@ -1493,7 +1493,8 @@ public final class MatchController extends GeneratedControllerBase {
             return "";
         }
         java.util.List<String> names = new java.util.ArrayList<>();
-        reveal.getCards().forEach(card -> names.add(String.valueOf(card)));
+        // Shown to this player, so the name -- without Forge's internal number.
+        reveal.getCards().forEach(card -> names.add(card.getName().isEmpty() ? "Face-down card" : card.getName()));
 
         // CAPPED, and says when it is capping.
         //
@@ -1581,7 +1582,12 @@ public final class MatchController extends GeneratedControllerBase {
                         ? "card:" + card.getId()
                         : "player:" + candidate.getId();
                 byId.put(id, candidate);
-                labels.put(id, String.valueOf(candidate));
+                // The name as this player sees it: Forge's toString adds
+                // its internal number ("Grizzly Bears (62)"), and a list
+                // of cards off the board shows the label as it is.
+                labels.put(id, candidate instanceof forge.game.card.Card card
+                        ? ViewerSnapshot.nameFor(card, player.getView())
+                        : String.valueOf(candidate));
             }
 
             boolean mandatory = chosen.size() < min;
@@ -2054,6 +2060,51 @@ public final class MatchController extends GeneratedControllerBase {
         return forge.game.player.PlaySpellAbility.payCostDuringAbilityResolve(this, player, cost, sa, prompt);
     }
 
+    /**
+     * A cost to attack or block -- Propaganda and Ghostly Prison's tax,
+     * War Cadence, and exert (an exerted attacker pays it here, with no
+     * further question: Forge pays CostExert from the creature itself).
+     * The same delegation as payCostToPreventEffect, worded for the page:
+     * Forge's own line carries its internal card number. Passing means the
+     * creature doesn't attack (or block). Was a loud stub.
+     */
+    @Override
+    public boolean payCombatCost(forge.game.card.Card card, forge.game.cost.Cost cost, SpellAbility sa, String prompt) {
+        String name = ViewerSnapshot.nameFor(card, player.getView());
+        String asked = prompt != null && prompt.contains("blocker")
+                ? name + " blocks: pay its cost, or pass and it doesn't block."
+                : name + " attacks: pay its cost, or pass and it doesn't attack.";
+        return forge.game.player.PlaySpellAbility.payCostDuringAbilityResolve(this, player, cost, sa, asked);
+    }
+
+    /**
+     * Which attackers to exert, as they attack -- Glorybringer, the
+     * Amonkhet exert creatures (CR 508.1g). Any number, none included,
+     * one click each, then Pass; Forge's human controller asks the same
+     * (any of them, in one list). Was a loud stub.
+     */
+    @Override
+    public List<forge.game.card.Card> exertAttackers(List<forge.game.card.Card> attackers) {
+        return pickSeveral("exertAttackers", attackers, 0, attackers.size(), "Exert which attackers?",
+                "An exerted creature doesn't untap during your next untap step.");
+    }
+
+    /**
+     * Which cards to reveal from your own hand -- Blackmail ("reveals three
+     * cards"), Ivy Seer and the "reveal any number" cards. A port of Forge's
+     * human controller: between min and max of the cards Forge offers, one
+     * click each. Asked of the hand's owner alone; what is revealed is
+     * told to everyone by Forge's own reveal. Was a loud stub.
+     */
+    @Override
+    public forge.game.card.CardCollectionView chooseCardsToRevealFromHand(
+            int min, int max, forge.game.card.CardCollectionView valid) {
+        int most = Math.min(max, valid.size());
+        int least = Math.min(min, most);
+        return new forge.game.card.CardCollection(pickSeveral("chooseCardsToRevealFromHand", valid, least, most,
+                most == 1 ? "Reveal a card from your hand." : "Reveal cards from your hand.", ""));
+    }
+
     /** The same, for a cost paid during a die roll. */
     @Override
     public boolean payCostDuringRoll(forge.game.cost.Cost cost, SpellAbility sa) {
@@ -2436,7 +2487,7 @@ public final class MatchController extends GeneratedControllerBase {
                 // §6.46 — typed, like every other object id.
                 String id = "order:card:" + card.getId();
                 byId.put(id, card);
-                labels.put(id, String.valueOf(card));
+                labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
             }
 
             forge.game.card.Card picked;

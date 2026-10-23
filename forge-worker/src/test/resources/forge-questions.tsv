@@ -34,7 +34,7 @@ C CostDamage	UNBUILT		Pay the cost Damage	18 cards — damage to yourself (Browb
 C CostDiscard	ASKS	CostDiscard	Discard as a cost	Faithless Looting, Wild Mongrel	scripts/check-modes.py
 C CostDraw	ASKS	confirmPayment	Draw cards as a cost: a yes or no ("Academy Wall: draw a card?")	52 cards: Academy Wall, Daring Saboteur, Baral, Fetid Gargantua	scripts/check-cost-kinds.py
 C CostEnlist	UNBUILT		Pay the cost Enlist	with enlist	LoudFailureTest
-C CostExert	UNBUILT		Pay the cost Exert	with exert	LoudFailureTest
+C CostExert	ASKS	confirmPayment	Exert the card itself as a cost: a yes or no ("Exert Steward of Solidarity?"); every exert cost is this form	2 cards: Steward of Solidarity, Arena of Glory	scripts/check-cost-kinds.py
 C CostExile	ASKS	CostExile	Exile as a cost	Force of Will, Delve-like costs	scripts/check-costs.py
 C CostExileFromStack	UNBUILT		Pay the cost ExileFromStack	rare	LoudFailureTest
 C CostExiledMoveToGrave	UNBUILT		Pay the cost ExiledMoveToGrave	rare	LoudFailureTest
@@ -90,7 +90,7 @@ Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int)	ROUTES-TO
 Q chooseCardsToDiscardFrom(Player,SpellAbility,CardCollection,int,int,CardCollectionView)	ASKS	chooseEntitiesForEffect	Discard from a hand (yours, or one you can see)	Thoughtseize, Duress, Mind Rot	scripts/check-modes.py
 Q chooseCardsToDiscardToMaximumHandSize(int)	ASKS	chooseCardsToDiscardToMaximumHandSize	Discard down to your maximum hand size	every game	scripts/check-characteristics.py
 Q chooseCardsToDiscardUnlessType(int,CardCollectionView,String[],SpellAbility)	UNBUILT		Thirst for Knowledge, Wrench Mind	15 cards	LoudFailureTest
-Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	UNBUILT		reveal any number from hand (Blackmail, Ivy Seer)	35 cards	LoudFailureTest
+Q chooseCardsToRevealFromHand(int,int,CardCollectionView)	ASKS	chooseCardsToRevealFromHand	Which cards to reveal from your own hand, one click each -- asked of the hand's owner	35 cards: Blackmail, Ivy Seer	scripts/check-you-choose.py
 Q chooseCardsYouWonToAddToDeck(List)	UNREACHABLE		Ante: which won cards join your deck -- asked only when the rules play for ante, and Proxic's never do	-	UnreachableQuestionsTest
 Q chooseColor(String,SpellAbility,ColorSet)	ASKS	chooseColor	Choose a colour	Iona, Shield of Emeria; Brave the Elements	scripts/check-text-effects.py
 Q chooseColorAllowColorless(String,Card,ColorSet)	ASKS	chooseColor	Choose a colour, or colourless	Reflecting Pool, Exotic Orchard-style mana when a colourless land is out	scripts/check-you-choose.py
@@ -149,7 +149,7 @@ Q declareBlockers(Player,Combat)	ASKS	declareBlockers,chooseBlockTarget	Declare 
 Q divideShield(Card,Map,int)	UNBUILT		dividing a damage-prevention shield among several creatures; cards to find	rare	LoudFailureTest
 Q endTempShowCards()	NOT-A-QUESTION		Stop showing cards shown for a moment (Forge's desktop)	-	-
 Q enlistAttackers(List)	UNBUILT		enlist	15 cards	LoudFailureTest
-Q exertAttackers(List)	UNBUILT		exert (Glorybringer)	36 cards	LoudFailureTest
+Q exertAttackers(List)	ASKS	exertAttackers	Which attackers to exert as they attack: any of them, one click each, then Pass	34 cards: Glorybringer, Glory-Bound Initiate, Ahn-Crop Crasher	scripts/check-combat-choices.py
 Q getAbilityToPlay(Card,List,ITriggerEvent)	ASKS	getAbilityToPlay	A card with several things it can do: which one	Mutate cards, dual-ability permanents	scripts/check-you-choose.py
 Q getAnteResult()	NOT-A-QUESTION		Ante: not played	-	-
 Q getCostDecisionMaker(Player,SpellAbility,boolean)	ROUTES-TO		Forge forwards this to getCostDecisionMaker	-	-> Q getCostDecisionMaker(Player,SpellAbility,boolean,String)
@@ -173,7 +173,7 @@ Q orderBlockers(Card,CardCollection)	UNREACHABLE		same rule, off	-	UnreachableQu
 Q orderCosts(List)	ENGINE		The order a spell's costs are paid in: Forge's own order, as its desktop does unless 'full control' is on	-	scripts/check-costs.py
 Q orderMoveToZoneList(CardCollectionView,ZoneType,SpellAbility)	ASKS	orderMoveToZoneList	Put cards in order (on top of a library, ...)	Brainstorm, Karn Liberated	scripts/check-karn.py
 Q orderSimultaneousSa(List)	UNREACHABLE		never called by Forge's rules at the pinned version	-	UnreachableQuestionsTest
-Q payCombatCost(Card,Cost,SpellAbility,String)	UNBUILT		attack/block taxes (Ghostly Prison, Propaganda, War Tax)	35 cards	LoudFailureTest
+Q payCombatCost(Card,Cost,SpellAbility,String)	ENGINE		Pays a cost to attack or block (and exert) through Forge's own payment questions -- the mana question names the creature and says passing means it doesn't attack	35 cards: Ghostly Prison, Propaganda, War Cadence	scripts/check-combat-choices.py
 Q payCostDuringRoll(Cost,SpellAbility)	ENGINE		Pays a cost during a die roll through Forge's own payment questions	-	PENDING: reached only after chooseDiceToReroll or chooseRollToModify, both unbuilt loud stops -- proven when they are built
 Q payCostToPreventEffect(Cost,SpellAbility,boolean,FCollectionView)	ENGINE		Pays echo, cumulative upkeep, "unless you pay" through Forge's own payment questions -- the mana question says what it is for and what passing does	Goblin War Buggy (echo), Mystic Remora (cumulative upkeep), Mana Leak	scripts/check-you-choose.py
 Q payManaCost(ManaCost,CostPartMana,SpellAbility,String,ManaConversionMatrix,boolean)	ENGINE		Pays a mana cost through Forge's own payment loop (which asks applyManaToCost)	-	scripts/check-mana-pool.py

@@ -16,7 +16,11 @@ that can be followed), so the test is by id:
   snapshot    no card in another seat's hand appears in this seat's
               snapshot, in any zone -- except `otherHands`, which is
               Forge's own permission (Mindslaver, a revealed hand)
-  questions   no option offered to this seat names such a card
+  questions   no option offered to this seat names such a card -- except
+              one Forge has just revealed to it (Blackmail: "Looking at
+              Bob's hand: Grizzly Bears, Giant Growth, Grizzly Bears", then
+              "choose one of them"), counted by name: three revealed, three
+              may be offered, and a fourth from the same hand is a leak
   events      no notice to this seat names a card that is ONLY in an
               opponent's hand: no copy of that name is anywhere this
               seat can see, and none was revealed to it -- in otherHands,
@@ -77,6 +81,7 @@ def check(path, totals, leaks):
     rounds = {}          # revision -> seat -> state
     latest = {}          # seat -> state
     revealed = {}        # seat -> names ever shown to it in otherHands
+    shown_now = {}       # seat -> Counter of the names in the last reveal to it
     for number, line in enumerate(open(path, encoding="utf-8"), 1):
         entry = json.loads(line)
         if entry.get("dir") != "in":
@@ -89,6 +94,10 @@ def check(path, totals, leaks):
             rev = state.get("stateRevision")
             rounds.setdefault(rev, {})[seat] = state
             latest[seat] = state
+            for text in state.get("notices", []):
+                shown = REVEAL.match(text)
+                if shown:
+                    shown_now[seat] = Counter(shown.group(1).split(", "))
             revealed.setdefault(seat, set()).update(
                 c.get("name") for c in state.get("otherHands", []) if c.get("name"))
             round_ = rounds[rev]
@@ -124,13 +133,17 @@ def check(path, totals, leaks):
         totals["questions"] += 1
         view = latest.get(seat, {})
         allowed = {c["id"] for c in view.get("otherHands", [])}
+        budget = Counter(shown_now.get(seat, Counter()))
         for other, theirs in latest.items():
             if other == seat:
                 continue
-            hand = {c["id"] for c in theirs.get("hand", [])}
+            hand = {c["id"]: c.get("name") for c in theirs.get("hand", [])}
             for option in frame.get("options", []):
                 for n in CARD.findall(option.get("actionId") or ""):
                     card = f"card:{n}"
+                    if card in hand and card not in allowed and budget[hand[card]] > 0:
+                        budget[hand[card]] -= 1
+                        continue
                     if card in hand and card not in allowed:
                         leaks.append(f"{path}:{number} decision {frame.get('decisionId')} "
                                      f"({frame.get('kind')}) to seat {seat} offers {card} "

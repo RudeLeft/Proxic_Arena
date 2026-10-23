@@ -14,6 +14,14 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
   wolf-no         the same, No: the blocker takes the 2 and dies, the
                   defending player loses nothing
 
+  exert-last      two Glory-Bound Initiates attack: "Exert which
+                  attackers?" (exertAttackers) -- the LAST one, then Done:
+                  7 damage, 4 life, and next turn that one alone stays tapped
+  exert-none      the same, Done at once: 6 damage, nothing gained, both untap
+  prison-pay      Ghostly Prison: a Bears attacks only if {2} is paid
+                  (payCombatCost); the mana question names it -- paid: 2 damage
+  prison-no       the same, passed: it does not attack
+
 Only the attacking player is asked; the cross-game checks read these
 traces in CI.
 
@@ -191,7 +199,142 @@ def wolf(yes):
                    else "Lone Wolf: No, and its damage went to the blocker", found)
 
 
-SCENARIOS = {"double-block": double_block, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False)}
+def exert(pick):
+    """Two Glory-Bound Initiates (3/1; exerted: +1/+3 and lifelink) attack an
+    empty board. "Exert which attackers?" (exertAttackers): the LAST one
+    offered, then Done -- 4 + 3 damage and 4 life gained, and on seat 1's
+    next turn that one is still tapped, the other untapped. Or none: 6
+    damage, nothing gained."""
+    g = game(f"exert-{'last' if pick else 'none'}", [("Plains", 30), ("Glory-Bound Initiate", 30)],
+             [("Forest", 60)])
+    st = {"attackers": [], "asked": [], "picked": None, "turn": None, "life": None,
+          "combat": None, "after": None}
+
+    def lives():
+        return ((g.player(1, 1) or {}).get("life"), (g.player(1, 2) or {}).get("life"))
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "exertAttackers":
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            if pick and st["picked"] is None:
+                st["picked"] = card_of(f["options"][-1]["actionId"])
+                return f["options"][-1]["actionId"]
+            return None
+        if k == "declareAttackers" and seat == 1:
+            if st["turn"] is not None and g.turn != st["turn"]:
+                return None
+            ready = [c["id"] for c in g.mine(1, name="Glory-Bound Initiate")
+                     if not c.get("sick") and not c.get("tapped")]
+            if len(ready) < 2 and not st["attackers"]:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in ready
+                      and card_of(o["actionId"]) not in st["attackers"]), None)
+            if o and len(st["attackers"]) < 2:
+                st["attackers"].append(card_of(o))
+                st["turn"], st["life"] = g.turn, st["life"] or lives()
+                return o
+            return None
+        if seat == 1 and k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            return g.play_land(f) or (cast(g, f, "Glory-Bound Initiate")
+                                      if len(g.mine(1, name="Glory-Bound Initiate")) < 2 else None)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f)
+        return DEFAULT
+
+    def until(g):
+        phase = g.state.get(1, {}).get("phase")
+        if st["asked"] and st["combat"] is None and g.turn == st["turn"] and phase in ("MAIN2", "END_OF_TURN"):
+            st["combat"] = lives()
+        if st["combat"] and st["after"] is None and g.turn >= st["turn"] + 2 and phase == "MAIN1":
+            st["after"] = {c["id"]: bool(c.get("tapped")) for c in g.mine(1, name="Glory-Bound Initiate")
+                           if c["id"] in st["attackers"]}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"attackers": st["attackers"], "asked": st["asked"], "picked": st["picked"],
+             "life": [st["life"], st["combat"]], "tapped": st["after"], "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "two Initiates never attacked and reached the next turn", found
+    problems = []
+    seat, offered, prompt = st["asked"][0]
+    if seat != 1:
+        problems.append("the defending player was asked which attackers to exert")
+    if offered != sorted(st["attackers"]):
+        problems.append(f"offered {offered}, not exactly the attackers {st['attackers']}")
+    (me0, them0), (me1, them1) = st["life"], st["combat"]
+    if pick:
+        if (them0 - them1, me1 - me0) != (7, 4):
+            problems.append(f"one exerted: 7 damage and 4 gained, got {them0 - them1} and {me1 - me0}")
+        other = [a for a in st["attackers"] if a != st["picked"]]
+        if st["after"].get(st["picked"]) is not True or any(st["after"].get(a) for a in other):
+            problems.append(f"next turn {st['picked']} stays tapped, {other} untaps: {st['after']}")
+    else:
+        if (them0 - them1, me1 - me0) != (6, 0):
+            problems.append(f"none exerted: 6 damage, nothing gained, got {them0 - them1} and {me1 - me0}")
+        if any(st["after"].values()):
+            problems.append(f"none exerted, so both untap: {st['after']}")
+    return outcome(problems, "exerted the Initiate picked: 7 damage, 4 life, and it stayed tapped" if pick
+                   else "exerted none: 6 damage, both untapped", found)
+
+
+def prison(pay):
+    """Ghostly Prison on the defending side: a Bears attacks only if its
+    player pays {2} (payCombatCost). The mana question names the attacker.
+    Paid: 2 damage. Passed: it does not attack, no damage."""
+    g = game(f"prison-{'pay' if pay else 'no'}", [("Forest", 30), ("Grizzly Bears", 30)],
+             [("Plains", 30), ("Ghostly Prison", 30)])
+    st = {"attacked": None, "prompts": [], "life": None, "turn": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        prompt = f.get("prompt") or ""
+        if k == "applyManaToCost" and seat == 1 and "attack" in prompt:
+            st["prompts"].append(prompt)
+            return DEFAULT if pay else None
+        if k == "declareAttackers" and seat == 1:
+            ready = [c["id"] for c in g.mine(1, name="Grizzly Bears") if not c.get("sick") and not c.get("tapped")]
+            lands = [c for c in g.mine(1, name="Forest") if not c.get("tapped")]
+            prison_out = g.zone(1, "battlefield", owner=2, name="Ghostly Prison")
+            if st["attacked"] or not ready or len(lands) < 2 or not prison_out:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == ready[0]), None)
+            if o:
+                st["attacked"], st["turn"] = ready[0], g.turn
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        if seat == 1 and k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            return g.play_land(f) or (None if g.mine(1, name="Grizzly Bears") else cast(g, f, "Grizzly Bears"))
+        if seat == 2 and k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            return g.play_land(f) or (None if g.mine(2, name="Ghostly Prison") else cast(g, f, "Ghostly Prison"))
+        if k == "declareBlockers":
+            return None
+        return DEFAULT
+
+    def until(g):
+        if st["attacked"] and st["after"] is None and g.turn == st["turn"] and \
+                g.state.get(1, {}).get("phase") in ("MAIN2", "END_OF_TURN"):
+            st["after"] = (g.player(1, 2) or {}).get("life")
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=20)
+    found = {"attacked": st["attacked"], "prompts": st["prompts"], "life": [st["life"], st["after"]],
+             "stopped": g.stopped_badly()}
+    if not st["prompts"] or st["after"] is None:
+        return "inconclusive", "a Bears never attacked into Ghostly Prison", found
+    problems = []
+    if not st["prompts"][0].startswith("Grizzly Bears attacks: pay its cost, or pass and it doesn't attack."):
+        problems.append(f"the payment should name the attacker and say what passing does: {st['prompts'][0]!r}")
+    lost = st["life"] - st["after"]
+    if lost != (2 if pay else 0):
+        problems.append(f"{'paid: 2' if pay else 'passed: no'} damage, got {lost}")
+    return outcome(problems, "Ghostly Prison: paid, and the Bears hit for 2" if pay
+                   else "Ghostly Prison: passed, and the Bears did not attack", found)
+
+
+SCENARIOS = {"double-block": double_block, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
+             "exert-last": lambda: exert(True), "exert-none": lambda: exert(False),
+             "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False)}
 
 if __name__ == "__main__":
     codes = []

@@ -224,7 +224,7 @@ final class CombatChoices {
                     ? "defender:card:" + card.getId()
                     : "defender:player:" + defender.getId();
             byId.put(id, defender);
-            labels.put(id, String.valueOf(defender));
+            labels.put(id, defender instanceof Card card ? ViewerSnapshot.nameFor(card, viewer) : String.valueOf(defender));
         }
         String choice =
                 host.gate().ask(

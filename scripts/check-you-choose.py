@@ -48,6 +48,9 @@ and checks the result on the board:
                   the LAST target offered is changed to Spellskite
   vote            Council's Judgment (vote): both players vote for the LAST
                   Bears offered; that one is exiled, the other stays
+  blackmail       Blackmail: the opponent picks the three to reveal (the LAST
+                  three); the caster chooses from exactly those, and that
+                  one is discarded
   elspeth         Elspeth Resplendent's +1: which kind of counter
                   (chooseCounterType) -- the LAST, and the creature has
                   that keyword, and no other offered
@@ -1010,6 +1013,70 @@ def vote():
     return outcome(problems, "Council's Judgment: both players voted, and the Bears they voted for was exiled", found)
 
 
+def blackmail():
+    """Blackmail: the opponent reveals three cards from their hand
+    (chooseCardsToRevealFromHand, asked of THEM) -- the LAST three offered --
+    and the caster picks one of exactly those to be discarded."""
+    g = game("blackmail", [("Swamp", 30), ("Blackmail", 30)],
+             [("Forest", 30), ("Grizzly Bears", 15), ("Giant Growth", 15)])
+    st = {"cast": None, "asked": [], "revealed": [], "chooser": [], "hand": None, "after": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseCardsToRevealFromHand":
+            left = [o["actionId"] for o in f["options"] if card_of(o["actionId"]) not in st["revealed"]]
+            st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"]), f.get("prompt")))
+            st["revealed"].append(card_of(left[-1]))
+            return left[-1]
+        if seat == 1 and st["revealed"] and f.get("options") and all(
+                card_of(o["actionId"]) for o in f["options"]) and k != "chooseSpellAbilityToPlay":
+            st["chooser"].append((k, sorted(card_of(o["actionId"]) for o in f["options"])))
+            return f["options"][-1]["actionId"]
+        if seat == 1 and k == "chooseTargetsFor":
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return None
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            land = g.play_land(f)
+            if land:
+                return land
+            if st["cast"] is None:
+                o = cast(g, f, "Blackmail")
+                if o:
+                    st["cast"] = card_of(o)
+                    st["hand"] = sorted(c["id"] for c in g.zone(2, "hand"))
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
+        if st["asked"] and resolved and stack_empty(g) and st["after"] is None:
+            st["after"] = sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=10)
+    found = {"asked": st["asked"], "revealed": st["revealed"], "chooser": st["chooser"], "discarded": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or st["after"] is None:
+        return "inconclusive", "Blackmail never had its target reveal", found
+    problems = []
+    if any(seat != 2 for seat, _, _ in st["asked"]):
+        problems.append("the caster was asked which of the opponent's cards to reveal")
+    if len(st["asked"]) != 3 or len(set(st["revealed"])) != 3:
+        problems.append(f"three cards, one question each: {st['revealed']}")
+    if st["asked"][0][1] != st["hand"]:
+        problems.append(f"offered {st['asked'][0][1]}, not exactly the opponent's hand {st['hand']}")
+    if not st["chooser"] or sorted(st["chooser"][0][1]) != sorted(st["revealed"]):
+        problems.append(f"the caster should choose from exactly the revealed three: {st['chooser']}")
+    if len(st["after"]) != 1 or st["after"][0] not in st["revealed"]:
+        problems.append(f"one of the revealed cards should be discarded: {st['after']}")
+    return outcome(problems, "Blackmail: the opponent revealed the three picked, and one of those was discarded",
+                   found)
+
+
 SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColors"),
              "gods-willing": lambda: protect("gods-willing", "Gods Willing", "chooseProtectionType"),
              "pioneer-yes": lambda: pioneer(True), "pioneer-no": lambda: pioneer(False),
@@ -1018,7 +1085,7 @@ SCENARIOS = {"brave": lambda: protect("brave", "Brave the Elements", "chooseColo
              "elspeth": elspeth, "converge": converge,
              "echo-pay": lambda: echo(True), "echo-no": lambda: echo(False),
              "cascade-yes": lambda: cascade(True), "cascade-no": lambda: cascade(False),
-             "spellskite": spellskite, "vote": vote}
+             "spellskite": spellskite, "vote": vote, "blackmail": blackmail}
 
 if __name__ == "__main__":
     codes = []
