@@ -220,7 +220,7 @@ test("force closing a room mid-game ends the match with no winner, for both play
 
     await admin.reload();
     const rooms = admin.getByRole("region", { name: "Rooms" });
-    const row = rooms.getByRole("listitem").filter({ hasText: "In a match" });
+    const row = rooms.getByRole("listitem").filter({ hasText: "In a game" });
     await row.getByRole("button", { name: /^Force close/ }).click();
     await expect(row.getByRole("alert")).toContainText("The match ends with no winner.");
     await row.getByRole("button", { name: "Close it" }).click();

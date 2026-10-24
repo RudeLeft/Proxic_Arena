@@ -1719,11 +1719,15 @@ main.pa-main {
   max-width: none;
   width: 100%;
 }
+/* One line where it fits (owner, 2026-10-24); at 1280 a step is ~140 px,
+   and a nowrap label ran out of its box, so it may wrap there. */
 .pa-step .pa-button {
   width: 100%;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 10px;
-  white-space: nowrap;
+  padding: 6px 10px;
+  text-wrap: balance;
+  line-height: 1.15;
   font-size: 15px;
   letter-spacing: 0.05em;
 }
@@ -1733,15 +1737,18 @@ main.pa-main {
 .pa-lobby .pa-step-note a:hover {
   color: #f1c47c;
 }
+/* Wraps: the third step is ~140 px wide at 1280, too narrow for Start and
+   Cancel side by side -- Cancel ran out under the chat column (CI). */
 .pa-start-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .pa-start-row .pa-start {
   flex: 1 1 auto;
 }
 .pa-start-row .pa-button-quiet {
-  flex: none;
+  flex: 1 1 auto;
   width: auto;
 }
 .pa-step-wait {
