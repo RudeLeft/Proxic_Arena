@@ -171,8 +171,9 @@ export async function markReady(page: Page) {
  * until "Prepare match" never enabled, two runs in a dozen.
  */
 export async function expectReady(seat: Locator) {
-  await expect(seat).toContainText("ready");
-  await expect(seat).not.toContainText("not ready");
+  // Spec 0006: the seat says "✓ Ready" or "Not ready".
+  await expect(seat).toContainText(/ready/i);
+  await expect(seat).not.toContainText(/not ready/i);
 }
 
 /** The game screen (PHASE_07 §7.60): the whole window during a match. */

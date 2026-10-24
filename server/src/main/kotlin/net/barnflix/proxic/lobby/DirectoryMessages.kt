@@ -40,6 +40,8 @@ fun playersMessage(players: List<PresenceEntry>): JsonObject =
                         put("userId", player.userId.toString())
                         put("username", player.username)
                         put("displayName", player.displayName)
+                        // Spec 0006 — absent: the default picture.
+                        player.avatar?.let { put("avatar", it) }
                     },
                 )
             }

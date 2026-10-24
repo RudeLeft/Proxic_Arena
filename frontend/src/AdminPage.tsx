@@ -40,7 +40,7 @@ import {
   sizeText,
   type AdminMatches,
 } from "./admin";
-import { roomStateLabel } from "./lobbyView";
+import { roomStatus } from "./lobbyView";
 
 /** How often the rooms, server and sign-ins re-read themselves. */
 const REFRESH_MS = 30_000;
@@ -500,7 +500,7 @@ function RoomsPanel({ rooms, now, run }: { rooms: AdminRoom[]; now: number; run:
                     ),
                 )}
               </span>
-              <span className="pa-room-state">{roomStateLabel(room)}</span>
+              <span className="pa-room-state">{roomStatus(room)}</span>
               <span className="pa-room-clears">
                 <span className="pa-room-clears-key">Idle</span>
                 <span className="pa-room-clears-value">{idleText(lastActivityAt, now)}</span>

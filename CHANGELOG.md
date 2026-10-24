@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**The lobby, redesigned** (spec 0006)
+- Players, your room and chat side by side; on a phone, stacked with your
+  room first, and a menu button for the pages.
+- Online players first; offline accounts fold under "Offline".
+- Your room says where things stand in plain words ("Choosing decks",
+  "Ready to start") and walks you through three steps: your deck, ready,
+  start. Each seat shows the player and ✓ Ready.
+- Avatars: choose yours on the Account page from 50 portraits; it shows
+  beside your name in the lobby, on your seat and in chat.
+- A room shows when it will close only in its last 3 hours.
+
+**Fixes**
+- On a phone, the host's buttons no longer run off the room card.
+- Plainer words in the invitation box and the empty chat.
+- An invitation that could not be put back after a refused accept now
+  tells both players it ended, instead of vanishing.
+
 ## 1.1.0 — 2026-10-24
 
 Every question the rules engine can ask a player is now answered by the

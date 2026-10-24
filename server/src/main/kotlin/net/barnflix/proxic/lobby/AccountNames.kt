@@ -19,14 +19,14 @@ class AccountNames(private val dataSource: DataSource) {
     fun active(): List<PresenceEntry> =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
-                "SELECT user_id, username, display_name FROM app_user WHERE status = 'ACTIVE' " +
+                "SELECT user_id, username, display_name, avatar FROM app_user WHERE status = 'ACTIVE' " +
                     "ORDER BY lower(display_name), username_normalized",
             ).use { statement ->
                 statement.executeQuery().use { rows ->
                     buildList {
                         while (rows.next()) {
                             val userId = rows.getObject(1, UUID::class.java)
-                            add(PresenceEntry(userId, rows.getString(2), rows.getString(3)))
+                            add(PresenceEntry(userId, rows.getString(2), rows.getString(3), rows.getString(4)))
                         }
                     }
                 }

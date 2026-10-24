@@ -8,7 +8,7 @@
 // on every request (Phase 3 §3.19).
 
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { isNewBuild } from "../status";
 import { LobbyConnectionProvider, useLobbyConnection } from "./LobbyConnection";
@@ -90,12 +90,29 @@ function Header() {
   const navigate = useNavigate();
   const admin = state.status === "authenticated" && state.user.role === "ADMIN";
   const tab = ({ isActive }: { isActive: boolean }) => `pa-tab${isActive ? " pa-tab-active" : ""}`;
+  // Spec 0006: on a phone the pages and Sign out fold behind a menu
+  // button; following a link closes it.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => setMenuOpen(false), [pathname]);
   return (
-    <header className="pa-header">
+    <header className={`pa-header${menuOpen ? " pa-header-open" : ""}`}>
       <NavLink to="/play" className="pa-logo" aria-label="Proxic Arena — Lobby">
         <img src={logo} alt="Proxic Arena" width={156} height={52} />
       </NavLink>
-      <nav className="pa-nav" aria-label="Pages">
+      <button
+        type="button"
+        className="pa-menu-toggle"
+        aria-expanded={menuOpen}
+        aria-controls="pa-pages"
+        aria-label="Menu"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20">
+          <path d="M3 5h14M3 10h14M3 15h14" />
+        </svg>
+      </button>
+      <nav className="pa-nav" id="pa-pages" aria-label="Pages">
         <NavLink to="/decks" className={tab}>
           Deck Depot
         </NavLink>
@@ -115,7 +132,7 @@ function Header() {
       <ConnectionState />
       <button
         type="button"
-        className="pa-button pa-button-quiet"
+        className="pa-button pa-button-quiet pa-sign-out"
         onClick={() => {
           void signOut().then(() => navigate("/login", { replace: true }));
         }}

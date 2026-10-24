@@ -5,6 +5,8 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { apiFetch, safeReturnPath, type LoginFailure } from "./auth";
+import { AVATARS, Avatar } from "./avatars";
+import { useLobbyConnection } from "./shell/LobbyConnection";
 import logo from "./assets/logo-840.webp";
 import "./shell/app.css";
 
@@ -249,6 +251,8 @@ export function AccountPage() {
           </form>
         </section>
 
+        <AvatarPicker />
+
         <section className="pa-section" aria-labelledby="password-head">
           <div className="pa-section-head">
             <h2 id="password-head">Password</h2>
@@ -338,5 +342,67 @@ function Message({ ok, text }: { ok: boolean; text: string }) {
       <span aria-hidden="true" className="pa-notice-mark" />
       <span className="pa-notice-text">{text}</span>
     </div>
+  );
+}
+
+/**
+ * Spec 0006 (owner 2026-10-24) — your avatar, from the owner's set of 50.
+ * Saved with your account; everybody's Players list is told at once, so
+ * the lobby shows it without a reload. Your current one comes from that
+ * same list.
+ */
+function AvatarPicker() {
+  const { state } = useAuth();
+  const { lobby } = useLobbyConnection();
+  const me = state.status === "authenticated" ? state.user.userId : null;
+  const saved = lobby.players.find((p) => p.userId === me)?.avatar ?? null;
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const current = chosen ?? saved;
+
+  const choose = async (avatar: string) => {
+    const before = chosen;
+    setChosen(avatar);
+    setMessage(null);
+    const response = await apiFetch("/api/auth/avatar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatar }),
+    });
+    if (response.ok) {
+      setMessage({ ok: true, text: "Avatar saved." });
+    } else {
+      setChosen(before);
+      setMessage({ ok: false, text: "That avatar could not be saved. Try again." });
+    }
+  };
+
+  return (
+    <section className="pa-section" aria-labelledby="avatar-head">
+      <div className="pa-section-head">
+        <h2 id="avatar-head">Avatar</h2>
+      </div>
+      <div className="pa-avatar-current">
+        <Avatar avatar={current} size={72} label="Your avatar" />
+        <p className="pa-help">
+          Shown beside your name in the lobby, on your seat in a room, and in chat.
+        </p>
+      </div>
+      <div className="pa-avatar-grid" role="group" aria-label="Choose your avatar">
+        {AVATARS.map((avatar, index) => (
+          <button
+            key={avatar}
+            type="button"
+            className={`pa-avatar-choice${avatar === current ? " pa-avatar-chosen" : ""}`}
+            aria-pressed={avatar === current}
+            aria-label={`Avatar ${index + 1}`}
+            onClick={() => void choose(avatar)}
+          >
+            <Avatar avatar={avatar} size={64} />
+          </button>
+        ))}
+      </div>
+      {message && <Message {...message} />}
+    </section>
   );
 }

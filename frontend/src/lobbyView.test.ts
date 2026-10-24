@@ -9,7 +9,7 @@ import {
   type LobbyState,
   type RoomView,
 } from "./lobby";
-import { clearsIn, orderRooms, playerRows, roomStateLabel } from "./lobbyView";
+import { closesSoon, orderRooms, playerRows, roomStatus } from "./lobbyView";
 
 const me = { userId: "u-me", username: "me", displayName: "Me" };
 const pat = { userId: "u-pat", username: "pat", displayName: "Pat" };
@@ -162,28 +162,30 @@ describe("the players list (Amendment 11)", () => {
 });
 
 describe("rooms", () => {
-  it("reads its state in words", () => {
-    expect(roomStateLabel(listed())).toBe("Open seat");
-    expect(
-      roomStateLabel(
-        listed({
-          seats: [
-            ...listed().seats,
-            { seatNumber: 2, userId: "x", displayName: "X", ready: false, isHost: false },
-          ],
-        }),
-      ),
-    ).toBe("Setting up");
-    expect(roomStateLabel(listed({ status: "READY_FOR_MATCH" }))).toBe("Starting");
-    expect(roomStateLabel(listed({ status: "IN_MATCH" }))).toBe("In a match");
+  it("reads its one status in plain words (spec 0006)", () => {
+    const second = (ready: boolean) => ({
+      seatNumber: 2,
+      userId: "x",
+      displayName: "X",
+      ready,
+      isHost: false,
+    });
+    const both = (ready: boolean) =>
+      listed({ seats: [{ ...listed().seats[0]!, ready }, second(ready)] });
+    expect(roomStatus(listed())).toBe("Waiting for a player");
+    expect(roomStatus(both(false))).toBe("Choosing decks");
+    expect(roomStatus(both(true))).toBe("Ready to start");
+    expect(roomStatus(listed({ status: "READY_FOR_MATCH" }))).toBe("Starting…");
+    expect(roomStatus(listed({ status: "IN_MATCH" }))).toBe("In a game");
   });
 
-  it("says how long until an idle room clears", () => {
+  it("says when a room closes only in its last 3 hours (spec 0006 D3)", () => {
     const now = Date.parse("2026-10-21T12:00:00Z");
-    expect(clearsIn("2026-10-22T11:30:00Z", now)).toBe("23h");
-    expect(clearsIn("2026-10-21T12:45:00Z", now)).toBe("45m");
-    expect(clearsIn("2026-10-21T12:00:30Z", now)).toBe("now");
-    expect(clearsIn(null, now)).toBeNull();
+    expect(closesSoon("2026-10-22T11:30:00Z", now)).toBeNull();
+    expect(closesSoon("2026-10-21T14:30:00Z", now)).toBe("Closes in 2h");
+    expect(closesSoon("2026-10-21T12:45:00Z", now)).toBe("Closes in 45m");
+    expect(closesSoon("2026-10-21T12:00:30Z", now)).toBe("Closes now");
+    expect(closesSoon(null, now)).toBeNull();
   });
 
   it("pins yours first, then soonest to clear, rooms in a match last", () => {

@@ -1,8 +1,8 @@
 // The Lobby — PHASE_07 §7.64, Amendments 9 and 11, over Phase 5 and 6.
 //
-// The canvas's Lobby: the players on the left, every open room on the
-// right with the one you are in opened in place, and the lobby chat
-// across the bottom. While you are in a match, Phase 6's match view
+// Spec 0006 (owner 2026-10-24): players on the left, your room as the
+// main area with the other rooms under it, chat on the right; stacked on
+// a phone. While you are in a match, Phase 6's match view
 // takes the whole window instead (the game screen, PHASE_07 §7.60),
 // and the lobby comes back when the game ends.
 //
@@ -41,7 +41,15 @@ import {
   type RoomResult,
   type RoomView,
 } from "./lobby";
-import { clearsIn, orderRooms, playerRows, roomStateLabel, type PlayerRow } from "./lobbyView";
+import {
+  avatarOf,
+  closesSoon,
+  orderRooms,
+  playerRows,
+  roomStatus,
+  type PlayerRow,
+} from "./lobbyView";
+import { Avatar } from "./avatars";
 
 /** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
 const SETTLE_MS = 2200;
@@ -302,7 +310,7 @@ export default function LobbyPage() {
           onInvite={invite}
           onWithdraw={() => send({ type: "INVITE_WITHDRAW" })}
         />
-        <RoomsPanel
+        <RoomsColumn
           lobby={lobby}
           me={me.userId}
           library={library}
@@ -328,9 +336,8 @@ export default function LobbyPage() {
             if (room) void runLeaving(() => leaveRoom(room.roomId));
           }}
         />
+        <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
       </div>
-
-      {!lobby.match && <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />}
 
       {removing && room && (
         <Dialog
@@ -417,7 +424,11 @@ function PlayersPanel({
   onWithdraw: () => void;
 }) {
   const rows = useMemo(() => playerRows(lobby, me), [lobby, me]);
-  const online = lobby.presence.filter((p) => p.userId !== me).length;
+  const online = rows.filter((row) => row.online);
+  const offline = rows.filter((row) => !row.online);
+  const onlineCount = lobby.presence.filter((p) => p.userId !== me).length;
+  // Spec 0006: the offline accounts fold away, closed until asked for.
+  const [offlineOpen, setOfflineOpen] = useState(false);
   const outgoingTo = lobby.outgoing?.to.userId ?? null;
 
   // Straight after Invite the pointer is still on the button, so
@@ -429,41 +440,57 @@ function PlayersPanel({
     return () => window.clearTimeout(timer);
   }, [outgoingTo]);
 
-  return (
-    <section className="pa-section pa-lobby-players" aria-labelledby="players-heading">
-      <div className="pa-section-head pa-lobby-head">
-        <h2 id="players-heading">Players</h2>
-        <span className="pa-spacer" />
-        <span className="pa-head-key">Online</span>
-        <span className="pa-count" aria-label={`${online} online`}>
-          {online}
+  const line = (row: PlayerRow) => (
+    <li key={row.user.userId} className="pa-player-row">
+      <span className={row.online ? "pa-player-face" : "pa-player-face pa-player-face-off"}>
+        <Avatar avatar={row.user.avatar} size={36} />
+      </span>
+      <span className="pa-player-text">
+        <span className={`pa-player-name${row.online ? "" : " pa-player-offline"}`}>
+          {row.user.displayName}
         </span>
+        <span className="pa-player-where">
+          <span className={`pa-where-${row.tone}`}>{row.where}</span>
+        </span>
+      </span>
+      <InviteButton
+        row={row}
+        settled={settled === row.user.userId}
+        onInvite={() => onInvite(row)}
+        onWithdraw={onWithdraw}
+      />
+    </li>
+  );
+
+  return (
+    <section className="pa-panel pa-lobby-players" aria-labelledby="players-heading">
+      <div className="pa-panel-head">
+        <h2 id="players-heading">Players</h2>
+        <span className="pa-panel-note">{onlineCount} online</span>
       </div>
       <ul className="pa-player-list">
         {rows.length === 0 && <li className="pa-group-empty">Nobody else has an account yet.</li>}
-        {rows.map((row) => (
-          <li key={row.user.userId} className="pa-player-row">
-            <span className="pa-player-text">
-              <span className={`pa-player-name${row.online ? "" : " pa-player-offline"}`}>
-                {row.user.displayName}
-              </span>
-              <span className="pa-player-where">
-                <span
-                  aria-hidden="true"
-                  className={`pa-dot ${row.online ? "pa-dot-on" : "pa-dot-off"}`}
-                />
-                <span className={`pa-where-${row.tone}`}>{row.where}</span>
-              </span>
-            </span>
-            <InviteButton
-              row={row}
-              settled={settled === row.user.userId}
-              onInvite={() => onInvite(row)}
-              onWithdraw={onWithdraw}
-            />
-          </li>
-        ))}
+        {rows.length > 0 && online.length === 0 && (
+          <li className="pa-group-empty">Nobody else is online right now.</li>
+        )}
+        {online.map(line)}
       </ul>
+      {offline.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="pa-offline-toggle"
+            aria-expanded={offlineOpen}
+            onClick={() => setOfflineOpen((open) => !open)}
+          >
+            <span>Offline · {offline.length}</span>
+            <span aria-hidden="true">{offlineOpen ? "▾" : "▸"}</span>
+          </button>
+          {offlineOpen && (
+            <ul className="pa-player-list pa-player-list-offline">{offline.map(line)}</ul>
+          )}
+        </>
+      )}
     </section>
   );
 }
@@ -482,7 +509,7 @@ function InviteButton({
   const name = row.user.displayName;
   switch (row.control.kind) {
     case "none":
-      return <span className="pa-invite-spacer" />;
+      return null;
     case "invite":
       return (
         <button
@@ -527,7 +554,7 @@ function InviteButton({
 
 // --- rooms ------------------------------------------------------------------------
 
-function RoomsPanel({
+function RoomsColumn({
   lobby,
   me,
   library,
@@ -560,7 +587,7 @@ function RoomsPanel({
 }) {
   const [name, setName] = useState("");
   const nameId = useId();
-  // Re-read the clock each minute so "clears in" stays honest.
+  // Re-read the clock each minute so "Closes in" stays honest.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -568,12 +595,12 @@ function RoomsPanel({
   }, []);
 
   const mine = lobby.room;
-  const rooms = orderRooms(lobby.rooms, mine?.roomId ?? null);
+  const others = orderRooms(lobby.rooms, null).filter((room) => room.roomId !== mine?.roomId);
   // Your own room is drawn from the room the server sent YOU, which is
-  // always at least as fresh as the list; if the list has not caught
-  // up yet, it is still shown.
-  const listed =
-    mine && !rooms.some((r) => r.roomId === mine.roomId) ? [asListed(mine), ...rooms] : rooms;
+  // always at least as fresh as the list; the list only adds when it closes.
+  const listedMine = mine
+    ? (lobby.rooms.find((r) => r.roomId === mine.roomId) ?? asListed(mine))
+    : null;
 
   const open = (event: FormEvent) => {
     event.preventDefault();
@@ -582,66 +609,76 @@ function RoomsPanel({
   };
 
   return (
-    <section className="pa-section pa-lobby-rooms" aria-labelledby="rooms-heading">
-      <div className="pa-section-head pa-lobby-head">
-        <h2 id="rooms-heading">Game rooms</h2>
-        <span className="pa-spacer" />
-        <span className="pa-head-key">Rooms</span>
-        <span className="pa-count" aria-label={`${listed.length} rooms`}>
-          {listed.length}
-        </span>
-      </div>
-
-      {!mine && (
+    <div className="pa-lobby-main">
+      {mine && listedMine ? (
+        <YourRoom
+          room={mine}
+          listed={listedMine}
+          lobby={lobby}
+          me={me}
+          now={now}
+          library={library}
+          busy={busy}
+          starting={starting}
+          onSelectDeck={onSelectDeck}
+          onReady={onReady}
+          onStart={onStart}
+          onCancelStart={onCancelStart}
+          onRemove={onRemove}
+          onClose={onClose}
+          onLeave={onLeave}
+        />
+      ) : (
         // Amendment 9 — rooms are opened on demand, and may be named.
-        <form className="pa-open-room" onSubmit={open}>
-          <label className="pa-visually-hidden" htmlFor={nameId}>
-            Room name (optional)
-          </label>
-          <input
-            id={nameId}
-            className="pa-input"
-            value={name}
-            maxLength={40}
-            placeholder="Room name (optional)"
-            autoComplete="off"
-            onChange={(event) => setName(event.target.value)}
-          />
-          <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
-            Open a room
-          </button>
-        </form>
+        <section className="pa-panel pa-open-panel" aria-labelledby="open-heading">
+          <h2 id="open-heading" className="pa-open-title">
+            Play a game
+          </h2>
+          <p className="pa-open-sub">Open a room, then invite somebody who is online.</p>
+          <form className="pa-open-room" onSubmit={open}>
+            <label className="pa-visually-hidden" htmlFor={nameId}>
+              Room name (optional)
+            </label>
+            <input
+              id={nameId}
+              className="pa-input"
+              value={name}
+              maxLength={40}
+              placeholder="Room name (optional)"
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+            />
+            <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
+              Open a room
+            </button>
+          </form>
+        </section>
       )}
 
-      <div className="pa-room-list">
-        {listed.length === 0 && (
-          <p className="pa-group-empty pa-rooms-empty">
-            No rooms are open. Open one, then invite somebody from the list.
+      <section className="pa-panel pa-other-rooms" aria-labelledby="rooms-heading">
+        <div className="pa-panel-head">
+          <h2 id="rooms-heading">{mine ? "Other rooms" : "Open rooms"}</h2>
+          <span className="pa-panel-note">Join by invitation</span>
+        </div>
+        {others.length === 0 ? (
+          <p className="pa-group-empty">
+            {mine ? "No other rooms are open." : "No rooms are open yet."}
           </p>
+        ) : (
+          <div className="pa-room-list">
+            {others.map((room) => (
+              <RoomLine
+                key={room.roomId}
+                room={room}
+                invited={lobby.invitation?.roomId === room.roomId}
+                now={now}
+                onAccept={onAccept}
+              />
+            ))}
+          </div>
         )}
-        {listed.map((listedRoom) => (
-          <RoomCard
-            key={listedRoom.roomId}
-            listed={listedRoom}
-            mine={mine?.roomId === listedRoom.roomId ? mine : null}
-            lobby={lobby}
-            me={me}
-            now={now}
-            library={library}
-            busy={busy}
-            starting={starting}
-            onAccept={onAccept}
-            onSelectDeck={onSelectDeck}
-            onReady={onReady}
-            onStart={onStart}
-            onCancelStart={onCancelStart}
-            onRemove={onRemove}
-            onClose={onClose}
-            onLeave={onLeave}
-          />
-        ))}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -664,190 +701,55 @@ function asListed(room: RoomView): DirectoryRoom {
   };
 }
 
-type SeatKind = "you" | "taken" | "open" | "asked";
-
-function SeatPill({
-  kind,
-  who,
-  ready,
-  playing,
-}: {
-  kind: SeatKind;
-  who: string;
-  ready: boolean;
-  playing: boolean;
-}) {
-  // Canvas notes s4, s5: the dot carries readiness, not presence.
-  // Filled means settled, hollow means waiting on something — so the
-  // difference never rests on telling green from red.
-  const dot =
-    kind === "open"
-      ? "pa-dot-open"
-      : kind === "asked"
-        ? "pa-dot-asked"
-        : playing || ready
-          ? "pa-dot-ready"
-          : "pa-dot-waiting";
-  const state =
-    kind === "open"
-      ? ""
-      : kind === "asked"
-        ? "invited"
-        : playing
-          ? "playing"
-          : ready
-            ? "ready"
-            : "not ready";
-  return (
-    <span className={`pa-seat pa-seat-${kind}`}>
-      <span aria-hidden="true" className={`pa-dot ${dot}`} />
-      <span className="pa-seat-name">{who}</span>
-      {state && <span className="pa-visually-hidden">, {state}</span>}
-    </span>
-  );
-}
-
-function RoomCard({
-  listed,
-  mine,
-  lobby,
-  me,
+/** Somebody else's room: one line, and no way in without an invitation (§7.64, decision 19). */
+function RoomLine({
+  room,
+  invited,
   now,
-  library,
-  busy,
-  starting,
   onAccept,
-  onSelectDeck,
-  onReady,
-  onStart,
-  onCancelStart,
-  onRemove,
-  onClose,
-  onLeave,
 }: {
-  listed: DirectoryRoom;
-  /** The room as the server sent it to you, when it is yours. */
-  mine: RoomView | null;
-  lobby: LobbyState;
-  me: string;
+  room: DirectoryRoom;
+  invited: boolean;
   now: number;
-  library: DeckLibrary;
-  busy: boolean;
-  starting: boolean;
   onAccept: (roomId: string) => void;
-  onSelectDeck: (deckId: string | null) => void;
-  onReady: (ready: boolean) => void;
-  onStart: () => void;
-  onCancelStart: () => void;
-  onRemove: (userId: string) => void;
-  onClose: () => void;
-  onLeave: () => void;
 }) {
   const headingId = useId();
-  const playing = listed.status === "IN_MATCH";
-  const invitedHere = lobby.invitation?.roomId === listed.roomId;
-  const asked = mine && lobby.outgoing?.roomId === listed.roomId ? lobby.outgoing.to : null;
-  const full = listed.seats.length >= listed.desiredPlayerCount;
-
-  // Seats as people: yours brass, theirs plain, an open one hollow,
-  // and one being held for somebody says who (or, to them, "for you").
-  const seats: { key: string; kind: SeatKind; who: string; ready: boolean }[] = listed.seats.map(
-    (seat) => ({
-      key: seat.userId,
-      kind: seat.userId === me ? "you" : "taken",
-      who: seat.displayName,
-      ready: seat.ready,
-    }),
-  );
-  for (let i = listed.seats.length; i < listed.desiredPlayerCount; i++) {
-    const first = i === listed.seats.length;
-    if (first && asked)
-      seats.push({ key: "asked", kind: "asked", who: asked.displayName, ready: false });
-    else if (first && invitedHere)
-      seats.push({ key: "held", kind: "asked", who: "Held for you", ready: false });
-    else seats.push({ key: `open-${i}`, kind: "open", who: "Open seat", ready: false });
-  }
-
-  const clears = clearsIn(listed.clearsAt, now);
-
+  const closes = closesSoon(room.clearsAt, now);
+  const people = room.seats.map((seat) => seat.displayName).join(" and ");
   return (
-    <article
-      className={`pa-room${mine ? " pa-room-mine" : ""}${invitedHere ? " pa-room-invited" : ""}`}
-      aria-labelledby={headingId}
-    >
-      <div className="pa-room-line">
-        <h3 id={headingId} className="pa-room-name">
-          {listed.name}
-        </h3>
-        <div className="pa-room-seats">
-          {seats.map((seat) => (
-            <SeatPill
-              key={seat.key}
-              kind={seat.kind}
-              who={seat.who}
-              ready={seat.ready}
-              playing={playing}
-            />
-          ))}
-          <span className="pa-room-taken">
-            {listed.seats.length}/{listed.desiredPlayerCount}
-          </span>
-        </div>
-        <span className="pa-room-state">{roomStateLabel(listed)}</span>
-        <div className="pa-room-clears">
-          {clears && (
-            <>
-              <div className="pa-room-clears-key">Clears in</div>
-              <div className="pa-room-clears-value">{clears}</div>
-            </>
-          )}
-        </div>
-        <div className="pa-room-action">
-          {mine ? (
-            <span className="pa-room-role">
-              {mine.hostUserId === me ? "Your room" : "Your seat"}
-            </span>
-          ) : invitedHere ? (
-            <button
-              type="button"
-              className="pa-button pa-button-accept"
-              onClick={() => onAccept(listed.roomId)}
-            >
-              Accept
-            </button>
-          ) : full || playing ? (
-            <span className="pa-room-note">No seats free</span>
-          ) : (
-            // §7.64, owner decision 19: seeing a room is not a way in.
-            <span className="pa-room-note">By invitation</span>
-          )}
-        </div>
-      </div>
-
-      {mine && (
-        <YourRoom
-          room={mine}
-          me={me}
-          library={library}
-          busy={busy}
-          starting={starting}
-          onSelectDeck={onSelectDeck}
-          onReady={onReady}
-          onStart={onStart}
-          onCancelStart={onCancelStart}
-          onRemove={onRemove}
-          onClose={onClose}
-          onLeave={onLeave}
-        />
-      )}
+    <article className={`pa-room${invited ? " pa-room-invited" : ""}`} aria-labelledby={headingId}>
+      <h3 id={headingId} className="pa-room-name">
+        {room.name}
+      </h3>
+      <span className="pa-room-who">
+        {/* An invitation holds the open seat for you: said where you would look. */}
+        {people} · {invited ? "Held for you" : roomStatus(room).toLowerCase()}
+      </span>
+      {closes && <span className="pa-room-closes">{closes}</span>}
+      <span className="pa-room-action">
+        {invited ? (
+          <button
+            type="button"
+            className="pa-button pa-button-accept"
+            onClick={() => onAccept(room.roomId)}
+          >
+            Accept
+          </button>
+        ) : (
+          <span className="pa-room-note">By invitation</span>
+        )}
+      </span>
     </article>
   );
 }
 
-/** The room you are in, opened in place: your deck, ready, and what your role may do. */
+/** The room you are in: who is seated, the three steps, and what your role may do. */
 function YourRoom({
   room,
+  listed,
+  lobby,
   me,
+  now,
   library,
   busy,
   starting,
@@ -860,7 +762,10 @@ function YourRoom({
   onLeave,
 }: {
   room: RoomView;
+  listed: DirectoryRoom;
+  lobby: LobbyState;
   me: string;
+  now: number;
   library: DeckLibrary;
   busy: boolean;
   starting: boolean;
@@ -872,12 +777,14 @@ function YourRoom({
   onClose: () => void;
   onLeave: () => void;
 }) {
+  const headingId = useId();
   const deckId = useId();
   const myMember = room.members.find((m) => m.userId === me) ?? null;
   const iHost = room.hostUserId === me;
   const preparing = room.status === "READY_FOR_MATCH";
   const playing = room.status === "IN_MATCH";
   const guest = room.members.find((m) => !m.isHost) ?? null;
+  const other = room.members.find((m) => m.userId !== me) ?? null;
   // A room left prepared but not started (a tab that died between the
   // two steps) starts from here too: Start match then only launches.
   const canStart = iHost && room.everyoneReady && !busy && !starting;
@@ -885,129 +792,234 @@ function YourRoom({
     ...library.mine.map((deck) => ({ deck, shared: false })),
     ...library.sharedWithMe.map((deck) => ({ deck, shared: true })),
   ];
+  const chosen = decks.find(({ deck }) => deck.deckId === myMember?.selectedDeckId)?.deck ?? null;
+  const asked = lobby.outgoing?.roomId === room.roomId ? lobby.outgoing.to : null;
+  const closes = closesSoon(listed.clearsAt, now);
+  const full = room.members.length >= room.desiredPlayerCount;
+  const deckDone = !!myMember?.selectedDeckId;
+  const readyDone = !!myMember?.ready;
+  // The room's status from the room the server sent YOU (always the
+  // freshest), in the list's shape.
+  const status = roomStatus({ ...asListed(room), clearsAt: listed.clearsAt });
 
-  if (playing) {
-    return (
-      <div className="pa-your-room">
+  const waitingFor = !full
+    ? "Waiting for a second player"
+    : other && !other.ready
+      ? `Waiting for ${other.displayName} to be ready`
+      : !readyDone
+        ? "Waiting for you to be ready"
+        : iHost
+          ? "Both players are ready"
+          : "Both players are ready — the host starts";
+
+  return (
+    <article className="pa-panel pa-room pa-room-mine" aria-labelledby={headingId}>
+      <div className="pa-room-top">
+        <h2 id={headingId} className="pa-room-title">
+          {room.name}
+        </h2>
+        <span className={`pa-status${playing ? " pa-status-playing" : ""}`}>{status}</span>
+        {closes && <span className="pa-room-closes">{closes}</span>}
+        <span className="pa-room-role">{iHost ? "Your room" : "Your seat"}</span>
+        {/* The seat count, for screen readers and the tests: the seats say it to the eye. */}
+        <span className="pa-room-taken pa-visually-hidden">
+          {room.members.length}/{room.desiredPlayerCount}
+        </span>
+      </div>
+
+      <div className="pa-seats">
+        {room.members.map((member) => (
+          <div
+            key={member.userId}
+            className={`pa-seat${member.userId === me ? " pa-seat-you" : ""}`}
+          >
+            <Avatar avatar={avatarOf(lobby, member.userId)} size={44} />
+            <span className="pa-seat-text">
+              <span className="pa-seat-name">
+                {member.displayName}
+                {member.userId === me && (
+                  <span className="pa-seat-tag"> · you{member.isHost ? ", host" : ""}</span>
+                )}
+                {member.userId !== me && member.isHost && (
+                  <span className="pa-seat-tag"> · host</span>
+                )}
+              </span>
+              {/* §5.47: your own deck only; the other player's is never shown. */}
+              <span className="pa-seat-deck">
+                {member.userId === me
+                  ? (member.selectedDeckName ?? "No deck chosen yet")
+                  : playing
+                    ? "Playing"
+                    : member.ready
+                      ? "Deck chosen"
+                      : "Choosing a deck…"}
+              </span>
+            </span>
+            <span className={`pa-seat-ready${member.ready || playing ? " pa-seat-ready-on" : ""}`}>
+              {playing ? "Playing" : member.ready ? "✓ Ready" : "Not ready"}
+            </span>
+          </div>
+        ))}
+        {!full && (
+          <div className="pa-seat pa-seat-open">
+            <Avatar avatar={asked ? avatarOf(lobby, asked.userId) : null} size={44} />
+            <span className="pa-seat-text">
+              <span className="pa-seat-name">{asked ? asked.displayName : "Open seat"}</span>
+              <span className="pa-seat-deck">
+                {asked ? "Invited — waiting for an answer" : "Invite someone from Players"}
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {playing ? (
         <p className="pa-your-room-note">
           The match is being played. Nothing here can change it — closing a browser is not a
           concession, and neither is leaving the room.
         </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="pa-your-room">
-      <span className="pa-your-room-key" aria-hidden="true">
-        Your deck
-      </span>
-      <span className="pa-select-wrap pa-deck-select">
-        <label className="pa-visually-hidden" htmlFor={deckId}>
-          Your deck for this match
-        </label>
-        <select
-          id={deckId}
-          className="pa-select"
-          value={myMember?.selectedDeckId ?? ""}
-          disabled={busy || preparing || starting}
-          onChange={(event) => onSelectDeck(event.target.value || null)}
-        >
-          <option value="">{decks.length === 0 ? "No decks yet" : "Choose a deck"}</option>
-          {decks.map(({ deck, shared }) => (
-            <option key={deck.deckId} value={deck.deckId}>
-              {/* The room's word for the chosen deck wins: it is the server's
-                  current name, and the list here was read when the page
-                  opened (P7-AA: renamed while chosen). */}
-              {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
-                ? myMember.selectedDeckName
-                : deck.displayName}{" "}
-              — {deck.totalCards} cards
-              {shared ? ` (shared by ${deck.ownerDisplayName})` : ""}
-            </option>
-          ))}
-        </select>
-        <svg aria-hidden="true" width="11" height="7" viewBox="0 0 11 7">
-          <path d="M1 1 L5.5 5.5 L10 1" />
-        </svg>
-      </span>
-
-      {myMember && (
-        <button
-          type="button"
-          className={`pa-button pa-ready${myMember.ready ? " pa-ready-on" : ""}`}
-          aria-pressed={myMember.ready}
-          disabled={busy || preparing || starting || (!myMember.ready && !myMember.selectedDeckId)}
-          onClick={() => onReady(!myMember.ready)}
-        >
-          {myMember.ready ? "You are ready" : "Mark yourself ready"}
-        </button>
-      )}
-
-      <span className="pa-spacer" />
-
-      {iHost ? (
-        // One group: on a narrow window the host's buttons move to the next
-        // line together, on the right, rather than one at a time.
-        <span className="pa-host-actions">
-          <button
-            type="button"
-            className={`pa-button pa-start${canStart ? " pa-button-brass" : " pa-start-dead"}`}
-            disabled={!canStart}
-            onClick={onStart}
-          >
-            {starting ? "Checking both decks…" : "Start match"}
-          </button>
-          {preparing && !starting && (
-            <button type="button" className="pa-button pa-button-quiet" onClick={onCancelStart}>
-              Cancel
-            </button>
-          )}
-          {/* With the other host actions (owner, 2026-10-22): it had sat at the
-              end of the help sentence, where it read as part of the note. */}
-          {guest && !preparing && !starting && (
-            <button
-              type="button"
-              className="pa-button pa-button-quiet"
-              disabled={busy}
-              onClick={() => onRemove(guest.userId)}
-            >
-              Remove {guest.displayName}
-            </button>
-          )}
-          <button
-            type="button"
-            className="pa-button pa-button-close"
-            disabled={busy}
-            onClick={onClose}
-          >
-            Close room
-          </button>
-        </span>
       ) : (
-        <button type="button" className="pa-small-button" disabled={busy} onClick={onLeave}>
-          Leave seat
-        </button>
-      )}
+        <>
+          <ol className="pa-steps" aria-label="Getting the game going">
+            <li className={`pa-step${deckDone ? " pa-step-done" : ""}`}>
+              <span className="pa-step-key">1 · Your deck{deckDone ? " ✓" : ""}</span>
+              <span className="pa-select-wrap pa-deck-select">
+                <label className="pa-visually-hidden" htmlFor={deckId}>
+                  Your deck for this match
+                </label>
+                <select
+                  id={deckId}
+                  className="pa-select"
+                  value={myMember?.selectedDeckId ?? ""}
+                  disabled={busy || preparing || starting}
+                  onChange={(event) => onSelectDeck(event.target.value || null)}
+                >
+                  <option value="">{decks.length === 0 ? "No decks yet" : "Choose a deck"}</option>
+                  {decks.map(({ deck, shared }) => (
+                    <option key={deck.deckId} value={deck.deckId}>
+                      {/* The room's word for the chosen deck wins: it is the server's
+                          current name, and the list here was read when the page
+                          opened (P7-AA: renamed while chosen). */}
+                      {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
+                        ? myMember.selectedDeckName
+                        : deck.displayName}{" "}
+                      — {deck.totalCards} cards
+                      {shared ? ` (shared by ${deck.ownerDisplayName})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <svg aria-hidden="true" width="11" height="7" viewBox="0 0 11 7">
+                  <path d="M1 1 L5.5 5.5 L10 1" />
+                </svg>
+              </span>
+              <span className="pa-step-note">
+                {decks.length === 0 ? (
+                  <>
+                    No decks yet — <Link to="/decks">import one in the Deck Depot</Link>
+                  </>
+                ) : chosen ? (
+                  `${chosen.totalCards} cards`
+                ) : (
+                  "Only you see which deck you choose"
+                )}
+              </span>
+            </li>
+            <li className={`pa-step${readyDone ? " pa-step-done" : ""}`}>
+              <span className="pa-step-key">2 · Ready{readyDone ? " ✓" : ""}</span>
+              {myMember && (
+                <button
+                  type="button"
+                  className={`pa-button pa-ready${myMember.ready ? " pa-ready-on" : ""}`}
+                  aria-pressed={myMember.ready}
+                  disabled={
+                    busy || preparing || starting || (!myMember.ready && !myMember.selectedDeckId)
+                  }
+                  onClick={() => onReady(!myMember.ready)}
+                >
+                  {myMember.ready ? "You are ready" : "Mark yourself ready"}
+                </button>
+              )}
+              <span className="pa-step-note">
+                {myMember?.ready
+                  ? "Click again to undo"
+                  : deckDone
+                    ? "When you're set"
+                    : "Choose a deck first"}
+              </span>
+            </li>
+            <li className={`pa-step${preparing || starting ? " pa-step-done" : ""}`}>
+              <span className="pa-step-key">3 · Start</span>
+              {iHost ? (
+                <span className="pa-start-row">
+                  <button
+                    type="button"
+                    className={`pa-button pa-start${canStart ? " pa-button-brass" : " pa-start-dead"}`}
+                    disabled={!canStart}
+                    onClick={onStart}
+                  >
+                    {starting ? "Checking both decks…" : "Start match"}
+                  </button>
+                  {preparing && !starting && (
+                    <button
+                      type="button"
+                      className="pa-button pa-button-quiet"
+                      onClick={onCancelStart}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </span>
+              ) : (
+                <span className="pa-step-wait">The host starts the game</span>
+              )}
+              <span className="pa-step-note">
+                {preparing || starting
+                  ? iHost
+                    ? "Both decks are being checked, so a card that can't be played turns up now and not mid-game."
+                    : "The host is starting the match: both decks are being checked."
+                  : waitingFor}
+              </span>
+            </li>
+          </ol>
 
-      <p className="pa-your-room-note">
-        {decks.length === 0 ? (
-          <>
-            No decks yet — <Link to="/decks">import one in the Deck Depot</Link>.
-          </>
-        ) : preparing || starting ? (
-          iHost ? (
-            "Both decks are being built once, so a card that cannot be played turns up now and not mid-game."
-          ) : (
-            "The host is starting the match: both decks are being checked."
-          )
-        ) : iHost && !room.everyoneReady ? (
-          "Start match lights when both seats are filled and both players are ready."
-        ) : (
-          "Each player chooses their own deck; nobody else sees which."
-        )}
-      </p>
-    </div>
+          <div className="pa-room-actions">
+            {iHost ? (
+              <>
+                {/* With the other host actions (owner, 2026-10-22): it had sat at the
+                    end of the help sentence, where it read as part of the note. */}
+                {guest && !preparing && !starting && (
+                  <button
+                    type="button"
+                    className="pa-button pa-button-quiet"
+                    disabled={busy}
+                    onClick={() => onRemove(guest.userId)}
+                  >
+                    Remove {guest.displayName}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="pa-button pa-button-close"
+                  disabled={busy}
+                  onClick={onClose}
+                >
+                  Close room
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="pa-button pa-button-quiet"
+                disabled={busy}
+                onClick={onLeave}
+              >
+                Leave seat
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </article>
   );
 }
 
@@ -1018,9 +1030,8 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
   const logRef = useRef<HTMLDivElement | null>(null);
   const inputId = useId();
 
-  // The log scrolls itself, not the page: the chat sits at the bottom
-  // of the Lobby, and scrolling the window to it on every line would
-  // drag the rooms off screen.
+  // The log scrolls itself, not the page: scrolling the window to it on
+  // every line would drag the rooms off screen.
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
@@ -1035,30 +1046,31 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
   };
 
   return (
-    <section className="pa-chat" aria-labelledby="chat-heading">
-      <div className="pa-chat-head">
-        <h2 id="chat-heading">Lobby chat</h2>
+    <section className="pa-panel pa-chat" aria-labelledby="chat-heading">
+      <div className="pa-panel-head">
+        <h2 id="chat-heading">Chat</h2>
       </div>
       <div className="pa-chat-log" role="log" ref={logRef}>
         {lobby.chat.length === 0 ? (
-          <p className="pa-chat-empty">
-            Nothing yet. Say hello to everyone in the lobby — chat isn't saved.
-          </p>
+          <p className="pa-chat-empty">Nothing yet.</p>
         ) : (
           lobby.chat.map((line, index) => {
             // A run of lines from one person names them once.
             const run = index > 0 && lobby.chat[index - 1]?.fromUserId === line.fromUserId;
             return (
               <div key={line.id} className={`pa-chat-line${run ? " pa-chat-run" : ""}`}>
-                <span className="pa-chat-meta">
-                  <span className="pa-chat-at">{timeOf(line.sentAt)}</span>
-                  <span className={`pa-chat-who${run ? " pa-visually-hidden" : ""}`}>
-                    {line.displayName}
-                  </span>
+                <span className="pa-chat-face">
+                  {!run && <Avatar avatar={avatarOf(lobby, line.fromUserId)} size={28} />}
                 </span>
-                {/* React escapes this (AMENDMENT 3's "escaped"), and the
-                    CSP forbids inline script behind it. */}
-                <span className="pa-chat-text">{line.text}</span>
+                <span className="pa-chat-body">
+                  <span className={`pa-chat-meta${run ? " pa-visually-hidden" : ""}`}>
+                    <span className="pa-chat-who">{line.displayName}</span>
+                    <span className="pa-chat-at">{timeOf(line.sentAt)}</span>
+                  </span>
+                  {/* React escapes this (AMENDMENT 3's "escaped"), and the
+                      CSP forbids inline script behind it. */}
+                  <span className="pa-chat-text">{line.text}</span>
+                </span>
               </div>
             );
           })
@@ -1073,7 +1085,7 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
           className="pa-input"
           value={draft}
           maxLength={MAX_CHAT_LENGTH}
-          placeholder="Say something to the lobby"
+          placeholder="Say something"
           autoComplete="off"
           onChange={(event) => setDraft(event.target.value)}
         />

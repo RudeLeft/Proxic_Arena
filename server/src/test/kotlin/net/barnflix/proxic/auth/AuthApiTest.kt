@@ -304,6 +304,34 @@ class AuthApiTest {
             assertTrue(ok.bodyAsText().contains("Eric"))
         }
 
+    /** Spec 0006 — an avatar from the owner's set is saved; anything else is refused. */
+    @Test
+    fun `an avatar from the set is saved and listed, and anything else is refused`() =
+        testApplication {
+            seedUser()
+            application { module(config()) }
+            val response = login()
+            val token = response.cookie(SESSION_COOKIE)!!
+            val csrf = response.cookie(CSRF_COOKIE)!!
+
+            suspend fun choose(body: String) =
+                client.post("/api/auth/avatar") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token; $CSRF_COOKIE=$csrf")
+                    header(CSRF_HEADER, csrf)
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }
+
+            assertEquals(HttpStatusCode.NoContent, choose("""{"avatar":"avatar-07"}""").status)
+            Database.connect(config())!!.use { database ->
+                val listed = net.barnflix.proxic.lobby.AccountNames(database.dataSource()).active()
+                assertEquals("avatar-07", listed.single { it.username == "RudeLeft" }.avatar)
+            }
+            for (bad in listOf("""{"avatar":"avatar-51"}""", """{"avatar":"../etc/passwd"}""", """{"avatar":null}""")) {
+                assertEquals(HttpStatusCode.UnprocessableEntity, choose(bad).status, bad)
+            }
+        }
+
     @Test
     fun `a request from a foreign origin is refused`() =
         testApplication {

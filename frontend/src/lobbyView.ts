@@ -97,26 +97,39 @@ export function playerRows(lobby: LobbyState, me: string): PlayerRow[] {
   );
 }
 
-/** The word on a room's state chip. */
-export function roomStateLabel(room: DirectoryRoom): string {
+/** Spec 0006 — a room's one status, in plain words. */
+export function roomStatus(room: DirectoryRoom): string {
   switch (room.status) {
     case "IN_MATCH":
-      return "In a match";
+      return "In a game";
     case "READY_FOR_MATCH":
-      return "Starting";
+      return "Starting…";
     default:
-      return room.seats.length < room.desiredPlayerCount ? "Open seat" : "Setting up";
+      if (room.seats.length < room.desiredPlayerCount) return "Waiting for a player";
+      return room.seats.every((seat) => seat.ready) ? "Ready to start" : "Choosing decks";
   }
 }
 
-/** "23h", "45m", "now" — how long until an idle room clears (D4). */
-export function clearsIn(clearsAt: string | null, now: number): string | null {
+/** Spec 0006 D3 — how soon a room closes, but only in its last 3 hours. */
+const CLOSES_SOON_MS = 3 * 3_600_000;
+
+/** "Closes in 2h", "Closes in 45m", "Closes now" — or null while it is not soon (D3). */
+export function closesSoon(clearsAt: string | null, now: number): string | null {
   if (!clearsAt) return null;
   const ms = Date.parse(clearsAt) - now;
-  if (Number.isNaN(ms)) return null;
-  if (ms <= 60_000) return "now";
+  if (Number.isNaN(ms) || ms > CLOSES_SOON_MS) return null;
+  if (ms <= 60_000) return "Closes now";
   const hours = Math.floor(ms / 3_600_000);
-  return hours >= 1 ? `${hours}h` : `${Math.ceil(ms / 60_000)}m`;
+  return `Closes in ${hours >= 1 ? `${hours}h` : `${Math.ceil(ms / 60_000)}m`}`;
+}
+
+/** Spec 0006 — a player's avatar, from the account list; null is the default. */
+export function avatarOf(lobby: LobbyState, userId: string): string | null {
+  return (
+    lobby.players.find((p) => p.userId === userId)?.avatar ??
+    lobby.presence.find((p) => p.userId === userId)?.avatar ??
+    null
+  );
 }
 
 /**

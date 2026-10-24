@@ -897,9 +897,6 @@ main.pa-main {
 .pa-lobby-notices .pa-notice {
   align-items: center;
 }
-.pa-lobby-match {
-  margin-bottom: 22px;
-}
 /* Hidden behind a game (LobbyPage): `hidden` loses to display: flex. */
 .pa-lobby-layout[hidden] {
   display: none;
@@ -911,9 +908,6 @@ main.pa-main {
   gap: 22px;
   margin-bottom: 24px;
 }
-.pa-lobby-head {
-  min-height: 60px;
-}
 .pa-head-key {
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -923,12 +917,6 @@ main.pa-main {
 .pa-lobby-players {
   flex: 1 1 300px;
   max-width: 380px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.pa-lobby-rooms {
-  flex: 999 1 560px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1003,9 +991,6 @@ main.pa-main {
 .pa-dot-off,
 .pa-dot-open {
   border: 1px solid #4c5563;
-}
-.pa-dot-asked {
-  border: 2px solid var(--pa-brass);
 }
 .pa-dot-waiting {
   border: 2px solid #e0776a;
@@ -1089,9 +1074,6 @@ main.pa-main {
   padding: 12px;
   border-top: 1px solid var(--pa-line-soft);
 }
-.pa-rooms-empty {
-  border: 0;
-}
 .pa-room {
   border: 1px solid var(--pa-line);
   border-left: 3px solid #4c5563;
@@ -1106,15 +1088,6 @@ main.pa-main {
 }
 .pa-room-invited {
   border-left-color: #6b5b36;
-}
-.pa-room-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 18px;
-  min-height: 64px;
-  padding: 10px 15px;
-  box-sizing: border-box;
 }
 .pa-room-name {
   flex: 1 1 180px;
@@ -1165,10 +1138,6 @@ main.pa-main {
 .pa-seat-open {
   border: 1px dashed #4c5563;
   color: var(--pa-faint);
-}
-.pa-seat-asked {
-  border: 1px dashed #6b5b36;
-  color: #c9ab74;
 }
 .pa-room-taken {
   flex: none;
@@ -1235,22 +1204,6 @@ main.pa-main {
   background: #2b2518;
   color: #f0dcb6;
 }
-.pa-your-room {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 14px;
-  padding: 14px 15px;
-  border-top: 1px solid #2b333f;
-  background: #10151d;
-}
-.pa-your-room-key {
-  flex: none;
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--pa-faint);
-}
 .pa-deck-select {
   flex: 1 1 220px;
   max-width: 320px;
@@ -1269,21 +1222,9 @@ main.pa-main {
 .pa-start {
   min-width: 206px;
 }
-.pa-host-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 14px;
-  max-width: 100%;
-  margin-left: auto;
-}
 /* A phone: the host's buttons share the card's width rather than run past
    its edge ("Remove Pat" overflowed it, 2026-10-24 lobby review). */
 @media (max-width: 560px) {
-  .pa-host-actions {
-    width: 100%;
-    margin-left: 0;
-  }
   .pa-host-actions .pa-button {
     flex: 1 1 0;
     min-width: 0;
@@ -1317,18 +1258,6 @@ main.pa-main {
   flex-direction: column;
   border-top: 1px solid var(--pa-line);
   background: var(--pa-header);
-}
-.pa-chat-head {
-  padding: 13px 20px;
-  border-bottom: 1px solid var(--pa-line-soft);
-}
-.pa-chat-head h2 {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--pa-sub);
 }
 .pa-chat-log {
   flex: 1 1 auto;
@@ -1498,6 +1427,480 @@ main.pa-main {
   .pa-room-clears,
   .pa-room-action {
     width: auto;
+  }
+}
+
+/* --- Lobby redesign (spec 0006, owner 2026-10-24) ------------------------
+ * Players | your room and the other rooms | chat, filling the window's
+ * height; chat moves under the room below ~1100 px; everything stacks on a
+ * phone, room first. Scoped to .pa-lobby: the Admin page shares some of
+ * the older room classes above. */
+.pa-lobby .pa-lobby-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  grid-template-areas: "players main chat";
+  align-items: start;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.pa-lobby .pa-lobby-layout[hidden] {
+  display: none;
+}
+.pa-lobby .pa-panel {
+  border: 1px solid var(--pa-line);
+  background: var(--pa-panel);
+  min-width: 0;
+}
+.pa-lobby .pa-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+}
+.pa-lobby .pa-panel-head h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pa-label);
+}
+.pa-lobby .pa-panel-note {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+
+/* Players */
+.pa-lobby .pa-lobby-players {
+  grid-area: players;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 150px);
+}
+.pa-lobby .pa-player-list {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  padding: 0 10px 6px;
+}
+.pa-lobby .pa-player-list-offline {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.pa-lobby .pa-player-row {
+  min-height: 52px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 7px 8px;
+  border-top: 0;
+  border-radius: 6px;
+}
+.pa-lobby .pa-player-row:hover {
+  background: #161c25;
+}
+.pa-lobby .pa-player-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pa-player-face {
+  flex: none;
+  display: flex;
+}
+.pa-player-face-off {
+  opacity: 0.45;
+  filter: grayscale(0.7);
+}
+.pa-offline-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% - 20px);
+  min-height: 44px;
+  margin: 4px 10px 0;
+  padding: 0 8px;
+  border: 0;
+  border-top: 1px solid var(--pa-line-soft);
+  background: none;
+  color: var(--pa-muted);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pa-offline-toggle:hover {
+  color: var(--pa-sub);
+  background: none;
+}
+
+/* Avatars */
+.pa-avatar {
+  display: block;
+  flex: none;
+  border-radius: 50%;
+  background: #1b2430;
+}
+
+/* The main column */
+.pa-lobby .pa-lobby-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.pa-open-panel {
+  padding: 22px 24px;
+}
+.pa-open-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--pa-ink-bright);
+}
+.pa-open-sub {
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-lobby .pa-open-room {
+  padding: 0;
+  border-top: 0;
+}
+.pa-lobby .pa-open-room .pa-input {
+  flex: 1 1 240px;
+}
+
+/* Your room */
+.pa-lobby .pa-room-mine {
+  border: 1px solid var(--pa-line-strong);
+  border-top: 3px solid var(--pa-brass);
+  border-left: 1px solid var(--pa-line-strong);
+  border-radius: 0;
+  background: var(--pa-panel);
+  overflow: visible;
+}
+.pa-room-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 20px 24px 14px;
+}
+.pa-room-title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--pa-ink-bright);
+}
+.pa-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1f2a22;
+  color: var(--pa-ok);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pa-status-playing {
+  background: #2a2318;
+  color: var(--pa-brass);
+}
+.pa-room-closes {
+  font-size: 12px;
+  color: var(--pa-warn);
+}
+.pa-lobby .pa-room-top .pa-room-role {
+  margin-left: auto;
+}
+.pa-seats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 24px;
+}
+.pa-lobby .pa-seat {
+  width: auto;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 0;
+  background: var(--pa-field);
+  color: var(--pa-ink);
+  font-size: 14px;
+  font-weight: 400;
+}
+.pa-lobby .pa-seat-open {
+  border-style: dashed;
+  border-color: var(--pa-button-line);
+}
+.pa-seat-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pa-lobby .pa-seat-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.pa-seat-tag {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-seat-deck {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--pa-sub);
+}
+.pa-seat-ready {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--pa-button-line);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--pa-sub);
+}
+.pa-seat-ready-on {
+  border-color: transparent;
+  background: #1f2a22;
+  color: var(--pa-ok);
+  font-weight: 700;
+}
+
+/* The three steps */
+.pa-steps {
+  list-style: none;
+  margin: 18px 24px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.pa-step {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--pa-button-line);
+  background: var(--pa-field);
+}
+.pa-step-done {
+  border-style: solid;
+  border-color: #2f5a44;
+  background: #121b16;
+}
+.pa-step-key {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pa-sub);
+}
+.pa-step-done .pa-step-key {
+  color: var(--pa-ok);
+}
+.pa-step .pa-deck-select {
+  flex: none;
+  max-width: none;
+  width: 100%;
+}
+.pa-step .pa-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+}
+.pa-lobby .pa-step-note a {
+  color: var(--pa-brass);
+}
+.pa-lobby .pa-step-note a:hover {
+  color: #f1c47c;
+}
+.pa-start-row {
+  display: flex;
+  gap: 8px;
+}
+.pa-start-row .pa-start {
+  flex: 1 1 auto;
+}
+.pa-start-row .pa-button-quiet {
+  flex: none;
+  width: auto;
+}
+.pa-step-wait {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--pa-sub);
+}
+.pa-step-note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--pa-sub);
+}
+.pa-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 20px;
+}
+.pa-room-actions .pa-button {
+  min-height: 40px;
+}
+.pa-lobby .pa-room-mine .pa-your-room-note {
+  margin: 14px 24px 20px;
+}
+
+/* Other rooms */
+.pa-lobby .pa-room-list {
+  padding: 0 12px 12px;
+  border-top: 0;
+}
+.pa-lobby .pa-room:not(.pa-room-mine) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--pa-line);
+  border-radius: 0;
+  background: var(--pa-field);
+}
+.pa-lobby .pa-room:not(.pa-room-mine) .pa-room-name {
+  flex: 0 1 auto;
+  font-size: 15px;
+}
+.pa-room-who {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-lobby .pa-room-action {
+  width: auto;
+  margin-left: auto;
+}
+.pa-lobby .pa-room-invited {
+  border-color: var(--pa-brass);
+}
+.pa-lobby .pa-other-rooms .pa-group-empty {
+  margin: 0;
+  padding: 0 18px 16px;
+}
+
+/* Chat */
+.pa-lobby .pa-chat {
+  grid-area: chat;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--pa-line);
+  background: var(--pa-panel);
+  height: calc(100vh - 150px);
+  min-height: 360px;
+}
+.pa-lobby .pa-chat-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 4px 16px 14px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-lobby .pa-chat-line {
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.pa-lobby .pa-chat-run {
+  margin-top: 4px;
+}
+.pa-chat-face {
+  flex: none;
+  width: 28px;
+}
+.pa-chat-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pa-lobby .pa-chat-meta {
+  width: auto;
+  gap: 8px;
+}
+.pa-lobby .pa-chat-form {
+  padding: 12px;
+  flex-wrap: nowrap;
+}
+.pa-lobby .pa-chat-form .pa-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Narrower: chat goes under the room. */
+@media (max-width: 1100px) {
+  .pa-lobby .pa-lobby-layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-areas:
+      "players main"
+      "players chat";
+  }
+  .pa-lobby .pa-chat {
+    height: 360px;
+  }
+}
+/* A phone: the room first, then players, then chat (always open, D4). */
+@media (max-width: 720px) {
+  .pa-lobby .pa-lobby-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "main"
+      "players"
+      "chat";
+    gap: 14px;
+  }
+  .pa-lobby .pa-lobby-players {
+    max-height: none;
+  }
+  .pa-lobby .pa-player-list {
+    max-height: none;
+  }
+  .pa-seats,
+  .pa-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pa-room-top,
+  .pa-seats,
+  .pa-room-actions {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .pa-steps {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+  .pa-room-actions .pa-button {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
@@ -1838,4 +2241,97 @@ main.pa-main {
   background: #1c1710;
   color: #f3e4c8;
   box-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+}
+
+/* --- Account: avatar (spec 0006) ----------------------------------------- */
+.pa-avatar-current {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 15px 4px;
+}
+.pa-avatar-current .pa-help {
+  margin: 0;
+}
+.pa-avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  padding: 12px 15px 16px;
+}
+.pa-avatar-choice {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.pa-avatar-choice:hover {
+  border-color: var(--pa-line-strong);
+  background: none;
+}
+.pa-avatar-choice:focus-visible {
+  outline: 2px solid var(--pa-ink-bright);
+  outline-offset: 2px;
+}
+.pa-avatar-chosen,
+.pa-avatar-chosen:hover {
+  border-color: var(--pa-brass);
+}
+
+/* --- Phone header (spec 0006) -------------------------------------------- */
+.pa-menu-toggle {
+  display: none;
+}
+@media (max-width: 720px) {
+  .pa-header {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 8px 14px;
+  }
+  .pa-logo img {
+    height: 40px;
+  }
+  .pa-header .pa-spacer {
+    display: none;
+  }
+  .pa-header .pa-connection {
+    order: 2;
+    margin-left: auto;
+  }
+  .pa-menu-toggle {
+    order: 3;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--pa-line-strong);
+    background: none;
+    color: var(--pa-ink);
+    cursor: pointer;
+  }
+  .pa-menu-toggle svg {
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    fill: none;
+  }
+  .pa-header .pa-nav,
+  .pa-header .pa-sign-out {
+    display: none;
+    order: 4;
+  }
+  .pa-header-open .pa-nav {
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+  }
+  .pa-header-open .pa-sign-out {
+    display: block;
+    flex: 1 1 100%;
+  }
 }

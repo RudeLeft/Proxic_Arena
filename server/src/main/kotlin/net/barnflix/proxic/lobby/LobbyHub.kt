@@ -34,6 +34,8 @@ data class PresenceEntry(
     val userId: UUID,
     val username: String,
     val displayName: String,
+    /** Spec 0006 — the avatar's name ("avatar-07"), or null for the default. */
+    val avatar: String? = null,
 )
 
 /** A live connection. The hub writes to [outgoing] and nothing else. */

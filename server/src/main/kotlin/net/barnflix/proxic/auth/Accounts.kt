@@ -278,6 +278,20 @@ class Accounts(
         }
     }
 
+    /** Spec 0006 — one of the owner's 50 avatars ("avatar-07"), or null for the default. */
+    fun updateAvatar(
+        userId: UUID,
+        avatar: String?,
+    ) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("UPDATE app_user SET avatar = ? WHERE user_id = ?").use {
+                it.setString(1, avatar)
+                it.setObject(2, userId)
+                it.executeUpdate()
+            }
+        }
+    }
+
     private data class LoginRow(val user: User, val passwordHash: String)
 
     private fun findForLogin(

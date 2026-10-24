@@ -449,10 +449,9 @@ private fun Route.databaseRoutes(
     // PHASE_07 §7.67 — sign-in attempts an administrator can read.
     val signIns = net.barnflix.proxic.auth.SignInLog(database.dataSource())
     startSessionMaintenance(sessions, throttle, signIns)
+    val accountChanges = net.barnflix.proxic.auth.AccountChanges() // spec 0006
 
-    route("/api") {
-        authRoutes(config, accounts, sessions, throttle, signIns)
-    }
+    route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges) }
 
     // §3.77-§3.82 — the authenticated WebSocket. Outside
     // /api, beside /ws/system, which stays anonymous
@@ -469,7 +468,7 @@ private fun Route.databaseRoutes(
             net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
         )
     val lobbyHub = net.barnflix.proxic.lobby.LobbyHub()
-    val lobby = lobbyService(database, roomService, lobbyHub)
+    val lobby = lobbyService(database, roomService, lobbyHub, accountChanges)
     // PHASE_06 §6.107-§6.109 — where a decision reaches a
     // human, and the runtime that publishes into it. Both live
     // out here with the other sockets rather than inside
@@ -678,10 +677,12 @@ private fun lobbyService(
     database: Database,
     roomService: net.barnflix.proxic.room.RoomService,
     hub: net.barnflix.proxic.lobby.LobbyHub,
+    accountChanges: net.barnflix.proxic.auth.AccountChanges,
 ) = net.barnflix.proxic.lobby.LobbyService(
     hub,
     roomService,
     accounts = net.barnflix.proxic.lobby.AccountNames(database.dataSource())::active,
+    accountChanges = accountChanges,
 )
 
 /**

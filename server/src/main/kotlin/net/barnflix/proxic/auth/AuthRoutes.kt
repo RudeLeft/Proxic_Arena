@@ -47,6 +47,10 @@ data class LogoutAllResponse(val revokedSessions: Int)
 @Serializable
 data class DisplayNameRequest(val displayName: String = "")
 
+/** Spec 0006 — "avatar-01".."avatar-50", or null for the default picture. */
+@Serializable
+data class AvatarRequest(val avatar: String? = null)
+
 @Serializable
 data class PasswordChangeRequest(
     val currentPassword: String = "",
@@ -60,6 +64,8 @@ fun Route.authRoutes(
     throttle: LoginThrottle,
     // PHASE_07 §7.67 — the copy of each attempt the Admin page reads.
     signIns: SignInLog? = null,
+    // Spec 0006 — told when a name or an avatar others see changes.
+    changes: AccountChanges = AccountChanges(),
 ) {
     route("/auth") {
         post("/login") {
@@ -213,7 +219,7 @@ fun Route.authRoutes(
         // function past its complexity threshold: the answer to a
         // route table that has outgrown one function is a second
         // function, not a higher threshold.
-        accountRoutes(config, accounts, sessions)
+        accountRoutes(config, accounts, sessions, changes)
     }
 }
 

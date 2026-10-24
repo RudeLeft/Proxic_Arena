@@ -21,6 +21,8 @@ export interface PresenceUser {
   userId: string;
   username: string;
   displayName: string;
+  /** Spec 0006 — "avatar-07", or absent for the default picture. */
+  avatar?: string | null;
 }
 
 export interface ChatLine {
@@ -564,7 +566,14 @@ function asPresenceUser(value: unknown): PresenceUser | null {
   const userId = asString(v["userId"]);
   const displayName = asString(v["displayName"]);
   if (!userId || !displayName) return null;
-  return { userId, username: asString(v["username"]) ?? displayName, displayName };
+  const avatar = asString(v["avatar"]);
+  return {
+    userId,
+    username: asString(v["username"]) ?? displayName,
+    displayName,
+    // Only a name of the owner's set; anything else is the default picture.
+    ...(avatar && /^avatar-\d\d$/.test(avatar) ? { avatar } : {}),
+  };
 }
 
 function asPresenceList(value: unknown): PresenceUser[] {

@@ -70,6 +70,8 @@ class LobbyService(
      * not.
      */
     private val offlineGrace: Duration = Duration.ofSeconds(60),
+    /** Spec 0006 — a name or an avatar changed: everybody's Players list again. */
+    accountChanges: net.barnflix.proxic.auth.AccountChanges? = null,
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
     private val desk =
@@ -80,6 +82,10 @@ class LobbyService(
     private val goneSince = ConcurrentHashMap<UUID, Job>()
 
     private val presenceOf = PresenceTurns()
+
+    init {
+        accountChanges?.onChange { hub.broadcast(playersMessage(accounts())) }
+    }
 
     /**
      * PHASE_07 §7.64 — the room list, to everybody, whenever any room

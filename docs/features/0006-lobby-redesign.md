@@ -1,6 +1,6 @@
 # 0006 — Lobby redesign
 
-**Status:** Draft
+**Status:** Approved 2026-10-24
 **Owner decisions:** D1 card count only; D2 avatar pictures, chosen in Account (owner supplies the set); D3 "Closes in" in the last 3 hours; D4 phone chat always open (2026-10-24)
 
 The visual example the owner reviewed (2026-10-24): the "Proxic Lobby
@@ -63,8 +63,8 @@ always open, under the players (D4).
 
 **Avatars (D2).** Each player has an avatar picture, shown beside their
 name in Players, on their seat, and in chat. They choose it on the
-**Account** page from a set the owner supplies; until they choose, a
-default picture. Stored with the account; the pictures are served by the
+**Account** page from the owner's set of 50 (supplied 2026-10-24, cut from one sheet);
+until they choose, a default picture. Stored with the account; the pictures are served by the
 app itself. The owner's own images, free to use (owner, 2026-10-24) --
 not card art, so they ship with the app (GIT-001 does not apply); resized
 to one square size.

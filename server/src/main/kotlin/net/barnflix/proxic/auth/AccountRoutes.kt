@@ -18,10 +18,14 @@ import net.barnflix.proxic.ServerConfig
 
 private const val MAX_DISPLAY_NAME = 64
 
+/** Spec 0006 — the owner's set: avatar-01 .. avatar-50 (as the database's CHECK). */
+private val AVATAR = Regex("^avatar-(0[1-9]|[1-4][0-9]|50)$")
+
 fun Route.accountRoutes(
     config: ServerConfig,
     accounts: Accounts,
     sessions: Sessions,
+    changes: AccountChanges,
 ) {
     post("/password") {
         // §3.35, §3.36.
@@ -94,6 +98,24 @@ fun Route.accountRoutes(
             username = principal.user.username,
             userId = principal.user.userId,
         )
+        changes.changed()
         call.respond(MeResponse(true, principal.user.copy(displayName = name).view()))
+    }
+
+    // Spec 0006 — your avatar, from the owner's set; everybody's Players
+    // list is told, so it shows at once.
+    post("/avatar") {
+        if (!call.csrfOk(config)) return@post
+        val principal = call.requireAuth(sessions) ?: return@post
+        val avatar =
+            runCatching { call.receive<AvatarRequest>() }.getOrNull()?.avatar
+                ?.takeIf { it.matches(AVATAR) }
+                ?: return@post call.respond(
+                    HttpStatusCode.UnprocessableEntity,
+                    ErrorResponse("INVALID_AVATAR", "Choose one of the pictures.", null),
+                )
+        accounts.updateAvatar(principal.user.userId, avatar)
+        changes.changed()
+        call.respond(HttpStatusCode.NoContent)
     }
 }
