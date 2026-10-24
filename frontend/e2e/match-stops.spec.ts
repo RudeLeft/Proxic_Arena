@@ -181,3 +181,55 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
     await guest.context().close();
   }
 });
+
+test("Hold priority is a button on the rail, stays on until turned off, and survives a reload", async ({
+  browser,
+}) => {
+  test.skip(!pkg, "no deck package available");
+  const host = await (await browser.newContext()).newPage();
+  await signIn(host);
+  await clearEverything(host);
+  const guest = await (await browser.newContext()).newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await clearEverything(guest);
+  try {
+    await setStops(host, OWN, OPPONENT);
+    await setStops(guest, OWN, OPPONENT);
+    const deckName = await sharedDeck(host, guest, pkg!);
+    await startAMatch(host, guest, deckName);
+
+    // Spec 0004 (owner 2026-10-23): a Hold button only; on until turned off.
+    const hold = matchPanel(host).locator("button.gs-hold");
+    await expect(hold).toBeVisible({ timeout: 120_000 });
+    await expect(hold).toHaveAttribute("aria-pressed", "false");
+    await hold.click();
+    await expect(hold).toHaveAttribute("aria-pressed", "true");
+    await expect(hold).toHaveText("Hold on");
+    await host.screenshot({ path: "test-results/seen/hold-on.png" });
+
+    // Saved with the stops: a reload finds it still on.
+    await host.reload();
+    await expect(matchPanel(host).locator("button.gs-hold")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+      {
+        timeout: 60_000,
+      },
+    );
+    // The other player's Hold is their own, and still off.
+    await expect(matchPanel(guest).locator("button.gs-hold")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    await matchPanel(host).locator("button.gs-hold").click();
+    await expect(matchPanel(host).locator("button.gs-hold")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  } finally {
+    await setStops(host, OWN, OPPONENT).catch(() => undefined);
+    await clearEverything(host).catch(() => undefined);
+    await clearEverything(guest).catch(() => undefined);
+  }
+});

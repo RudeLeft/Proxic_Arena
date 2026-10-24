@@ -604,7 +604,8 @@ public final class WorkerMain {
     /** §7.53 — `{own: [PHASE, ...], opponent: [PHASE, ...]}`, Forge's step names. */
     private static net.barnflix.proxic.worker.game.PriorityStops.Settings stopsOf(JsonObject from) {
         return new net.barnflix.proxic.worker.game.PriorityStops.Settings(
-                namesIn(from, "own"), namesIn(from, "opponent"));
+                namesIn(from, "own"), namesIn(from, "opponent"),
+                from.has("hold") && from.get("hold").isJsonPrimitive() && from.get("hold").getAsBoolean());
     }
 
     private static java.util.Set<String> namesIn(JsonObject from, String key) {

@@ -16,6 +16,11 @@ default stops the server sends (STOPS below).
              is passed for, not asked
   pass-turn  seat 1 passes to the end of its turn in Main 1: not asked again
              that turn, and asked again on its next one
+  hold-on    spec 0004: seat 1 holds priority and casts Lightning Bolt with
+             another Bolt and a Mountain left: it is asked again with its
+             OWN Bolt on the stack, and passing resolves it (seat 2, not
+             holding, is never asked about it: it has nothing to respond with)
+  hold-off   the same without Hold: seat 1 is passed for, as Arena does
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -226,7 +231,70 @@ def pass_turn():
     return result(problems, "passed to the end of the turn: not asked again that turn, asked on the next", found)
 
 
-SCENARIOS = {"quiet": quiet, "respond": respond, "nothing": nothing, "pass-turn": pass_turn}
+def hold(on):
+    """Spec 0004: Hold priority asks you after your own spell, and only you."""
+    mine = dict(STOPS, hold=on)
+    name = "hold-on" if on else "hold-off"
+    trace = "" if not TRACES else (TRACES[: -len(".jsonl")] + f"-{name}.jsonl" if TRACES.endswith(".jsonl")
+                                   else os.path.join(TRACES, f"stops-{name}.jsonl"))
+    g = Game([("Mountain", 30), ("Lightning Bolt", 30)], BEARS, jar=JAR, res=RES, trace=trace,
+             stops={1: mine, 2: STOPS})
+    st = {"cast": None, "own_stack_asks": 0, "seat2_asks": 0, "after": None}
+
+    def policy(g, f):
+        turn, phase, stack, active = where(g, f)
+        seat, kind = f["authorisedSeat"], f.get("kind")
+        if kind == "chooseTargetsFor" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if kind != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        if st["cast"] is not None and stack:
+            if seat == 1:
+                st["own_stack_asks"] += 1
+            else:
+                st["seat2_asks"] += 1
+            return None  # pass: let it resolve
+        land = g.play_land(f)
+        if land:
+            return land
+        untapped = [c for c in g.mine(1, name="Mountain") if not c.get("tapped")]
+        if seat == 1 and st["cast"] is None and seat == active and len(untapped) >= 2 and                 any(c.get("name") == "Lightning Bolt" for c in g.zone(1, "hand")):
+            o = g.option(f, name="Lightning Bolt", zone="hand", land=False)
+            if o:
+                st["cast"] = turn
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        return None
+
+    def until(g):
+        stack = g.state.get(1, {}).get("stack")
+        if st["cast"] is not None and stack:
+            st["seen"] = True
+        if st.get("seen") and not stack and st["after"] is None:
+            st["after"] = (g.player(1, 2) or {}).get("life")
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=12)
+    found = {"cast on turn": st["cast"], "seat 1 asked with its own Bolt on the stack": st["own_stack_asks"],
+             "seat 2 asked about it": st["seat2_asks"], "life": [st.get("life"), st["after"]],
+             "stopped": g.stopped_badly()}
+    if st["cast"] is None or st["after"] is None:
+        return "inconclusive", "seat 1 never cast a Bolt with another Bolt and a Mountain to spare", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if on and st["own_stack_asks"] < 1:
+        problems.append("Hold on: seat 1 should be asked with its own Bolt on the stack")
+    if not on and st["own_stack_asks"]:
+        problems.append("Hold off: seat 1 should be passed for with its own Bolt on the stack")
+    if st["seat2_asks"]:
+        problems.append("seat 2 does not hold and has nothing to respond with: it should not be asked")
+    if st.get("life") is not None and st["after"] != st["life"] - 3:
+        problems.append(f"passing should resolve the Bolt: life {st.get('life')} -> {st['after']}")
+    return result(problems, "Hold on: asked with its own Bolt on the stack, then it resolved" if on
+                  else "Hold off: passed for with its own Bolt on the stack, as Arena does", found)
+
+
+SCENARIOS = {"quiet": quiet, "respond": respond, "nothing": nothing, "pass-turn": pass_turn,
+             "hold-on": lambda: hold(True), "hold-off": lambda: hold(False)}
 
 if __name__ == "__main__":
     worst = 0

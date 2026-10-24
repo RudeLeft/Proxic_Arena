@@ -86,6 +86,27 @@ export function GameScreen({
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
 
+  // Spec 0004 — your saved stops, for the Hold button: saved like any stop
+  // (it lasts until you turn it off), then applied to this game.
+  const [stopSettings, setStopSettings] = useState<StopSettings | null>(null);
+  useEffect(() => {
+    if (!live) return undefined;
+    let alive = true;
+    void fetchStops().then((loaded) => {
+      if (alive && loaded) setStopSettings(loaded);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [live]);
+  const toggleHold = async () => {
+    if (!stopSettings) return;
+    const saved = await saveStops({ ...stopSettings, hold: !stopSettings.hold });
+    if (!saved) return;
+    setStopSettings(saved);
+    socketRef.current?.stops(saved);
+  };
+
   useEffect(() => {
     if (!live) return undefined;
     setGame(EMPTY_MATCH);
@@ -332,6 +353,8 @@ export function GameScreen({
                 socketRef.current?.passTurn();
                 answer(null);
               }}
+              hold={stopSettings?.hold ?? null}
+              onHold={() => void toggleHold()}
               onView={setViewer}
               finished={finished}
             />
@@ -397,7 +420,10 @@ export function GameScreen({
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
           concession={finished ? null : concessionText(game.concession)}
-          onStops={(settings) => socketRef.current?.stops(settings)}
+          onStops={(settings) => {
+            setStopSettings(settings);
+            socketRef.current?.stops(settings);
+          }}
           onConcede={() => {
             setGame((previous) => ({ ...previous, concession: null }));
             socketRef.current?.concede();
@@ -748,6 +774,8 @@ function Rail({
   cancel,
   onAnswer,
   onPassTurn,
+  hold,
+  onHold,
   onView,
   finished,
 }: {
@@ -766,6 +794,9 @@ function Rail({
   onAnswer: (actionId: string | null) => void;
   /** §7.53 extra — pass now, and no more stops this turn. */
   onPassTurn: () => void;
+  /** Spec 0004 — Hold priority, on or off; null until your settings have loaded. */
+  hold: boolean | null;
+  onHold: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
@@ -880,6 +911,25 @@ function Rail({
           <span className="gs-waiting-word">Your answer</span>
           <span className="gs-waiting-sub">Your choice is above the board</span>
         </div>
+      )}
+
+      {/* Spec 0004 (owner 2026-10-23): Hold priority -- asked after your
+          own spell or trigger too, until you turn it off. Always there in a
+          game, so it can be turned on before you cast. */}
+      {!finished && hold !== null && (
+        <button
+          type="button"
+          className={`gs-hold${hold ? " gs-hold-on" : ""}`}
+          aria-pressed={hold}
+          onClick={onHold}
+          title={
+            hold
+              ? "Hold is on: you are asked after your own spells and triggers too. Click to turn it off."
+              : "Hold priority: be asked after your own spells and triggers too, to respond to them."
+          }
+        >
+          Hold{hold ? " on" : ""}
+        </button>
       )}
 
       {me && (

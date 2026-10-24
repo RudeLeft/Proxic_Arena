@@ -58,7 +58,7 @@ describe("passWords", () => {
 
 describe("stops over HTTP", () => {
   it("reads the saved settings, and sends a change as PUT", async () => {
-    const answer = { own: ["MAIN1", "MAIN2"], opponent: ["END_OF_TURN"] };
+    const answer = { own: ["MAIN1", "MAIN2"], opponent: ["END_OF_TURN"], hold: true };
     const fetchFn = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify(answer), { status: 200 })),
     );
@@ -72,12 +72,17 @@ describe("stops over HTTP", () => {
   it("is null, not a guess, when the server refuses or sends nonsense", async () => {
     const refused = vi.fn(() => Promise.resolve(new Response("{}", { status: 400 })));
     expect(
-      await saveStops({ own: [], opponent: [] }, refused as unknown as typeof fetch),
+      await saveStops({ own: [], opponent: [], hold: false }, refused as unknown as typeof fetch),
     ).toBeNull();
     const nonsense = vi.fn(() =>
       Promise.resolve(new Response(JSON.stringify({ own: "MAIN1" }), { status: 200 })),
     );
     expect(await fetchStops(nonsense as unknown as typeof fetch)).toBeNull();
+    // Spec 0004 -- an older server says nothing of hold: off, never a guess of on.
+    const older = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ own: [], opponent: [] }), { status: 200 })),
+    );
+    expect((await fetchStops(older as unknown as typeof fetch))?.hold).toBe(false);
   });
 });
 

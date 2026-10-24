@@ -48,6 +48,11 @@ val PRIORITY_STEPS: List<String> =
 data class StopSettings(
     val own: List<String>,
     val opponent: List<String>,
+    /**
+     * Spec 0004 — Hold priority: asked after your own spell, ability or
+     * trigger goes on the stack, instead of passed for. On until turned off.
+     */
+    val hold: Boolean = false,
 ) {
     companion object {
         /**
@@ -70,6 +75,7 @@ data class StopSettings(
         return StopSettings(
             PRIORITY_STEPS.filter { it in own },
             PRIORITY_STEPS.filter { it in opponent },
+            hold,
         )
     }
 }
@@ -79,11 +85,11 @@ class StopStore(
 ) {
     fun get(userId: UUID): StopSettings =
         dataSource.connection.use { connection ->
-            connection.prepareStatement("SELECT own, opponent FROM player_stops WHERE user_id = ?").use {
+            connection.prepareStatement("SELECT own, opponent, hold FROM player_stops WHERE user_id = ?").use {
                 it.setObject(1, userId)
                 it.executeQuery().use { row ->
                     if (!row.next()) return StopSettings.DEFAULT
-                    StopSettings(namesOf(row.getString(1)), namesOf(row.getString(2)))
+                    StopSettings(namesOf(row.getString(1)), namesOf(row.getString(2)), row.getBoolean(3))
                 }
             }
         }
@@ -94,13 +100,14 @@ class StopStore(
     ) {
         dataSource.connection.use { connection ->
             connection.prepareStatement(
-                "INSERT INTO player_stops (user_id, own, opponent) VALUES (?, ?, ?) " +
+                "INSERT INTO player_stops (user_id, own, opponent, hold) VALUES (?, ?, ?, ?) " +
                     "ON CONFLICT (user_id) DO UPDATE SET own = EXCLUDED.own, " +
-                    "opponent = EXCLUDED.opponent, updated_at = now()",
+                    "opponent = EXCLUDED.opponent, hold = EXCLUDED.hold, updated_at = now()",
             ).use {
                 it.setObject(1, userId)
                 it.setString(2, settings.own.joinToString(","))
                 it.setString(3, settings.opponent.joinToString(","))
+                it.setBoolean(4, settings.hold)
                 it.executeUpdate()
             }
         }
@@ -135,11 +142,12 @@ fun Route.stopRoutes(store: StopStore) {
     }
 }
 
-/** `{own: [...], opponent: [...]}`, as the worker reads it. */
+/** `{own: [...], opponent: [...], hold: bool}`, as the worker reads it. */
 fun stopsJson(settings: StopSettings): JsonObject =
     buildJsonObject {
         putJsonArray("own") { settings.own.forEach { add(it) } }
         putJsonArray("opponent") { settings.opponent.forEach { add(it) } }
+        put("hold", settings.hold)
     }
 
 private fun workerFrame(
@@ -155,6 +163,7 @@ private fun workerFrame(
         stops?.let {
             put("own", stopsJson(it)["own"]!!)
             put("opponent", stopsJson(it)["opponent"]!!)
+            put("hold", it.hold)
         }
     }
 

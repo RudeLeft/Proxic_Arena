@@ -37,10 +37,18 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class PriorityStops {
 
     /** The steps a player stops at, on their own turn and on the opponent's. */
-    public record Settings(Set<String> own, Set<String> opponent) {
+    /**
+     * @param hold spec 0004 -- asked after your own spell, ability or
+     *             trigger goes on the stack, instead of passed for
+     */
+    public record Settings(Set<String> own, Set<String> opponent, boolean hold) {
         public Settings {
             own = Set.copyOf(own);
             opponent = Set.copyOf(opponent);
+        }
+
+        public Settings(Set<String> own, Set<String> opponent) {
+            this(own, opponent, false);
         }
     }
 
@@ -93,13 +101,13 @@ public final class PriorityStops {
 
         // Something on the stack: a response is never skipped -- when the
         // OPPONENT put it there and there is something to respond with.
-        // Your own spell or trigger passes, as in Arena (you would have
-        // held priority to act on top of it).
+        // Your own spell or trigger passes, as in Arena -- unless you hold
+        // priority (spec 0004): then it is asked like theirs (CR 117.3c).
         if (!game.getStack().isEmpty()) {
             SpellAbility top = game.getStack().peekAbility();
             Player by = top == null ? null : top.getActivatingPlayer();
             if (by != null && by.equals(player)) {
-                return false;
+                return settings.hold() && somethingToDo;
             }
             return somethingToDo;
         }
