@@ -78,7 +78,7 @@ triggers resolve, and a game that never reached its moment is
 ## Unresolved, carried forward
 
 - **A match does not survive a server restart** (by design, P6-AZ).
-- **No computer opponent** -- an owner question.
+- **No computer opponent, ever** (owner, 2026-10-23).
 - **Very large boards are slow in Forge**, not in the page: about a third
   of the worker's time at 1,000 tokens is Forge checking which abilities
   can be played. Forge patch 0002 took Krenko from minutes to seconds;
@@ -92,6 +92,17 @@ triggers resolve, and a game that never reached its moment is
 - **"Each slice a release" was missed:** Phase 8 shipped as builds, with
   no release or changelog entry since 1.0.0. One release closes it
   ("Next", step 3).
+
+## Forge itself (2026-10-23)
+
+Proxic is on Forge 2.0.15, the newest release. Forge's development
+branch is ~300 changes ahead; its next release (2.0.16) brings rules
+fixes, new cards and three new questions (Unfinity stickers), and
+neither of Proxic's two Forge patches is fixed upstream. The owner
+chose to plan that upgrade as its own work after this phase
+(ROADMAP). A comb of Forge for anything useful left out (no computer
+opponent, ever) put four ideas on the ROADMAP: card rules text in the
+close look, offering a draw, undo and replays, best of three.
 
 ## The final check (2026-10-23)
 

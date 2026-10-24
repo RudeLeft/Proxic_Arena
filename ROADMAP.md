@@ -34,7 +34,12 @@ time** (owner decision, 2026-10-22):
 | — | Commander | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | Two-Headed Giant | Planned (owner decision 2026-10-17; not scoped) | — |
 | — | A match that survives a server restart (today it ends with no winner; P6-AZ) | Idea | — |
-| — | A computer opponent | Idea, later (owner 2026-10-22: no spec until asked) | — |
+| — | A computer opponent | **Never** (owner 2026-10-23: "we will never implement an AI opponent") | — |
+| — | Card rules text in the close look — right-click any card, a token or a card with no picture included, and read what it does now (a Treasure's "sacrifice: add one mana", abilities it has gained); today a card with no picture shows only name, type, power and keywords | Idea (owner 2026-10-23, from the Forge comb) | — |
+| — | Offer a draw — both players agree to end a game as a draw (Forge has it: `DrawOfferCoordinator`) | Idea (owner 2026-10-23, from the Forge comb) | — |
+| — | Undo and replays — take back a misclick with the opponent's OK; watch a finished game again (both new in Forge after 2.0.15) | Idea (owner 2026-10-23, from the Forge comb; needs Forge 2.0.16) | — |
+| — | Best of three — a match is first to two game wins, no sideboarding (Forge's `gamesPerMatch`) | Idea (owner 2026-10-23, from the Forge comb) | — |
+| — | Forge 2.0.16 — when it is released: rules fixes (simultaneous entry, mana refunds, an endless trigger loop is a draw, ~40 card scripts), new cards, the three Unfinity sticker questions built (Phase 8 D1); patches 0001 and 0002 still needed upstream. A before/after report and plan for the owner first (VEND-005) | Planned (owner 2026-10-23), after Phase 8 closes | — |
 | — | Web server framework: Ktor 2.3 (end of its line) → Ktor 3 | Planned (maintenance) | — |
 | — | Offer Forge patches 0001 and 0002 upstream | Idea | — |
 
