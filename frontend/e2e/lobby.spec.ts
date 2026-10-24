@@ -112,7 +112,7 @@ test("a host invites somebody who is online, and they take the empty seat", asyn
 
     // §5.41 — nobody can be ready without a deck, and the page says
     // so rather than letting a click fail.
-    await expect(host.getByRole("button", { name: "Mark yourself ready" })).toBeDisabled();
+    await expect(host.getByRole("button", { name: "I'm ready" })).toBeDisabled();
     await expect(host.getByRole("button", { name: "Start match" })).toBeDisabled();
 
     // §5.18 — the host closes, and the guest finds out without

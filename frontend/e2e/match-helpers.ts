@@ -158,10 +158,10 @@ export async function chooseDeck(page: Page, deckName: string, sharedBy?: string
   await expect(select).toHaveValue(value);
 }
 
-/** Mark yourself ready, and wait until the server says you are. */
+/** Press "I'm ready", and wait until the server says you are. */
 export async function markReady(page: Page) {
-  await page.getByRole("button", { name: "Mark yourself ready" }).click();
-  await expect(page.getByRole("button", { name: "You are ready" })).toBeVisible();
+  await page.getByRole("button", { name: "I'm ready" }).click();
+  await expect(page.getByRole("button", { name: "Ready ✓" })).toBeVisible();
 }
 
 /**

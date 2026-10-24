@@ -41,8 +41,8 @@ closed by default; clicking opens the list. The count reads "2 online".
   and **✓ Ready** or "Not ready". An empty seat is dashed: "Open seat --
   invite someone from Players".
 - **Three numbered steps**: **1 Your deck** (the deck menu, with its card
-  count, "60 cards", D1), **2 Ready** ("Mark yourself ready" / "You're
-  ready · undo"), **3 Start** (the host's Start match, saying what it waits
+  count, "60 cards", D1), **2 Ready** ("I'm ready" / "Ready ✓";
+  owner 2026-10-24: shorter, to fit one line at 1280 px), **3 Start** (the host's Start match, saying what it waits
   for: "Waiting for Pat to be ready"; the guest sees "The host starts the
   game"). A finished step turns green with a ✓.
 - The host's **Remove Pat** and **Close room**, and the guest's **Leave

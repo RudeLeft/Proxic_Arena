@@ -936,7 +936,7 @@ function YourRoom({
                   }
                   onClick={() => onReady(!myMember.ready)}
                 >
-                  {myMember.ready ? "You are ready" : "Mark yourself ready"}
+                  {myMember.ready ? "Ready ✓" : "I'm ready"}
                 </button>
               )}
               <span className="pa-step-note">

@@ -179,7 +179,7 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     //
     // Two halves, because they can fail independently. The page
     // stops offering the controls...
-    await expect(host.getByRole("button", { name: /yourself ready|You are ready/ })).toBeDisabled();
+    await expect(host.getByRole("button", { name: /I'm ready|Ready ✓/ })).toBeDisabled();
     await expect(host.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
 
     // ...and the SERVER refuses anyway, which is the rule. A page
@@ -204,7 +204,7 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
     // --- cancel ---------------------------------------------------
     // §5.117 — back to OPEN, readiness reset, deck choices kept.
     await host.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(host.getByRole("button", { name: "Mark yourself ready" })).toBeEnabled();
+    await expect(host.getByRole("button", { name: "I'm ready" })).toBeEnabled();
     await expect(seatOf(host, secondUser)).toContainText(/not ready/i);
     await expect(host.getByLabel("Your deck for this match")).not.toHaveValue("");
   } finally {
