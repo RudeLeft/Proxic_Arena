@@ -258,16 +258,6 @@ class MatchRoutesTest {
             val again = json.parseToJsonElement(reread).jsonObject
             assertEquals(listOf("MAIN1", "MAIN2"), again["own"]!!.jsonArray.map { it.jsonPrimitive.content })
             assertEquals(listOf("END_OF_TURN"), again["opponent"]!!.jsonArray.map { it.jsonPrimitive.content })
-            assertEquals(false, again["hold"]?.jsonPrimitive?.content?.toBoolean() ?: false, "off by default")
-
-            // Spec 0004 — Hold is saved with the stops, until turned off.
-            client.put("/api/matches/stops") {
-                signedBy(host)
-                contentType(ContentType.Application.Json)
-                setBody("""{"own":["MAIN1"],"opponent":[],"hold":true}""")
-            }
-            val held = json.parseToJsonElement(client.get("/api/matches/stops") { signedBy(host) }.bodyAsText())
-            assertEquals("true", held.jsonObject["hold"]?.jsonPrimitive?.content, "Hold should be saved: $held")
 
             val refused =
                 client.put("/api/matches/stops") {

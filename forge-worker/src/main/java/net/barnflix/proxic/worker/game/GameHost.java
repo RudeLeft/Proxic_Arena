@@ -845,6 +845,17 @@ public final class GameHost {
         return subject;
     }
 
+    /** Spec 0005 -- this priority question is a response window. Cleared per question. */
+    private volatile boolean responseWindow = false;
+
+    void offerResponseWindow(boolean window) {
+        responseWindow = window;
+    }
+
+    public boolean responseWindow() {
+        return responseWindow;
+    }
+
     /**
      * Spec 0001 D3 -- the cards a question is about that no zone shows
      * this player: a scry's or a surveil's top cards, as pictures. Each is
@@ -930,6 +941,7 @@ public final class GameHost {
         costs = java.util.Map.of();
         unavailable = java.util.Map.of();
         subject = null;
+        responseWindow = false;
     }
 
     /**

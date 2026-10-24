@@ -11,8 +11,6 @@ import type { Snapshot } from "../match";
 export interface StopSettings {
   own: string[];
   opponent: string[];
-  /** Spec 0004 — asked after your own spell or trigger too; on until turned off. */
-  hold: boolean;
 }
 
 /** The steps a player can choose to stop at, in turn order, by Forge's names. */
@@ -67,7 +65,7 @@ function asStops(value: unknown): StopSettings | null {
     Array.isArray(list) ? list.filter((n): n is string => typeof n === "string") : null;
   const own = names(record["own"]);
   const opponent = names(record["opponent"]);
-  return own && opponent ? { own, opponent, hold: record["hold"] === true } : null;
+  return own && opponent ? { own, opponent } : null;
 }
 
 /**

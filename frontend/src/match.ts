@@ -106,6 +106,12 @@ export interface Decision {
    * a snapshot describes a card. Empty for every other question.
    */
   looking: SnapshotCard[];
+  /**
+   * Spec 0005 — a response window: your OWN spell or trigger is on top of
+   * the stack. The page counts down and passes for you if you let it run
+   * out (Phase 8 Amendment 4); anything that shows you are acting pauses it.
+   */
+  window: boolean;
 }
 
 /** The spell or ability a question is about. */
@@ -777,6 +783,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     unavailable: asReasons(message["unavailable"]),
     about: asAbout(message["about"]),
     looking: asCards(message["looking"]),
+    window: message["window"] === true,
   };
 }
 
@@ -843,7 +850,7 @@ export interface MatchSocket {
   /** §7.55 — concede. Nothing else is sent: who concedes is the session's. */
   concede(): void;
   /** §7.53 — apply changed stops to the game in progress (saved over HTTP first). */
-  stops(settings: { own: string[]; opponent: string[]; hold: boolean }): void;
+  stops(settings: { own: string[]; opponent: string[] }): void;
   /** §7.53 extra — no more stops for you this turn, unless the opponent acts. */
   passTurn(): void;
   close(): void;
@@ -935,12 +942,7 @@ export function connectMatch(
     stops(settings) {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(
-        JSON.stringify({
-          type: "STOPS",
-          own: settings.own,
-          opponent: settings.opponent,
-          hold: settings.hold,
-        }),
+        JSON.stringify({ type: "STOPS", own: settings.own, opponent: settings.opponent }),
       );
     },
     passTurn() {

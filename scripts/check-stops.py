@@ -16,11 +16,12 @@ default stops the server sends (STOPS below).
              is passed for, not asked
   pass-turn  seat 1 passes to the end of its turn in Main 1: not asked again
              that turn, and asked again on its next one
-  hold-on    spec 0004: seat 1 holds priority and casts Lightning Bolt with
-             another Bolt and a Mountain left: it is asked again with its
-             OWN Bolt on the stack, and passing resolves it (seat 2, not
-             holding, is never asked about it: it has nothing to respond with)
-  hold-off   the same without Hold: seat 1 is passed for, as Arena does
+  window     spec 0005: seat 1 casts Lightning Bolt with another Bolt and a
+             Mountain left: it is asked again with its OWN Bolt on the
+             stack, the question marked as a response window, and passing
+             resolves it; seat 2 (nothing to respond with) is not asked
+  window-none  the same Bolt with nothing left to respond with: passed for,
+             no window (respond above: the OPPONENT's Bolt is never a window)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -141,6 +142,8 @@ def bolt_game(name, seat2, wait_for_answer=False):
             st["seat2_asked_after"] += 1
             if stack:
                 st["seat2_on_stack"] += 1
+                # Spec 0005: the OPPONENT's spell is never a response window.
+                st.setdefault("seat2_window", []).append(f.get("window") is True)
         if kind == "chooseSpellAbilityToPlay":
             land = g.play_land(f)
             if land:
@@ -178,6 +181,8 @@ def respond():
     problems = [found["stopped"]] if found["stopped"] else []
     if st["seat2_on_stack"] < 1:
         problems.append("seat 2, holding a Bolt, was not asked while the Bolt was on the stack")
+    if any(st.get("seat2_window", [])):
+        problems.append("the opponent's Bolt was marked as a response window (spec 0005: only your own)")
     return result(problems, "seat 2 was asked with the Bolt on the stack, holding a Bolt of its own", found)
 
 
@@ -231,15 +236,14 @@ def pass_turn():
     return result(problems, "passed to the end of the turn: not asked again that turn, asked on the next", found)
 
 
-def hold(on):
-    """Spec 0004: Hold priority asks you after your own spell, and only you."""
-    mine = dict(STOPS, hold=on)
-    name = "hold-on" if on else "hold-off"
+def window(spare):
+    """Spec 0005: your own spell on top is a response window, when you could respond."""
+    name = "window" if spare else "window-none"
     trace = "" if not TRACES else (TRACES[: -len(".jsonl")] + f"-{name}.jsonl" if TRACES.endswith(".jsonl")
                                    else os.path.join(TRACES, f"stops-{name}.jsonl"))
     g = Game([("Mountain", 30), ("Lightning Bolt", 30)], BEARS, jar=JAR, res=RES, trace=trace,
-             stops={1: mine, 2: STOPS})
-    st = {"cast": None, "own_stack_asks": 0, "seat2_asks": 0, "after": None}
+             stops={1: STOPS, 2: STOPS})
+    st = {"cast": None, "own_stack_asks": [], "seat2_asks": 0, "after": None}
 
     def policy(g, f):
         turn, phase, stack, active = where(g, f)
@@ -250,15 +254,19 @@ def hold(on):
             return DEFAULT
         if st["cast"] is not None and stack:
             if seat == 1:
-                st["own_stack_asks"] += 1
+                st["own_stack_asks"].append(f.get("window") is True)
             else:
                 st["seat2_asks"] += 1
-            return None  # pass: let it resolve
+            return None  # let the countdown run out: pass
         land = g.play_land(f)
         if land:
             return land
         untapped = [c for c in g.mine(1, name="Mountain") if not c.get("tapped")]
-        if seat == 1 and st["cast"] is None and seat == active and len(untapped) >= 2 and                 any(c.get("name") == "Lightning Bolt" for c in g.zone(1, "hand")):
+        bolts = [c for c in g.zone(1, "hand") if c.get("name") == "Lightning Bolt"]
+        # With a spare: two Mountains and two Bolts (one left to respond with).
+        # Without: exactly one untapped Mountain, so nothing is left after it.
+        ready = (len(untapped) >= 2 and len(bolts) >= 2) if spare else (len(untapped) == 1 and bolts)
+        if seat == 1 and st["cast"] is None and seat == active and ready:
             o = g.option(f, name="Lightning Bolt", zone="hand", land=False)
             if o:
                 st["cast"] = turn
@@ -274,27 +282,27 @@ def hold(on):
             st["after"] = (g.player(1, 2) or {}).get("life")
         return st["after"] is not None
 
-    g.run(policy, until=until, max_turn=12)
-    found = {"cast on turn": st["cast"], "seat 1 asked with its own Bolt on the stack": st["own_stack_asks"],
+    g.run(policy, until=until, max_turn=14)
+    found = {"cast on turn": st["cast"], "seat 1 asked with its own Bolt on top (window?)": st["own_stack_asks"],
              "seat 2 asked about it": st["seat2_asks"], "life": [st.get("life"), st["after"]],
              "stopped": g.stopped_badly()}
     if st["cast"] is None or st["after"] is None:
-        return "inconclusive", "seat 1 never cast a Bolt with another Bolt and a Mountain to spare", found
+        return "inconclusive", "seat 1 never cast the Bolt it needed to", found
     problems = [found["stopped"]] if found["stopped"] else []
-    if on and st["own_stack_asks"] < 1:
-        problems.append("Hold on: seat 1 should be asked with its own Bolt on the stack")
-    if not on and st["own_stack_asks"]:
-        problems.append("Hold off: seat 1 should be passed for with its own Bolt on the stack")
+    if spare and st["own_stack_asks"] != [True]:
+        problems.append(f"with a Bolt to spare, seat 1 should be asked once, as a window: {st['own_stack_asks']}")
+    if not spare and st["own_stack_asks"]:
+        problems.append(f"with nothing to respond with, seat 1 should be passed for: {st['own_stack_asks']}")
     if st["seat2_asks"]:
-        problems.append("seat 2 does not hold and has nothing to respond with: it should not be asked")
+        problems.append("seat 2 has nothing to respond with: it should not be asked")
     if st.get("life") is not None and st["after"] != st["life"] - 3:
         problems.append(f"passing should resolve the Bolt: life {st.get('life')} -> {st['after']}")
-    return result(problems, "Hold on: asked with its own Bolt on the stack, then it resolved" if on
-                  else "Hold off: passed for with its own Bolt on the stack, as Arena does", found)
-
+    return result(problems, "own Bolt on top, a Bolt to spare: one question, marked as a response window; "
+                            "passing resolved it" if spare else
+                  "own Bolt on top, nothing to respond with: passed for, no window", found)
 
 SCENARIOS = {"quiet": quiet, "respond": respond, "nothing": nothing, "pass-turn": pass_turn,
-             "hold-on": lambda: hold(True), "hold-off": lambda: hold(False)}
+             "window": lambda: window(True), "window-none": lambda: window(False)}
 
 if __name__ == "__main__":
     worst = 0

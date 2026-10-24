@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -60,6 +61,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
                     (value as? JsonPrimitive)?.contentOrNull?.let { key to it }
                 }.toMap(),
             looking = (frame["looking"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject },
+            window = (frame["window"] as? JsonPrimitive)?.booleanOrNull == true,
         )
     }.getOrNull()
 

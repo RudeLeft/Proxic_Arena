@@ -37,18 +37,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class PriorityStops {
 
     /** The steps a player stops at, on their own turn and on the opponent's. */
-    /**
-     * @param hold spec 0004 -- asked after your own spell, ability or
-     *             trigger goes on the stack, instead of passed for
-     */
-    public record Settings(Set<String> own, Set<String> opponent, boolean hold) {
+    public record Settings(Set<String> own, Set<String> opponent) {
         public Settings {
             own = Set.copyOf(own);
             opponent = Set.copyOf(opponent);
-        }
-
-        public Settings(Set<String> own, Set<String> opponent) {
-            this(own, opponent, false);
         }
     }
 
@@ -79,6 +71,20 @@ public final class PriorityStops {
      * @param unpayable  which of them Forge's payment check says cannot be
      *                   paid now (§7.54); a hint for "anything to do"
      */
+    /**
+     * Spec 0005 -- this priority question is a response window: the seat
+     * plays with stops (the page knows how to count down), answers for
+     * itself, and the top of the stack is its OWN spell, ability or
+     * trigger. Never for the opponent's: those are always asked plainly.
+     */
+    boolean responseWindow(int seat, Player player, Game game, boolean controlled) {
+        if (!bySeat.containsKey(seat) || controlled || game.getStack().isEmpty()) {
+            return false;
+        }
+        SpellAbility top = game.getStack().peekAbility();
+        return top != null && player.equals(top.getActivatingPlayer());
+    }
+
     boolean shouldAsk(int seat, Player player, Game game, boolean controlled,
                       Map<String, SpellAbility> options, Collection<String> unpayable) {
         Settings settings = bySeat.get(seat);
@@ -101,14 +107,10 @@ public final class PriorityStops {
 
         // Something on the stack: a response is never skipped -- when the
         // OPPONENT put it there and there is something to respond with.
-        // Your own spell or trigger passes, as in Arena -- unless you hold
-        // priority (spec 0004): then it is asked like theirs (CR 117.3c).
+        // Your own spell or trigger is asked too (CR 117.3c), as a response
+        // window (spec 0005): the page counts down and passes for you if
+        // you let it run out (Phase 8 Amendment 4) -- see responseWindow.
         if (!game.getStack().isEmpty()) {
-            SpellAbility top = game.getStack().peekAbility();
-            Player by = top == null ? null : top.getActivatingPlayer();
-            if (by != null && by.equals(player)) {
-                return settings.hold() && somethingToDo;
-            }
             return somethingToDo;
         }
 

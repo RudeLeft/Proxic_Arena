@@ -65,6 +65,8 @@ const STEPS: { label: string; phases: string[] }[] = [
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 const NOTICE_MS = 7000;
+/** Spec 0005 — the response window on your own spell or trigger (owner 2026-10-23: 2 s). */
+const RESPONSE_WINDOW_MS = 2000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
 const HOLD_MS = 1500;
 
@@ -85,27 +87,6 @@ export function GameScreen({
   // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
-
-  // Spec 0004 — your saved stops, for the Hold button: saved like any stop
-  // (it lasts until you turn it off), then applied to this game.
-  const [stopSettings, setStopSettings] = useState<StopSettings | null>(null);
-  useEffect(() => {
-    if (!live) return undefined;
-    let alive = true;
-    void fetchStops().then((loaded) => {
-      if (alive && loaded) setStopSettings(loaded);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [live]);
-  const toggleHold = async () => {
-    if (!stopSettings) return;
-    const saved = await saveStops({ ...stopSettings, hold: !stopSettings.hold });
-    if (!saved) return;
-    setStopSettings(saved);
-    socketRef.current?.stops(saved);
-  };
 
   useEffect(() => {
     if (!live) return undefined;
@@ -248,6 +229,8 @@ export function GameScreen({
   const pick = useCallback(
     (objectId: string) => {
       const result = clickOn(question, objectId);
+      // Spec 0005: a card you could play pauses the response window.
+      if (result.kind !== "select" && decision?.window) setPausedWindow(decision.decisionId);
       const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
       setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
@@ -281,6 +264,57 @@ export function GameScreen({
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [cancellable, offer, inspecting, viewer, answer]);
+
+  // Spec 0005 — the response window. Your own spell or trigger is on top:
+  // the act button counts down and, if you let it run out, your page passes
+  // (Phase 8 Amendment 4). Anything that shows you are acting or reading
+  // pauses it for good: an ordinary question from then on.
+  const windowId =
+    decision?.window && question?.context === "priority" && game.awaiting === null
+      ? decision.decisionId
+      : null;
+  const [pausedWindow, setPausedWindow] = useState<number | null>(null);
+  const counting = windowId !== null && pausedWindow !== windowId;
+  const pauseWindow = useCallback(() => {
+    if (windowId !== null) setPausedWindow(windowId);
+  }, [windowId]);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (!counting) {
+      setCountdown(null);
+      return undefined;
+    }
+    const ends = Date.now() + RESPONSE_WINDOW_MS;
+    setCountdown(Math.ceil(RESPONSE_WINDOW_MS / 1000));
+    const timer = window.setInterval(() => {
+      const left = ends - Date.now();
+      if (left <= 0) {
+        window.clearInterval(timer);
+        setCountdown(null);
+        answer(null);
+        return;
+      }
+      setCountdown(Math.ceil(left / 1000));
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [counting, windowId, answer]);
+  // Reading a card or a list pauses it: you are thinking.
+  useEffect(() => {
+    if (counting && (inspecting || viewer)) pauseWindow();
+  }, [counting, inspecting, viewer, pauseWindow]);
+  // Space resolves now.
+  useEffect(() => {
+    if (!counting) return undefined;
+    const space = (event: KeyboardEvent) => {
+      if (event.key !== " " || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)) return;
+      event.preventDefault();
+      answer(null);
+    };
+    document.addEventListener("keydown", space);
+    return () => document.removeEventListener("keydown", space);
+  }, [counting, answer]);
 
   const decisionId = decision?.decisionId ?? null;
   const search = useCallback(
@@ -353,8 +387,8 @@ export function GameScreen({
                 socketRef.current?.passTurn();
                 answer(null);
               }}
-              hold={stopSettings?.hold ?? null}
-              onHold={() => void toggleHold()}
+              countdown={countdown}
+              onPauseWindow={pauseWindow}
               onView={setViewer}
               finished={finished}
             />
@@ -420,10 +454,7 @@ export function GameScreen({
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
           concession={finished ? null : concessionText(game.concession)}
-          onStops={(settings) => {
-            setStopSettings(settings);
-            socketRef.current?.stops(settings);
-          }}
+          onStops={(settings) => socketRef.current?.stops(settings)}
           onConcede={() => {
             setGame((previous) => ({ ...previous, concession: null }));
             socketRef.current?.concede();
@@ -774,8 +805,8 @@ function Rail({
   cancel,
   onAnswer,
   onPassTurn,
-  hold,
-  onHold,
+  countdown,
+  onPauseWindow,
   onView,
   finished,
 }: {
@@ -794,9 +825,10 @@ function Rail({
   onAnswer: (actionId: string | null) => void;
   /** §7.53 extra — pass now, and no more stops this turn. */
   onPassTurn: () => void;
-  /** Spec 0004 — Hold priority, on or off; null until your settings have loaded. */
-  hold: boolean | null;
-  onHold: () => void;
+  /** Spec 0005 — seconds left in a response window, or null when none is counting. */
+  countdown: number | null;
+  /** Spec 0005 — stop the countdown for good: an ordinary question from here. */
+  onPauseWindow: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
@@ -877,6 +909,21 @@ function Rail({
           <span className="gs-act-word">{cancel.word}</span>
           <span className="gs-act-sub">{cancel.sub} · Esc</span>
         </button>
+      ) : myPriority && countdown !== null ? (
+        // Spec 0005: your own spell or trigger is on top. It resolves when
+        // the countdown runs out; clicking here waits (an ordinary Pass).
+        <div className="gs-act-group">
+          <button
+            type="button"
+            className="gs-act gs-act-window"
+            disabled={busy}
+            onClick={onPauseWindow}
+            aria-label={`Pass: Resolve ${top?.name ?? "it"} in ${countdown}. Click to wait and respond.`}
+          >
+            <span className="gs-act-word">Resolving in {countdown}…</span>
+            <span className="gs-act-sub">Click to wait · Space resolves now</span>
+          </button>
+        </div>
       ) : myPriority ? (
         <div className="gs-act-group">
           {/* The same pass whatever it says (§7.53 extra): the words say
@@ -911,25 +958,6 @@ function Rail({
           <span className="gs-waiting-word">Your answer</span>
           <span className="gs-waiting-sub">Your choice is above the board</span>
         </div>
-      )}
-
-      {/* Spec 0004 (owner 2026-10-23): Hold priority -- asked after your
-          own spell or trigger too, until you turn it off. Always there in a
-          game, so it can be turned on before you cast. */}
-      {!finished && hold !== null && (
-        <button
-          type="button"
-          className={`gs-hold${hold ? " gs-hold-on" : ""}`}
-          aria-pressed={hold}
-          onClick={onHold}
-          title={
-            hold
-              ? "Hold is on: you are asked after your own spells and triggers too. Click to turn it off."
-              : "Hold priority: be asked after your own spells and triggers too, to respond to them."
-          }
-        >
-          Hold{hold ? " on" : ""}
-        </button>
       )}
 
       {me && (

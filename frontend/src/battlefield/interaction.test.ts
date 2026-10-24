@@ -20,6 +20,7 @@ function decision(kind: string, options: Decision["options"], mandatory = false)
     unavailable: {},
     about: null,
     looking: [],
+    window: false,
   };
 }
 const option = (actionId: string, objectId: string | null, label = actionId) => ({

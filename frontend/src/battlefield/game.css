@@ -290,8 +290,7 @@ button.gs-zone:not(:disabled):hover {
   position: absolute;
   left: 7.4px;
   top: 633px;
-  width: 150px;
-  text-align: left;
+  width: 216px;
   height: 18px;
   margin: 0;
   padding: 0;
@@ -304,40 +303,6 @@ button.gs-zone:not(:disabled):hover {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
-}
-/* Spec 0004 — Hold priority: the right end of the line under the act
- * button; "Skip to end of turn" keeps the left. */
-.gs-hold {
-  position: absolute;
-  left: 165.4px;
-  top: 633px;
-  width: 58px;
-  height: 18px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid #6b5a3c;
-  border-radius: 9px;
-  background: none;
-  color: #c9a46a;
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-.gs-hold:hover {
-  border-color: #c9a46a;
-  background: rgba(231, 194, 125, 0.12);
-}
-.gs-hold-on,
-.gs-hold-on:hover {
-  border-color: #e7c27d;
-  background: #e7c27d;
-  color: #1a140b;
-  font-weight: 600;
-}
-.gs-hold:focus-visible {
-  outline: 2px solid #f1f4f8;
-  outline-offset: 2px;
 }
 .gs-act-turn:disabled {
   opacity: 0.5;

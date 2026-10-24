@@ -195,6 +195,18 @@ does not play); a computer opponent; an import warning (D2).
   deck onto the sprocket picked, then cranked) and the server's Open
   Format tests.
 
+- **Amendment 4 — the response window** (owner, 2026-10-23, asked with
+  the choice of "approve" or "don't change the rule"). Point 5 of "what
+  Phase 8 delivers" allows only "the priority pass the player's own stops
+  allow". It now also allows ONE more: when the player's OWN spell,
+  ability or trigger is on the stack and they could respond, the page
+  shows a visible 2-second countdown on the Pass button, and if the
+  player lets it run out without pausing it, their page passes priority
+  for them. Anything that shows they are acting or reading pauses it for
+  good (spec 0005). Never on the opponent's spell or trigger, never on
+  any question but "act or pass", never without the countdown shown.
+  Spec 0005 replaces spec 0004's Hold button.
+
 ## Appendix — the 170 entries, 2026-10-22
 
 Generated from the compiled worker and Forge at the pin

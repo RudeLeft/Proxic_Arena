@@ -1,6 +1,6 @@
 # 0004 — Hold priority: respond to your own spell or trigger
 
-**Status:** Approved 2026-10-23
+**Status:** Dropped 2026-10-23 -- replaced by `0005-response-window.md` before release (owner: "fully automated"); built, never shipped in a release
 **Owner decisions:** build before Phase 8 closes (owner, 2026-10-23, from
 the Phase 8 rules review); D1 a Hold button only; D2 until turned off
 

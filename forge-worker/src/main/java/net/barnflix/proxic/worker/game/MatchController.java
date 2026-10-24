@@ -543,6 +543,9 @@ public final class MatchController extends GeneratedControllerBase {
             showTheirStack();
             return null;
         }
+        // Spec 0005 -- your own spell or trigger on top: the page counts down.
+        host.offerResponseWindow(host.stops().responseWindow(actedForSeat, player, player.getGame(),
+                actedForSeat != authorisedSeat));
 
         try {
             String choice =

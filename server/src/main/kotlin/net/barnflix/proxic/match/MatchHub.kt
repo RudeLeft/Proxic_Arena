@@ -191,6 +191,9 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.about.isNotEmpty()) {
             putJsonObject("about") { request.about.forEach { (key, value) -> put(key, value) } }
         }
+        // Spec 0005 — a response window: the asked player's own spell or
+        // trigger is on top; their page counts down (Phase 8 Amendment 4).
+        if (request.window) put("window", true)
         if (request.looking.isNotEmpty()) {
             putJsonArray("looking") { request.looking.forEach { add(it) } }
         }

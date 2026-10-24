@@ -327,6 +327,11 @@ public final class WorkerMain {
                         if (GAME.subject() != null) {
                             ask.add("about", GAME.subject());
                         }
+                        // Spec 0005 -- a response window: the asked player's own
+                        // spell or trigger is on top, and their page counts down.
+                        if (GAME.responseWindow()) {
+                            ask.addProperty("window", true);
+                        }
                         // Spec 0001 D3 -- the library cards this player is looking at.
                         if (GAME.looking() != null) {
                             ask.add("looking", GAME.looking());
@@ -604,8 +609,7 @@ public final class WorkerMain {
     /** §7.53 — `{own: [PHASE, ...], opponent: [PHASE, ...]}`, Forge's step names. */
     private static net.barnflix.proxic.worker.game.PriorityStops.Settings stopsOf(JsonObject from) {
         return new net.barnflix.proxic.worker.game.PriorityStops.Settings(
-                namesIn(from, "own"), namesIn(from, "opponent"),
-                from.has("hold") && from.get("hold").isJsonPrimitive() && from.get("hold").getAsBoolean());
+                namesIn(from, "own"), namesIn(from, "opponent"));
     }
 
     private static java.util.Set<String> namesIn(JsonObject from, String key) {

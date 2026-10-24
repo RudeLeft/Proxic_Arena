@@ -132,6 +132,24 @@ class WorkerFramesTest {
         assertTrue(!plain.contains("unavailable"), plain)
     }
 
+    /** Spec 0005 -- a response window reaches the browser, and only when it is one. */
+    @Test
+    fun `a response window is carried to the asked player`() {
+        val window =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"8","actedForSeat":1,"authorisedSeat":1,"kind":"chooseSpellAbilityToPlay",
+                     "stateVersion":"3","options":[],"window":true}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertTrue(window.window)
+        assertTrue(decisionMessage(window).toString().contains("\"window\":true"))
+        val plain = window.copy(window = false)
+        assertTrue(!decisionMessage(plain).toString().contains("window"))
+    }
+
     /** Owner 2026-10-22 -- what Cancel backs out of reaches the browser. */
     @Test
     fun `what a question is about reaches the browser`() {

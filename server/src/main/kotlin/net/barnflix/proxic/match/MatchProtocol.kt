@@ -108,6 +108,12 @@ data class DecisionRequest(
      * passes them to that seat only, as the whole question goes.
      */
     val looking: List<JsonObject> = emptyList(),
+    /**
+     * Spec 0005 — a response window: the asked player's OWN spell, ability
+     * or trigger is on top of the stack. Their page counts down and passes
+     * if they let it run out (Phase 8 Amendment 4). To that seat only.
+     */
+    val window: Boolean = false,
 )
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */
