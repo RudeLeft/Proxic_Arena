@@ -400,10 +400,13 @@ final class CombatChoices {
                 labels.put(id, describe(blocker)
                         + " — " + assigned.getOrDefault(blocker, 0) + " so far");
             }
-            if (trampleOver) {
-                // A null key is Forge's way of saying "the
-                // defending player", and trample is the only
-                // reason it is on offer.
+            // A null key is Forge's way of saying "the defending player".
+            // Trample reaches them only once every blocker has lethal
+            // damage (CR 702.19c) -- Forge takes whatever map it is given,
+            // and its own screen enforces this (VAssignCombatDamage
+            // .canAssignTo), so this must. A creature that divides its
+            // damage as it chooses may give the player any of it.
+            if ((trampleOver && allLethal(attacker, blockers, assigned)) || (divides && defender != null)) {
                 labels.put("damage:defender", String.valueOf(defender)
                         + " — " + assigned.getOrDefault(null, 0) + " so far (trample)");
             }
@@ -432,6 +435,29 @@ final class CombatChoices {
             assigned.merge(target, 1, Integer::sum);
         }
         return assigned;
+    }
+
+    /**
+     * Every blocker has been assigned lethal damage -- Forge's own reading
+     * (VAssignCombatDamage.getDamageToKill): what it still needs to die,
+     * after damage already marked; 1 from a deathtouch attacker (CR
+     * 702.2c); a planeswalker's loyalty.
+     */
+    static boolean allLethal(Card attacker, forge.game.card.CardCollectionView blockers,
+            java.util.Map<Card, Integer> assigned) {
+        boolean deathtouch = attacker.hasKeyword(forge.game.keyword.Keyword.DEATHTOUCH);
+        for (Card blocker : blockers) {
+            int lethal = Math.max(0, blocker.getLethalDamage());
+            if (blocker.isPlaneswalker()) {
+                lethal = blocker.getCurrentLoyalty();
+            } else if (deathtouch) {
+                lethal = Math.min(lethal, 1);
+            }
+            if (assigned.getOrDefault(blocker, 0) < lethal) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** A creature, as a player needs to see it in combat. */

@@ -8,6 +8,11 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
                   assigns the damage one point at a time
                   (assignCombatDamage) and puts every point on the LAST
                   Bears offered -- that one dies, the other is untouched
+  trample         a Colossal Dreadmaw (6/6 trample) blocked by one Grizzly
+                  Bears: the defending player is offered only once the
+                  Bears has lethal damage (CR 702.19c) -- points 1 and 2
+                  go to the Bears, then every point the player is offered
+                  is taken: the Bears dies, the player loses 4
   wolf-yes        Lone Wolf, blocked: "assign its damage as though it
                   weren't blocked?" (confirmStaticApplication) -- Yes: the
                   defending player loses 2, the blocker takes nothing
@@ -153,6 +158,51 @@ def double_block():
         problems.append(f"{spared} took no damage, but did not survive: {after}")
     return outcome(problems, "the Hill Giant's player put every point on the Bears picked: that one died, the "
                              "other is untouched", found)
+
+
+def trample():
+    g = game("trample", [("Forest", 30), ("Colossal Dreadmaw", 30)])
+    st = {"attacked": False, "blockers": [], "asked": [], "after": None, "life": None, "bears_before": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "assignCombatDamage":
+            ids = [o["actionId"] for o in f["options"]]
+            st["asked"].append((seat, "damage:defender" in ids))
+            return "damage:defender" if "damage:defender" in ids else ids[0]
+        if k == "declareAttackers":
+            return attack(g, f, st, "Colossal Dreadmaw", 1) if seat == 1 else None
+        if k == "declareBlockers":
+            return block(g, f, st, 1) if seat == 2 else None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            name = "Colossal Dreadmaw" if seat == 1 else "Grizzly Bears"
+            return g.play_land(f) or (None if st["attacked"] else cast(g, f, name))
+        return DEFAULT
+
+    def until(g):
+        if st["asked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+                "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"blockers": st["blockers"], "asked": st["asked"], "life": st["life"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["asked"] or not st["after"]:
+        return "inconclusive", "the Colossal Dreadmaw was never blocked by one Bears", found
+    problems = []
+    offered = [has for _, has in st["asked"]]
+    if offered[:2] != [False, False]:
+        problems.append(f"the player was offered before the Bears had lethal damage: {offered}")
+    if not all(offered[2:]):
+        problems.append(f"after lethal on the Bears, the player should be offered every point: {offered}")
+    if st["blockers"] and st["blockers"][0] not in st["after"]["grave"]:
+        problems.append(f"the Bears had lethal damage, but it is not in the graveyard: {st['after']}")
+    if st["life"] is not None and st["after"]["life"] != st["life"] - 4:
+        problems.append(f"6 trample over a 2/2: the player loses 4, {st['life']} -> {st['after']['life']}")
+    return outcome(problems, "Colossal Dreadmaw: 2 to the Bears first (lethal), then 4 trampled over to the "
+                             "player", found)
 
 
 def wolf(yes):
@@ -421,7 +471,7 @@ def enlist(pick):
                    else "enlisted none: 1 damage, nothing else tapped", found)
 
 
-SCENARIOS = {"double-block": double_block, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
+SCENARIOS = {"double-block": double_block, "trample": trample, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
              "exert-last": lambda: exert(True), "exert-none": lambda: exert(False),
              "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False),
              "enlist-last": lambda: enlist(True), "enlist-none": lambda: enlist(False)}
