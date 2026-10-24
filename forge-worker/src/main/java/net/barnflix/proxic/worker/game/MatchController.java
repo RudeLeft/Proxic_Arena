@@ -2811,7 +2811,7 @@ public final class MatchController extends GeneratedControllerBase {
                     colours = forge.card.ColorSet.fromMask(colours.getColor() & remaining.getUnpaidColors());
                 }
                 colour = colours.isMulticolor()
-                        ? chooseColorAllowColorless(keyword + " " + picked + " for which colour?", picked, colours)
+                        ? chooseColorAllowColorless(keyword + " " + ViewerSnapshot.nameFor(picked, player.getView()) + " for which colour?", picked, colours)
                         : colours.getColor();
             }
             forge.card.mana.ManaCostShard shard = remaining.payManaViaConvoke(colour);
@@ -3598,7 +3598,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (sa.hasParam("Cost") && !"0".equals(sa.getParam("Cost"))) {
             return true;
         }
-        String card = String.valueOf(wrapper.getTrigger().getHostCard());
+        String card = ViewerSnapshot.nameFor(wrapper.getTrigger().getHostCard(), player.getView());
         return askYesNo(
                 "confirmTrigger",
                 "use the triggered ability of " + card + "?",
