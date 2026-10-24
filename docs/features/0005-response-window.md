@@ -1,6 +1,6 @@
 # 0005 — The response window: respond to your own spell, automatically
 
-**Status:** Approved 2026-10-23
+**Status:** Built in 1.1.0 (approved 2026-10-23)
 **Owner decisions:** build it now (owner, 2026-10-23: "write the spec and
 build it"); D1 a 2-second window; D2 remove the Hold button (spec 0004
 is replaced); D3 Phase 8 Amendment 4 approved (a timed pass)

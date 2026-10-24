@@ -41,10 +41,10 @@ BUILD NEW
 
 ## Current work
 
-**The main build is COMPLETE (2026-10-22, version 1.0.0).** Phase 0A was
-ACCEPTED 2026-10-15 and Phases 1–7 each passed their exit gate; Phase 7
-was signed off by the owner 2026-10-22
-(`docs/history/phases/phase-07/PHASE_07_EXIT_GATE.md`). The phase papers
+**The main build is COMPLETE (version 1.1.0, 2026-10-24).** Phase 0A was
+ACCEPTED 2026-10-15 and Phases 1–8 each passed their exit gate; Phase 8
+was accepted by the owner 2026-10-24
+(`docs/history/phases/phase-08/PHASE_08_EXIT_GATE.md`). The phase papers
 are frozen history in `docs/history/phases/`.
 
 **From here, work is one feature at a time** (owner decision
@@ -55,18 +55,13 @@ security fix, a dependency refresh, a failing test — needs no spec, but
 is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
-**Approved feature specs:** `docs/features/0001-sacrifice-and-surveil.md`
-(2026-10-22); `docs/features/0002-resolving-not-waiting.md` and
-`docs/features/0003-big-boards.md` (2026-10-23);
-`docs/features/0005-response-window.md` (2026-10-23; replaces 0004, dropped).
-Update this line when one is approved or done.
+**Approved feature specs:** none in progress. Done in 1.1.0: 0001, 0002,
+0003, 0005 (0004 dropped). Update this line when one is approved or done.
 
-**Phase 8** (owner, 2026-10-22: "a real Phase 8"): every Forge question,
-answered and proven — `PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`.
-**LOCKED 2026-10-22 and ACTIVE**; its Part 1 is spec 0001. Large work may still
-be a phase, locked and closed at an exit gate as Phases 1–7 were; its
-document lives at the top level while active and moves to
-`docs/history/phases/` at its close.
+**Phases:** large work may still be a phase, locked and closed at an exit
+gate as Phases 1–8 were; its document lives at the top level while
+active and moves to `docs/history/phases/` at its close. Phase 8 (every
+Forge question, answered and proven) closed 2026-10-24.
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,

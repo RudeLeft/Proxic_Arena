@@ -1,6 +1,6 @@
 # 0002 — "Resolving…", not "Waiting for" the other player
 
-**Status:** Approved 2026-10-23
+**Status:** Built in 1.1.0 (approved 2026-10-23)
 **Owner decisions:** 2026-10-23 — while the rules engine is working and
 nobody has a question, both players see "Resolving…" (chosen over "The
 game is working…" and over leaving it as it was).

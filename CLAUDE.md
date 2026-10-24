@@ -6,15 +6,14 @@ contract — project locations, work discipline, evidence rules, Forge
 boundaries, hidden-information rules, protocol invariants and verification
 philosophy — and it maps the rest of the documents.
 
-**The main build is COMPLETE — version 1.0.0, 2026-10-22.** Phases 0A
-and 1-7 all passed their gates; Phase 7 was signed off by the owner
-2026-10-22. Their documents are frozen history in
-`docs/history/phases/` and are never edited. **Work is now one feature
-at a time**: only on a feature spec the owner has approved
-(`docs/features/`, listed in `ROADMAP.md`); see AGENTS.md "Current
-work". **Phase 8 is LOCKED (2026-10-22) and active** — every Forge
-question, answered and proven (`PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`);
-its Part 1 is spec 0001.
+**The main build is COMPLETE — version 1.1.0, 2026-10-24.** Phases 0A
+and 1-8 all passed their gates; Phase 8 (every Forge question, answered
+and proven) was accepted by the owner 2026-10-24. Their documents are
+frozen history in `docs/history/phases/` and are never edited. **Work
+is one feature at a time**: only on a feature spec the owner has
+approved (`docs/features/`, listed in `ROADMAP.md`); see AGENTS.md
+"Current work". Who applies each Magic rule, and the proof, is
+`docs/architecture/RULES_COVERAGE.md`.
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.

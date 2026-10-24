@@ -6,19 +6,21 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.0.0 (2026-10-22): the main build is complete.** Two players
+**Version 1.1.0 (2026-10-24): the main build is complete, and every
+question Forge can ask is answered (Phase 8).** Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and
 block, each player seeing only what Forge lets them see — with every
 page built: sign in, Lobby, Deck Depot, Account, Admin. What each of
-the eight phases proved is in `docs/history/phases/`; what changed in
+the nine phases proved is in `docs/history/phases/`; what changed in
 each release is `CHANGELOG.md`; what is next, and how new features are
 specified and approved, is `ROADMAP.md`.
 
-**Phase 8 is active** (`PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`): a
-complete, generated record of every question Forge can put to a player,
-a CI gate so none can be skipped, a real-game proof for each, and the
-ones not yet answered built.
+**Phase 8 is complete** (`docs/history/phases/phase-08/`): a complete,
+generated record of every question Forge can put to a player, a CI gate
+so none can be skipped, a real-game proof for each, and every one built.
+Who applies each Magic rule, and the proof, is
+`docs/architecture/RULES_COVERAGE.md`.
 
 **Everything except health and version requires a session**, the
 status page included. Accounts are created by an administrator with

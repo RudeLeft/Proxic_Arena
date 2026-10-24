@@ -1,6 +1,6 @@
 # 0003 — Big boards stay playable
 
-**Status:** Approved 2026-10-23
+**Status:** Built in 1.1.0 (approved 2026-10-23)
 **Owner decisions:** 2026-10-23 — identical tokens attacking the same
 thing stay one pile (chosen over "separate cards, fewer lines" and over
 leaving combat as it was). 2026-10-23 — measure where a big board's time

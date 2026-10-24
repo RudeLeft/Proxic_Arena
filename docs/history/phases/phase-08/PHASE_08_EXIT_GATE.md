@@ -1,8 +1,10 @@
 # Phase 8 Exit Gate
 
-**Status: WAITING ON THE OWNER (P8-O).** Nine of the ten acceptance
-tests are met; the tenth is the owner playing and accepting. Evidence,
-row by row: `PHASE_08_ACCEPTANCE_AUDIT.md`.
+**Status: PASSED — Phase 8 is COMPLETE.** The owner accepted it on
+2026-10-24 ("I accept phase 8", P8-O), after playing the test decks on
+the live site. All ten acceptance tests are met; shipped as version
+1.1.0. This document is history from here on. Evidence, row by row:
+`PHASE_08_ACCEPTANCE_AUDIT.md`.
 
 Every question Forge can put to a player is now answered by the player,
 on the board, and proven in a real game. A deck can hold any card Forge

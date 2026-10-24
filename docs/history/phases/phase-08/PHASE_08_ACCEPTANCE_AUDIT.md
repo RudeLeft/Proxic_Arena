@@ -26,10 +26,10 @@ browser, not a unit test alone (AGENTS TEST-011).
 
 | Status | Count |
 |---|---|
-| MET | 9 |
+| MET | 10 |
 | PARTIAL | 0 |
 | NOT MET | 0 |
-| OWNER | 1 (P8-O) |
+| OWNER | 0 |
 | **Total** | **10** |
 
 **Updated 2026-10-23, night** -- after a second, full rules review: trample
@@ -70,4 +70,4 @@ could not answer. Now none does.
 | P8-G | An unbuilt question still stops the game, names the card, never guesses | MET | Real game, 2026-10-23: a worker built with Space Beleren's sector answer removed, playing `check-unset.py sector`. The match ended FAILED on turn 8 (no winner, no guess) with "Forge asked for chooseSector, **about Savannah Lions**, which this adapter does not implement -- turn 8, Alice's MAIN1". **Found on the way:** before commit `2c872cc` the same game said only "chooseSector -- turn 8": the question came as the Lions entered, after their spell had left the stack, and the stop named only the stack. Every stub now names the card among its own arguments (a card the other player could not see is "a hidden card"); the text goes to the server log and the admin's match record only. `LoudFailureTest` (CI) holds the announce-before-throw and first-reason-wins rules |
 | P8-H | `check-hidden-hands` and `check-snapshot-first` hold over every new scenario | MET | Both run in CI over the traces of every Lab game, dice and Un-set included (`.github/workflows/ci.yml`, Mechanics Lab job), with `check-kinds` |
 | P8-I | Every Un-set question works with its cards in an Open Format game, with D5's deck support | MET | D5 decided as Amendments 1 and 3. `check-unset.py` (sector: Lions assigned to Gamma and Alpha, Space Beleren's -1 on Gamma counters only the Gamma Lions; crank-yes/crank-no: a Goblin Slingshot assembled from the contraption deck onto sprocket 3, offered and cranked, or not) and `check-dice.py` (reroll, nudge, swap, ignore); both boards show the sector and sprocket. Contraption and Attraction decks by card type in the server's Open Format tests. **From the Deck Builder (2026-10-23):** its Arena export refused a 60 + 15 Contraption deck (its own 65-card cap) and chose printings Forge lacks; the owner is fixing both there (no Arena change). Arena's side is met; a player's end-to-end path waits on that export |
-| P8-O | The owner plays games with cards from each slice and accepts the phase | OWNER | `PHASE_08_EXIT_GATE.md`, "What to play" |
+| P8-O | The owner plays games with cards from each slice and accepts the phase | MET | The owner played the Phase 8 test decks on the live site and accepted the phase, 2026-10-24 ("I accept phase 8") |

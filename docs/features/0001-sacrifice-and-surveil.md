@@ -1,11 +1,11 @@
 # 0001 — Sacrifice and surveil
 
-**Status:** Approved 2026-10-22
+**Status:** Built in 1.1.0 (approved 2026-10-22)
 **Owner decisions:** what to build (2026-10-22: "spec sacrifice plus
 surveil"); approved 2026-10-22 with D1 yes (destroy too), D2 ask anyway,
 D3 card pictures (scry moves to the same look)
 
-Part 1 of Phase 8 (`PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`, owner
+Part 1 of Phase 8 (`docs/history/phases/phase-08/PHASE_08_EVERY_FORGE_QUESTION_LOCKED.md`, owner
 2026-10-22), whose record of every Forge question these three join.
 
 ## Why
