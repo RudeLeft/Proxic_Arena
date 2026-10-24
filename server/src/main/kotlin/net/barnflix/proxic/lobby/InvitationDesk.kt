@@ -141,8 +141,12 @@ class InvitationDesk(
             is RoomResult.Refused -> {
                 // Not the player's fault, and not an answer: put it
                 // back, so neither side loses an invitation to a
-                // refusal neither of them chose.
-                invitations.offer(invitation.fromUserId, invitation.roomId, invitation.toUserId)
+                // refusal neither of them chose. If it cannot go back
+                // -- the host sent another meanwhile, or somebody else
+                // invited the player -- both sides are told it ended,
+                // rather than it vanishing (2026-10-24 review).
+                val back = invitations.offer(invitation.fromUserId, invitation.roomId, invitation.toUserId)
+                if (back !is OfferResult.Sent) end(invitation, InvitationEnd.WITHDRAWN)
                 reply(errorMessage(result.error))
             }
 

@@ -900,6 +900,10 @@ main.pa-main {
 .pa-lobby-match {
   margin-bottom: 22px;
 }
+/* Hidden behind a game (LobbyPage): `hidden` loses to display: flex. */
+.pa-lobby-layout[hidden] {
+  display: none;
+}
 .pa-lobby-layout {
   display: flex;
   flex-wrap: wrap;
@@ -1267,9 +1271,23 @@ main.pa-main {
 }
 .pa-host-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px 14px;
+  max-width: 100%;
   margin-left: auto;
+}
+/* A phone: the host's buttons share the card's width rather than run past
+   its edge ("Remove Pat" overflowed it, 2026-10-24 lobby review). */
+@media (max-width: 560px) {
+  .pa-host-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  .pa-host-actions .pa-button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 .pa-start-dead,
 .pa-start-dead:disabled {

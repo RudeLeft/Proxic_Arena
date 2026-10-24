@@ -292,7 +292,10 @@ export default function LobbyPage() {
         />
       )}
 
-      <div className="pa-lobby-layout">
+      {/* Behind a game the lobby is out of reach -- of the mouse already, and
+          now of the keyboard and screen readers too (2026-10-24 review). The
+          game has its own chat. */}
+      <div className="pa-lobby-layout" hidden={!!lobby.match}>
         <PlayersPanel
           lobby={lobby}
           me={me.userId}
@@ -327,7 +330,7 @@ export default function LobbyPage() {
         />
       </div>
 
-      <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
+      {!lobby.match && <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />}
 
       {removing && room && (
         <Dialog
@@ -350,7 +353,7 @@ export default function LobbyPage() {
         <Dialog
           label="Invitation"
           title={`${invitation.from.displayName} asked you into ${invitation.roomName}`}
-          sub="One seat open, waiting on you. Close this to deal with it later — the invitation waits on the room's row."
+          sub="One seat is open and held for you. Close this to decide later — you can still accept from the room list."
           primary="Accept"
           onPrimary={() => send({ type: "INVITE_ACCEPT", roomId: invitation.roomId })}
           secondary="Decline"
@@ -1039,8 +1042,7 @@ function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) 
       <div className="pa-chat-log" role="log" ref={logRef}>
         {lobby.chat.length === 0 ? (
           <p className="pa-chat-empty">
-            Nothing yet. One channel, kept in memory: nothing is stored and nothing survives a
-            restart.
+            Nothing yet. Say hello to everyone in the lobby — chat isn't saved.
           </p>
         ) : (
           lobby.chat.map((line, index) => {

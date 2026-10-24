@@ -27,9 +27,6 @@ enum class RoomStatus {
     EXPIRED,
 }
 
-/** §5.130 — a snapshot's lifecycle. */
-enum class SetupStatus { READY, CONSUMED, INVALIDATED }
-
 /**
  * A seat in a room (§5.24–§5.26).
  *
