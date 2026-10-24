@@ -401,6 +401,78 @@ class LobbySocketTest {
             }
         }
 
+    // --- reactions (spec 0007) ---------------------------------------------
+
+    /** A reaction reaches everybody, says who sent it, and can be taken back. */
+    @Test
+    fun `a reaction on a chat line reaches everyone, and can be taken back`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val first = tokenFor("RudeLeft")
+            val second = tokenFor("Pat")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$first") }) {
+                val host = this
+                host.await("PRESENCE")
+
+                client.webSocket(
+                    "/ws/user",
+                    { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$second") },
+                ) {
+                    await("PRESENCE")
+                    host.await("PRESENCE_JOINED")
+
+                    host.say("""{"type":"CHAT","text":"gl hf"}""")
+                    val line = await("CHAT")!!["messageId"]!!.jsonPrimitive.content
+
+                    say("""{"type":"REACT","lineId":"$line","emoji":"😂","on":true}""")
+                    val heard = host.await("REACTION")!!
+                    assertEquals(line, heard["lineId"]!!.jsonPrimitive.content)
+                    assertEquals("😂", heard["emoji"]!!.jsonPrimitive.content)
+                    assertEquals("true", heard["on"]!!.jsonPrimitive.content)
+                    assertEquals("Pat", heard["from"]!!.jsonObject["displayName"]!!.jsonPrimitive.content)
+
+                    say("""{"type":"REACT","lineId":"$line","emoji":"😂","on":false}""")
+                    assertEquals("false", host.await("REACTION")!!["on"]!!.jsonPrimitive.content)
+                }
+            }
+        }
+
+    /** Only the six, on a line id; anything else is refused, not relayed. */
+    @Test
+    fun `a reaction outside the six, or with no line, is refused`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val token = tokenFor("RudeLeft")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token") }) {
+                await("PRESENCE")
+                val line = UUID.randomUUID()
+                say("""{"type":"REACT","lineId":"$line","emoji":"<b>hi</b>"}""")
+                assertEquals("INVALID_REQUEST", await("ERROR")!!["errorCode"]!!.jsonPrimitive.content)
+                say("""{"type":"REACT","lineId":"not-a-line","emoji":"👍"}""")
+                assertEquals("INVALID_REQUEST", await("ERROR")!!["errorCode"]!!.jsonPrimitive.content)
+            }
+        }
+
+    /** Reactions spend the same allowance as chat lines: a flood is slowed. */
+    @Test
+    fun `reactions are rate limited like chat`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val token = tokenFor("RudeLeft")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token") }) {
+                await("PRESENCE")
+                val line = UUID.randomUUID()
+                repeat(8) { say("""{"type":"REACT","lineId":"$line","emoji":"🔥","on":${it % 2 == 0}}""") }
+                assertEquals("TOO_FAST", await("ERROR")!!["errorCode"]!!.jsonPrimitive.content)
+            }
+        }
+
     // --- helpers --------------------------------------------------------------
 
     private fun userId(username: String): UUID =

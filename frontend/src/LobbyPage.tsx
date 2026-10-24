@@ -23,7 +23,6 @@ import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
 import { GameScreen } from "./battlefield/GameScreen";
 import {
-  MAX_CHAT_LENGTH,
   cancelPreparation,
   closeRoom,
   createRoom,
@@ -50,6 +49,7 @@ import {
   type PlayerRow,
 } from "./lobbyView";
 import { Avatar } from "./avatars";
+import { ChatPanel } from "./LobbyChat";
 
 /** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
 const SETTLE_MS = 2200;
@@ -336,7 +336,12 @@ export default function LobbyPage() {
             if (room) void runLeaving(() => leaveRoom(room.roomId));
           }}
         />
-        <ChatPanel lobby={lobby} onSay={(text) => send({ type: "CHAT", text })} />
+        <ChatPanel
+          lobby={lobby}
+          me={me?.userId ?? null}
+          onSay={(text) => send({ type: "CHAT", text })}
+          onReact={(lineId, emoji, on) => send({ type: "REACT", lineId, emoji, on })}
+        />
       </div>
 
       {removing && room && (
@@ -1024,90 +1029,6 @@ function YourRoom({
 }
 
 // --- chat ------------------------------------------------------------------------
-
-function ChatPanel({ lobby, onSay }: { lobby: LobbyState; onSay: (text: string) => void }) {
-  const [draft, setDraft] = useState("");
-  const logRef = useRef<HTMLDivElement | null>(null);
-  const inputId = useId();
-
-  // The log scrolls itself, not the page: scrolling the window to it on
-  // every line would drag the rooms off screen.
-  useEffect(() => {
-    const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [lobby.chat.length]);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text) return;
-    onSay(text);
-    setDraft("");
-  };
-
-  return (
-    <section className="pa-panel pa-chat" aria-labelledby="chat-heading">
-      <div className="pa-panel-head">
-        <h2 id="chat-heading">Chat</h2>
-      </div>
-      <div className="pa-chat-log" role="log" ref={logRef}>
-        {lobby.chat.length === 0 ? (
-          <p className="pa-chat-empty">Nothing yet.</p>
-        ) : (
-          lobby.chat.map((line, index) => {
-            // A run of lines from one person names them once.
-            const run = index > 0 && lobby.chat[index - 1]?.fromUserId === line.fromUserId;
-            return (
-              <div key={line.id} className={`pa-chat-line${run ? " pa-chat-run" : ""}`}>
-                <span className="pa-chat-face">
-                  {!run && <Avatar avatar={avatarOf(lobby, line.fromUserId)} size={28} />}
-                </span>
-                <span className="pa-chat-body">
-                  <span className={`pa-chat-meta${run ? " pa-visually-hidden" : ""}`}>
-                    <span className="pa-chat-who">{line.displayName}</span>
-                    <span className="pa-chat-at">{timeOf(line.sentAt)}</span>
-                  </span>
-                  {/* React escapes this (AMENDMENT 3's "escaped"), and the
-                      CSP forbids inline script behind it. */}
-                  <span className="pa-chat-text">{line.text}</span>
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
-      <form className="pa-chat-form" onSubmit={submit}>
-        <label className="pa-visually-hidden" htmlFor={inputId}>
-          Message the lobby
-        </label>
-        <input
-          id={inputId}
-          className="pa-input"
-          value={draft}
-          maxLength={MAX_CHAT_LENGTH}
-          placeholder="Say something"
-          autoComplete="off"
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        {/* Not before the socket is open: a send while connecting is
-            lost without a word. CI caught a fast click doing it. */}
-        <button
-          type="submit"
-          className="pa-button"
-          disabled={draft.trim().length === 0 || lobby.connection !== "open"}
-        >
-          Send
-        </button>
-      </form>
-    </section>
-  );
-}
-
-function timeOf(sentAt: string): string {
-  const at = new Date(sentAt);
-  if (Number.isNaN(at.getTime())) return "";
-  return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-}
 
 // --- the one dialog slot ------------------------------------------------------------
 

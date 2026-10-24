@@ -137,6 +137,73 @@ test("a chat line reaches the other player", async ({ browser }) => {
   });
 });
 
+test("chat: the time by the name, your own lines, emoji, reactions, lobby news and New", async ({
+  browser,
+}) => {
+  // Spec 0007, C1-C7, between two real players.
+  await twoPlayers(browser, async (one, two) => {
+    const stamp = Date.now();
+    const chat = (page: Page) => page.getByRole("region", { name: "Chat" });
+    const message = (page: Page, text: string) =>
+      chat(page).locator(".pa-chat-msg", { hasText: text });
+
+    // C3 -- an emoji from the panel goes into the line at the cursor.
+    await one.getByLabel("Message the lobby").fill(`gl hf ${stamp} `);
+    await one.getByRole("button", { name: "Emoji", exact: true }).click();
+    await chat(one)
+      .getByRole("dialog", { name: "Emoji" })
+      .getByRole("button", { name: "🔥" })
+      .click();
+    await one.getByRole("button", { name: "Send" }).click();
+    const line = `gl hf ${stamp} 🔥`;
+    await expect(message(two, line)).toBeVisible();
+    await expect(chat(one).getByRole("dialog", { name: "Emoji" })).toHaveCount(0);
+
+    // C1 and C2 -- the time beside the name; your own line is marked, theirs is not.
+    const run = (page: Page) =>
+      chat(page)
+        .locator(".pa-chat-line")
+        .filter({ has: page.locator(".pa-chat-msg", { hasText: line }) });
+    await expect(run(one).locator(".pa-chat-meta .pa-chat-at")).toHaveText(/^\d\d:\d\d$/);
+    await expect(run(one)).toHaveClass(/pa-chat-mine/);
+    await expect(run(two)).not.toHaveClass(/pa-chat-mine/);
+
+    // C4 -- pointing at the line brings up the six; a reaction reaches both, and comes back off.
+    await message(two, line).hover();
+    await message(two, line).getByRole("button", { name: "React 😂" }).click();
+    await expect(message(one, line).getByRole("button", { name: /^😂 1/ })).toBeVisible();
+    await expect(message(two, line).getByRole("button", { name: /^😂 1/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await message(two, line).getByRole("button", { name: /^😂 1/ }).click();
+    await expect(message(one, line).getByRole("button", { name: /^😂/ })).toHaveCount(0);
+
+    // C5 -- the room list's news, in the chat, for everybody.
+    await openRoom(one, `Chat ${stamp}`);
+    await expect(
+      chat(two).locator(".pa-chat-event", { hasText: `opened Chat ${stamp}` }),
+    ).toBeVisible();
+
+    // C7 -- a line that comes in while the tab is in the background is
+    // counted in the title, and sits under "New" when you come back.
+    const background = (page: Page, hidden: boolean) =>
+      page.evaluate((value) => {
+        Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, hidden);
+    await background(two, true);
+    const later = `still there ${stamp}?`;
+    await one.getByLabel("Message the lobby").fill(later);
+    await one.getByRole("button", { name: "Send" }).click();
+    await expect(two).toHaveTitle(/^\(1\) Proxic Arena$/);
+    await background(two, false);
+    await expect(two).toHaveTitle("Proxic Arena");
+    await expect(chat(two).getByRole("separator", { name: "New messages" })).toBeVisible();
+    await expect(chat(one).getByRole("separator", { name: "New messages" })).toHaveCount(0);
+  });
+});
+
 test("an invitation can be declined; the host is told and the seat stays open", async ({
   browser,
 }) => {

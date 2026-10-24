@@ -1250,88 +1250,6 @@ main.pa-main {
   line-height: 1.55;
   color: var(--pa-faint);
 }
-/* Across the bottom, filling whatever height the page has left. */
-.pa-chat {
-  flex: 1 0 220px;
-  margin: 0 -20px;
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--pa-line);
-  background: var(--pa-header);
-}
-.pa-chat-log {
-  flex: 1 1 auto;
-  max-height: 40vh;
-  overflow-y: auto;
-  padding: 14px 20px 16px;
-}
-.pa-chat-empty {
-  margin: 0;
-  font-size: 12px;
-  color: var(--pa-muted);
-}
-.pa-chat-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 1px 14px;
-  margin-top: 13px;
-}
-.pa-chat-line:first-child {
-  margin-top: 0;
-}
-.pa-chat-run {
-  margin-top: 4px;
-}
-.pa-chat-meta {
-  flex: none;
-  width: 150px;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  line-height: 1.55;
-}
-.pa-chat-at {
-  flex: none;
-  width: 38px;
-  font-size: 11px;
-  color: #6b727d;
-  font-variant-numeric: tabular-nums;
-}
-.pa-chat-who {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: right;
-  font-size: 13px;
-  font-weight: 600;
-  color: #dfe4ea;
-}
-.pa-chat-text {
-  flex: 1 1 280px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--pa-sub);
-}
-.pa-chat-form {
-  margin-top: auto;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 11px 20px 14px;
-  border-top: 1px solid var(--pa-line-soft);
-}
-.pa-chat-form .pa-input {
-  flex: 1 1 240px;
-  width: auto;
-  min-width: 0;
-  margin: 0;
-}
 .pa-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -1814,53 +1732,262 @@ main.pa-main {
   padding: 0 18px 16px;
 }
 
-/* Chat */
+/* Chat -- spec 0007 (owner 2026-10-24): the time beside the name, your
+   own lines marked, a run of lines in one bubble, reactions, an emoji
+   panel by Send, lobby events in grey, a "New" divider. */
 .pa-lobby .pa-chat {
   grid-area: chat;
+  position: relative;
   margin: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--pa-line);
   background: var(--pa-panel);
   height: calc(100vh - 150px);
   min-height: 360px;
 }
-.pa-lobby .pa-chat-log {
+.pa-chat-unread {
+  color: var(--pa-brass);
+  font-weight: 600;
+}
+.pa-chat-log {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: none;
-  padding: 4px 16px 14px;
+  overflow-y: auto;
+  padding: 4px 14px 14px;
   border-top: 1px solid var(--pa-line-soft);
 }
-.pa-lobby .pa-chat-line {
-  flex-wrap: nowrap;
-  gap: 10px;
-  margin-top: 12px;
+.pa-chat-empty {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--pa-muted);
 }
-.pa-lobby .pa-chat-run {
-  margin-top: 4px;
+.pa-chat-event {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--pa-muted);
+}
+.pa-chat-new {
+  margin: 16px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pa-brass);
+}
+.pa-chat-new::before,
+.pa-chat-new::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #6b5427;
+}
+.pa-chat-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
 }
 .pa-chat-face {
   flex: none;
-  width: 28px;
+  width: 30px;
+  padding-top: 2px;
 }
 .pa-chat-body {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
-.pa-lobby .pa-chat-meta {
-  width: auto;
+.pa-chat-meta {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
-}
-.pa-lobby .pa-chat-form {
-  padding: 12px;
-  flex-wrap: nowrap;
-}
-.pa-lobby .pa-chat-form .pa-input {
-  flex: 1 1 auto;
   min-width: 0;
+}
+.pa-chat-who {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pa-ink-bright);
+}
+.pa-chat-at {
+  flex: none;
+  font-size: 11px;
+  color: var(--pa-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pa-chat-bubble {
+  align-self: flex-start;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 1px solid #222a34;
+  border-radius: 4px 12px 12px 12px;
+  background: #161c25;
+}
+.pa-chat-mine .pa-chat-bubble {
+  border-color: #3a3020;
+  border-left: 3px solid var(--pa-brass);
+  background: #1d1a14;
+}
+.pa-chat-msg {
+  position: relative;
+  padding: 2px 0;
+}
+.pa-chat-text {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--pa-ink);
+}
+/* The keyboard's way to the reactions; a mouse points, a phone taps. */
+.pa-react-open {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 50%;
+  background: #1b222c;
+  color: var(--pa-sub);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+}
+.pa-react-open:focus-visible {
+  opacity: 1;
+}
+.pa-react-row {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 2px);
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 999px;
+  background: #1b222c;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.pa-react-row-below {
+  top: calc(100% - 2px);
+  bottom: auto;
+}
+.pa-react-pick {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+}
+.pa-react-pick:hover {
+  background: #2a3340;
+}
+.pa-react-pick-on {
+  background: #3a3020;
+}
+.pa-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+.pa-reaction {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 999px;
+  background: #11161d;
+  color: var(--pa-ink);
+  font-size: 14px;
+}
+.pa-reaction-mine {
+  border-color: #a88a52;
+  background: #2a2318;
+}
+.pa-reaction-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pa-emoji-panel {
+  margin: 0 12px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 10px;
+  background: #161c25;
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.4);
+}
+.pa-emoji {
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+}
+.pa-emoji:hover,
+.pa-emoji:focus-visible {
+  background: #222b36;
+}
+.pa-chat-form {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-chat-form .pa-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+.pa-emoji-toggle {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.pa-emoji-toggle svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.pa-emoji-toggle .pa-emoji-eye {
+  fill: currentColor;
+  stroke: none;
+}
+.pa-emoji-toggle-on {
+  border-color: #a88a52;
+  background: #2a2318;
+  color: var(--pa-brass);
 }
 
 /* Narrower: chat goes under the room. */
@@ -1887,6 +2014,11 @@ main.pa-main {
   }
   .pa-lobby .pa-lobby-players {
     max-height: none;
+  }
+  /* Spec 0007: room for the emoji panel and still some chat above it. */
+  .pa-lobby .pa-chat {
+    height: 70vh;
+    min-height: 440px;
   }
   .pa-lobby .pa-player-list {
     max-height: none;

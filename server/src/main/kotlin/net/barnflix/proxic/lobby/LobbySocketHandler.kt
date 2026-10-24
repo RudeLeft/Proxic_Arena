@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.room.Room
@@ -285,6 +286,7 @@ class LobbyService(
                 "INVITE_DECLINE" -> desk.decline(connection.user)
                 "INVITE_WITHDRAW" -> desk.withdraw(connection.user)
                 "CHAT" -> say(message)
+                "REACT" -> react(message)
             }
         }
 
@@ -339,13 +341,39 @@ class LobbyService(
             )
         }
 
+        /**
+         * Spec 0007 — a reaction on a chat line, relayed like a line:
+         * one of the six, through the same rate limit, never stored.
+         * An id nobody has is harmless; no page has that line.
+         */
+        private suspend fun react(message: JsonObject) {
+            val lineId = message.uuid("lineId") ?: return reply(errorMessage("INVALID_REQUEST", "Which line?"))
+            val emoji = message.text("emoji")
+            if (emoji == null || emoji !in REACTIONS) {
+                return reply(errorMessage("INVALID_REQUEST", "Not one of the reactions."))
+            }
+            if (!chat.allow(me)) return reply(errorMessage("TOO_FAST", "Slow down a moment."))
+            val on = runCatching { message["on"]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: true
+            hub.broadcast(
+                reactionMessage(
+                    PresenceEntry(connection.user.userId, connection.user.username, connection.user.displayName),
+                    lineId.toString(),
+                    emoji,
+                    on,
+                ),
+            )
+        }
+
         private suspend fun reply(message: JsonObject) {
             runCatching { connection.outgoing.send(Frame.Text(message.toString())) }
         }
     }
 
     private companion object {
-        val HANDLED = setOf("INVITE", "INVITE_ACCEPT", "INVITE_DECLINE", "INVITE_WITHDRAW", "CHAT")
+        val HANDLED = setOf("INVITE", "INVITE_ACCEPT", "INVITE_DECLINE", "INVITE_WITHDRAW", "CHAT", "REACT")
+
+        /** Spec 0007 — the six; the frontend's row (chatEmoji.ts) is the same list. */
+        val REACTIONS = setOf("👍", "❤️", "😂", "😮", "😢", "🔥")
 
         /** Long enough for a sentence, short enough not to be a wall. */
         const val MAX_CHAT_LENGTH = 500

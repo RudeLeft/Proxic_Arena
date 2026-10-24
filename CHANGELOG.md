@@ -16,6 +16,17 @@ words, newest first. Each release on GitHub carries the same notes.
   beside your name in the lobby, on your seat and in chat.
 - A room shows when it will close only in its last 3 hours.
 
+**Chat, polished** (spec 0007)
+- The time sits right after the name; your own lines have a gold edge.
+- A run of lines from one person sits in one bubble.
+- A smiley button by Send opens 40 emoji to drop into your message.
+- Reactions: point at a line (tap on a phone) for 👍 ❤️ 😂 😮 😢 🔥;
+  everyone sees the counts, and pointing at one says who.
+- The lobby's news in grey: "Pat opened a room", "Pat joined Friday
+  night", "RudeLeft and Pat started a game".
+- Lines that came in while you were away sit under a "New" divider, and
+  the browser tab shows how many, "(2) Proxic Arena".
+
 **Fixes**
 - On a phone, the host's buttons no longer run off the room card.
 - Plainer words in the invitation box and the empty chat.

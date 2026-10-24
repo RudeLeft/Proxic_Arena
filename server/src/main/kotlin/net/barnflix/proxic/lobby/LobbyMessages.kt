@@ -19,7 +19,7 @@ import java.util.UUID
 //
 // Everything here is SERVER to client. The client's vocabulary is
 // small and handled in the socket itself: PING, INVITE,
-// INVITE_ACCEPT, INVITE_DECLINE, CHAT.
+// INVITE_ACCEPT, INVITE_DECLINE, CHAT, REACT.
 //
 // Nothing in a message tells the client what it may DO. §5.67 is
 // explicit that identity is never a client claim, and the inverse
@@ -99,6 +99,27 @@ fun chatMessage(
         }
         put("text", text)
         put("sentAt", sentAt)
+    }
+
+/**
+ * Spec 0007 — somebody put a reaction on a chat line, or took theirs
+ * back. Relayed like the line itself: nothing stores it, so a page
+ * that never saw the line simply has nothing to put it on.
+ */
+fun reactionMessage(
+    from: PresenceEntry,
+    lineId: String,
+    emoji: String,
+    on: Boolean,
+): JsonObject =
+    envelope("REACTION") {
+        putJsonObject("from") {
+            put("userId", from.userId.toString())
+            put("displayName", from.displayName)
+        }
+        put("lineId", lineId)
+        put("emoji", emoji)
+        put("on", on)
     }
 
 /**

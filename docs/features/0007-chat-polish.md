@@ -1,6 +1,6 @@
 # 0007 — Chat polish: time, your lines, emoji, reactions, lobby events
 
-**Status:** Draft
+**Status:** Approved 2026-10-24 (from the mockup on the lobby canvas) — built
 **Owner decisions:** C1 time next to the name; C2 your own lines marked;
 C3 an emoji button by Send; C4 reactions; C5 lobby events in the chat;
 C6 message bubbles; C7 an unread marker (owner, 2026-10-24, from the
@@ -39,7 +39,7 @@ A moment in the lobby: you are in "Friday night", Pat has just joined.
   in a narrow panel than a left/right split).
 - **C6 Bubbles.** Each run of lines from one person sits in one soft,
   rounded box; the name, time and avatar show once per run, as today.
-- **C3 Emoji button.** A 😊 button between the box and Send opens a small
+- **C3 Emoji button.** A smiley button between the box and Send opens a small
   panel of 40 emoji (list below); clicking one puts it into what you are
   typing at the cursor, and the panel stays open until you click away,
   press Esc or send. On a phone the panel opens above the keyboard, full
@@ -49,7 +49,9 @@ A moment in the lobby: you are in "Friday night", Pat has just joined.
   small row of six: 👍 ❤️ 😂 😮 😢 🔥. Clicking one adds it under the
   line with a count ("😂 2"); clicking your own again takes it back.
   Pointing at a count says who ("Pat, Cole"). One of each per person per
-  line.
+  line. From the keyboard, a small "+" on the line (shown on focus)
+  opens the row. The row sits above the line, or below it where the top
+  of the chat would cut it off.
 - **C5 Lobby events.** Small grey centred lines, between the chat lines,
   at the moment they happen:
   - "Pat opened a room" / "Friday night closed"
@@ -62,8 +64,9 @@ A moment in the lobby: you are in "Friday night", Pat has just joined.
 - **C7 Unread marker.** Lines that arrive while the tab is in the
   background, or while chat is scrolled up, sit under a "New" divider;
   the page title shows the count, "(3) Proxic Arena". Coming back to the
-  tab and scrolling to the bottom clears both. Lobby events (C5) do not
-  count as unread.
+  tab and scrolling to the bottom clears the count; the divider stays
+  where the new lines began until you send a line, so you can see it.
+  Lobby events (C5) do not count as unread.
 
 ## Scope
 
@@ -77,7 +80,9 @@ Out (and why):
   mentions -- not asked for; each could be its own spec.
 - **A large emoji library or search.** 40 chosen emoji keep the page
   small and need no download.
-- **In-game chat.** There is none; this spec does not add one.
+- **The game screen's chat drawer.** It shows the same lobby lines and
+  keeps its plain look; reactions, events and the divider are the lobby
+  panel's.
 
 ## Rules and boundaries
 
