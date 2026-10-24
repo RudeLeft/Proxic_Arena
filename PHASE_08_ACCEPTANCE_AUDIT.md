@@ -32,6 +32,13 @@ browser, not a unit test alone (AGENTS TEST-011).
 | OWNER | 1 (P8-O) |
 | **Total** | **10** |
 
+**Updated 2026-10-23, night** -- after a second, full rules review: trample
+now requires lethal damage on every blocker first (`check-combat-choices
+trample`); a player's own spell or trigger is a response window (spec 0005,
+Amendment 4; `check-stops window`, `window-none`, `window-skipped`,
+`match-window.spec.ts`). The statuses below are unchanged; every rule's
+owner and proof is in `docs/architecture/RULES_COVERAGE.md`.
+
 The record, 2026-10-23 (`forge-worker/src/test/resources/forge-questions.tsv`,
 170 rows, generated from the compiled worker and Forge at the pin):
 

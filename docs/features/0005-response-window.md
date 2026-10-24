@@ -76,3 +76,10 @@ Out: any change to the opponent's stops; per-card or remembered choices
   2026-10-23: approved, Phase 8 Amendment 4.**
 
 ## Amendments
+
+1. **2026-10-24 -- "Skip to end of turn" covers your own spells too**
+   (owner, asked with the choice of "countdown anyway"). After a skip,
+   your own spells and triggers that turn get no countdown -- the Skip
+   rule's "no more stops this turn unless the opponent acts" (PHASE_07
+   §7.53); the opponent's still stop you. Proven by `check-stops.py
+   window-skipped`, which fails on the code before it.

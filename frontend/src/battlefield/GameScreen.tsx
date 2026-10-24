@@ -279,6 +279,9 @@ export function GameScreen({
     if (windowId !== null) setPausedWindow(windowId);
   }, [windowId]);
   const [countdown, setCountdown] = useState<number | null>(null);
+  // The latest answer, so a question updated mid-countdown never restarts it.
+  const answerRef = useRef(answer);
+  answerRef.current = answer;
   useEffect(() => {
     if (!counting) {
       setCountdown(null);
@@ -291,13 +294,13 @@ export function GameScreen({
       if (left <= 0) {
         window.clearInterval(timer);
         setCountdown(null);
-        answer(null);
+        answerRef.current(null);
         return;
       }
       setCountdown(Math.ceil(left / 1000));
     }, 100);
     return () => window.clearInterval(timer);
-  }, [counting, windowId, answer]);
+  }, [counting, windowId]);
   // Reading a card or a list pauses it: you are thinking.
   useEffect(() => {
     if (counting && (inspecting || viewer)) pauseWindow();
@@ -308,7 +311,10 @@ export function GameScreen({
     const space = (event: KeyboardEvent) => {
       if (event.key !== " " || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)) return;
+      // Typing is not Space-to-resolve; a focused button is its own click --
+      // except the act button itself, still focused from the last answer.
+      const onAct = !!target?.closest(".gs-act");
+      if (!onAct && target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)) return;
       event.preventDefault();
       answer(null);
     };

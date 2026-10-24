@@ -20,8 +20,8 @@ loudly, naming the card, never guessing.
     every one checking the answer on the board afterwards
   4 cross-game trace checks over every Lab game (snapshot-first, hidden
     hands, every permanent has its row, every answered question was asked)
-502 server tests, worker tests (the record gate, unreachable proofs,
-    loud stops), frontend unit and browser tests       0 failed
+every server, worker (the record gate, unreachable proofs, loud stops),
+    page and browser test, in CI on every build        0 failed
 ktlint, detekt, ESLint, Prettier, tsc                   clean
 ```
 
@@ -41,6 +41,8 @@ Forge's 33,978 cards could reach a question Proxic did not answer.
 | Combat | Damage split across blockers, Lone Wolf's "as though unblocked", exert, enlist, attack taxes (Ghostly Prison) |
 | Dice | Rolls shown; reroll, nudge, swap, ignore (Monitor Monitor, Xenosquirrels, Vedalken Squirrel-Whacker, Bamboozling Beeble) |
 | Un-sets (Amendments 1, 3) | Silver-bordered cards import and play. Contraptions and Attractions go to their own decks by card type (at least 15 or 10, one of each, outside the 60-65); assembling onto a sprocket, cranking, Space Beleren's sectors; the board shows each card's sector and sprocket |
+| Responding to your own spells (spec 0005, Amendment 4) | Your own spell or trigger on the stack, with something you could respond with: "Resolving in 2…" on the act button -- do nothing and it resolves; click a card you could play (or the countdown, a close look, a list) and it waits for you. Your opponent's spells stop you as before |
+| Trample, as the rules have it | A trampler must give every blocker lethal damage (1, with deathtouch) before any reaches the player |
 | A stop that says why | A question Proxic cannot answer ends the match with no winner and names the card, for the admin's match record (players are told the game stopped) |
 
 ---
@@ -117,12 +119,25 @@ question had no name. A fourth was hardened (the cost-check guard now
 restores itself). One noted, not changed: a question interrupted as a
 match is being stopped falls back to its first answer.
 
+**A second, full rules review (2026-10-23)** of all the rules code, old
+and new, against Forge's own screens. It found: **trample** let damage
+reach the player before every blocker had lethal damage (CR 702.19c) --
+fixed, with a Lab game that fails on the old code; a creature that may
+divide its combat damage was never offered the player -- fixed; two
+questions showed Forge's internal card numbers -- fixed; and **no way to
+respond to your own spell or trigger** (CR 117.3c) -- built as spec 0005,
+the response window (Amendment 4), after spec 0004's Hold button was
+tried and replaced. A consistency pass then found "Skip to end of turn"
+still showed a countdown on your own later spell that turn -- fixed, with
+its own Lab game. Every rule's owner and proof is now written down in
+`docs/architecture/RULES_COVERAGE.md`.
+
 ---
 
 ## P8-O — what to play
 
 On `https://proxic.barnflix.net` (Unraid updated to `latest`, build
-`2c872cc` or later), a game or two with cards from each slice, and say
+`37554ad` or later), a game or two with cards from each slice, and say
 whether the phase is accepted. A deck per row, or mix them:
 
 | Slice | Cards to try | What should happen |

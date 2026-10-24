@@ -62,7 +62,13 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
                         objectId?, payable?, cost?}], searchable?, optionCount?,
                         unavailable?: {objectId: reason}  -- why each of your
-                        cards NOT offered cannot act now (PHASE_07 B7)
+                        cards NOT offered cannot act now (PHASE_07 B7),
+                        about?: {name, kind, from?} -- the spell or ability a
+                        question you can back out of is about (Cancel's words),
+                        looking?: [card] -- cards this question shows you alone
+                        (a scry's or surveil's top cards; spec 0001 D3),
+                        window?: true -- a response window: your OWN spell or
+                        trigger is on top (spec 0005, Phase 8 Amendment 4)
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
@@ -103,8 +109,13 @@ PASS_TURN           (nothing)                §7.53: no more stops for you this 
 stops to the worker in `START_GAME` and, changed mid-game, as `STOPS`.
 The worker then passes priority for a player at a step they do not stop
 at -- only priority, never a target, payment, block or other question --
-unless the opponent put something on the stack they could answer. A seat
-without stops is asked at every step.
+unless something is on the stack and they could act: the opponent's spell
+or trigger is asked plainly; their OWN is asked as a **response window**
+(spec 0005, Phase 8 Amendment 4) -- marked `window: true`, the page counts
+down 2 seconds and passes for them if they let it run out; clicking a
+card they could play, the close look, a list or the countdown pauses it
+for good. With nothing they could do, they are passed for. A seat without
+stops is asked at every step.
 
 **Only `decisionId` and `actionId` are read.** Not a seat, not a user,
 not a Forge player id, not a state version: a client that could supply

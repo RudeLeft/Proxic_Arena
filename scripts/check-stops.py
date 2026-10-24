@@ -22,6 +22,9 @@ default stops the server sends (STOPS below).
              resolves it; seat 2 (nothing to respond with) is not asked
   window-none  the same Bolt with nothing left to respond with: passed for,
              no window (respond above: the OPPONENT's Bolt is never a window)
+  window-skipped  the window game, but seat 1 skips to the end of its turn as
+             it casts: no window -- "no more stops this turn" covers its own
+             spells too
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -236,9 +239,9 @@ def pass_turn():
     return result(problems, "passed to the end of the turn: not asked again that turn, asked on the next", found)
 
 
-def window(spare):
+def window(spare, skip=False):
     """Spec 0005: your own spell on top is a response window, when you could respond."""
-    name = "window" if spare else "window-none"
+    name = "window-skipped" if skip else "window" if spare else "window-none"
     trace = "" if not TRACES else (TRACES[: -len(".jsonl")] + f"-{name}.jsonl" if TRACES.endswith(".jsonl")
                                    else os.path.join(TRACES, f"stops-{name}.jsonl"))
     g = Game([("Mountain", 30), ("Lightning Bolt", 30)], BEARS, jar=JAR, res=RES, trace=trace,
@@ -271,6 +274,8 @@ def window(spare):
             if o:
                 st["cast"] = turn
                 st["life"] = (g.player(1, 2) or {}).get("life")
+                if skip:
+                    g.pass_turn(1)
             return o
         return None
 
@@ -289,7 +294,9 @@ def window(spare):
     if st["cast"] is None or st["after"] is None:
         return "inconclusive", "seat 1 never cast the Bolt it needed to", found
     problems = [found["stopped"]] if found["stopped"] else []
-    if spare and st["own_stack_asks"] != [True]:
+    if skip and st["own_stack_asks"]:
+        problems.append(f"skipped to the end of the turn: no window on its own Bolt: {st['own_stack_asks']}")
+    if spare and not skip and st["own_stack_asks"] != [True]:
         problems.append(f"with a Bolt to spare, seat 1 should be asked once, as a window: {st['own_stack_asks']}")
     if not spare and st["own_stack_asks"]:
         problems.append(f"with nothing to respond with, seat 1 should be passed for: {st['own_stack_asks']}")
@@ -297,12 +304,14 @@ def window(spare):
         problems.append("seat 2 has nothing to respond with: it should not be asked")
     if st.get("life") is not None and st["after"] != st["life"] - 3:
         problems.append(f"passing should resolve the Bolt: life {st.get('life')} -> {st['after']}")
-    return result(problems, "own Bolt on top, a Bolt to spare: one question, marked as a response window; "
-                            "passing resolved it" if spare else
+    return result(problems, "skipped to the end of the turn: its own Bolt resolved with no window" if skip else
+                  "own Bolt on top, a Bolt to spare: one question, marked as a response window; "
+                  "passing resolved it" if spare else
                   "own Bolt on top, nothing to respond with: passed for, no window", found)
 
 SCENARIOS = {"quiet": quiet, "respond": respond, "nothing": nothing, "pass-turn": pass_turn,
-             "window": lambda: window(True), "window-none": lambda: window(False)}
+             "window": lambda: window(True), "window-none": lambda: window(False),
+             "window-skipped": lambda: window(True, skip=True)}
 
 if __name__ == "__main__":
     worst = 0

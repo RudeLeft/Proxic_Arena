@@ -105,17 +105,22 @@ public final class PriorityStops {
             }
         }
 
-        // Something on the stack: a response is never skipped -- when the
-        // OPPONENT put it there and there is something to respond with.
-        // Your own spell or trigger is asked too (CR 117.3c), as a response
-        // window (spec 0005): the page counts down and passes for you if
-        // you let it run out (Phase 8 Amendment 4) -- see responseWindow.
+        Integer passed = passedTurn.get(seat);
+        boolean skipped = passed != null && passed == game.getPhaseHandler().getTurn();
+
+        // Something on the stack and something to do: the OPPONENT's spell
+        // or trigger is always asked. Your own is asked too (CR 117.3c), as
+        // a response window (spec 0005): the page counts down and passes
+        // for you if you let it run out (Phase 8 Amendment 4) -- unless you
+        // skipped to the end of this turn, which means no more stops of
+        // your own ("unless the opponent acts").
         if (!game.getStack().isEmpty()) {
-            return somethingToDo;
+            SpellAbility top = game.getStack().peekAbility();
+            boolean mine = top != null && player.equals(top.getActivatingPlayer());
+            return somethingToDo && !(mine && skipped);
         }
 
-        Integer passed = passedTurn.get(seat);
-        if (passed != null && passed == game.getPhaseHandler().getTurn()) {
+        if (skipped) {
             return false;
         }
 
