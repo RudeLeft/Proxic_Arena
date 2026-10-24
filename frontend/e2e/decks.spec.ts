@@ -9,7 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import { chooseDeck, clearEverything, inviteIn, openRoom, sharedDeck } from "./match-helpers";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -95,7 +95,7 @@ test("a real package imports and its artwork renders", async ({ page }) => {
   await expect(cards).toHaveCount(11);
   // Amendment 10 — banded the way Forge sorted them; the bands add
   // up to the deck.
-  const bands = page.getByRole("region", { name: "Cards" }).getByRole("group");
+  const bands = page.getByRole("region", { name: "Cards" }).getByRole("group", { name: / cards$/ });
   await expect(bands.first()).toHaveAccessibleName(/^Lands, \d+ cards$/);
   const counts = await bands.evaluateAll((groups) =>
     groups.map((group) =>
@@ -198,9 +198,115 @@ test("importing the same package twice is refused and points at the deck", async
 
   await page.locator('input[type="file"]').setInputFiles(pkg!);
   await expect(page.getByRole("alert")).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByText(/already been imported/i).first()).toBeVisible();
-  // Owner decision D3: refusing is right, a dead end is not.
-  await expect(page.getByText(/Already imported as/i)).toBeVisible();
+  // Owner decision D3: refusing is right, a dead end is not -- the
+  // sentence names the deck you have. Said once (spec 0008).
+  await expect(page.getByText(/You already have this deck: "/)).toHaveCount(1);
+});
+
+/**
+ * Spec 0008 -- a package with a card that turns over: Delver of Secrets,
+ * and the picture of its back, as Deck Builder bundles it.
+ */
+function delverPackage(directory: string) {
+  const fixture = join(directory, "delver");
+  mkdirSync(fixture);
+  writeFileSync(join(fixture, "Delver.txt"), "// Delver Zoom\n\n4 Delver of Secrets\n56 Island\n");
+  const zip = join(directory, "delver.zip");
+  execFileSync("node", [
+    join(process.cwd(), "..", "scripts", "make-ci-deck.mjs"),
+    zip,
+    fixture,
+    "Insectile Aberration",
+  ]);
+  return zip;
+}
+
+test("a card opens large, steps through the deck, turns over, and the size is remembered", async ({
+  page,
+}) => {
+  // Spec 0008 Z1 and S1, through real clicks and keys.
+  test.setTimeout(240_000);
+  const pkg = delverPackage(mkdtempSync(join(tmpdir(), "proxic-e2e-")));
+  await page.goto("/decks");
+  await page.locator('input[type="file"]').setInputFiles(pkg);
+  await expect(page.getByText("Delver Zoom imported")).toBeVisible({ timeout: 180_000 });
+  await page.getByRole("button", { name: "View Delver Zoom" }).click();
+
+  // Lands first, then creatures: Island is 1 of 2, Delver 2 of 2.
+  const delver = page.getByRole("button", { name: "Zoom Delver of Secrets" });
+  await delver.click();
+  const zoom = page.getByRole("dialog", { name: "Delver of Secrets" });
+  await expect(zoom).toBeVisible();
+  await expect(zoom).toContainText("4 copies · 2 of 2");
+  await expect(zoom.getByRole("img", { name: "Delver of Secrets" })).toHaveAttribute(
+    "src",
+    /\?size=full$/,
+  );
+  await expect
+    .poll(() =>
+      zoom
+        .getByRole("img", { name: "Delver of Secrets" })
+        .evaluate((i) => (i as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("dialog", { name: "Island" })).toContainText("56 copies · 1 of 2");
+  await expect(page.getByRole("button", { name: "Turn over" })).toHaveCount(0);
+  await page.keyboard.press("ArrowLeft");
+
+  await page.getByRole("button", { name: "Turn over" }).click();
+  const back = page.getByRole("dialog", { name: "Insectile Aberration" });
+  await expect(back).toBeVisible();
+  await expect
+    .poll(() =>
+      back
+        .getByRole("img", { name: "Insectile Aberration" })
+        .evaluate((i) => (i as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(delver).toBeFocused();
+
+  // S1 -- the size survives a reload.
+  await page.getByRole("button", { name: "Large" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "View Delver Zoom" }).click();
+  await expect(page.getByRole("button", { name: "Large" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("on a phone View goes to the deck and folds the library; a failed delete says so", async ({
+  page,
+}) => {
+  // Spec 0008 P1 and C1.
+  test.setTimeout(240_000);
+  const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
+  await page.goto("/decks");
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles(mountainPackage(directory, "phone", "Phone Deck", 60));
+  await expect(page.getByText("Phone Deck imported")).toBeVisible({ timeout: 120_000 });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "View Phone Deck" }).click();
+  await expect(page.getByRole("heading", { name: "Phone Deck" })).toBeInViewport();
+  await expect(page.getByRole("region", { name: "My decks" })).toBeHidden();
+  await page.getByRole("button", { name: "Show the deck library" }).click();
+  await expect(page.getByRole("region", { name: "My decks" })).toBeVisible();
+
+  // The server refuses the delete: the row says so, and the deck stays.
+  await page.route("**/api/decks/*", (route) =>
+    route.request().method() === "DELETE" ? route.fulfill({ status: 500 }) : route.fallback(),
+  );
+  await page.getByRole("button", { name: "Delete Phone Deck" }).click();
+  await page
+    .getByRole("region", { name: "My decks" })
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
+  await expect(page.getByText("That deck could not be deleted. Try again.")).toBeVisible();
+  await page.unroute("**/api/decks/*");
 });
 
 /** A legal, art-free package whose decklist declares [name]: 60 or more Mountains. */

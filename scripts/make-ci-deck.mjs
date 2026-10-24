@@ -1,6 +1,11 @@
 // Build a deck package from a tracked fixture.
 //
-//   node scripts/make-ci-deck.mjs [outputPath] [fixtureDir]
+//   node scripts/make-ci-deck.mjs [outputPath] [fixtureDir] [face...]
+//
+// Any further arguments are face names to draw a picture for besides the
+// decklist's -- the back of a card that turns over, as Deck Builder
+// bundles it (spec 0008's Turn over: "Insectile Aberration" beside a
+// list of "Delver of Secrets").
 //
 // Produces a minimal, legal Deck Builder package. Defaults to the
 // CI gate deck: protocol/fixtures/ci-deck/ -> frontend/build/ci-deck.zip.
@@ -151,7 +156,8 @@ const cardNames = [
       // exporter does since 2026-10-21 (PHASE_07 §7.59): "Insectile
       // Aberration [CI].png" beside "Delver of Secrets [CI].png".
       .flatMap((name) => name.split(" // ").map((face) => face.trim()))
-      .filter(Boolean),
+      .filter(Boolean)
+      .concat(process.argv.slice(4)),
   ),
 ];
 

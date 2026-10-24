@@ -145,6 +145,9 @@ public final class WorkerMain {
                         if (resolution.section != null) {
                             item.addProperty("section", resolution.section.toUpperCase(java.util.Locale.ROOT));
                         }
+                        if (resolution.backFace != null) {
+                            item.addProperty("backFace", resolution.backFace);
+                        }
                         out.add(item);
                     }
                     response.add("cards", out);

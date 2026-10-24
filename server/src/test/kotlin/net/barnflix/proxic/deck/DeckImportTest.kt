@@ -442,28 +442,82 @@ class DeckImportTest {
         database!!.dataSource().connection.use {
             it.createStatement().executeUpdate("UPDATE deck_entry SET card_category = NULL")
         }
-        val config =
-            ServerConfig(
-                host = "0.0.0.0",
-                port = 0,
-                databaseUrl = container!!.jdbcUrl,
-                forgeWorkerJar = workerJar.path,
-                dataRoot = dataRoot.path,
-                forgeResRoot = resRoot.path,
-                databasePasswordValue = container!!.password,
-                databaseUserValue = container!!.username,
-            )
-        val fill =
-            DeckCategoryFill(
-                database!!.dataSource(),
-                CardResolver(config),
-                org.slf4j.LoggerFactory.getLogger("test"),
-            )
+        val fill = categoryFill()
         assertEquals(1, fill.fillAll())
         assertEquals(atImport, categories())
         // Nothing left to do is nothing done -- no worker started.
         assertEquals(0, fill.fillAll())
     }
+
+    /**
+     * Spec 0008 — which face a card turns over to is Forge's answer: kept
+     * at import, and asked by the fill for a deck from before V020.
+     */
+    @Test
+    fun `a card's back face is Forge's answer, at import and by the fill for an older deck`() {
+        val delver = File("build/delver.zip")
+        val picture =
+            java.util.zip.ZipFile(realExport).use { source ->
+                val png = source.entries().asSequence().first { it.name.endsWith(".png") }
+                source.getInputStream(png).use { it.readBytes() }
+            }
+        ZipOutputStream(delver.outputStream()).use { out ->
+            fun put(
+                name: String,
+                bytes: ByteArray,
+            ) {
+                out.putNextEntry(ZipEntry(name))
+                out.write(bytes)
+                out.closeEntry()
+            }
+            put("Delver.txt", "// Delver\n\n4 Delver of Secrets\n56 Island\n".toByteArray())
+            put("real_cards/Delver of Secrets [ISD].png", picture)
+            // Different bytes, so each face is its own asset.
+            put("real_cards/Insectile Aberration [ISD].png", picture + byteArrayOf(0))
+            put("real_cards/Island [ISD].png", picture + byteArrayOf(1))
+        }
+
+        val result = importer.import(delver, delver.name, owner)
+        assertTrue(result is ImportResult.Imported, "the deck imports: $result")
+        val atImport = backFaces()
+        assertEquals("Insectile Aberration", atImport["Delver of Secrets"])
+        assertEquals(null, atImport["Island"], "one face, no back")
+
+        // As a deck from before V020 looks.
+        database!!.dataSource().connection.use {
+            it.createStatement().executeUpdate("UPDATE deck_entry SET back_face_name = NULL")
+            it.createStatement().executeUpdate("UPDATE imported_deck SET faces_checked = FALSE")
+        }
+        val fill = categoryFill()
+        assertEquals(1, fill.fillAll())
+        assertEquals(atImport, backFaces())
+        assertEquals(0, fill.fillAll(), "asked once")
+    }
+
+    private fun backFaces(): Map<String, String?> =
+        database!!.dataSource().connection.use { connection ->
+            connection.createStatement()
+                .executeQuery("SELECT card_name, back_face_name FROM deck_entry")
+                .use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.getString(2)) } }
+        }
+
+    private fun categoryFill() =
+        DeckCategoryFill(
+            database!!.dataSource(),
+            CardResolver(
+                ServerConfig(
+                    host = "0.0.0.0",
+                    port = 0,
+                    databaseUrl = container!!.jdbcUrl,
+                    forgeWorkerJar = workerJar.path,
+                    dataRoot = dataRoot.path,
+                    forgeResRoot = resRoot.path,
+                    databasePasswordValue = container!!.password,
+                    databaseUserValue = container!!.username,
+                ),
+            ),
+            org.slf4j.LoggerFactory.getLogger("test"),
+        )
 
     @Test
     fun `art is shared between two decks rather than stored twice`() {

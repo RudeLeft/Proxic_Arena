@@ -114,15 +114,19 @@ class DeckAuthorization(private val dataSource: DataSource) {
     ): Boolean {
         if (!accessFor(userId, deckId).mayView()) return false
         return dataSource.connection.use { connection ->
+            // Spec 0008 — a deck's back faces are its pictures too.
             connection.prepareStatement(
                 """
-                SELECT 1 FROM deck_entry
-                 WHERE deck_id = ? AND art_sha256 = ?
+                SELECT 1 FROM deck_entry WHERE deck_id = ? AND art_sha256 = ?
+                UNION ALL
+                SELECT 1 FROM deck_face_art WHERE deck_id = ? AND art_sha256 = ?
                  LIMIT 1
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, deckId)
                 statement.setString(2, assetSha256)
+                statement.setObject(3, deckId)
+                statement.setString(4, assetSha256)
                 statement.executeQuery().use { it.next() }
             }
         }
@@ -145,34 +149,67 @@ class DeckAuthorization(private val dataSource: DataSource) {
         deckId: UUID,
     ): Boolean = accessFor(userId, deckId).mayUse()
 
-    /** The decks this user owns (§4.58). */
-    fun ownedBy(userId: UUID): List<UUID> =
-        idsFrom(
-            "SELECT deck_id FROM imported_deck WHERE owner_user_id = ? ORDER BY imported_at DESC",
-            userId,
+    /**
+     * My decks and Shared with me — §4.58, §4.59, §4.133, §4.134.
+     *
+     * The one place the library is read (spec 0008: the route and the
+     * tests had a copy each). Two queries rather than a UNION: they sort
+     * differently (yours by import date, theirs by when they were shared
+     * with you) and a UNION that happened to work would hide that.
+     */
+    fun library(userId: UUID): DeckLibrary =
+        DeckLibrary(
+            mine =
+                summaries(
+                    """
+                    SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
+                           d.imported_at, u.display_name,
+                           (SELECT count(*) FROM deck_share s WHERE s.deck_id = d.deck_id)
+                      FROM imported_deck d
+                      JOIN app_user u ON u.user_id = d.owner_user_id
+                     WHERE d.owner_user_id = ?
+                     ORDER BY d.imported_at DESC
+                    """.trimIndent(),
+                    userId,
+                ),
+            sharedWithMe =
+                summaries(
+                    """
+                    SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
+                           d.imported_at, u.display_name, 0
+                      FROM imported_deck d
+                      JOIN deck_share s ON s.deck_id = d.deck_id
+                      JOIN app_user u ON u.user_id = d.owner_user_id
+                     WHERE s.shared_with_user_id = ?
+                     ORDER BY s.created_at DESC
+                    """.trimIndent(),
+                    userId,
+                ),
         )
 
-    /** The decks shared with this user (§4.59). */
-    fun sharedWith(userId: UUID): List<UUID> =
-        idsFrom(
-            """
-            SELECT d.deck_id FROM imported_deck d
-              JOIN deck_share s ON s.deck_id = d.deck_id
-             WHERE s.shared_with_user_id = ?
-             ORDER BY s.created_at DESC
-            """.trimIndent(),
-            userId,
-        )
-
-    private fun idsFrom(
+    private fun summaries(
         sql: String,
         userId: UUID,
-    ): List<UUID> =
+    ): List<DeckSummary> =
         dataSource.connection.use { connection ->
             connection.prepareStatement(sql).use { statement ->
                 statement.setObject(1, userId)
                 statement.executeQuery().use { rows ->
-                    buildList { while (rows.next()) add(rows.getObject(1, UUID::class.java)) }
+                    buildList {
+                        while (rows.next()) {
+                            add(
+                                DeckSummary(
+                                    deckId = rows.getString(1),
+                                    displayName = rows.getString(2),
+                                    totalCards = rows.getInt(3),
+                                    distinctCards = rows.getInt(4),
+                                    importedAt = rows.getTimestamp(5).toInstant().toString(),
+                                    ownerDisplayName = rows.getString(6),
+                                    shareCount = rows.getInt(7),
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         }

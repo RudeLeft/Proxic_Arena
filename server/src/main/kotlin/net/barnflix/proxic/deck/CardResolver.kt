@@ -36,6 +36,8 @@ data class CardResolution(
      * to its own deck, as Forge reads it; null for the main deck.
      */
     val section: String? = null,
+    /** Spec 0008 — the face a two-faced card turns over to, as Forge names it. */
+    val backFace: String? = null,
 ) {
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
@@ -284,6 +286,7 @@ class CardResolver(private val config: ServerConfig) {
                 category =
                     (card["category"] as? JsonPrimitive)?.content
                         ?.takeIf { it in setOf("LAND", "CREATURE", "SPELL") },
+                backFace = (card["backFace"] as? JsonPrimitive)?.content,
                 section =
                     (card["section"] as? JsonPrimitive)?.content
                         ?.takeIf { it in OpenFormat.SIDE_DECKS },

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   bandsOf,
   deleteDeck,
@@ -81,18 +83,22 @@ describe("importDeck", () => {
     if (!result.ok) expect(result.failure.problems).toEqual(problems);
   });
 
-  it("surfaces the existing deck id for a duplicate", async () => {
-    // Owner decision D3: refusing is right, but a dead end is not —
-    // the player should be able to reach the deck they already have.
+  it("says a duplicate once: the server's sentence names the deck you have", async () => {
+    // Owner decision D3, and spec 0008: the page no longer adds a second
+    // line saying the same thing.
     const result = await importDeck(
       file(),
       respondWith(409, {
         errorCode: "DUPLICATE_PACKAGE",
-        detail: "Already imported.",
+        detail: 'You already have this deck: "Burn".',
         problems: ["deck-123"],
       }),
     );
-    if (!result.ok) expect(result.failure.existingDeckId).toBe("deck-123");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.detail).toBe('You already have this deck: "Burn".');
+      expect(result.failure).not.toHaveProperty("existingDeckId");
+    }
   });
 
   it("reports an unreachable server as a failure, not a crash", async () => {
@@ -119,6 +125,50 @@ describe("error headings (§2.86)", () => {
     }
   });
 
+  /**
+   * Spec 0008 — every refusal an import can come back with, read from
+   * the server's own source, has a heading: seven used to fall back to
+   * "That package could not be imported".
+   */
+  it("has a heading for every code an import can be refused with", () => {
+    const deck = join(
+      __dirname,
+      "..",
+      "..",
+      "server",
+      "src",
+      "main",
+      "kotlin",
+      "net",
+      "barnflix",
+      "proxic",
+      "deck",
+    );
+    const read = (file: string) => readFileSync(join(deck, file), "utf8");
+    const routes = read("DeckRoutes.kt");
+    const sources = [
+      read("PackageInspector.kt"),
+      read("DeckImporter.kt"),
+      routes.slice(routes.indexOf("handleImport(")),
+    ];
+    const codes = new Set<string>();
+    for (const source of sources) {
+      for (const m of source.matchAll(/(?:Rejected|ImportRejectedResponse)\(\s*"([A-Z][A-Z_]+)"/g))
+        codes.add(m[1]!);
+    }
+    // ...and the five the importer hands on by name.
+    for (const code of [
+      "INVALID_DECK_LIST",
+      "DECK_NOT_LEGAL",
+      "CARDS_NOT_RESOLVED",
+      "INVALID_ARTWORK",
+      "IMPORT_FAILED",
+    ]) {
+      expect(codes, code).toContain(code);
+    }
+    for (const code of codes) expect(headingFor(code), code).toBeTruthy();
+  });
+
   it("returns null for an unknown code rather than inventing one", () => {
     // A newer server must not produce a blank or misleading heading
     // on an older client; the page falls back to the server's own
@@ -128,11 +178,11 @@ describe("error headings (§2.86)", () => {
 });
 
 describe("deck queries", () => {
-  it("returns an empty list rather than throwing when the server is down", async () => {
+  it("says it could not read the library rather than throwing, or claiming it is empty", async () => {
     const dead = vi.fn(() => Promise.reject(new Error("down"))) as unknown as typeof fetch;
-    // PHASE_04 §4.58/§4.59 — the library is two named lists now, so
-    // "nothing" is an empty library rather than an empty array.
-    expect(await listDecks(dead)).toEqual({ mine: [], sharedWithMe: [] });
+    // Spec 0008 — null, not an empty library: "Nothing imported yet"
+    // would be untrue when the server did not answer.
+    expect(await listDecks(dead)).toBeNull();
     expect(await getDeck("abc", dead)).toBeNull();
     expect(await deleteDeck("abc", dead)).toBe(false);
   });
@@ -155,7 +205,6 @@ describe("one name per owner and rename (PHASE_07 §7.65)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.failure.takenName).toBe("Burn");
-      expect(result.failure.existingDeckId).toBeUndefined();
       expect(headingFor(result.failure.errorCode)).toMatch(/already have a deck with that name/);
     }
   });

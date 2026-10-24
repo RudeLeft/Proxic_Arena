@@ -819,11 +819,22 @@ main.pa-main {
 .pa-card-art {
   position: relative;
   display: block;
+  width: 100%;
+  padding: 0;
   aspect-ratio: 5 / 7;
   overflow: hidden;
   border: 1px solid #2b333f;
   border-radius: 4px;
   background: var(--pa-field);
+  font: inherit;
+  cursor: zoom-in;
+}
+.pa-card-art:hover {
+  border-color: var(--pa-button-line);
+}
+.pa-card-art:focus-visible {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 2px;
 }
 .pa-card-art img {
   display: block;
@@ -872,10 +883,225 @@ main.pa-main {
   overflow-wrap: anywhere;
 }
 
+/* Spec 0008 — the card size (Small is the size the grid had before). */
+.pa-card-grid[data-size="medium"] {
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+}
+.pa-card-grid[data-size="large"] {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.pa-card-grid[data-size="medium"] figcaption,
+.pa-card-grid[data-size="large"] figcaption {
+  font-size: 12px;
+}
+.pa-size-switch {
+  display: flex;
+  border: 1px solid var(--pa-line-strong);
+}
+.pa-size-option {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  background: var(--pa-field);
+  color: var(--pa-sub);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pa-size-option + .pa-size-option {
+  border-left: 1px solid var(--pa-line-strong);
+}
+.pa-size-option[aria-pressed="true"] {
+  background: #2a2318;
+  color: var(--pa-brass);
+  font-weight: 600;
+}
+
+/* The share list's box: as wide as a name needs, not the whole panel. */
+.pa-share-form .pa-select-wrap {
+  flex: 0 1 340px;
+}
+
+/* Spec 0008 — what did not work says so. */
+.pa-deck-meta-bad {
+  color: #f4cdc6;
+}
+.pa-library-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #f4cdc6;
+}
+.pa-open-failed {
+  color: #f4cdc6;
+}
+
+/* On a phone the library folds while a deck is open (spec 0008). */
+.pa-library-fold {
+  display: none;
+  width: 36px;
+  height: 36px;
+  margin-left: 8px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--pa-line-strong);
+  background: none;
+  color: var(--pa-sub);
+  cursor: pointer;
+}
+.pa-library-fold svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The close-up (spec 0008). Above the page and its header. */
+.pa-zoom-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 7, 10, 0.86);
+  cursor: zoom-out;
+}
+.pa-zoom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  outline: none;
+  cursor: default;
+}
+.pa-zoom-stage {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.pa-zoom-card {
+  width: min(460px, calc((100vh - 170px) * 5 / 7), calc(100vw - 200px));
+}
+.pa-zoom-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--pa-field);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+.pa-zoom-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pa-zoom-noart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 1px solid var(--pa-line-strong);
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--pa-ink);
+}
+.pa-zoom-step,
+.pa-zoom-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--pa-line-strong);
+  background: #161c25;
+  color: var(--pa-ink);
+  cursor: pointer;
+}
+.pa-zoom-step {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+.pa-zoom-close {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+}
+.pa-zoom-step:hover,
+.pa-zoom-close:hover {
+  border-color: var(--pa-button-line);
+  background: #222b36;
+}
+.pa-zoom svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pa-zoom-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+}
+.pa-zoom-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--pa-ink-bright);
+}
+.pa-zoom-meta {
+  font-size: 13px;
+  color: var(--pa-muted);
+}
+.pa-zoom-turn {
+  min-height: 40px;
+  border-color: #a88a52;
+  color: var(--pa-brass);
+}
+.pa-zoom-turn[aria-pressed="true"] {
+  background: #2a2318;
+}
+
 /* Wrapped under each other, the library takes the whole width. */
 @media (max-width: 1000px) {
   .pa-depot-side {
     max-width: none;
+  }
+}
+@media (max-width: 720px) {
+  .pa-library-fold {
+    display: grid;
+  }
+  .pa-library-folded .pa-library-groups {
+    display: none;
+  }
+  .pa-zoom-backdrop {
+    padding: 12px;
+  }
+  .pa-zoom-stage {
+    gap: 6px;
+  }
+  .pa-zoom-card {
+    width: min(calc(100vw - 104px), calc((100vh - 190px) * 5 / 7));
+  }
+  .pa-zoom-step {
+    width: 36px;
+    height: 64px;
+    border-radius: 8px;
   }
 }
 
@@ -984,19 +1210,16 @@ main.pa-main {
   box-sizing: border-box;
   border-radius: 50%;
 }
-.pa-dot-on,
 .pa-dot-ready {
   background: var(--pa-ok);
 }
-.pa-dot-off,
 .pa-dot-open {
   border: 1px solid #4c5563;
 }
 .pa-dot-waiting {
   border: 2px solid #e0776a;
 }
-.pa-invite,
-.pa-invite-spacer {
+.pa-invite {
   flex: none;
   width: 98px;
 }
@@ -1208,9 +1431,6 @@ main.pa-main {
   flex: 1 1 220px;
   max-width: 320px;
 }
-.pa-your-room .pa-button {
-  min-height: 44px;
-}
 .pa-ready {
   min-width: 168px;
 }
@@ -1221,14 +1441,6 @@ main.pa-main {
 }
 .pa-start {
   min-width: 206px;
-}
-/* A phone: the host's buttons share the card's width rather than run past
-   its edge ("Remove Pat" overflowed it, 2026-10-24 lobby review). */
-@media (max-width: 560px) {
-  .pa-host-actions .pa-button {
-    flex: 1 1 0;
-    min-width: 0;
-  }
 }
 .pa-start-dead,
 .pa-start-dead:disabled {
@@ -1316,11 +1528,6 @@ main.pa-main {
 .pa-dialog-buttons .pa-button {
   flex: 1 1 124px;
   min-height: 48px;
-}
-
-/* Phase 6's match view keeps its Phase 1 look inside the new page. */
-.pa-lobby-match .panel {
-  margin: 0;
 }
 
 @media (max-width: 1000px) {
@@ -2359,6 +2566,12 @@ main.pa-main {
   }
   .pa-card-grid {
     grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  }
+  .pa-card-grid[data-size="medium"] {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .pa-card-grid[data-size="large"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

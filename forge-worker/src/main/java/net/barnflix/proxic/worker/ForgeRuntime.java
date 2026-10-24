@@ -257,25 +257,32 @@ public final class ForgeRuntime {
          * that goes to its own deck, else null (the main deck).
          */
         public final String section;
+        /**
+         * Spec 0008: the name of the face a card turns over to (Delver of
+         * Secrets -> Insectile Aberration), so the Deck Depot can show its
+         * picture; null for a card with one face.
+         */
+        public final String backFace;
 
         private Resolution(String status, String detail, String actualSet, String actualNumber,
-                String category, String section) {
+                String category, String section, String backFace) {
             this.status = status;
             this.detail = detail;
             this.actualSet = actualSet;
             this.actualNumber = actualNumber;
             this.category = category;
             this.section = section;
+            this.backFace = backFace;
         }
 
         static Resolution resolved(PaperCard card) {
             return new Resolution("RESOLVED", null, card.getEdition(),
-                    card.getCollectorNumber(), categoryOf(card), sectionOf(card));
+                    card.getCollectorNumber(), categoryOf(card), sectionOf(card), backFaceOf(card));
         }
 
         static Resolution notFound(String name) {
             return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
-                    null, null, null, null);
+                    null, null, null, null, null);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
@@ -283,7 +290,22 @@ public final class ForgeRuntime {
                     "PRINTING_MISMATCH",
                     "Requested " + requested + ", Forge returned "
                             + got.getEdition() + "/" + got.getCollectorNumber() + ".",
-                    got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got));
+                    got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got),
+                    backFaceOf(got));
+        }
+
+        /**
+         * Forge's own set of cards with two faces (transform, modal
+         * double-faced, meld): the other face's name. A split or
+         * adventure card is one face with two halves, and keeps null.
+         */
+        static String backFaceOf(PaperCard card) {
+            forge.card.CardRules rules = card.getRules();
+            if (!forge.card.CardSplitType.DUAL_FACED_CARDS.contains(rules.getSplitType())
+                    || rules.getOtherPart() == null) {
+                return null;
+            }
+            return rules.getOtherPart().getName();
         }
 
         /** Forge's own test: the deck a Contraption or an Attraction belongs in, else null. */

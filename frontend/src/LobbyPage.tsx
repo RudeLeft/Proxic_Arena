@@ -89,7 +89,7 @@ export default function LobbyPage() {
       setLobby((previous) => (previous.match ? previous : { ...previous, match }));
     });
     void listDecks().then((next) => {
-      if (!cancelled) setLibrary(next);
+      if (!cancelled) setLibrary(next ?? EMPTY_LIBRARY);
     });
     return () => {
       cancelled = true;
@@ -106,7 +106,7 @@ export default function LobbyPage() {
   const listStale = !!listed && !!chosenName && listed.displayName !== chosenName;
   useEffect(() => {
     if (!listStale) return;
-    void listDecks().then(setLibrary);
+    void listDecks().then((next) => setLibrary(next ?? EMPTY_LIBRARY));
   }, [listStale, chosenName]);
 
   /** One place where every room call reports its refusal (§5.132: adopt, never predict). */

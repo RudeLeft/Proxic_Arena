@@ -1,6 +1,6 @@
 # 0008 — Deck Depot: zoom, card size, phone fixes and a clean-up
 
-**Status:** Draft
+**Status:** Approved 2026-10-24 (from the mockup on the lobby canvas) — built
 **Owner decisions:** Z1 click to zoom; C1 the clean-up pass; P1 phone
 fixes; S1 a card size switch (owner, 2026-10-24, from the Deck Depot
 review)

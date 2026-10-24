@@ -124,6 +124,9 @@ data class DeckEntryView(
      * Null for a deck imported before the column, until the fill.
      */
     val category: String? = null,
+    /** Spec 0008 — the face it turns over to, when the deck has that face's picture. */
+    val backFaceName: String? = null,
+    val backArtUrl: String? = null,
 )
 
 @Serializable
@@ -172,17 +175,16 @@ fun Route.deckRoutes(
         // (Phase 4 carry-forward C3), not a new feature: a user must
         // not be able to enumerate decks they cannot open.
         get {
-            call.respond(deckLibrary(dataSource, callerId()))
+            call.respond(authorization.library(callerId()))
         }
 
         // §2.78
         get("/{deckId}") {
             val deckId =
-                call.parameters["deckId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                    ?: return@get call.respond(
-                        HttpStatusCode.BadRequest,
-                        ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
-                    )
+                deckIdOrNull() ?: return@get call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                )
 
             // §4.63-§4.65. A deck you may not see and a deck that
             // does not exist answer identically, so a stranger
@@ -219,11 +221,10 @@ fun Route.deckRoutes(
             }
 
             val deckId =
-                call.parameters["deckId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                    ?: return@get call.respond(
-                        HttpStatusCode.BadRequest,
-                        ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
-                    )
+                deckIdOrNull() ?: return@get call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                )
 
             // PHASE 4 AMENDMENT 2 — deck access AND the asset being
             // part of THAT deck.
@@ -245,9 +246,13 @@ fun Route.deckRoutes(
 
             // Prefer the display derivative; fall back to the
             // original, which is what exists when the derivative was
-            // no smaller (see ArtStore).
+            // no smaller (see ArtStore). Spec 0008's zoom asks for the
+            // full scan (?size=full), as the game's close look does,
+            // under the same check -- a size is no more visible than
+            // its picture.
+            val full = call.request.queryParameters["size"] == "full"
             val file =
-                artStore.displayPath(assetId).takeIf { it.isFile }
+                (if (full) null else artStore.displayPath(assetId).takeIf { it.isFile })
                     ?: artStore.originalPath(assetId).takeIf { it.isFile }
                     ?: return@get call.respond(
                         HttpStatusCode.NotFound,
@@ -288,11 +293,10 @@ fun Route.deckRoutes(
         // §2.79
         delete("/{deckId}") {
             val deckId =
-                call.parameters["deckId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                    ?: return@delete call.respond(
-                        HttpStatusCode.BadRequest,
-                        ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
-                    )
+                deckIdOrNull() ?: return@delete call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                )
 
             // §4.76, §4.80. Three outcomes, and the difference
             // between the last two is deliberate:
@@ -362,78 +366,6 @@ internal fun ShareRecipient.view(): ShareRecipientView =
  */
 internal fun PipelineContext<Unit, ApplicationCall>.callerId(): UUID = call.attributes[PRINCIPAL_KEY].user.userId
 
-/**
- * My Decks and Shared With Me — §4.58, §4.59, §4.133, §4.134.
- *
- * Two queries rather than one with a UNION: they sort differently
- * (yours by import date, theirs by when they were shared with you)
- * and a UNION that happened to work would hide that.
- */
-private fun deckLibrary(
-    dataSource: DataSource,
-    userId: UUID,
-): DeckLibrary {
-    val mine =
-        summaries(
-            dataSource,
-            """
-            SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
-                   d.imported_at, u.display_name,
-                   (SELECT count(*) FROM deck_share s WHERE s.deck_id = d.deck_id)
-              FROM imported_deck d
-              JOIN app_user u ON u.user_id = d.owner_user_id
-             WHERE d.owner_user_id = ?
-             ORDER BY d.imported_at DESC
-            """.trimIndent(),
-            userId,
-        )
-
-    val shared =
-        summaries(
-            dataSource,
-            """
-            SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
-                   d.imported_at, u.display_name, 0
-              FROM imported_deck d
-              JOIN deck_share s ON s.deck_id = d.deck_id
-              JOIN app_user u ON u.user_id = d.owner_user_id
-             WHERE s.shared_with_user_id = ?
-             ORDER BY s.created_at DESC
-            """.trimIndent(),
-            userId,
-        )
-
-    return DeckLibrary(mine = mine, sharedWithMe = shared)
-}
-
-private fun summaries(
-    dataSource: DataSource,
-    sql: String,
-    userId: UUID,
-): List<DeckSummary> =
-    dataSource.connection.use { connection ->
-        connection.prepareStatement(sql).use { statement ->
-            statement.setObject(1, userId)
-            statement.executeQuery().use { rows ->
-                buildList {
-                    while (rows.next()) {
-                        add(
-                            DeckSummary(
-                                deckId = rows.getString(1),
-                                displayName = rows.getString(2),
-                                totalCards = rows.getInt(3),
-                                distinctCards = rows.getInt(4),
-                                importedAt = rows.getTimestamp(5).toInstant().toString(),
-                                ownerDisplayName = rows.getString(6),
-                                shareCount = rows.getInt(7),
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
 private fun deckDetail(
     dataSource: DataSource,
     deckId: UUID,
@@ -466,9 +398,13 @@ private fun deckDetail(
         val entries =
             connection.prepareStatement(
                 """
-                SELECT line_number, quantity, card_name, set_code, collector_number,
-                       resolution_status, art_sha256, card_category
-                FROM deck_entry WHERE deck_id = ? ORDER BY line_number
+                SELECT e.line_number, e.quantity, e.card_name, e.set_code, e.collector_number,
+                       e.resolution_status, e.art_sha256, e.card_category,
+                       e.back_face_name, f.art_sha256
+                  FROM deck_entry e
+                  LEFT JOIN deck_face_art f
+                    ON f.deck_id = e.deck_id AND f.face_name = lower(e.back_face_name)
+                 WHERE e.deck_id = ? ORDER BY e.line_number
                 """.trimIndent(),
             ).use { statement ->
                 statement.setObject(1, deckId)
@@ -476,6 +412,7 @@ private fun deckDetail(
                     buildList {
                         while (rows.next()) {
                             val art = rows.getString(7)
+                            val backArt = rows.getString(10)
                             add(
                                 DeckEntryView(
                                     lineNumber = rows.getInt(1),
@@ -486,6 +423,8 @@ private fun deckDetail(
                                     resolutionStatus = rows.getString(6),
                                     artUrl = art?.let { "/api/decks/$deckId/assets/$it" },
                                     category = rows.getString(8),
+                                    backFaceName = backArt?.let { rows.getString(9) },
+                                    backArtUrl = backArt?.let { "/api/decks/$deckId/assets/$it" },
                                 ),
                             )
                         }
@@ -686,7 +625,7 @@ private suspend fun ImportContext.importAndRespond(
                 HttpStatusCode.Conflict,
                 ImportRejectedResponse(
                     "DUPLICATE_PACKAGE",
-                    "This package has already been imported as \"${result.displayName}\".",
+                    "You already have this deck: \"${result.displayName}\".",
                     listOf(result.existingDeckId.toString()),
                 ),
             )

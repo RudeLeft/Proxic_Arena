@@ -319,8 +319,9 @@ class DeckImporter(
                     """
                     INSERT INTO imported_deck
                       (deck_id, display_name, source_filename, package_sha256,
-                       total_cards, distinct_cards, import_schema_version, owner_user_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       total_cards, distinct_cards, import_schema_version, owner_user_id,
+                       faces_checked)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
                     """.trimIndent(),
                 ).use { statement ->
                     statement.setObject(1, deckId)
@@ -356,8 +357,9 @@ class DeckImporter(
                         INSERT INTO deck_entry
                           (deck_id, line_number, quantity, card_name, set_code,
                            collector_number, source_text, resolution_status,
-                           resolved_set, resolved_number, art_sha256, card_category)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           resolved_set, resolved_number, art_sha256, card_category,
+                           back_face_name)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """.trimIndent(),
                     ).use { statement ->
                         statement.setObject(1, deckId)
@@ -372,6 +374,7 @@ class DeckImporter(
                         statement.setString(10, resolution?.actualNumber)
                         statement.setString(11, art[entry.frontFaceName.lowercase()]?.sha256)
                         statement.setString(12, resolution?.category)
+                        statement.setString(13, resolution?.backFace)
                         statement.executeUpdate()
                     }
                 }
@@ -405,7 +408,7 @@ class DeckImporter(
                     e.toString().contains("owner_package_unique", ignoreCase = true)
                 ) {
                     return existingDeck(checksum, prepared.ownerUserId)
-                        ?: ImportResult.Rejected("DUPLICATE", "This package was already imported.", emptyList())
+                        ?: ImportResult.Rejected("DUPLICATE_PACKAGE", "You already have this deck.", emptyList())
                 }
                 log.error("persisting deck {} failed", deckId, e)
                 return ImportResult.Rejected(

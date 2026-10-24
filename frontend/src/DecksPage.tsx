@@ -1,9 +1,10 @@
-// The Deck Depot — PHASE_07 §7.65 and Amendment 10, over Phase 4.
+// The Deck Depot — PHASE_07 §7.65 and Amendment 10, over Phase 4; spec 0008.
 //
 // The canvas's Depot: import on the left with the library under it,
 // the open deck on the right with who holds it and its cards. Still
 // not a deck builder (§2.87): decks are made in Proxic Deck Builder
-// and arrive here as packages.
+// and arrive here as packages. Spec 0008 adds a card's close-up (click
+// it), a card size and the phone fixes.
 //
 // Everything a player may do here the server decides again: hiding
 // Rename, Delete and Share on a deck lent to you is the courtesy, the
@@ -21,14 +22,15 @@ import {
   renameDeck,
   revokeShare,
   shareDeck,
-  EMPTY_LIBRARY,
   type DeckDetail,
+  type DeckEntryView,
   type DeckLibrary,
   type DeckSummary,
   type ImportFailure,
   type ImportedDeck,
   type ShareList,
 } from "./decks";
+import { CardZoom } from "./CardZoom";
 
 type ImportView =
   | { kind: "idle" }
@@ -45,6 +47,10 @@ function importedSentence(deck: ImportedDeck): string {
   return `${deck.totalCards} cards, ${deck.distinctCards} distinct, ${art}.`;
 }
 
+/** Spec 0008 — the narrow layout, where the open deck sits below the library. */
+const PHONE = "(max-width: 720px)";
+const narrow = () => typeof window !== "undefined" && window.matchMedia?.(PHONE).matches === true;
+
 /**
  * Import — §2.81-§2.86, and §7.65's one name per owner.
  *
@@ -52,13 +58,7 @@ function importedSentence(deck: ImportedDeck): string {
  * the name back to edit and imports the same file again under the new
  * one, so nobody has to find the file twice.
  */
-function ImportPanel({
-  library,
-  onImported,
-}: {
-  library: DeckLibrary;
-  onImported: (deck: ImportedDeck) => Promise<void>;
-}) {
+function ImportPanel({ onImported }: { onImported: (deck: ImportedDeck) => Promise<void> }) {
   const [view, setView] = useState<ImportView>({ kind: "idle" });
   const [dragging, setDragging] = useState(false);
   const [newName, setNewName] = useState("");
@@ -83,8 +83,6 @@ function ImportPanel({
   );
 
   const working = view.kind === "working";
-  const existingName = (deckId: string) =>
-    library.mine.find((deck) => deck.deckId === deckId)?.displayName ?? deckId;
 
   return (
     <section className="pa-section" aria-labelledby="import-heading">
@@ -151,7 +149,9 @@ function ImportPanel({
         <div className="pa-notice pa-notice-bad pa-section-notice" role="alert">
           <span aria-hidden="true" className="pa-notice-mark" />
           <span className="pa-notice-text">
-            {/* §2.86 — a category, an explanation and the lines. */}
+            {/* §2.86 — a category, an explanation and the lines. A
+                duplicate's sentence already names the deck you have
+                (spec 0008: it was said twice). */}
             <strong>
               {headingFor(view.failure.errorCode) ?? "That package could not be imported"}
             </strong>
@@ -164,11 +164,6 @@ function ImportPanel({
                   ))}
                 </ul>
               )}
-            {view.failure.existingDeckId && (
-              <span className="pa-notice-sub">
-                Already imported as “{existingName(view.failure.existingDeckId)}”, in My decks.
-              </span>
-            )}
           </span>
         </div>
       )}
@@ -223,11 +218,14 @@ function DeckGroup({
   owned: boolean;
   openId: string | null;
   onView: (deckId: string) => void;
-  onDelete?: (deckId: string) => Promise<void>;
+  /** True when the deck went. */
+  onDelete?: (deckId: string) => Promise<boolean>;
 }) {
   const headingId = useId();
   // Amendment 10 — Delete asks first, on the row.
   const [confirming, setConfirming] = useState<string | null>(null);
+  // Spec 0008 — a delete that did not happen says so, on its row.
+  const [failed, setFailed] = useState<string | null>(null);
 
   const meta = (deck: DeckSummary) => {
     const cards = `${deck.totalCards} cards`;
@@ -264,7 +262,10 @@ function DeckGroup({
                   className="pa-small-button pa-small-button-warn"
                   onClick={() => {
                     setConfirming(null);
-                    void onDelete?.(deck.deckId);
+                    setFailed(null);
+                    void onDelete?.(deck.deckId).then((gone) => {
+                      if (!gone) setFailed(deck.deckId);
+                    });
                   }}
                 >
                   Delete
@@ -281,7 +282,13 @@ function DeckGroup({
               <>
                 <span className="pa-deck-text">
                   <span className="pa-deck-name">{deck.displayName}</span>
-                  <span className="pa-deck-meta">{meta(deck)}</span>
+                  {failed === deck.deckId ? (
+                    <span className="pa-deck-meta pa-deck-meta-bad" role="alert">
+                      That deck could not be deleted. Try again.
+                    </span>
+                  ) : (
+                    <span className="pa-deck-meta">{meta(deck)}</span>
+                  )}
                 </span>
                 <button
                   type="button"
@@ -449,6 +456,7 @@ function OpenDeck({
  * Shown only for a deck you own. The list is fetched, not inferred:
  * `null` from the server means "not yours to see", which is different
  * from nobody holding it, and the panel then does not exist at all.
+ * Keyed by deck in the page, so it never shows the last deck's list.
  */
 function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () => Promise<void> }) {
   const [list, setList] = useState<ShareList | null>(null);
@@ -462,7 +470,6 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
   }, [detail.deckId]);
 
   useEffect(() => {
-    setMessage(null);
     void refresh();
   }, [refresh]);
 
@@ -567,98 +574,222 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
   );
 }
 
-/** §2.87 and Amendment 10 — the cards, banded as Forge sorted them. */
+// --- the cards: size and close-up (spec 0008) ---------------------------------
+
+type CardSize = "small" | "medium" | "large";
+const SIZES: { value: CardSize; label: string }[] = [
+  { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
+  { value: "large", label: "Large" },
+];
+const SIZE_KEY = "proxic.depot.cardSize";
+
+/** The size this computer chose; Medium when none, or when storage cannot be read. */
+function savedSize(): CardSize {
+  try {
+    const saved = window.localStorage.getItem(SIZE_KEY);
+    return saved === "small" || saved === "large" ? saved : "medium";
+  } catch {
+    return "medium";
+  }
+}
+
+/** §2.87 and Amendment 10 — the cards, banded as Forge sorted them; click one to zoom. */
 function CardsPanel({ detail }: { detail: DeckDetail }) {
+  const [size, setSize] = useState<CardSize>(savedSize);
+  const [zoomed, setZoomed] = useState<number | null>(null);
+  const bands = bandsOf(detail.entries);
+  // The close-up steps through the deck in the order the bands show it.
+  const order: DeckEntryView[] = bands.flatMap((band) => band.entries);
+
+  const choose = (next: CardSize) => {
+    setSize(next);
+    try {
+      window.localStorage.setItem(SIZE_KEY, next);
+    } catch {
+      // A private window: the choice lasts until the page closes.
+    }
+  };
+
+  const close = () => {
+    const at = zoomed;
+    setZoomed(null);
+    // Back to the card it was opened from, not the top of the page.
+    if (at !== null) {
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLButtonElement>(`[data-zoom-index="${at}"]`)?.focus(),
+      );
+    }
+  };
+
   return (
     <section className="pa-section" aria-labelledby="cards-heading">
       <div className="pa-section-head">
         <h2 id="cards-heading">Cards</h2>
+        <span className="pa-spacer" />
+        <div className="pa-size-switch" role="group" aria-label="Card size">
+          {SIZES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="pa-size-option"
+              aria-pressed={size === option.value}
+              onClick={() => choose(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
-      {bandsOf(detail.entries).map((band) => (
+      {bands.map((band) => (
         <div key={band.label} role="group" aria-label={`${band.label}, ${band.count} cards`}>
           <div className="pa-band-head" aria-hidden="true">
             <span>{band.label}</span>
             <span className="pa-band-count">{band.count}</span>
           </div>
-          <div className="pa-card-grid">
-            {band.entries.map((entry) => (
-              <figure key={entry.lineNumber} className="pa-card">
-                <span className="pa-card-art">
-                  {entry.artUrl ? (
-                    <img src={entry.artUrl} alt={entry.cardName} loading="lazy" />
-                  ) : (
-                    <span className="pa-card-noart">No art</span>
-                  )}
-                  <span className="pa-card-qty" aria-label={`${entry.quantity} copies`}>
-                    {entry.quantity}
-                  </span>
-                </span>
-                <figcaption>{entry.cardName}</figcaption>
-              </figure>
-            ))}
+          <div className="pa-card-grid" data-size={size}>
+            {band.entries.map((entry) => {
+              const index = order.indexOf(entry);
+              return (
+                <figure key={entry.lineNumber} className="pa-card">
+                  <button
+                    type="button"
+                    className="pa-card-art"
+                    data-zoom-index={index}
+                    aria-label={`Zoom ${entry.cardName}`}
+                    onClick={() => setZoomed(index)}
+                  >
+                    {entry.artUrl ? (
+                      <img src={entry.artUrl} alt={entry.cardName} loading="lazy" />
+                    ) : (
+                      <span className="pa-card-noart">No art</span>
+                    )}
+                    <span className="pa-card-qty" aria-label={`${entry.quantity} copies`}>
+                      {entry.quantity}
+                    </span>
+                  </button>
+                  <figcaption>{entry.cardName}</figcaption>
+                </figure>
+              );
+            })}
           </div>
         </div>
       ))}
+      {zoomed !== null && order[zoomed] && (
+        <CardZoom cards={order} index={zoomed} onIndex={setZoomed} onClose={close} />
+      )}
     </section>
   );
 }
 
 export default function DecksPage() {
-  const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
+  /** Null until the first answer; "failed" when the server did not give one. */
+  const [library, setLibrary] = useState<DeckLibrary | "failed" | null>(null);
   const [open, setOpen] = useState<DeckDetail | null>(null);
+  const [openFailed, setOpenFailed] = useState(false);
+  /** Spec 0008 — on a phone the library folds while a deck is open. */
+  const [libraryFolded, setLibraryFolded] = useState(false);
+  // The deck asked for last: a slower answer for an earlier click is
+  // dropped, so two quick Views always show the second (spec 0008).
+  const asked = useRef<string | null>(null);
+  const mainRef = useRef<HTMLDivElement | null>(null);
 
-  const refresh = useCallback(async () => setLibrary(await listDecks()), []);
+  const refresh = useCallback(async () => {
+    const next = await listDecks();
+    setLibrary(next ?? "failed");
+  }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const view = useCallback((deckId: string) => {
-    void getDeck(deckId).then(setOpen);
+    asked.current = deckId;
+    setOpenFailed(false);
+    void getDeck(deckId).then((detail) => {
+      if (asked.current !== deckId) return;
+      setOpen(detail);
+      setOpenFailed(detail === null);
+      if (narrow()) {
+        // On a phone the deck is below the library: go to it.
+        setLibraryFolded(true);
+        requestAnimationFrame(() => mainRef.current?.scrollIntoView({ block: "start" }));
+      }
+    });
   }, []);
 
-  const total = library.mine.length + library.sharedWithMe.length;
+  const shown = library === null || library === "failed" ? null : library;
+  const total = shown ? shown.mine.length + shown.sharedWithMe.length : 0;
+  const folded = libraryFolded && open !== null;
 
   return (
     <main className="pa-main pa-depot">
       <h1 className="pa-visually-hidden">Deck Depot</h1>
       <div className="pa-depot-layout">
         <div className="pa-depot-side">
-          <ImportPanel library={library} onImported={refresh} />
+          <ImportPanel onImported={refresh} />
 
-          <section className="pa-section" aria-labelledby="library-heading">
+          <section
+            className={`pa-section${folded ? " pa-library-folded" : ""}`}
+            aria-labelledby="library-heading"
+          >
             <div className="pa-section-head">
               <h2 id="library-heading">Deck library</h2>
               <span className="pa-spacer" />
               <span className="pa-count" aria-label={`${total} decks`}>
                 {total}
               </span>
+              <button
+                type="button"
+                className="pa-library-fold"
+                aria-expanded={!folded}
+                aria-label={folded ? "Show the deck library" : "Fold the deck library"}
+                onClick={() => setLibraryFolded(!folded)}
+              >
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
+                  <path d={folded ? "M4 2 L8 6 L4 10" : "M2 4 L6 8 L10 4"} />
+                </svg>
+              </button>
             </div>
-            <DeckGroup
-              title="My decks"
-              decks={library.mine}
-              empty="Nothing imported yet."
-              owned
-              openId={open?.deckId ?? null}
-              onView={view}
-              onDelete={async (deckId) => {
-                await deleteDeck(deckId);
-                setOpen((current) => (current?.deckId === deckId ? null : current));
-                await refresh();
-              }}
-            />
-            <DeckGroup
-              title="Shared with me"
-              decks={library.sharedWithMe}
-              empty="Nobody has shared a deck with you."
-              owned={false}
-              openId={open?.deckId ?? null}
-              onView={view}
-            />
+            {library === "failed" ? (
+              <div className="pa-library-failed" role="alert">
+                <span>Your decks could not be loaded.</span>
+                <button type="button" className="pa-small-button" onClick={() => void refresh()}>
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <div className="pa-library-groups">
+                <DeckGroup
+                  title="My decks"
+                  decks={shown?.mine ?? []}
+                  empty={shown ? "Nothing imported yet." : "Loading…"}
+                  owned
+                  openId={open?.deckId ?? null}
+                  onView={view}
+                  onDelete={async (deckId) => {
+                    const gone = await deleteDeck(deckId);
+                    if (gone) {
+                      setOpen((current) => (current?.deckId === deckId ? null : current));
+                      await refresh();
+                    }
+                    return gone;
+                  }}
+                />
+                <DeckGroup
+                  title="Shared with me"
+                  decks={shown?.sharedWithMe ?? []}
+                  empty={shown ? "Nobody has shared a deck with you." : "Loading…"}
+                  owned={false}
+                  openId={open?.deckId ?? null}
+                  onView={view}
+                />
+              </div>
+            )}
           </section>
         </div>
 
-        <div className="pa-depot-main">
+        <div className="pa-depot-main" ref={mainRef}>
           {open ? (
             <>
               <OpenDeck
@@ -669,16 +800,21 @@ export default function DecksPage() {
                   await refresh();
                 }}
               />
-              <SharePanel detail={open} onChanged={refresh} />
-              <CardsPanel detail={open} />
+              <SharePanel key={`share-${open.deckId}`} detail={open} onChanged={refresh} />
+              <CardsPanel key={`cards-${open.deckId}`} detail={open} />
             </>
           ) : (
             <section className="pa-section" aria-labelledby="open-heading">
               <div className="pa-section-head">
                 <h2 id="open-heading">Open deck</h2>
               </div>
-              <p className="pa-open-empty">
-                Choose View on a deck to see its cards and who it is shared with.
+              <p
+                className={`pa-open-empty${openFailed ? " pa-open-failed" : ""}`}
+                role={openFailed ? "alert" : undefined}
+              >
+                {openFailed
+                  ? "That deck could not be opened. It may have been deleted, or the server did not answer."
+                  : "Choose View on a deck to see its cards and who it is shared with."}
               </p>
             </section>
           )}

@@ -13,8 +13,12 @@ import kotlin.concurrent.thread
 // per deck, one deck at a time, in the background after startup. A
 // worker costs ~600 MB while it runs, so never two at once.
 //
-// Once every entry has a category this finds nothing and costs one
-// query per start. A deck Forge cannot answer for (a worker that will
+// Spec 0008 adds the back face (the face a card turns over to, for the
+// Depot's zoom) to the same one question: a deck not yet asked about its
+// faces (imported_deck.faces_checked, V020) is filled the same way.
+//
+// Once every entry has a category and every deck its faces this finds
+// nothing and costs one query per start. A deck Forge cannot answer for (a worker that will
 // not start) is left as it is: the page shows those cards in an
 // unsorted band, and the next start tries again.
 
@@ -57,7 +61,11 @@ class DeckCategoryFill(
     private fun decksNeedingIt(): List<UUID> =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
-                "SELECT DISTINCT deck_id FROM deck_entry WHERE card_category IS NULL",
+                """
+                SELECT DISTINCT d.deck_id FROM imported_deck d
+                  JOIN deck_entry e ON e.deck_id = d.deck_id
+                 WHERE e.card_category IS NULL OR NOT d.faces_checked
+                """.trimIndent(),
             ).use { statement ->
                 statement.executeQuery().use { rows ->
                     buildList { while (rows.next()) add(rows.getObject(1, UUID::class.java)) }
@@ -73,7 +81,7 @@ class DeckCategoryFill(
                     """
                     SELECT line_number, quantity, card_name, set_code, collector_number, source_text
                       FROM deck_entry
-                     WHERE deck_id = ? AND card_category IS NULL
+                     WHERE deck_id = ?
                      ORDER BY line_number
                     """.trimIndent(),
                 ).use { statement ->
@@ -98,25 +106,30 @@ class DeckCategoryFill(
             }
         if (entries.isEmpty()) return true
 
-        val categories =
+        val answers =
             resolver.resolve(entries)
-                .mapNotNull { resolution -> resolution.category?.let { resolution.name.lowercase() to it } }
-                .toMap()
-        if (categories.isEmpty()) return false
+                .filter { it.category != null }
+                .associateBy { it.name.lowercase() }
+        if (answers.isEmpty()) return false
 
         dataSource.connection.use { connection ->
             connection.prepareStatement(
-                "UPDATE deck_entry SET card_category = ? " +
-                    "WHERE deck_id = ? AND line_number = ? AND card_category IS NULL",
+                "UPDATE deck_entry SET card_category = COALESCE(card_category, ?), back_face_name = ? " +
+                    "WHERE deck_id = ? AND line_number = ?",
             ).use { statement ->
                 for (entry in entries) {
-                    val category = categories[entry.name.lowercase()] ?: continue
-                    statement.setString(1, category)
-                    statement.setObject(2, deckId)
-                    statement.setInt(3, entry.lineNumber)
+                    val answer = answers[entry.name.lowercase()] ?: continue
+                    statement.setString(1, answer.category)
+                    statement.setString(2, answer.backFace)
+                    statement.setObject(3, deckId)
+                    statement.setInt(4, entry.lineNumber)
                     statement.addBatch()
                 }
                 statement.executeBatch()
+            }
+            connection.prepareStatement("UPDATE imported_deck SET faces_checked = TRUE WHERE deck_id = ?").use {
+                it.setObject(1, deckId)
+                it.executeUpdate()
             }
         }
         return true

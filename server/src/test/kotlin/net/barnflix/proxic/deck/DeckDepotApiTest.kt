@@ -7,6 +7,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -113,7 +114,7 @@ class DeckDepotApiTest {
         val prefix = sha.substring(0, 2)
         val display = java.io.File("build/test-depot/art/display/" + prefix)
         display.mkdirs()
-        java.io.File(display, sha + ".png").writeBytes(ByteArray(64) { 1 })
+        java.io.File(display, sha + ".png").writeBytes(ByteArray(SMALL_BYTES) { 1 })
     }
 
     private fun insertDeck(
@@ -388,6 +389,76 @@ class DeckDepotApiTest {
             val cacheControl = response.headers[HttpHeaders.CacheControl].orEmpty()
             assertTrue(cacheControl.contains("private"), "cache-control was: $cacheControl")
             assertFalse(cacheControl.contains("public"), cacheControl)
+        }
+
+    // --- the zoom (spec 0008) -----------------------------------------
+
+    /** The grid gets the small copy; the zoom asks for the full scan. */
+    @Test
+    fun `the zoom gets the full scan and the grid the small copy`() =
+        testApplication {
+            val deck = insertDeck("Zoomed", "Pat", withArt = true)
+            val original = java.io.File("build/test-depot/art/original/" + sha.substring(0, 2))
+            original.mkdirs()
+            java.io.File(original, "$sha.png").writeBytes(ByteArray(FULL_BYTES) { 2 })
+            application { module(config()) }
+            val pat = signIn("Pat")
+
+            val small = getAs(pat, "/api/decks/$deck/assets/$sha")
+            val full = getAs(pat, "/api/decks/$deck/assets/$sha?size=full")
+            assertEquals(SMALL_BYTES, small.readBytes().size, "the grid's copy")
+            assertEquals(FULL_BYTES, full.readBytes().size, "the full scan")
+            // The same check either way: a size is no more visible than its picture.
+            assertEquals(
+                HttpStatusCode.NotFound,
+                getAs(signIn("Sam"), "/api/decks/$deck/assets/$sha?size=full").status,
+            )
+        }
+
+    /**
+     * A back face's picture belongs to its deck: the deck says which face a
+     * card turns over to, and the picture is served to whoever may see the
+     * deck -- never to a stranger.
+     */
+    @Test
+    fun `a back face is the deck's picture, for the owner and a recipient only`() =
+        testApplication {
+            val deck = insertDeck("Delver", "Pat", withArt = true)
+            val back = "d".repeat(64)
+            val display = java.io.File("build/test-depot/art/display/" + back.substring(0, 2))
+            display.mkdirs()
+            java.io.File(display, "$back.png").writeBytes(ByteArray(SMALL_BYTES) { 3 })
+            withConnection { connection ->
+                connection.prepareStatement(
+                    "INSERT INTO art_asset (content_sha256, byte_size) VALUES (?, 1) ON CONFLICT DO NOTHING",
+                ).use {
+                    it.setString(1, back)
+                    it.executeUpdate()
+                }
+                connection.prepareStatement(
+                    "INSERT INTO deck_face_art (deck_id, face_name, art_sha256) VALUES (?, 'insectile aberration', ?)",
+                ).use {
+                    it.setObject(1, deck)
+                    it.setString(2, back)
+                    it.executeUpdate()
+                }
+                connection.prepareStatement(
+                    "UPDATE deck_entry SET back_face_name = 'Insectile Aberration' WHERE deck_id = ?",
+                ).use {
+                    it.setObject(1, deck)
+                    it.executeUpdate()
+                }
+            }
+            application { module(config()) }
+
+            val detail = getAs(signIn("Pat"), "/api/decks/$deck").bodyAsText()
+            assertTrue(detail.contains("\"backArtUrl\":\"/api/decks/$deck/assets/$back\""), detail)
+            assertTrue(detail.contains("\"backFaceName\":\"Insectile Aberration\""), detail)
+
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Pat"), "/api/decks/$deck/assets/$back").status)
+            assertEquals(HttpStatusCode.NotFound, getAs(signIn("Sam"), "/api/decks/$deck/assets/$back").status)
+            share(deck, with = "Sam", by = "Pat")
+            assertEquals(HttpStatusCode.OK, getAs(signIn("Sam"), "/api/decks/$deck/assets/$back").status)
         }
 
     private suspend fun ApplicationTestBuilder.postAs(
@@ -737,3 +808,8 @@ class DeckDepotApiTest {
             assertFalse(authorization.canUseDeck(userId("Pat"), java.util.UUID.randomUUID()))
         }
 }
+
+/** What writeArtFile puts in the small copy, and a full scan that differs. */
+private const val SMALL_BYTES = 64
+
+private const val FULL_BYTES = 128

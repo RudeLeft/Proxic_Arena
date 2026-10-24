@@ -298,8 +298,9 @@ class DeckAuthorizationTest {
         val theirs = deck("Pats_Own", recipient)
         share(theirs, owner, recipient)
 
-        val owned = auth.ownedBy(owner)
-        val shared = auth.sharedWith(owner)
+        val library = auth.library(owner)
+        val owned = library.mine.map { UUID.fromString(it.deckId) }
+        val shared = library.sharedWithMe.map { UUID.fromString(it.deckId) }
 
         assertTrue(owned.containsAll(listOf(mine, alsoMine)))
         assertFalse(owned.contains(theirs), "a shared deck must not appear as owned (§4.60)")

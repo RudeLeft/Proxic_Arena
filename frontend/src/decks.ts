@@ -6,9 +6,6 @@
 
 import { apiFetch } from "./auth";
 
-/** §2.84 — the simple state model. No fake fine-grained progress. */
-export type ImportState = "idle" | "selected" | "uploading" | "validating" | "imported" | "failed";
-
 export interface ImportedDeck {
   deckId: string;
   displayName: string;
@@ -23,8 +20,6 @@ export interface ImportFailure {
   errorCode: string;
   detail: string;
   problems: string[];
-  /** The existing deck, when the failure is a duplicate. */
-  existingDeckId?: string;
   /** PHASE_07 §7.65 — the name you already use, when that was the problem. */
   takenName?: string;
 }
@@ -66,6 +61,9 @@ export interface DeckEntryView {
   artUrl?: string;
   /** PHASE_07 Amendment 10 — Forge's answer; absent until an older deck is sorted. */
   category?: CardCategory;
+  /** Spec 0008 — the face it turns over to, when the deck has its picture. */
+  backFaceName?: string;
+  backArtUrl?: string;
 }
 
 export type CardCategory = "LAND" | "CREATURE" | "SPELL";
@@ -149,11 +147,18 @@ const ERROR_HEADINGS: Record<string, string> = {
   DECK_NOT_LEGAL: "That deck is not legal in Open Format",
   CARDS_NOT_RESOLVED: "Some cards in that deck are not supported yet",
   INVALID_ARTWORK: "That package contains artwork that is not a usable image",
-  DUPLICATE_PACKAGE: "That deck has already been imported",
+  DUPLICATE_PACKAGE: "You already have this deck",
   DECK_NAME_TAKEN: "You already have a deck with that name",
   INVALID_DECK_NAME: "That name cannot be used",
   IMPORT_DISABLED: "Deck import is turned off on this server",
   NO_FILE: "No file was selected",
+  // Spec 0008 — the refusals that had no heading of their own.
+  NOT_A_FILE: "That upload is not a file",
+  ENTRY_TOO_LARGE: "A file inside that package is too large",
+  UNCOMPRESSED_TOO_LARGE: "That package unpacks to too much",
+  UNSUPPORTED_COMPRESSION: "That package is packed in a way that cannot be read",
+  DECK_TEXT_TOO_LARGE: "The decklist in that package is too long",
+  IMPORT_FAILED: "The import failed on the server",
 };
 
 export function headingFor(errorCode: string): string | null {
@@ -221,30 +226,30 @@ export async function importDeck(
     problems: payload.problems ?? [],
   };
 
-  // A duplicate carries the existing deck id in `problems`, so the
-  // page can link to the deck already imported rather than telling
-  // the player a dead end (§2.75, owner decision D3).
-  const existing = failure.problems[0];
+  // A name clash carries the name, so the page can offer it back to edit.
+  // (A duplicate's detail already names the deck you have, spec 0008.)
   // `exactOptionalPropertyTypes` means an optional field cannot be
   // assigned `undefined` — the element lookup is only narrowed by
   // checking it, not by checking the array's length.
-  if (payload.errorCode === "DUPLICATE_PACKAGE" && existing !== undefined) {
-    failure.existingDeckId = existing;
-  }
-  // A name clash carries the name, so the page can offer it back to edit.
+  const existing = failure.problems[0];
   if (payload.errorCode === "DECK_NAME_TAKEN" && existing !== undefined) {
     failure.takenName = existing;
   }
   return { ok: false, failure };
 }
 
-export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckLibrary> {
+/**
+ * Your library; null when it could not be read. Not an empty library:
+ * "Nothing imported yet" would be untrue when the server did not answer
+ * (spec 0008).
+ */
+export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckLibrary | null> {
   try {
     const response = await fetchFn("/api/decks", { credentials: "same-origin" });
-    if (!response.ok) return EMPTY_LIBRARY;
+    if (!response.ok) return null;
     return (await response.json()) as DeckLibrary;
   } catch {
-    return EMPTY_LIBRARY;
+    return null;
   }
 }
 

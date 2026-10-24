@@ -27,6 +27,18 @@ words, newest first. Each release on GitHub carries the same notes.
 - Lines that came in while you were away sit under a "New" divider, and
   the browser tab shows how many, "(2) Proxic Arena".
 
+**Deck Depot** (spec 0008)
+- Click a card to see it large, at full size; ← / → step through the
+  deck, Esc closes. A card that turns over (Delver of Secrets) has Turn
+  over. Decks you already have learn their back faces in the background
+  after the update.
+- Small / Medium / Large cards, remembered on your computer; Medium is
+  the new default.
+- On a phone, View takes you to the deck and folds the library away.
+- Re-importing a deck you have says so once; every refusal has a plain
+  heading; a failed delete, a library that will not load and a deck that
+  will not open now say so; two quick Views always show the second.
+
 **Fixes**
 - On a phone, the host's buttons no longer run off the room card.
 - Plainer words in the invitation box and the empty chat.
