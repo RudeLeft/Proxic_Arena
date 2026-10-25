@@ -15,7 +15,7 @@
 //
 //   docker compose exec arena-server /app/bin/arena-admin create Pat
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type WebSocket } from "@playwright/test";
 import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import { chooseDeck, inviteIn, openRoom, seatOf, yourRoom } from "./match-helpers";
 
@@ -210,6 +210,20 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
   // Spec 0009, A1-A3, between two real players. The guest's clock runs
   // ahead instead of the test waiting 5 minutes.
   await twoPlayers(browser, async (host, guest) => {
+    // The guest's lobby socket, and what it said -- attached if this
+    // fails, so a failure on CI explains itself.
+    let socket: WebSocket | null = null;
+    const said: string[] = [];
+    guest.on("websocket", (ws) => {
+      if (!ws.url().endsWith("/ws/user")) return;
+      socket = ws;
+      ws.on("framesent", (frame) => said.push(`> ${String(frame.payload).slice(0, 120)}`));
+      ws.on("framereceived", (frame) => {
+        const text = String(frame.payload);
+        if (!text.includes('"PONG"')) said.push(`< ${text.slice(0, 120)}`);
+      });
+      ws.on("close", () => said.push("closed"));
+    });
     await guest.clock.install();
     await openLobby(guest);
     await openRoom(host, `Away ${Date.now()}`);
@@ -227,13 +241,24 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
     await expect(badge(row, /online/)).toBeVisible();
 
     await guest.mouse.move(5, 5);
-    // Twenty seconds at a time: one jump of 5 minutes is also 5 minutes
-    // without a PONG, and the page would rightly reconnect as new.
-    for (let step = 0; step < 17; step++) {
-      await guest.clock.fastForward(20_000);
-      await guest.waitForTimeout(150);
+    // Twenty seconds at a time, each waiting for the server's PONG: one
+    // jump of 5 minutes is also 5 minutes without one, and the page would
+    // rightly reconnect as new.
+    try {
+      for (let step = 0; step < 17; step++) {
+        const pong = socket!.waitForEvent("framereceived", {
+          predicate: (frame) => String(frame.payload).includes('"PONG"'),
+          timeout: 10_000,
+        });
+        await guest.clock.fastForward(20_000);
+        await pong;
+      }
+      await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await test
+        .info()
+        .attach("guest socket", { body: said.join("\n"), contentType: "text/plain" });
     }
-    await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
     await expect(row).toContainText(/Away \d+ min · in your room/);
     await expect(badge(seat, /away/)).toBeVisible();
     await expect(badge(chat, /away/).first()).toBeVisible();
