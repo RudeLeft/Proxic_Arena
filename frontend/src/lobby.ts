@@ -566,9 +566,10 @@ function closedBecause(reason: string | null): string {
     case "HOST_LEFT":
       return "The host left, so the room closed.";
     case "CLOSED_BY_ADMIN":
-      // PHASE_07 §7.67 — said plainly, and the match it ended (if any)
-      // had no winner.
-      return "An administrator closed this game. Nobody won it.";
+      // PHASE_07 §7.67 — said plainly (owner wording 2026-10-25). Sent
+      // only to the room's members: the host and whoever had the other
+      // seat; anyone merely invited hears that the invitation ended.
+      return "An administrator closed this room.";
     case "CLOSED_BY_HOST":
       return "The host closed the room.";
     case "EXPIRED":

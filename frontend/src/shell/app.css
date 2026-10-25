@@ -965,7 +965,8 @@
 }
 .pa-room-state {
   flex: none;
-  width: 104px;
+  /* Room for the longest, "Waiting for a player" (owner 2026-10-25). */
+  width: 150px;
   box-sizing: border-box;
   padding: 4px 0;
   border: 1px solid #4c5563;
@@ -1121,6 +1122,9 @@
   .pa-room-state,
   .pa-room-action {
     width: auto;
+  }
+  .pa-room-state {
+    padding: 4px 10px;
   }
 }
 
@@ -1865,23 +1869,7 @@
 }
 .pa-admin-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 20px;
-}
-.pa-admin-title {
-  margin: 0;
-  font-family: var(--pa-display);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--pa-ink-bright);
-}
-.pa-admin-lede {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--pa-muted);
+  justify-content: flex-end;
 }
 .pa-admin-health {
   display: inline-flex;
@@ -2255,7 +2243,7 @@
   border-bottom: 1px solid var(--pa-line-soft);
 }
 .pa-admin-room {
-  grid-template-columns: minmax(0, 1fr) 140px 90px auto;
+  grid-template-columns: minmax(0, 1fr) 160px 90px auto;
 }
 .pa-admin-record {
   grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) auto;
@@ -2308,6 +2296,11 @@
 .pa-admin-record a.pa-small-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  /* One size whatever the file's (owner 2026-10-25), so the column
+     beside it lines up too. */
+  width: 184px;
+  box-sizing: border-box;
   justify-self: end;
   margin: 0;
   text-decoration: none;

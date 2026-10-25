@@ -178,11 +178,10 @@ export default function AdminPage() {
   return (
     <main className="pa-main pa-admin">
       <div className="pa-admin-wrap">
+        {/* No title on screen (owner 2026-10-25): the menu already says
+            Admin. The health pill keeps its place on the right. */}
+        <h1 className="pa-visually-hidden">Admin</h1>
         <div className="pa-admin-head">
-          <div>
-            <h1 className="pa-admin-title">Admin</h1>
-            <p className="pa-admin-lede">Everything about this server, one tab at a time.</p>
-          </div>
           <HealthPill server={server} />
         </div>
 
@@ -488,7 +487,7 @@ function AccountRow({
                   disabled
                   aria-label="Cannot remove the last administrator"
                 >
-                  Last administrator — can't be removed
+                  Last Administrator: Cannot Remove
                 </button>
               ) : (
                 <>

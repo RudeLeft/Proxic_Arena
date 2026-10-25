@@ -21,6 +21,15 @@ words, newest first. Each release on GitHub carries the same notes.
 - Games say how they ended in plain words; sign-ins are grouped by
   person, with names that never got in at the top in red.
 
+**Admin and Account touches** (owner, 2026-10-25)
+- Admin and Account no longer repeat their name as a title; the health
+  pill keeps its place on Admin.
+- The last administrator reads "Last Administrator: Cannot Remove".
+- A room's status fits its box ("Waiting for a player"), on a phone too;
+  every "Download record" button is one size, so the rows line up.
+- A room an administrator closes says "An administrator closed this
+  room." -- to the host and whoever had the other seat, nobody else.
+
 **Sign in, addresses and refreshing** (owner, 2026-10-24)
 - Somebody who is not signed in sees the sign-in screen and nothing
   else: not the version, not the server's health, not the other pages'

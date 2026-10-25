@@ -83,7 +83,8 @@ export function AccountPage() {
   return (
     <main className="pa-main">
       <div className="pa-column">
-        <h1 className="pa-title">Account</h1>
+        {/* No title on screen (owner 2026-10-25): the menu already says it. */}
+        <h1 className="pa-visually-hidden">Account</h1>
 
         <section className="pa-section" aria-labelledby="identity">
           <div className="pa-section-head">
