@@ -15,7 +15,7 @@ import {
   type FormEvent,
 } from "react";
 import { MAX_CHAT_LENGTH, type ChatLine, type LobbyState } from "./lobby";
-import { avatarOf, chatItems, unreadAfter } from "./lobbyView";
+import { avatarOf, chatItems, presenceOf, unreadAfter } from "./lobbyView";
 import { PICKER, REACTIONS } from "./chatEmoji";
 import { Avatar } from "./avatars";
 
@@ -170,7 +170,11 @@ export function ChatPanel({
           return (
             <div key={item.id} className={`pa-chat-line${mine ? " pa-chat-mine" : ""}`}>
               <span className="pa-chat-face">
-                <Avatar avatar={avatarOf(lobby, item.fromUserId)} size={30} />
+                <Avatar
+                  avatar={avatarOf(lobby, item.fromUserId)}
+                  size={30}
+                  {...presenceOf(lobby, item.fromUserId, item.displayName, Date.now())}
+                />
               </span>
               <div className="pa-chat-body">
                 <div className="pa-chat-meta">

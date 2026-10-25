@@ -171,6 +171,7 @@ A protocol-version mismatch fails loudly and is never interpreted
 | `INVITE_DECLINE` | — | the host is told (`INVITATION_ENDED`) |
 | `INVITE_WITHDRAW` | — | host only; the player is told (PHASE_07 Amendment 11) |
 | `CHAT` | `text` | ≤ 500 chars, rate limited |
+| `ACTIVITY` | `away` | this tab went idle (5 minutes, or hidden that long) or came back; sent only on a change (spec 0009) |
 | `REACT` | `lineId`, `emoji`, `on` | one of 👍 ❤️ 😂 😮 😢 🔥; same rate limit as `CHAT`; never stored (spec 0007) |
 
 Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
@@ -193,6 +194,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `PLAYERS` | on connect | the connection |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
 | `CHAT` | somebody said something | everybody |
+| `PRESENCE_AWAY` | a player became away (`awaySince`) or came back (no `awaySince`); away only when every tab of theirs is (spec 0009). `PRESENCE` entries carry `awaySince`, `PLAYERS` entries `lastSeenAt`, `PRESENCE_LEFT` `lastSeenAt` | everybody |
 | `REACTION` | somebody reacted to a chat line (`lineId` is the line's `messageId`), or took it back (`on: false`) | everybody |
 | `ERROR` | a refusal | the asker |
 | `SESSION_ENDED` | your session was revoked | the connection |

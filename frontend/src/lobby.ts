@@ -26,6 +26,10 @@ export interface PresenceUser {
   displayName: string;
   /** Spec 0006 — "avatar-07", or absent for the default picture. */
   avatar?: string | null;
+  /** Spec 0009 — since when they have been away; absent while active. */
+  awaySince?: string;
+  /** Spec 0009 — their last activity, for "last seen" while offline. */
+  lastSeenAt?: string;
 }
 
 export interface ChatLine {
@@ -296,7 +300,27 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
     case "PRESENCE_LEFT": {
       const userId = asString(message["userId"]);
       if (!userId) return state;
-      return { ...state, presence: state.presence.filter((p) => p.userId !== userId) };
+      // Spec 0009 — "last seen" starts from the moment they left.
+      const lastSeenAt = asTime(message["lastSeenAt"]);
+      const players = lastSeenAt
+        ? state.players.map((p) => (p.userId === userId ? { ...p, lastSeenAt } : p))
+        : state.players;
+      return { ...state, players, presence: state.presence.filter((p) => p.userId !== userId) };
+    }
+
+    // Spec 0009 — a player went idle, or came back.
+    case "PRESENCE_AWAY": {
+      const userId = asString(message["userId"]);
+      if (!userId) return state;
+      const awaySince = asTime(message["awaySince"]);
+      const presence = state.presence.map((p) => {
+        if (p.userId !== userId) return p;
+        const next = { ...p };
+        if (awaySince) next.awaySince = awaySince;
+        else delete next.awaySince;
+        return next;
+      });
+      return { ...state, presence };
     }
 
     case "CHAT": {
@@ -609,13 +633,23 @@ function asPresenceUser(value: unknown): PresenceUser | null {
   const displayName = asString(v["displayName"]);
   if (!userId || !displayName) return null;
   const avatar = asString(v["avatar"]);
+  const awaySince = asTime(v["awaySince"]);
+  const lastSeenAt = asTime(v["lastSeenAt"]);
   return {
     userId,
     username: asString(v["username"]) ?? displayName,
     displayName,
     // Only a name of the owner's set; anything else is the default picture.
     ...(avatar && /^avatar-\d\d$/.test(avatar) ? { avatar } : {}),
+    ...(awaySince ? { awaySince } : {}),
+    ...(lastSeenAt ? { lastSeenAt } : {}),
   };
+}
+
+/** A moment the server named, or null when it is not one. */
+function asTime(value: unknown): string | null {
+  const text = asString(value);
+  return text && !Number.isNaN(Date.parse(text)) ? text : null;
 }
 
 function asPresenceList(value: unknown): PresenceUser[] {

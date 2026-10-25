@@ -48,10 +48,25 @@ fun presenceMessage(entries: List<PresenceEntry>): JsonObject =
                         put("userId", entry.userId.toString())
                         put("username", entry.username)
                         put("displayName", entry.displayName)
+                        // Spec 0009 — absent while they are active.
+                        entry.awaySince?.let { put("awaySince", it) }
                     },
                 )
             }
         }
+    }
+
+/**
+ * Spec 0009 — a player went idle, or came back. Only on a change of the
+ * player's state (every tab idle, or one back), never per tab.
+ */
+fun awayMessage(
+    userId: UUID,
+    awaySince: String?,
+): JsonObject =
+    envelope("PRESENCE_AWAY") {
+        put("userId", userId.toString())
+        awaySince?.let { put("awaySince", it) }
     }
 
 /**
@@ -68,6 +83,8 @@ fun presenceChange(
         put("userId", entry.userId.toString())
         put("username", entry.username)
         put("displayName", entry.displayName)
+        // Spec 0009 — "last seen just now" from the moment they left.
+        if (!online) put("lastSeenAt", java.time.Instant.now().toString())
     }
 
 /** You have been invited. The only way into a room (AMENDMENT 1). */

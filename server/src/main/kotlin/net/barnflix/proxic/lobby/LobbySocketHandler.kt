@@ -192,7 +192,10 @@ class LobbyService(
         val connection = LobbyConnection(connectionId, user, outgoing)
         live[connectionId] = connection
         presenceOf.take(user.userId) {
+            val wasAway = hub.entryFor(user.userId)?.awaySince
             val firstConnection = hub.register(connection)
+            // Spec 0009 — a new tab is someone at the keyboard.
+            if (wasAway != null) hub.broadcast(awayMessage(user.userId, null))
 
             // Back inside the grace period: nothing of theirs ends.
             goneSince.remove(user.userId)?.cancel()
@@ -237,7 +240,12 @@ class LobbyService(
         connection: LobbyConnection,
         user: User,
     ) {
-        if (hub.unregister(connection)) {
+        val wasAway = hub.entryFor(user.userId)?.awaySince
+        val last = hub.unregister(connection)
+        // Spec 0009 — the tab still in use closed; the ones left are idle.
+        val nowAway = hub.entryFor(user.userId)?.awaySince
+        if (!last && wasAway == null && nowAway != null) hub.broadcast(awayMessage(user.userId, nowAway))
+        if (last) {
             // D2 — an invitation waiting for somebody who has gone
             // is not waiting for anything. Amendment 11: "gone" means
             // gone for [offlineGrace], so a reload does not end one.
@@ -286,6 +294,7 @@ class LobbyService(
                 "INVITE_DECLINE" -> desk.decline(connection.user)
                 "INVITE_WITHDRAW" -> desk.withdraw(connection.user)
                 "CHAT" -> say(message)
+                "ACTIVITY" -> activity(message)
                 "REACT" -> react(message)
             }
         }
@@ -364,13 +373,31 @@ class LobbyService(
             )
         }
 
+        /**
+         * Spec 0009 — this tab went idle (5 minutes without a move, or
+         * hidden that long) or came back. The page reports only a change;
+         * everybody is told only when the PLAYER's state changes.
+         */
+        private suspend fun activity(message: JsonObject) {
+            val away = runCatching { message["away"]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: return
+            presenceOf.take(me) {
+                val before = hub.entryFor(me)?.awaySince
+                connection.awaySince = if (away) java.time.Instant.now().minus(IDLE) else null
+                val after = hub.entryFor(me)?.awaySince
+                if ((before == null) != (after == null)) hub.broadcast(awayMessage(me, after))
+            }
+        }
+
         private suspend fun reply(message: JsonObject) {
             runCatching { connection.outgoing.send(Frame.Text(message.toString())) }
         }
     }
 
     private companion object {
-        val HANDLED = setOf("INVITE", "INVITE_ACCEPT", "INVITE_DECLINE", "INVITE_WITHDRAW", "CHAT", "REACT")
+        val HANDLED = setOf("INVITE", "INVITE_ACCEPT", "INVITE_DECLINE", "INVITE_WITHDRAW", "CHAT", "REACT", "ACTIVITY")
+
+        /** Spec 0009 — how long a page waits before it says it is idle: away began that long ago. */
+        val IDLE: Duration = Duration.ofMinutes(5)
 
         /** Spec 0007 — the six; the frontend's row (chatEmoji.ts) is the same list. */
         val REACTIONS = setOf("👍", "❤️", "😂", "😮", "😢", "🔥")

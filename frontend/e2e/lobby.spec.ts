@@ -204,6 +204,42 @@ test("chat: the time by the name, your own lines, emoji, reactions, lobby news a
   });
 });
 
+test("a player idle for 5 minutes shows away to the other, on the list, the seat and in chat", async ({
+  browser,
+}) => {
+  // Spec 0009, A1-A3, between two real players. The guest's clock runs
+  // ahead instead of the test waiting 5 minutes.
+  await twoPlayers(browser, async (host, guest) => {
+    await guest.clock.install();
+    await openLobby(guest);
+    await openRoom(host, `Away ${Date.now()}`);
+    await inviteIn(host, guest, secondUser);
+    const line = `brb ${Date.now()}`;
+    await guest.getByLabel("Message the lobby").fill(line);
+    await guest.getByRole("button", { name: "Send" }).click();
+    await expect(host.getByText(line)).toBeVisible();
+
+    const badge = (where: ReturnType<Page["locator"]>, state: RegExp) =>
+      where.getByRole("img", { name: new RegExp(`^${secondUser}, ${state.source}`, "i") });
+    const seat = seatOf(host, secondUser);
+    const row = playerRow(host, secondUser);
+    const chat = host.getByRole("region", { name: "Chat" });
+    await expect(badge(row, /online/)).toBeVisible();
+
+    await guest.mouse.move(5, 5);
+    await guest.clock.fastForward("05:30");
+    await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
+    await expect(row).toContainText(/Away \d+ min · in your room/);
+    await expect(badge(seat, /away/)).toBeVisible();
+    await expect(badge(chat, /away/).first()).toBeVisible();
+
+    // A move: here again, for everybody.
+    await guest.mouse.move(40, 40);
+    await expect(badge(row, /online/)).toBeVisible();
+    await expect(badge(seat, /online/)).toBeVisible();
+  });
+});
+
 test("an invitation can be declined; the host is told and the seat stays open", async ({
   browser,
 }) => {

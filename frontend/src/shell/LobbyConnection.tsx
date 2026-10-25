@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { EMPTY_LOBBY, catchUp, connectLobby, type LobbySocket, type LobbyState } from "../lobby";
+import { watchActivity } from "../activity";
 
 interface LobbyConnectionValue {
   lobby: LobbyState;
@@ -43,11 +44,22 @@ export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
   }, [lobby]);
 
   useEffect(() => {
+    // Spec 0009 — away or back, said only when it changes; said again
+    // after a reconnect, which the server sees as a fresh, active tab.
+    let away = false;
     const opened = connectLobby(lobbyUrl(), setLobbyState, WebSocket, {
-      onReopen: () => void catchUp(setLobbyState, () => latest.current),
+      onReopen: () => {
+        if (away) opened.send({ type: "ACTIVITY", away: true });
+        void catchUp(setLobbyState, () => latest.current);
+      },
     });
     socket.current = opened;
+    const stopWatching = watchActivity((next) => {
+      away = next;
+      opened.send({ type: "ACTIVITY", away: next });
+    });
     return () => {
+      stopWatching();
       socket.current = null;
       opened.close();
     };

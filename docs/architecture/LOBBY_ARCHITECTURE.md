@@ -220,7 +220,7 @@ There is **no `/ws/rooms/{roomId}`**, which is why §5.215's "direct
 room socket attack" has nothing to attack.
 
 Client vocabulary: `PING`, `INVITE`, `INVITE_ACCEPT`,
-`INVITE_DECLINE`, `CHAT`, `REACT`. Everything else is server-to-client. See
+`INVITE_DECLINE`, `CHAT`, `REACT`, `ACTIVITY`. Everything else is server-to-client. See
 `LOBBY_PROTOCOL.md`.
 
 Chat is AMENDMENT 3: one global ephemeral channel, memory only,

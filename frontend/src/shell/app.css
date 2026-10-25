@@ -1668,6 +1668,47 @@ main.pa-main {
   border-radius: 50%;
   background: #1b2430;
 }
+/* Spec 0009 — online, away, offline: a badge on the avatar's corner. The
+   shape changes with the colour (dot, clock, cross). */
+.pa-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+.pa-avatar-wrap .pa-avatar {
+  width: 100%;
+  height: 100%;
+}
+.pa-presence {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--pa-panel);
+  border-radius: 50%;
+}
+.pa-seat .pa-presence {
+  border-color: var(--pa-field);
+}
+.pa-presence-online {
+  background: #5fd08e;
+}
+.pa-presence-away {
+  background: #e8b83c;
+}
+.pa-presence-offline {
+  background: #6b727d;
+}
+.pa-presence svg {
+  width: 75%;
+  height: 75%;
+  fill: none;
+  stroke: #0f141b;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 
 /* The main column */
 .pa-lobby .pa-lobby-main {

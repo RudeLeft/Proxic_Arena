@@ -42,6 +42,8 @@ fun playersMessage(players: List<PresenceEntry>): JsonObject =
                         put("displayName", player.displayName)
                         // Spec 0006 — absent: the default picture.
                         player.avatar?.let { put("avatar", it) }
+                        // Spec 0009 — for "last seen"; absent when no session remains.
+                        player.lastSeenAt?.let { put("lastSeenAt", it) }
                     },
                 )
             }

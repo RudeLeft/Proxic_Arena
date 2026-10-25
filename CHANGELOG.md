@@ -3,6 +3,14 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Online, away, offline** (spec 0009)
+- Every avatar in the lobby wears a small badge: a green dot when
+  someone is here, a yellow clock when they have been idle for 5 minutes
+  ("Away 7 min"), a grey ✕ when they are offline ("last seen 2h ago").
+- On the Players list, on the seats in your room and beside chat.
+
 ## 1.2.0 — 2026-10-24
 
 A new look for the lobby, a friendlier chat, and a Deck Depot where you

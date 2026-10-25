@@ -18,15 +18,30 @@ import javax.sql.DataSource
 class AccountNames(private val dataSource: DataSource) {
     fun active(): List<PresenceEntry> =
         dataSource.connection.use { connection ->
+            // Spec 0009 — the latest activity of any session they still have,
+            // for "last seen"; none after signing out everywhere.
             connection.prepareStatement(
-                "SELECT user_id, username, display_name, avatar FROM app_user WHERE status = 'ACTIVE' " +
-                    "ORDER BY lower(display_name), username_normalized",
+                """
+                SELECT u.user_id, u.username, u.display_name, u.avatar,
+                       (SELECT max(s.last_active_at) FROM user_session s WHERE s.user_id = u.user_id)
+                  FROM app_user u
+                 WHERE u.status = 'ACTIVE'
+                 ORDER BY lower(u.display_name), u.username_normalized
+                """.trimIndent(),
             ).use { statement ->
                 statement.executeQuery().use { rows ->
                     buildList {
                         while (rows.next()) {
                             val userId = rows.getObject(1, UUID::class.java)
-                            add(PresenceEntry(userId, rows.getString(2), rows.getString(3), rows.getString(4)))
+                            add(
+                                PresenceEntry(
+                                    userId,
+                                    rows.getString(2),
+                                    rows.getString(3),
+                                    rows.getString(4),
+                                    lastSeenAt = rows.getTimestamp(5)?.toInstant()?.toString(),
+                                ),
+                            )
                         }
                     }
                 }

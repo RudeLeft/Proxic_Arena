@@ -41,8 +41,8 @@ export function roomOf(rooms: DirectoryRoom[], userId: string): DirectoryRoom | 
  * Everybody but you, online first, then by name (Amendment 11: offline
  * people are listed, greyed).
  */
-export function playerRows(lobby: LobbyState, me: string): PlayerRow[] {
-  const online = new Set(lobby.presence.map((p) => p.userId));
+export function playerRows(lobby: LobbyState, me: string, now: number = Date.now()): PlayerRow[] {
+  const online = new Map(lobby.presence.map((p) => [p.userId, p]));
   // The account list, with anybody online who is not on it yet (an
   // account created since this page connected still arrives).
   const everyone = new Map(lobby.players.map((p) => [p.userId, p]));
@@ -57,19 +57,23 @@ export function playerRows(lobby: LobbyState, me: string): PlayerRow[] {
   for (const user of everyone.values()) {
     if (user.userId === me) continue;
     const isOnline = online.has(user.userId);
+    const status = statusOf(lobby, user.userId, now);
     const seatedIn = roomOf(lobby.rooms, user.userId);
     const inMyRoom = mine !== null && seatedIn?.roomId === mine.roomId;
     const invited = lobby.outgoing?.to.userId === user.userId;
     const declined = !invited && lobby.declinedBy === user.userId;
 
     let where: string;
-    if (!isOnline) where = "Offline";
+    if (!isOnline) where = status.label;
     else if (invited) where = `Invited to ${mine?.name ?? "your room"}`;
     else if (declined) where = "Declined your invitation";
     else if (inMyRoom) where = "In your room";
     else if (seatedIn?.status === "IN_MATCH") where = "In a match";
     else if (seatedIn) where = `In ${seatedIn.name}`;
     else where = "In the lobby";
+    // Spec 0009 — away, and where: "Away 7 min · in the lobby".
+    if (status.kind === "away")
+      where = `${status.label} · ${where.charAt(0).toLowerCase()}${where.slice(1)}`;
 
     let control: InviteControl;
     if (!isOnline || inMyRoom) control = { kind: "none" };
@@ -121,6 +125,57 @@ export function closesSoon(clearsAt: string | null, now: number): string | null 
   if (ms <= 60_000) return "Closes now";
   const hours = Math.floor(ms / 3_600_000);
   return `Closes in ${hours >= 1 ? `${hours}h` : `${Math.ceil(ms / 60_000)}m`}`;
+}
+
+// --- online, away, offline (spec 0009) -----------------------------------------
+
+export type PresenceKind = "online" | "away" | "offline";
+
+/** "just now", "5 min ago", "2h ago", "yesterday", "3 days ago". */
+export function agoText(at: string, now: number): string {
+  const minutes = Math.floor((now - Date.parse(at)) / 60_000);
+  if (Number.isNaN(minutes) || minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+/**
+ * Online, away or offline, and how to say it: "Away 7 min", "Offline ·
+ * last seen 2h ago", or just "Offline" when no session remains.
+ */
+export function statusOf(
+  lobby: LobbyState,
+  userId: string,
+  now: number,
+): { kind: PresenceKind; label: string } {
+  const here = lobby.presence.find((p) => p.userId === userId);
+  if (here?.awaySince) {
+    const minutes = Math.max(1, Math.round((now - Date.parse(here.awaySince)) / 60_000));
+    return {
+      kind: "away",
+      label: minutes < 60 ? `Away ${minutes} min` : `Away ${Math.floor(minutes / 60)}h`,
+    };
+  }
+  if (here) return { kind: "online", label: "Online" };
+  const seen = lobby.players.find((p) => p.userId === userId)?.lastSeenAt;
+  return { kind: "offline", label: seen ? `Offline · last seen ${agoText(seen, now)}` : "Offline" };
+}
+
+/** The badge an avatar wears, and its words for a screen reader: "Dana, away 7 min". */
+export function presenceOf(
+  lobby: LobbyState,
+  userId: string,
+  name: string,
+  now: number,
+): { status: PresenceKind; statusLabel: string } {
+  const { kind, label } = statusOf(lobby, userId, now);
+  return {
+    status: kind,
+    statusLabel: `${name}, ${label.charAt(0).toLowerCase()}${label.slice(1)}`,
+  };
 }
 
 /** Spec 0006 — a player's avatar, from the account list; null is the default. */

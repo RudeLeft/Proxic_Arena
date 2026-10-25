@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.room.Presence
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -36,6 +37,10 @@ data class PresenceEntry(
     val displayName: String,
     /** Spec 0006 — the avatar's name ("avatar-07"), or null for the default. */
     val avatar: String? = null,
+    /** Spec 0009 — since when every connection of theirs has been idle; null while active. */
+    val awaySince: String? = null,
+    /** Spec 0009 — their latest session activity, for "last seen" while offline. */
+    val lastSeenAt: String? = null,
 )
 
 /** A live connection. The hub writes to [outgoing] and nothing else. */
@@ -43,7 +48,10 @@ class LobbyConnection(
     val connectionId: String,
     val user: User,
     val outgoing: SendChannel<Frame>,
-)
+) {
+    /** Spec 0009 — when this tab went idle, as its page reported; null while active. */
+    @Volatile var awaySince: Instant? = null
+}
 
 /**
  * Who is connected, and who has been invited where.
@@ -106,17 +114,25 @@ class LobbyHub : Presence {
      */
     override fun isOnline(userId: UUID): Boolean = connections[userId]?.isNotEmpty() == true
 
-    fun online(): List<PresenceEntry> =
-        connections.values
-            .mapNotNull { it.firstOrNull() }
-            .map { PresenceEntry(it.user.userId, it.user.username, it.user.displayName) }
-            .sortedBy { it.displayName.lowercase() }
+    fun online(): List<PresenceEntry> {
+        val everyone = connections.keys.mapNotNull { entryFor(it) }
+        return everyone.sortedBy { it.displayName.lowercase() }
+    }
 
-    /** The presence entry for a connected user, or null if they are not. */
-    fun entryFor(userId: UUID): PresenceEntry? =
-        connections[userId]?.firstOrNull()?.let {
-            PresenceEntry(it.user.userId, it.user.username, it.user.displayName)
-        }
+    /**
+     * The presence entry for a connected user, or null if they are not;
+     * it says whether they are away (spec 0009).
+     */
+    fun entryFor(userId: UUID): PresenceEntry? {
+        val set = connections[userId]?.toList().orEmpty()
+        val first = set.firstOrNull() ?: return null
+        return PresenceEntry(
+            first.user.userId,
+            first.user.username,
+            first.user.displayName,
+            awaySince = set.awaySince()?.toString(),
+        )
+    }
 
     // --- sending ---------------------------------------------------------
 
@@ -197,4 +213,13 @@ class PresenceTurns {
         userId: UUID,
         block: suspend () -> T,
     ): T = locks.computeIfAbsent(userId) { Mutex() }.withLock { block() }
+}
+
+/**
+ * Spec 0009 — away only when EVERY connection is: a second tab in use
+ * means the player is here. Away since the last of them went idle.
+ */
+private fun List<LobbyConnection>.awaySince(): Instant? {
+    val idle = map { it.awaySince ?: return null }
+    return idle.maxOrNull()
 }

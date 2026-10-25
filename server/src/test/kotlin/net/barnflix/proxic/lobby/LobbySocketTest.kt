@@ -35,6 +35,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
 
 /**
@@ -470,6 +471,75 @@ class LobbySocketTest {
                 val line = UUID.randomUUID()
                 repeat(8) { say("""{"type":"REACT","lineId":"$line","emoji":"🔥","on":${it % 2 == 0}}""") }
                 assertEquals("TOO_FAST", await("ERROR")!!["errorCode"]!!.jsonPrimitive.content)
+            }
+        }
+
+    // --- away (spec 0009) -------------------------------------------------------
+
+    /**
+     * Away only when every tab is: one idle tab of two changes nothing;
+     * both idle tells everybody once; a tab back tells them it is over.
+     */
+    @Test
+    fun `a player is away only when every tab is idle, and everybody is told once`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val watcher = tokenFor("Pat")
+            val idler = tokenFor("RudeLeft")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$watcher") }) {
+                val pat = this
+                pat.await("PRESENCE")
+                client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$idler") }) {
+                    val tabOne = this
+                    tabOne.await("PRESENCE")
+                    pat.await("PRESENCE_JOINED")
+                    client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$idler") }) {
+                        val tabTwo = this
+                        tabTwo.await("PRESENCE")
+
+                        tabOne.say("""{"type":"ACTIVITY","away":true}""")
+                        assertEquals(null, pat.await("PRESENCE_AWAY", 1_500), "one idle tab of two is not away")
+
+                        tabTwo.say("""{"type":"ACTIVITY","away":true}""")
+                        val away = pat.await("PRESENCE_AWAY")!!
+                        assertEquals(userId("RudeLeft").toString(), away["userId"]!!.jsonPrimitive.content)
+                        assertTrue(away["awaySince"] != null, "away carries since when: $away")
+
+                        tabOne.say("""{"type":"ACTIVITY","away":false}""")
+                        val back = pat.await("PRESENCE_AWAY")!!
+                        assertEquals(null, back["awaySince"], "back: no awaySince")
+                    }
+                }
+            }
+        }
+
+    /** A newcomer sees who is away, and the account list says when an absent player was last seen. */
+    @Test
+    fun `a newcomer is told who is away, and when everyone was last seen`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val idler = tokenFor("RudeLeft")
+            val newcomer = tokenFor("Pat")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$idler") }) {
+                await("PRESENCE")
+                say("""{"type":"ACTIVITY","away":true}""")
+                client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$newcomer") }) {
+                    val presence = await("PRESENCE")!!
+                    val rude =
+                        presence["users"]!!.jsonArray.map { it.jsonObject }
+                            .first { it["displayName"]!!.jsonPrimitive.content == "RudeLeft" }
+                    assertTrue(rude["awaySince"] != null, "the newcomer sees RudeLeft away: $rude")
+
+                    val players = await("PLAYERS")!!["players"]!!.jsonArray.map { it.jsonObject }
+                    val signedIn =
+                        players.filter { it["displayName"]!!.jsonPrimitive.content in setOf("Pat", "RudeLeft") }
+                    assertEquals(2, signedIn.size, "both are listed: $players")
+                    assertTrue(signedIn.all { it["lastSeenAt"] != null }, "both signed in, so both were seen: $players")
+                }
             }
         }
 

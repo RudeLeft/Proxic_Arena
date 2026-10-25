@@ -30,6 +30,7 @@ import { Board, CardFace, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
+import { holdActive } from "../activity";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import {
   STOP_STEPS,
@@ -107,6 +108,11 @@ export function GameScreen({
   const latest = game.board;
   const [held, setHeld] = useState<Snapshot | null>(null);
   const askedNow = !finished && game.decision !== null;
+  // Spec 0009 — a player the game is asking is not away.
+  useEffect(() => {
+    holdActive(askedNow);
+    return () => holdActive(false);
+  }, [askedNow]);
   const spotlight = game.spotlight;
   const askedRef = useRef(askedNow);
   askedRef.current = askedNow;

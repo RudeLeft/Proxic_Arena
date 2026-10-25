@@ -43,6 +43,7 @@ import {
 import {
   avatarOf,
   closesSoon,
+  presenceOf,
   orderRooms,
   playerRows,
   roomStatus,
@@ -50,6 +51,16 @@ import {
 } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { ChatPanel } from "./LobbyChat";
+
+/** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
+function useMinute(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
 
 /** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
 const SETTLE_MS = 2200;
@@ -428,7 +439,9 @@ function PlayersPanel({
   onInvite: (row: PlayerRow) => void;
   onWithdraw: () => void;
 }) {
-  const rows = useMemo(() => playerRows(lobby, me), [lobby, me]);
+  // Spec 0009: "Away 7 min" counts on by itself.
+  const now = useMinute();
+  const rows = useMemo(() => playerRows(lobby, me, now), [lobby, me, now]);
   const online = rows.filter((row) => row.online);
   const offline = rows.filter((row) => !row.online);
   const onlineCount = lobby.presence.filter((p) => p.userId !== me).length;
@@ -448,7 +461,11 @@ function PlayersPanel({
   const line = (row: PlayerRow) => (
     <li key={row.user.userId} className="pa-player-row">
       <span className={row.online ? "pa-player-face" : "pa-player-face pa-player-face-off"}>
-        <Avatar avatar={row.user.avatar} size={36} />
+        <Avatar
+          avatar={row.user.avatar}
+          size={36}
+          {...presenceOf(lobby, row.user.userId, row.user.displayName, now)}
+        />
       </span>
       <span className="pa-player-text">
         <span className={`pa-player-name${row.online ? "" : " pa-player-offline"}`}>
@@ -838,7 +855,11 @@ function YourRoom({
             key={member.userId}
             className={`pa-seat${member.userId === me ? " pa-seat-you" : ""}`}
           >
-            <Avatar avatar={avatarOf(lobby, member.userId)} size={44} />
+            <Avatar
+              avatar={avatarOf(lobby, member.userId)}
+              size={44}
+              {...presenceOf(lobby, member.userId, member.displayName, Date.now())}
+            />
             <span className="pa-seat-text">
               <span className="pa-seat-name">
                 {member.displayName}
