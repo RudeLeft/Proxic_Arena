@@ -1149,12 +1149,6 @@ main.pa-main {
   gap: 22px;
   margin-bottom: 24px;
 }
-.pa-head-key {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--pa-muted);
-}
 .pa-lobby-players {
   flex: 1 1 300px;
   max-width: 380px;
@@ -1230,9 +1224,6 @@ main.pa-main {
 }
 .pa-dot-open {
   border: 1px solid #4c5563;
-}
-.pa-dot-waiting {
-  border: 2px solid #e0776a;
 }
 .pa-invite {
   flex: none;
@@ -1337,12 +1328,6 @@ main.pa-main {
   font-size: 17px;
   font-weight: 600;
 }
-.pa-room-seats {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
 .pa-seat {
   flex: none;
   width: 124px;
@@ -1362,11 +1347,6 @@ main.pa-main {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.pa-seat-taken {
-  border: 1px solid #4c5563;
-  background: #2b333f;
-  color: var(--pa-ink);
 }
 .pa-seat-you {
   border: 1px solid #6b5b36;
@@ -1398,26 +1378,6 @@ main.pa-main {
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--pa-sub);
-}
-.pa-room-clears {
-  flex: none;
-  width: 72px;
-  text-align: right;
-}
-.pa-room-clears-key {
-  font-size: 8px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--pa-faint);
-}
-.pa-room-clears-value {
-  margin-top: 3px;
-  font-family: var(--pa-display);
-  font-weight: 700;
-  font-size: 18px;
-  line-height: 1;
-  color: #b4bbc4;
-  font-variant-numeric: tabular-nums;
 }
 .pa-room-action {
   flex: none;
@@ -1556,15 +1516,11 @@ main.pa-main {
     min-height: 0;
     max-height: 300px;
   }
-  .pa-room-seats {
-    flex: 1 1 100%;
-  }
   .pa-seat {
     width: auto;
     flex: 1 1 0;
   }
   .pa-room-state,
-  .pa-room-clears,
   .pa-room-action {
     width: auto;
   }
@@ -2294,51 +2250,231 @@ main.pa-main {
   }
 }
 
-/* --- Admin (§7.67) -------------------------------------------------------- */
+/* --- Admin (§7.67; spec 0010, owner 2026-10-24) -----------------------------
+   One centred column: a health pill, five tiles, one list at a time in
+   tabs. Rows are tables with set columns, not lines stretched edge to
+   edge. */
 
 .pa-admin {
+  padding: 26px 20px 40px;
+}
+.pa-admin-wrap {
+  max-width: 1160px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 22px 20px 32px;
+  gap: 20px;
+}
+.pa-admin-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.pa-admin-title {
+  margin: 0;
+  font-family: var(--pa-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--pa-ink-bright);
+}
+.pa-admin-lede {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--pa-muted);
+}
+.pa-admin-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--pa-line-strong);
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-admin-health-ok {
+  border-color: #2f5a44;
+  background: #121b16;
+  color: var(--pa-ok);
+}
+.pa-admin-health-bad {
+  border-color: #6b5450;
+  background: #2a1a18;
+  color: #f4cdc6;
+}
+.pa-admin-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pa-admin-health-build {
+  color: var(--pa-muted);
 }
 .pa-admin-message {
   align-items: center;
 }
-.pa-admin-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 20px;
+
+/* The five tiles. */
+.pa-admin-tiles {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
 }
-.pa-admin-accounts {
-  flex: 999 1 560px;
-  min-width: 0;
+.pa-admin-tile {
+  padding: 16px 18px;
+  border: 1px solid var(--pa-line);
+  border-top: 2px solid var(--pa-button-line);
+  background: linear-gradient(180deg, #141a22, #10151c);
+}
+.pa-admin-tile-ok {
+  border-top-color: #5fd08e;
+}
+.pa-admin-tile-brass {
+  border-top-color: var(--pa-brass);
+}
+.pa-admin-tile-warn {
+  border-top-color: #e8b83c;
+}
+.pa-admin-tile-bad {
+  border-top-color: #e0776a;
+}
+.pa-admin-tile dt {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-admin-tile dd {
+  margin: 6px 0 0;
   display: flex;
   flex-direction: column;
 }
+.pa-admin-tile-value {
+  font-family: var(--pa-display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--pa-ink-bright);
+  font-variant-numeric: tabular-nums;
+}
+.pa-admin-tile-sub {
+  font-size: 12px;
+  color: var(--pa-sub);
+}
+.pa-admin-tile-bad .pa-admin-tile-sub {
+  color: #f4cdc6;
+}
+.pa-admin-tile-warn .pa-admin-tile-sub {
+  color: #e8cf8f;
+}
+
+/* Tabs. */
+.pa-admin-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--pa-line);
+}
+.pa-admin-tab {
+  flex: none;
+  min-height: 44px;
+  margin: 0 0 -1px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--pa-sub);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pa-admin-tab:hover {
+  background: none;
+  color: var(--pa-ink-bright);
+}
+.pa-admin-tab[aria-selected="true"] {
+  border-bottom-color: var(--pa-brass);
+  color: var(--pa-ink-bright);
+  font-weight: 600;
+}
+.pa-admin-tab-count {
+  margin-left: 8px;
+  color: var(--pa-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A tab's panel. */
+.pa-admin-panel {
+  border: 1px solid var(--pa-line);
+  background: var(--pa-panel);
+}
+.pa-admin-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-admin-panel-head h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pa-label);
+}
+.pa-admin-panel-note {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-admin-panel .pa-group-empty {
+  margin: 0;
+  padding: 16px 18px;
+}
+
+/* Accounts: a table with set columns. */
+.pa-admin-table-head,
+.pa-admin-account-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) 96px 90px minmax(0, 1.4fr) 100px 112px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+}
+.pa-admin-table-head {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pa-line-soft);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
 .pa-admin-account-list {
-  flex: 1 1 0;
-  min-height: 320px;
-  overflow-y: auto;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .pa-admin-account {
-  border-top: 1px solid var(--pa-line-soft);
+  border-bottom: 1px solid var(--pa-line-soft);
 }
 .pa-admin-account-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
   min-height: 58px;
-  padding: 9px 16px;
-  box-sizing: border-box;
+}
+.pa-admin-account-who {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .pa-admin-account-text {
-  flex: 1 1 160px;
   min-width: 0;
 }
 .pa-admin-account-name {
@@ -2354,57 +2490,118 @@ main.pa-main {
   color: var(--pa-muted);
 }
 .pa-admin-account-meta {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--pa-faint);
+  font-size: 12px;
+  color: var(--pa-sub);
   font-variant-numeric: tabular-nums;
 }
-.pa-admin-account-buttons {
+.pa-admin-status-on {
+  font-size: 13px;
+  color: var(--pa-ok);
+}
+.pa-admin-status-off {
+  font-size: 13px;
+  color: #f4cdc6;
+}
+.pa-admin-fold {
+  width: 100%;
+  margin: 0;
+  border-top: 0;
+  padding: 0 18px;
+}
+.pa-admin-manage {
+  position: relative;
+  justify-self: end;
+}
+.pa-admin-manage > .pa-small-button {
+  margin: 0;
+  min-height: 34px;
+}
+.pa-admin-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 230px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--pa-line-strong);
+  background: #161c25;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
-.pa-admin-account-buttons .pa-small-button {
-  min-width: 96px;
-  min-height: 40px;
+.pa-admin-menu button {
+  margin: 0;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--pa-ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
 }
-.pa-admin-dead,
-.pa-admin-dead:disabled {
-  border-style: dashed;
-  color: #4c5563;
+.pa-admin-menu button:hover:not(:disabled),
+.pa-admin-menu button:focus-visible {
+  background: #222b36;
+}
+.pa-admin-menu button:disabled {
+  color: #5d6470;
   cursor: not-allowed;
+}
+.pa-admin-menu .pa-admin-menu-warn {
+  color: #f4cdc6;
 }
 .pa-small-button:disabled {
   cursor: default;
   opacity: 0.5;
 }
 .pa-admin-password {
-  padding: 0 16px 14px;
-  border-top: 0;
+  padding: 0 18px 14px 64px;
 }
+.pa-admin-new {
+  width: min(440px, calc(100vw - 32px));
+}
+.pa-admin-new-title {
+  margin: 0 0 14px;
+  font-family: var(--pa-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--pa-ink-bright);
+}
+.pa-admin-new .pa-input {
+  margin-bottom: 14px;
+}
+.pa-admin-role {
+  margin-bottom: 18px;
+}
+
+/* Chips: role, sign-in kind. */
 .pa-chip-tag {
-  flex: none;
-  width: 84px;
+  display: inline-block;
   box-sizing: border-box;
-  padding: 3px 0;
+  padding: 3px 9px;
   border: 1px solid var(--pa-line-strong);
-  border-radius: 2px;
-  text-align: center;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #a9b0ba;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--pa-sub);
 }
 .pa-chip-admin {
   border-color: #6b5b36;
-  background: #2b2518;
-  color: #f0dcb6;
+  background: #2a2318;
+  color: var(--pa-brass);
 }
 .pa-chip-player {
-  color: var(--pa-muted);
+  background: #1a1f27;
 }
-.pa-chip-off,
+.pa-kind-signed_in {
+  border-color: #2f5a44;
+  background: #121b16;
+  color: var(--pa-ok);
+}
 .pa-kind-failed {
   border-color: #6b5450;
   background: #2a1a18;
@@ -2415,20 +2612,8 @@ main.pa-main {
   background: #1c1b18;
   color: #eee2c4;
 }
-.pa-admin-side {
-  flex: 1 1 320px;
-  max-width: 380px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.pa-admin-side .pa-form .pa-input {
-  margin-bottom: 14px;
-}
-.pa-admin-role {
-  margin-bottom: 18px;
-}
+
+/* Server. */
 .pa-admin-server {
   margin: 0;
 }
@@ -2436,166 +2621,210 @@ main.pa-main {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 46px;
-  padding: 8px 16px;
+  min-height: 48px;
+  padding: 8px 18px;
   box-sizing: border-box;
-  border-top: 1px solid var(--pa-line-soft);
+  border-bottom: 1px solid var(--pa-line-soft);
   font-size: 13px;
 }
 .pa-admin-server-row dt {
-  flex: 1;
-  min-width: 0;
-  color: #b4bbc4;
+  flex: 0 0 200px;
+  color: var(--pa-sub);
 }
 .pa-admin-server-row dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
+
+/* Rooms, games and sign-ins: set columns too. */
 .pa-admin-rooms,
+.pa-admin-records,
 .pa-admin-signins {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.pa-admin-room {
-  display: flex;
-  flex-wrap: wrap;
+.pa-admin-room,
+.pa-admin-record {
+  display: grid;
   align-items: center;
-  gap: 10px 16px;
-  min-height: 58px;
-  padding: 9px 16px;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 18px;
   box-sizing: border-box;
-  border-top: 1px solid var(--pa-line-soft);
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-admin-room {
+  grid-template-columns: minmax(0, 1fr) 140px 90px auto;
+}
+.pa-admin-record {
+  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) auto;
+}
+.pa-admin-room-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .pa-admin-room-name {
-  flex: 1 1 180px;
-  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 15px;
   font-weight: 600;
 }
-.pa-admin-room .pa-room-clears {
-  display: block;
+.pa-admin-room-who,
+.pa-admin-record-who {
+  font-size: 13px;
+  color: var(--pa-sub);
 }
-.pa-admin-room .pa-room-clears-key,
-.pa-admin-room .pa-room-clears-value {
-  display: block;
-}
-.pa-admin-close {
-  min-width: 124px;
-  min-height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
-  white-space: nowrap;
+.pa-admin-record-who {
+  font-weight: 600;
+  color: var(--pa-ink);
 }
 .pa-admin-confirm {
+  grid-column: 1 / -1;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: #f4cdc6;
 }
-.pa-admin-window {
-  font-size: 11px;
-  color: var(--pa-faint);
-}
-.pa-admin-signin {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  min-height: 48px;
-  padding: 8px 16px;
-  box-sizing: border-box;
-  border-top: 1px solid var(--pa-line-soft);
-}
-.pa-admin-signin .pa-chip-tag {
-  width: 108px;
-}
-.pa-admin-signin-at {
-  flex: none;
-  width: 54px;
-  font-size: 12px;
-  color: var(--pa-faint);
-  font-variant-numeric: tabular-nums;
-}
-.pa-admin-signin-who {
-  flex: 1 1 160px;
-  min-width: 0;
+.pa-admin-outcome {
   font-size: 13px;
+}
+.pa-admin-outcome-ok {
+  color: var(--pa-ok);
+}
+.pa-admin-outcome-warn {
+  color: #e8cf8f;
+}
+.pa-admin-outcome-bad {
+  color: #f4cdc6;
+}
+.pa-admin-outcome-plain {
   color: var(--pa-sub);
-}
-.pa-admin-signin-detail {
-  flex: none;
-  font-size: 12px;
-  color: var(--pa-muted);
-}
-.pa-admin-signin-address {
-  flex: none;
-  min-width: 120px;
-  text-align: right;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
-  color: var(--pa-faint);
-}
-
-/* §7.56 — game records: one line per match, the same rhythm as sign-ins. */
-.pa-admin-records {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pa-admin-record {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  min-height: 48px;
-  padding: 8px 16px;
-  box-sizing: border-box;
-  border-top: 1px solid var(--pa-line-soft);
-}
-/* How the match ended, on its own line under the row (owner 2026-10-22). */
-.pa-admin-record-ending {
-  flex: 1 1 100%;
-  padding-left: 112px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--pa-faint);
-  overflow-wrap: anywhere;
-}
-.pa-admin-record .pa-admin-signin-at {
-  width: 96px;
 }
 .pa-admin-record a.pa-small-button {
   display: inline-flex;
   align-items: center;
+  justify-self: end;
+  margin: 0;
   text-decoration: none;
 }
-
+.pa-admin-signin {
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-admin-signin-trouble {
+  background: #1a1416;
+}
+.pa-admin-signin-line {
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 8px 18px;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.6fr) 90px 130px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pa-admin-signin-line:hover {
+  background: #161c25;
+}
+.pa-admin-signin-who {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pa-admin-signin-detail {
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-admin-signin-bad {
+  color: #f4cdc6;
+}
+.pa-admin-account-facts {
+  display: contents;
+}
+.pa-admin-signin-attempts {
+  margin: 0;
+  padding: 0 18px 12px 126px;
+  list-style: none;
+}
+.pa-admin-signin-attempts li {
+  display: grid;
+  grid-template-columns: 60px 90px 110px auto;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--pa-sub);
+  font-variant-numeric: tabular-nums;
+}
 .pa-admin-more {
   margin: 0;
-  padding: 12px 16px;
-  border-top: 1px solid var(--pa-line-soft);
+  padding: 12px 18px;
 }
+
+/* Narrower: three tiles a row; a phone: two, and rows become cards. */
+@media (max-width: 1000px) {
+  .pa-admin-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .pa-admin-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pa-admin-table-head {
+    display: none;
+  }
+  .pa-admin-account-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-auto-flow: row;
+    gap: 6px 12px;
+    padding: 10px 14px;
+  }
+  .pa-admin-account-facts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    padding-left: 46px;
+  }
+  .pa-admin-manage {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .pa-admin-password {
+    padding-left: 14px;
+  }
+  .pa-admin-room,
+  .pa-admin-record {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .pa-admin-signin-line {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .pa-admin-signin-attempts {
+    padding-left: 18px;
+  }
+}
+
 /* A typed password is spaced out; the hint in the empty box is not. */
 .pa-input[type="password"]::placeholder {
   letter-spacing: normal;
-}
-
-@media (max-width: 1000px) {
-  .pa-admin-side {
-    max-width: none;
-  }
-  /* Stacked, the page scrolls: a list scrolling inside it is a trap. */
-  .pa-admin-account-list {
-    flex: none;
-    min-height: 0;
-    overflow: visible;
-  }
 }
 
 @media (max-width: 560px) {

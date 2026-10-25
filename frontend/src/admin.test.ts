@@ -4,10 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import {
   groupSignIns,
   idleText,
+  outcomeText,
+  overview,
+  signInsByPerson,
   sizeText,
   setStatus,
   uptimeText,
+  versionParts,
   workerText,
+  type AdminAccount,
+  type AdminMatch,
   type SignInEvent,
 } from "./admin";
 
@@ -87,5 +93,103 @@ describe("game record sizes (§7.56)", () => {
     expect(sizeText(120)).toBe("1 KB");
     expect(sizeText(6_400)).toBe("6 KB");
     expect(sizeText(1_400_000)).toBe("1.4 MB");
+  });
+});
+
+// --- spec 0010 ---------------------------------------------------------------------
+
+describe("the overview (spec 0010)", () => {
+  it("shows the version, and the build id short", () => {
+    expect(versionParts("1.2.0 (512116e5405fb9c0b49ada0854cfc9d1bdce399c)")).toEqual({
+      number: "1.2.0",
+      build: "512116e",
+      full: "1.2.0 (512116e5405fb9c0b49ada0854cfc9d1bdce399c)",
+    });
+    expect(versionParts("1.2.0 (dev)").build).toBe("dev");
+    expect(versionParts("1.2.0")).toEqual({ number: "1.2.0", build: null, full: "1.2.0" });
+  });
+
+  const match = (overrides: Partial<AdminMatch>): AdminMatch => ({
+    matchId: "m",
+    status: "ENDED",
+    createdAt: "2026-10-24T10:00:00Z",
+    endedAt: null,
+    players: "RudeLeft vs Pat",
+    recordBytes: 3000,
+    ending: null,
+    ...overrides,
+  });
+
+  it("says how a game ended in plain words, keeping the code for the tooltip", () => {
+    expect(outcomeText(match({ status: "ENDED", ending: "RudeLeft won" })).text).toBe(
+      "Finished · RudeLeft won",
+    );
+    const didNot = outcomeText(
+      match({ status: "FAILED_STARTUP", ending: "Did not start: WORKER_UNREACHABLE" }),
+    );
+    expect(didNot).toEqual({
+      text: "Didn't start · couldn't reach the rules engine",
+      tone: "warn",
+      code: "WORKER_UNREACHABLE",
+    });
+    expect(
+      outcomeText(match({ status: "FAILED_RUNTIME", ending: "Stopped: SERVER_RESTARTED" })).text,
+    ).toBe("Stopped · the server restarted");
+    // A reason it has no words for is shown as it came.
+    expect(
+      outcomeText(match({ status: "FAILED_RUNTIME", ending: "Stopped: something new" })).text,
+    ).toBe("Stopped · something new");
+    expect(outcomeText(match({ status: "TERMINATED" })).text).toBe("Abandoned");
+  });
+
+  it("groups sign-ins by person, trouble first", () => {
+    const people = signInsByPerson([
+      event({ kind: "SIGNED_IN", username: "rudeleft", at: "2026-10-24T21:42:00Z" }),
+      event({ kind: "SIGNED_IN", username: "RudeLeft", at: "2026-10-24T21:40:00Z" }),
+      event({ kind: "FAILED", username: "admin", known: false, at: "2026-10-24T21:30:00Z" }),
+      event({ kind: "FAILED", username: "admin", known: false, at: "2026-10-24T21:29:00Z" }),
+    ]);
+    expect(people.map((p) => p.username)).toEqual(["admin", "rudeleft"]);
+    expect(people[0]).toMatchObject({ failed: 2, signedIn: 0, known: false });
+    expect(people[1]).toMatchObject({ signedIn: 2, failed: 0, last: "2026-10-24T21:42:00Z" });
+  });
+
+  it("counts today's tiles", () => {
+    const account = (status: AdminAccount["status"]): AdminAccount => ({
+      userId: status + Math.random(),
+      username: "u",
+      displayName: "U",
+      role: "PLAYER",
+      status,
+      sessions: 0,
+      lastSignInAt: null,
+      lastAdmin: false,
+    });
+    const today = Date.parse("2026-10-24T00:00:00Z");
+    const numbers = overview({
+      online: 2,
+      away: 1,
+      accounts: [account("ACTIVE"), account("ACTIVE"), account("DISABLED")],
+      rooms: [],
+      matches: [
+        match({ createdAt: "2026-10-24T09:00:00Z" }),
+        match({ createdAt: "2026-10-24T10:00:00Z", status: "FAILED_STARTUP" }),
+        match({ createdAt: "2026-10-23T23:00:00Z" }),
+      ],
+      signIns: [
+        event({ kind: "SIGNED_IN", at: "2026-10-24T08:00:00Z" }),
+        event({ kind: "FAILED", at: "2026-10-24T08:01:00Z" }),
+        event({ kind: "SIGNED_IN", at: "2026-10-23T22:00:00Z" }),
+      ],
+      today,
+    });
+    expect(numbers).toMatchObject({
+      active: 2,
+      disabled: 1,
+      gamesToday: 2,
+      didNotStart: 1,
+      signedIn: 1,
+      failed: 1,
+    });
   });
 });

@@ -221,3 +221,152 @@ export function workerText(state: ServerState): string {
       return `${state.forgeWorker}${games}`;
   }
 }
+
+// --- spec 0010: the overview, and plain words ---------------------------------
+
+/** "1.2.0 (512116e5405f…)" -> { number: "1.2.0", build: "512116e" }; "(dev)" stays "dev". */
+export function versionParts(version: string): {
+  number: string;
+  build: string | null;
+  full: string;
+} {
+  const match = /^(\S+)\s*\(([^)]+)\)\s*$/.exec(version.trim());
+  if (!match) return { number: version.trim(), build: null, full: version };
+  const build = match[2]!;
+  return {
+    number: match[1]!,
+    build: /^[0-9a-f]{8,}$/i.test(build) ? build.slice(0, 7) : build,
+    full: version,
+  };
+}
+
+/** Why a game stopped or never started, in words; the code itself stays in the tooltip. */
+const REASON_WORDS: Record<string, string> = {
+  WORKER_UNREACHABLE: "couldn't reach the rules engine",
+  WORKER_STOPPED: "the rules engine stopped",
+  WORKER_INCOMPATIBLE: "the rules engine is the wrong version",
+  WORKER_UNCONFIGURED: "the rules engine isn't set up",
+  WORKER_MISSING: "the rules engine isn't installed",
+  GAME_START_FAILED: "the game could not be set up",
+  GAME_START_TIMEOUT: "the game took too long to start",
+  DECK_UNAVAILABLE: "a deck was no longer available",
+  SERVER_RESTARTED: "the server restarted",
+};
+
+/**
+ * How a game ended, in a few words: "Finished · RudeLeft won", "Didn't
+ * start · couldn't reach the rules engine", "Stopped · the server
+ * restarted", "Abandoned". [code] is the raw reason, when there was one.
+ */
+export function outcomeText(match: AdminMatch): {
+  text: string;
+  tone: "ok" | "warn" | "bad" | "plain";
+  code: string | null;
+} {
+  const reason = (prefix: string) => {
+    const raw = match.ending?.startsWith(prefix) ? match.ending.slice(prefix.length).trim() : null;
+    return { raw, words: raw ? (REASON_WORDS[raw] ?? raw) : null };
+  };
+  switch (match.status) {
+    case "ENDED":
+      return {
+        text: match.ending ? `Finished · ${match.ending}` : "Finished",
+        tone: "ok",
+        code: null,
+      };
+    case "FAILED_STARTUP": {
+      const { raw, words } = reason("Did not start:");
+      return { text: words ? `Didn't start · ${words}` : "Didn't start", tone: "warn", code: raw };
+    }
+    case "FAILED_RUNTIME": {
+      const { raw, words } = reason("Stopped:");
+      return { text: words ? `Stopped · ${words}` : "Stopped by a fault", tone: "bad", code: raw };
+    }
+    case "TERMINATED":
+      return { text: "Abandoned", tone: "plain", code: null };
+    case "RUNNING":
+      return { text: "Being played", tone: "ok", code: null };
+    case "LAUNCHING":
+      return { text: "Starting", tone: "plain", code: null };
+    default:
+      return { text: match.status, tone: "plain", code: null };
+  }
+}
+
+/** One person's sign-ins in the last day, newest first. */
+export interface SignInPerson {
+  username: string;
+  known: boolean;
+  signedIn: number;
+  failed: number;
+  throttled: number;
+  last: string;
+  addresses: string[];
+  lines: SignInLine[];
+}
+
+/** Sign-ins grouped by the name tried (spec 0010): a person, not forty rows. */
+export function signInsByPerson(events: SignInEvent[]): SignInPerson[] {
+  const people = new Map<string, SignInPerson>();
+  for (const event of events) {
+    const key = event.username.toLowerCase();
+    let person = people.get(key);
+    if (!person) {
+      person = {
+        username: event.username,
+        known: event.known,
+        signedIn: 0,
+        failed: 0,
+        throttled: 0,
+        last: event.at,
+        addresses: [],
+        lines: [],
+      };
+      people.set(key, person);
+    }
+    if (event.kind === "SIGNED_IN") person.signedIn += 1;
+    else if (event.kind === "FAILED") person.failed += 1;
+    else person.throttled += 1;
+    if (Date.parse(event.at) > Date.parse(person.last)) person.last = event.at;
+    if (event.address && !person.addresses.includes(event.address))
+      person.addresses.push(event.address);
+  }
+  for (const person of people.values()) {
+    person.lines = groupSignIns(
+      events.filter((e) => e.username.toLowerCase() === person.username.toLowerCase()),
+    );
+  }
+  // Names that never got in first (someone guessing), then the most recent.
+  return [...people.values()].sort(
+    (a, b) =>
+      Number(b.signedIn === 0) - Number(a.signedIn === 0) ||
+      Date.parse(b.last) - Date.parse(a.last),
+  );
+}
+
+/** The five tiles' numbers (spec 0010). [today] is the start of the viewer's day. */
+export function overview(input: {
+  online: number;
+  away: number;
+  accounts: AdminAccount[];
+  rooms: AdminRoom[];
+  matches: AdminMatch[];
+  signIns: SignInEvent[];
+  today: number;
+}) {
+  const sinceToday = (at: string) => Date.parse(at) >= input.today;
+  const gamesToday = input.matches.filter((m) => sinceToday(m.createdAt));
+  const signInsToday = input.signIns.filter((e) => sinceToday(e.at));
+  return {
+    online: input.online,
+    away: input.away,
+    active: input.accounts.filter((a) => a.status === "ACTIVE").length,
+    disabled: input.accounts.filter((a) => a.status === "DISABLED").length,
+    rooms: input.rooms.length,
+    playing: input.rooms.filter((r) => r.room.status === "IN_MATCH").length,
+    gamesToday: gamesToday.length,
+    didNotStart: gamesToday.filter((m) => m.status === "FAILED_STARTUP").length,
+    signedIn: signInsToday.filter((e) => e.kind === "SIGNED_IN").length,
+    failed: signInsToday.filter((e) => e.kind !== "SIGNED_IN").length,
+  };
+}

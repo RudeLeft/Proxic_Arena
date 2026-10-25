@@ -1,6 +1,6 @@
 # 0010 — Admin redesign: overview and tabs
 
-**Status:** Draft
+**Status:** Approved 2026-10-24 — built
 **Owner decisions:** R1 option A of three on the lobby canvas, "overview
 + tabs" (owner, 2026-10-24, after asking for a premium look: "things in
 there look really stretched out", and the server version showing a long
@@ -43,7 +43,9 @@ address (`/admin?tab=games`) so a reload or a link lands there:
   its size. Ten, then Show all.
 - **Sign-ins** — grouped by person: "rudeleft · 14 sign-ins · last
   21:42 · 172.19.0.1"; failures in red ("admin · 3 failed · no such
-  account"). Clicking a person shows their attempts.
+  account"). A name that never got in is labelled Failed and listed
+  first; a real account's occasional typo shows as "2 failed" in red in
+  its line, not as its label. Clicking a person shows their attempts.
 - **Server** — version (with the full build id), database, rules engine,
   uptime, and how long game records are kept.
 

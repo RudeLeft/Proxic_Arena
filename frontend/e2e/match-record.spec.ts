@@ -116,7 +116,7 @@ test("a real match leaves a record of every question, answer and refusal, for th
   ).toBe(true);
 
   // And the administrator's page lists it, with its download.
-  await host.goto("/admin");
+  await host.goto("/admin?tab=games");
   const records = host.getByRole("region", { name: "Game records" });
   await expect(records.getByRole("link", { name: /Download record/ }).first()).toBeVisible();
 

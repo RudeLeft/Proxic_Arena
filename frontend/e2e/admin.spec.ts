@@ -36,6 +36,14 @@ async function asAdmin(browser: Browser): Promise<Page> {
 const accountRow = (page: Page, name: string) =>
   page.getByRole("region", { name: "Accounts" }).getByRole("listitem").filter({ hasText: name });
 
+/** Spec 0010: each account's actions sit behind one Manage button. */
+const manage = (row: ReturnType<typeof accountRow>) =>
+  row.getByRole("button", { name: /^Manage/ }).click();
+
+/** Spec 0010: one list at a time, in tabs. */
+const openTab = (page: Page, name: string) =>
+  page.getByRole("tab", { name: new RegExp(`^${name}`) }).click();
+
 test("a player sees no Admin, and the API refuses them whatever they try", async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -78,6 +86,7 @@ test("an administrator creates an account, resets its password and disables it",
   try {
     await expect(admin.getByRole("link", { name: "Admin" })).toBeVisible();
 
+    await admin.getByRole("button", { name: "+ New account" }).click();
     const form = admin.getByRole("region", { name: "New account" });
     await form.getByLabel("Username").fill(username);
     await form.getByLabel("Display name").fill(`Test ${username}`);
@@ -90,7 +99,8 @@ test("an administrator creates an account, resets its password and disables it",
 
     // Amendment 9: typed by the administrator; every session ends.
     const row = accountRow(admin, username);
-    await row.getByRole("button", { name: /Set a new password/ }).click();
+    await manage(row);
+    await row.getByRole("menuitem", { name: /Set a new password/ }).click();
     await row.getByPlaceholder(/New password for/).fill(second);
     await row.getByRole("button", { name: "Set password" }).click();
     await expect(
@@ -99,8 +109,11 @@ test("an administrator creates an account, resets its password and disables it",
     expect((await playerPage.request.get("/api/rooms/current")).status()).toBe(401);
     await signInAs(playerPage, username, second);
 
-    // Disable: refused at sign-in from then on.
-    await row.getByRole("button", { name: /^Disable/ }).click();
+    // Disable: refused at sign-in from then on. A disabled account
+    // folds under "Disabled · N" (spec 0010).
+    await manage(row);
+    await row.getByRole("menuitem", { name: /^Disable/ }).click();
+    await admin.getByRole("button", { name: /^Disabled · / }).click();
     await expect(row).toContainText("Disabled");
     expect((await playerPage.request.get("/api/rooms/current")).status()).toBe(401);
   } finally {
@@ -121,11 +134,12 @@ test("the last administrator is not offered Disable or Make player", async ({ br
     test.skip(activeAdmins.length !== 1, "this stack has more than one administrator");
 
     const row = accountRow(admin, testUser);
+    await manage(row);
     await expect(
-      row.getByRole("button", { name: "Cannot remove the last administrator" }),
+      row.getByRole("menuitem", { name: "Cannot remove the last administrator" }),
     ).toBeDisabled();
-    await expect(row.getByRole("button", { name: /^Disable/ })).toHaveCount(0);
-    await expect(row.getByRole("button", { name: /a player$/ })).toHaveCount(0);
+    await expect(row.getByRole("menuitem", { name: /^Disable/ })).toHaveCount(0);
+    await expect(row.getByRole("menuitem", { name: /a player$/ })).toHaveCount(0);
   } finally {
     await admin.context().close();
   }
@@ -143,6 +157,7 @@ test("sign-in activity shows a failed attempt on a name that does not exist", as
 
   const admin = await asAdmin(browser);
   try {
+    await openTab(admin, "Sign-ins");
     const line = admin
       .getByRole("region", { name: "Sign-in activity" })
       .getByRole("listitem")
@@ -167,6 +182,7 @@ test("force close asks first, and the player in the room is told", async ({ brow
     await openRoom(player, "Admin Closes This");
 
     await admin.reload();
+    await openTab(admin, "Rooms");
     const rooms = admin.getByRole("region", { name: "Rooms" });
     await rooms.getByRole("button", { name: "Force close Admin Closes This" }).click();
     await expect(rooms.getByRole("alert")).toContainText("Close Admin Closes This?");
@@ -219,6 +235,7 @@ test("force closing a room mid-game ends the match with no winner, for both play
     ).match.matchId;
 
     await admin.reload();
+    await openTab(admin, "Rooms");
     const rooms = admin.getByRole("region", { name: "Rooms" });
     const row = rooms.getByRole("listitem").filter({ hasText: "In a game" });
     await row.getByRole("button", { name: /^Force close/ }).click();

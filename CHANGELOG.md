@@ -11,6 +11,23 @@ words, newest first. Each release on GitHub carries the same notes.
   ("Away 7 min"), a grey ✕ when they are offline ("last seen 2h ago").
 - On the Players list, on the seats in your room and beside chat.
 
+**Admin, redesigned** (spec 0010)
+- One centred page: a health pill ("Healthy · v1.2.0 · 512116e" -- the
+  long build id is gone), five tiles (online now, accounts, rooms in
+  use, games today, sign-ins today) and tabs for Accounts, Rooms, Games,
+  Sign-ins and Server; the open tab stays in the address.
+- Accounts as a table with avatars and online/away badges, one Manage
+  menu per row, disabled accounts folded away, New account in a dialog.
+- Games say how they ended in plain words; sign-ins are grouped by
+  person, with names that never got in at the top in red.
+
+**Deck Depot and lobby touches** (owner, 2026-10-24)
+- Card names line up under their pictures; "Shared with" shows avatars;
+  the import box no longer lists the format rules; with no decks, the
+  lobby links "Go to Deck Depot to Import a Deck".
+- The connection pill now notices a network that drops silently (Wi-Fi
+  off, a laptop asleep) and says "Reconnecting…" within a minute.
+
 **Tidier chat and invitations** (owner, 2026-10-24)
 - Chat no longer posts lobby news ("Pat joined RudeLeft's room"), and an
   empty chat is simply empty. The message box says "Type a message...".
