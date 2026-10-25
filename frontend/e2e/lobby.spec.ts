@@ -55,6 +55,8 @@ const playerRow = (page: Page, name: string) =>
 async function twoPlayers(
   browser: import("@playwright/test").Browser,
   body: (host: Page, guest: Page) => Promise<void>,
+  /** Before the guest's first page: a fake clock, a socket listener. */
+  prepareGuest?: (context: import("@playwright/test").BrowserContext) => Promise<void>,
 ) {
   const hostContext = await browser.newContext();
   const host = await hostContext.newPage();
@@ -62,6 +64,7 @@ async function twoPlayers(
   await leaveAnyRoom(host);
 
   const guestContext = await browser.newContext();
+  await prepareGuest?.(guestContext);
   const guest = await guestContext.newPage();
   await signInAs(guest, secondUser, secondPassword);
   await leaveAnyRoom(guest);
@@ -209,65 +212,75 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
 }) => {
   // Spec 0009, A1-A3, between two real players. The guest's clock runs
   // ahead instead of the test waiting 5 minutes.
-  await twoPlayers(browser, async (host, guest) => {
-    // The guest's lobby socket, and what it said -- attached if this
-    // fails, so a failure on CI explains itself.
-    let socket: WebSocket | null = null;
-    const said: string[] = [];
-    guest.on("websocket", (ws) => {
-      if (!ws.url().endsWith("/ws/user")) return;
-      socket = ws;
-      ws.on("framesent", (frame) => said.push(`> ${String(frame.payload).slice(0, 120)}`));
-      ws.on("framereceived", (frame) => {
-        const text = String(frame.payload);
-        if (!text.includes('"PONG"')) said.push(`< ${text.slice(0, 120)}`);
-      });
-      ws.on("close", () => said.push("closed"));
-    });
-    await guest.clock.install();
-    await openLobby(guest);
-    await openRoom(host, `Away ${Date.now()}`);
-    await inviteIn(host, guest, secondUser);
-    const line = `brb ${Date.now()}`;
-    await guest.getByLabel("Message the lobby").fill(line);
-    await guest.getByRole("button", { name: "Send" }).click();
-    await expect(host.getByText(line)).toBeVisible();
-
-    const badge = (where: ReturnType<Page["locator"]>, state: RegExp) =>
-      where.getByRole("img", { name: new RegExp(`^${secondUser}, ${state.source}`, "i") });
-    const seat = seatOf(host, secondUser);
-    const row = playerRow(host, secondUser);
-    const chat = host.getByRole("region", { name: "Chat" });
-    await expect(badge(row, /online/)).toBeVisible();
-
-    await guest.mouse.move(5, 5);
-    // Twenty seconds at a time, each waiting for the server's PONG: one
-    // jump of 5 minutes is also 5 minutes without one, and the page would
-    // rightly reconnect as new.
-    try {
-      for (let step = 0; step < 17; step++) {
-        const pong = socket!.waitForEvent("framereceived", {
-          predicate: (frame) => String(frame.payload).includes('"PONG"'),
-          timeout: 10_000,
+  // The guest's lobby socket, and what it said -- printed if this fails,
+  // so a failure on CI explains itself.
+  let socket: WebSocket | null = null;
+  const said: string[] = [];
+  const prepareGuest = async (context: import("@playwright/test").BrowserContext) => {
+    // The fake clock goes in before the guest's page ever loads: put in
+    // with a reload, the old page's connection could still be open on
+    // the server -- a second tab, in use, so never away (CI, 2026-10-24).
+    await context.clock.install();
+    context.on("page", (page) =>
+      page.on("websocket", (ws) => {
+        if (!ws.url().endsWith("/ws/user")) return;
+        socket = ws;
+        said.push(`open ${ws.url()}`);
+        ws.on("framesent", (frame) => said.push(`> ${String(frame.payload).slice(0, 120)}`));
+        ws.on("framereceived", (frame) => {
+          const text = String(frame.payload);
+          if (!text.includes('"PONG"')) said.push(`< ${text.slice(0, 120)}`);
         });
-        await guest.clock.fastForward(20_000);
-        await pong;
-      }
-      await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
-    } finally {
-      await test
-        .info()
-        .attach("guest socket", { body: said.join("\n"), contentType: "text/plain" });
-    }
-    await expect(row).toContainText(/Away \d+ min · in your room/);
-    await expect(badge(seat, /away/)).toBeVisible();
-    await expect(badge(chat, /away/).first()).toBeVisible();
+        ws.on("close", () => said.push("closed"));
+      }),
+    );
+  };
+  await twoPlayers(
+    browser,
+    async (host, guest) => {
+      await openRoom(host, `Away ${Date.now()}`);
+      await inviteIn(host, guest, secondUser);
+      const line = `brb ${Date.now()}`;
+      await guest.getByLabel("Message the lobby").fill(line);
+      await guest.getByRole("button", { name: "Send" }).click();
+      await expect(host.getByText(line)).toBeVisible();
 
-    // A move: here again, for everybody.
-    await guest.mouse.move(40, 40);
-    await expect(badge(row, /online/)).toBeVisible();
-    await expect(badge(seat, /online/)).toBeVisible();
-  });
+      const badge = (where: ReturnType<Page["locator"]>, state: RegExp) =>
+        where.getByRole("img", { name: new RegExp(`^${secondUser}, ${state.source}`, "i") });
+      const seat = seatOf(host, secondUser);
+      const row = playerRow(host, secondUser);
+      const chat = host.getByRole("region", { name: "Chat" });
+      await expect(badge(row, /online/)).toBeVisible();
+
+      await guest.mouse.move(5, 5);
+      // Twenty seconds at a time, each waiting for the server's PONG: one
+      // jump of 5 minutes is also 5 minutes without one, and the page would
+      // rightly reconnect as new.
+      try {
+        for (let step = 0; step < 17; step++) {
+          const pong = socket!.waitForEvent("framereceived", {
+            predicate: (frame) => String(frame.payload).includes('"PONG"'),
+            timeout: 10_000,
+          });
+          await guest.clock.fastForward(20_000);
+          await pong;
+        }
+        await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
+      } catch (error) {
+        console.log(`guest socket:\n${said.join("\n")}`);
+        throw error;
+      }
+      await expect(row).toContainText(/Away \d+ min · in your room/);
+      await expect(badge(seat, /away/)).toBeVisible();
+      await expect(badge(chat, /away/).first()).toBeVisible();
+
+      // A move: here again, for everybody.
+      await guest.mouse.move(40, 40);
+      await expect(badge(row, /online/)).toBeVisible();
+      await expect(badge(seat, /online/)).toBeVisible();
+    },
+    prepareGuest,
+  );
 });
 
 test("an invitation can be declined; the host is told and the seat stays open", async ({
