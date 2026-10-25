@@ -201,6 +201,20 @@ export interface LeftRoom {
   revision: number;
 }
 
+/** Spec 0011 — one player's place in the Hall of Champions. */
+export interface Standing {
+  userId: string;
+  wins: number;
+  /** Finished games: a result from the rules engine, win, loss or draw. */
+  games: number;
+}
+
+/** Spec 0011 — the top three by wins (in order) and dead last, if anybody qualifies. */
+export interface Standings {
+  podium: Standing[];
+  last: Standing | null;
+}
+
 export interface LobbyState {
   connection: ConnectionState;
   presence: PresenceUser[];
@@ -231,6 +245,8 @@ export interface LobbyState {
   notice: Notice | null;
   /** Null until a match exists, and null again once one cannot. */
   match: MatchView | null;
+  /** Spec 0011 — null until the server has sent them. */
+  standings: Standings | null;
 }
 
 export const EMPTY_LOBBY: LobbyState = {
@@ -248,6 +264,7 @@ export const EMPTY_LOBBY: LobbyState = {
   left: null,
   notice: null,
   match: null,
+  standings: null,
 };
 
 /**
@@ -414,6 +431,18 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
 
     case "PLAYERS":
       return { ...state, players: asPresenceList(message["players"]) };
+
+    case "STANDINGS":
+      return {
+        ...state,
+        standings: {
+          podium: (Array.isArray(message["podium"]) ? message["podium"] : [])
+            .map(asStanding)
+            .filter((s): s is Standing => s !== null)
+            .slice(0, 3),
+          last: asStanding(message["last"]),
+        },
+      };
 
     case "SETUP_PROBLEM": {
       const roomId = asString(message["roomId"]);
@@ -619,6 +648,16 @@ function asPresenceUser(value: unknown): PresenceUser | null {
 function asTime(value: unknown): string | null {
   const text = asString(value);
   return text && !Number.isNaN(Date.parse(text)) ? text : null;
+}
+
+function asStanding(value: unknown): Standing | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const userId = asString(row["userId"]);
+  const wins = row["wins"];
+  const games = row["games"];
+  if (!userId || typeof wins !== "number" || typeof games !== "number") return null;
+  return { userId, wins, games };
 }
 
 function asPresenceList(value: unknown): PresenceUser[] {

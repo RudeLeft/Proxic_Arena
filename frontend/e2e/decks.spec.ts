@@ -436,3 +436,50 @@ test("a deck selected in a room can be renamed, and the other player sees the ne
     await guestContext.close();
   }
 });
+
+test("an imported deck is offered an icon from its colours, keeps the one chosen, and shows it in a room", async ({
+  page,
+}) => {
+  // Spec 0012, F-0012-E. Delver of Secrets and Islands: a blue deck,
+  // so the Water drop is suggested -- Forge's colours, at import.
+  test.setTimeout(240_000);
+  const pkg = delverPackage(mkdtempSync(join(tmpdir(), "proxic-e2e-")));
+  await page.goto("/decks");
+  await page.locator('input[type="file"]').setInputFiles(pkg);
+  await expect(page.getByText("Delver Zoom imported")).toBeVisible({ timeout: 180_000 });
+
+  // The new deck opens, asking for an icon, the suggestion chosen.
+  const picker = page.getByRole("group", { name: "Choose an icon" });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole("button", { name: "Water (suggested)" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const row = page.locator(".pa-deck-row", { hasText: "Delver Zoom" });
+  await picker.getByRole("button", { name: "Later" }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(row.locator("img.pa-deck-icon")).toHaveAttribute("data-icon", "water");
+
+  // Changed later: the Goblin, from Families, kept across a reload.
+  await page.getByRole("button", { name: "Change icon" }).click();
+  const change = page.getByRole("group", { name: "Change icon" });
+  await change.getByRole("tab", { name: "Families", exact: true }).click();
+  await change.getByRole("button", { name: "Goblin" }).click();
+  await change.getByRole("button", { name: "Use this icon" }).click();
+  await expect(change).toHaveCount(0);
+  await expect(row.locator("img.pa-deck-icon")).toHaveAttribute("data-icon", "goblin");
+  await page.reload();
+  await expect(
+    page.locator(".pa-deck-row", { hasText: "Delver Zoom" }).locator("img.pa-deck-icon"),
+  ).toHaveAttribute("data-icon", "goblin");
+
+  // In a room, beside the deck chosen for the match.
+  await page.goto("/play");
+  await openRoom(page);
+  await chooseDeck(page, "Delver Zoom");
+  await expect(page.locator(".pa-deck-pick img.pa-deck-icon")).toHaveAttribute(
+    "data-icon",
+    "goblin",
+  );
+  await clearEverything(page);
+});

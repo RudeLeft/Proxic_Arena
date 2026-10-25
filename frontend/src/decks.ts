@@ -34,6 +34,10 @@ export interface DeckSummary {
   ownerDisplayName: string;
   /** PHASE_07 §7.65 — how many players hold one of YOUR decks; 0 on a lent one. */
   shareCount?: number;
+  /** Spec 0012 — the deck's colours in WUBRG order ("" colourless); absent until Forge has said. */
+  colors?: string | null;
+  /** Spec 0012 — the owner's chosen icon; absent shows the suggestion from [colors]. */
+  icon?: string | null;
 }
 
 /**
@@ -340,6 +344,31 @@ export async function renameDeck(
   }
   const body = (await response.json().catch(() => null)) as { detail?: string } | null;
   return { ok: false, message: body?.detail ?? "That deck could not be renamed." };
+}
+
+/**
+ * Spec 0012 — set a deck's icon (one of the 100 names), or null to go
+ * back to the suggestion. The owner only; the server refuses anybody else.
+ */
+export async function setDeckIcon(
+  deckId: string,
+  icon: string | null,
+  fetchFn: typeof fetch = fetch,
+): Promise<boolean> {
+  try {
+    const response = await apiFetch(
+      `/api/decks/${deckId}/icon`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ icon }),
+      },
+      fetchFn,
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** §4.72 — every outcome the owner needs to be told about. */

@@ -175,6 +175,25 @@ left as they are, and a unique index cannot be built over them. The
 check runs in the writing transaction under a per-owner advisory lock,
 so two uploads racing for one name cannot both win.
 
+### Deck icons (spec 0012)
+
+```text
+PUT /api/decks/{deckId}/icon    {"icon": "goblin"}    (or null)
+```
+
+Every deck shows one of the owner's 100 round icons
+(`frontend/src/assets/deck-icons/`, named in `DeckIcons.NAMES`). The
+library's entries carry `colors` (the deck's colour identity in WUBRG
+order, as Forge reports each card at import; `""` colourless; absent
+until Forge has been asked, which the background fill does once for
+older decks) and `icon` (the owner's choice, or absent). With no
+choice the page shows the suggestion from the colours
+(`deckIcons.tsx`). Setting it is the owner's: a recipient gets `403`, a
+stranger `404`, a name outside the set `422 INVALID_ICON`. A new
+import opens with the picker; "Change icon" opens it later. The icon
+shows only where the deck's name does (the list, the deck's header,
+your own deck dropdown in a room), never to the other player.
+
 ### Share, revoke, delete
 
 Open a deck you own and the Share panel appears: a username field,

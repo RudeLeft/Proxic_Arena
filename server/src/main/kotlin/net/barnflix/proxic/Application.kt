@@ -686,6 +686,7 @@ private fun lobbyService(
     roomService,
     accounts = net.barnflix.proxic.lobby.AccountNames(database.dataSource())::active,
     accountChanges = accountChanges,
+    standings = net.barnflix.proxic.lobby.StandingsSource(database.dataSource())::standings,
 )
 
 /**

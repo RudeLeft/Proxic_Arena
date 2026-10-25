@@ -4,6 +4,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -389,5 +390,43 @@ class DeckDepotPhase7ApiTest {
             assertTrue(mineSection.contains("\"shareCount\":2"), body)
             // Who else holds Pat's deck is Pat's business (§4.99).
             assertFalse(lentSection.contains("\"shareCount\":1"), body)
+        }
+
+    // --- deck icons (spec 0012) ----------------------------------------
+
+    private suspend fun ApplicationTestBuilder.iconAs(
+        session: Session,
+        deckId: UUID,
+        body: String,
+    ): HttpResponse =
+        client.put("/api/decks/$deckId/icon") {
+            header(HttpHeaders.Cookie, "$SESSION_COOKIE=${session.token}; $CSRF_COOKIE=${session.csrf}")
+            header(CSRF_HEADER, session.csrf)
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+
+    /** F-0012-C — the owner picks an icon, the holder sees it, nobody else changes it. */
+    @Test
+    fun `only the owner sets a deck's icon, from the set, and the holder sees it`() =
+        testApplication {
+            val deck = insertDeck("Goblin Rush", "Pat")
+            share(deck, with = "RudeLeft", by = "Pat")
+            application { module(config()) }
+
+            val owner = signIn("Pat")
+            val set = iconAs(owner, deck, """{"icon":"goblin"}""")
+            assertEquals(HttpStatusCode.OK, set.status, set.bodyAsText())
+            assertTrue(getAs(owner, "/api/decks").bodyAsText().contains("\"icon\":\"goblin\""))
+            // Shared with RudeLeft: the owner's icon, shown, not changeable.
+            val holder = signIn("RudeLeft")
+            assertTrue(getAs(holder, "/api/decks").bodyAsText().contains("\"icon\":\"goblin\""))
+            assertEquals(HttpStatusCode.Forbidden, iconAs(holder, deck, """{"icon":"fire"}""").status)
+            assertEquals(HttpStatusCode.NotFound, iconAs(signIn("Casey"), deck, """{"icon":"fire"}""").status)
+
+            // Only a name from the set; null goes back to the suggestion.
+            assertEquals(HttpStatusCode.UnprocessableEntity, iconAs(owner, deck, """{"icon":"../x"}""").status)
+            assertEquals(HttpStatusCode.OK, iconAs(owner, deck, """{"icon":null}""").status)
+            assertFalse(getAs(owner, "/api/decks").bodyAsText().contains("\"icon\":\""))
         }
 }

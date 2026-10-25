@@ -164,7 +164,8 @@ class DeckAuthorization(private val dataSource: DataSource) {
                     """
                     SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
                            d.imported_at, u.display_name,
-                           (SELECT count(*) FROM deck_share s WHERE s.deck_id = d.deck_id)
+                           (SELECT count(*) FROM deck_share s WHERE s.deck_id = d.deck_id),
+                           d.colors, d.icon
                       FROM imported_deck d
                       JOIN app_user u ON u.user_id = d.owner_user_id
                      WHERE d.owner_user_id = ?
@@ -176,7 +177,7 @@ class DeckAuthorization(private val dataSource: DataSource) {
                 summaries(
                     """
                     SELECT d.deck_id, d.display_name, d.total_cards, d.distinct_cards,
-                           d.imported_at, u.display_name, 0
+                           d.imported_at, u.display_name, 0, d.colors, d.icon
                       FROM imported_deck d
                       JOIN deck_share s ON s.deck_id = d.deck_id
                       JOIN app_user u ON u.user_id = d.owner_user_id
@@ -206,6 +207,8 @@ class DeckAuthorization(private val dataSource: DataSource) {
                                     importedAt = rows.getTimestamp(5).toInstant().toString(),
                                     ownerDisplayName = rows.getString(6),
                                     shareCount = rows.getInt(7),
+                                    colors = rows.getString(8),
+                                    icon = rows.getString(9),
                                 ),
                             )
                         }

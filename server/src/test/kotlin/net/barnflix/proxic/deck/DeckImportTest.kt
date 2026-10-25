@@ -482,17 +482,28 @@ class DeckImportTest {
         val atImport = backFaces()
         assertEquals("Insectile Aberration", atImport["Delver of Secrets"])
         assertEquals(null, atImport["Island"], "one face, no back")
+        // Spec 0012, F-0012-A — Forge's colour identity: Delver and an
+        // Island make a blue deck.
+        assertEquals("U", deckColors())
 
-        // As a deck from before V020 looks.
+        // As a deck from before V020 and V021 looks.
         database!!.dataSource().connection.use {
             it.createStatement().executeUpdate("UPDATE deck_entry SET back_face_name = NULL")
-            it.createStatement().executeUpdate("UPDATE imported_deck SET faces_checked = FALSE")
+            it.createStatement().executeUpdate("UPDATE imported_deck SET faces_checked = FALSE, colors = NULL")
         }
         val fill = categoryFill()
         assertEquals(1, fill.fillAll())
         assertEquals(atImport, backFaces())
+        assertEquals("U", deckColors(), "F-0012-D: older decks get their colours in the background")
         assertEquals(0, fill.fillAll(), "asked once")
     }
+
+    private fun deckColors(): String? =
+        database!!.dataSource().connection.use { connection ->
+            connection.createStatement()
+                .executeQuery("SELECT colors FROM imported_deck")
+                .use { rows -> if (rows.next()) rows.getString(1) else null }
+        }
 
     private fun backFaces(): Map<String, String?> =
         database!!.dataSource().connection.use { connection ->

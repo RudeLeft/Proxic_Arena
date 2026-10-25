@@ -69,6 +69,10 @@ data class DeckSummary(
      * business (§4.99).
      */
     val shareCount: Int = 0,
+    /** Spec 0012 — the deck's colours in WUBRG order; null until Forge has been asked. */
+    val colors: String? = null,
+    /** Spec 0012 — the owner's chosen icon; null shows the suggestion from [colors]. */
+    val icon: String? = null,
 )
 
 @Serializable
@@ -289,6 +293,8 @@ fun Route.deckRoutes(
 
         // PHASE_07 §7.65 — rename, in its own file for the same reason.
         renameRoute(dataSource, authorization, deckAccess)
+        // Spec 0012 — the deck's icon, owner only.
+        iconRoute(dataSource, authorization)
 
         // §2.79
         delete("/{deckId}") {

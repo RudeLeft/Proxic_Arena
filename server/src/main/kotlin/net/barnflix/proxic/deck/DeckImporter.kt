@@ -320,8 +320,8 @@ class DeckImporter(
                     INSERT INTO imported_deck
                       (deck_id, display_name, source_filename, package_sha256,
                        total_cards, distinct_cards, import_schema_version, owner_user_id,
-                       faces_checked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+                       faces_checked, colors)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
                     """.trimIndent(),
                 ).use { statement ->
                     statement.setObject(1, deckId)
@@ -332,6 +332,8 @@ class DeckImporter(
                     statement.setInt(6, deck.entries.size)
                     statement.setInt(7, manifestSchemaVersion)
                     statement.setObject(8, prepared.ownerUserId)
+                    // Spec 0012 — for the icon the Deck Depot suggests.
+                    statement.setString(9, DeckIcons.deckColors(resolutions.values))
                     statement.executeUpdate()
                 }
 

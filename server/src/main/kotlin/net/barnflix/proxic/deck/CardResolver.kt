@@ -22,6 +22,9 @@ import java.util.concurrent.TimeUnit
 // the authority on what a card is (AGENTS ARCH-001). Resolution is a
 // question asked of a worker process, not a lookup done here.
 
+/** Spec 0012 — colour identity letters, in WUBRG order. */
+private val COLOR_LETTERS = Regex("^W?U?B?R?G?$")
+
 /** What Forge said about one requested entry. */
 data class CardResolution(
     val name: String,
@@ -38,6 +41,8 @@ data class CardResolution(
     val section: String? = null,
     /** Spec 0008 — the face a two-faced card turns over to, as Forge names it. */
     val backFace: String? = null,
+    /** Spec 0012 — the card's colour identity as Forge reads it, "WUBRG" letters ("" colourless). */
+    val colors: String? = null,
 ) {
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
@@ -287,6 +292,9 @@ class CardResolver(private val config: ServerConfig) {
                     (card["category"] as? JsonPrimitive)?.content
                         ?.takeIf { it in setOf("LAND", "CREATURE", "SPELL") },
                 backFace = (card["backFace"] as? JsonPrimitive)?.content,
+                colors =
+                    (card["colors"] as? JsonPrimitive)?.content
+                        ?.takeIf { COLOR_LETTERS.matches(it) },
                 section =
                     (card["section"] as? JsonPrimitive)?.content
                         ?.takeIf { it in OpenFormat.SIDE_DECKS },

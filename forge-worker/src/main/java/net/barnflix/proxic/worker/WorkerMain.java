@@ -148,6 +148,9 @@ public final class WorkerMain {
                         if (resolution.backFace != null) {
                             item.addProperty("backFace", resolution.backFace);
                         }
+                        if (resolution.colors != null) {
+                            item.addProperty("colors", resolution.colors);
+                        }
                         out.add(item);
                     }
                     response.add("cards", out);

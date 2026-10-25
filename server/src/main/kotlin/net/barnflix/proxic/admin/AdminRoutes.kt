@@ -78,6 +78,8 @@ class AdminServices(
     val rooms: AdminRooms,
     val records: AdminRecords,
     val serverState: () -> ServerStateView,
+    /** An account was created, disabled or enabled: the lobby's lists change. */
+    val accountsChanged: suspend () -> Unit = {},
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -138,6 +140,9 @@ internal suspend fun ApplicationCall.userIdParam(): UUID? =
             null
         }
 
+/** Spec 0011 — the changes that alter who is listed in the lobby (creating one says so itself). */
+private val LIST_CHANGES = setOf(AdminAction.DISABLE_ACCOUNT, AdminAction.ENABLE_ACCOUNT)
+
 /** Turn an account change into an answer, recording it when it happened. */
 internal suspend fun ApplicationCall.answer(
     admin: AdminServices,
@@ -159,6 +164,7 @@ internal suspend fun ApplicationCall.answer(
         is AdminChange.Done -> {
             admin.records.actions.record(by.user.userId, by.user.username, action, change.username, detail)
             respond(DoneResponse(change.username, detail ?: action.name))
+            if (action in LIST_CHANGES) admin.accountsChanged()
         }
     }
 }
@@ -203,6 +209,7 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
         "role=$role",
     )
     call.respond(HttpStatusCode.Created, DoneResponse(created.username, "created"))
+    admin.accountsChanged()
 }
 
 private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.changeStatus(admin: AdminServices) {

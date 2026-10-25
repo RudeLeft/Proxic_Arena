@@ -14,7 +14,7 @@ import {
   type FormEvent,
 } from "react";
 import { MAX_CHAT_LENGTH, type ChatLine, type LobbyState } from "./lobby";
-import { avatarOf, chatItems, presenceOf, unreadAfter } from "./lobbyView";
+import { avatarOf, chatItems, presenceOf, rankOf, unreadAfter } from "./lobbyView";
 import { PICKER, REACTIONS } from "./chatEmoji";
 import { Avatar } from "./avatars";
 
@@ -161,6 +161,7 @@ export function ChatPanel({
                 <Avatar
                   avatar={avatarOf(lobby, item.fromUserId)}
                   size={30}
+                  rank={rankOf(lobby, item.fromUserId)}
                   {...presenceOf(lobby, item.fromUserId, item.displayName, Date.now())}
                 />
               </span>

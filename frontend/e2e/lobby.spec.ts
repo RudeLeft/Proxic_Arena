@@ -488,3 +488,56 @@ test("every room is listed for everybody, with seats, no decks and no way in uni
     if (deck) await expect(card).not.toContainText(deck);
   });
 });
+
+test("the Hall of Champions names the player the server counts, and their ring follows them", async ({
+  page,
+}) => {
+  // Spec 0011, F-0011-D. Whatever games this database holds: the Hall
+  // shows the server's champion by name, with the gold medal, and the
+  // same medal is on their picture in the Players list (or, when the
+  // champion is you, beside your own chat line).
+  let standings: { podium: { userId: string; wins: number; games: number }[] } | null = null;
+  const names = new Map<string, string>();
+  page.on("websocket", (ws) =>
+    ws.on("framereceived", (frame) => {
+      const message = JSON.parse(String(frame.payload)) as Record<string, unknown>;
+      if (message["type"] === "STANDINGS") standings = message as unknown as typeof standings;
+      if (message["type"] === "PLAYERS") {
+        for (const p of message["players"] as { userId: string; displayName: string }[]) {
+          names.set(p.userId, p.displayName);
+        }
+      }
+    }),
+  );
+  await signIn(page);
+  await openLobby(page);
+  await expect.poll(() => standings !== null).toBe(true);
+  const hall = page.getByRole("region", { name: "Hall of Champions" });
+  await expect(hall).toBeVisible();
+
+  const champion = standings!.podium[0];
+  if (!champion) {
+    await expect(hall).toContainText("No champion yet. Win a game to take the crown.");
+    return;
+  }
+  const name = names.get(champion.userId)!;
+  await expect(hall).toContainText("Reigning Proxic Champion");
+  await expect(hall).toContainText(name);
+  await expect(hall).toContainText(`${champion.wins} wins from ${champion.games} games`);
+
+  const me = (await (await page.request.get("/api/auth/me")).json()) as {
+    user: { userId: string };
+  };
+  if (me.user.userId === champion.userId) {
+    await page.getByLabel("Message the lobby").fill(`crowned ${Date.now()}`);
+    await page.getByRole("button", { name: "Send" }).click();
+    const chat = page.getByRole("region", { name: "Chat" });
+    await expect(chat.getByRole("img", { name: "Reigning Proxic Champion" }).first()).toBeVisible();
+    return;
+  }
+  const offline = players(page).getByText(/^Offline · \d+/);
+  if (await offline.isVisible()) await offline.click();
+  await expect(
+    playerRow(page, name).getByRole("img", { name: "Reigning Proxic Champion" }),
+  ).toBeVisible();
+});

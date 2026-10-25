@@ -263,9 +263,15 @@ public final class ForgeRuntime {
          * picture; null for a card with one face.
          */
         public final String backFace;
+        /**
+         * Spec 0012: the card's colour identity as Forge reads it, in
+         * WUBRG order ("WR"; "" for colourless), so the Deck Depot can
+         * suggest a deck icon; null when Forge found no card.
+         */
+        public final String colors;
 
         private Resolution(String status, String detail, String actualSet, String actualNumber,
-                String category, String section, String backFace) {
+                String category, String section, String backFace, String colors) {
             this.status = status;
             this.detail = detail;
             this.actualSet = actualSet;
@@ -273,16 +279,18 @@ public final class ForgeRuntime {
             this.category = category;
             this.section = section;
             this.backFace = backFace;
+            this.colors = colors;
         }
 
         static Resolution resolved(PaperCard card) {
             return new Resolution("RESOLVED", null, card.getEdition(),
-                    card.getCollectorNumber(), categoryOf(card), sectionOf(card), backFaceOf(card));
+                    card.getCollectorNumber(), categoryOf(card), sectionOf(card), backFaceOf(card),
+                    colorsOf(card));
         }
 
         static Resolution notFound(String name) {
             return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
@@ -291,7 +299,7 @@ public final class ForgeRuntime {
                     "Requested " + requested + ", Forge returned "
                             + got.getEdition() + "/" + got.getCollectorNumber() + ".",
                     got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got),
-                    backFaceOf(got));
+                    backFaceOf(got), colorsOf(got));
         }
 
         /**
@@ -306,6 +314,28 @@ public final class ForgeRuntime {
                 return null;
             }
             return rules.getOtherPart().getName();
+        }
+
+        /** Forge's colour identity of the card, as "WUBRG" letters in that order. */
+        static String colorsOf(PaperCard card) {
+            forge.card.ColorSet identity = card.getRules().getColorIdentity();
+            StringBuilder letters = new StringBuilder(5);
+            if (identity.hasWhite()) {
+                letters.append('W');
+            }
+            if (identity.hasBlue()) {
+                letters.append('U');
+            }
+            if (identity.hasBlack()) {
+                letters.append('B');
+            }
+            if (identity.hasRed()) {
+                letters.append('R');
+            }
+            if (identity.hasGreen()) {
+                letters.append('G');
+            }
+            return letters.toString();
         }
 
         /** Forge's own test: the deck a Contraption or an Attraction belongs in, else null. */

@@ -232,6 +232,122 @@
   flex: 1 1 240px;
   min-width: 0;
 }
+/* Spec 0012 — deck icons: round, in the list, the deck's header and the room. */
+.pa-deck-icon {
+  display: block;
+  flex: none;
+  border-radius: 50%;
+  background: #1b2430;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.pa-icon-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 16px 16px;
+  padding: 14px;
+  border: 1px solid var(--pa-line);
+  background: var(--pa-field);
+}
+.pa-icon-picker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.pa-icon-picker-head h4 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--pa-ink-bright);
+}
+.pa-icon-picker-chosen {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-icon-sheets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pa-icon-sheet {
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--pa-line-strong);
+  background: transparent;
+  color: var(--pa-sub);
+  font: 600 12px var(--pa-text);
+  cursor: pointer;
+}
+.pa-icon-sheet[aria-selected="true"] {
+  border-color: var(--pa-brass);
+  background: var(--pa-brass);
+  color: #1b1408;
+}
+.pa-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 460px;
+}
+.pa-icon-choice {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 1;
+}
+.pa-icon-choice .pa-deck-icon {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.15s ease;
+}
+.pa-icon-choice:hover .pa-deck-icon {
+  transform: scale(1.05);
+}
+.pa-icon-choice[aria-pressed="true"] {
+  box-shadow:
+    0 0 0 3px var(--pa-field),
+    0 0 0 5px var(--pa-brass);
+}
+.pa-icon-choice:focus-visible {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 4px;
+}
+.pa-icon-suggested {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  background: var(--pa-brass);
+  color: #1b1408;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pa-icon-choice .pa-deck-icon {
+    transition: none;
+  }
+}
+/* In the room's deck dropdown: inside its left edge, so nothing widens. */
+.pa-deck-pick .pa-deck-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.pa-deck-pick .pa-select {
+  padding-left: 44px;
+}
+
 .pa-open-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -1281,6 +1397,231 @@
   stroke: #0f141b;
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/* Spec 0011 — a place in the Hall of Champions: a ring inside the
+   avatar's own square (nothing around it moves) and a medal on the corner
+   the presence badge leaves free. */
+.pa-rank {
+  box-sizing: border-box;
+  border-radius: 50%;
+  --pa-ring-1: #fff1b8;
+  --pa-ring-2: #f0c44c;
+  --pa-ring-3: #a8741c;
+  --pa-ring-glow: rgba(240, 196, 76, 0.4);
+  background: conic-gradient(
+    from 210deg,
+    var(--pa-ring-1),
+    var(--pa-ring-2) 25%,
+    var(--pa-ring-3) 45%,
+    var(--pa-ring-2) 60%,
+    var(--pa-ring-1) 75%,
+    var(--pa-ring-3) 90%,
+    var(--pa-ring-1)
+  );
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 0 8px var(--pa-ring-glow);
+}
+.pa-rank-2 {
+  --pa-ring-1: #ffffff;
+  --pa-ring-2: #c9d0d8;
+  --pa-ring-3: #6d7682;
+  --pa-ring-glow: rgba(201, 208, 216, 0.28);
+}
+.pa-rank-3 {
+  --pa-ring-1: #ffd2a8;
+  --pa-ring-2: #d08850;
+  --pa-ring-3: #7a4520;
+  --pa-ring-glow: rgba(208, 136, 80, 0.3);
+}
+.pa-rank-last {
+  --pa-ring-1: #b9c7a0;
+  --pa-ring-2: #6b7a52;
+  --pa-ring-3: #3b4530;
+  --pa-ring-glow: rgba(107, 122, 82, 0.25);
+}
+.pa-rank .pa-avatar {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.pa-medal {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  box-sizing: border-box;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--pa-panel);
+  font-family: var(--pa-display);
+  font-weight: 700;
+  line-height: 1;
+  color: #1b1408;
+  background: linear-gradient(160deg, var(--pa-ring-1), var(--pa-ring-2) 55%, var(--pa-ring-3));
+}
+.pa-rank-last .pa-medal {
+  background: #8c9a70;
+}
+.pa-seat .pa-medal {
+  border-color: var(--pa-field);
+}
+
+/* The Hall itself: the champion beside the runners-up, stacked when the
+   panel (not the window) is narrow. */
+.pa-hall {
+  container-type: inline-size;
+}
+.pa-hall-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+@container (max-width: 600px) {
+  .pa-hall-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.pa-hall-reigning {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: radial-gradient(120% 90% at 10% 40%, rgba(240, 196, 76, 0.12), transparent 60%);
+}
+.pa-hall-cup {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+}
+.pa-hall-reigning-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pa-hall-title {
+  font-family: var(--pa-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f0c44c;
+}
+.pa-hall-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pa-hall-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--pa-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pa-ink-bright);
+}
+.pa-hall-record {
+  font-size: 13px;
+  color: var(--pa-sub);
+  font-variant-numeric: tabular-nums;
+}
+.pa-hall-podium {
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pa-hall-row {
+  display: grid;
+  grid-template-columns: 52px 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+}
+.pa-hall-cup-small {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+.pa-hall-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-hall-row-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.pa-hall-row-sub {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-hall-wins {
+  text-align: right;
+  font-family: var(--pa-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--pa-ink-bright);
+  font-variant-numeric: tabular-nums;
+}
+.pa-hall-wins small {
+  display: block;
+  font-family: var(--pa-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-hall-last {
+  grid-column: 1 / -1;
+  padding-block: 10px 12px;
+  border-top: 1px dashed var(--pa-line-strong);
+  background: linear-gradient(90deg, rgba(107, 122, 82, 0.12), transparent 70%);
+}
+.pa-hall-last-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b9c7a0;
+}
+.pa-hall-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  color: var(--pa-sub);
+}
+.pa-hall-empty p {
+  margin: 0;
+}
+.pa-hall-empty .pa-hall-cup-small {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+@media (max-width: 720px) {
+  .pa-hall-reigning {
+    grid-template-columns: 84px minmax(0, 1fr);
+    padding: 14px 16px;
+  }
+  .pa-hall-cup {
+    width: 84px;
+    height: 84px;
+  }
+  .pa-hall-name {
+    font-size: 24px;
+  }
 }
 
 /* The main column */

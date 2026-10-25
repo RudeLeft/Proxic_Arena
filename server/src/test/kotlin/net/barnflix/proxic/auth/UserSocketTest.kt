@@ -282,6 +282,8 @@ class UserSocketTest {
                 "ROOM",
                 "ROOMS",
                 "PLAYERS",
+                // Spec 0011 — the Hall of Champions, on connect.
+                "STANDINGS",
                 "INVITED",
                 "INVITATION_SENT",
                 "INVITATION_ENDED",

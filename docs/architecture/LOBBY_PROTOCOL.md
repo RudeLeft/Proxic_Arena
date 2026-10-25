@@ -191,7 +191,8 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `INVITATION_SENT` | your invitation reached somebody (`roomId`, `to`); again on reconnect | the inviter |
 | `INVITATION_ENDED` | an invitation stopped being one (`reason`, `direction`, `other`) | **both** sides |
 | `ROOMS` | on connect, and on any room change | everyone |
-| `PLAYERS` | on connect | the connection |
+| `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | the connection; everybody when it changes |
+| `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | the connection; everybody when it changes |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
 | `CHAT` | somebody said something | everybody |
 | `PRESENCE_AWAY` | a player became away (`awaySince`) or came back (no `awaySince`); away only when every tab of theirs is (spec 0009). `PRESENCE` entries carry `awaySince`, `PLAYERS` entries `lastSeenAt`, `PRESENCE_LEFT` `lastSeenAt` | everybody |
@@ -224,6 +225,13 @@ something true and vague rather than show the code.
   `ROOM_CLOSED`, `SEAT_FILLED` or `OFFLINE` (gone for a minute; a
   reload is back inside it). `direction` is `FROM_YOU` for the host's
   copy and `TO_YOU` for the player's.
+
+**Spec 0011 (the Hall of Champions):** `STANDINGS` is `podium` (up to
+three of `place`, `userId`, `wins`, `games`, best first) and `last`
+(`userId`, `wins`, `games`, or absent). Counted on the server from
+finished games only (`match.status = ENDED`, the rules engine's result
+by seat); names and pictures come from `PLAYERS`. The same for every
+viewer.
 
 ---
 

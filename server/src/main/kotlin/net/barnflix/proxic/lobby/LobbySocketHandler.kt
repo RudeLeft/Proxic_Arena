@@ -72,7 +72,9 @@ class LobbyService(
      */
     private val offlineGrace: Duration = Duration.ofSeconds(60),
     /** Spec 0006 — a name or an avatar changed: everybody's Players list again. */
-    accountChanges: net.barnflix.proxic.auth.AccountChanges? = null,
+    val accountChanges: net.barnflix.proxic.auth.AccountChanges? = null,
+    /** Spec 0011 — the Hall of Champions; none without a database. */
+    private val standings: () -> Standings? = { null },
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
     private val desk =
@@ -85,7 +87,13 @@ class LobbyService(
     private val presenceOf = PresenceTurns()
 
     init {
-        accountChanges?.onChange { hub.broadcast(playersMessage(accounts())) }
+        // A name or avatar changed, or an administrator created, disabled
+        // or enabled an account: the Players list, and the Hall (spec 0011
+        // leaves disabled accounts out), change for everybody.
+        accountChanges?.onChange {
+            hub.broadcast(playersMessage(accounts()))
+            standings()?.let { hub.broadcast(standingsMessage(it)) }
+        }
     }
 
     /**
@@ -165,6 +173,10 @@ class LobbyService(
         }
         // A match starting or ending changes a room's line in the list.
         publishRooms()
+        // Spec 0011 — a result moves the Hall of Champions.
+        if (match.status == net.barnflix.proxic.match.MatchStatus.ENDED) {
+            standings()?.let { hub.broadcast(standingsMessage(it)) }
+        }
     }
 
     override suspend fun setupProblem(
@@ -205,6 +217,7 @@ class LobbyService(
             hub.sendTo(user.userId, presenceMessage(hub.online()))
             hub.sendTo(user.userId, playersMessage(accounts()))
             hub.sendTo(user.userId, roomsMessage(rooms.list.active().map { it.directoryEntry() }))
+            standings()?.let { hub.sendTo(user.userId, standingsMessage(it)) }
 
             // ...and everybody learns about it, but only if the user was
             // not already here in another tab (§5.6).

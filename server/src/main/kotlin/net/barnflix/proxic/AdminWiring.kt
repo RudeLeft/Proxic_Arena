@@ -64,6 +64,7 @@ internal fun adminServices(
                 net.barnflix.proxic.admin.AdminMatches(database.dataSource(), config.gameRecords()),
             ),
         rooms = adminRooms,
+        accountsChanged = { parts.lobby.accountChanges?.changed() },
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(

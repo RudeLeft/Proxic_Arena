@@ -21,6 +21,22 @@ words, newest first. Each release on GitHub carries the same notes.
 - Games say how they ended in plain words; sign-ins are grouped by
   person, with names that never got in at the top in red.
 
+**Hall of Champions** (owner, 2026-10-25, spec 0011)
+- A new lobby panel: the Reigning Proxic Champion (most wins, gold
+  trophy), 2nd and 3rd (silver and bronze), and dead last (the fewest
+  wins, once you have finished 5 games). Only finished games count; an
+  abandoned or broken one counts for nobody.
+- Those four wear a gold, silver, bronze or muddy ring with a medal on
+  their picture across the lobby: the player list, room seats and chat.
+
+**Deck icons** (owner, 2026-10-25, spec 0012)
+- Every deck has an icon, from the owner's set of 100. A new import
+  suggests one from the deck's colours (red gets Fire, blue-black the
+  Eye, and so on) and lets you choose; "Change icon" changes it later.
+- Shown beside each deck in the Deck Depot, large on the open deck, and
+  in your room's deck dropdown. A deck shared with you shows its
+  owner's icon.
+
 **Admin and Account touches** (owner, 2026-10-25)
 - Admin and Account no longer repeat their name as a title; the health
   pill keeps its place on Admin.

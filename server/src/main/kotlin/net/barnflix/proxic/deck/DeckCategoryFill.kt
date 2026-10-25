@@ -64,7 +64,7 @@ class DeckCategoryFill(
                 """
                 SELECT DISTINCT d.deck_id FROM imported_deck d
                   JOIN deck_entry e ON e.deck_id = d.deck_id
-                 WHERE e.card_category IS NULL OR NOT d.faces_checked
+                 WHERE e.card_category IS NULL OR NOT d.faces_checked OR d.colors IS NULL
                 """.trimIndent(),
             ).use { statement ->
                 statement.executeQuery().use { rows ->
@@ -106,8 +106,9 @@ class DeckCategoryFill(
             }
         if (entries.isEmpty()) return true
 
+        val resolved = resolver.resolve(entries)
         val answers =
-            resolver.resolve(entries)
+            resolved
                 .filter { it.category != null }
                 .associateBy { it.name.lowercase() }
         if (answers.isEmpty()) return false
@@ -127,8 +128,12 @@ class DeckCategoryFill(
                 }
                 statement.executeBatch()
             }
-            connection.prepareStatement("UPDATE imported_deck SET faces_checked = TRUE WHERE deck_id = ?").use {
-                it.setObject(1, deckId)
+            connection.prepareStatement(
+                "UPDATE imported_deck SET faces_checked = TRUE, colors = COALESCE(colors, ?) WHERE deck_id = ?",
+            ).use {
+                // Spec 0012 — the deck's colours, for its suggested icon.
+                it.setString(1, DeckIcons.deckColors(resolved))
+                it.setObject(2, deckId)
                 it.executeUpdate()
             }
         }

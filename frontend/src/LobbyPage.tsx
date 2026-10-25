@@ -46,10 +46,13 @@ import {
   presenceOf,
   orderRooms,
   playerRows,
+  rankOf,
   roomStatus,
   type PlayerRow,
 } from "./lobbyView";
 import { Avatar } from "./avatars";
+import { HallOfChampions } from "./Champions";
+import { DeckIcon, iconOf } from "./deckIcons";
 import { useSettled } from "./useSettled";
 import { ChatPanel } from "./LobbyChat";
 
@@ -468,6 +471,7 @@ function PlayersPanel({
         <Avatar
           avatar={row.user.avatar}
           size={36}
+          rank={rankOf(lobby, row.user.userId)}
           {...presenceOf(lobby, row.user.userId, row.user.displayName, now)}
         />
       </span>
@@ -685,6 +689,9 @@ function RoomsColumn({
         </section>
       )}
 
+      {/* Spec 0011 — between playing and the rooms. */}
+      <HallOfChampions lobby={lobby} />
+
       <section className="pa-panel pa-other-rooms" aria-labelledby="rooms-heading">
         <div className="pa-panel-head">
           <h2 id="rooms-heading">{mine ? "Other rooms" : "Open rooms"}</h2>
@@ -870,6 +877,7 @@ function YourRoom({
             <Avatar
               avatar={avatarOf(lobby, member.userId)}
               size={44}
+              rank={rankOf(lobby, member.userId)}
               {...presenceOf(lobby, member.userId, member.displayName, Date.now())}
             />
             <span className="pa-seat-text">
@@ -921,7 +929,9 @@ function YourRoom({
           <ol className="pa-steps" aria-label="Getting the game going">
             <li className={`pa-step${deckDone ? " pa-step-done" : ""}`}>
               <span className="pa-step-key">1 · Your deck{deckDone ? " ✓" : ""}</span>
-              <span className="pa-select-wrap pa-deck-select">
+              <span className={`pa-select-wrap pa-deck-select${chosen ? " pa-deck-pick" : ""}`}>
+                {/* Spec 0012 — the chosen deck's icon, inside the dropdown, shown only to you. */}
+                {chosen && <DeckIcon name={iconOf(chosen)} size={28} />}
                 <label className="pa-visually-hidden" htmlFor={deckId}>
                   Your deck for this match
                 </label>
@@ -936,8 +946,8 @@ function YourRoom({
                   {decks.map(({ deck, shared }) => (
                     <option key={deck.deckId} value={deck.deckId}>
                       {/* The room's word for the chosen deck wins: it is the server's
-                          current name, and the list here was read when the page
-                          opened (P7-AA: renamed while chosen). */}
+                        current name, and the list here was read when the page
+                        opened (P7-AA: renamed while chosen). */}
                       {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
                         ? myMember.selectedDeckName
                         : deck.displayName}{" "}

@@ -21,6 +21,7 @@ import {
   listShares,
   renameDeck,
   revokeShare,
+  setDeckIcon,
   shareDeck,
   type DeckDetail,
   type DeckEntryView,
@@ -31,6 +32,8 @@ import {
   type ShareList,
 } from "./decks";
 import { CardZoom } from "./CardZoom";
+import { DeckIcon, iconOf, suggestedIcon } from "./deckIcons";
+import { DeckIconPicker } from "./DeckIconPicker";
 import { Avatar } from "./avatars";
 import { avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
@@ -282,6 +285,8 @@ function DeckGroup({
               </>
             ) : (
               <>
+                {/* Spec 0012 — the deck's icon, its owner's choice or the suggestion. */}
+                <DeckIcon name={iconOf(deck)} size={40} />
                 <span className="pa-deck-text">
                   <span className="pa-deck-name">{deck.displayName}</span>
                   {failed === deck.deckId ? (
@@ -323,12 +328,27 @@ function DeckGroup({
 /** The open deck's name, whose it is, rename (yours only) and its numbers. */
 function OpenDeck({
   detail,
+  summary,
+  justImported,
   onRenamed,
+  onIcon,
+  onChosen,
 }: {
   detail: DeckDetail;
+  /** Spec 0012 — the library's line for this deck: its colours and icon. */
+  summary: DeckSummary | undefined;
+  /** Spec 0012 — just imported: the icon picker is open, with "Later". */
+  justImported: boolean;
   onRenamed: (displayName: string) => Promise<void>;
+  onIcon: () => Promise<void>;
+  /** The picker closed, chosen or not. */
+  onChosen: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
+  const [choosingIcon, setChoosingIcon] = useState(justImported);
+  const [iconBusy, setIconBusy] = useState(false);
+  const [iconProblem, setIconProblem] = useState<string | null>(null);
+  const changeIconButton = useRef<HTMLButtonElement | null>(null);
   const [name, setName] = useState(detail.displayName);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -361,6 +381,26 @@ function OpenDeck({
     }
     await onRenamed(outcome.displayName);
     stop();
+  };
+
+  const icon = summary ? iconOf(summary) : "diamond";
+  const suggested = suggestedIcon(summary?.colors);
+  const closeIcons = () => {
+    setChoosingIcon(false);
+    setIconProblem(null);
+    onChosen();
+    requestAnimationFrame(() => changeIconButton.current?.focus());
+  };
+  const saveIcon = async (name: string) => {
+    setIconBusy(true);
+    const saved = await setDeckIcon(detail.deckId, name);
+    setIconBusy(false);
+    if (!saved) {
+      setIconProblem("The icon could not be saved. Try again.");
+      return;
+    }
+    await onIcon();
+    closeIcons();
   };
 
   const stats = [
@@ -415,6 +455,7 @@ function OpenDeck({
           ) : (
             <>
               <div className="pa-open-title-row">
+                <DeckIcon name={icon} size={64} />
                 <h3 className="pa-open-title">{detail.displayName}</h3>
                 {/* Only for a deck you own: renaming one lent to you
                     would rename it for its owner (§7.65). */}
@@ -429,6 +470,16 @@ function OpenDeck({
                     }}
                   >
                     Rename
+                  </button>
+                )}
+                {owned && !choosingIcon && (
+                  <button
+                    ref={changeIconButton}
+                    type="button"
+                    className="pa-small-button"
+                    onClick={() => setChoosingIcon(true)}
+                  >
+                    Change icon
                   </button>
                 )}
               </div>
@@ -447,6 +498,18 @@ function OpenDeck({
           ))}
         </dl>
       </div>
+      {owned && choosingIcon && (
+        <DeckIconPicker
+          title={justImported ? "Choose an icon" : "Change icon"}
+          current={icon}
+          suggested={suggested}
+          busy={iconBusy}
+          problem={iconProblem}
+          onUse={(name) => void saveIcon(name)}
+          onCancel={closeIcons}
+          cancelLabel={justImported ? "Later" : "Cancel"}
+        />
+      )}
     </section>
   );
 }
@@ -694,6 +757,8 @@ export default function DecksPage() {
   const [openFailed, setOpenFailed] = useState(false);
   /** Spec 0008 — on a phone the library folds while a deck is open. */
   const [libraryFolded, setLibraryFolded] = useState(false);
+  /** Spec 0012 — the deck just imported, opened with its icon picker. */
+  const [justImported, setJustImported] = useState<string | null>(null);
   // The deck asked for last: a slower answer for an earlier click is
   // dropped, so two quick Views always show the second (spec 0008).
   const asked = useRef<string | null>(null);
@@ -732,7 +797,13 @@ export default function DecksPage() {
       <h1 className="pa-visually-hidden">Deck Depot</h1>
       <div className="pa-depot-layout">
         <div className="pa-depot-side">
-          <ImportPanel onImported={refresh} />
+          <ImportPanel
+            onImported={async (deck) => {
+              await refresh();
+              setJustImported(deck.deckId);
+              view(deck.deckId);
+            }}
+          />
 
           <section
             className={`pa-section${folded ? " pa-library-folded" : ""}`}
@@ -800,6 +871,12 @@ export default function DecksPage() {
               <OpenDeck
                 key={open.deckId}
                 detail={open}
+                summary={[...(shown?.mine ?? []), ...(shown?.sharedWithMe ?? [])].find(
+                  (deck) => deck.deckId === open.deckId,
+                )}
+                justImported={justImported === open.deckId}
+                onIcon={refresh}
+                onChosen={() => setJustImported(null)}
                 onRenamed={async (displayName) => {
                   setOpen((current) => (current ? { ...current, displayName } : current));
                   await refresh();

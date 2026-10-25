@@ -178,6 +178,18 @@ export function presenceOf(
   };
 }
 
+/** Spec 0011 — a place in the Hall of Champions: 1st, 2nd, 3rd or dead last. */
+export type Rank = 1 | 2 | 3 | "last";
+
+/** The ring a player's picture wears in the lobby, if any (spec 0011, C4). */
+export function rankOf(lobby: LobbyState, userId: string): Rank | undefined {
+  const standings = lobby.standings;
+  if (!standings) return undefined;
+  const place = standings.podium.findIndex((s) => s.userId === userId);
+  if (place >= 0) return (place + 1) as Rank;
+  return standings.last?.userId === userId ? "last" : undefined;
+}
+
 /** Spec 0006 — a player's avatar, from the account list; null is the default. */
 export function avatarOf(lobby: LobbyState, userId: string): string | null {
   return (
