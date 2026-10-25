@@ -1,6 +1,6 @@
 # 0013 — Game screen polish
 
-**Status:** Approved 2026-10-25 — built; look approved from screenshots ("ship it", 2026-10-25)
+**Status:** Approved 2026-10-25 — built in 1.4.0
 **Owner decisions:** G1 the picture sits beside the life medallion
 (option B of three); G2 the game chat is not stored: gone once you leave
 the game; G3 the loading screen keeps its picture and words, only the

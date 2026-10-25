@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.4.0 — 2026-10-25
+
+The game on its own page with its own chat, pictures by the life
+totals, and a clearer start for the player who joined.
 
 **The game screen** (owner, 2026-10-25, spec 0013)
 - The game has its own page: refreshing during a game shows the game
