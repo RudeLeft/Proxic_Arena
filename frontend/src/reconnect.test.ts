@@ -7,6 +7,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_LOBBY,
+  PING_MS,
+  QUIET_MS,
   adoptCurrentRoom,
   connectLobby,
   reduceLobby,
@@ -17,6 +19,7 @@ import { EMPTY_MATCH, connectMatch, type MatchState } from "./match";
 
 class FakeSocket extends EventTarget {
   static made: FakeSocket[] = [];
+  sent: string[] = [];
   static readonly OPEN = 1;
   readyState = 0;
   onopen: ((event: Event) => void) | null = null;
@@ -26,7 +29,9 @@ class FakeSocket extends EventTarget {
     super();
     FakeSocket.made.push(this);
   }
-  send() {}
+  send(data: string) {
+    this.sent.push(data);
+  }
   close() {}
   opened() {
     this.readyState = 1;
@@ -106,6 +111,33 @@ describe("the lobby connection", () => {
     expect(FakeSocket.made).toHaveLength(3);
 
     FakeSocket.made[2]!.opened();
+    expect(now().connection).toBe("open");
+    expect(onReopen).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 2026-10-24: a network that vanishes without closing the connection
+   * left the header saying "Connected" for minutes. It pings; silence
+   * past QUIET_MS is a drop like any other, and it reconnects.
+   */
+  it("pings while open, and counts a long silence as a drop", () => {
+    const onReopen = vi.fn();
+    const { now } = lobby(onReopen);
+    const first = FakeSocket.made[0]!;
+    first.opened();
+
+    vi.advanceTimersByTime(PING_MS);
+    expect(first.sent).toContain(JSON.stringify({ type: "PING" }));
+    first.says({ type: "PONG" }); // the server answered: still here
+    vi.advanceTimersByTime(PING_MS * 2);
+    expect(now().connection).toBe("open");
+
+    // Nothing heard since the PONG: lost, said so, and back again.
+    vi.advanceTimersByTime(QUIET_MS);
+    expect(now().connection).toBe("reconnecting");
+    vi.advanceTimersByTime(100);
+    expect(FakeSocket.made).toHaveLength(2);
+    FakeSocket.made[1]!.opened();
     expect(now().connection).toBe("open");
     expect(onReopen).toHaveBeenCalledTimes(1);
   });

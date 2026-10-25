@@ -68,8 +68,9 @@ test("the page says what it imports, and it is not a generic importer", async ({
   await page.goto("/decks");
   // §2.82 — Proxic Deck Builder by name.
   await expect(page.getByText("Proxic Deck Builder")).toBeVisible();
-  // The format rules, where someone about to upload will read them.
-  await expect(page.getByText(/60.65 cards/)).toBeVisible();
+  // The format rules are no longer spelled out here (owner 2026-10-24);
+  // a deck that breaks them is refused with every reason listed.
+  await expect(page.getByText(/60.65 cards/)).toHaveCount(0);
 });
 
 test("a real package imports and its artwork renders", async ({ page }) => {

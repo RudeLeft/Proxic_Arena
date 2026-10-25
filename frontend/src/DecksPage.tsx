@@ -31,6 +31,9 @@ import {
   type ShareList,
 } from "./decks";
 import { CardZoom } from "./CardZoom";
+import { Avatar } from "./avatars";
+import { avatarOf } from "./lobbyView";
+import { useLobbyConnection } from "./shell/LobbyConnection";
 
 type ImportView =
   | { kind: "idle" }
@@ -127,8 +130,7 @@ function ImportPanel({ onImported }: { onImported: (deck: ImportedDeck) => Promi
             <>
               <span className="pa-drop-title">Drop a deck package here, or choose a file</span>
               <span className="pa-drop-sub">
-                A <code>.zip</code> exported by Proxic Deck Builder. Open Format: 60–65 cards, at
-                most 4 of any card, basic lands unlimited.
+                A <code>.zip</code> exported by Proxic Deck Builder.
               </span>
             </>
           )}
@@ -459,6 +461,7 @@ function OpenDeck({
  * Keyed by deck in the page, so it never shows the last deck's list.
  */
 function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () => Promise<void> }) {
+  const { lobby } = useLobbyConnection();
   const [list, setList] = useState<ShareList | null>(null);
   const [chosen, setChosen] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -517,6 +520,8 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
         {list.shares.length === 0 && <span className="pa-group-empty">Nobody yet.</span>}
         {list.shares.map((recipient) => (
           <span key={recipient.userId} className="pa-chip">
+            {/* Their picture, as the lobby shows it (owner 2026-10-24). */}
+            <Avatar avatar={avatarOf(lobby, recipient.userId)} size={24} />
             {recipient.displayName}
             <button
               type="button"

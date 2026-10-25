@@ -940,7 +940,7 @@ function YourRoom({
               <span className="pa-step-note">
                 {decks.length === 0 ? (
                   <>
-                    No decks yet — <Link to="/decks">import one in the Deck Depot</Link>
+                    <Link to="/decks">Go to Deck Depot to Import a Deck</Link>
                   </>
                 ) : chosen ? (
                   `${chosen.totalCards} cards`

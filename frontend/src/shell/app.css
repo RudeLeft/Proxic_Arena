@@ -704,7 +704,7 @@ main.pa-main {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 6px 7px 6px 13px;
+  padding: 5px 7px 5px 6px;
   border: 1px solid #4c5563;
   border-radius: 18px;
   font-size: 13px;
@@ -877,10 +877,25 @@ main.pa-main {
   font-variant-numeric: tabular-nums;
 }
 .pa-card figcaption {
+  text-align: center;
   font-size: 10px;
   line-height: 1.4;
   color: #a9b0ba;
   overflow-wrap: anywhere;
+}
+
+/* The Phase 1 page's global button rule adds margin-left: 8px to every
+   button; these sit in grids and rows where it pushed them off their
+   column (a card's picture overhung its name by 8 px). */
+.pa-card-art,
+.pa-size-option,
+.pa-zoom-step,
+.pa-zoom-close,
+.pa-react-open,
+.pa-react-pick,
+.pa-reaction,
+.pa-emoji {
+  margin: 0;
 }
 
 /* Spec 0008 — the card size (Small is the size the grid had before). */

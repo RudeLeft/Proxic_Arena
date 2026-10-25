@@ -746,6 +746,16 @@ export interface LobbySocket {
 /** Waits before each try to reconnect, in milliseconds; the last one repeats. */
 export const RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000, 15000];
 
+/**
+ * How often an open connection says PING, and how long it may hear
+ * nothing at all before it counts as lost (2026-10-24). A network that
+ * vanishes without closing the connection -- Wi-Fi off, a laptop asleep
+ * -- gives the browser no "close" for minutes; the header said
+ * "Connected" all that time. The server answers PING with PONG.
+ */
+export const PING_MS = 20_000;
+export const QUIET_MS = 45_000;
+
 /** The server's close for "not signed in" (§3.80): reconnecting cannot fix it. */
 const POLICY_CLOSE = 1008;
 
@@ -783,16 +793,61 @@ export function connectLobby(
     const socket = new WebSocketImpl(url);
     ws = socket;
     let dropped = false;
+    let heard = Date.now();
+    let beat: ReturnType<typeof setInterval> | null = null;
+
+    // Lost: by the browser's "close", or by silence.
+    const lost = (code: number) => {
+      if (dropped || closedByUs) return;
+      dropped = true;
+      if (beat !== null) clearInterval(beat);
+      if (ended || code === POLICY_CLOSE) {
+        ended = true;
+        onState((previous) => ({ ...previous, connection: "ended" }));
+        return;
+      }
+      // §5.133 — a page that is not being told must say so; it also
+      // says it is putting that right.
+      onState((previous) => ({ ...previous, connection: "reconnecting" }));
+      const wait = delays[Math.min(attempt, delays.length - 1)] ?? 0;
+      attempt += 1;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!closedByUs) open();
+      }, wait);
+    };
 
     socket.addEventListener("open", () => {
       attempt = 0;
       const again = everOpened;
       everOpened = true;
+      heard = Date.now();
       onState((previous) => ({ ...previous, connection: "open" }));
       if (again) options.onReopen?.();
+      beat = setInterval(() => {
+        if (closedByUs) {
+          if (beat !== null) clearInterval(beat);
+          return;
+        }
+        if (Date.now() - heard > QUIET_MS) {
+          lost(1006);
+          try {
+            socket.close();
+          } catch {
+            /* already gone */
+          }
+          return;
+        }
+        try {
+          socket.send(JSON.stringify({ type: "PING" }));
+        } catch {
+          // The silence check above catches a socket that cannot send.
+        }
+      }, PING_MS);
     });
 
     socket.addEventListener("message", (event: MessageEvent) => {
+      heard = Date.now();
       let parsed: unknown;
       try {
         parsed = JSON.parse(String(event.data));
@@ -809,22 +864,8 @@ export function connectLobby(
     // A browser fires "close" after every failed or lost connection,
     // "error" or not, and only "close" carries the server's reason.
     socket.addEventListener("close", (event: CloseEvent) => {
-      if (dropped || closedByUs) return;
-      dropped = true;
-      if (ended || event.code === POLICY_CLOSE) {
-        ended = true;
-        onState((previous) => ({ ...previous, connection: "ended" }));
-        return;
-      }
-      // §5.133 — a page that is not being told must say so; it also
-      // says it is putting that right.
-      onState((previous) => ({ ...previous, connection: "reconnecting" }));
-      const wait = delays[Math.min(attempt, delays.length - 1)] ?? 0;
-      attempt += 1;
-      timer = setTimeout(() => {
-        timer = null;
-        if (!closedByUs) open();
-      }, wait);
+      if (beat !== null) clearInterval(beat);
+      lost(event.code);
     });
   };
 

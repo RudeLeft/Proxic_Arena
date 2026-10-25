@@ -227,7 +227,12 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
     await expect(badge(row, /online/)).toBeVisible();
 
     await guest.mouse.move(5, 5);
-    await guest.clock.fastForward("05:30");
+    // Twenty seconds at a time: one jump of 5 minutes is also 5 minutes
+    // without a PONG, and the page would rightly reconnect as new.
+    for (let step = 0; step < 17; step++) {
+      await guest.clock.fastForward(20_000);
+      await guest.waitForTimeout(150);
+    }
     await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
     await expect(row).toContainText(/Away \d+ min · in your room/);
     await expect(badge(seat, /away/)).toBeVisible();

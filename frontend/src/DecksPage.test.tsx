@@ -8,6 +8,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import DecksPage from "./DecksPage";
 import { CardZoom } from "./CardZoom";
 import type { DeckDetail, DeckEntryView } from "./decks";
+import { EMPTY_LOBBY } from "./lobby";
+
+// The page reads avatars from the shell's lobby connection; no socket here.
+vi.mock("./shell/LobbyConnection", () => ({ useLobbyConnection: () => ({ lobby: EMPTY_LOBBY }) }));
 
 const entry = (
   lineNumber: number,
