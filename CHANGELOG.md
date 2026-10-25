@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.2.0 — 2026-10-24
+
+A new look for the lobby, a friendlier chat, and a Deck Depot where you
+can see your cards up close.
 
 **The lobby, redesigned** (spec 0006)
 - Players, your room and chat side by side; on a phone, stacked with your

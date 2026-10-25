@@ -1,6 +1,6 @@
 # 0006 — Lobby redesign
 
-**Status:** Approved 2026-10-24
+**Status:** Built in 1.2.0 (approved 2026-10-24)
 **Owner decisions:** D1 card count only; D2 avatar pictures, chosen in Account (owner supplies the set); D3 "Closes in" in the last 3 hours; D4 phone chat always open (2026-10-24)
 
 The visual example the owner reviewed (2026-10-24): the "Proxic Lobby

@@ -1,6 +1,6 @@
 # 0007 — Chat polish: time, your lines, emoji, reactions, lobby events
 
-**Status:** Approved 2026-10-24 (from the mockup on the lobby canvas) — built
+**Status:** Built in 1.2.0 (approved 2026-10-24)
 **Owner decisions:** C1 time next to the name; C2 your own lines marked;
 C3 an emoji button by Send; C4 reactions; C5 lobby events in the chat;
 C6 message bubbles; C7 an unread marker (owner, 2026-10-24, from the

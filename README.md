@@ -6,8 +6,10 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.1.0 (2026-10-24): the main build is complete, and every
-question Forge can ask is answered (Phase 8).** Two players
+**Version 1.2.0 (2026-10-24).** The main build was completed in 1.1.0,
+with every question Forge can ask answered (Phase 8); 1.2.0 adds the
+redesigned lobby with avatars, a friendlier chat and card close-ups in
+the Deck Depot. Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and
 block, each player seeing only what Forge lets them see — with every

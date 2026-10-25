@@ -56,7 +56,7 @@ is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
 **Approved feature specs:** none in progress. Done in 1.1.0: 0001, 0002,
-0003, 0005 (0004 dropped). Update this line when one is approved or done.
+0003, 0005 (0004 dropped); in 1.2.0: 0006, 0007, 0008. Update this line when one is approved or done.
 
 **Phases:** large work may still be a phase, locked and closed at an exit
 gate as Phases 1–8 were; its document lives at the top level while
