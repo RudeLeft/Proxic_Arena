@@ -527,6 +527,10 @@ class LobbySocketTest {
             client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$idler") }) {
                 await("PRESENCE")
                 say("""{"type":"ACTIVITY","away":true}""")
+                // Everybody is told, the idler too: only then is it so. Connecting
+                // the newcomer straight after saying it raced the server (CI,
+                // 2026-10-25, once connecting also read the standings).
+                assertTrue(await("PRESENCE_AWAY") != null, "the server took the idler as away")
                 client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$newcomer") }) {
                     val presence = await("PRESENCE")!!
                     val rude =
