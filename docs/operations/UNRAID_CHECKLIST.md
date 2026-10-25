@@ -149,15 +149,18 @@ Cloudflare setup, and the one I cannot predict.
 
 - [ ] **P1-R — public page.** Open `https://proxic.barnflix.net`. The
       foundation page loads, all five indicators green.
-- [ ] **P1-S — public API.**
+- [ ] **P1-S — nothing for a stranger.** Signed out, every API
+      address refuses (the health checks answer only inside the
+      container, since 2026-10-24):
       ```bash
-      curl -s https://proxic.barnflix.net/api/health/ready
+      curl -s -o /dev/null -w '%{http_code}\n' https://proxic.barnflix.net/api/version   # 401
+      curl -s -o /dev/null -w '%{http_code}\n' https://proxic.barnflix.net/api/health/ready   # 404
       ```
 - [ ] **P1-T — public WebSocket.** The page's WebSocket indicator
       says **Ready**. If the page loads but that indicator does not,
       the tunnel is not passing the `Upgrade` header — a page loading
       perfectly proves nothing about `/ws`. The browser network panel
-      should show a **101** for `/ws/system`.
+      should show a **101** for `/ws/user` once signed in.
 - [ ] **P1-U — security preserved.**
       ```bash
       curl -sI https://proxic.barnflix.net | grep -i strict-transport-security

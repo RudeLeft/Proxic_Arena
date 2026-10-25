@@ -341,11 +341,14 @@ jobs:
             echo "PROXIC_CI_IMAGE=$IMAGE:$CANDIDATE_TAG"
           } > .env
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          # From inside the box: the health checks do not exist from
+          # outside it (owner 2026-10-24), and the version needs a
+          # session; the image's own label says which build it is.
           for _ in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8080/api/health/ready > /dev/null; then break; fi
+            if docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server               wget -qO- http://127.0.0.1:8080/api/health/ready > /dev/null 2>&1; then break; fi
             sleep 2
           done
-          curl -s http://127.0.0.1:8080/api/version
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server             wget -qO- http://127.0.0.1:8080/api/health/ready
 
       # The accounts the suites sign in as. Passwords are the
       # defaults in e2e/helpers.ts, which exist only here and on a

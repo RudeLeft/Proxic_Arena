@@ -29,32 +29,6 @@ export interface LoginFailure {
   retryAfterSeconds?: number;
 }
 
-/**
- * §3.68 — where login may send someone afterwards.
- *
- * An open redirect turns the login page into a credible phishing
- * launchpad: a link to the real site, a real login, and then a
- * bounce to an attacker's page that asks for the password "again".
- *
- * So a return path must be application-local. Rejected: anything
- * with a scheme, anything protocol-relative (`//evil.example`,
- * which a browser treats as absolute), anything with a backslash
- * (which some browsers normalise to a slash), and anything not
- * starting with a single slash.
- */
-export function safeReturnPath(raw: string | null | undefined): string {
-  if (!raw) return "/";
-  const path = raw.trim();
-  if (!path.startsWith("/")) return "/";
-  if (path.startsWith("//")) return "/";
-  if (path.includes("\\")) return "/";
-  if (path.includes("://")) return "/";
-  // A control character can truncate a URL in some parsers.
-  // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f]/.test(path)) return "/";
-  return path;
-}
-
 /** The CSRF token, from the cookie the server left readable (§3.51). */
 export function csrfToken(): string | null {
   if (typeof document === "undefined") return null;
@@ -87,7 +61,9 @@ export async function apiFetch(
 export async function fetchAuthState(fetchFn: typeof fetch = fetch): Promise<AuthState> {
   try {
     const response = await fetchFn("/api/auth/me", { credentials: "same-origin" });
-    if (!response.ok) return { status: "anonymous" };
+    // 204: not signed in -- the server tells a stranger nothing more
+    // (owner 2026-10-24).
+    if (!response.ok || response.status === 204) return { status: "anonymous" };
     const body = (await response.json()) as { authenticated: boolean; user?: AuthUser };
     return body.authenticated && body.user
       ? { status: "authenticated", user: body.user }

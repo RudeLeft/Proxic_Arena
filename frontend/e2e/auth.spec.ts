@@ -45,19 +45,22 @@ test("an anonymous visitor to a protected page is sent to login", async ({ page 
   // so without this redirect the page would show a wall of 401s
   // instead of a way to sign in.
   await page.goto("/decks");
-  await expect(page).toHaveURL(/\/login\?from=%2Fdecks/);
+  // Carrying nothing (owner 2026-10-24): no address to bounce back to.
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
-test("signing in returns to the page that was asked for", async ({ page }) => {
-  // §3.67 — the intended destination survives the detour.
-  await page.goto("/decks");
+test("signing in always lands in the lobby, whatever was asked for", async ({ page }) => {
+  // Owner 2026-10-24: the Lobby first, every time -- also for an old
+  // link that still names a page, or somewhere else entirely.
+  await page.goto("/login?from=%2Fdecks");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/play$/);
 
-  await expect(page).toHaveURL(/\/decks$/);
-  await expect(page.getByText("Proxic Deck Builder")).toBeVisible();
+  await page.goto("/login?from=https%3A%2F%2Fevil.example%2F");
+  await expect(page).toHaveURL(/\/play$/);
 });
 
 test("a wrong password says so without revealing whether the user exists", async ({ page }) => {
@@ -185,10 +188,39 @@ test("the account page shows who you are", async ({ page }) => {
   await expect(page.getByText("Administrator", { exact: true })).toBeVisible();
 });
 
-test("health stays public while decks do not", async ({ page }) => {
-  // §3.83, §3.84 — a monitor must not need credentials, and owner
-  // decision D2 keeps the LAN port useful for exactly that.
-  expect((await page.request.get("/api/health/ready")).status()).toBe(200);
+test("a stranger is sent the sign-in screen and nothing else", async ({ page }) => {
+  // Owner 2026-10-24. Every address refuses alike -- real or not -- so
+  // nothing can be mapped from outside; the health checks answer only
+  // inside the server's container; "who am I" says nothing.
+  for (const path of [
+    "/api/version",
+    "/api/system/status",
+    "/api/decks",
+    "/api/admin/server",
+    "/api/no-such-thing",
+  ]) {
+    expect((await page.request.get(path)).status(), path).toBe(401);
+  }
+  for (const path of ["/api/health/ready", "/api/health/live", "/.vite/manifest.json"]) {
+    expect((await page.request.get(path)).status(), path).toBe(404);
+  }
+  const me = await page.request.get("/api/auth/me");
+  expect(me.status()).toBe(204);
+  expect(await me.text()).toBe("");
+
+  // Of the built files, only the sign-in screen's: the page names its
+  // own script, and that loads; another page's script does not.
+  await page.goto("/login");
+  const own = await page.locator("script[type=module]").first().getAttribute("src");
+  expect((await page.request.get(own!)).status()).toBe(200);
+  const other =
+    (await page.request.get(own!).then((r) => r.text())).match(/assets\/[\w-]+\.js/g) ?? [];
+  const elsewhere = other.find((file) => `/${file}` !== own);
+  expect(elsewhere, "the sign-in script names the other pages' files").toBeTruthy();
+  expect((await page.request.get(`/${elsewhere}`)).status()).toBe(404);
+
+  // Signed in, the same addresses answer.
+  await signIn(page);
   expect((await page.request.get("/api/version")).status()).toBe(200);
-  expect((await page.request.get("/api/decks")).status()).toBe(401);
+  expect((await page.request.get(`/${elsewhere}`)).status()).toBe(200);
 });

@@ -153,7 +153,7 @@ only mutation is off. Set it to `true` and restart.
 Check readiness first:
 
 ```bash
-curl -s http://127.0.0.1:8765/api/health/ready
+docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
 | Check | Meaning |

@@ -9,13 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import {
   fetchAuthState,
   login as loginRequest,
   logout as logoutRequest,
   logoutEverywhere,
-  safeReturnPath,
   type AuthState,
   type AuthUser,
   type LoginFailure,
@@ -103,14 +102,13 @@ export function useAuth(): AuthContextValue {
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { state } = useAuth();
-  const location = useLocation();
 
-  if (state.status === "loading") return <p className="hint">Checking your session…</p>;
-  if (state.status === "anonymous") {
-    // The intended destination travels as a query parameter and is
-    // sanitised on the way back out (§3.68).
-    const from = safeReturnPath(location.pathname + location.search);
-    return <Navigate to={`/login?from=${encodeURIComponent(from)}`} replace />;
-  }
+  // A blank page for the moment the session check takes: the page then
+  // appears as it is, not after a line of text (owner 2026-10-24).
+  if (state.status === "loading")
+    return <p className="pa-visually-hidden">Checking your session…</p>;
+  // Straight to Sign in, carrying nothing: after signing in everybody
+  // lands in the lobby (owner 2026-10-24), so no address is remembered.
+  if (state.status === "anonymous") return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

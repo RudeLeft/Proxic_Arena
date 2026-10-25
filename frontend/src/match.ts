@@ -20,6 +20,8 @@
 // action. Everything else is the server's to know.
 
 /** §6.49 — a presentation hint, never authority. */
+import { onPageBack, pageIsLeaving } from "./pageLife";
+
 export interface DecisionOption {
   actionId: string;
   label: string | null;
@@ -894,6 +896,9 @@ export function connectMatch(
     current.onclose = (event) => {
       if (dropped || closedByUs) return;
       dropped = true;
+      // A refresh closes it on the way out: not a lost connection, and
+      // the game screen says nothing (owner 2026-10-24).
+      if (pageIsLeaving()) return;
       // 1008: not signed in, or not a player in this match. A retry
       // cannot fix either.
       if (event.code === 1008) {
@@ -917,6 +922,10 @@ export function connectMatch(
     };
   };
   open();
+  // Back from the browser's back/forward cache with the connection gone.
+  const stopBack = onPageBack(() => {
+    if (!closedByUs && socket.readyState >= 2) open();
+  });
 
   return {
     answer(decisionId, actionId) {
@@ -951,6 +960,7 @@ export function connectMatch(
     },
     close() {
       closedByUs = true;
+      stopBack();
       if (timer !== null) clearTimeout(timer);
       socket.close();
     },

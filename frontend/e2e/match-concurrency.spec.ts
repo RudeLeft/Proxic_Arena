@@ -364,7 +364,9 @@ test("a server restart during a match follows the documented policy", async ({ b
       .poll(
         async () => {
           try {
-            return (await pair!.host.request.get("/api/health/ready")).status();
+            // Any answer at all is a server that is up; the health
+            // checks answer only inside its container (owner 2026-10-24).
+            return (await pair!.host.request.get("/api/auth/me")).status();
           } catch {
             return 0;
           }

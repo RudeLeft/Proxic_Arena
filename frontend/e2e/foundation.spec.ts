@@ -57,8 +57,10 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
   // acceptable words — an earlier version of this test accepted
   // "Ready" OR "Not configured", which would have passed whatever
   // the page said and proved nothing.
-  const ready = (await (await page.request.get("/api/health/ready")).json()) as {
-    checks: Record<string, string>;
+  // The health checks answer only inside the server's container now
+  // (owner 2026-10-24); the signed-in status carries the same checks.
+  const status = (await (await page.request.get("/api/system/status")).json()) as {
+    forgeRuntime: string;
   };
   const expected: Record<string, RegExp> = {
     ok: /Ready/,
@@ -68,7 +70,7 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
     incompatible: /Unavailable/,
     "resources-missing": /Not configured/,
   };
-  const forgeState = ready.checks["forgeWorker"] ?? "unconfigured";
+  const forgeState = status.forgeRuntime;
   await expect(indicator(page, "Forge Runtime")).toContainText(
     expected[forgeState] ?? /Not configured/,
   );
@@ -106,8 +108,10 @@ test("the version is displayed and matches the API", async ({ page }) => {
  * real answer rather than the `null` that cost an hour of bundle-
  * hash archaeology during the Phase 4 deployment.
  */
-test("the running server says which build it is", async ({ request }) => {
-  const version = (await (await request.get("/api/version")).json()) as {
+test("the running server says which build it is", async ({ page }) => {
+  // To somebody signed in (owner 2026-10-24: a stranger is told nothing).
+  await signIn(page);
+  const version = (await (await page.request.get("/api/version")).json()) as {
     buildId: string | null;
     proxicVersion: string;
     forgeRelease: string;
@@ -156,6 +160,9 @@ test("P1-E: a client-side route serves the app, and /api stays API", async ({ pa
   await page.goto("/play");
   await expect(page.getByRole("heading", { name: "PROXIC ARENA" })).toBeVisible();
 
+  // Signed in: a stranger gets the same 401 for every address, real
+  // or not (owner 2026-10-24), so only a signed-in caller can tell.
+  await signIn(page);
   const api = await page.request.get("/api/does-not-exist");
   expect(api.status()).toBe(404);
   // The SPA fallback must not hand JSON clients an HTML page.
@@ -166,16 +173,22 @@ test("P1-E: a client-side route serves the app, and /api stays API", async ({ pa
  * The server and the client halves of §1.27 must agree.
  *
  * Ktor serves index.html for every unmatched path, so the server
- * cannot tell an unknown React route from a known one. If React then
- * rendered the foundation page for it, a typo'd URL would look like
- * a working page -- served with a 200, which is the server being
- * right and the app being wrong.
+ * cannot tell an unknown React route from a known one. React answers
+ * it by going home -- Sign in for a stranger, the Lobby when signed in
+ * -- and never with a page of its own (owner 2026-10-24: the old "Not
+ * found" placeholder told a stranger about the app's insides).
  */
-test("an unknown route is served by Ktor and answered honestly by React", async ({ page }) => {
+test("an unknown address goes to Sign in for a stranger, and to the Lobby when signed in", async ({
+  page,
+}) => {
   const response = await page.goto("/no/such/page");
   expect(response?.status()).toBe(200);
-  await expect(page.getByText("Not found")).toBeVisible();
-  await expect(page.getByText(/Foundation Build/)).toBeHidden();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText(/Not implemented|Not found|Foundation Build/)).toHaveCount(0);
+
+  await signIn(page);
+  await page.goto("/accounts");
+  await expect(page).toHaveURL(/\/play$/);
 });
 
 /**

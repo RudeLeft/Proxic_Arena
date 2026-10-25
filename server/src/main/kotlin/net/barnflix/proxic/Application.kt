@@ -21,6 +21,7 @@ import net.barnflix.proxic.admin.adminRoutes
 import net.barnflix.proxic.auth.Principal
 import net.barnflix.proxic.auth.authRoutes
 import net.barnflix.proxic.auth.csrfOk
+import net.barnflix.proxic.auth.installSignedInGate
 import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.ArtStore
@@ -449,6 +450,8 @@ private fun Route.databaseRoutes(
     // PHASE_07 §7.67 — sign-in attempts an administrator can read.
     val signIns = net.barnflix.proxic.auth.SignInLog(database.dataSource())
     startSessionMaintenance(sessions, throttle, signIns)
+    // Owner 2026-10-24: a stranger gets the sign-in screen and nothing else.
+    application.installSignedInGate(sessions, File(config.staticRoot))
     val accountChanges = net.barnflix.proxic.auth.AccountChanges() // spec 0006
 
     route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges) }

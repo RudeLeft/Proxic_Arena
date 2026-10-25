@@ -14,6 +14,7 @@
 
 import { apiFetch } from "./auth";
 import { REACTIONS } from "./chatEmoji";
+import { onPageBack, pageIsLeaving } from "./pageLife";
 
 export const MAX_CHAT_LINES = 200;
 export const MAX_CHAT_LENGTH = 500;
@@ -865,11 +866,21 @@ export function connectLobby(
     // "error" or not, and only "close" carries the server's reason.
     socket.addEventListener("close", (event: CloseEvent) => {
       if (beat !== null) clearInterval(beat);
+      // A refresh closes it on the way out: that is not a lost
+      // connection, and the page says nothing (owner 2026-10-24).
+      if (pageIsLeaving()) {
+        dropped = true;
+        return;
+      }
       lost(event.code);
     });
   };
 
   open();
+  // Back from the browser's back/forward cache with the connection gone.
+  const stopBack = onPageBack(() => {
+    if (!closedByUs && !ended && (ws === null || ws.readyState >= 2)) open();
+  });
 
   return {
     send: (message) => {
@@ -882,6 +893,7 @@ export function connectLobby(
     },
     close: () => {
       closedByUs = true;
+      stopBack();
       if (timer !== null) clearTimeout(timer);
       try {
         ws?.close();

@@ -2,8 +2,10 @@ package net.barnflix.proxic.auth
 
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
@@ -17,6 +19,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
 
@@ -222,15 +225,19 @@ class UserSocketTest {
         }
 
     @Test
-    fun `the anonymous system socket still works`() =
+    fun `the system socket is for the signed-in only`() =
         testApplication {
-            // §3.83 — /ws/system stays open infrastructure. Requiring a
-            // session there would break the foundation page's status
-            // display for a signed-out visitor.
+            // §3.83 kept /ws/system open until the owner decided, on
+            // 2026-10-24, that a stranger sees the sign-in screen and
+            // nothing else: its HELLO names the version.
+            val (token, _) = seedSession()
             application { module(config()) }
-            val client = createClient { install(ClientWebSockets) }
+            assertEquals(HttpStatusCode.Unauthorized, client.get("/ws/system").status)
 
-            client.webSocket("/ws/system") {
+            val client = createClient { install(ClientWebSockets) }
+            client.webSocket("/ws/system", {
+                header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
+            }) {
                 val hello = withTimeoutOrNull(5_000) { (incoming.receive() as Frame.Text).readText() }
                 assertTrue(hello != null && hello.contains("HELLO"), "got: $hello")
             }

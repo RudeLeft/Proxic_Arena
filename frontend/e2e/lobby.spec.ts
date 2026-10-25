@@ -40,7 +40,11 @@ async function leaveAnyRoom(page: Page) {
 }
 
 async function openLobby(page: Page) {
-  await page.goto("/play");
+  // Signing in lands in the lobby already. Loading it again opened a
+  // second lobby connection while the first was still on the server
+  // (up to 45 s) -- a second "tab", in use, so the away test never
+  // went away on CI (its socket log showed both, 2026-10-24).
+  if (new URL(page.url()).pathname !== "/play") await page.goto("/play");
   await expect(page.getByRole("heading", { name: "Players" })).toBeVisible();
   // The heading renders before the lobby socket is open; the header's
   // light says when it is. Chat keeps no history, so a line sent

@@ -34,9 +34,11 @@ export function isNewBuild(loadedWith: string | null, now: string | null): boole
   return loadedWith !== null && now !== null && loadedWith !== now;
 }
 
-export interface Readiness {
-  status: string;
-  checks: Record<string, string>;
+/** `GET /api/system/status` -- signed-in, the server's own checks. */
+export interface SystemStatus {
+  server: string;
+  database: string;
+  forgeRuntime: string;
 }
 
 /**
@@ -104,12 +106,12 @@ export const INITIAL_SNAPSHOT: Snapshot = {
   checks: {},
 };
 
-/** Fetch readiness + version. Never throws; failure is a state. */
+/** Fetch the server's checks + version. Never throws; failure is a state. */
 export async function fetchStatus(
   fetchFn: typeof fetch = fetch,
 ): Promise<Omit<Snapshot, "websocket">> {
   let version: VersionInfo | null = null;
-  let readiness: Readiness | null = null;
+  let readiness: { checks: Record<string, string> } | null = null;
 
   try {
     const r = await fetchFn("/api/version");
@@ -118,10 +120,15 @@ export async function fetchStatus(
     version = null;
   }
   try {
-    // Readiness answers 503 when degraded, which is a real answer and
-    // must be read, not treated as unreachable.
-    const r = await fetchFn("/api/health/ready");
-    readiness = (await r.json()) as Readiness;
+    // Not the health check: since 2026-10-24 that answers only inside
+    // the server's container (owner: a stranger is told nothing). The
+    // signed-in status is the same checks, and answers 200 when one is
+    // failing -- a degraded check is a real answer, not "unreachable".
+    const r = await fetchFn("/api/system/status");
+    if (r.ok) {
+      const status = (await r.json()) as SystemStatus;
+      readiness = { checks: { database: status.database, forgeWorker: status.forgeRuntime } };
+    }
   } catch {
     readiness = null;
   }

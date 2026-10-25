@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 // Owner report 2026-10-21: after a server update players had to reload,
 // sometimes several times, before they saw each other online, and
 // leaving a room sometimes did not take. These are the client's halves
@@ -140,6 +142,26 @@ describe("the lobby connection", () => {
     FakeSocket.made[1]!.opened();
     expect(now().connection).toBe("open");
     expect(onReopen).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Owner 2026-10-24: a refresh closes the connection on its way out,
+   * and for an instant the page said "Reconnecting…". A page that is
+   * leaving says nothing and does not reconnect; one the browser brings
+   * back from its back/forward cache connects again.
+   */
+  it("says nothing when the page itself is leaving, and comes back with the page", () => {
+    const { now } = lobby(vi.fn());
+    FakeSocket.made[0]!.opened();
+
+    window.dispatchEvent(new Event("pagehide"));
+    FakeSocket.made[0]!.dropped();
+    expect(now().connection).toBe("open");
+    vi.advanceTimersByTime(1000);
+    expect(FakeSocket.made).toHaveLength(1);
+
+    window.dispatchEvent(new Event("pageshow"));
+    expect(FakeSocket.made).toHaveLength(2);
   });
 
   it("does not catch up on the first connection", () => {

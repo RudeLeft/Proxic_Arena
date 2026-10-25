@@ -201,17 +201,17 @@ fun Route.authRoutes(
 
         get("/me") {
             // §3.49 — an unauthenticated caller gets a documented
-            // answer, not a 401. The page uses this to decide
-            // whether to show a login form, and an error would make
-            // "logged out" look like "broken".
+            // answer, not a 401: the page uses this to decide whether
+            // to show a login form, and an error would make "logged
+            // out" look like "broken" (and redden the browser's
+            // console on the sign-in screen). Since 2026-10-24 that
+            // answer is empty -- 204 -- so it tells a stranger nothing.
             val principal = call.principal(sessions)
-            call.respond(
-                if (principal == null) {
-                    MeResponse(false)
-                } else {
-                    MeResponse(true, principal.user.view())
-                },
-            )
+            if (principal == null) {
+                call.respond(io.ktor.http.HttpStatusCode.NoContent)
+            } else {
+                call.respond(MeResponse(true, principal.user.view()))
+            }
         }
 
         // §3.35-§3.38 -- the routes that change an account live

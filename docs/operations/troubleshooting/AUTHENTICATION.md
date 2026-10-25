@@ -33,7 +33,7 @@ The LAN port is kept on purpose, for exactly the things that do not
 need a session:
 
 ```bash
-curl -s http://<unraid-ip>:8765/api/health/ready
+docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
 If you want to prove the cookie is the cause, sign in through the
@@ -135,7 +135,7 @@ login page loads, sign in answers 500 or hangs
 ```bash
 docker compose ps
 docker compose logs --tail 50 postgres
-curl -s http://<unraid-ip>:8765/api/health/ready
+docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
 The server does **not** fail-fast at boot when the database is slow
@@ -265,8 +265,10 @@ different thing, and usually correct: the revalidation loop found the
 session revoked, disabled or expired. Something ended that session —
 a sign-out elsewhere, a password change, or `arena-admin disable`.
 
-`/ws/system` needs no session at all. If that one is also failing,
-the problem is not authentication.
+`/ws/system` needs a session too since 2026-10-24, so it is no longer
+a test of the connection without one; check the health from inside the
+container instead (`docker compose exec arena-server wget -qO-
+http://127.0.0.1:8080/api/health/ready`).
 
 ---
 

@@ -50,6 +50,7 @@ import {
   type PlayerRow,
 } from "./lobbyView";
 import { Avatar } from "./avatars";
+import { useSettled } from "./useSettled";
 import { ChatPanel } from "./LobbyChat";
 
 /** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
@@ -72,6 +73,8 @@ export default function LobbyPage() {
   // The live connection is the shell's (§7.62): it outlives this page,
   // so presence and invitations reach a player on any page.
   const { lobby, setLobby, send } = useLobbyConnection();
+  // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
+  const reconnecting = useSettled(lobby.connection === "reconnecting", 1500);
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -242,7 +245,7 @@ export default function LobbyPage() {
       <h1 className="pa-visually-hidden">Lobby</h1>
 
       <div className="pa-lobby-notices">
-        {lobby.connection === "reconnecting" && (
+        {reconnecting && (
           // §5.133 — a page that stopped being told must say so. It
           // reconnects on its own now (owner report 2026-10-21).
           <div className="pa-notice pa-notice-warn" role="status">
@@ -444,6 +447,8 @@ function PlayersPanel({
   const online = rows.filter((row) => row.online);
   const offline = rows.filter((row) => !row.online);
   const onlineCount = lobby.presence.filter((p) => p.userId !== me).length;
+  // The account list always holds you, so an empty one has not come yet.
+  const loaded = lobby.players.length > 0;
   // Spec 0006: the offline accounts fold away, closed until asked for.
   const [offlineOpen, setOfflineOpen] = useState(false);
   const outgoingTo = lobby.outgoing?.to.userId ?? null;
@@ -490,8 +495,12 @@ function PlayersPanel({
         <span className="pa-panel-note">{onlineCount} online</span>
       </div>
       <ul className="pa-player-list">
-        {rows.length === 0 && <li className="pa-group-empty">Nobody else has an account yet.</li>}
-        {rows.length > 0 && online.length === 0 && (
+        {/* Not before the first list has come: "nobody" was a lie for the
+            moment a refresh takes (owner 2026-10-24). */}
+        {loaded && rows.length === 0 && (
+          <li className="pa-group-empty">Nobody else has an account yet.</li>
+        )}
+        {loaded && rows.length > 0 && online.length === 0 && (
           <li className="pa-group-empty">Nobody else is online right now.</li>
         )}
         {online.map(line)}
@@ -682,9 +691,13 @@ function RoomsColumn({
           <span className="pa-panel-note">Join by invitation</span>
         </div>
         {others.length === 0 ? (
-          <p className="pa-group-empty">
-            {mine ? "No other rooms are open." : "No rooms are open yet."}
-          </p>
+          // Not before the lists have come (the account list always holds
+          // you): "no rooms" was a lie for the moment a refresh takes.
+          lobby.players.length > 0 && (
+            <p className="pa-group-empty">
+              {mine ? "No other rooms are open." : "No rooms are open yet."}
+            </p>
+          )
         ) : (
           <div className="pa-room-list">
             {others.map((room) => (

@@ -13,8 +13,8 @@ docker logs proxic-arena-arena-server-1 2>&1 | tail -200
 docker exec proxic-arena-arena-server-1 ls -t /data/match-logs | head
 docker exec proxic-arena-arena-server-1 tail -100 /data/match-logs/<matchId>.log
 
-# what is deployed
-curl -s https://proxic.barnflix.net/api/version
+# what is deployed (signed in: open it in the browser, or the Admin page's health pill)
+https://proxic.barnflix.net/api/version
 ```
 
 A player's own view of their match: `GET /api/matches/current` while

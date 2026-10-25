@@ -16,7 +16,23 @@ export default defineConfig({
   },
   // No source maps in the build: they would publish the site's readable
   // source to anyone (2026-10-22 review). Development (Vite) has its own.
-  build: { outDir: "dist", sourcemap: false },
+  // The manifest names which built files the sign-in page needs; the
+  // server sends only those to somebody not signed in (owner
+  // 2026-10-24), and reads it from disk -- it is never served.
+  // Files are named by their hash alone, so the sign-in page's code,
+  // which has to name the other pages' files, names nothing readable.
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    manifest: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/[hash].js",
+        chunkFileNames: "assets/[hash].js",
+        assetFileNames: "assets/[hash][extname]",
+      },
+    },
+  },
   test: {
     // Node by default: the logic modules are deliberately DOM-free
     // and must stay runnable without one. Component tests opt into

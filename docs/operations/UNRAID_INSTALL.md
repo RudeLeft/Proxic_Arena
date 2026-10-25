@@ -11,8 +11,9 @@ by the project instead of by a person.
 > This gets the stack running and reachable on the LAN. Going public
 > through `proxic.barnflix.net` is `UNRAID_CHECKLIST.md`.
 
-Since Phase 3, **everything except health, version and the status
-page requires a sign-in**, and accounts are created by hand. Between
+**Everything requires a sign-in** (since 2026-10-24, the version and
+the health checks too -- those answer only from inside the container),
+and accounts are created by hand. Between
 the stack starting and Step 5 below, the site shows a login nobody
 can get past. That is expected, not a fault.
 
@@ -161,7 +162,7 @@ A password passed as `--password=...` is **refused outright**
 ## Step 6 — Verify
 
 ```bash
-curl -s http://127.0.0.1:8765/api/health/ready
+docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
 Expected, exactly:

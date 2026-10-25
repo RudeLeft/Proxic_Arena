@@ -31,16 +31,12 @@ describe("service status (PHASE_01 1.69)", () => {
       if (String(url).includes("version")) {
         return Promise.resolve(new Response(JSON.stringify(GOOD), { status: 200 }));
       }
-      // Degraded readiness answers 503 WITH a body. Ignoring it would
-      // report "unavailable" for a server that is answering fine.
+      // A failing check is still an answer. Ignoring it would report
+      // "unavailable" for a server that is answering fine.
       return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            status: "degraded",
-            checks: { database: "ok", forgeWorker: "missing" },
-          }),
-          { status: 503 },
-        ),
+        new Response(JSON.stringify({ server: "ok", database: "ok", forgeRuntime: "missing" }), {
+          status: 200,
+        }),
       );
     }) as unknown as typeof fetch;
 
@@ -66,7 +62,7 @@ describe("service status (PHASE_01 1.69)", () => {
       Promise.resolve(
         String(url).includes("version")
           ? new Response(JSON.stringify({ ...GOOD, protocolVersion: 99 }), { status: 200 })
-          : new Response(JSON.stringify({ status: "ok", checks: { database: "ok" } }), {
+          : new Response(JSON.stringify({ server: "ok", database: "ok", forgeRuntime: "ok" }), {
               status: 200,
             }),
       ),

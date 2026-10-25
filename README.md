@@ -24,8 +24,10 @@ so none can be skipped, a real-game proof for each, and every one built.
 Who applies each Magic rule, and the proof, is
 `docs/architecture/RULES_COVERAGE.md`.
 
-**Everything except health and version requires a session**, the
-status page included. Accounts are created by an administrator with
+**Everything requires a session** (owner, 2026-10-24): a visitor who
+is not signed in is sent the sign-in screen and nothing else -- not the
+version, not a health check, not the other pages' code. The health
+checks answer only from inside the server's own container. Accounts are created by an administrator with
 `arena-admin`; there is no self-registration. See
 `docs/architecture/AUTHENTICATION.md`, and
 `docs/operations/troubleshooting/AUTHENTICATION.md` when a login will not work.

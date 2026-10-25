@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchAuthState, isSessionExpired, login, safeReturnPath } from "./auth";
+import { fetchAuthState, isSessionExpired, login } from "./auth";
 
 /**
  * Authentication client — PHASE_03 §3.68, §3.72, §3.74.
@@ -15,46 +15,6 @@ function respondWith(status: number, body: unknown, headers: Record<string, stri
     ),
   ) as unknown as typeof fetch;
 }
-
-describe("safeReturnPath (§3.68)", () => {
-  it("keeps an application-local path", () => {
-    expect(safeReturnPath("/decks")).toBe("/decks");
-    expect(safeReturnPath("/decks?open=abc")).toBe("/decks?open=abc");
-    expect(safeReturnPath("/a/b/c")).toBe("/a/b/c");
-  });
-
-  it("refuses anything that could leave the application", () => {
-    // An open redirect turns the login page into a credible
-    // phishing launchpad: a link to the real site, a real login,
-    // then a bounce to a page asking for the password "again".
-    const hostile = [
-      "https://evil.example",
-      "http://evil.example/decks",
-      // Protocol-relative: a browser treats this as absolute.
-      "//evil.example",
-      "///evil.example",
-      // Some browsers normalise backslashes to slashes.
-      String.raw`/\evil.example`,
-      String.raw`\\evil.example`,
-      "javascript:alert(1)",
-      "decks",
-      "",
-    ];
-    for (const path of hostile) {
-      expect(safeReturnPath(path), path).toBe("/");
-    }
-  });
-
-  it("refuses a path containing control characters", () => {
-    expect(safeReturnPath("/decks\u0000https://evil.example")).toBe("/");
-    expect(safeReturnPath("/decks\nhttps://evil.example")).toBe("/");
-  });
-
-  it("falls back to the home page for nothing at all", () => {
-    expect(safeReturnPath(null)).toBe("/");
-    expect(safeReturnPath(undefined)).toBe("/");
-  });
-});
 
 describe("fetchAuthState (§3.72)", () => {
   it("reports an authenticated user", async () => {

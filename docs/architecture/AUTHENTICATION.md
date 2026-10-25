@@ -327,8 +327,10 @@ the lifetime of the process.
 - Logs carry connection id, session id and user id. Never the token:
   logs are copied, shipped and kept.
 
-`/ws/system` stays **anonymous** (§3.83) — it is infrastructure
-status, and a signed-out visitor is meant to see it.
+`/ws/system` was anonymous (§3.83) until 2026-10-24, when the owner
+decided a visitor who is not signed in sees the sign-in screen and
+nothing else: it now needs a session, like `/api/version` and
+`/api/system/status` (`auth/SignedInGate.kt`).
 
 ---
 

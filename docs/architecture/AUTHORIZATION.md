@@ -53,11 +53,14 @@ to `/login` itself.
 
 | Route | Who |
 |---|---|
-| `GET /api/health/live`, `/ready` | anyone |
-| `GET /api/version` | anyone |
-| `GET /ws/system` | anyone |
-| `POST /api/auth/login`, `/logout` | anyone |
-| `GET /api/auth/me` | anyone (answers "nobody") |
+| the app's page (any address that is not a file) | anyone -- it is the sign-in screen |
+| the built files the sign-in screen needs (named by the build manifest) | anyone |
+| every other built file (`/assets/…`) | the signed-in user (`private` cache) |
+| `GET /api/health/live`, `/ready` | the server's own container only (127.0.0.1); 404 from anywhere else |
+| `POST /api/auth/login`, `/logout` | anyone (logout is a quiet 204 either way) |
+| `GET /api/auth/me` | anyone (204, nothing, when not signed in) |
+| `GET /api/version`, `/api/system/status`, `/ws/system` | the signed-in user |
+| any other `/api/…` address, real or not | the signed-in user -- a stranger gets the same 401 for all |
 | `POST /api/auth/password`, `/display-name` | the signed-in user |
 | `POST /api/auth/logout-all` | the signed-in user, for their own sessions only |
 | **every** `/api/decks` route | any signed-in user |

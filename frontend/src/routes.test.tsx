@@ -58,10 +58,11 @@ describe("routes", () => {
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
   });
 
-  it("answers an unknown route honestly instead of showing the home page", () => {
+  it("sends an unknown address home, showing nothing of its own", async () => {
+    // Owner 2026-10-24: no "Not found" placeholder for a stranger to read.
     at("/no/such/page");
-    expect(screen.getByText("Not found")).toBeDefined();
-    expect(screen.queryByText(/Foundation Build/i)).toBeNull();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
+    expect(screen.queryByText(/Not found|Not implemented|Foundation Build/i)).toBeNull();
   });
 
   /**
@@ -69,7 +70,7 @@ describe("routes", () => {
    *
    * This test used to assert the §1.105 placeholder ("no fake
    * gameplay"). That rule has not gone away: the 404 test above
-   * still covers the only placeholder left, and the lobby is not a
+   * is about where an unknown address goes, and the lobby is not a
    * mock — it renders what the server says and nothing else.
    *
    * What is worth asserting here instead is the gate. Every room

@@ -19,6 +19,7 @@ import net.barnflix.proxic.module
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
+import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -197,11 +198,12 @@ class AuthApiTest {
         testApplication {
             // §3.49 — the page uses this to decide whether to show a
             // login form. A 401 here would make "signed out" look like
-            // "broken".
+            // "broken". Since 2026-10-24 it says nothing at all (204):
+            // a stranger is told nothing (owner).
             application { module(config()) }
             val response = client.get("/api/auth/me")
-            assertEquals(HttpStatusCode.OK, response.status)
-            assertEquals(false, json.decodeFromString(MeResponse.serializer(), response.bodyAsText()).authenticated)
+            assertEquals(HttpStatusCode.NoContent, response.status)
+            assertEquals("", response.bodyAsText())
         }
 
     @Test
@@ -230,11 +232,7 @@ class AuthApiTest {
                 client.get("/api/auth/me") {
                     header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
                 }
-            assertEquals(
-                false,
-                json.decodeFromString(MeResponse.serializer(), after.bodyAsText()).authenticated,
-                "a revoked session still authenticated",
-            )
+            assertEquals(HttpStatusCode.NoContent, after.status, "a revoked session still authenticated")
         }
 
     @Test
@@ -408,6 +406,82 @@ class AuthApiTest {
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         }
 
+    // --- the sign-in screen and nothing else (owner 2026-10-24) -----
+
+    /** A built frontend whose manifest names the sign-in screen's files. */
+    private fun builtFrontend(): File {
+        val dir = File("build/test-gate-static")
+        File(dir, "assets").mkdirs()
+        File(dir, ".vite").mkdirs()
+        File(dir, "index.html").writeText("<!doctype html><div id=root></div>")
+        for (name in listOf("entry.js", "shared.js", "entry.css", "font.woff2", "lobby.js")) {
+            File(dir, "assets/$name").writeText("/* $name */")
+        }
+        File(dir, ".vite/manifest.json").writeText(
+            """
+            {
+              "index.html": {"file": "assets/entry.js", "isEntry": true, "imports": ["_shared"],
+                             "dynamicImports": ["src/Lobby.tsx"], "css": ["assets/entry.css"]},
+              "_shared": {"file": "assets/shared.js", "assets": ["assets/font.woff2"]},
+              "src/Lobby.tsx": {"file": "assets/lobby.js", "isDynamicEntry": true}
+            }
+            """.trimIndent(),
+        )
+        return dir
+    }
+
+    @Test
+    fun `a stranger gets the same refusal for every address, real or not`() =
+        testApplication {
+            seedUser()
+            application { module(config()) }
+            val paths = listOf("/api", "/api/version", "/api/system/status", "/api/admin/server", "/api/no-such-thing")
+            for (path in paths) {
+                val response = client.get(path)
+                assertEquals(HttpStatusCode.Unauthorized, response.status, path)
+                assertTrue(response.bodyAsText().contains("UNAUTHENTICATED"), path)
+            }
+            // Signed in, the real one answers and the made-up one is missing.
+            val cookie = "$SESSION_COOKIE=${login().cookie(SESSION_COOKIE)!!}"
+            assertEquals(HttpStatusCode.OK, client.get("/api/version") { header(HttpHeaders.Cookie, cookie) }.status)
+            val missing = client.get("/api/no-such-thing") { header(HttpHeaders.Cookie, cookie) }
+            assertEquals(HttpStatusCode.NotFound, missing.status)
+        }
+
+    @Test
+    fun `the health checks answer inside the box`() =
+        testApplication {
+            // The test engine's peer is this machine, as Docker's own
+            // check is; from anywhere else the e2e suite proves a 404.
+            seedUser()
+            application { module(config()) }
+            assertEquals(HttpStatusCode.OK, client.get("/api/health/live").status)
+        }
+
+    @Test
+    fun `a stranger gets only the sign-in screen's built files`() =
+        testApplication {
+            seedUser()
+            val dir = builtFrontend()
+            application { module(config().copy(staticRoot = dir.path)) }
+
+            for (file in listOf("entry.js", "shared.js", "entry.css", "font.woff2")) {
+                assertEquals(HttpStatusCode.OK, client.get("/assets/$file").status, file)
+            }
+            assertEquals(HttpStatusCode.NotFound, client.get("/assets/lobby.js").status)
+            assertEquals(HttpStatusCode.NotFound, client.get("/.vite/manifest.json").status)
+            // The page itself is the sign-in screen, at any address.
+            assertEquals(HttpStatusCode.OK, client.get("/decks").status)
+
+            val cookie = "$SESSION_COOKIE=${login().cookie(SESSION_COOKIE)!!}"
+            val lobby = client.get("/assets/lobby.js") { header(HttpHeaders.Cookie, cookie) }
+            assertEquals(HttpStatusCode.OK, lobby.status)
+            // Kept by the browser, never by a shared cache.
+            assertTrue(lobby.headers[HttpHeaders.CacheControl]!!.startsWith("private"))
+            val hidden = client.get("/.vite/manifest.json") { header(HttpHeaders.Cookie, cookie) }
+            assertEquals(HttpStatusCode.NotFound, hidden.status)
+        }
+
     // --- logout-all (§3.34) -----------------------------------------
 
     /**
@@ -444,10 +518,7 @@ class AuthApiTest {
                     client.get("/api/auth/me") {
                         header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token")
                     }
-                assertTrue(
-                    me.bodyAsText().contains("\"authenticated\":false"),
-                    "$label session still works: ${me.bodyAsText()}",
-                )
+                assertEquals(HttpStatusCode.NoContent, me.status, "$label session still works: ${me.bodyAsText()}")
             }
         }
 
@@ -460,14 +531,12 @@ class AuthApiTest {
             seedUser()
             application { module(config()) }
 
-            // 403, not 401: the CSRF gate runs BEFORE authentication,
-            // so a request with no cookies at all is refused as
-            // cross-site before anyone asks who it is. That order is
-            // deliberate -- it is cheaper, and it means an
-            // unauthenticated mutating request never reaches code
-            // that could act on it.
+            // A stranger is turned away at the door, before the CSRF
+            // check or anything else: the same 401 every address gives
+            // them (owner 2026-10-24). It never reaches code that could
+            // act on it.
             assertEquals(
-                HttpStatusCode.Forbidden,
+                HttpStatusCode.Unauthorized,
                 client.post("/api/auth/logout-all").status,
             )
 
@@ -511,15 +580,5 @@ class AuthApiTest {
             assertTrue(
                 response.headers["Content-Security-Policy"]?.contains("default-src 'self'") == true,
             )
-        }
-
-    @Test
-    fun `health and version stay public`() =
-        testApplication {
-            // §3.83, §3.84 — a monitor must not need credentials, and
-            // the LAN port exists for exactly this (owner decision D2).
-            application { module(config()) }
-            assertEquals(HttpStatusCode.OK, client.get("/api/health/live").status)
-            assertEquals(HttpStatusCode.OK, client.get("/api/version").status)
         }
 }

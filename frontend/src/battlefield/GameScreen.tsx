@@ -31,6 +31,7 @@ import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { holdActive } from "../activity";
+import { useSettled } from "../useSettled";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import {
   STOP_STEPS,
@@ -88,6 +89,8 @@ export function GameScreen({
   // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
+  // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
+  const reconnecting = useSettled(game.connection === "reconnecting", 1500);
 
   useEffect(() => {
     if (!live) return undefined;
@@ -142,6 +145,10 @@ export function GameScreen({
     () => (board ? boardFromSnapshot(board, frames.current.previous) : null),
     [board],
   );
+  // The loading ring only once loading takes a moment: a refreshed game
+  // draws its board in a few hundredths of a second, and the ring
+  // flashing first looked like a hiccup (owner 2026-10-24).
+  const ringDue = useSettled(!(data && board), 400);
 
   // Everything the board draws that an option may name.
   const visible = useMemo(() => {
@@ -424,12 +431,12 @@ export function GameScreen({
             ) : null
           }
         />
-      ) : (
+      ) : !ringDue ? null : (
         <LoadingRing
           words={
             finished
               ? "The game is over."
-              : game.connection === "reconnecting"
+              : reconnecting
                 ? "Reconnecting to the game…"
                 : match.status === "LAUNCHING"
                   ? "Setting up the table…"
@@ -439,7 +446,9 @@ export function GameScreen({
       )}
 
       <div className="gs-corner">
-        <img className="gs-logo" src={logo} alt="Proxic Arena" />
+        {/* Owner 2026-10-24: not over the loading screen, which has the
+            logo in its ring already. */}
+        {data && board && <img className="gs-logo" src={logo} alt="Proxic Arena" />}
         {/* Owner 2026-10-22: nothing written under the logo -- the screen
             stays clean. Still said to a screen reader. */}
         <p className="gs-status pa-visually-hidden" role="status">
@@ -474,7 +483,7 @@ export function GameScreen({
         />
       </div>
 
-      {live && game.connection === "reconnecting" && !finished && (
+      {live && reconnecting && !finished && (
         <div className="gs-banner pa-notice pa-notice-warn" role="status">
           <span aria-hidden="true" className="pa-notice-mark" />
           <span className="pa-notice-text">

@@ -11,8 +11,11 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { isNewBuild } from "../status";
+import type { ConnectionState } from "../lobby";
+import { useSettled } from "../useSettled";
 import { LobbyConnectionProvider, useLobbyConnection } from "./LobbyConnection";
 import logo from "../assets/logo-header.webp";
+import "./base.css";
 import "./app.css";
 
 /** How often an open page asks whether the server has been updated. */
@@ -69,16 +72,30 @@ function NewVersion() {
 
 function ConnectionState() {
   const { lobby } = useLobbyConnection();
+  // Owner 2026-10-24: "Connecting…" for the moment a refresh takes, or
+  // "Reconnecting…" for a blip, flashed too fast to read. A state that
+  // lasts a second is shown; until then the pill keeps its last word
+  // (and on a fresh page holds its place, empty).
+  const passing = lobby.connection === "connecting" || lobby.connection === "reconnecting";
+  const settled = useSettled(passing, 1000);
+  const [shown, setShown] = useState<ConnectionState | null>(null);
+  useEffect(() => {
+    if (!passing || settled) setShown(lobby.connection);
+  }, [lobby.connection, passing, settled]);
+  const state = shown ?? lobby.connection;
   const label =
-    lobby.connection === "open"
+    state === "open"
       ? "Connected"
-      : lobby.connection === "connecting"
+      : state === "connecting"
         ? "Connecting…"
-        : lobby.connection === "reconnecting"
+        : state === "reconnecting"
           ? "Reconnecting…"
           : "Signed out";
   return (
-    <span className={`pa-connection pa-connection-${lobby.connection}`} role="status">
+    <span
+      className={`pa-connection pa-connection-${state}${shown === null ? " pa-connection-quiet" : ""}`}
+      role="status"
+    >
       <span aria-hidden="true" className="pa-connection-dot" />
       {label}
     </span>
@@ -113,11 +130,11 @@ function Header() {
         </svg>
       </button>
       <nav className="pa-nav" id="pa-pages" aria-label="Pages">
-        <NavLink to="/decks" className={tab}>
-          Deck Depot
-        </NavLink>
         <NavLink to="/play" className={tab}>
           Lobby
+        </NavLink>
+        <NavLink to="/decks" className={tab}>
+          Deck Depot
         </NavLink>
         <NavLink to="/account" className={tab}>
           Account

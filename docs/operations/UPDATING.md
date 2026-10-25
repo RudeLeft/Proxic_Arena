@@ -77,6 +77,10 @@ used to take twenty minutes takes one request.
 https://proxic.barnflix.net/api/version
 ```
 
+Open it in a browser where you are signed in (since 2026-10-24 it
+needs a session), or read the Admin page's health pill, which shows the
+version and a short build id.
+
 ```json
 {"proxicVersion":"0.1.0", ..., "buildId":"6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a"}
 ```

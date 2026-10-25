@@ -33,7 +33,7 @@ reboot.
 ## The database is not ready
 
 ```bash
-curl http://127.0.0.1:8080/api/health/ready
+docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
 | `checks.database` | Meaning |

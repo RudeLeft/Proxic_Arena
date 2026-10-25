@@ -21,6 +21,24 @@ words, newest first. Each release on GitHub carries the same notes.
 - Games say how they ended in plain words; sign-ins are grouped by
   person, with names that never got in at the top in red.
 
+**Sign in, addresses and refreshing** (owner, 2026-10-24)
+- Somebody who is not signed in sees the sign-in screen and nothing
+  else: not the version, not the server's health, not the other pages'
+  code. Every other address gives them the same "Sign in to continue",
+  so nothing behind it can be mapped. The health checks answer only
+  from inside the server's own container.
+- Signing in always lands in the Lobby -- also from an old link that
+  names another page. The sign-in page no longer says how accounts are
+  made.
+- An address that is not a page goes to Sign in (or the Lobby when
+  signed in), never to a developer placeholder.
+- Refreshing looks like a refresh: no "Reconnecting…" flash as the old
+  page goes, no "Connecting…" or "nobody here" before the lists arrive,
+  and no loading ring for a game that draws at once. A real outage
+  still shows after a second.
+- The game's loading screen no longer has the logo in its corner; the
+  menu reads Lobby, Deck Depot, Account, Admin.
+
 **Deck Depot and lobby touches** (owner, 2026-10-24)
 - Card names line up under their pictures; "Shared with" shows avatars;
   the import box no longer lists the format rules; with no decks, the
