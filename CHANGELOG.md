@@ -11,6 +11,14 @@ words, newest first. Each release on GitHub carries the same notes.
   ("Away 7 min"), a grey ✕ when they are offline ("last seen 2h ago").
 - On the Players list, on the seats in your room and beside chat.
 
+**Tidier chat and invitations** (owner, 2026-10-24)
+- Chat no longer posts lobby news ("Pat joined RudeLeft's room"), and an
+  empty chat is simply empty. The message box says "Type a message...".
+- The invitation box reads: "One seat is open and held for you. To
+  decide later, close this window. You can accept anytime from the room
+  list." An invited seat says "Invited: Accept Pending". A withdrawn
+  invitation no longer adds a second line.
+
 ## 1.2.0 — 2026-10-24
 
 A new look for the lobby, a friendlier chat, and a Deck Depot where you

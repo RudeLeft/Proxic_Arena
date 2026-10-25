@@ -17,8 +17,6 @@ import { REACTIONS } from "./chatEmoji";
 
 export const MAX_CHAT_LINES = 200;
 export const MAX_CHAT_LENGTH = 500;
-/** Spec 0007 — lobby events kept for the chat, like the lines. */
-export const MAX_CHAT_EVENTS = 50;
 
 export interface PresenceUser {
   userId: string;
@@ -44,17 +42,6 @@ export interface ChatLine {
    * Live only, like the line; absent until somebody reacts.
    */
   reactions?: Record<string, string[]>;
-}
-
-/**
- * Spec 0007 — "Pat joined Friday night": what the room list everybody
- * sees just did, said in the chat. Never from anything private.
- */
-export interface LobbyEvent {
-  id: string;
-  text: string;
-  /** The chat line it came after; null before any. */
-  afterLineId: string | null;
 }
 
 export interface RoomMemberView {
@@ -217,13 +204,6 @@ export interface LobbyState {
   connection: ConnectionState;
   presence: PresenceUser[];
   chat: ChatLine[];
-  /** Spec 0007 — lobby events, placed among the chat lines. */
-  events: LobbyEvent[];
-  /**
-   * False until the first room list on this connection: that one is
-   * where things stand, not news, so it posts no events.
-   */
-  roomsKnown: boolean;
   room: RoomView | null;
   /** At most one: a player holds one invitation at a time (Amendment 11). */
   invitation: Invitation | null;
@@ -256,8 +236,6 @@ export const EMPTY_LOBBY: LobbyState = {
   connection: "connecting",
   presence: [],
   chat: [],
-  events: [],
-  roomsKnown: false,
   room: null,
   invitation: null,
   rooms: [],
@@ -430,19 +408,8 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       };
     }
 
-    case "ROOMS": {
-      const rooms = asDirectory(message["rooms"]);
-      if (!state.roomsKnown) return { ...state, rooms, roomsKnown: true };
-      const said = lobbyEvents(state.rooms, rooms);
-      if (said.length === 0) return { ...state, rooms };
-      const afterLineId = state.chat[state.chat.length - 1]?.id ?? null;
-      const stamp = asString(message["messageId"]) ?? String(state.events.length);
-      const events = [
-        ...state.events,
-        ...said.map((text, i) => ({ id: `${stamp}-${i}`, text, afterLineId })),
-      ].slice(-MAX_CHAT_EVENTS);
-      return { ...state, rooms, events };
-    }
+    case "ROOMS":
+      return { ...state, rooms: asDirectory(message["rooms"]) };
 
     case "PLAYERS":
       return { ...state, players: asPresenceList(message["players"]) };
@@ -695,52 +662,6 @@ function react(state: LobbyState, message: Record<string, unknown>): LobbyState 
   return { ...state, chat };
 }
 
-/**
- * Spec 0007 — what changed between two room lists, in words.
- *
- * Only what the list itself shows everybody: rooms, who sits in them,
- * whether they are playing. Never a deck or an invitation -- those are
- * not on the list, so they cannot leak from here.
- */
-export function lobbyEvents(before: DirectoryRoom[], after: DirectoryRoom[]): string[] {
-  const said: string[] = [];
-  const was = new Map(before.map((room) => [room.roomId, room]));
-  const still = new Set(after.map((room) => room.roomId));
-  const players = (room: DirectoryRoom) => room.seats.map((seat) => seat.displayName).join(" and ");
-
-  for (const room of after) {
-    const old = was.get(room.roomId);
-    if (!old) {
-      const host =
-        room.seats.find((seat) => seat.isHost)?.displayName ?? room.seats[0]?.displayName;
-      if (host) {
-        said.push(
-          room.name === `${host}'s room` ? `${host} opened a room` : `${host} opened ${room.name}`,
-        );
-      }
-      continue;
-    }
-    const sat = new Set(old.seats.map((seat) => seat.userId));
-    const sits = new Set(room.seats.map((seat) => seat.userId));
-    for (const seat of room.seats) {
-      if (!sat.has(seat.userId)) said.push(`${seat.displayName} joined ${room.name}`);
-    }
-    for (const seat of old.seats) {
-      if (!sits.has(seat.userId)) said.push(`${seat.displayName} left ${room.name}`);
-    }
-    if (room.status === "IN_MATCH" && old.status !== "IN_MATCH") {
-      said.push(`${players(room)} started a game`);
-    } else if (old.status === "IN_MATCH" && room.status !== "IN_MATCH") {
-      said.push(`${players(old)}'s game ended`);
-    }
-  }
-  for (const old of before) {
-    if (still.has(old.roomId)) continue;
-    said.push(old.status === "IN_MATCH" ? `${players(old)}'s game ended` : `${old.name} closed`);
-  }
-  return said;
-}
-
 function asDirectory(value: unknown): DirectoryRoom[] {
   if (!Array.isArray(value)) return [];
   const rooms: DirectoryRoom[] = [];
@@ -867,8 +788,7 @@ export function connectLobby(
       attempt = 0;
       const again = everOpened;
       everOpened = true;
-      // A fresh room list follows; it is the baseline, not news (spec 0007).
-      onState((previous) => ({ ...previous, connection: "open", roomsKnown: false }));
+      onState((previous) => ({ ...previous, connection: "open" }));
       if (again) options.onReopen?.();
     });
 

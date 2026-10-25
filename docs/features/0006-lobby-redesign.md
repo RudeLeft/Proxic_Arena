@@ -121,3 +121,15 @@ the Deck Depot, Account and Admin pages beyond the shared header.
   folded.* **Owner, 2026-10-24: always open.**
 
 ## Amendments
+
+## Amendment 1 (owner, 2026-10-24, after 1.2.0)
+
+Wording:
+- The empty chat shows nothing (was "Nothing yet.").
+- The invitation box: "One seat is open and held for you. To decide
+  later, close this window. You can accept anytime from the room list."
+- An invited player's seat: "Invited: Accept Pending" (was "Invited —
+  waiting for an answer").
+- An invitation that was withdrawn (or accepted a moment too late) says
+  only its title; the line "Nothing changed for you — you are still in
+  the lobby…" is gone.

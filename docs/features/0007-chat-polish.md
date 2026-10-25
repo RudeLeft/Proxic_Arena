@@ -132,3 +132,12 @@ The 40 emoji (owner may swap any):
   was hidden.
 - Screenshots of the chat at 1280, 1600 and on a phone for the owner
   before it ships.
+
+## Amendment 1 (owner, 2026-10-24, after 1.2.0)
+
+- **C5 removed.** Lobby events ("Pat joined RudeLeft's room") are no
+  longer posted in the chat: "it just clutters chat". The room list
+  still shows every room and who sits in it.
+- The empty chat shows nothing (no "Nothing yet."), here and in the game
+  screen's chat drawer.
+- The message box says "Type a message..." instead of "Say something".

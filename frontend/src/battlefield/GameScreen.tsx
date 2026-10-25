@@ -1882,7 +1882,6 @@ function ChatDrawer({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <div className="gs-chat-log" role="log" ref={log}>
-        {lobby.chat.length === 0 && <p className="gs-viewer-empty">Nothing yet.</p>}
         {lobby.chat.map((line) => (
           <p key={line.id} className="gs-chat-line">
             <span className="gs-chat-who">{line.displayName}</span> {line.text}

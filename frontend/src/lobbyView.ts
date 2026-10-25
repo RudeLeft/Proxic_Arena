@@ -9,7 +9,7 @@
 // would not honour whatever the button looked like; these make the
 // button say so before anybody presses it.
 
-import type { ChatLine, DirectoryRoom, LobbyEvent, LobbyState, PresenceUser } from "./lobby";
+import type { ChatLine, DirectoryRoom, LobbyState, PresenceUser } from "./lobby";
 
 /** What the Invite control on one player's row is. */
 export type InviteControl =
@@ -199,9 +199,8 @@ export function orderRooms(rooms: DirectoryRoom[], mineId: string | null): Direc
 
 // --- chat (spec 0007) ---------------------------------------------------------
 
-/** One thing in the chat log: a lobby event, the "New" divider, or a run of lines. */
+/** One thing in the chat log: the "New" divider, or a run of lines. */
 export type ChatItem =
-  | { kind: "event"; id: string; text: string }
   | { kind: "new"; id: string }
   | {
       kind: "run";
@@ -214,27 +213,10 @@ export type ChatItem =
 
 /**
  * The chat as it is drawn: lines from one person in a row share one
- * bubble (name, time and avatar once); lobby events sit after the line
- * they followed and break a run; "New" goes before [newBefore].
+ * bubble (name, time and avatar once); "New" goes before [newBefore].
  */
-export function chatItems(
-  chat: ChatLine[],
-  events: LobbyEvent[],
-  newBefore: string | null,
-): ChatItem[] {
-  const ids = new Set(chat.map((line) => line.id));
-  const after = new Map<string | null, LobbyEvent[]>();
-  for (const event of events) {
-    // Its line has scrolled out of the kept lines: it goes first.
-    const key = event.afterLineId && ids.has(event.afterLineId) ? event.afterLineId : null;
-    after.set(key, [...(after.get(key) ?? []), event]);
-  }
+export function chatItems(chat: ChatLine[], newBefore: string | null): ChatItem[] {
   const items: ChatItem[] = [];
-  const said = (key: string | null) => {
-    for (const event of after.get(key) ?? [])
-      items.push({ kind: "event", id: event.id, text: event.text });
-  };
-  said(null);
   for (const line of chat) {
     if (line.id === newBefore) items.push({ kind: "new", id: `new-${line.id}` });
     const last = items[items.length - 1];
@@ -250,7 +232,6 @@ export function chatItems(
         lines: [line],
       });
     }
-    said(line.id);
   }
   return items;
 }

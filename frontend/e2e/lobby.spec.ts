@@ -137,7 +137,7 @@ test("a chat line reaches the other player", async ({ browser }) => {
   });
 });
 
-test("chat: the time by the name, your own lines, emoji, reactions, lobby news and New", async ({
+test("chat: the time by the name, your own lines, emoji, reactions and New, and no lobby news", async ({
   browser,
 }) => {
   // Spec 0007, C1-C7, between two real players.
@@ -179,11 +179,11 @@ test("chat: the time by the name, your own lines, emoji, reactions, lobby news a
     await message(two, line).getByRole("button", { name: /^😂 1/ }).click();
     await expect(message(one, line).getByRole("button", { name: /^😂/ })).toHaveCount(0);
 
-    // C5 -- the room list's news, in the chat, for everybody.
+    // C5 -- no lobby news in the chat (owner 2026-10-24): opening a room says nothing there.
     await openRoom(one, `Chat ${stamp}`);
-    await expect(
-      chat(two).locator(".pa-chat-event", { hasText: `opened Chat ${stamp}` }),
-    ).toBeVisible();
+    // The other player's room list has it, so any news would have come by now.
+    await expect(two.getByText(`Chat ${stamp}`).first()).toBeVisible();
+    await expect(chat(two)).not.toContainText(`Chat ${stamp}`);
 
     // C7 -- a line that comes in while the tab is in the background is
     // counted in the title, and sits under "New" when you come back.

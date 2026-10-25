@@ -1,8 +1,7 @@
 // The lobby's chat panel — spec 0007 (owner 2026-10-24), on the 0006 layout.
 //
 // The time beside the name, your own lines marked, a run of lines in one
-// bubble, reactions, an emoji panel by Send, the room list's news as grey
-// lines, and a "New" divider for what came in while you were away. Still
+// bubble, reactions, an emoji panel by Send, and a "New" divider for what came in while you were away. Still
 // live only (Phase 5 Amendment 3): the server stores none of it.
 
 import {
@@ -87,7 +86,7 @@ export function ChatPanel({
     const log = logRef.current;
     if (log && atBottom) log.scrollTop = log.scrollHeight;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- on new content only
-  }, [lobby.chat.length, lobby.events.length]);
+  }, [lobby.chat.length]);
 
   const scrolled = () => {
     const log = logRef.current;
@@ -134,10 +133,7 @@ export function ChatPanel({
     if (log) log.scrollTop = log.scrollHeight;
   };
 
-  const items = useMemo(
-    () => chatItems(lobby.chat, lobby.events, newBefore),
-    [lobby.chat, lobby.events, newBefore],
-  );
+  const items = useMemo(() => chatItems(lobby.chat, newBefore), [lobby.chat, newBefore]);
   const nameOf = (userId: string) =>
     lobby.players.find((p) => p.userId === userId)?.displayName ??
     lobby.presence.find((p) => p.userId === userId)?.displayName ??
@@ -150,15 +146,7 @@ export function ChatPanel({
         {unread > 0 && <span className="pa-panel-note pa-chat-unread">{unread} new</span>}
       </div>
       <div className="pa-chat-log" role="log" ref={logRef} onScroll={scrolled}>
-        {items.length === 0 && <p className="pa-chat-empty">Nothing yet.</p>}
         {items.map((item) => {
-          if (item.kind === "event") {
-            return (
-              <p key={item.id} className="pa-chat-event">
-                {item.text}
-              </p>
-            );
-          }
           if (item.kind === "new") {
             return (
               <div key={item.id} className="pa-chat-new" role="separator" aria-label="New messages">
@@ -240,7 +228,7 @@ export function ChatPanel({
           className="pa-input"
           value={draft}
           maxLength={MAX_CHAT_LENGTH}
-          placeholder="Say something"
+          placeholder="Type a message..."
           autoComplete="off"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {

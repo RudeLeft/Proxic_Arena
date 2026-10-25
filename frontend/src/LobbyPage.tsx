@@ -376,7 +376,7 @@ export default function LobbyPage() {
         <Dialog
           label="Invitation"
           title={`${invitation.from.displayName} asked you into ${invitation.roomName}`}
-          sub="One seat is open and held for you. Close this to decide later — you can still accept from the room list."
+          sub="One seat is open and held for you. To decide later, close this window. You can accept anytime from the room list."
           primary="Accept"
           onPrimary={() => send({ type: "INVITE_ACCEPT", roomId: invitation.roomId })}
           secondary="Decline"
@@ -389,7 +389,6 @@ export default function LobbyPage() {
         <Dialog
           label="Invitation ended"
           title={goneTitle(lobby.invitationGone.reason, lobby.invitationGone.fromDisplayName)}
-          sub="Nothing changed for you — you are still in the lobby. This is also what you see if you accepted a moment too late."
           primary="OK"
           onPrimary={() => setLobby((previous) => ({ ...previous, invitationGone: null }))}
         />
@@ -892,7 +891,7 @@ function YourRoom({
             <span className="pa-seat-text">
               <span className="pa-seat-name">{asked ? asked.displayName : "Open seat"}</span>
               <span className="pa-seat-deck">
-                {asked ? "Invited — waiting for an answer" : "Invite someone from Players"}
+                {asked ? "Invited: Accept Pending" : "Invite someone from Players"}
               </span>
             </span>
           </div>
@@ -1065,7 +1064,8 @@ function Dialog({
 }: {
   label: string;
   title: string;
-  sub: string;
+  /** A line under the title, when there is more to say. */
+  sub?: string;
   primary: string;
   onPrimary: () => void;
   secondary?: string;
@@ -1113,7 +1113,7 @@ function Dialog({
         <h2 id={titleId} className="pa-dialog-title">
           {title}
         </h2>
-        <p className="pa-dialog-sub">{sub}</p>
+        {sub && <p className="pa-dialog-sub">{sub}</p>}
         <div className="pa-dialog-buttons">
           <button
             ref={primaryRef}
