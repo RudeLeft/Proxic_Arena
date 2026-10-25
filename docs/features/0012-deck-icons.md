@@ -1,6 +1,6 @@
 # 0012 — Deck icons
 
-**Status:** Approved 2026-10-25 — built; look approved from screenshots ("ship both", 2026-10-25)
+**Status:** Approved 2026-10-25 — built in 1.3.0
 **Owner decisions:** D1 the plan as shown in the demo
 (https://claude.ai/artifact/Pe1LxxyV6jnyYwas1CgCW7): 100 icons from the
 owner's ten sheets; a suggestion from the deck's colours; chosen when a

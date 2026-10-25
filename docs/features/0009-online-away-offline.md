@@ -1,6 +1,6 @@
 # 0009 — Online, away, offline
 
-**Status:** Approved 2026-10-24 — built
+**Status:** Approved 2026-10-24 — built in 1.3.0
 **Owner decisions:** A1 a dot on the picture (option A of three on the
 lobby canvas); A2 away means no activity for 5 minutes; A3 shown in the
 Players list, on room seats and in chat (owner, 2026-10-24)

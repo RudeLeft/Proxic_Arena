@@ -1,6 +1,6 @@
 # 0011 — Hall of Champions
 
-**Status:** Approved 2026-10-25 — built; look approved from screenshots ("ship both", 2026-10-25)
+**Status:** Approved 2026-10-25 — built in 1.3.0
 **Owner decisions:** C1 the title is "Reigning Proxic Champion"; C2
 ranked by all-time wins; C3 dead last only after 5 finished games; C4
 the rings show everywhere in the lobby (owner, 2026-10-25, from the demo

@@ -1,6 +1,6 @@
 # 0010 — Admin redesign: overview and tabs
 
-**Status:** Approved 2026-10-24 — built
+**Status:** Approved 2026-10-24 — built in 1.3.0
 **Owner decisions:** R1 option A of three on the lobby canvas, "overview
 + tabs" (owner, 2026-10-24, after asking for a premium look: "things in
 there look really stretched out", and the server version showing a long

@@ -3,7 +3,11 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.3.0 — 2026-10-25
+
+Who is here and who is winning, an icon for every deck, a redesigned
+Admin page, and a site that shows strangers nothing but the sign-in
+screen.
 
 **Online, away, offline** (spec 0009)
 - Every avatar in the lobby wears a small badge: a green dot when
