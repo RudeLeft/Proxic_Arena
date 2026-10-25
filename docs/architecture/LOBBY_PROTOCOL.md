@@ -226,6 +226,13 @@ something true and vague rather than show the code.
   reload is back inside it). `direction` is `FROM_YOU` for the host's
   copy and `TO_YOU` for the player's.
 
+**Spec 0013 (the game chat):** `CHAT` and `REACT` may carry
+`scope: "game"`. The server sends such a line, or reaction, only to the
+players seated in the sender's game (starting, running, or ended within
+the last 30 minutes, for the end screen), as `CHAT`/`REACTION` with
+`scope: "game"`; a sender in no game gets `ERROR NOT_IN_GAME`. Nothing
+is stored. The page keeps game lines apart from the lobby's.
+
 **Spec 0011 (the Hall of Champions):** `STANDINGS` is `podium` (up to
 three of `place`, `userId`, `wins`, `games`, best first) and `last`
 (`userId`, `wins`, `games`, or absent). Counted on the server from

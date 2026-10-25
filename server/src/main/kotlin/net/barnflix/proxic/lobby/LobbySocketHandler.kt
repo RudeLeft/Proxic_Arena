@@ -75,6 +75,8 @@ class LobbyService(
     val accountChanges: net.barnflix.proxic.auth.AccountChanges? = null,
     /** Spec 0011 — the Hall of Champions; none without a database. */
     private val standings: () -> Standings? = { null },
+    /** Spec 0013 — the players of a player's game, for the game chat; null with none. */
+    private val gameSeats: (UUID) -> List<UUID>? = { null },
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
     private val desk =
@@ -350,7 +352,7 @@ class LobbyService(
                 return reply(errorMessage("TOO_FAST", "Slow down a moment."))
             }
 
-            hub.broadcast(
+            val line =
                 chatMessage(
                     PresenceEntry(
                         connection.user.userId,
@@ -359,8 +361,21 @@ class LobbyService(
                     ),
                     text,
                     java.time.Instant.now().toString(),
-                ),
-            )
+                )
+            relay(message, line)
+        }
+
+        /**
+         * Spec 0013 — a game line to the game's players only; a lobby line
+         * to everybody. A game line from somebody in no game is refused.
+         */
+        private suspend fun relay(
+            asked: JsonObject,
+            relayed: JsonObject,
+        ) {
+            if (asked.text("scope") != "game") return hub.broadcast(relayed)
+            val seats = gameSeats(me) ?: return reply(errorMessage("NOT_IN_GAME", "You are not in a game."))
+            hub.sendToAll(seats, relayed.inGame())
         }
 
         /**
@@ -376,7 +391,8 @@ class LobbyService(
             }
             if (!chat.allow(me)) return reply(errorMessage("TOO_FAST", "Slow down a moment."))
             val on = runCatching { message["on"]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: true
-            hub.broadcast(
+            relay(
+                message,
                 reactionMessage(
                     PresenceEntry(connection.user.userId, connection.user.username, connection.user.displayName),
                     lineId.toString(),

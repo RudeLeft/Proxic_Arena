@@ -335,6 +335,30 @@ class LobbySocketTest {
             }
         }
 
+    /** Spec 0013 — a game line from somebody in no game goes nowhere, and they are told. */
+    @Test
+    fun `a game chat line outside a game is refused and reaches nobody`() =
+        testApplication {
+            application { module(config()) }
+            val client = createClient { install(ClientWebSockets) }
+            val first = tokenFor("RudeLeft")
+            val second = tokenFor("Pat")
+
+            client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$first") }) {
+                val host = this
+                host.await("PRESENCE")
+                client.webSocket("/ws/user", { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$second") }) {
+                    await("PRESENCE")
+                    host.await("PRESENCE_JOINED")
+
+                    host.say("""{"type":"CHAT","text":"gg","scope":"game"}""")
+                    val refused = host.await("ERROR")!!
+                    assertEquals("NOT_IN_GAME", refused["errorCode"]!!.jsonPrimitive.content)
+                    assertEquals(null, await("CHAT", 1_500), "the lobby heard a game line")
+                }
+            }
+        }
+
     /**
      * Every recipient gets the whole message, not just the first.
      *

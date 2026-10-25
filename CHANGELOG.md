@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**The game screen** (owner, 2026-10-25, spec 0013)
+- The game has its own page: refreshing during a game shows the game
+  straight away, never the lobby first.
+- A game chat of its own, just for the two players, with everything the
+  lobby chat has (times, bubbles, emoji, reactions, "New"). A tab on its
+  edge opens and closes it; Close sits beside Send. It is gone once you
+  leave the game, and the lobby chat is not shown in a game.
+- Each player's picture beside their life total.
+- The gear menu says what each option does; "Stops" is now "Stop
+  options".
+- While the game loads, the gear and chat icons wait for the board (the
+  gear comes back if loading takes unusually long, so a stuck start can
+  still be abandoned).
+- In a room, the player who joined sees "Waiting for the host" in a box
+  that is plainly not a button, then "Loading…" once the host starts;
+  the "Both decks are being checked" sentence is gone.
+
 ## 1.3.0 — 2026-10-25
 
 Who is here and who is winning, an icon for every deck, a redesigned

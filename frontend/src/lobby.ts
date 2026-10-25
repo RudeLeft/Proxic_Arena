@@ -219,6 +219,8 @@ export interface LobbyState {
   connection: ConnectionState;
   presence: PresenceUser[];
   chat: ChatLine[];
+  /** Spec 0013 — the game's own chat, apart from the lobby's; emptied on leaving the game. */
+  gameChat: ChatLine[];
   room: RoomView | null;
   /** At most one: a player holds one invitation at a time (Amendment 11). */
   invitation: Invitation | null;
@@ -253,6 +255,7 @@ export const EMPTY_LOBBY: LobbyState = {
   connection: "connecting",
   presence: [],
   chat: [],
+  gameChat: [],
   room: null,
   invitation: null,
   rooms: [],
@@ -325,6 +328,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       // AMENDMENT 3 — ephemeral, and bounded in the page too. "No
       // scrollback beyond the session" is not a licence to grow a
       // list forever in a tab somebody leaves open all week.
+      // Spec 0013 — a game line goes to the game's chat, never the lobby's.
+      if (message["scope"] === "game") {
+        return { ...state, gameChat: [...state.gameChat, line].slice(-MAX_CHAT_LINES) };
+      }
       const chat = [...state.chat, line].slice(-MAX_CHAT_LINES);
       return { ...state, chat };
     }
@@ -690,17 +697,20 @@ function react(state: LobbyState, message: Record<string, unknown>): LobbyState 
   const from = asPresenceUser(message["from"]);
   if (!lineId || !emoji || !from || !REACTIONS.includes(emoji)) return state;
   const on = message["on"] !== false;
-  const index = state.chat.findIndex((line) => line.id === lineId);
-  const line = state.chat[index];
+  // Spec 0013 — the game's chat or the lobby's, as the server says.
+  const key = message["scope"] === "game" ? "gameChat" : "chat";
+  const lines = state[key];
+  const index = lines.findIndex((line) => line.id === lineId);
+  const line = lines[index];
   // A line this page never saw: nothing to put it on (spec 0007).
   if (!line) return state;
   const who = (line.reactions?.[emoji] ?? []).filter((id) => id !== from.userId);
   if (on) who.push(from.userId);
   const reactions = { ...line.reactions, [emoji]: who };
   if (who.length === 0) delete reactions[emoji];
-  const chat = state.chat.slice();
-  chat[index] = { ...line, reactions };
-  return { ...state, chat };
+  const next = lines.slice();
+  next[index] = { ...line, reactions };
+  return { ...state, [key]: next };
 }
 
 function asDirectory(value: unknown): DirectoryRoom[] {

@@ -1,4 +1,6 @@
 // The lobby's chat panel — spec 0007 (owner 2026-10-24), on the 0006 layout.
+// Spec 0013 — the game's chat is the same panel with its own lines, title
+// and a Close beside Send.
 //
 // The time beside the name, your own lines marked, a run of lines in one
 // bubble, reactions, an emoji panel by Send, and a "New" divider for what came in while you were away. Still
@@ -28,12 +30,25 @@ export function ChatPanel({
   me,
   onSay,
   onReact,
+  lines = lobby.chat,
+  title = "Chat",
+  inputLabel = "Message the lobby",
+  onClose,
+  className = "",
 }: {
   lobby: LobbyState;
   me: string | null;
   onSay: (text: string) => void;
   onReact: (lineId: string, emoji: string, on: boolean) => void;
+  /** Spec 0013 — whose lines: the lobby's (the default) or the game's. */
+  lines?: ChatLine[];
+  title?: string;
+  inputLabel?: string;
+  /** Spec 0013 — with this, a Close beside Send. */
+  onClose?: () => void;
+  className?: string;
 }) {
+  const headingId = useId();
   const [draft, setDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   /** The line whose reaction row is up: pointed at, tapped or focused. */
@@ -43,7 +58,7 @@ export function ChatPanel({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
-  const lastId = lobby.chat[lobby.chat.length - 1]?.id ?? null;
+  const lastId = lines[lines.length - 1]?.id ?? null;
 
   // --- unread (C7) --------------------------------------------------------
   const [hidden, setHidden] = useState(() => document.hidden);
@@ -65,13 +80,13 @@ export function ChatPanel({
       return;
     }
     // Back: the first line that came in meanwhile gets the divider.
-    const missed = unreadAfter(lobby.chat, seenId, me);
+    const missed = unreadAfter(lines, seenId, me);
     if (wasAway.current && missed[0]) setNewBefore(missed[0].id);
     wasAway.current = false;
     if (seenId !== lastId) setSeenId(lastId);
-  }, [reading, lastId, lobby.chat, seenId, me]);
+  }, [reading, lastId, lines, seenId, me]);
 
-  const unread = reading ? 0 : unreadAfter(lobby.chat, seenId, me).length;
+  const unread = reading ? 0 : unreadAfter(lines, seenId, me).length;
   useEffect(() => {
     const base = "Proxic Arena";
     document.title = unread > 0 ? `(${unread}) ${base}` : base;
@@ -86,7 +101,7 @@ export function ChatPanel({
     const log = logRef.current;
     if (log && atBottom) log.scrollTop = log.scrollHeight;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- on new content only
-  }, [lobby.chat.length]);
+  }, [lines.length]);
 
   const scrolled = () => {
     const log = logRef.current;
@@ -133,16 +148,16 @@ export function ChatPanel({
     if (log) log.scrollTop = log.scrollHeight;
   };
 
-  const items = useMemo(() => chatItems(lobby.chat, newBefore), [lobby.chat, newBefore]);
+  const items = useMemo(() => chatItems(lines, newBefore), [lines, newBefore]);
   const nameOf = (userId: string) =>
     lobby.players.find((p) => p.userId === userId)?.displayName ??
     lobby.presence.find((p) => p.userId === userId)?.displayName ??
     "Somebody";
 
   return (
-    <section className="pa-panel pa-chat" aria-labelledby="chat-heading">
+    <section className={`pa-panel pa-chat ${className}`} aria-labelledby={headingId}>
       <div className="pa-panel-head">
-        <h2 id="chat-heading">Chat</h2>
+        <h2 id={headingId}>{title}</h2>
         {unread > 0 && <span className="pa-panel-note pa-chat-unread">{unread} new</span>}
       </div>
       <div className="pa-chat-log" role="log" ref={logRef} onScroll={scrolled}>
@@ -221,7 +236,7 @@ export function ChatPanel({
 
       <form className="pa-chat-form" onSubmit={submit}>
         <label className="pa-visually-hidden" htmlFor={inputId}>
-          Message the lobby
+          {inputLabel}
         </label>
         <input
           id={inputId}
@@ -259,6 +274,15 @@ export function ChatPanel({
         >
           Send
         </button>
+        {onClose && (
+          <button
+            type="button"
+            className="pa-button pa-button-quiet pa-chat-close"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        )}
       </form>
     </section>
   );

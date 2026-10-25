@@ -173,7 +173,8 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
 
     // §5.91 — the room is frozen and NOTHING has started. The guest
     // learns over the socket, without touching anything.
-    await expect(guest.getByText(/host is starting the match/i)).toBeVisible();
+    // Spec 0013 — the joiner's Start says "Loading…".
+    await expect(guest.getByRole("status").filter({ hasText: "Loading…" })).toBeVisible();
 
     // §5.116 — ordinary configuration is blocked while prepared.
     //

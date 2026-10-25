@@ -1831,12 +1831,59 @@
   flex: 1 1 auto;
   width: auto;
 }
-.pa-step-wait {
+/* Spec 0013 — the joiner's Start: button-shaped, plainly not a button. */
+.pa-start-box {
   min-height: 44px;
+  padding: 6px 10px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-family: var(--pa-display);
   font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}
+.pa-start-wait {
+  border: 1px dashed var(--pa-line-strong);
+  color: var(--pa-muted);
+}
+.pa-start-wait svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.pa-start-loading {
+  border: 1px solid var(--pa-line-strong);
+  background: #1a212a;
   color: var(--pa-sub);
+}
+.pa-start-spin {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid var(--pa-line-strong);
+  border-top-color: var(--pa-brass);
+  border-radius: 50%;
+  animation: pa-start-spin 0.9s linear infinite;
+}
+@keyframes pa-start-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pa-start-spin {
+    animation: none;
+  }
 }
 .pa-step-note {
   font-size: 12px;

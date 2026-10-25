@@ -156,4 +156,28 @@ class StandingsSourceTest {
         Accounts(source()).setStatus(table.guest, AccountStatus.DISABLED)
         assertEquals(listOf(table.host), StandingsSource(source()).standings().podium.map { it.userId })
     }
+
+    /** Spec 0013, F-0013-A — the game chat reaches the game's players, on the end screen too. */
+    @Test
+    fun `a game's chat goes to its players while it runs and just after, and to nobody else`() {
+        Accounts(source()).createUser("Casey", "a perfectly fine passphrase", Role.PLAYER)
+        val seats = GameSeats(source())
+        val table = table()
+        assertEquals(null, seats.of(table.guest), "no game yet")
+
+        table.play { pat, _ -> GameOutcome(GameOutcome.WINNER, pat, 7) }
+        // Just ended: the end screen still talks.
+        assertEquals(setOf(table.host, table.guest), seats.of(table.guest)!!.toSet())
+        assertEquals(setOf(table.host, table.guest), seats.of(table.host)!!.toSet())
+        assertEquals(null, seats.of(userId("Casey")), "somebody in no game")
+
+        // Half an hour later the game is over for its chat too.
+        source().connection.use {
+            it.createStatement().executeUpdate(
+                "UPDATE match SET started_at = now() - interval '50 minutes', " +
+                    "ended_at = now() - interval '31 minutes'",
+            )
+        }
+        assertEquals(null, seats.of(table.guest))
+    }
 }

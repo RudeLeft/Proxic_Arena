@@ -13,6 +13,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import logo from "../assets/logo-header.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
+import { Avatar } from "../avatars";
+import { ChatPanel } from "../LobbyChat";
+import { avatarOf } from "../lobbyView";
 import {
   EMPTY_MATCH,
   concessionText,
@@ -149,6 +152,10 @@ export function GameScreen({
   // draws its board in a few hundredths of a second, and the ring
   // flashing first looked like a hiccup (owner 2026-10-24).
   const ringDue = useSettled(!(data && board), 400);
+  // Spec 0013 — the corner icons wait for the board. A start that hangs
+  // must still be abandonable, so after a long wait the gear comes back.
+  const longLoad = useSettled(!(data && board), 20_000);
+  const drawn = Boolean(data && board);
 
   // Everything the board draws that an option may name.
   const visible = useMemo(() => {
@@ -207,11 +214,12 @@ export function GameScreen({
   // log keeps only the latest lines, so its length stops growing.
   const { lobby } = useLobbyConnection();
   const latestFromOthers = useMemo(() => {
-    for (let i = lobby.chat.length - 1; i >= 0; i--) {
-      if (lobby.chat[i]!.fromUserId !== me) return lobby.chat[i]!.id;
+    // Spec 0013 — the game's own chat, not the lobby's.
+    for (let i = lobby.gameChat.length - 1; i >= 0; i--) {
+      if (lobby.gameChat[i]!.fromUserId !== me) return lobby.gameChat[i]!.id;
     }
     return null;
-  }, [lobby.chat, me]);
+  }, [lobby.gameChat, me]);
   const [chatSeen, setChatSeen] = useState(latestFromOthers);
   useEffect(() => {
     if (chatOpen) setChatSeen(latestFromOthers);
@@ -464,7 +472,7 @@ export function GameScreen({
 
       {/* Owner 2026-10-21: the game's controls at the bottom left, where no
           card is drawn -- a gear (Stops, Concede, Abandon) and chat. */}
-      <div className="gs-dock-anchor">
+      <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
         <GameMenu
           match={match}
           live={live && !finished}
@@ -539,7 +547,7 @@ export function GameScreen({
         />
       )}
 
-      {chatOpen && <ChatDrawer onClose={() => setChatOpen(false)} />}
+      {drawn && <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />}
 
       {finished && (
         <div className="gs-over" role="dialog" aria-modal="false" aria-labelledby="gs-over-title">
@@ -678,6 +686,9 @@ function SeatBlock({
 }) {
   const id = `player:${player.seat}`;
   const active = board.activeSeat === player.seat;
+  // Spec 0013 (G1) — the player's own picture, beside their life total.
+  const { lobby } = useLobbyConnection();
+  const seatedAs = lobby.match?.participants.find((p) => p.seatNumber === player.seat)?.userId;
   const priority = board.prioritySeat === player.seat;
   const choosable = Boolean(question?.onBoard.has(id));
   // The spell resolving next targets this player: their life total glows
@@ -706,6 +717,9 @@ function SeatBlock({
         library, {player.graveyardCount} in graveyard, {exiled} in exile.
       </span>
       <div className="gs-seat-head">
+        <span className="gs-life-face">
+          <Avatar avatar={seatedAs ? avatarOf(lobby, seatedAs) : null} size={40} />
+        </span>
         <button
           type="button"
           className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}`}
@@ -1636,14 +1650,26 @@ function GameMenu({
       <div className="gs-dock-pop">
         {live && menuOpen && (
           <div className="gs-dock-menu" role="group" aria-label="Game menu">
+            {/* Spec 0013 — each option says what it does. */}
             <button type="button" className="gs-dock-item" onClick={() => choose("stops")}>
-              Stops
+              <span className="gs-dock-item-name">Stop options</span>
+              <span className="gs-dock-item-what">
+                Choose the steps where the game waits for you instead of passing.
+              </span>
             </button>
             <button type="button" className="gs-dock-item" onClick={() => choose("concede")}>
-              Concede
+              <span className="gs-dock-item-name">Concede</span>
+              <span className="gs-dock-item-what">End the game now; your opponent wins.</span>
             </button>
-            <button type="button" className="gs-dock-item" onClick={() => choose("abandon")}>
-              Abandon match
+            <button
+              type="button"
+              className="gs-dock-item gs-dock-item-warn"
+              onClick={() => choose("abandon")}
+            >
+              <span className="gs-dock-item-name">Abandon match</span>
+              <span className="gs-dock-item-what">
+                For a stuck game: it ends for both of you with no winner.
+              </span>
             </button>
           </div>
         )}
@@ -1713,7 +1739,7 @@ function GameMenu({
             className="gs-icon-button"
             aria-label="Game menu"
             aria-expanded={menuOpen}
-            title="Stops, Concede, Abandon match"
+            title="Stop options, Concede, Abandon match"
             onClick={() => setMenuOpen((open) => !open)}
           >
             <GearIcon />
@@ -1816,8 +1842,8 @@ function StopsPanel({
     else setFailure("Your stops could not be saved. Try again.");
   };
   return (
-    <div className="gs-stops" role="dialog" aria-label="Where the game stops for you">
-      <h2 className="gs-stops-title">Where the game stops for you</h2>
+    <div className="gs-stops" role="dialog" aria-label="Stop options">
+      <h2 className="gs-stops-title">Stop options</h2>
       <p className="gs-stops-note">
         At a step without a tick the game passes for you, but only when nothing your opponent did is
         waiting to resolve, and never past a target, a payment or a block. Your main phases stop
@@ -1875,57 +1901,54 @@ function StopsPanel({
   );
 }
 
-function ChatDrawer({ onClose }: { onClose: () => void }) {
+/**
+ * Spec 0013 — the game's own chat: the lobby chat's panel (time by the
+ * name, bubbles, emoji, reactions, "New") with the game's lines, in a
+ * drawer with a tab on its edge to open and close it, and Close by Send.
+ */
+function GameChat({
+  open,
+  unread,
+  me,
+  onToggle,
+}: {
+  open: boolean;
+  unread: boolean;
+  me: string;
+  onToggle: (open: boolean) => void;
+}) {
   const { lobby, send } = useLobbyConnection();
-  const [draft, setDraft] = useState("");
-  const log = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [lobby.chat.length]);
   return (
-    <aside className="gs-chat" aria-label="Lobby chat">
-      <div className="gs-chat-head">
-        <h2>Lobby chat</h2>
-        <button type="button" className="gs-link" onClick={onClose}>
-          Close
-        </button>
-      </div>
-      <div className="gs-chat-log" role="log" ref={log}>
-        {lobby.chat.map((line) => (
-          <p key={line.id} className="gs-chat-line">
-            <span className="gs-chat-who">{line.displayName}</span> {line.text}
-          </p>
-        ))}
-      </div>
-      <form
-        className="gs-chat-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const text = draft.trim();
-          if (!text) return;
-          send({ type: "CHAT", text });
-          setDraft("");
-        }}
+    <aside className={`gs-chat${open ? " gs-chat-open" : ""}`} aria-label="Game chat">
+      <button
+        type="button"
+        className="gs-chat-tab"
+        aria-expanded={open}
+        aria-label={
+          open
+            ? "Close the game chat"
+            : unread
+              ? "Open the game chat, new messages"
+              : "Open the game chat"
+        }
+        onClick={() => onToggle(!open)}
       >
-        <label className="pa-visually-hidden" htmlFor="gs-chat-input">
-          Message the lobby
-        </label>
-        <input
-          id="gs-chat-input"
-          className="pa-input"
-          value={draft}
-          maxLength={500}
-          autoComplete="off"
-          onChange={(event) => setDraft(event.target.value)}
+        <span aria-hidden="true">Game chat</span>
+        {unread && !open && <span aria-hidden="true" className="gs-chat-tab-dot" />}
+      </button>
+      {open && (
+        <ChatPanel
+          lobby={lobby}
+          me={me}
+          lines={lobby.gameChat}
+          title="Game chat"
+          inputLabel="Message the game"
+          className="gs-chat-panel"
+          onSay={(text) => send({ type: "CHAT", text, scope: "game" })}
+          onReact={(lineId, emoji, on) => send({ type: "REACT", lineId, emoji, on, scope: "game" })}
+          onClose={() => onToggle(false)}
         />
-        <button
-          type="submit"
-          className="pa-button"
-          disabled={!draft.trim() || lobby.connection !== "open"}
-        >
-          Send
-        </button>
-      </form>
+      )}
     </aside>
   );
 }

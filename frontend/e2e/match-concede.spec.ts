@@ -52,20 +52,29 @@ test("conceding is a real loss: Forge names the other player the winner, and bot
     // and the host's chat icon flashes until the host opens the chat --
     // which opens on the left.
     await matchPanel(guest).getByRole("button", { name: "Chat", exact: true }).click();
-    const guestChat = guest.getByRole("complementary", { name: "Lobby chat" });
-    await guestChat.getByLabel("Message the lobby").fill("good game");
+    // Spec 0013 — the game's own chat, not the lobby's.
+    const guestChat = guest.getByRole("complementary", { name: "Game chat" });
+    await guestChat.getByLabel("Message the game").fill("good game");
     await guestChat.getByRole("button", { name: "Send" }).click();
-    const flashing = menu.getByRole("button", { name: "Chat, new messages" });
+    const flashing = menu.getByRole("button", { name: "Chat, new messages", exact: true });
+    // Spec 0013 — the chat's tab shows it too.
+    await expect(
+      menu.getByRole("button", { name: "Open the game chat, new messages" }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(flashing).toBeVisible({ timeout: 15_000 });
     await expect(flashing).toHaveClass(/gs-icon-unread/);
     await host.screenshot({ path: "test-results/seen/chat-flashing.png", fullPage: true });
     await flashing.click();
-    const chat = host.getByRole("complementary", { name: "Lobby chat" });
+    const chat = host.getByRole("complementary", { name: "Game chat" });
     await expect(chat).toContainText("good game");
     const box = await chat.boundingBox();
     expect(box?.x ?? 99, "the chat should open on the left").toBeLessThan(10);
     await expect(menu.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
-    await chat.getByRole("button", { name: "Close" }).click();
+    // Close sits beside Send (spec 0013).
+    await chat.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(chat.getByRole("button", { name: "Open the game chat" })).toBeVisible();
 
     // The gear holds Stops, Concede and Abandon match.
     await menu.getByRole("button", { name: "Game menu" }).click();

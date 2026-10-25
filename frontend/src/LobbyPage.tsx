@@ -17,11 +17,10 @@
 // you were not asked into says so instead of offering one.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
-import { GameScreen } from "./battlefield/GameScreen";
 import {
   cancelPreparation,
   closeRoom,
@@ -76,6 +75,12 @@ export default function LobbyPage() {
   // The live connection is the shell's (§7.62): it outlives this page,
   // so presence and invitations reach a player on any page.
   const { lobby, setLobby, send } = useLobbyConnection();
+  // Spec 0013 — a game is its own page: as soon as there is one, go there.
+  const navigate = useNavigate();
+  const inGame = lobby.match !== null;
+  useEffect(() => {
+    if (inGame) void navigate("/game");
+  }, [inGame, navigate]);
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
   const reconnecting = useSettled(lobby.connection === "reconnecting", 1500);
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
@@ -306,16 +311,6 @@ export default function LobbyPage() {
           </div>
         )}
       </div>
-
-      {lobby.match && (
-        // §7.60 — the board takes the whole window; the lobby is back
-        // when the player leaves a finished game.
-        <GameScreen
-          match={lobby.match}
-          me={me.userId}
-          onLeave={() => setLobby((previous) => ({ ...previous, match: null }))}
-        />
-      )}
 
       {/* Behind a game the lobby is out of reach -- of the mouse already, and
           now of the keyboard and screen readers too (2026-10-24 review). The
@@ -1017,16 +1012,23 @@ function YourRoom({
                     </button>
                   )}
                 </span>
+              ) : preparing || starting ? (
+                // Spec 0013 — the host pressed Start: the game is on its way.
+                <span className="pa-start-box pa-start-loading" role="status">
+                  <span aria-hidden="true" className="pa-start-spin" />
+                  Loading…
+                </span>
               ) : (
-                <span className="pa-step-wait">The host starts the game</span>
+                // Spec 0013 — shaped like the host's button, plainly not one:
+                // dashed, dimmed, an hourglass, no pointer.
+                <span className="pa-start-box pa-start-wait">
+                  <svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16">
+                    <path d="M4 2h8M4 14h8M5 2c0 4 6 4 6 6s-6 2-6 6M11 2c0 4-6 4-6 6s6 2 6 6" />
+                  </svg>
+                  Waiting for the host
+                </span>
               )}
-              <span className="pa-step-note">
-                {preparing || starting
-                  ? iHost
-                    ? "Both decks are being checked, so a card that can't be played turns up now and not mid-game."
-                    : "The host is starting the match: both decks are being checked."
-                  : waitingFor}
-              </span>
+              {!(preparing || starting) && <span className="pa-step-note">{waitingFor}</span>}
             </li>
           </ol>
 
