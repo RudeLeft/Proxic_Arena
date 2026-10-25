@@ -387,42 +387,52 @@ test("a deck selected in a room can be renamed, and the other player sees the ne
   const stamp = Date.now().toString(36);
   const pkg = mountainPackage(directory, `Rename Room ${stamp}`, `Rename Room ${stamp}`, 60);
 
-  const host = await (await browser.newContext()).newPage();
-  await signIn(host);
-  await clearEverything(host);
-  const guest = await (await browser.newContext()).newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await clearEverything(guest);
+  // Both browsers are closed at the end: left open, Pat stayed in the
+  // lobby -- a second tab, in use -- and the lobby's away test, next in
+  // the same run, never saw Pat go away (CI, 2026-10-24).
+  const hostContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  try {
+    const host = await hostContext.newPage();
+    await signIn(host);
+    await clearEverything(host);
+    const guest = await guestContext.newPage();
+    await signInAs(guest, secondUser, secondPassword);
+    await clearEverything(guest);
 
-  const deck = await sharedDeck(host, guest, pkg);
-  await host.goto("/play");
-  await guest.goto("/play");
-  await openRoom(host);
-  await inviteIn(host, guest, secondUser);
-  await chooseDeck(host, deck);
-  await chooseDeck(guest, deck, testUser);
+    const deck = await sharedDeck(host, guest, pkg);
+    await host.goto("/play");
+    await guest.goto("/play");
+    await openRoom(host);
+    await inviteIn(host, guest, secondUser);
+    await chooseDeck(host, deck);
+    await chooseDeck(guest, deck, testUser);
 
-  // RudeLeft renames it in the Deck Depot, through real clicks.
-  const renamed = `Renamed Room ${stamp}`;
-  await host.goto("/decks");
-  await host.getByRole("button", { name: `View ${deck}` }).click();
-  // exact: the deck's own name has "Rename" in it.
-  await host.getByRole("button", { name: "Rename", exact: true }).click();
-  await host.getByLabel("Deck name").fill(renamed);
-  await host.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(host.getByRole("heading", { name: renamed })).toBeVisible();
+    // RudeLeft renames it in the Deck Depot, through real clicks.
+    const renamed = `Renamed Room ${stamp}`;
+    await host.goto("/decks");
+    await host.getByRole("button", { name: `View ${deck}` }).click();
+    // exact: the deck's own name has "Rename" in it.
+    await host.getByRole("button", { name: "Rename", exact: true }).click();
+    await host.getByLabel("Deck name").fill(renamed);
+    await host.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(host.getByRole("heading", { name: renamed })).toBeVisible();
 
-  // Pat, still in the room, sees the new name on the deck chosen there.
-  const patsChoice = guest.getByLabel("Your deck for this match");
-  await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} — `), {
-    timeout: 15_000,
-  });
-  // And the room still holds the deck: nobody had to choose again.
-  await host.goto("/play");
-  await expect(host.getByLabel("Your deck for this match").locator("option:checked")).toHaveText(
-    new RegExp(`^${renamed} — `),
-  );
+    // Pat, still in the room, sees the new name on the deck chosen there.
+    const patsChoice = guest.getByLabel("Your deck for this match");
+    await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} — `), {
+      timeout: 15_000,
+    });
+    // And the room still holds the deck: nobody had to choose again.
+    await host.goto("/play");
+    await expect(host.getByLabel("Your deck for this match").locator("option:checked")).toHaveText(
+      new RegExp(`^${renamed} — `),
+    );
 
-  await clearEverything(host);
-  await clearEverything(guest);
+    await clearEverything(host);
+    await clearEverything(guest);
+  } finally {
+    await hostContext.close();
+    await guestContext.close();
+  }
 });
