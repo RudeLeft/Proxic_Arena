@@ -56,18 +56,30 @@ export function watchActivity(
     activity.lastMove = clock();
     if (away) check();
   };
+  // The browser also sends a "move" when the page changes under a still
+  // pointer (a chat line arriving, a list redrawn); only a pointer that
+  // actually went somewhere is somebody at the mouse.
+  let at = "";
+  const pointed = (event: PointerEvent) => {
+    const here = `${event.screenX},${event.screenY}`;
+    if (here === at) return;
+    at = here;
+    moved();
+  };
   const shown = () => {
     if (document.visibilityState === "visible") moved();
   };
 
-  const events = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
+  const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
   for (const name of events) window.addEventListener(name, moved, { passive: true });
+  window.addEventListener("pointermove", pointed, { passive: true });
   document.addEventListener("visibilitychange", shown);
   const timer = window.setInterval(check, CHECK_MS);
   nudge = check;
 
   return () => {
     for (const name of events) window.removeEventListener(name, moved);
+    window.removeEventListener("pointermove", pointed);
     document.removeEventListener("visibilitychange", shown);
     window.clearInterval(timer);
     if (nudge === check) nudge = null;

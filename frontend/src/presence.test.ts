@@ -34,10 +34,12 @@ describe("away after 5 minutes (A2)", () => {
     const stop = watchActivity((away) => said.push(away));
 
     vi.advanceTimersByTime(IDLE_MS - 30_000);
-    window.dispatchEvent(new Event("pointermove"));
+    window.dispatchEvent(new MouseEvent("pointermove", { screenX: 10, screenY: 10 }));
     vi.advanceTimersByTime(IDLE_MS - 30_000);
     expect(said).toEqual([]); // a move reset the clock
 
+    // The page changing under a pointer that did not move is not a move.
+    window.dispatchEvent(new MouseEvent("pointermove", { screenX: 10, screenY: 10 }));
     vi.advanceTimersByTime(60_000);
     expect(said).toEqual([true]);
     vi.advanceTimersByTime(IDLE_MS);
