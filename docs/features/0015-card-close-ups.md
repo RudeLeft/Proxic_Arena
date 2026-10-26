@@ -1,6 +1,6 @@
 # 0015 — Card close-ups without the paint-in
 
-**Status:** Approved 2026-10-26 — built; look approved ("finish it and push when green")
+**Status:** Approved 2026-10-26 — built in 1.6.0
 **Owner decisions:** "All three": a lighter close-up copy, no
 half-painted card, and close-ups fetched ahead during a game; full
 screen stays the browser's own (F11), nothing built for it (owner,

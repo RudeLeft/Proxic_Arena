@@ -3,7 +3,9 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.6.0 — 2026-10-26
+
+Card close-ups appear whole: never drawn from the top down.
 
 **Card close-ups without the paint-in** (owner, 2026-10-26, spec 0015)
 - Zooming into a card no longer draws it from the top down: the table's
