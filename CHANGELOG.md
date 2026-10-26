@@ -3,6 +3,19 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Card close-ups without the paint-in** (owner, 2026-10-26, spec 0015)
+- Zooming into a card no longer draws it from the top down: the table's
+  picture shows at once, and the sharp one takes its place in one step
+  when it has arrived whole.
+- During a game the close-ups of the cards in view are fetched quietly
+  ahead, so most zooms are sharp at once; in the Deck Depot, so are the
+  cards either side.
+- Close-ups are now about seven times lighter. Pictures imported earlier
+  get their lighter copy by themselves, in the background, on the first
+  start.
+
 ## 1.5.0 — 2026-10-26
 
 Accounts by invitation: invite someone by email, and they choose their

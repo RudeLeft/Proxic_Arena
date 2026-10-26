@@ -256,8 +256,7 @@ fun Route.deckRoutes(
             // its picture.
             val full = call.request.queryParameters["size"] == "full"
             val file =
-                (if (full) null else artStore.displayPath(assetId).takeIf { it.isFile })
-                    ?: artStore.originalPath(assetId).takeIf { it.isFile }
+                artStore.fileFor(assetId, closeUp = full)
                     ?: return@get call.respond(
                         HttpStatusCode.NotFound,
                         ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
@@ -280,7 +279,9 @@ fun Route.deckRoutes(
                 HttpHeaders.CacheControl,
                 "private, max-age=31536000, immutable",
             )
-            call.response.headers.append(HttpHeaders.ContentType, ContentType.Image.PNG.toString())
+            // The close-up copy is a JPEG since spec 0015; the rest are PNGs.
+            val type = if (file.extension == "jpg") ContentType.Image.JPEG else ContentType.Image.PNG
+            call.response.headers.append(HttpHeaders.ContentType, type.toString())
             call.respondFile(file)
         }
 

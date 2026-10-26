@@ -35,6 +35,7 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
+import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import {
   STOP_STEPS,
@@ -112,6 +113,17 @@ export function GameScreen({
   // drawn, unless a question for you arrives first (then you see it on
   // the question's board anyway).
   const latest = game.board;
+  // Spec 0015 — the close-ups of the cards in view, fetched ahead so a
+  // zoom is sharp at once. Each picture is fetched once per tab.
+  useEffect(() => {
+    if (!latest) return;
+    const cards = [...latest.hand, ...latest.battlefield, ...latest.otherHands, ...latest.stack];
+    fetchAhead(
+      cards.flatMap((card) =>
+        card.art ? [closeUpOf(`/api/matches/${match.matchId}/assets/${card.art}`)] : [],
+      ),
+    );
+  }, [latest, match.matchId]);
   const [held, setHeld] = useState<Snapshot | null>(null);
   const askedNow = !finished && game.decision !== null;
   // Spec 0009 — a player the game is asking is not away.
@@ -1436,10 +1448,15 @@ function Inspect({
         }}
       >
         {card?.art && !hidden ? (
-          // The full scan for the close-up (AMENDMENT 8): the table's copy is
-          // 384 px wide, and this is drawn at up to 300 px times the screen's
-          // scaling.
-          <img className="gs-inspect-art" src={`${artUrl(card.art)}?size=full`} alt="" />
+          // The close-up copy (AMENDMENT 8): the table's copy is 384 px
+          // wide, and this is drawn at up to 300 px times the screen's
+          // scaling. The table's copy shows until it is whole (spec 0015).
+          <SharpCard
+            className="gs-inspect-art"
+            low={artUrl(card.art)}
+            high={closeUpOf(artUrl(card.art))}
+            alt=""
+          />
         ) : (
           <div className="gs-inspect-art gs-inspect-noart">
             {hidden ? "Face down" : "No picture"}

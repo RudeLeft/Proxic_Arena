@@ -398,6 +398,8 @@ class DeckDepotApiTest {
     fun `the zoom gets the full scan and the grid the small copy`() =
         testApplication {
             val deck = insertDeck("Zoomed", "Pat", withArt = true)
+            val zoom = java.io.File("build/test-depot/art/zoom/" + sha.substring(0, 2))
+            zoom.deleteRecursively() // none left from an earlier run
             val original = java.io.File("build/test-depot/art/original/" + sha.substring(0, 2))
             original.mkdirs()
             java.io.File(original, "$sha.png").writeBytes(ByteArray(FULL_BYTES) { 2 })
@@ -408,6 +410,14 @@ class DeckDepotApiTest {
             val full = getAs(pat, "/api/decks/$deck/assets/$sha?size=full")
             assertEquals(SMALL_BYTES, small.readBytes().size, "the grid's copy")
             assertEquals(FULL_BYTES, full.readBytes().size, "the full scan")
+            // Spec 0015 — once the light close-up copy exists, the zoom gets it, as a JPEG.
+            zoom.mkdirs()
+            java.io.File(zoom, "$sha.jpg").writeBytes(ByteArray(SMALL_BYTES + 1) { 3 })
+            val closeUp = getAs(pat, "/api/decks/$deck/assets/$sha?size=full")
+            assertEquals(SMALL_BYTES + 1, closeUp.readBytes().size, "the close-up copy")
+            assertEquals(ContentType.Image.JPEG, closeUp.contentType()?.withoutParameters())
+            assertEquals(ContentType.Image.PNG, small.contentType()?.withoutParameters())
+            zoom.deleteRecursively()
             // The same check either way: a size is no more visible than its picture.
             assertEquals(
                 HttpStatusCode.NotFound,

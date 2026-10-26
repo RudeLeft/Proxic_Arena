@@ -1,12 +1,13 @@
 // A card's close-up in the Deck Depot — spec 0008 (owner 2026-10-24).
 //
-// Click a card and it opens large: the full scan (?size=full, the same
+// Click a card and it opens large: the close-up (?size=full, the same
 // check as the grid's copy), its name and how many copies. ← / → step
 // through the deck in the order the bands show it; Esc, the close button
 // or a click outside closes it. A card that turns over has Turn over,
 // which shows the face Forge names as its back.
 
 import { useEffect, useId, useRef, useState } from "react";
+import { SharpCard, closeUpOf, fetchAhead } from "./closeUp";
 import type { DeckEntryView } from "./decks";
 
 export function CardZoom({
@@ -39,6 +40,15 @@ export function CardZoom({
       document.body.style.overflow = before;
     };
   }, []);
+
+  // Spec 0015 — the cards either side, so a step is sharp at once.
+  useEffect(() => {
+    const around = [
+      cards[(index + 1) % cards.length],
+      cards[(index - 1 + cards.length) % cards.length],
+    ];
+    fetchAhead(around.flatMap((near) => (near?.artUrl ? [closeUpOf(near.artUrl)] : [])));
+  }, [cards, index]);
 
   const back = turned && card.backArtUrl;
   const art = back ? card.backArtUrl : card.artUrl;
@@ -99,11 +109,10 @@ export function CardZoom({
           </button>
           <div className="pa-zoom-card">
             {art ? (
-              // The grid's copy shows at once (it is cached); the full scan
-              // draws over it when it arrives.
+              // The grid's copy shows at once (it is cached); the close-up
+              // takes its place once it is whole (spec 0015).
               <span className="pa-zoom-art">
-                <img className="pa-zoom-low" src={art} alt="" />
-                <img className="pa-zoom-full" src={`${art}?size=full`} alt={name} />
+                <SharpCard low={art} high={closeUpOf(art)} alt={name} />
               </span>
             ) : (
               <span className="pa-zoom-art pa-zoom-noart">{name}</span>

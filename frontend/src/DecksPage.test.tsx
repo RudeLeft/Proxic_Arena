@@ -59,15 +59,14 @@ describe("the close-up (Z1)", () => {
     entry(3, "Lightning Bolt", "SPELL"),
   ];
 
-  it("shows the full scan, steps with the arrow keys around the deck, and closes on Esc", () => {
+  it("shows the card (its close-up once whole), steps with the arrow keys around the deck, and closes on Esc", () => {
     let index = 0;
     const onClose = vi.fn();
     const view = render(
       <CardZoom cards={cards} index={index} onIndex={(next) => (index = next)} onClose={onClose} />,
     );
-    expect(screen.getByAltText("Mountain").getAttribute("src")).toBe(
-      `${cards[0]!.artUrl}?size=full`,
-    );
+    // The table copy until the close-up has arrived whole (spec 0015).
+    expect(screen.getByAltText("Mountain").getAttribute("src")).toBe(cards[0]!.artUrl);
     expect(screen.getByText("4 copies · 1 of 3")).toBeTruthy();
 
     const dialog = screen.getByRole("dialog");
@@ -90,7 +89,7 @@ describe("the close-up (Z1)", () => {
     view.rerender(<CardZoom cards={cards} index={1} onIndex={() => {}} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Turn over" }));
     expect(screen.getByAltText("Insectile Aberration").getAttribute("src")).toBe(
-      `${cards[1]!.backArtUrl}?size=full`,
+      cards[1]!.backArtUrl,
     );
   });
 });

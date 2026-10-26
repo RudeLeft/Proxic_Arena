@@ -36,6 +36,9 @@ class ArtStore(dataRoot: File) {
     private val originals = File(dataRoot, "art/original")
     private val display = File(dataRoot, "art/display")
 
+    /** Spec 0015 — the close-up copies (JPEG), for the zoom views. */
+    private val zoom = File(dataRoot, "art/zoom")
+
     /**
      * Display derivative width.
      *
@@ -143,6 +146,10 @@ class ArtStore(dataRoot: File) {
             }
         }
 
+        // Spec 0015 — the close-up copy, so a zoom does not wait on the scan.
+        val closeUp = zoomPath(sha)
+        if (!closeUp.isFile) runCatching { ZoomCopy.write(image, closeUp) }.onFailure { closeUp.delete() }
+
         return ArtResult.Ok(StoredArt(sha, target.length(), image.width, image.height))
     }
 
@@ -155,6 +162,25 @@ class ArtStore(dataRoot: File) {
     fun originalPath(sha256: String): File = pathFor(originals, sha256)
 
     fun displayPath(sha256: String): File = pathFor(display, sha256)
+
+    fun zoomPath(sha256: String): File = File(File(zoom, sha256.substring(0, 2)), "$sha256.jpg")
+
+    /**
+     * The file to serve: for the table, the display copy; for a close-up
+     * (spec 0015), the light JPEG copy. Either falls back to the original
+     * scan, which is what exists when a copy was not made.
+     */
+    fun fileFor(
+        sha256: String,
+        closeUp: Boolean,
+    ): File? {
+        val copy = if (closeUp) zoomPath(sha256) else displayPath(sha256)
+        return copy.takeIf { it.isFile } ?: originalPath(sha256).takeIf { it.isFile }
+    }
+
+    /** Every original scan, for filling in close-up copies made after it. */
+    val originalFiles: Sequence<File>
+        get() = originals.walkTopDown().filter { it.isFile && it.extension == "png" }
 
     private fun writeDisplayDerivative(
         image: BufferedImage,

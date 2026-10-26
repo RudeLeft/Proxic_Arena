@@ -316,8 +316,7 @@ private fun Route.matchAssetRoute(
         // same authorisation -- a size is no more visible than its picture.
         val full = call.request.queryParameters["size"] == "full"
         val file =
-            (if (full) null else store.displayPath(assetId).takeIf { it.isFile })
-                ?: store.originalPath(assetId).takeIf { it.isFile }
+            store.fileFor(assetId, closeUp = full)
                 ?: return@get call.respond(
                     HttpStatusCode.NotFound,
                     ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),

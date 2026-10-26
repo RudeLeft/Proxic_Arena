@@ -699,6 +699,11 @@ private fun Route.startCategoryFill(
     config: ServerConfig,
     database: Database,
 ) {
+    // Spec 0015 — close-up copies for pictures imported before they existed.
+    net.barnflix.proxic.deck.ZoomCopy.fillInBackground(
+        net.barnflix.proxic.deck.ArtStore(java.io.File(config.dataRoot)),
+        application.log,
+    )
     if (config.forgeWorkerJar?.let { java.io.File(it).isFile } != true) return
     val categoryFill =
         net.barnflix.proxic.deck.DeckCategoryFill(
