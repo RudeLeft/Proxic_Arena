@@ -142,6 +142,12 @@ refusing to build from the wrong source, not a network problem.
 
 ## Step 5 — Create your account
 
+Only the first administrator is made here. Everyone after that is
+invited from the Admin page (**+ Invite**): they get a one-time link and
+choose their own username and password. To have the server email those
+links, see "Invitation email" below; without it, the Admin page gives
+you the link to send yourself.
+
 **Docker** tab → `arena-server` → **Console**:
 
 ```bash
@@ -256,3 +262,35 @@ to roll one back.
 
 `UNRAID_CHECKLIST.md` for the Cloudflare tunnel and the remaining
 acceptance tests.
+
+## Invitation email (optional, spec 0014)
+
+The Admin page's **+ Invite** can email the invitation link itself. Set
+the account up on the Admin page's **Email account** tab: the email
+server, port, security, username, password and From, then **Save** and
+**Send a test email to** yourself. The tab says in plain words what went
+wrong if the test fails. The password is stored encrypted and never
+shown again; to change provider, fill the tab in again.
+
+For Gmail, use a dedicated account (e.g. proxicarena@gmail.com) with
+2-Step Verification on, and an **app password** (Google Account →
+Security → App passwords), never the normal password. "Use Gmail's"
+fills in the server and port.
+
+Until it is set up, the Invite dialog says so and shows the link to copy.
+
+The settings file can still carry the account instead (the tab's
+settings win when both exist):
+
+```text
+PROXIC_SMTP_HOST=smtp.gmail.com
+PROXIC_SMTP_PORT=587
+PROXIC_SMTP_SECURITY=starttls
+PROXIC_SMTP_USERNAME=you@gmail.com
+PROXIC_SMTP_PASSWORD=<a Gmail app password>
+PROXIC_SMTP_FROM=Proxic Arena <you@gmail.com>
+```
+
+The tab's password is encrypted with a key made from
+`PROXIC_SESSION_SECRET`: if that secret is ever changed, type the email
+password into the tab again.

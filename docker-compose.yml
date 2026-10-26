@@ -101,6 +101,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PROXIC_SESSION_SECRET: ${PROXIC_SESSION_SECRET:?set PROXIC_SESSION_SECRET in .env}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Spec 0014 — the invitation email. All optional: unset, invitations
+      # are links an administrator copies and sends by hand.
+      PROXIC_SMTP_HOST: ${PROXIC_SMTP_HOST:-}
+      PROXIC_SMTP_PORT: ${PROXIC_SMTP_PORT:-587}
+      PROXIC_SMTP_SECURITY: ${PROXIC_SMTP_SECURITY:-starttls}
+      PROXIC_SMTP_USERNAME: ${PROXIC_SMTP_USERNAME:-}
+      PROXIC_SMTP_PASSWORD: ${PROXIC_SMTP_PASSWORD:-}
+      PROXIC_SMTP_FROM: ${PROXIC_SMTP_FROM:-}
     volumes:
       - app-data:/data
     networks:

@@ -3,6 +3,24 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Accounts by invitation** (owner, 2026-10-25, spec 0014)
+- The Admin page's "New account" is now "Invite": enter an email address
+  and choose player or administrator. The person gets a link that works
+  once, for 48 hours, and chooses their own username (suggested from
+  their email) and password, then lands in the Lobby.
+- Invitations are listed under Accounts, with Send again and Cancel, and
+  who joined as whom.
+- The server emails the link once an email account is set up on the
+  Admin page's new **Email account** tab (server, port, username,
+  password, From, and a test email that says what went wrong if it
+  fails). The password is stored encrypted and never shown again; to
+  change provider, fill the tab in again. Until then, and always as a
+  backup, the Admin page shows the link to copy and send yourself.
+- Every dead or wrong link reads the same, guessing is slowed down, and
+  only a scrambled copy of each link's code is kept.
+
 ## 1.4.0 — 2026-10-25
 
 The game on its own page with its own chat, pictures by the life

@@ -8,6 +8,9 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
+// Spec 0014 — loaded with Sign in: a stranger with an invitation link must
+// be able to open it, and the build serves strangers only Sign in's files.
+import { JoinPage } from "./JoinPage";
 import { RequireAuth, useAuth } from "./AuthContext";
 
 // Every signed-in page is its own download, fetched after signing in
@@ -55,6 +58,7 @@ export function AppRoutes() {
           the Admin page too. */}
       <Route path="/status" element={<RequireAuth>{page(<App />)}</RequireAuth>} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/join" element={<JoinPage />} />
       {/* Every signed-in page, inside the shared header and the one
           live connection (PHASE_07 §7.62). Protected because every API
           behind them requires a session: an anonymous visitor would

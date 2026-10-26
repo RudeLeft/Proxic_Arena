@@ -22,6 +22,13 @@ enum class AdminAction {
     RESET_PASSWORD,
     SIGN_OUT_EVERYWHERE,
     FORCE_CLOSE_ROOM,
+
+    // Spec 0014 — invitations.
+    INVITE_SENT,
+    INVITE_RESENT,
+    INVITE_CANCELLED,
+    EMAIL_SETTINGS_SAVED,
+    EMAIL_SETTINGS_REMOVED,
 }
 
 class AdminActions(private val dataSource: DataSource) {

@@ -259,6 +259,9 @@ class Accounts(
         )
     }
 
+    /** Spec 0014 — invitations make accounts here, and open their first session. */
+    fun invites(): Invites = Invites(dataSource, this, sessions)
+
     fun findByUsername(username: String): User? =
         dataSource.connection.use { connection ->
             findForLogin(connection, Usernames.normalize(username))?.user

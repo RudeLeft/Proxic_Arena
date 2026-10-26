@@ -23,6 +23,7 @@ val flywayVersion: String by project
 val testcontainersVersion: String by project
 val bouncycastleVersion: String by project
 val nettyVersion: String by project
+val angusMailVersion: String by project
 
 dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
@@ -52,6 +53,11 @@ dependencies {
     // primitive by hand, and a hand-rolled KDF is the single worst
     // thing in that specification to get subtly wrong.
     implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion")
+
+    // Spec 0014 — the invitation email. Jakarta Mail (its Angus
+    // implementation) speaks SMTP to any ordinary email account; the
+    // owner approved adding it 2026-10-25.
+    implementation("org.eclipse.angus:angus-mail:$angusMailVersion")
 
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("io.ktor:ktor-client-content-negotiation-jvm:$ktorVersion")

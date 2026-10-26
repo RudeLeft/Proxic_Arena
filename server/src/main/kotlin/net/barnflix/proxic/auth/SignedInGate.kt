@@ -30,6 +30,8 @@ import java.io.File
 //     manifest -- and no other built file;
 //   - POST /api/auth/login; GET /api/auth/me, which tells a stranger
 //     nothing (204); POST /api/auth/logout, a quiet 204 either way;
+//   - POST /api/auth/join and /join/peek, an invitation link's sign-up
+//     page (spec 0014);
 //   - the health checks, from inside the server's own box only (Docker's
 //     check); from anywhere else they do not exist.
 //
@@ -63,6 +65,13 @@ internal fun signInFiles(staticRoot: File): Set<String>? {
     return files
 }
 
+/** POSTs a stranger may make: sign in, sign out, and an invitation's sign-up page (spec 0014). */
+private val OPEN_POSTS = setOf("/api/auth/login", "/api/auth/logout", "/api/auth/join", "/api/auth/join/peek")
+
+/** Sign in, "who am I" (which tells a stranger nothing), sign out, and the sign-up page's two questions. */
+private fun ApplicationCall.isOpenAccountRoute(path: String): Boolean =
+    path == "/api/auth/me" || (path in OPEN_POSTS && request.httpMethod == HttpMethod.Post)
+
 private val LOOPBACK = setOf("127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "localhost")
 
 /** From inside the box: the TCP peer, never a forwarded header a client can write. */
@@ -92,9 +101,7 @@ fun Application.installSignedInGate(
                     finish()
                 }
             }
-            path == "/api/auth/login" && call.request.httpMethod == HttpMethod.Post -> Unit
-            path == "/api/auth/me" -> Unit
-            path == "/api/auth/logout" && call.request.httpMethod == HttpMethod.Post -> Unit
+            call.isOpenAccountRoute(path) -> Unit
             path == "/api" || path.startsWith("/api/") || path == "/ws/system" -> {
                 if (call.principal(sessions) == null) {
                     call.respond(

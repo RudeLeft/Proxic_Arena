@@ -27,7 +27,11 @@ status               ACTIVE | DISABLED   (CHECK constraint)
 ```
 
 There is **no self-registration**. Accounts exist because an
-administrator created them (§3.106, and the login page says so).
+administrator created them (§3.106) or, since spec 0014 (owner,
+2026-10-25), **invited** them: the Admin page sends a one-time link (48
+hours, only its SHA-256 stored, dead once used, cancelled or replaced)
+that opens /join, where the person chooses their own username and
+password. §3.112 still holds: joining needs a live invitation.
 
 ### Username normalization
 
@@ -336,8 +340,8 @@ nothing else: it now needs a session, like `/api/version` and
 
 ## What is deliberately not here
 
-- No self-registration, no password reset by email, no "remember me",
-  no OAuth, no second factor.
+- No open self-registration (only by invitation, spec 0014), no
+  password reset by email, no "remember me", no OAuth, no second factor.
 - No account lockout — a throttle, not a lock, so a user cannot be
   locked out by someone else failing logins at their name.
 - No HSTS from this server: Cloudflare owns it (see

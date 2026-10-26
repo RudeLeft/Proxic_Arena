@@ -4,6 +4,7 @@ import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.log
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.application
+import net.barnflix.proxic.auth.SmtpMailer
 
 // Wiring for PHASE_07 §7.67's Admin API and the sign-in records it
 // reads. Split from Application.kt, which detekt counts by function;
@@ -52,6 +53,7 @@ internal fun adminServices(
             parts.runtime,
             parts.lobby,
         )
+    val mail = mailSettings(config, database)
     return net.barnflix.proxic.admin.AdminServices(
         config = config,
         sessions = parts.sessions,
@@ -65,6 +67,8 @@ internal fun adminServices(
             ),
         rooms = adminRooms,
         accountsChanged = { parts.lobby.accountChanges?.changed() },
+        inviteDesk = inviteDesk(config, parts, mail),
+        mailSettings = mail,
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(
@@ -78,3 +82,30 @@ internal fun adminServices(
         },
     )
 }
+
+/** Spec 0014 — invitations, emailed with the Email tab's account (else the settings file's). */
+private fun inviteDesk(
+    config: ServerConfig,
+    parts: AdminParts,
+    settings: net.barnflix.proxic.auth.MailSettings,
+): net.barnflix.proxic.auth.InviteDesk {
+    val log = org.slf4j.LoggerFactory.getLogger("net.barnflix.proxic.invites")
+    val state = settings.view().source
+    log.info("invitation email: {}", if (state == "NONE") "not set up; links are copied by hand" else "set up ($state)")
+    return net.barnflix.proxic.auth.InviteDesk(
+        invites = parts.accounts.invites(),
+        mailer = SmtpMailer(settings::current, log),
+        emailReady = { settings.current().configured },
+        publicOrigin = config.publicOrigin,
+    )
+}
+
+/** Spec 0014 amendment 1 — the Email tab's settings, sealed with the server's secret. */
+private fun mailSettings(
+    config: ServerConfig,
+    database: Database,
+) = net.barnflix.proxic.auth.MailSettings(
+    database.dataSource(),
+    config.sessionSecret(),
+    net.barnflix.proxic.auth.MailConfig.fromEnvironment(),
+)

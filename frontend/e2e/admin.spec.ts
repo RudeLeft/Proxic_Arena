@@ -74,7 +74,7 @@ test("a player sees no Admin, and the API refuses them whatever they try", async
   }
 });
 
-test("an administrator creates an account, resets its password and disables it", async ({
+test("an administrator invites someone, who makes their own account; then resets and disables it", async ({
   browser,
 }) => {
   const admin = await asAdmin(browser);
@@ -86,16 +86,40 @@ test("an administrator creates an account, resets its password and disables it",
   try {
     await expect(admin.getByRole("link", { name: "Admin" })).toBeVisible();
 
-    await admin.getByRole("button", { name: "+ New account" }).click();
-    const form = admin.getByRole("region", { name: "New account" });
-    await form.getByLabel("Username").fill(username);
-    await form.getByLabel("Display name").fill(`Test ${username}`);
-    await form.getByLabel("First password").fill(first);
-    await form.getByRole("button", { name: "Create account" }).click();
-    await expect(admin.getByRole("status").filter({ hasText: "can sign in now" })).toBeVisible();
-    await expect(accountRow(admin, username)).toContainText("Active");
+    // Spec 0014 — by invitation. No email account on this stack, so the
+    // dialog hands over the link to send by hand.
+    await admin.getByRole("button", { name: "+ Invite" }).click();
+    const form = admin.getByRole("region", { name: "Invite someone" });
+    await form.getByLabel("Their email address").fill(`${username}@example.com`);
+    await form.getByRole("button", { name: /Make the link|Send invitation/ }).click();
+    const link = await admin.getByRole("textbox", { name: "The link to send" }).inputValue();
+    expect(link).toMatch(/\/join#.{40,}$/);
+    await admin.getByRole("button", { name: "Done" }).click();
+    await expect(
+      admin.getByRole("region", { name: "Invitations" }).getByText(`${username}@example.com`),
+    ).toBeVisible();
 
-    await signInAs(playerPage, username, first);
+    // The person: the link, their own username and password, then the lobby.
+    await playerPage.goto(link.replace(/^https?:\/\/[^/]+/, ""));
+    await expect(playerPage.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expect(playerPage.getByLabel("Username")).toHaveValue(username);
+    await playerPage.getByLabel("Display name").fill(`Test ${username}`);
+    await playerPage.getByLabel("Password", { exact: true }).fill(first);
+    await playerPage.getByLabel("Password again").fill(first);
+    await playerPage.getByRole("button", { name: "Create account" }).click();
+    await expect(playerPage).toHaveURL(/\/play$/);
+
+    // Used once: the same link is dead now.
+    const again = await browser.newContext();
+    const stranger = await again.newPage();
+    await stranger.goto(link.replace(/^https?:\/\/[^/]+/, ""));
+    await expect(
+      stranger.getByRole("heading", { name: "This invitation is no longer valid" }),
+    ).toBeVisible();
+    await again.close();
+
+    await admin.reload();
+    await expect(accountRow(admin, username)).toContainText("Active");
 
     // Amendment 9: typed by the administrator; every session ends.
     const row = accountRow(admin, username);
@@ -266,6 +290,42 @@ test("force closing a room mid-game ends the match with no winner, for both play
     await clearEverything(guest);
     await hostContext.close();
     await guestContext.close();
+    await admin.context().close();
+  }
+});
+
+test("the Email account tab saves the account, never shows the password, and a test says why it failed", async ({
+  browser,
+}) => {
+  // Spec 0014 amendment 1. An address nothing listens on, so the test
+  // email fails at once, in words.
+  const admin = await asAdmin(browser);
+  const secret = `e2e-app-password-${Date.now()}`;
+  try {
+    await admin.goto("/admin?tab=email");
+    const tab = admin.getByRole("region", { name: "Email account" });
+    await tab.getByLabel("Email server").fill("127.0.0.1");
+    await tab.getByLabel("Port").fill("1");
+    await tab.getByLabel("Username").fill("me@example.com");
+    await tab.getByLabel("Password").fill(secret);
+    await tab.getByLabel("From").fill("Proxic Arena <me@example.com>");
+    await tab.getByRole("button", { name: "Save" }).click();
+    await expect(tab.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+    await expect(tab.getByLabel("Password")).toHaveValue("");
+    await expect(tab.getByLabel("Password")).toHaveAttribute("placeholder", /A password is saved/);
+    expect(await admin.content()).not.toContain(secret);
+
+    await tab.getByLabel("Send a test email to").fill("me@example.com");
+    await tab.getByRole("button", { name: "Send test" }).click();
+    await expect(
+      tab.getByRole("alert").filter({ hasText: "Couldn't reach the email server" }),
+    ).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await tab.getByRole("button", { name: "Remove these settings" }).click();
+    await expect(tab).toContainText("Not set up");
+  } finally {
     await admin.context().close();
   }
 });

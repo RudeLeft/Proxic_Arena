@@ -140,10 +140,76 @@ async function act(
   return { ok: false, message: answer?.detail ?? "That did not work." };
 }
 
-export const createAccount = (
-  account: { username: string; displayName: string; password: string; role: "ADMIN" | "PLAYER" },
+// --- invitations (spec 0014) -------------------------------------------------------
+
+export interface Invite {
+  inviteId: string;
+  email: string;
+  role: "ADMIN" | "PLAYER";
+  invitedBy: string;
+  createdAt: string;
+  expiresAt: string;
+  state: "WAITING" | "JOINED" | "CANCELLED" | "EXPIRED";
+  joinedAs?: string | null;
+}
+
+/** An invitation just made: its link this once, and whether it was emailed. */
+export interface InviteSent {
+  email: string;
+  link: string;
+  emailed: boolean;
+  expiresAt: string;
+  /** Why the email did not go, when it was tried and failed. */
+  emailProblem?: string | null;
+}
+
+export type InviteOutcome = { ok: true; sent: InviteSent } | { ok: false; message: string };
+
+export const fetchInvites = (fetchFn: typeof fetch = fetch) =>
+  read(
+    "/api/admin/invites",
+    (b) => ({ invites: (b["invites"] as Invite[]) ?? [], emailReady: b["emailReady"] === true }),
+    fetchFn,
+  );
+
+async function inviteCall(
+  path: string,
+  body: unknown,
+  fetchFn: typeof fetch,
+): Promise<InviteOutcome> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      path,
+      {
+        method: "POST",
+        ...(body === undefined
+          ? {}
+          : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "The server could not be reached." };
+  }
+  const answer = (await response.json().catch(() => null)) as
+    | (InviteSent & { detail?: string })
+    | null;
+  if (response.ok && answer?.link) return { ok: true, sent: answer };
+  return { ok: false, message: answer?.detail ?? "That did not work." };
+}
+
+export const sendInvite = (
+  email: string,
+  role: "ADMIN" | "PLAYER",
   fetchFn: typeof fetch = fetch,
-) => act("/api/admin/accounts", "POST", account, fetchFn);
+) => inviteCall("/api/admin/invites", { email, role }, fetchFn);
+
+export const resendInvite = (inviteId: string, fetchFn: typeof fetch = fetch) =>
+  inviteCall(`/api/admin/invites/${encodeURIComponent(inviteId)}/resend`, undefined, fetchFn);
+
+export const cancelInvite = (inviteId: string, fetchFn: typeof fetch = fetch) =>
+  act(`/api/admin/invites/${encodeURIComponent(inviteId)}/cancel`, "POST", undefined, fetchFn);
 
 export const setStatus = (
   userId: string,
@@ -369,4 +435,92 @@ export function overview(input: {
     signedIn: signInsToday.filter((e) => e.kind === "SIGNED_IN").length,
     failed: signInsToday.filter((e) => e.kind !== "SIGNED_IN").length,
   };
+}
+
+// --- the Email account tab (spec 0014 amendment 1) ---------------------------------
+
+/** Everything but the password, which is only "saved" or not. */
+export interface MailSettingsView {
+  host: string;
+  port: number;
+  security: "starttls" | "ssl";
+  username: string;
+  from: string;
+  passwordSaved: boolean;
+  /** ADMIN (this tab), SERVER (the settings file on Unraid) or NONE. */
+  source: "ADMIN" | "SERVER" | "NONE";
+  updatedAt?: string | null;
+}
+
+/** A null password keeps the saved one; "" removes it. */
+export interface MailSettingsInput {
+  host: string;
+  port: number;
+  security: "starttls" | "ssl";
+  username: string;
+  from: string;
+  password: string | null;
+}
+
+export type MailOutcome = { ok: true; view: MailSettingsView } | { ok: false; message: string };
+
+export const fetchMailSettings = (fetchFn: typeof fetch = fetch) =>
+  read("/api/admin/email", (b) => b as unknown as MailSettingsView, fetchFn);
+
+async function mailCall(
+  method: "PUT" | "DELETE",
+  body: unknown,
+  fetchFn: typeof fetch,
+): Promise<MailOutcome> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      "/api/admin/email",
+      {
+        method,
+        ...(body === undefined
+          ? {}
+          : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "The server could not be reached." };
+  }
+  const answer = (await response.json().catch(() => null)) as
+    | (MailSettingsView & { detail?: string })
+    | null;
+  if (response.ok && answer) return { ok: true, view: answer };
+  return { ok: false, message: answer?.detail ?? "That did not work." };
+}
+
+export const saveMailSettings = (input: MailSettingsInput, fetchFn: typeof fetch = fetch) =>
+  mailCall("PUT", input, fetchFn);
+
+export const removeMailSettings = (fetchFn: typeof fetch = fetch) =>
+  mailCall("DELETE", undefined, fetchFn);
+
+/** Sends a test email; says whether it went and, if not, why. */
+export async function testMail(
+  to: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ sent: boolean; detail: string }> {
+  try {
+    const response = await apiFetch(
+      "/api/admin/email/test",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to }),
+      },
+      fetchFn,
+    );
+    const answer = (await response.json().catch(() => null)) as {
+      sent?: boolean;
+      detail?: string;
+    } | null;
+    return { sent: answer?.sent === true, detail: answer?.detail ?? "That did not work." };
+  } catch {
+    return { sent: false, detail: "The server could not be reached." };
+  }
 }

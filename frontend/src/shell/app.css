@@ -2939,3 +2939,164 @@
     flex: 1 1 100%;
   }
 }
+
+/* Spec 0014 — invitations on the Admin page. */
+.pa-admin-invites {
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-invite-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pa-admin-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-invite-text {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-admin-invite-email {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.pa-admin-invite-actions {
+  display: flex;
+  gap: 8px;
+}
+.pa-admin-invite-actions .pa-small-button {
+  margin: 0;
+}
+.pa-admin-invite-joined {
+  font-size: 11px;
+  padding: 2px 9px;
+  border: 1px solid #2f5a44;
+  border-radius: 999px;
+  color: var(--pa-ok);
+}
+.pa-admin-invite-role {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--pa-line-strong);
+}
+.pa-admin-invite-role-option {
+  margin: 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--pa-sub);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pa-admin-invite-role-option[aria-checked="true"] {
+  background: #222b36;
+  color: var(--pa-ink-bright);
+  box-shadow: inset 0 -2px 0 var(--pa-brass);
+}
+.pa-admin-invite-note {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--pa-sub);
+  max-width: 46ch;
+}
+.pa-admin-invite-link {
+  display: flex;
+  gap: 8px;
+}
+.pa-admin-invite-link .pa-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+}
+.pa-admin-invite-link .pa-button {
+  margin: 0;
+}
+
+/* Spec 0014 amendment 1 — the Email account tab. */
+.pa-admin-email-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 18px 20px;
+  max-width: 620px;
+}
+.pa-admin-email-help {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pa-sub);
+}
+.pa-admin-email-form,
+.pa-admin-email-test {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pa-admin-email-test {
+  padding-top: 16px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-admin-email-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.pa-admin-email-row .pa-input,
+.pa-admin-email-test .pa-input {
+  margin: 0;
+}
+/* The row's gap spaces the label; its own margin made Port and Security
+   sit at different heights. */
+.pa-admin-email-row .pa-label,
+.pa-admin-email-test .pa-label {
+  margin: 0;
+}
+.pa-admin-email-pair {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+}
+.pa-admin-email-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pa-admin-email-inline .pa-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pa-admin-email-inline .pa-small-button,
+.pa-admin-email-inline .pa-button {
+  margin: 0;
+  flex: none;
+}
+.pa-admin-email-hint {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
+.pa-admin-email-result {
+  margin: 0;
+  font-size: 13px;
+}
+.pa-admin-email-good {
+  color: var(--pa-ok);
+}
+.pa-admin-email-bad {
+  color: var(--pa-bad);
+}
+@media (max-width: 560px) {
+  .pa-admin-email-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

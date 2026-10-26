@@ -67,6 +67,8 @@ fun Route.authRoutes(
     // Spec 0006 — told when a name or an avatar others see changes.
     changes: AccountChanges = AccountChanges(),
 ) {
+    // Spec 0014 — the sign-up page behind an invitation link.
+    joinRoutes(config, accounts.invites(), throttle, signIns)
     route("/auth") {
         post("/login") {
             // The login endpoint itself is NOT CSRF-protected: there
@@ -246,12 +248,12 @@ internal fun User.view() =
  * tunnel or the LAN port, and a LAN caller forging the header can
  * only throttle themselves differently.
  */
-private fun ApplicationCall.clientSource(): String =
+internal fun ApplicationCall.clientSource(): String =
     request.header("CF-Connecting-IP")
         ?: request.header("X-Forwarded-For")?.substringBefore(',')?.trim()
         ?: request.local.remoteHost
 
-private fun ApplicationCall.issueSession(
+internal fun ApplicationCall.issueSession(
     config: ServerConfig,
     result: LoginResult.Success,
 ) {

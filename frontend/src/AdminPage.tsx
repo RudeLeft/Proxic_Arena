@@ -15,7 +15,6 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import {
-  createAccount,
   fetchAccounts,
   fetchAdminMatches,
   fetchAdminRooms,
@@ -42,6 +41,8 @@ import {
   type ServerState,
   type SignInEvent,
 } from "./admin";
+import { EmailPanel } from "./AdminEmail";
+import { Invitations } from "./AdminInvites";
 import { presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
@@ -56,6 +57,8 @@ const TABS = [
   { id: "rooms", label: "Rooms" },
   { id: "games", label: "Games" },
   { id: "sign-ins", label: "Sign-ins" },
+  // Spec 0014 amendment 1 — the account invitations are emailed from.
+  { id: "email", label: "Email account" },
   { id: "server", label: "Server" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -170,6 +173,7 @@ export default function AdminPage() {
     rooms: String(numbers.rooms),
     games: String(matches?.matches.length ?? 0),
     "sign-ins": String(signInsByPerson(signIns).length),
+    email: "",
     server: "",
   };
   const choose = (next: TabId) =>
@@ -235,6 +239,7 @@ export default function AdminPage() {
           {tab === "rooms" && <RoomsPanel rooms={rooms} now={now} run={run} />}
           {tab === "games" && <RecordsPanel matches={matches} />}
           {tab === "sign-ins" && <SignInsPanel events={signIns} />}
+          {tab === "email" && <EmailPanel />}
           {tab === "server" && <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />}
         </div>
       </div>
@@ -293,57 +298,64 @@ function AccountsPanel({
   const active = (accounts ?? []).filter((a) => a.status === "ACTIVE");
   const disabled = (accounts ?? []).filter((a) => a.status !== "ACTIVE");
   return (
-    <section className="pa-admin-panel" aria-labelledby="accounts-heading">
-      <div className="pa-admin-panel-head">
-        <h2 id="accounts-heading">Accounts</h2>
-        <span className="pa-admin-panel-note">
-          {active.length} active · {disabled.length} disabled
-        </span>
-        <span className="pa-spacer" />
-        <button
-          type="button"
-          className="pa-button pa-button-brass"
-          onClick={() => setCreating(true)}
-        >
-          + New account
-        </button>
-      </div>
-      <div className="pa-admin-table-head" aria-hidden="true">
-        <span>Player</span>
-        <span>Role</span>
-        <span>Status</span>
-        <span>Last seen</span>
-        <span>Sessions</span>
-        <span />
-      </div>
-      <ul className="pa-admin-account-list">
-        {accounts === null && <li className="pa-group-empty">Loading accounts…</li>}
-        {active.map((account) => (
-          <AccountRow key={account.userId} account={account} me={me} now={now} run={run} />
-        ))}
-      </ul>
-      {disabled.length > 0 && (
-        <>
+    <>
+      <section className="pa-admin-panel" aria-labelledby="accounts-heading">
+        <div className="pa-admin-panel-head">
+          <h2 id="accounts-heading">Accounts</h2>
+          <span className="pa-admin-panel-note">
+            {active.length} active · {disabled.length} disabled
+          </span>
+          <span className="pa-spacer" />
+          {/* Spec 0014 — accounts by invitation: the person chooses their own
+            username and password. */}
           <button
             type="button"
-            className="pa-offline-toggle pa-admin-fold"
-            aria-expanded={disabledOpen}
-            onClick={() => setDisabledOpen((open) => !open)}
+            className="pa-button pa-button-brass"
+            onClick={() => setCreating(true)}
           >
-            <span>Disabled · {disabled.length}</span>
-            <span aria-hidden="true">{disabledOpen ? "▾" : "▸"}</span>
+            + Invite
           </button>
-          {disabledOpen && (
-            <ul className="pa-admin-account-list">
-              {disabled.map((account) => (
-                <AccountRow key={account.userId} account={account} me={me} now={now} run={run} />
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-      {creating && <NewAccount run={run} onClose={() => setCreating(false)} />}
-    </section>
+        </div>
+        <div className="pa-admin-table-head" aria-hidden="true">
+          <span>Player</span>
+          <span>Role</span>
+          <span>Status</span>
+          <span>Last seen</span>
+          <span>Sessions</span>
+          <span />
+        </div>
+        <ul className="pa-admin-account-list">
+          {accounts === null && <li className="pa-group-empty">Loading accounts…</li>}
+          {active.map((account) => (
+            <AccountRow key={account.userId} account={account} me={me} now={now} run={run} />
+          ))}
+        </ul>
+        {disabled.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="pa-offline-toggle pa-admin-fold"
+              aria-expanded={disabledOpen}
+              onClick={() => setDisabledOpen((open) => !open)}
+            >
+              <span>Disabled · {disabled.length}</span>
+              <span aria-hidden="true">{disabledOpen ? "▾" : "▸"}</span>
+            </button>
+            {disabledOpen && (
+              <ul className="pa-admin-account-list">
+                {disabled.map((account) => (
+                  <AccountRow key={account.userId} account={account} me={me} now={now} run={run} />
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
+      {/* Spec 0014 — its own panel under the accounts. */}
+      <section className="pa-admin-panel">
+        <Invitations now={now} open={creating} onClosed={() => setCreating(false)} />
+      </section>
+    </>
   );
 }
 
@@ -567,119 +579,6 @@ function AccountRow({
         </form>
       )}
     </li>
-  );
-}
-
-function NewAccount({ run, onClose }: { run: Run; onClose: () => void }) {
-  const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRoleChoice] = useState<"PLAYER" | "ADMIN">("PLAYER");
-  const id = useId();
-  const first = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    first.current?.focus();
-  }, []);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    const ok = await run(
-      () => createAccount({ username, displayName, password, role }),
-      () => `${displayName.trim() || username.trim()} can sign in now. Tell them their password.`,
-    );
-    if (ok) onClose();
-  };
-
-  return (
-    <div
-      className="pa-dialog-backdrop"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        className="pa-dialog pa-admin-new"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`${id}-heading`}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
-        }}
-      >
-        {/* A named region too, for anybody jumping by landmark. */}
-        <section aria-labelledby={`${id}-heading`}>
-          <h2 id={`${id}-heading`} className="pa-admin-new-title">
-            New account
-          </h2>
-          <form className="pa-form" onSubmit={(event) => void submit(event)}>
-            <label className="pa-label" htmlFor={`${id}-user`}>
-              Username
-            </label>
-            <input
-              id={`${id}-user`}
-              ref={first}
-              className="pa-input"
-              autoComplete="off"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-            />
-            <label className="pa-label" htmlFor={`${id}-name`}>
-              Display name
-            </label>
-            <input
-              id={`${id}-name`}
-              className="pa-input"
-              autoComplete="off"
-              maxLength={64}
-              placeholder="Same as the username if left blank"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
-            <label className="pa-label" htmlFor={`${id}-password`}>
-              First password
-            </label>
-            <input
-              id={`${id}-password`}
-              className="pa-input"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-            <label className="pa-label" htmlFor={`${id}-role`}>
-              Role
-            </label>
-            <span className="pa-select-wrap pa-admin-role">
-              <select
-                id={`${id}-role`}
-                className="pa-select"
-                value={role}
-                onChange={(event) =>
-                  setRoleChoice(event.target.value === "ADMIN" ? "ADMIN" : "PLAYER")
-                }
-              >
-                <option value="PLAYER">Player</option>
-                <option value="ADMIN">Administrator</option>
-              </select>
-              <svg aria-hidden="true" width="11" height="7" viewBox="0 0 11 7">
-                <path d="M1 1 L5.5 5.5 L10 1" />
-              </svg>
-            </span>
-            <div className="pa-button-row">
-              <button type="submit" className="pa-button pa-button-brass">
-                Create account
-              </button>
-              <button type="button" className="pa-button pa-button-quiet" onClick={onClose}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </section>
-      </section>
-    </div>
   );
 }
 

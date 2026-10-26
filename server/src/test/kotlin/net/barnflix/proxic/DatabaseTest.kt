@@ -147,10 +147,13 @@ class DatabaseTest {
                         // Phase 7 (§7.53, Amendment 13): player_stops,
                         // each player's own priority-stop setting; and
                         // (§7.59) deck_face_art, a deck's back-face pictures.
+                        // Spec 0014: account_invite, invitations; and
+                        // mail_settings, the Email account tab's one row.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
                             listOf(
+                                "account_invite",
                                 "admin_action",
                                 "app_user",
                                 "art_asset",
@@ -158,6 +161,7 @@ class DatabaseTest {
                                 "deck_face_art",
                                 "deck_share",
                                 "imported_deck",
+                                "mail_settings",
                                 "match",
                                 "match_participant",
                                 "match_setup",

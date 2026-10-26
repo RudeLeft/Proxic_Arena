@@ -80,6 +80,10 @@ class AdminServices(
     val serverState: () -> ServerStateView,
     /** An account was created, disabled or enabled: the lobby's lists change. */
     val accountsChanged: suspend () -> Unit = {},
+    /** Spec 0014 — invitations; none without a database. */
+    val inviteDesk: net.barnflix.proxic.auth.InviteDesk? = null,
+    /** Spec 0014 amendment 1 — the Email tab's settings. */
+    val mailSettings: net.barnflix.proxic.auth.MailSettings? = null,
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -99,6 +103,9 @@ fun Route.adminRoutes(admin: AdminServices) {
             call.respond(AdminRoomsResponse(admin.rooms.list()))
         }
         post("/rooms/{roomId}/close") { forceClose(admin) }
+
+        adminInviteRoutes(admin)
+        adminEmailRoutes(admin)
 
         get("/server") {
             call.asAdmin(admin) ?: return@get
