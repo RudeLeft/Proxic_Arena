@@ -34,7 +34,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lab import DEFAULT, Game  # noqa: E402
+from lab import DEFAULT, Game, card_of  # noqa: E402
 
 JAR, RES = sys.argv[1], sys.argv[2]
 ARG = sys.argv[3] if len(sys.argv) > 3 else ""
@@ -494,14 +494,20 @@ def afford():
                 mountains = len(g.untapped_lands(1, name="Mountain"))
                 creatures = [c for c in g.mine(1) if c.get("kind") == "creature"]
                 rule = {"Shivan Dragon": mountains >= 6, "Fling": mountains >= 2 and bool(creatures)}
+                # The spell in hand, by card id: once a Dragon is on the
+                # battlefield its firebreathing ("Shivan Dragon -- {R}: ...")
+                # is offered too, payable with one Mountain, and a label
+                # match judged it by the spell's six (CI, 2026-10-26).
+                hand = {c.get("id"): c.get("name") for c in g.mine(1, "hand")}
                 for o in f["options"]:
                     label = o.get("label") or ""
-                    for name, can in rule.items():
-                        if label.startswith(name) and "Play land" not in label:
-                            shown = o.get("payable", True)
-                            st["checked"][name][0 if can else 1] += 1
-                            if shown != can:
-                                st["wrong"].append((s.get("turn"), name, mountains, len(creatures), shown))
+                    name = hand.get(card_of(o.get("actionId")))
+                    if name in rule and "Play land" not in label:
+                        can = rule[name]
+                        shown = o.get("payable", True)
+                        st["checked"][name][0 if can else 1] += 1
+                        if shown != can:
+                            st["wrong"].append((s.get("turn"), name, mountains, len(creatures), shown))
             # No seventh Mountain before the Dragon: casting it must tap
             # out, or Fling (needing two) was never seen unaffordable with
             # a creature to sacrifice -- inconclusive in CI, 2026-10-21.
