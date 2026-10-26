@@ -1,6 +1,6 @@
 # 0016 — Lobby polish, a clearer room list, and Ask to join
 
-**Status:** Approved 2026-10-26 — built; look approved ("finish it and push when green")
+**Status:** Approved 2026-10-26 — built in 1.7.0
 **Owner decisions:** the owner's sixteen-point list (2026-10-26), with:
 R1 every room stays visible to everyone, as a card with useful seats;
 R2 a seat held by an invitation says "Held for Pat" to everyone;

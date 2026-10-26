@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.7.0 — 2026-10-26
+
+A polished lobby: room cards anybody can read, Ask to join, and the
+Hall of Champions across the top.
 
 **The lobby, polished; a clearer room list; Ask to join** (owner,
 2026-10-26, spec 0016)
