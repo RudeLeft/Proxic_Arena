@@ -1,6 +1,6 @@
 # 0014 — Accounts by invitation
 
-**Status:** Approved 2026-10-25 — built; look approved from screenshots ("ship it", 2026-10-25)
+**Status:** Approved 2026-10-25 — built in 1.5.0
 **Owner decisions:** I1 invitations are emailed from the start (with the
 link always shown to the administrator too, as a backup); I2 a link
 works for 48 hours; I3 the username is suggested from the email (the part

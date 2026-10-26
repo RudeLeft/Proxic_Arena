@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.5.0 — 2026-10-26
+
+Accounts by invitation: invite someone by email, and they choose their
+own username and password.
 
 **Accounts by invitation** (owner, 2026-10-25, spec 0014)
 - The Admin page's "New account" is now "Invite": enter an email address
