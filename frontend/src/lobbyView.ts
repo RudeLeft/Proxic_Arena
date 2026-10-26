@@ -114,6 +114,89 @@ export function roomStatus(room: DirectoryRoom): string {
   }
 }
 
+/** Why an invitation to you ended, as a title: "RudeLeft withdrew the invitation". */
+export function goneTitle(reason: string, from: string | null): string {
+  const who = from ?? "The host";
+  switch (reason) {
+    case "WITHDRAWN":
+      return `${who} withdrew the invitation`;
+    case "ROOM_CLOSED":
+      return `${who}'s room closed, so the invitation ended`;
+    case "SEAT_FILLED":
+      return "The seat was taken, so the invitation ended";
+    case "OFFLINE":
+      return `${who} left, so the invitation ended`;
+    default:
+      return "That invitation is no longer open";
+  }
+}
+
+// --- the room list (spec 0016, owner R1-R4) -------------------------------------
+
+/** How a room's status line reads: its words and its colour. */
+export interface RoomLine {
+  text: string;
+  tone: "open" | "held" | "busy" | "playing";
+}
+
+/**
+ * Spec 0016 R1/R2 — where somebody else's room stands, for everyone:
+ * "1 seat open", "Waiting on Pat's answer" (a held seat), "Choosing
+ * decks", "Ready to start", "Starting…", "In a game".
+ */
+export function roomLine(room: DirectoryRoom): RoomLine {
+  if (room.status === "IN_MATCH") return { text: "In a game", tone: "playing" };
+  if (room.status === "READY_FOR_MATCH") return { text: "Starting…", tone: "busy" };
+  const open = room.desiredPlayerCount - room.seats.length;
+  if (open <= 0) {
+    const ready = room.seats.every((seat) => seat.ready);
+    return { text: ready ? "Ready to start" : "Choosing decks", tone: "busy" };
+  }
+  if (room.held) {
+    // An invitation waits on the player; a request waits on the host.
+    const host = room.seats.find((seat) => seat.isHost)?.displayName ?? "the host";
+    const who = room.held.asked ? host : room.held.displayName;
+    return { text: `Waiting on ${who}'s answer`, tone: "held" };
+  }
+  return { text: `${open} ${open === 1 ? "seat" : "seats"} open`, tone: "open" };
+}
+
+/** What the viewer can do about somebody else's room. */
+export type RoomAction =
+  /** You are invited: Accept or Decline. */
+  | { kind: "invited" }
+  /** You asked to join: Cancel. */
+  | { kind: "asked" }
+  /** An open seat nobody holds, and you are free: Ask to join. */
+  | { kind: "ask" }
+  | { kind: "none" };
+
+/** Spec 0016 R3 — Ask to join only into an open seat nobody holds, by somebody in no room and holding nothing. */
+export function roomAction(room: DirectoryRoom, lobby: LobbyState, me: string): RoomAction {
+  if (lobby.invitation?.roomId === room.roomId) return { kind: "invited" };
+  if (lobby.asking?.roomId === room.roomId) return { kind: "asked" };
+  const seatFree =
+    room.status === "OPEN" && room.seats.length < room.desiredPlayerCount && room.held === null;
+  const iAmFree = !lobby.room && !lobby.invitation && !lobby.asking && room.hostUserId !== me;
+  return seatFree && iAmFree ? { kind: "ask" } : { kind: "none" };
+}
+
+/**
+ * Spec 0016 R4 — most useful first: a room you are invited to or asked
+ * into, then rooms with an open seat, then full rooms getting ready,
+ * then rooms in a game; within each, the one closing soonest first.
+ */
+export function sortRooms(rooms: DirectoryRoom[], lobby: LobbyState): DirectoryRoom[] {
+  const group = (room: DirectoryRoom) => {
+    if (lobby.invitation?.roomId === room.roomId || lobby.asking?.roomId === room.roomId) return 0;
+    if (room.status === "IN_MATCH") return 3;
+    if (room.status === "OPEN" && room.seats.length < room.desiredPlayerCount) return 1;
+    return 2;
+  };
+  const clears = (room: DirectoryRoom) => (room.clearsAt ? Date.parse(room.clearsAt) : Infinity);
+  return [...rooms].sort((a, b) => group(a) - group(b) || clears(a) - clears(b));
+}
+
 /** Spec 0006 D3 — how soon a room closes, but only in its last 3 hours. */
 const CLOSES_SOON_MS = 3 * 3_600_000;
 

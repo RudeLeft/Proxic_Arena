@@ -8,7 +8,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.barnflix.proxic.room.DirectoryHold
 import net.barnflix.proxic.room.DirectoryRoom
+import net.barnflix.proxic.room.Room
 import java.util.UUID
 
 // The Lobby's PHASE_07 messages — §7.64, Amendments 9 and 11.
@@ -25,6 +27,15 @@ fun roomsMessage(rooms: List<DirectoryRoom>): JsonObject =
     envelope("ROOMS") {
         put("rooms", directoryJson.encodeToJsonElement(ListSerializer(DirectoryRoom.serializer()), rooms))
     }
+
+/** Spec 0016 R2 — who [room]'s open seat is held for, invited or asking; null when nobody. */
+fun Invitations.holdIn(
+    room: Room,
+    nameOf: (UUID) -> String?,
+): DirectoryHold? {
+    val held = outgoingFrom(room.hostUserId)?.takeIf { it.roomId == room.roomId } ?: return null
+    return DirectoryHold(held.toUserId.toString(), nameOf(held.toUserId) ?: "A player", held.asked)
+}
 
 /**
  * Every active account, online or not (Amendment 11: the Players list
@@ -51,27 +62,54 @@ fun playersMessage(players: List<PresenceEntry>): JsonObject =
     }
 
 /**
- * An invitation stopped being one, told to whichever side did not end
- * it. [direction] is from the reader's side: FROM_YOU is one you sent,
- * TO_YOU one you were sent.
+ * An invitation (or, spec 0016, a request to join) stopped being one,
+ * told to both sides. [direction] is from the reader's side: FROM_YOU
+ * is one you began (an invitation you sent, a request you made), TO_YOU
+ * one that came to you. [other] is the person on the other side.
  */
 fun invitationEndedMessage(
     invitation: Invitation,
     reason: InvitationEnd,
     direction: String,
+    otherId: UUID,
     other: PresenceEntry?,
 ): JsonObject =
     envelope("INVITATION_ENDED") {
         put("roomId", invitation.roomId.toString())
         put("reason", reason.name)
         put("direction", direction)
+        // Spec 0016 — absent (false) for an invitation, as before.
+        if (invitation.asked) put("asked", true)
         putJsonObject("other") {
-            put("userId", (other?.userId ?: otherOf(invitation, direction)).toString())
+            put("userId", otherId.toString())
             other?.let { put("displayName", it.displayName) }
         }
     }
 
-private fun otherOf(
-    invitation: Invitation,
-    direction: String,
-): UUID = if (direction == "FROM_YOU") invitation.toUserId else invitation.fromUserId
+/** Spec 0016 R3 — somebody asks to join your room; you, the host, answer. */
+fun joinAskedMessage(
+    roomId: UUID,
+    from: PresenceEntry,
+): JsonObject =
+    envelope("JOIN_ASKED") {
+        put("roomId", roomId.toString())
+        putJsonObject("from") {
+            put("userId", from.userId.toString())
+            put("displayName", from.displayName)
+        }
+    }
+
+/** Spec 0016 R3 — your request reached the host (every tab of yours hears it). */
+fun joinAskSentMessage(
+    roomId: UUID,
+    roomName: String,
+    host: PresenceEntry,
+): JsonObject =
+    envelope("JOIN_ASK_SENT") {
+        put("roomId", roomId.toString())
+        put("roomName", roomName)
+        putJsonObject("host") {
+            put("userId", host.userId.toString())
+            put("displayName", host.displayName)
+        }
+    }

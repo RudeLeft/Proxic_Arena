@@ -40,10 +40,18 @@ enum class InvitationEnd {
     OFFLINE,
 }
 
+/**
+ * One held seat. [fromUserId] is always the host and [toUserId] the
+ * player; [asked] says who began it. Spec 0016 R3: a player asking to
+ * join is the same record the other way round, so "one at a time, both
+ * ways" and every ending hold for requests exactly as for invitations.
+ */
 data class Invitation(
     val roomId: UUID,
     val fromUserId: UUID,
     val toUserId: UUID,
+    /** Spec 0016 — the player asked (Ask to join); the host answers. */
+    val asked: Boolean = false,
 )
 
 /** What [Invitations.offer] decided. */
@@ -67,10 +75,11 @@ class Invitations {
         fromUserId: UUID,
         roomId: UUID,
         toUserId: UUID,
+        asked: Boolean = false,
     ): OfferResult {
         if (byRecipient.values.any { it.fromUserId == fromUserId }) return OfferResult.HostHasOne
         if (byRecipient.containsKey(toUserId)) return OfferResult.PlayerHasOne
-        val invitation = Invitation(roomId, fromUserId, toUserId)
+        val invitation = Invitation(roomId, fromUserId, toUserId, asked)
         byRecipient[toUserId] = invitation
         return OfferResult.Sent(invitation)
     }
@@ -81,26 +90,38 @@ class Invitations {
      * Consumed rather than merely checked: an invitation admits you
      * once. Null is what stops a listed room id from working as a
      * key.
+     *
+     * [asked] must match: a player cannot accept their own request
+     * (spec 0016) -- only the host answers one, and an invitation is
+     * only the player's to accept.
      */
     @Synchronized
     fun consume(
         userId: UUID,
         roomId: UUID,
+        asked: Boolean = false,
     ): Invitation? {
         val invitation = byRecipient[userId] ?: return null
-        if (invitation.roomId != roomId) return null
+        if (invitation.roomId != roomId || invitation.asked != asked) return null
         byRecipient.remove(userId)
         return invitation
     }
 
-    /** The invited player says no. */
+    /** The player ends theirs: declines an invitation, or takes back a request ([asked]). */
     @Synchronized
-    fun decline(userId: UUID): Invitation? = byRecipient.remove(userId)
+    fun decline(
+        userId: UUID,
+        asked: Boolean = false,
+    ): Invitation? = byRecipient[userId]?.takeIf { it.asked == asked }?.also { byRecipient.remove(userId) }
 
-    /** The host takes it back. */
+    /** The host ends theirs: takes back an invitation, or declines a request ([asked]). */
     @Synchronized
-    fun withdraw(fromUserId: UUID): Invitation? {
-        val invitation = byRecipient.values.firstOrNull { it.fromUserId == fromUserId } ?: return null
+    fun withdraw(
+        fromUserId: UUID,
+        asked: Boolean = false,
+    ): Invitation? {
+        val invitation =
+            byRecipient.values.firstOrNull { it.fromUserId == fromUserId && it.asked == asked } ?: return null
         byRecipient.remove(invitation.toUserId)
         return invitation
     }

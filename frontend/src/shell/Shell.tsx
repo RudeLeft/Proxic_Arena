@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { isNewBuild } from "../status";
+import { goneTitle } from "../lobbyView";
 import type { ConnectionState } from "../lobby";
 import { useSettled } from "../useSettled";
 import { LobbyConnectionProvider, useLobbyConnection } from "./LobbyConnection";
@@ -102,6 +103,174 @@ function ConnectionState() {
   );
 }
 
+/** One notice in the top bar: its words, its tone, and what can be done about it. */
+interface TopNotice {
+  key: string;
+  tone: "bad" | "warn" | "info";
+  text: string;
+  sub?: string;
+  /** "alert" for what went wrong; "status" for the rest. */
+  role: "alert" | "status";
+  actions: { label: string; primary?: boolean; run: () => void }[];
+}
+
+/**
+ * Spec 0016 (9) — the notices sit in the top bar, between the page
+ * links and the Connected pill, on every page: dismissing one moves
+ * nothing on the page. One at a time, the most pressing first. In the
+ * Lobby, invitations, requests and their endings stay pop-ups; on any
+ * other page they are here, answerable where they are.
+ */
+function TopNotices() {
+  const { lobby, setLobby, send } = useLobbyConnection();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
+  const reconnecting = useSettled(lobby.connection === "reconnecting", 1500);
+  const inLobby = pathname === "/play";
+  const clear = (patch: Partial<typeof lobby>) =>
+    setLobby((previous) => ({ ...previous, ...patch }));
+  const toLobby = () => void navigate("/play");
+
+  const notices: TopNotice[] = [];
+  if (lobby.connection === "ended") {
+    notices.push({
+      key: "ended",
+      tone: "bad",
+      role: "alert",
+      text: "Signed out",
+      sub: "This session has ended, perhaps from another tab. Reload the page to sign in again.",
+      actions: [],
+    });
+  } else if (reconnecting) {
+    // §5.133 — a page that stopped being told must say so. It
+    // reconnects on its own now (owner report 2026-10-21).
+    notices.push({
+      key: "reconnecting",
+      tone: "warn",
+      role: "status",
+      text: "Reconnecting…",
+      sub: "The connection dropped. This page catches up by itself as soon as it is back.",
+      actions: [],
+    });
+  }
+  const invitation = lobby.invitation;
+  if (!inLobby && invitation) {
+    notices.push({
+      key: `invited-${invitation.roomId}`,
+      tone: "info",
+      role: "status",
+      text: `${invitation.from.displayName} has invited you to join ${invitation.roomName}`,
+      actions: [
+        {
+          label: "Accept",
+          primary: true,
+          run: () => {
+            send({ type: "INVITE_ACCEPT", roomId: invitation.roomId });
+            toLobby();
+          },
+        },
+        { label: "Decline", run: () => send({ type: "INVITE_DECLINE" }) },
+      ],
+    });
+  }
+  const askedBy = lobby.askedBy;
+  if (!inLobby && askedBy) {
+    notices.push({
+      key: `asked-${askedBy.from.userId}`,
+      tone: "info",
+      role: "status",
+      text: `${askedBy.from.displayName} would like to join your room`,
+      actions: [
+        {
+          label: "Accept",
+          primary: true,
+          run: () => {
+            send({ type: "JOIN_ACCEPT" });
+            toLobby();
+          },
+        },
+        { label: "Decline", run: () => send({ type: "JOIN_DECLINE" }) },
+      ],
+    });
+  }
+  if (lobby.setupProblem) {
+    // §5.100 — about YOUR deck, sent only to you.
+    notices.push({
+      key: "setup",
+      tone: "bad",
+      role: "alert",
+      text: "Your deck needs attention",
+      sub: lobby.setupProblem.detail,
+      actions: [],
+    });
+  }
+  if (lobby.notice) {
+    const notice = lobby.notice;
+    notices.push({
+      key: `notice-${notice.errorCode}`,
+      tone: notice.kind === "error" ? "bad" : "warn",
+      role: notice.kind === "error" ? "alert" : "status",
+      text: notice.detail,
+      actions: [{ label: "Dismiss", run: () => clear({ notice: null }) }],
+    });
+  }
+  if (!inLobby && lobby.invitationGone) {
+    notices.push({
+      key: "gone",
+      tone: "info",
+      role: "status",
+      text: goneTitle(lobby.invitationGone.reason, lobby.invitationGone.fromDisplayName),
+      actions: [{ label: "OK", run: () => clear({ invitationGone: null }) }],
+    });
+  }
+  if (!inLobby && lobby.news) {
+    notices.push({
+      key: "news",
+      tone: "info",
+      role: "status",
+      text: lobby.news,
+      actions: [{ label: "OK", run: () => clear({ news: null }) }],
+    });
+  }
+
+  const shown = notices[0];
+  return (
+    <div className="pa-top-notices">
+      {shown && (
+        <div
+          key={shown.key}
+          className={`pa-top-notice pa-top-notice-${shown.tone}`}
+          role={shown.role}
+        >
+          <span aria-hidden="true" className="pa-notice-mark" />
+          <span className="pa-top-notice-text" title={shown.sub ?? shown.text}>
+            <strong>{shown.text}</strong>
+            {shown.sub && <span className="pa-top-notice-sub"> {shown.sub}</span>}
+          </span>
+          {shown.actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              className={
+                action.primary ? "pa-small-button pa-small-button-brass" : "pa-small-button"
+              }
+              onClick={action.run}
+            >
+              {action.label}
+            </button>
+          ))}
+          {notices.length > 1 && (
+            <span className="pa-top-notice-more" aria-label={`${notices.length - 1} more`}>
+              +{notices.length - 1}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Header() {
   const { state, signOut } = useAuth();
   const navigate = useNavigate();
@@ -145,7 +314,7 @@ function Header() {
           </NavLink>
         )}
       </nav>
-      <span className="pa-spacer" />
+      <TopNotices />
       <ConnectionState />
       <button
         type="button"

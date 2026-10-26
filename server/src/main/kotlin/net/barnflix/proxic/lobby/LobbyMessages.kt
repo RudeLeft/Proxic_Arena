@@ -19,7 +19,8 @@ import java.util.UUID
 //
 // Everything here is SERVER to client. The client's vocabulary is
 // small and handled in the socket itself: PING, INVITE,
-// INVITE_ACCEPT, INVITE_DECLINE, CHAT, REACT.
+// INVITE_ACCEPT, INVITE_DECLINE, INVITE_WITHDRAW, JOIN_ASK,
+// JOIN_CANCEL, JOIN_ACCEPT, JOIN_DECLINE, CHAT, REACT, ACTIVITY.
 //
 // Nothing in a message tells the client what it may DO. §5.67 is
 // explicit that identity is never a client claim, and the inverse

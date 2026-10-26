@@ -12,9 +12,10 @@
 // (§5.141): names, seats, readiness — the room list carries no deck at
 // all, and your own deck is the only one ever named.
 //
-// What is new is visibility, not access: every room is listed, but a
-// seat still needs an invitation, so there is no Join button. A room
-// you were not asked into says so instead of offering one.
+// Spec 0016 (owner 2026-10-26): the Hall of Champions is a strip across
+// the top; every room is a card anybody can read (seats, who a seat is
+// held for, where it stands), and a free seat can be asked for — Ask to
+// join — as well as offered. The notices live in the top bar (Shell).
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -36,23 +37,26 @@ import {
   setReady,
   type DirectoryRoom,
   type LobbyState,
+  type RoomFailure,
   type RoomResult,
   type RoomView,
 } from "./lobby";
 import {
   avatarOf,
   closesSoon,
+  goneTitle,
   presenceOf,
-  orderRooms,
   playerRows,
   rankOf,
+  roomAction,
+  roomLine,
   roomStatus,
+  sortRooms,
   type PlayerRow,
 } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { HallOfChampions } from "./Champions";
 import { DeckIcon, iconOf } from "./deckIcons";
-import { useSettled } from "./useSettled";
 import { ChatPanel } from "./LobbyChat";
 
 /** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
@@ -68,6 +72,9 @@ function useMinute(): number {
 /** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
 const SETTLE_MS = 2200;
 
+/** The picture size on the seats: the Reigning Champion's (spec 0016, 10). */
+const SEAT_AVATAR = 56;
+
 export default function LobbyPage() {
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
@@ -81,15 +88,13 @@ export default function LobbyPage() {
   useEffect(() => {
     if (inGame) void navigate("/game");
   }, [inGame, navigate]);
-  // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
-  const reconnecting = useSettled(lobby.connection === "reconnecting", 1500);
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
-  const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(false);
   // Page-owned prompts: closing the invitation box is "deal with it
   // later", not an answer, so it is remembered here and nowhere else.
   const [setAsideFor, setSetAsideFor] = useState<string | null>(null);
+  const [askAsideFor, setAskAsideFor] = useState<string | null>(null);
   const [needRoomFor, setNeedRoomFor] = useState<PlayerRow | null>(null);
   // Owner 2026-10-22: removing a player asks first -- a misclick otherwise
   // throws a friend out of the room.
@@ -131,11 +136,28 @@ export default function LobbyPage() {
     void listDecks().then((next) => setLibrary(next ?? EMPTY_LIBRARY));
   }, [listStale, chosenName]);
 
+  /**
+   * A refusal is said in the top bar (spec 0016, 9). A new request
+   * clears the last refusal, never news about a match.
+   */
+  const refused = useCallback(
+    (failure: RoomFailure | null) =>
+      setLobby((previous) => ({
+        ...previous,
+        notice: failure
+          ? { kind: "error", errorCode: failure.errorCode, detail: failure.detail }
+          : previous.notice?.kind === "error" && !previous.notice.aboutMatch
+            ? null
+            : previous.notice,
+      })),
+    [setLobby],
+  );
+
   /** One place where every room call reports its refusal (§5.132: adopt, never predict). */
   const run = useCallback(
     async (call: () => Promise<RoomResult>) => {
       setBusy(true);
-      setFailure(null);
+      refused(null);
       const result = await call();
       setBusy(false);
       if (result.ok) {
@@ -146,11 +168,11 @@ export default function LobbyPage() {
           notice: null,
         }));
       } else {
-        setFailure(result.failure.detail);
+        refused(result.failure);
       }
       return result;
     },
-    [setLobby],
+    [setLobby, refused],
   );
 
   /**
@@ -161,7 +183,7 @@ export default function LobbyPage() {
   const runLeaving = useCallback(
     async (call: () => Promise<RoomResult>) => {
       setBusy(true);
-      setFailure(null);
+      refused(null);
       const result = await call();
       setBusy(false);
       // NOT_FOUND is out too: the server no longer has you in that
@@ -183,10 +205,10 @@ export default function LobbyPage() {
           match: null,
         }));
       } else {
-        setFailure(result.failure.detail);
+        refused(result.failure);
       }
     },
-    [setLobby],
+    [setLobby, refused],
   );
 
   const room = lobby.room;
@@ -201,12 +223,12 @@ export default function LobbyPage() {
   const startMatch = useCallback(async () => {
     if (!room) return;
     setStarting(true);
-    setFailure(null);
+    refused(null);
     if (room.status !== "READY_FOR_MATCH") {
       const prepared = await prepareMatch(room.roomId, room.revision);
       if (!prepared.ok) {
         setStarting(false);
-        setFailure(prepared.failure.detail);
+        refused(prepared.failure);
         return;
       }
       setLobby((previous) => ({ ...previous, room: prepared.room }));
@@ -218,10 +240,14 @@ export default function LobbyPage() {
       setLobby((previous) => ({ ...previous, match: launched.match, notice: null }));
       return;
     }
-    setFailure(launched ? launched.failure.detail : "The match could not be started. Try again.");
+    refused(
+      launched
+        ? launched.failure
+        : { errorCode: "NOT_STARTED", detail: "The match could not be started. Try again." },
+    );
     const reopened = await cancelPreparation(room.roomId);
     if (reopened.ok) setLobby((previous) => ({ ...previous, room: reopened.room }));
-  }, [room, setLobby]);
+  }, [room, setLobby, refused]);
 
   const invite = useCallback(
     (row: PlayerRow) => {
@@ -247,70 +273,18 @@ export default function LobbyPage() {
 
   const invitation = lobby.invitation;
   const inviteBoxOpen = invitation !== null && setAsideFor !== invitation.roomId;
+  const askedBy = lobby.askedBy;
+  const askBoxOpen =
+    !inviteBoxOpen &&
+    askedBy !== null &&
+    askAsideFor !== `${askedBy.roomId}:${askedBy.from.userId}`;
 
   return (
     <main className="pa-main pa-lobby">
       <h1 className="pa-visually-hidden">Lobby</h1>
 
-      <div className="pa-lobby-notices">
-        {reconnecting && (
-          // §5.133 — a page that stopped being told must say so. It
-          // reconnects on its own now (owner report 2026-10-21).
-          <div className="pa-notice pa-notice-warn" role="status">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">
-              <strong>Reconnecting…</strong>
-              <span className="pa-notice-sub">
-                The connection dropped. This page catches up by itself as soon as it is back — your
-                room is still there.
-              </span>
-            </span>
-          </div>
-        )}
-        {lobby.connection === "ended" && (
-          <div className="pa-notice pa-notice-bad" role="alert">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">
-              <strong>Signed out</strong>
-              <span className="pa-notice-sub">
-                This session has ended, perhaps from another tab. Reload the page to sign in again.
-              </span>
-            </span>
-          </div>
-        )}
-        {lobby.notice && (
-          <div
-            className={`pa-notice ${lobby.notice.kind === "error" ? "pa-notice-bad" : "pa-notice-warn"}`}
-            role={lobby.notice.kind === "error" ? "alert" : "status"}
-          >
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">{lobby.notice.detail}</span>
-            <button
-              type="button"
-              className="pa-small-button"
-              onClick={() => setLobby((previous) => ({ ...previous, notice: null }))}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        {failure && (
-          <div className="pa-notice pa-notice-bad" role="alert">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">{failure}</span>
-          </div>
-        )}
-        {lobby.setupProblem && (
-          // §5.100 — about YOUR deck, sent only to you.
-          <div className="pa-notice pa-notice-bad" role="alert">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">
-              <strong>Your deck needs attention</strong>
-              <span className="pa-notice-sub">{lobby.setupProblem.detail}</span>
-            </span>
-          </div>
-        )}
-      </div>
+      {/* Spec 0016 H1 — across the top, above everything. */}
+      <HallOfChampions lobby={lobby} />
 
       {/* Behind a game the lobby is out of reach -- of the mouse already, and
           now of the keyboard and screen readers too (2026-10-24 review). The
@@ -330,6 +304,10 @@ export default function LobbyPage() {
           starting={starting}
           onOpen={(name) => void run(() => createRoom(fetch, name))}
           onAccept={(roomId) => send({ type: "INVITE_ACCEPT", roomId })}
+          onDecline={() => send({ type: "INVITE_DECLINE" })}
+          onAsk={(roomId) => send({ type: "JOIN_ASK", roomId })}
+          onCancelAsk={() => send({ type: "JOIN_CANCEL" })}
+          onAnswerAsk={(yes) => send({ type: yes ? "JOIN_ACCEPT" : "JOIN_DECLINE" })}
           onSelectDeck={(deckId) => {
             if (room) void run(() => selectDeck(room.roomId, deckId, room.revision));
           }}
@@ -376,7 +354,7 @@ export default function LobbyPage() {
       {inviteBoxOpen && invitation && (
         <Dialog
           label="Invitation"
-          title={`${invitation.from.displayName} asked you into ${invitation.roomName}`}
+          title={`${invitation.from.displayName} has invited you to join ${invitation.roomName}`}
           sub="One seat is open and held for you. To decide later, close this window. You can accept anytime from the room list."
           primary="Accept"
           onPrimary={() => send({ type: "INVITE_ACCEPT", roomId: invitation.roomId })}
@@ -386,12 +364,36 @@ export default function LobbyPage() {
         />
       )}
 
-      {!inviteBoxOpen && lobby.invitationGone && (
+      {askBoxOpen && askedBy && (
+        // Spec 0016 R3 — a request to join your room, answered like an invitation.
+        <Dialog
+          label="Request to join"
+          title={`${askedBy.from.displayName} would like to join your room`}
+          sub="Their seat is held until you answer. To decide later, close this window: you can answer from your room."
+          primary="Accept"
+          onPrimary={() => send({ type: "JOIN_ACCEPT" })}
+          secondary="Decline"
+          onSecondary={() => send({ type: "JOIN_DECLINE" })}
+          onDismiss={() => setAskAsideFor(`${askedBy.roomId}:${askedBy.from.userId}`)}
+        />
+      )}
+
+      {!inviteBoxOpen && !askBoxOpen && lobby.invitationGone && (
         <Dialog
           label="Invitation ended"
           title={goneTitle(lobby.invitationGone.reason, lobby.invitationGone.fromDisplayName)}
           primary="OK"
           onPrimary={() => setLobby((previous) => ({ ...previous, invitationGone: null }))}
+        />
+      )}
+
+      {!inviteBoxOpen && !askBoxOpen && !lobby.invitationGone && lobby.news && (
+        // Spec 0016 (16) — "Pat declined your invitation", and the like.
+        <Dialog
+          label="News"
+          title={lobby.news}
+          primary="OK"
+          onPrimary={() => setLobby((previous) => ({ ...previous, news: null }))}
         />
       )}
 
@@ -408,22 +410,6 @@ export default function LobbyPage() {
       )}
     </main>
   );
-}
-
-function goneTitle(reason: string, from: string | null): string {
-  const who = from ?? "The host";
-  switch (reason) {
-    case "WITHDRAWN":
-      return `${who} withdrew the invitation`;
-    case "ROOM_CLOSED":
-      return `${who}'s room closed, so the invitation ended`;
-    case "SEAT_FILLED":
-      return "The seat was taken, so the invitation ended";
-    case "OFFLINE":
-      return `${who} left, so the invitation ended`;
-    default:
-      return "That invitation is no longer open";
-  }
 }
 
 // --- players ------------------------------------------------------------------
@@ -591,6 +577,10 @@ function RoomsColumn({
   starting,
   onOpen,
   onAccept,
+  onDecline,
+  onAsk,
+  onCancelAsk,
+  onAnswerAsk,
   onSelectDeck,
   onReady,
   onStart,
@@ -606,6 +596,10 @@ function RoomsColumn({
   starting: boolean;
   onOpen: (name: string) => void;
   onAccept: (roomId: string) => void;
+  onDecline: () => void;
+  onAsk: (roomId: string) => void;
+  onCancelAsk: () => void;
+  onAnswerAsk: (yes: boolean) => void;
   onSelectDeck: (deckId: string | null) => void;
   onReady: (ready: boolean) => void;
   onStart: () => void;
@@ -617,14 +611,13 @@ function RoomsColumn({
   const [name, setName] = useState("");
   const nameId = useId();
   // Re-read the clock each minute so "Closes in" stays honest.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const now = useMinute();
 
   const mine = lobby.room;
-  const others = orderRooms(lobby.rooms, null).filter((room) => room.roomId !== mine?.roomId);
+  const others = sortRooms(
+    lobby.rooms.filter((room) => room.roomId !== mine?.roomId),
+    lobby,
+  );
   // Your own room is drawn from the room the server sent YOU, which is
   // always at least as fresh as the list; the list only adds when it closes.
   const listedMine = mine
@@ -653,6 +646,7 @@ function RoomsColumn({
           onReady={onReady}
           onStart={onStart}
           onCancelStart={onCancelStart}
+          onAnswerAsk={onAnswerAsk}
           onRemove={onRemove}
           onClose={onClose}
           onLeave={onLeave}
@@ -663,7 +657,9 @@ function RoomsColumn({
           <h2 id="open-heading" className="pa-open-title">
             Play a game
           </h2>
-          <p className="pa-open-sub">Open a room, then invite somebody who is online.</p>
+          <p className="pa-open-sub">
+            Open a room and invite somebody, or ask to join a room below.
+          </p>
           <form className="pa-open-room" onSubmit={open}>
             <label className="pa-visually-hidden" htmlFor={nameId}>
               Room name (optional)
@@ -684,13 +680,9 @@ function RoomsColumn({
         </section>
       )}
 
-      {/* Spec 0011 — between playing and the rooms. */}
-      <HallOfChampions lobby={lobby} />
-
       <section className="pa-panel pa-other-rooms" aria-labelledby="rooms-heading">
         <div className="pa-panel-head">
           <h2 id="rooms-heading">{mine ? "Other rooms" : "Open rooms"}</h2>
-          <span className="pa-panel-note">Join by invitation</span>
         </div>
         {others.length === 0 ? (
           // Not before the lists have come (the account list always holds
@@ -703,12 +695,16 @@ function RoomsColumn({
         ) : (
           <div className="pa-room-list">
             {others.map((room) => (
-              <RoomLine
+              <RoomCard
                 key={room.roomId}
                 room={room}
-                invited={lobby.invitation?.roomId === room.roomId}
+                lobby={lobby}
+                me={me}
                 now={now}
                 onAccept={onAccept}
+                onDecline={onDecline}
+                onAsk={onAsk}
+                onCancelAsk={onCancelAsk}
               />
             ))}
           </div>
@@ -734,47 +730,137 @@ function asListed(room: RoomView): DirectoryRoom {
       isHost: m.isHost,
     })),
     clearsAt: null,
+    held: null,
   };
 }
 
-/** Somebody else's room: one line, and no way in without an invitation (§7.64, decision 19). */
-function RoomLine({
+/**
+ * Somebody else's room — spec 0016 R1-R3: its seats as anybody may see
+ * them, where it stands, and what you can do about it.
+ */
+function RoomCard({
   room,
-  invited,
+  lobby,
+  me,
   now,
   onAccept,
+  onDecline,
+  onAsk,
+  onCancelAsk,
 }: {
   room: DirectoryRoom;
-  invited: boolean;
+  lobby: LobbyState;
+  me: string;
   now: number;
   onAccept: (roomId: string) => void;
+  onDecline: () => void;
+  onAsk: (roomId: string) => void;
+  onCancelAsk: () => void;
 }) {
   const headingId = useId();
   const closes = closesSoon(room.clearsAt, now);
-  const people = room.seats.map((seat) => seat.displayName).join(" and ");
+  const line = roomLine(room);
+  const action = roomAction(room, lobby, me);
+  const host = room.seats.find((seat) => seat.isHost)?.displayName ?? "The host";
+  const open = Array.from({ length: Math.max(0, room.desiredPlayerCount - room.seats.length) });
+
   return (
-    <article className={`pa-room${invited ? " pa-room-invited" : ""}`} aria-labelledby={headingId}>
-      <h3 id={headingId} className="pa-room-name">
-        {room.name}
-      </h3>
-      <span className="pa-room-who">
-        {/* An invitation holds the open seat for you: said where you would look. */}
-        {people} · {invited ? "Held for you" : roomStatus(room).toLowerCase()}
-      </span>
-      {closes && <span className="pa-room-closes">{closes}</span>}
-      <span className="pa-room-action">
-        {invited ? (
-          <button
-            type="button"
-            className="pa-button pa-button-accept"
-            onClick={() => onAccept(room.roomId)}
-          >
-            Accept
-          </button>
-        ) : (
-          <span className="pa-room-note">By invitation</span>
+    <article
+      className={`pa-room pa-room-card${action.kind === "invited" ? " pa-room-invited" : ""}`}
+      aria-labelledby={headingId}
+    >
+      {action.kind === "invited" ? (
+        // Spec 0016 (14) — said in full, where you would look.
+        <h3 id={headingId} className="pa-room-name pa-room-invite-line">
+          {host} has invited you to join {room.name}
+        </h3>
+      ) : (
+        <h3 id={headingId} className="pa-room-name">
+          {room.name}
+        </h3>
+      )}
+      <div className="pa-room-seats">
+        {room.seats.map((seat) => (
+          <span key={seat.userId} className="pa-room-seat">
+            <Avatar
+              avatar={avatarOf(lobby, seat.userId)}
+              size={32}
+              rank={rankOf(lobby, seat.userId)}
+            />
+            <span className="pa-room-seat-name">
+              {seat.displayName}
+              {seat.ready && (
+                <span className="pa-room-seat-ready" aria-label="ready">
+                  {" "}
+                  ✓
+                </span>
+              )}
+            </span>
+          </span>
+        ))}
+        {open.map((_, index) =>
+          index === 0 && room.held ? (
+            <span key="held" className="pa-room-seat pa-room-seat-held">
+              <Avatar avatar={avatarOf(lobby, room.held.userId)} size={32} />
+              <span className="pa-room-seat-name">
+                {room.held.displayName}
+                <small>
+                  {room.held.asked
+                    ? "Asked to join"
+                    : room.held.userId === me
+                      ? "Held for you"
+                      : `Held for ${room.held.displayName}`}
+                </small>
+              </span>
+            </span>
+          ) : (
+            <span key={`open-${index}`} className="pa-room-seat pa-room-seat-open">
+              <span aria-hidden="true" className="pa-room-seat-empty" />
+              <span className="pa-room-seat-name">Open seat</span>
+            </span>
+          ),
         )}
-      </span>
+      </div>
+      <div className="pa-room-foot">
+        <span className={`pa-room-line pa-room-line-${line.tone}`}>
+          <span aria-hidden="true" className="pa-room-line-dot" />
+          {line.text}
+        </span>
+        {closes && <span className="pa-room-closes">{closes}</span>}
+        <span className="pa-room-action">
+          {action.kind === "invited" && (
+            <>
+              <button
+                type="button"
+                className="pa-button pa-button-accept"
+                onClick={() => onAccept(room.roomId)}
+              >
+                Accept
+              </button>
+              <button type="button" className="pa-button pa-button-quiet" onClick={onDecline}>
+                Decline
+              </button>
+            </>
+          )}
+          {action.kind === "asked" && (
+            <>
+              <span className="pa-room-note">Asked to join</span>
+              <button type="button" className="pa-button pa-button-quiet" onClick={onCancelAsk}>
+                Cancel
+              </button>
+            </>
+          )}
+          {action.kind === "ask" && (
+            <button
+              type="button"
+              className="pa-button pa-button-ask"
+              onClick={() => onAsk(room.roomId)}
+            >
+              Ask to join
+            </button>
+          )}
+        </span>
+      </div>
     </article>
   );
 }
@@ -793,6 +879,7 @@ function YourRoom({
   onReady,
   onStart,
   onCancelStart,
+  onAnswerAsk,
   onRemove,
   onClose,
   onLeave,
@@ -809,6 +896,7 @@ function YourRoom({
   onReady: (ready: boolean) => void;
   onStart: () => void;
   onCancelStart: () => void;
+  onAnswerAsk: (yes: boolean) => void;
   onRemove: (userId: string) => void;
   onClose: () => void;
   onLeave: () => void;
@@ -829,7 +917,8 @@ function YourRoom({
     ...library.sharedWithMe.map((deck) => ({ deck, shared: true })),
   ];
   const chosen = decks.find(({ deck }) => deck.deckId === myMember?.selectedDeckId)?.deck ?? null;
-  const asked = lobby.outgoing?.roomId === room.roomId ? lobby.outgoing.to : null;
+  const invited = lobby.outgoing?.roomId === room.roomId ? lobby.outgoing.to : null;
+  const askedBy = iHost && lobby.askedBy?.roomId === room.roomId ? lobby.askedBy.from : null;
   const closes = closesSoon(listed.clearsAt, now);
   const full = room.members.length >= room.desiredPlayerCount;
   const deckDone = !!myMember?.selectedDeckId;
@@ -838,15 +927,16 @@ function YourRoom({
   // freshest), in the list's shape.
   const status = roomStatus({ ...asListed(room), clearsAt: listed.clearsAt });
 
+  // Spec 0016 (4) — the Start button says what it is waiting for.
+  // What you can do yourself comes first.
   const waitingFor = !full
     ? "Waiting for a second player"
-    : other && !other.ready
-      ? `Waiting for ${other.displayName} to be ready`
-      : !readyDone
-        ? "Waiting for you to be ready"
-        : iHost
-          ? "Both players are ready"
-          : "Both players are ready — the host starts";
+    : !readyDone
+      ? "Waiting for you to be ready"
+      : other && !other.ready
+        ? `Waiting for ${other.displayName} to be ready`
+        : "Waiting for the host";
+  const checking = preparing || starting;
 
   return (
     <article className="pa-panel pa-room pa-room-mine" aria-labelledby={headingId}>
@@ -856,7 +946,6 @@ function YourRoom({
         </h2>
         <span className={`pa-status${playing ? " pa-status-playing" : ""}`}>{status}</span>
         {closes && <span className="pa-room-closes">{closes}</span>}
-        <span className="pa-room-role">{iHost ? "Your room" : "Your seat"}</span>
         {/* The seat count, for screen readers and the tests: the seats say it to the eye. */}
         <span className="pa-room-taken pa-visually-hidden">
           {room.members.length}/{room.desiredPlayerCount}
@@ -871,16 +960,14 @@ function YourRoom({
           >
             <Avatar
               avatar={avatarOf(lobby, member.userId)}
-              size={44}
+              size={SEAT_AVATAR}
               rank={rankOf(lobby, member.userId)}
               {...presenceOf(lobby, member.userId, member.displayName, Date.now())}
             />
             <span className="pa-seat-text">
               <span className="pa-seat-name">
                 {member.displayName}
-                {member.userId === me && (
-                  <span className="pa-seat-tag"> · you{member.isHost ? ", host" : ""}</span>
-                )}
+                {/* Spec 0016 (7): no "· you" -- you know who you are. */}
                 {member.userId !== me && member.isHost && (
                   <span className="pa-seat-tag"> · host</span>
                 )}
@@ -903,13 +990,47 @@ function YourRoom({
         ))}
         {!full && (
           <div className="pa-seat pa-seat-open">
-            <Avatar avatar={asked ? avatarOf(lobby, asked.userId) : null} size={44} />
+            <Avatar
+              avatar={
+                invited
+                  ? avatarOf(lobby, invited.userId)
+                  : askedBy
+                    ? avatarOf(lobby, askedBy.userId)
+                    : null
+              }
+              size={SEAT_AVATAR}
+            />
             <span className="pa-seat-text">
-              <span className="pa-seat-name">{asked ? asked.displayName : "Open seat"}</span>
+              <span className="pa-seat-name">
+                {invited ? invited.displayName : askedBy ? askedBy.displayName : "Open seat"}
+              </span>
               <span className="pa-seat-deck">
-                {asked ? "Invited: Accept Pending" : "Invite someone from Players"}
+                {invited
+                  ? "Invited: Accept Pending"
+                  : askedBy
+                    ? "Asked to join"
+                    : "Invite someone from Players"}
               </span>
             </span>
+            {askedBy && (
+              // Spec 0016 R3 — answered right on the seat as well as in the pop-up.
+              <span className="pa-seat-answer">
+                <button
+                  type="button"
+                  className="pa-button pa-button-accept"
+                  onClick={() => onAnswerAsk(true)}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  className="pa-button pa-button-quiet"
+                  onClick={() => onAnswerAsk(false)}
+                >
+                  Decline
+                </button>
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -955,17 +1076,12 @@ function YourRoom({
                   <path d="M1 1 L5.5 5.5 L10 1" />
                 </svg>
               </span>
-              <span className="pa-step-note">
-                {decks.length === 0 ? (
-                  <>
-                    <Link to="/decks">Go to Deck Depot to Import a Deck</Link>
-                  </>
-                ) : chosen ? (
-                  `${chosen.totalCards} cards`
-                ) : (
-                  "Only you see which deck you choose"
-                )}
-              </span>
+              {/* Spec 0016 (1): no line under the dropdown, but the way to a deck stays. */}
+              {decks.length === 0 && (
+                <span className="pa-step-note">
+                  <Link to="/decks">Go to Deck Depot to Import a Deck</Link>
+                </span>
+              )}
             </li>
             <li className={`pa-step${readyDone ? " pa-step-done" : ""}`}>
               <span className="pa-step-key">2 · Ready{readyDone ? " ✓" : ""}</span>
@@ -982,27 +1098,17 @@ function YourRoom({
                   {myMember.ready ? "Ready ✓" : "I'm ready"}
                 </button>
               )}
-              <span className="pa-step-note">
-                {myMember?.ready
-                  ? "Click again to undo"
-                  : deckDone
-                    ? "When you're set"
-                    : "Choose a deck first"}
-              </span>
             </li>
-            <li className={`pa-step${preparing || starting ? " pa-step-done" : ""}`}>
+            <li className={`pa-step${checking ? " pa-step-done" : ""}`}>
               <span className="pa-step-key">3 · Start</span>
-              {iHost ? (
+              {checking ? (
+                // Spec 0016 (5) — both players see the game is on its way.
                 <span className="pa-start-row">
-                  <button
-                    type="button"
-                    className={`pa-button pa-start${canStart ? " pa-button-brass" : " pa-start-dead"}`}
-                    disabled={!canStart}
-                    onClick={onStart}
-                  >
-                    {starting ? "Checking both decks…" : "Start match"}
-                  </button>
-                  {preparing && !starting && (
+                  <span className="pa-start-box pa-start-loading" role="status">
+                    <span aria-hidden="true" className="pa-start-spin" />
+                    Checking both decks…
+                  </span>
+                  {iHost && preparing && !starting && (
                     <button
                       type="button"
                       className="pa-button pa-button-quiet"
@@ -1012,23 +1118,25 @@ function YourRoom({
                     </button>
                   )}
                 </span>
-              ) : preparing || starting ? (
-                // Spec 0013 — the host pressed Start: the game is on its way.
-                <span className="pa-start-box pa-start-loading" role="status">
-                  <span aria-hidden="true" className="pa-start-spin" />
-                  Loading…
-                </span>
+              ) : iHost && canStart ? (
+                <button
+                  type="button"
+                  className="pa-button pa-start pa-button-brass"
+                  onClick={onStart}
+                >
+                  Start match
+                </button>
               ) : (
-                // Spec 0013 — shaped like the host's button, plainly not one:
-                // dashed, dimmed, an hourglass, no pointer.
-                <span className="pa-start-box pa-start-wait">
+                // Spec 0013 — shaped like a button, plainly not one: dashed,
+                // dimmed, an hourglass, no pointer. Spec 0016 (4): it says
+                // what it is waiting for.
+                <span className="pa-start-box pa-start-wait" role="status">
                   <svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16">
                     <path d="M4 2h8M4 14h8M5 2c0 4 6 4 6 6s-6 2-6 6M11 2c0 4-6 4-6 6s6 2 6 6" />
                   </svg>
-                  Waiting for the host
+                  {iHost && room.everyoneReady ? "Start match" : waitingFor}
                 </span>
               )}
-              {!(preparing || starting) && <span className="pa-step-note">{waitingFor}</span>}
             </li>
           </ol>
 
@@ -1072,8 +1180,6 @@ function YourRoom({
     </article>
   );
 }
-
-// --- chat ------------------------------------------------------------------------
 
 // --- the one dialog slot ------------------------------------------------------------
 

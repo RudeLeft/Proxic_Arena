@@ -170,6 +170,10 @@ A protocol-version mismatch fails loudly and is never interpreted
 | `INVITE_ACCEPT` | `roomId` | spends the invitation |
 | `INVITE_DECLINE` | — | the host is told (`INVITATION_ENDED`) |
 | `INVITE_WITHDRAW` | — | host only; the player is told (PHASE_07 Amendment 11) |
+| `JOIN_ASK` | `roomId` | ask for an open seat nobody holds; not while in a room (spec 0016) |
+| `JOIN_CANCEL` | — | take your request back; the host is told |
+| `JOIN_ACCEPT` | — | host only: the request becomes a seat |
+| `JOIN_DECLINE` | — | host only; the asker is told |
 | `CHAT` | `text` | ≤ 500 chars, rate limited |
 | `ACTIVITY` | `away` | this tab went idle (5 minutes, or hidden that long) or came back; sent only on a change (spec 0009) |
 | `REACT` | `lineId`, `emoji`, `on` | one of 👍 ❤️ 😂 😮 😢 🔥; same rate limit as `CHAT`; never stored (spec 0007) |
@@ -189,7 +193,9 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `ROOM_REMOVED` | you were removed | that user |
 | `INVITED` | you were invited (`roomId`, `roomName`, `from`); again on reconnect | that user |
 | `INVITATION_SENT` | your invitation reached somebody (`roomId`, `to`); again on reconnect | the inviter |
-| `INVITATION_ENDED` | an invitation stopped being one (`reason`, `direction`, `other`) | **both** sides |
+| `INVITATION_ENDED` | an invitation stopped being one (`reason`, `direction`, `other`; `asked: true` for a request to join) | **both** sides |
+| `JOIN_ASKED` | somebody asks to join your room (`roomId`, `from`); again on reconnect | the host |
+| `JOIN_ASK_SENT` | your request reached the host (`roomId`, `roomName`, `host`); again on reconnect | the asker |
 | `ROOMS` | on connect, and on any room change | everyone |
 | `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | the connection; everybody when it changes |
 | `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | the connection; everybody when it changes |
@@ -217,7 +223,7 @@ something true and vague rather than show the code.
   `status`, `desiredPlayerCount`, `seats` (`seatNumber`, `userId`,
   `displayName`, `ready`, `isHost`) and `clearsAt` (null in a match).
   The same for every viewer, which is safe only because it carries
-  **no deck and no invitation** (§7.68).
+  **no deck** (§7.68); since spec 0016 it also says who an open seat is held for.
 - `PLAYERS` is every active account (`userId`, `username`,
   `displayName`), online or not; presence says who is online.
 - Invitations are **one at a time both ways** and have **no timer**.
@@ -225,6 +231,19 @@ something true and vague rather than show the code.
   `ROOM_CLOSED`, `SEAT_FILLED` or `OFFLINE` (gone for a minute; a
   reload is back inside it). `direction` is `FROM_YOU` for the host's
   copy and `TO_YOU` for the player's.
+
+**Spec 0016 (the room list and Ask to join):** `ROOMS` entries carry
+`held` (`userId`, `displayName`, `asked`) when the open seat is held for
+somebody — invited by the host (`asked: false`) or asking to join
+(`asked: true`) — and null otherwise; the owner made this public (R2),
+and the list still carries no deck. A request to join is the same record
+as an invitation, begun by the player: one per room and one per player,
+the same endings, and only the host can accept it (`INVITE_ACCEPT` for
+one's own request is `INVITATION_GONE`). In `INVITATION_ENDED`,
+`direction` is from the reader's side — `FROM_YOU` for the one who began
+it — and `DECLINED` / `WITHDRAWN` mean the other side said no / the side
+that began it took it back. Refusals: `ROOM_NOT_OPEN`, `ROOM_FULL`,
+`PLAYER_IN_A_ROOM`, `USER_NOT_ONLINE`, `SEAT_HELD`, `ONE_AT_A_TIME`.
 
 **Spec 0013 (the game chat):** `CHAT` and `REACT` may carry
 `scope: "game"`. The server sends such a line, or reaction, only to the

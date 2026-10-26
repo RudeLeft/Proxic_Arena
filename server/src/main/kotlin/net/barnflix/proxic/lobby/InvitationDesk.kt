@@ -5,6 +5,7 @@ import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomResult
 import net.barnflix.proxic.room.RoomService
+import net.barnflix.proxic.room.RoomStatus
 import java.util.UUID
 
 // Asking somebody into a room — PHASE_05 AMENDMENT 1, PHASE_07 §7.64
@@ -18,6 +19,10 @@ import java.util.UUID
 // Every ending is told to BOTH sides, the one who caused it included,
 // because a player with two tabs open is one player (§5.6): the tab
 // that did not click must stop showing the invitation too.
+//
+// Spec 0016 (owner R3, 2026-10-26) added Ask to join: the same record
+// begun by the player, answered by the host. The rules are the
+// invitation's, mirrored, and so is the seating step.
 
 class InvitationDesk(
     private val hub: LobbyHub,
@@ -25,6 +30,8 @@ class InvitationDesk(
     private val invitations: Invitations,
     /** A display name for anybody with an account, online or not. */
     private val nameOf: (UUID) -> String?,
+    /** Spec 0016 R2 — a held seat started or ended: the room list says so. */
+    private val changed: suspend () -> Unit = {},
 ) {
     private fun entry(userId: UUID): PresenceEntry? {
         val online = hub.entryFor(userId)
@@ -36,14 +43,12 @@ class InvitationDesk(
         invitation: Invitation,
         reason: InvitationEnd,
     ) {
-        hub.sendTo(
-            invitation.fromUserId,
-            invitationEndedMessage(invitation, reason, "FROM_YOU", entry(invitation.toUserId)),
-        )
-        hub.sendTo(
-            invitation.toUserId,
-            invitationEndedMessage(invitation, reason, "TO_YOU", entry(invitation.fromUserId)),
-        )
+        // The side that began it: the host for an invitation, the player for a request.
+        val began = if (invitation.asked) invitation.toUserId else invitation.fromUserId
+        val other = if (invitation.asked) invitation.fromUserId else invitation.toUserId
+        hub.sendTo(began, invitationEndedMessage(invitation, reason, "FROM_YOU", other, entry(other)))
+        hub.sendTo(other, invitationEndedMessage(invitation, reason, "TO_YOU", began, entry(began)))
+        changed()
     }
 
     suspend fun endAll(
@@ -59,12 +64,24 @@ class InvitationDesk(
     suspend fun resend(userId: UUID) {
         invitations.incomingFor(userId)?.let { invitation ->
             val room = rooms.find(invitation.roomId) ?: return@let
-            val from = entry(invitation.fromUserId) ?: return@let
-            hub.sendTo(userId, inviteMessage(invitation.roomId, from, room.displayName()))
+            val host = entry(invitation.fromUserId) ?: return@let
+            val message =
+                if (invitation.asked) {
+                    joinAskSentMessage(invitation.roomId, room.displayName(), host)
+                } else {
+                    inviteMessage(invitation.roomId, host, room.displayName())
+                }
+            hub.sendTo(userId, message)
         }
         invitations.outgoingFrom(userId)?.let { invitation ->
-            val to = entry(invitation.toUserId) ?: return@let
-            hub.sendTo(userId, invitationSentMessage(to, invitation.roomId))
+            val player = entry(invitation.toUserId) ?: return@let
+            val message =
+                if (invitation.asked) {
+                    joinAskedMessage(invitation.roomId, player)
+                } else {
+                    invitationSentMessage(player, invitation.roomId)
+                }
+            hub.sendTo(userId, message)
         }
     }
 
@@ -100,7 +117,11 @@ class InvitationDesk(
         when (invitations.offer(me, room!!.roomId, targetId)) {
             OfferResult.HostHasOne ->
                 reply(
-                    errorMessage("ONE_INVITATION_AT_A_TIME", "Withdraw your invitation before sending another."),
+                    if (invitations.outgoingFrom(me)?.asked == true) {
+                        errorMessage("ONE_INVITATION_AT_A_TIME", "Answer the request to join first.")
+                    } else {
+                        errorMessage("ONE_INVITATION_AT_A_TIME", "Withdraw your invitation before sending another.")
+                    },
                 )
 
             OfferResult.PlayerHasOne ->
@@ -116,6 +137,7 @@ class InvitationDesk(
                 hub.sendTo(targetId, inviteMessage(room.roomId, from, room.displayName()))
                 // Every tab the host has, not only the one that clicked.
                 hub.sendTo(me, invitationSentMessage(target, room.roomId))
+                changed()
             }
         }
     }
@@ -136,32 +158,97 @@ class InvitationDesk(
         val invitation =
             invitations.consume(user.userId, roomId)
                 ?: return reply(errorMessage("INVITATION_GONE", "That invitation is no longer open."))
+        seat(invitation, reply, roomChanged)
+    }
 
-        when (val result = rooms.join(roomId, user.userId)) {
-            is RoomResult.Refused -> {
-                // Not the player's fault, and not an answer: put it
-                // back, so neither side loses an invitation to a
-                // refusal neither of them chose. If it cannot go back
-                // -- the host sent another meanwhile, or somebody else
-                // invited the player -- both sides are told it ended,
-                // rather than it vanishing (2026-10-24 review).
-                val back = invitations.offer(invitation.fromUserId, invitation.roomId, invitation.toUserId)
-                if (back !is OfferResult.Sent) end(invitation, InvitationEnd.WITHDRAWN)
-                reply(errorMessage(result.error))
+    /**
+     * Spec 0016 R3 — a player asks for a room's open seat. Only into an
+     * open room with a seat and nobody held, only by somebody in no
+     * room, and only while the host is here to answer.
+     */
+    suspend fun ask(
+        player: User,
+        roomId: UUID,
+        reply: suspend (JsonObject) -> Unit,
+    ) {
+        val me = player.userId
+        val room = rooms.find(roomId)
+        val refusal =
+            when {
+                room == null || room.status != RoomStatus.OPEN -> "ROOM_NOT_OPEN" to "That room is not taking players."
+                room.isFull() -> "ROOM_FULL" to "That room is full."
+                rooms.roomOf(me) != null -> "PLAYER_IN_A_ROOM" to "Leave your room first."
+                !hub.isOnline(room.hostUserId) -> "USER_NOT_ONLINE" to "The host is not signed in."
+                else -> null
             }
+        if (refusal != null) return reply(errorMessage(refusal.first, refusal.second))
 
-            is RoomResult.Ok -> {
-                end(invitation, InvitationEnd.ACCEPTED)
-                roomChanged(result.room)
+        when (invitations.offer(room!!.hostUserId, roomId, me, asked = true)) {
+            OfferResult.HostHasOne -> reply(errorMessage("SEAT_HELD", "That seat is already held for somebody."))
+            OfferResult.PlayerHasOne ->
+                reply(errorMessage("ONE_AT_A_TIME", "You already have an invitation or a request waiting."))
+            is OfferResult.Sent -> {
+                val host = entry(room.hostUserId) ?: return
+                val asker = PresenceEntry(me, player.username, player.displayName)
+                hub.sendTo(host.userId, joinAskedMessage(roomId, asker))
+                // Every tab the player has, not only the one that clicked.
+                hub.sendTo(me, joinAskSentMessage(roomId, room.displayName(), host))
+                changed()
             }
         }
     }
 
-    suspend fun decline(user: User) {
-        invitations.decline(user.userId)?.let { end(it, InvitationEnd.DECLINED) }
+    /** Spec 0016 R3 — the host says yes to the request: it becomes a seat, as an accepted invitation does. */
+    suspend fun admit(
+        host: User,
+        reply: suspend (JsonObject) -> Unit,
+        roomChanged: suspend (Room) -> Unit,
+    ) {
+        val held = invitations.outgoingFrom(host.userId)?.takeIf { it.asked }
+        val request =
+            held?.let { invitations.consume(it.toUserId, it.roomId, asked = true) }
+                ?: return reply(errorMessage("INVITATION_GONE", "That request is no longer open."))
+        seat(request, reply, roomChanged)
     }
 
-    suspend fun withdraw(host: User) {
-        invitations.withdraw(host.userId)?.let { end(it, InvitationEnd.WITHDRAWN) }
+    /**
+     * Somebody ends a held seat without taking it. [asHost] is who is
+     * acting, [asked] which kind they mean. The side that began it
+     * taking it back is WITHDRAWN; the other side saying no is DECLINED
+     * -- the host declining a request, the player an invitation.
+     */
+    suspend fun drop(
+        user: User,
+        asHost: Boolean,
+        asked: Boolean,
+    ) {
+        val ended =
+            if (asHost) invitations.withdraw(user.userId, asked) else invitations.decline(user.userId, asked)
+        ended?.let { end(it, if (asHost != asked) InvitationEnd.WITHDRAWN else InvitationEnd.DECLINED) }
+    }
+
+    /** A consumed invitation or request becomes the player's seat. */
+    private suspend fun seat(
+        held: Invitation,
+        reply: suspend (JsonObject) -> Unit,
+        roomChanged: suspend (Room) -> Unit,
+    ) {
+        when (val result = rooms.join(held.roomId, held.toUserId)) {
+            is RoomResult.Refused -> {
+                // Not anybody's answer: put it back, so neither side loses
+                // it to a refusal neither of them chose. If it cannot go
+                // back -- the host sent another meanwhile, or somebody
+                // else invited the player -- both sides are told it ended,
+                // rather than it vanishing (2026-10-24 review).
+                val back = invitations.offer(held.fromUserId, held.roomId, held.toUserId, held.asked)
+                if (back !is OfferResult.Sent) end(held, InvitationEnd.WITHDRAWN)
+                reply(errorMessage(result.error))
+            }
+
+            is RoomResult.Ok -> {
+                end(held, InvitationEnd.ACCEPTED)
+                roomChanged(result.room)
+            }
+        }
     }
 }

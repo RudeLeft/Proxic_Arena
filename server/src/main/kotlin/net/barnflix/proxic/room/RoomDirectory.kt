@@ -15,8 +15,9 @@ import java.time.Duration
 //
 // ONE shape for every viewer, which is only safe because of what it
 // leaves out: no deck, not even whether one is chosen (§7.68: "the
-// room list shows seats, never decks"), and nothing about who has
-// been invited (that is between the host and the person asked).
+// room list shows seats, never decks"). Who an open seat is held for
+// was left out too, until spec 0016 (owner R2, 2026-10-26) made it
+// public: "Held for Pat" tells everyone why the seat is not free.
 // Readiness IS here: it is on Phase 5's safe list (§5.141), and the
 // canvas's seat dots carry it so a stalled table explains itself.
 
@@ -58,6 +59,20 @@ data class DirectoryRoom(
      * in a match is not swept.
      */
     val clearsAt: String? = null,
+    /**
+     * Spec 0016 R2 — the open seat, held for somebody: invited by the
+     * host, or asking to join ([DirectoryHold.asked]). Null when no one.
+     */
+    val held: DirectoryHold? = null,
+)
+
+/** Who an open seat is held for — spec 0016 (owner R2: public, by name). */
+@Serializable
+data class DirectoryHold(
+    val userId: String,
+    val displayName: String,
+    /** True when they asked to join; false when the host invited them. */
+    val asked: Boolean,
 )
 
 /**

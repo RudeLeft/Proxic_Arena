@@ -25,6 +25,7 @@ function listed(overrides: Partial<DirectoryRoom> = {}): DirectoryRoom {
     desiredPlayerCount: 2,
     seats: [{ seatNumber: 1, userId: me.userId, displayName: "Me", ready: false, isHost: true }],
     clearsAt: "2026-10-22T12:00:00Z",
+    held: null,
     ...overrides,
   };
 }

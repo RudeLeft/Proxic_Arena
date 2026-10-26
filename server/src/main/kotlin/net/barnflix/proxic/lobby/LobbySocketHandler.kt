@@ -79,10 +79,21 @@ class LobbyService(
     private val gameSeats: (UUID) -> List<UUID>? = { null },
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
+
+    /** A display name for anybody with an account, online or not. */
+    private val nameOf: (UUID) -> String? = { userId ->
+        hub.entryFor(userId)?.displayName ?: accounts().firstOrNull { it.userId == userId }?.displayName
+    }
     private val desk =
-        InvitationDesk(hub, rooms, invitations) { userId ->
-            accounts().firstOrNull { it.userId == userId }?.displayName
-        }
+        InvitationDesk(hub, rooms, invitations, nameOf = nameOf, changed = { publishRooms() })
+
+    /**
+     * The room list as everybody sees it: the rooms, and (spec 0016 R2)
+     * who each open seat is held for.
+     */
+    private val listed: () -> kotlinx.serialization.json.JsonObject = {
+        roomsMessage(rooms.list.active().map { it.directoryEntry().copy(held = invitations.holdIn(it, nameOf)) })
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val goneSince = ConcurrentHashMap<UUID, Job>()
 
@@ -100,11 +111,12 @@ class LobbyService(
 
     /**
      * PHASE_07 §7.64 — the room list, to everybody, whenever any room
-     * changes. The same list for every viewer: it carries seats and
-     * never decks (RoomDirectory), so there is nothing to tailor.
+     * changes (and, spec 0016, whenever a seat is held or freed). The
+     * same list for every viewer: it carries seats and never decks
+     * (RoomDirectory), so there is nothing to tailor.
      */
     private suspend fun publishRooms() {
-        hub.broadcast(roomsMessage(rooms.list.active().map { it.directoryEntry() }))
+        hub.broadcast(listed())
     }
 
     // --- RoomAnnouncer: what the HTTP routes cannot say themselves ----
@@ -218,7 +230,7 @@ class LobbyService(
             // rooms are open (Amendment 11, §7.64)...
             hub.sendTo(user.userId, presenceMessage(hub.online()))
             hub.sendTo(user.userId, playersMessage(accounts()))
-            hub.sendTo(user.userId, roomsMessage(rooms.list.active().map { it.directoryEntry() }))
+            hub.sendTo(user.userId, listed())
             standings()?.let { hub.sendTo(user.userId, standingsMessage(it)) }
 
             // ...and everybody learns about it, but only if the user was
@@ -306,8 +318,13 @@ class LobbyService(
             when (type) {
                 "INVITE" -> invite(message)
                 "INVITE_ACCEPT" -> accept(message)
-                "INVITE_DECLINE" -> desk.decline(connection.user)
-                "INVITE_WITHDRAW" -> desk.withdraw(connection.user)
+                "INVITE_DECLINE" -> desk.drop(connection.user, asHost = false, asked = false)
+                "INVITE_WITHDRAW" -> desk.drop(connection.user, asHost = true, asked = false)
+                // Spec 0016 R3 — Ask to join, and the host's answer.
+                "JOIN_ASK" -> ask(message)
+                "JOIN_CANCEL" -> desk.drop(connection.user, asHost = false, asked = true)
+                "JOIN_ACCEPT" -> desk.admit(connection.user, ::reply, ::roomChanged)
+                "JOIN_DECLINE" -> desk.drop(connection.user, asHost = true, asked = true)
                 "CHAT" -> say(message)
                 "ACTIVITY" -> activity(message)
                 "REACT" -> react(message)
@@ -322,6 +339,11 @@ class LobbyService(
                     errorMessage("INVALID_REQUEST", "Which player?"),
                 )
             desk.invite(connection.user, targetId, ::reply)
+        }
+
+        private suspend fun ask(message: JsonObject) {
+            val roomId = message.uuid("roomId") ?: return reply(errorMessage("INVALID_REQUEST", "Which room?"))
+            desk.ask(connection.user, roomId, ::reply)
         }
 
         private suspend fun accept(message: JsonObject) {
@@ -423,7 +445,20 @@ class LobbyService(
     }
 
     private companion object {
-        val HANDLED = setOf("INVITE", "INVITE_ACCEPT", "INVITE_DECLINE", "INVITE_WITHDRAW", "CHAT", "REACT", "ACTIVITY")
+        val HANDLED =
+            setOf(
+                "INVITE",
+                "INVITE_ACCEPT",
+                "INVITE_DECLINE",
+                "INVITE_WITHDRAW",
+                "JOIN_ASK",
+                "JOIN_CANCEL",
+                "JOIN_ACCEPT",
+                "JOIN_DECLINE",
+                "CHAT",
+                "REACT",
+                "ACTIVITY",
+            )
 
         /** Spec 0009 — how long a page waits before it says it is idle: away began that long ago. */
         val IDLE: Duration = Duration.ofMinutes(5)

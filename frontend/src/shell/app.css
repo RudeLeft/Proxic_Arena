@@ -841,17 +841,6 @@
   flex-direction: column;
   padding: 22px 20px 0;
 }
-.pa-lobby-notices {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.pa-lobby-notices:not(:empty) {
-  margin-bottom: 18px;
-}
-.pa-lobby-notices .pa-notice {
-  align-items: center;
-}
 /* Hidden behind a game (LobbyPage): `hidden` loses to display: flex. */
 .pa-lobby-layout[hidden] {
   display: none;
@@ -1291,7 +1280,7 @@
   max-width: none;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 150px - var(--pa-hall-space, 0px));
 }
 .pa-lobby .pa-player-list {
   flex: none;
@@ -1467,161 +1456,121 @@
   border-color: var(--pa-field);
 }
 
-/* The Hall itself: the champion beside the runners-up, stacked when the
-   panel (not the window) is narrow. */
+/* The Hall -- spec 0016 (owner 2026-10-26): one strip across the top of
+   the lobby, four equal places, every trophy the champion's size, no
+   title, as tight as the trophies allow. Two by two when narrow. */
 .pa-hall {
   container-type: inline-size;
+  margin-bottom: 20px;
 }
-.pa-hall-body {
+.pa-hall-strip {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-@container (max-width: 600px) {
-  .pa-hall-body {
-    grid-template-columns: minmax(0, 1fr);
+@container (max-width: 860px) {
+  .pa-hall-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.pa-hall-reigning {
+/* A phone: one place a row, so the words beside a full-size trophy fit. */
+@container (max-width: 560px) {
+  .pa-hall-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pa-hall-place + .pa-hall-place {
+    border-left: 0;
+    border-top: 1px solid var(--pa-line-soft);
+  }
+}
+/* The lobby fills the window under the Hall: its height is taken off the columns. */
+.pa-lobby:has(.pa-hall) {
+  --pa-hall-space: 154px;
+}
+.pa-hall-place {
+  min-width: 0;
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  background: radial-gradient(120% 90% at 10% 40%, rgba(240, 196, 76, 0.12), transparent 60%);
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+}
+.pa-hall-place + .pa-hall-place {
+  border-left: 1px solid var(--pa-line-soft);
+}
+.pa-hall-first {
+  background: radial-gradient(120% 100% at 18% 50%, rgba(240, 196, 76, 0.13), transparent 65%);
+}
+.pa-hall-place:last-child {
+  background: linear-gradient(90deg, rgba(107, 122, 82, 0.1), transparent 70%);
+}
+.pa-hall-place-empty .pa-hall-cup {
+  opacity: 0.4;
+  filter: grayscale(0.7);
 }
 .pa-hall-cup {
+  display: block;
   width: 120px;
   height: 120px;
   object-fit: contain;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
 }
-.pa-hall-reigning-text {
+.pa-hall-text {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
-.pa-hall-title {
-  font-family: var(--pa-display);
-  font-size: 13px;
+.pa-hall-label {
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-hall-first .pa-hall-label {
   color: #f0c44c;
+}
+.pa-hall-place:last-child .pa-hall-label {
+  color: #b9c7a0;
 }
 .pa-hall-name-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 .pa-hall-name {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-family: var(--pa-display);
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.1;
   color: var(--pa-ink-bright);
 }
 .pa-hall-record {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--pa-sub);
   font-variant-numeric: tabular-nums;
-}
-.pa-hall-podium {
-  margin: 0;
-  padding: 8px 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.pa-hall-row {
-  display: grid;
-  grid-template-columns: 52px 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 18px;
-}
-.pa-hall-cup-small {
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-}
-.pa-hall-who {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.pa-hall-row-name {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-weight: 600;
-}
-.pa-hall-row-sub {
-  font-size: 12px;
-  color: var(--pa-muted);
-}
-.pa-hall-wins {
-  text-align: right;
-  font-family: var(--pa-display);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--pa-ink-bright);
-  font-variant-numeric: tabular-nums;
-}
-.pa-hall-wins small {
-  display: block;
-  font-family: var(--pa-text);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--pa-muted);
-}
-.pa-hall-last {
-  grid-column: 1 / -1;
-  padding-block: 10px 12px;
-  border-top: 1px dashed var(--pa-line-strong);
-  background: linear-gradient(90deg, rgba(107, 122, 82, 0.12), transparent 70%);
-}
-.pa-hall-last-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #b9c7a0;
 }
 .pa-hall-empty {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 18px;
+  padding: 0 18px 0 6px;
   color: var(--pa-sub);
 }
 .pa-hall-empty p {
   margin: 0;
 }
-.pa-hall-empty .pa-hall-cup-small {
+.pa-hall-empty .pa-hall-cup {
   opacity: 0.45;
   filter: grayscale(0.6);
-}
-@media (max-width: 720px) {
-  .pa-hall-reigning {
-    grid-template-columns: 84px minmax(0, 1fr);
-    padding: 14px 16px;
-  }
-  .pa-hall-cup {
-    width: 84px;
-    height: 84px;
-  }
-  .pa-hall-name {
-    font-size: 24px;
-  }
 }
 
 /* The main column */
@@ -1904,34 +1853,131 @@
   margin: 14px 24px 20px;
 }
 
-/* Other rooms */
+/* Other rooms -- spec 0016 (owner R1-R3): a card anybody can read. */
 .pa-lobby .pa-room-list {
   padding: 0 12px 12px;
   border-top: 0;
 }
-.pa-lobby .pa-room:not(.pa-room-mine) {
+.pa-lobby .pa-room-card {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 16px;
+  flex-direction: column;
+  gap: 10px;
   padding: 12px 14px;
   border: 1px solid var(--pa-line);
   border-radius: 0;
   background: var(--pa-field);
 }
-.pa-lobby .pa-room:not(.pa-room-mine) .pa-room-name {
-  flex: 0 1 auto;
+.pa-lobby .pa-room-card .pa-room-name {
+  flex: none;
   font-size: 15px;
 }
-.pa-room-who {
+.pa-room-invite-line {
+  white-space: normal;
+  color: #f0dcb6;
+}
+.pa-room-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pa-room-seat {
   flex: 1 1 160px;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 5px 10px 5px 6px;
+  box-sizing: border-box;
+  border: 1px solid var(--pa-line-strong);
+  background: var(--pa-panel);
   font-size: 13px;
+}
+.pa-room-seat-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.pa-room-seat-name small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pa-warn);
+}
+.pa-room-seat-ready {
+  color: var(--pa-ok);
+}
+.pa-room-seat-held {
+  border-style: dashed;
+  border-color: #6b6450;
+}
+.pa-room-seat-held .pa-avatar {
+  opacity: 0.7;
+}
+.pa-room-seat-open {
+  border-style: dashed;
+  color: var(--pa-faint);
+}
+.pa-room-seat-open .pa-room-seat-name {
+  font-weight: 400;
+}
+.pa-room-seat-empty {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px dashed #4c5563;
+  border-radius: 50%;
+}
+.pa-room-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.pa-room-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pa-room-line-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pa-room-line-open {
+  color: var(--pa-ok);
+}
+.pa-room-line-held {
+  color: var(--pa-warn);
+}
+.pa-room-line-busy {
   color: var(--pa-sub);
+}
+.pa-room-line-playing {
+  color: var(--pa-brass);
 }
 .pa-lobby .pa-room-action {
   width: auto;
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pa-lobby .pa-room-action .pa-button {
+  min-height: 36px;
+  width: auto;
+  padding: 0 16px;
+}
+.pa-button-ask {
+  border-color: var(--pa-ok);
+  color: var(--pa-ink-bright);
 }
 .pa-lobby .pa-room-invited {
   border-color: var(--pa-brass);
@@ -1951,7 +1997,7 @@
   display: flex;
   flex-direction: column;
   background: var(--pa-panel);
-  height: calc(100vh - 150px);
+  height: calc(100vh - 150px - var(--pa-hall-space, 0px));
   min-height: 360px;
 }
 .pa-chat-unread {
@@ -3099,4 +3145,100 @@
   .pa-admin-email-pair {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Your room: a request to join, answered on the open seat (spec 0016 R3). */
+.pa-seat-answer {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.pa-seat-answer .pa-button {
+  width: auto;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+/* --- notices in the top bar (spec 0016, 9) --------------------------------
+ * Between the page links and the Connected pill, one at a time; a notice
+ * that comes or goes moves nothing on the page below. */
+.pa-top-notices {
+  flex: 1 1 24px;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.pa-top-notice {
+  min-width: 0;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 4px;
+  background: #141a22;
+  font-size: 12px;
+}
+.pa-top-notice .pa-notice-mark {
+  margin-top: 0;
+}
+.pa-top-notice-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--pa-label);
+}
+.pa-top-notice-text strong {
+  font-weight: 600;
+  color: var(--pa-ink-bright);
+}
+.pa-top-notice-sub {
+  color: #9aa1ac;
+}
+.pa-top-notice .pa-small-button {
+  min-height: 30px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.pa-small-button-brass {
+  border-color: var(--pa-brass);
+  background: #2b2518;
+  color: #f0dcb6;
+}
+.pa-top-notice-more {
+  font-size: 11px;
+  color: var(--pa-muted);
+}
+.pa-top-notice-bad {
+  border-color: #6b5450;
+  border-left: 3px solid var(--pa-bad);
+}
+.pa-top-notice-bad .pa-notice-mark {
+  border: 2px solid var(--pa-bad);
+}
+.pa-top-notice-warn {
+  border-color: #6b6450;
+  border-left: 3px solid var(--pa-warn);
+}
+.pa-top-notice-warn .pa-notice-mark {
+  border: 2px solid var(--pa-warn);
+}
+.pa-top-notice-info {
+  border-color: #6b5b36;
+  border-left: 3px solid var(--pa-brass);
+}
+.pa-top-notice-info .pa-notice-mark {
+  border: 2px solid var(--pa-brass);
+}
+
+/* A request answered on the seat: the buttons go under the words when narrow. */
+.pa-lobby .pa-seat:has(.pa-seat-answer) {
+  flex-wrap: wrap;
+}
+.pa-lobby .pa-seat:has(.pa-seat-answer) .pa-seat-text {
+  flex: 1 1 120px;
 }

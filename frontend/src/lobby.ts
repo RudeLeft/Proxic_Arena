@@ -104,6 +104,29 @@ export interface DirectoryRoom {
   seats: DirectorySeat[];
   /** When it clears if nobody does anything; null during a match. */
   clearsAt: string | null;
+  /** Spec 0016 R2 — who the open seat is held for; null when nobody. */
+  held: RoomHold | null;
+}
+
+/** Spec 0016 R2 — an open seat held for somebody: invited, or asking to join. */
+export interface RoomHold {
+  userId: string;
+  displayName: string;
+  /** They asked to join (the host answers); false when the host invited them. */
+  asked: boolean;
+}
+
+/** Spec 0016 R3 — your request to join somebody's room, waiting on the host. */
+export interface JoinAsk {
+  roomId: string;
+  roomName: string;
+  host: { userId: string; displayName: string };
+}
+
+/** Spec 0016 R3 — somebody asks to join your room; you answer. */
+export interface JoinAsked {
+  roomId: string;
+  from: { userId: string; displayName: string };
 }
 
 /** The invitation this host has out — PHASE_07 Amendment 11. */
@@ -237,6 +260,16 @@ export interface LobbyState {
   declinedBy: string | null;
   /** An invitation to you that ended without your say. */
   invitationGone: InvitationGone | null;
+  /** Spec 0016 R3 — your request to join a room, until the host answers. */
+  asking: JoinAsk | null;
+  /** Spec 0016 R3 — a request to join your room, until you answer. */
+  askedBy: JoinAsked | null;
+  /**
+   * Spec 0016 — one line of news to acknowledge: "Pat declined your
+   * invitation", "RudeLeft declined your request to join". A pop-up in
+   * the Lobby, the top bar on other pages.
+   */
+  news: string | null;
   setupProblem: SetupProblem | null;
   /**
    * Owner report 2026-10-21: a ROOM message sent just before you left
@@ -263,6 +296,9 @@ export const EMPTY_LOBBY: LobbyState = {
   outgoing: null,
   declinedBy: null,
   invitationGone: null,
+  asking: null,
+  askedBy: null,
+  news: null,
   setupProblem: null,
   left: null,
   notice: null,
@@ -364,6 +400,8 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         ...state,
         room,
         invitation: null,
+        // Spec 0016 — seated: whatever you asked for is settled.
+        asking: null,
         notice: state.notice?.aboutMatch ? state.notice : null,
       };
     }
@@ -410,16 +448,42 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       return { ...state, outgoing: { roomId, to }, declinedBy: null };
     }
 
+    case "JOIN_ASKED": {
+      const roomId = asString(message["roomId"]);
+      const from = asNamed(message["from"]);
+      if (!roomId || !from) return state;
+      return { ...state, askedBy: { roomId, from } };
+    }
+
+    case "JOIN_ASK_SENT": {
+      const roomId = asString(message["roomId"]);
+      const host = asNamed(message["host"]);
+      if (!roomId || !host) return state;
+      const roomName = asString(message["roomName"]) ?? `${host.displayName}'s room`;
+      return { ...state, asking: { roomId, roomName, host } };
+    }
+
     case "INVITATION_ENDED": {
       const reason = asString(message["reason"]);
       const direction = asString(message["direction"]);
       const other = message["other"] as Record<string, unknown> | undefined;
       if (!reason || !direction) return state;
+      const otherName = asString(other?.["displayName"]);
+      // Spec 0016 R3 — a request to join, from either side.
+      if (message["asked"] === true) {
+        if (direction === "FROM_YOU") {
+          return { ...state, asking: null, news: requestEnded(reason, otherName) ?? state.news };
+        }
+        return { ...state, askedBy: null };
+      }
       if (direction === "FROM_YOU") {
         return {
           ...state,
           outgoing: null,
           declinedBy: reason === "DECLINED" ? asString(other?.["userId"]) : state.declinedBy,
+          // Spec 0016 (16) — the host hears a decline, not just a note on the row.
+          news:
+            reason === "DECLINED" ? `${otherName ?? "They"} declined your invitation` : state.news,
         };
       }
       // TO_YOU. Your own accept or decline needs no telling.
@@ -532,6 +596,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       const errorCode = asString(message["errorCode"]);
       const detail = asString(message["detail"]);
       if (!errorCode || !detail) return state;
+      // Spec 0016 — answering a request that has just ended.
+      if (errorCode === "INVITATION_GONE" && state.askedBy && !state.invitation) {
+        return { ...state, askedBy: null, news: detail };
+      }
       // Accepting a moment too late: said the way a withdrawal is,
       // because to the player it is one (canvas note on WITHDRAWN).
       if (errorCode === "INVITATION_GONE") {
@@ -550,6 +618,33 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
     default:
       return state;
   }
+}
+
+/** Spec 0016 R3 — why your request to join ended, when that needs saying; null when it does not. */
+function requestEnded(reason: string, host: string | null): string | null {
+  const who = host ?? "The host";
+  switch (reason) {
+    case "DECLINED":
+      return `${who} declined your request to join`;
+    case "ROOM_CLOSED":
+      return `${who}'s room closed, so your request ended`;
+    case "SEAT_FILLED":
+      return "The seat was taken, so your request ended";
+    case "OFFLINE":
+      return `${who} left, so your request ended`;
+    default:
+      // Accepted (you are seated) or taken back by you: nothing to say.
+      return null;
+  }
+}
+
+/** `{ userId, displayName }`, or null when either is missing. */
+function asNamed(value: unknown): { userId: string; displayName: string } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as Record<string, unknown>;
+  const userId = asString(v["userId"]);
+  const displayName = asString(v["displayName"]);
+  return userId && displayName ? { userId, displayName } : null;
 }
 
 /** §6.99 — what went wrong, in words, without Forge's internals. */
@@ -745,9 +840,16 @@ function asDirectory(value: unknown): DirectoryRoom[] {
       desiredPlayerCount: typeof v["desiredPlayerCount"] === "number" ? v["desiredPlayerCount"] : 2,
       seats: seats.sort((a, b) => a.seatNumber - b.seatNumber),
       clearsAt: asString(v["clearsAt"]),
+      held: asHold(v["held"]),
     });
   }
   return rooms;
+}
+
+function asHold(value: unknown): RoomHold | null {
+  const named = asNamed(value);
+  if (!named) return null;
+  return { ...named, asked: (value as Record<string, unknown>)["asked"] === true };
 }
 
 function asRoom(value: unknown): RoomView | null {

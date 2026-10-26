@@ -1963,7 +1963,7 @@ function GameChat({
           className="gs-chat-panel"
           onSay={(text) => send({ type: "CHAT", text, scope: "game" })}
           onReact={(lineId, emoji, on) => send({ type: "REACT", lineId, emoji, on, scope: "game" })}
-          onClose={() => onToggle(false)}
+          // Spec 0016 (6) — no Close button: the tab on its edge opens and closes it.
         />
       )}
     </aside>

@@ -72,8 +72,9 @@ test("conceding is a real loss: Forge names the other player the winner, and bot
     const box = await chat.boundingBox();
     expect(box?.x ?? 99, "the chat should open on the left").toBeLessThan(10);
     await expect(menu.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
-    // Close sits beside Send (spec 0013).
-    await chat.getByRole("button", { name: "Close", exact: true }).click();
+    // Spec 0016 (6) — no Close button: the tab closes it.
+    await expect(chat.getByRole("button", { name: "Close", exact: true })).toHaveCount(0);
+    await chat.getByRole("button", { name: "Close the game chat" }).click();
     await expect(chat.getByRole("button", { name: "Open the game chat" })).toBeVisible();
 
     // The gear holds Stops, Concede and Abandon match.

@@ -3,6 +3,31 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**The lobby, polished; a clearer room list; Ask to join** (owner,
+2026-10-26, spec 0016)
+- The Hall of Champions is a strip across the top of the lobby: four
+  equal places with full-size trophies, each saying "Won 6 of 9 games",
+  with no title in the way.
+- Every room is a card anybody can read: who is in each seat (✓ when
+  ready), an open seat, or "Held for Pat", and where it stands — "1 seat
+  open", "Waiting on Pat's answer", "Choosing decks", "In a game". Rooms
+  you are invited to come first, then rooms with a free seat.
+- **Ask to join**: a room with a free seat can be asked for. The host
+  gets "Pat would like to join your room" with Accept and Decline.
+- An invitation reads "RudeLeft has invited you to join Friday Night",
+  with Accept and Decline on the card; whoever is turned down — an
+  invitation or a request — gets a pop-up saying so.
+- Notices now sit in the top bar, so nothing on the page jumps when one
+  goes. On any page but the Lobby, an invitation or a request can be
+  answered right there.
+- In your room: no extra lines under the deck, Ready and Start; the
+  Start button says what it is waiting for ("Waiting for Pat to be
+  ready"); both players see "Checking both decks…" once the host starts;
+  bigger pictures on the seats; no "you, host" or "Your room" labels.
+- The game chat has no Close button: its tab opens and closes it.
+
 ## 1.6.0 — 2026-10-26
 
 Card close-ups appear whole: never drawn from the top down.
