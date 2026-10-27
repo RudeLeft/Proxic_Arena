@@ -35,7 +35,7 @@ import { CardZoom } from "./CardZoom";
 import { DeckIcon, iconOf, suggestedIcon } from "./deckIcons";
 import { DeckIconPicker } from "./DeckIconPicker";
 import { Avatar } from "./avatars";
-import { avatarOf } from "./lobbyView";
+import { ICON, avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 type ImportView =
@@ -584,7 +584,7 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
         {list.shares.map((recipient) => (
           <span key={recipient.userId} className="pa-chip">
             {/* Their picture, as the lobby shows it (owner 2026-10-24). */}
-            <Avatar avatar={avatarOf(lobby, recipient.userId)} size={24} />
+            <Avatar avatar={avatarOf(lobby, recipient.userId)} size={ICON} />
             {recipient.displayName}
             <button
               type="button"

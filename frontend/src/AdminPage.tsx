@@ -43,7 +43,7 @@ import {
 } from "./admin";
 import { EmailPanel } from "./AdminEmail";
 import { Invitations } from "./AdminInvites";
-import { presenceOf, roomStatus, statusOf } from "./lobbyView";
+import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
@@ -183,11 +183,8 @@ export default function AdminPage() {
     <main className="pa-main pa-admin">
       <div className="pa-admin-wrap">
         {/* No title on screen (owner 2026-10-25): the menu already says
-            Admin. The health pill keeps its place on the right. */}
+            Admin. The health pill is on the Server tab (spec 0020). */}
         <h1 className="pa-visually-hidden">Admin</h1>
-        <div className="pa-admin-head">
-          <HealthPill server={server} />
-        </div>
 
         {message && (
           <div
@@ -228,6 +225,10 @@ export default function AdminPage() {
             >
               {t.label}
               {counts[t.id] && <span className="pa-admin-tab-count">{counts[t.id]}</span>}
+              {/* A problem shows from every tab (spec 0020). */}
+              {t.id === "server" && server && !serverHealthy(server) && (
+                <span className="pa-admin-tab-alert" role="img" aria-label="Server problem" />
+              )}
             </button>
           ))}
         </div>
@@ -252,21 +253,23 @@ type Run = (
   done: (detail: string) => string,
 ) => Promise<boolean>;
 
+function serverHealthy(server: ServerState): boolean {
+  return server.database.startsWith("PostgreSQL") && server.forgeWorker === "ok";
+}
+
 /** ● Healthy · v1.2.0 · 512116e — the long build id only in the tooltip. */
 function HealthPill({ server }: { server: ServerState | null }) {
   if (!server) return <span className="pa-admin-health">Reading the server…</span>;
   const version = versionParts(server.version);
-  const database = server.database.startsWith("PostgreSQL");
-  const engine = server.forgeWorker === "ok";
-  const words =
-    database && engine
-      ? "Healthy"
-      : !database
-        ? "Database problem"
-        : `Rules engine: ${workerText(server)}`;
+  const healthy = serverHealthy(server);
+  const words = healthy
+    ? "Healthy"
+    : !server.database.startsWith("PostgreSQL")
+      ? "Database problem"
+      : `Rules engine: ${workerText(server)}`;
   return (
     <span
-      className={`pa-admin-health ${database && engine ? "pa-admin-health-ok" : "pa-admin-health-bad"}`}
+      className={`pa-admin-health ${healthy ? "pa-admin-health-ok" : "pa-admin-health-bad"}`}
       title={`Version ${version.full}`}
     >
       <span aria-hidden="true" className="pa-admin-health-dot" />
@@ -424,7 +427,7 @@ function AccountRow({
     <li className="pa-admin-account">
       <div className="pa-admin-account-line">
         <span className="pa-admin-account-who">
-          <Avatar avatar={avatar} size={34} {...presenceOf(lobby, account.userId, name, now)} />
+          <Avatar avatar={avatar} size={ICON} {...presenceOf(lobby, account.userId, name, now)} />
           <span className="pa-admin-account-text">
             <span className={`pa-admin-account-name${on ? "" : " pa-player-offline"}`}>
               {name}
@@ -612,6 +615,7 @@ function ServerPanel({
     <section className="pa-admin-panel" aria-labelledby="server-heading">
       <div className="pa-admin-panel-head">
         <h2 id="server-heading">Server</h2>
+        <HealthPill server={server} />
       </div>
       {!server && <p className="pa-group-empty">Reading the server's state…</p>}
       <dl className="pa-admin-server">

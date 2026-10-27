@@ -44,6 +44,7 @@ import {
   avatarOf,
   closesSoon,
   ICON,
+  SEAT_AVATAR,
   goneTitle,
   holdsBelt,
   presenceOf,
@@ -73,8 +74,6 @@ function useMinute(): number {
 /** Straight after Invite the pointer is still on the button; Withdraw waits this long. */
 const SETTLE_MS = 2200;
 
-/** The picture size on the seats: the Reigning Champion's (spec 0016, 10). */
-const SEAT_AVATAR = 56;
 export default function LobbyPage() {
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;

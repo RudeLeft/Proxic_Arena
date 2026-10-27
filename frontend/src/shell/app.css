@@ -1071,8 +1071,8 @@
 }
 .pa-room-state {
   flex: none;
-  /* Room for the longest, "Waiting for a player" (owner 2026-10-25). */
-  width: 150px;
+  /* Room for the longest, "Waiting for a player" (spec 0020). */
+  width: 210px;
   box-sizing: border-box;
   padding: 4px 0;
   border: 1px solid #4c5563;
@@ -2185,17 +2185,15 @@
   flex-direction: column;
   gap: 20px;
 }
-.pa-admin-head {
-  display: flex;
-  justify-content: flex-end;
-}
+/* A pill beside the Server tab's title (spec 0020). */
 .pa-admin-health {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 4px 12px;
   border: 1px solid var(--pa-line-strong);
-  font-size: var(--pa-size-base);
+  border-radius: 999px;
+  font-size: var(--pa-size-sm);
   color: var(--pa-sub);
 }
 .pa-admin-health-ok {
@@ -2311,6 +2309,15 @@
   color: var(--pa-muted);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+}
+.pa-admin-tab-alert {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #e0605a;
+  vertical-align: middle;
 }
 
 /* A tab's panel. */
@@ -2561,7 +2568,7 @@
   border-bottom: 1px solid var(--pa-line-soft);
 }
 .pa-admin-room {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 160px 70px 150px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 220px 70px 150px;
 }
 .pa-admin-record {
   grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) 240px;
@@ -3635,6 +3642,9 @@
 }
 .pa-hp-what small {
   display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: var(--pa-size-sm);
   color: var(--pa-muted);
 }

@@ -25,6 +25,16 @@ words, newest first. Each release on GitHub carries the same notes.
 - Admin: every list has named columns, and a finished game says who won
   in words ("RudeLeft won on turn 19 · Pat conceded").
 
+**Picture sizes and Admin tidy-ups** (owner, 2026-10-26, spec 0020)
+- Pictures everywhere use the lobby's two sizes: the Hall of Champions'
+  places and Belt holder are as big as a room's seats, and the Hall's
+  side lists, Admin's accounts and Deck Depot's "Shared with" match the
+  Players list.
+- Admin → Rooms: "Waiting for a player" now fits its box, like every
+  other status.
+- Admin: the server's health is a pill beside the Server tab's title,
+  and a red dot on that tab warns of a problem from any tab.
+
 ## 1.8.0 — 2026-10-27
 
 The Hall of Champions gets its own page, with monthly seasons, a fair

@@ -32,7 +32,7 @@ import {
   type HallRow,
 } from "./hall";
 import type { LobbyState } from "./lobby";
-import { ICON, avatarOf, type Rank } from "./lobbyView";
+import { ICON, SEAT_AVATAR, avatarOf, type Rank } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 const PLACES: { place: number; label: string; trophy: string; rank: Rank }[] = [
@@ -109,7 +109,7 @@ export default function HallPage() {
               />
               {hall.belt.holder ? (
                 <span className="pa-hp-holder">
-                  <Avatar avatar={avatarOf(lobby, hall.belt.holder)} size={44} />
+                  <Avatar avatar={avatarOf(lobby, hall.belt.holder)} size={SEAT_AVATAR} />
                   <span>
                     <b>{name(hall.belt.holder)}</b>
                     <small>
@@ -199,7 +199,11 @@ function Places({ places, lobby }: { places: HallPlace[]; lobby: LobbyState }) {
               {holder ? (
                 <>
                   <span className="pa-hp-who">
-                    <Avatar avatar={avatarOf(lobby, holder.userId)} size={32} rank={slot.rank} />
+                    <Avatar
+                      avatar={avatarOf(lobby, holder.userId)}
+                      size={SEAT_AVATAR}
+                      rank={slot.rank}
+                    />
                     <b>{nameIn(lobby, holder.userId)}</b>
                   </span>
                   <span className="pa-hp-stat">
@@ -368,7 +372,7 @@ function Board({
           <span className="pa-hp-foot-label">Playing their way in · 5 games to be ranked</span>
           {qualifying.map((q) => (
             <span key={q.userId} className="pa-hp-q">
-              <Avatar avatar={avatarOf(lobby, q.userId)} size={26} />
+              <Avatar avatar={avatarOf(lobby, q.userId)} size={ICON} />
               {nameIn(lobby, q.userId)}
               <span className="pa-hp-bar" aria-hidden="true">
                 <i style={{ width: `${(q.games / 5) * 100}%` }} />
@@ -417,10 +421,17 @@ function Side({
             {hall.records.length === 0 && <li className="pa-group-empty">No records yet.</li>}
             {hall.records.map((record) => (
               <li key={record.key}>
-                <Avatar avatar={avatarOf(lobby, record.userId)} size={34} />
+                <Avatar avatar={avatarOf(lobby, record.userId)} size={ICON} />
                 <span className="pa-hp-what">
                   {record.label}
-                  <small>
+                  {/* One line; a long deck name ends in "…", whole in the tooltip. */}
+                  <small
+                    title={
+                      record.key === "fastest-win" && record.detail
+                        ? `${name(record.userId)}, ${record.detail}`
+                        : undefined
+                    }
+                  >
                     {name(record.userId)}
                     {record.key === "fastest-win" && record.detail && `, ${record.detail}`}
                     {record.key === "longest-game" && ` beat ${name(record.detail)}`}
@@ -441,7 +452,7 @@ function Side({
             {hall.rivalries.map((r) => (
               <li key={`${r.a}-${r.b}`} className="pa-hp-h2h">
                 <span className="pa-hp-h2h-side">
-                  <Avatar avatar={avatarOf(lobby, r.a)} size={28} />
+                  <Avatar avatar={avatarOf(lobby, r.a)} size={ICON} />
                   {name(r.a)}
                 </span>
                 <span className="pa-hp-val">
@@ -449,7 +460,7 @@ function Side({
                 </span>
                 <span className="pa-hp-h2h-side pa-hp-h2h-b">
                   {name(r.b)}
-                  <Avatar avatar={avatarOf(lobby, r.b)} size={28} />
+                  <Avatar avatar={avatarOf(lobby, r.b)} size={ICON} />
                 </span>
               </li>
             ))}
@@ -500,7 +511,7 @@ function Side({
           <span className="pa-hp-rival-label">Your rival</span>
           <span className="pa-hp-h2h">
             <span className="pa-hp-h2h-side">
-              <Avatar avatar={avatarOf(lobby, me)} size={26} />
+              <Avatar avatar={avatarOf(lobby, me)} size={ICON} />
               You
             </span>
             <span className="pa-hp-val">
@@ -508,7 +519,7 @@ function Side({
             </span>
             <span className="pa-hp-h2h-side pa-hp-h2h-b">
               {name(hall.rival.b)}
-              <Avatar avatar={avatarOf(lobby, hall.rival.b)} size={26} />
+              <Avatar avatar={avatarOf(lobby, hall.rival.b)} size={ICON} />
             </span>
           </span>
         </div>

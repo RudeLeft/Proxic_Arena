@@ -169,6 +169,21 @@ test("the last administrator is not offered Disable or Make player", async ({ br
   }
 });
 
+test("the server's health is a pill beside the Server tab's title", async ({ browser }) => {
+  // Spec 0020 F-0020-C: not above every tab any more; a problem would put a
+  // red dot on the Server tab instead.
+  const admin = await asAdmin(browser);
+  try {
+    await expect(admin.getByText(/^Healthy ·/)).toHaveCount(0);
+    await expect(admin.getByRole("img", { name: "Server problem" })).toHaveCount(0);
+    await openTab(admin, "Server");
+    const head = admin.getByRole("region", { name: "Server" }).locator(".pa-admin-panel-head");
+    await expect(head.getByText(/^Healthy · v/)).toBeVisible();
+  } finally {
+    await admin.context().close();
+  }
+});
+
 test("sign-in activity shows a failed attempt on a name that does not exist", async ({
   browser,
 }) => {
@@ -208,6 +223,31 @@ test("force close asks first, and the player in the room is told", async ({ brow
     await admin.reload();
     await openTab(admin, "Rooms");
     const rooms = admin.getByRole("region", { name: "Rooms" });
+
+    // Spec 0020 F-0020-B: every status fits its box, the longest included.
+    const state = rooms
+      .getByRole("listitem")
+      .filter({ hasText: "Admin Closes This" })
+      .locator(".pa-room-state");
+    await expect(state).toHaveText("Waiting for a player");
+    const spills = await state.evaluate((box) => {
+      const statuses = [
+        "Waiting for a player",
+        "Choosing decks",
+        "Ready to start",
+        "Starting…",
+        "In a game",
+      ];
+      const original = box.textContent;
+      const out = statuses.filter((text) => {
+        box.textContent = text;
+        return box.scrollWidth > box.clientWidth;
+      });
+      box.textContent = original;
+      return out;
+    });
+    expect(spills).toEqual([]);
+
     await rooms.getByRole("button", { name: "Force close Admin Closes This" }).click();
     await expect(rooms.getByRole("alert")).toContainText("Close Admin Closes This?");
     await rooms.getByRole("button", { name: "Keep" }).click();

@@ -606,11 +606,14 @@ test("the Hall of Champions has its own page, fits one screen, and the season le
     await expect(chat.getByRole("img", { name: "Reigning Proxic Champion" }).first()).toBeVisible();
     return;
   }
-  const offline = page.getByRole("region", { name: "Players" }).getByText(/^Offline · \d+/);
-  if (await offline.isVisible()) await offline.click();
-  await expect(
-    page
-      .getByRole("region", { name: "Players" })
-      .getByRole("img", { name: "Reigning Proxic Champion" }),
-  ).toBeVisible();
+  // Keep looking: a leader who signed out a moment ago (another test's
+  // player) moves into the folded Offline list after the first look.
+  const players = page.getByRole("region", { name: "Players" });
+  const folded = players.locator('button.pa-offline-toggle[aria-expanded="false"]');
+  await expect(async () => {
+    if (await folded.isVisible()) await folded.click();
+    await expect(players.getByRole("img", { name: "Reigning Proxic Champion" })).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 20_000 });
 });

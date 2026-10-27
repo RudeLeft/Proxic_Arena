@@ -264,6 +264,9 @@ export function presenceOf(
 /** Spec 0019 F2 — the one size for pictures in lists and chat, and deck icons in rooms. */
 export const ICON = 40;
 
+/** Spec 0020 — the one size for featured pictures: lobby seats, the Hall's places and belt. */
+export const SEAT_AVATAR = 56;
+
 /** Spec 0011 — a place in the Hall of Champions: 1st, 2nd, 3rd or dead last. */
 export type Rank = 1 | 2 | 3 | "last";
 
