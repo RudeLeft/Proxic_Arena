@@ -1,6 +1,6 @@
 # 0018 — The Hall of Champions page: seasons, a fair rating, the Belt
 
-**Status:** Approved 2026-10-27 — built; look approved ("finish it and push when green")
+**Status:** Approved 2026-10-27 — built in 1.8.0
 **Owner decisions** (2026-10-26/27, draft: https://claude.ai/artifact/D7vFqDmS9gg2foJ16Vb6WY):
 H1 the trophies move to their own page, "Hall of Champions", in the
 top navigation; the lobby keeps nothing of them. H2 ranked by a

@@ -1,6 +1,6 @@
 # 0017 — One type scale: bigger, unified text
 
-**Status:** Approved 2026-10-26 — built; look approved from the comparison page (https://claude.ai/artifact/Ub9BLXTD43WJcbiEE8hxTX)
+**Status:** Approved 2026-10-26 — built in 1.8.0
 **Owner decisions:** T1 everyday reading text 16px, nothing under 12px;
 T2 sizes follow the browser's own text-size setting; T3 the small
 spaced-capital labels stay, made bigger; T4 the game screen is

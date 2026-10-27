@@ -3,7 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.8.0 — 2026-10-27
+
+The Hall of Champions gets its own page, with monthly seasons, a fair
+rating and the Champion's Belt; and every page's text is bigger and
+even.
+
+**For whoever runs the server**
+- Seasons change at midnight by the server's clock. Set `TZ` (for
+  example `TZ: America/Denver`) in the `arena-server` environment so
+  that's your midnight; it defaults to UTC.
+- No database changes.
 
 **The Hall of Champions page** (owner, 2026-10-27, spec 0018)
 - The trophies have their own page, Hall of Champions, in the top bar;
