@@ -86,10 +86,9 @@ class MatchArt(
      * anyway (§2.x), so a missing reference is not an error and the
      * page falls back to its own presentation.
      *
-     * Tokens get nothing, deliberately: a gameplay-created token is
-     * not in anybody's deck package (§6.128), and inventing an
-     * Internet lookup for one is the dependency that section exists
-     * to forbid.
+     * A token wears a token picture a deck in this match brought (spec
+     * 0022, amending §6.128); none otherwise. Still no lookup outside the
+     * match: that is the dependency §6.128 exists to forbid.
      */
     fun annotate(
         state: JsonObject,
@@ -139,10 +138,9 @@ class MatchArt(
             return entry
         }
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
-        // §6.128 — a token is in nobody's package. Said here, not left
-        // to no name matching: a package may carry pictures by face
-        // name (§7.59), and one could share a token's name.
-        if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return entry
+        // Spec 0022, amending §6.128 -- a token wears only a TOKEN picture,
+        // never a card's or a face's of the same name (§7.59).
+        if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return tokenArt(entry, name, allowed)
         // The art belongs to the deck of whoever OWNS the card,
         // not the viewer: that is the whole reason §6.122 exists
         // as a match-scoped route rather than a Deck Depot one.
@@ -158,6 +156,38 @@ class MatchArt(
                 printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
             } ?: return entry
 
+        allowed.add(asset)
+        return buildJsonObject {
+            entry.forEach { (key, value) -> put(key, value) }
+            put("art", JsonPrimitive(asset))
+        }
+    }
+
+    /**
+     * Spec 0022 (owner S4) — a token's picture, by name only: from the deck
+     * of the seat that controls it, then from the other seats', so Sam's
+     * Ape from Pat's Pongify wears the Ape picture Pat brought.
+     *
+     * Forge names most tokens "Ape Token" and some by their own name
+     * ("Avacyn"); a deck lists them as cards are printed, "Ape". So the name
+     * matches as it is or without " Token". A token is on the table for
+     * everyone, so its picture reveals nothing that is hidden.
+     */
+    private fun tokenArt(
+        entry: JsonObject,
+        name: String,
+        allowed: MutableSet<String>,
+    ): JsonObject {
+        val controller = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
+        val keys =
+            listOf(name, name.removeSuffix(TOKEN_SUFFIX))
+                .map { TOKEN + it.substringBefore(" // ").trim().lowercase() }
+                .distinct()
+        val seats = listOf(controller) + bySeat.keys.filter { it != controller }.sorted()
+        val asset =
+            seats.firstNotNullOfOrNull { seat ->
+                bySeat[seat]?.let { art -> keys.firstNotNullOfOrNull { art[it] } }
+            } ?: return entry
         allowed.add(asset)
         return buildJsonObject {
             entry.forEach { (key, value) -> put(key, value) }
@@ -206,6 +236,12 @@ class MatchArt(
 
         /** A face's own picture (a back face), by its lowercase name (§7.59). */
         const val FACE = "face:"
+
+        /** A token picture, by the token's lowercase name (spec 0022). */
+        const val TOKEN = "token:"
+
+        /** How Forge ends most token names: "Ape Token". */
+        private const val TOKEN_SUFFIX = " Token"
 
         private fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
     }

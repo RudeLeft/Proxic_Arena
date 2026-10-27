@@ -7,8 +7,9 @@
 //
 // Credentials come from the environment, so no test file carries one.
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIResponse, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const testUser = process.env.PROXIC_E2E_USER ?? "RudeLeft";
@@ -80,4 +81,32 @@ export async function shareOpenDeckWith(page: Page, username: string): Promise<v
     );
   await select.selectOption(value);
   await page.getByRole("button", { name: "Share", exact: true }).click();
+}
+
+/**
+ * Spec 0022 — the Deck Depot has no upload box any more: decks come from a
+ * linked Deck Builder. A test sends a package through the import route with
+ * the page's own session and CSRF token, so it still goes through the whole
+ * import pipeline (the Forge resolution included) and not around it.
+ */
+export async function uploadPackage(page: Page, file: string, name?: string): Promise<APIResponse> {
+  const csrf =
+    (await page.context().cookies()).find((cookie) => cookie.name === "proxicarena_csrf")?.value ??
+    "";
+  return page.request.post("/api/decks/import", {
+    headers: { "X-CSRF-Token": csrf },
+    multipart: {
+      ...(name === undefined ? {} : { name }),
+      package: { name: basename(file), mimeType: "application/zip", buffer: readFileSync(file) },
+    },
+    // Forge resolves every card in the list; on a cold stack that is minutes.
+    timeout: 600_000,
+  });
+}
+
+/** [uploadPackage], expecting the deck to be imported; the page is reloaded to show it. */
+export async function importPackage(page: Page, file: string, name?: string): Promise<void> {
+  const response = await uploadPackage(page, file, name);
+  expect(response.status(), await response.text()).toBe(201);
+  if (page.url().includes("/decks")) await page.reload();
 }

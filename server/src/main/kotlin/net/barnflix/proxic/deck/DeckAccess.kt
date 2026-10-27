@@ -114,12 +114,15 @@ class DeckAuthorization(private val dataSource: DataSource) {
     ): Boolean {
         if (!accessFor(userId, deckId).mayView()) return false
         return dataSource.connection.use { connection ->
-            // Spec 0008 — a deck's back faces are its pictures too.
+            // Spec 0008 — a deck's back faces are its pictures too; spec
+            // 0022 — and its token pictures.
             connection.prepareStatement(
                 """
                 SELECT 1 FROM deck_entry WHERE deck_id = ? AND art_sha256 = ?
                 UNION ALL
                 SELECT 1 FROM deck_face_art WHERE deck_id = ? AND art_sha256 = ?
+                UNION ALL
+                SELECT 1 FROM deck_token WHERE deck_id = ? AND art_sha256 = ?
                  LIMIT 1
                 """.trimIndent(),
             ).use { statement ->
@@ -127,6 +130,8 @@ class DeckAuthorization(private val dataSource: DataSource) {
                 statement.setString(2, assetSha256)
                 statement.setObject(3, deckId)
                 statement.setString(4, assetSha256)
+                statement.setObject(5, deckId)
+                statement.setString(6, assetSha256)
                 statement.executeQuery().use { it.next() }
             }
         }

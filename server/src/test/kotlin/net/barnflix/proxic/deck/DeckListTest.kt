@@ -119,7 +119,28 @@ class DeckListTest {
         assertTrue(DeckListParser.parse("// Just a header\n\n") is DeckParseResult.Invalid)
     }
 
+    /** Spec 0022 — the token section: pictures only, outside the deck's cards. */
+    @Test
+    fun `a token section is kept apart from the cards`() {
+        val deck = parsed("// Ape Tribal (constructed)\n4 Pongify [PLC:44]\n\n// Tokens\n1 Ape [TMH1:2]\n")
+        assertEquals("Ape Tribal", deck.declaredName)
+        assertEquals(listOf("Pongify"), deck.entries.map { it.name })
+        assertEquals(4, deck.totalCards, "a token is not counted")
+        assertEquals("Ape", deck.tokens.single().name)
+        assertEquals("TMH1", deck.tokens.single().setCode)
+    }
+
+    /** A deck with no name line never takes "Tokens" as its name. */
+    @Test
+    fun `the token marker is never the deck's name`() {
+        val deck = parsed("4 Pongify [PLC:44]\n// tokens\n1 Ape\n")
+        assertEquals(null, deck.declaredName)
+        assertEquals(listOf("Ape"), deck.tokens.map { it.name })
+    }
+
     private fun ok(body: String): ParsedDeck = (DeckListParser.parse("// D\n\n$body") as DeckParseResult.Ok).deck
+
+    private fun parsed(text: String): ParsedDeck = (DeckListParser.parse(text) as DeckParseResult.Ok).deck
 }
 
 /** Open Format legality — PHASE_02 §2.44, §2.45. */

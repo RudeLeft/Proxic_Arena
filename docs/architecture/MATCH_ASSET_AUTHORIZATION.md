@@ -89,8 +89,15 @@ only**, so:
 
 ## Tokens
 
-Tokens are in nobody's deck package and get no `art` (§6.128). The board
-shows a token as a named chip (P6-BG).
+Spec 0022 amends §6.128: a deck may bring token pictures (its decklist's
+`// Tokens` section, stored in `deck_token`). A token gets the `art` of a
+token picture with its name, or its name without " Token" ("Ape Token"
+matches "Ape"), from its controller's deck first, then the other
+player's; only a token picture, never a card's or a face's of that name.
+A token is on the table for everyone, so its picture reveals nothing
+hidden, and a viewer may fetch it once shown, as for any card. With no
+match there is still no `art`, and the board shows the token as a named
+chip (P6-BG). There is still no lookup outside the match.
 
 ## Cache and access
 

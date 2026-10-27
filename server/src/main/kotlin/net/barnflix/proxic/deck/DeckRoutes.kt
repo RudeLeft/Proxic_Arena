@@ -41,6 +41,8 @@ data class ImportAcceptedResponse(
     val distinctCards: Int,
     val artStored: Int,
     val entriesWithoutArt: Int,
+    /** Spec 0022 -- the token cards that brought a picture. */
+    val tokenPictures: Int = 0,
 )
 
 @Serializable
@@ -133,6 +135,16 @@ data class DeckEntryView(
     val backArtUrl: String? = null,
 )
 
+/** Spec 0022 — a token card the deck brought for its picture. */
+@Serializable
+data class DeckTokenView(
+    val quantity: Int,
+    val name: String,
+    val setCode: String? = null,
+    val collectorNumber: String? = null,
+    val artUrl: String? = null,
+)
+
 @Serializable
 data class DeckDetail(
     val deckId: String,
@@ -144,6 +156,8 @@ data class DeckDetail(
     val ownerDisplayName: String,
     /** OWNER or SHARED (§4.41). The server's answer, not a claim. */
     val access: String,
+    /** Spec 0022 — the token pictures it brought, outside the card count. */
+    val tokens: List<DeckTokenView> = emptyList(),
 )
 
 /**
@@ -170,7 +184,11 @@ fun Route.deckRoutes(
     val sharing = DeckSharing(dataSource, authorization)
 
     route("/decks") {
-        post("/import") { handleImport(config, importer, importEnabled) }
+        // §4.52, §4.6 -- the owner comes from the SESSION the Phase 3
+        // intercept already resolved and stashed, never from the multipart
+        // body. A client that can name an owner can give a deck to somebody
+        // else, or take one.
+        post("/import") { handleImport(config, importer, importEnabled, callerId()) }
 
         // §2.77, narrowed by §4.58/§4.59/§4.62.
         //
@@ -450,7 +468,37 @@ private fun deckDetail(
             // §4.41 — the server states the relationship; the client
             // uses it to decide what to SHOW, never what to allow.
             access = access.name,
+            tokens = deckTokens(connection, deckId),
         )
+    }
+
+/** Spec 0022 — the deck's token section, in its order. */
+private fun deckTokens(
+    connection: java.sql.Connection,
+    deckId: UUID,
+): List<DeckTokenView> =
+    connection.prepareStatement(
+        """
+        SELECT quantity, token_name, set_code, collector_number, art_sha256
+          FROM deck_token WHERE deck_id = ? ORDER BY line_number
+        """.trimIndent(),
+    ).use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildList {
+                while (rows.next()) {
+                    add(
+                        DeckTokenView(
+                            quantity = rows.getInt(1),
+                            name = rows.getString(2),
+                            setCode = rows.getString(3),
+                            collectorNumber = rows.getString(4),
+                            artUrl = rows.getString(5)?.let { "/api/decks/$deckId/assets/$it" },
+                        ),
+                    )
+                }
+            }
+        }
     }
 
 /**
@@ -473,7 +521,7 @@ private fun deleteDeck(
     }
 
 /** The Ktor handler receiver, aliased so the signature fits a line. */
-private typealias ImportContext =
+internal typealias ImportContext =
     io.ktor.util.pipeline.PipelineContext<Unit, io.ktor.server.application.ApplicationCall>
 
 /**
@@ -481,10 +529,12 @@ private typealias ImportContext =
  * what detekt accepts — and past what reads well. Registering routes
  * and performing an upload are different jobs.
  */
-private suspend fun ImportContext.handleImport(
+internal suspend fun ImportContext.handleImport(
     config: ServerConfig,
     importer: DeckImporter,
     importEnabled: Boolean,
+    // The caller's account: the session's, or a linked computer's (spec 0022).
+    owner: UUID,
 ) {
     if (!importEnabled) {
         call.respond(
@@ -562,12 +612,6 @@ private suspend fun ImportContext.handleImport(
             return
         }
 
-        // §4.52, §4.6 -- the owner comes from the SESSION the Phase 3
-        // intercept already resolved and stashed, never from the
-        // multipart body. A client that can name an owner can give a
-        // deck to somebody else, or take one.
-        val owner = call.attributes[net.barnflix.proxic.PRINCIPAL_KEY].user.userId
-
         importAndRespond(importer, ImportRequest(upload, originalName, owner, typedName))
     } finally {
         // The upload is ours and temporary whatever happened.
@@ -620,6 +664,7 @@ private suspend fun ImportContext.importAndRespond(
                     distinctCards = result.distinctCards,
                     artStored = result.artStored,
                     entriesWithoutArt = result.entriesWithoutArt,
+                    tokenPictures = result.tokenPictures,
                 ),
             )
 

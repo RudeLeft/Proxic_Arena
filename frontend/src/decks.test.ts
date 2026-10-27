@@ -1,12 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   bandsOf,
   deleteDeck,
   getDeck,
-  headingFor,
-  importDeck,
   listDecks,
   listShares,
   renameDeck,
@@ -14,17 +10,10 @@ import {
 } from "./decks";
 
 /**
- * Deck import client — PHASE_02 §2.75, §2.84, §2.86.
- *
- * The server's behaviour is covered by its own suite; what is worth
- * asserting here is the shaping a player sees: that a rejection is
- * an ordinary result rather than an exception, that every problem
- * survives to the screen, and that an unknown error code does not
- * produce a blank page.
+ * Deck Depot client. The server's behaviour is covered by its own suite;
+ * what is worth asserting here is the shaping a player sees. Since spec
+ * 0022 decks arrive from the Deck Builder, so there is no upload to test.
  */
-
-const file = () =>
-  new File([new Uint8Array([1, 2, 3])], "My Deck.zip", { type: "application/zip" });
 
 function respondWith(status: number, body: unknown): typeof fetch {
   return vi.fn(() =>
@@ -36,146 +25,6 @@ function respondWith(status: number, body: unknown): typeof fetch {
     ),
   );
 }
-
-describe("importDeck", () => {
-  it("returns the imported deck on success", async () => {
-    const result = await importDeck(
-      file(),
-      respondWith(201, {
-        deckId: "abc",
-        displayName: "My Deck",
-        status: "ready",
-        totalCards: 65,
-        distinctCards: 11,
-        artStored: 11,
-        entriesWithoutArt: 0,
-      }),
-    );
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.deck.totalCards).toBe(65);
-  });
-
-  it("returns a rejection as a RESULT, not an exception", async () => {
-    // §2.86: a package mistake is an ordinary outcome the page
-    // displays. A thrown error would reach the error boundary and
-    // replace the page with a crash screen.
-    const result = await importDeck(
-      file(),
-      respondWith(422, {
-        errorCode: "DECK_NOT_LEGAL",
-        detail: "The deck is not legal in Open Format.",
-        problems: ['Open Format allows at most 4 copies of "Fiery Temper"; this deck has 5.'],
-      }),
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.failure.errorCode).toBe("DECK_NOT_LEGAL");
-      expect(result.failure.problems).toHaveLength(1);
-    }
-  });
-
-  it("keeps EVERY problem, not just the first", async () => {
-    const problems = ["one", "two", "three"];
-    const result = await importDeck(
-      file(),
-      respondWith(422, { errorCode: "DECK_NOT_LEGAL", detail: "no", problems }),
-    );
-    if (!result.ok) expect(result.failure.problems).toEqual(problems);
-  });
-
-  it("says a duplicate once: the server's sentence names the deck you have", async () => {
-    // Owner decision D3, and spec 0008: the page no longer adds a second
-    // line saying the same thing.
-    const result = await importDeck(
-      file(),
-      respondWith(409, {
-        errorCode: "DUPLICATE_PACKAGE",
-        detail: 'You already have this deck: "Burn".',
-        problems: ["deck-123"],
-      }),
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.failure.detail).toBe('You already have this deck: "Burn".');
-      expect(result.failure).not.toHaveProperty("existingDeckId");
-    }
-  });
-
-  it("reports an unreachable server as a failure, not a crash", async () => {
-    const dead = vi.fn(() => Promise.reject(new Error("ECONNREFUSED"))) as unknown as typeof fetch;
-    const result = await importDeck(file(), dead);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.failure.errorCode).toBe("NETWORK");
-  });
-
-  it("survives a response that is not JSON", async () => {
-    const html = vi.fn(() =>
-      Promise.resolve(new Response("<html>gateway error</html>", { status: 502 })),
-    ) as unknown as typeof fetch;
-    const result = await importDeck(file(), html);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.failure.errorCode).toBe("UNREADABLE_RESPONSE");
-  });
-});
-
-describe("error headings (§2.86)", () => {
-  it("gives a human category for the codes the server sends", () => {
-    for (const code of ["NOT_A_ZIP", "DECK_NOT_LEGAL", "CARDS_NOT_RESOLVED", "DUPLICATE_PACKAGE"]) {
-      expect(headingFor(code), code).toBeTruthy();
-    }
-  });
-
-  /**
-   * Spec 0008 — every refusal an import can come back with, read from
-   * the server's own source, has a heading: seven used to fall back to
-   * "That package could not be imported".
-   */
-  it("has a heading for every code an import can be refused with", () => {
-    const deck = join(
-      __dirname,
-      "..",
-      "..",
-      "server",
-      "src",
-      "main",
-      "kotlin",
-      "net",
-      "barnflix",
-      "proxic",
-      "deck",
-    );
-    const read = (file: string) => readFileSync(join(deck, file), "utf8");
-    const routes = read("DeckRoutes.kt");
-    const sources = [
-      read("PackageInspector.kt"),
-      read("DeckImporter.kt"),
-      routes.slice(routes.indexOf("handleImport(")),
-    ];
-    const codes = new Set<string>();
-    for (const source of sources) {
-      for (const m of source.matchAll(/(?:Rejected|ImportRejectedResponse)\(\s*"([A-Z][A-Z_]+)"/g))
-        codes.add(m[1]!);
-    }
-    // ...and the five the importer hands on by name.
-    for (const code of [
-      "INVALID_DECK_LIST",
-      "DECK_NOT_LEGAL",
-      "CARDS_NOT_RESOLVED",
-      "INVALID_ARTWORK",
-      "IMPORT_FAILED",
-    ]) {
-      expect(codes, code).toContain(code);
-    }
-    for (const code of codes) expect(headingFor(code), code).toBeTruthy();
-  });
-
-  it("returns null for an unknown code rather than inventing one", () => {
-    // A newer server must not produce a blank or misleading heading
-    // on an older client; the page falls back to the server's own
-    // sentence.
-    expect(headingFor("SOMETHING_NEW_IN_PHASE_4")).toBeNull();
-  });
-});
 
 describe("deck queries", () => {
   it("says it could not read the library rather than throwing, or claiming it is empty", async () => {
@@ -192,32 +41,7 @@ describe("deck queries", () => {
   });
 });
 
-describe("one name per owner and rename (PHASE_07 §7.65)", () => {
-  it("hands a name clash back with the name, so the page can offer it to edit", async () => {
-    const result = await importDeck(
-      file(),
-      respondWith(409, {
-        errorCode: "DECK_NAME_TAKEN",
-        detail: 'You already have a deck called "Burn". Choose another name.',
-        problems: ["Burn"],
-      }),
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.failure.takenName).toBe("Burn");
-      expect(headingFor(result.failure.errorCode)).toMatch(/already have a deck with that name/);
-    }
-  });
-
-  it("sends a chosen name with the package, and none when there is none", async () => {
-    const fetchFn = respondWith(201, { deckId: "abc", displayName: "Burn 2" });
-    await importDeck(file(), fetchFn, "Burn 2");
-    await importDeck(file(), fetchFn);
-    const bodies = vi.mocked(fetchFn).mock.calls.map((call) => call[1]?.body as FormData);
-    expect(bodies[0]?.get("name")).toBe("Burn 2");
-    expect(bodies[1]?.has("name")).toBe(false);
-  });
-
+describe("rename (PHASE_07 §7.65)", () => {
   it("renames with PATCH and reports the server's words when refused", async () => {
     const ok = respondWith(200, { deckId: "abc", displayName: "Gruul" });
     expect(await renameDeck("abc", "Gruul", ok)).toEqual({ ok: true, displayName: "Gruul" });

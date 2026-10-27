@@ -3,6 +3,35 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.11.0 — 2026-10-27
+
+Decks now come straight from the Proxic Deck Builder, and a token in a
+game can wear a real picture. Link a computer once from your Account
+page; after that the Deck Builder's **Proxic Arena Export** puts the
+deck, its card pictures and its token pictures in your Deck Depot.
+
+**For whoever runs the server**
+- The database gains one table, for the token pictures a deck brings; it
+  is added by itself when the server starts. No new settings.
+- Linked Deck Builders download the deck rules again once, because each
+  card's printings now come in the order Arena prefers them.
+
+**Send decks and token pictures from the Deck Builder** (owner,
+2026-10-27, spec 0022)
+- A linked computer sends a deck straight to your Deck Depot. It can also
+  read your deck names, so the Deck Builder warns before you send a name
+  you already use, and it skips pictures your decks already have.
+- The Deck Depot's "Drop a deck package here" box is gone. In its place:
+  "Decks come from the Proxic Deck Builder", with a button to the Account
+  page where a computer is linked.
+- Token cards come along for their pictures only: they never count
+  toward the 60 to 65 and are never checked as cards. A deck's page shows
+  them in a Tokens band.
+- In a game, a token wears a picture with its name, from the deck of
+  whoever controls it first, then the other player's. Pongify's Ape on
+  your opponent's side wears the Ape picture your deck brought. A token
+  nobody brought a picture for plays as before.
+
 ## 1.10.0 — 2026-10-27
 
 The Proxic Deck Builder can now follow this Arena's own deck rules. Link

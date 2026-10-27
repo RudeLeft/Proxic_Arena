@@ -17,6 +17,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  importPackage,
   secondPassword,
   secondUser,
   shareOpenDeckWith,
@@ -67,7 +68,7 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await clearOwnDecks(owner);
 
   await owner.goto("/decks");
-  await owner.locator('input[type="file"]').setInputFiles(zip!);
+  await importPackage(owner, zip!);
   // The confirmation names the deck, the way decks.spec.ts waits.
   await expect(
     owner.getByRole("region", { name: "My decks" }).getByRole("listitem").first(),
@@ -167,7 +168,7 @@ test("a recipient cannot delete or re-share, even by calling the API", async ({ 
   await signIn(owner);
   await clearOwnDecks(owner);
   await owner.goto("/decks");
-  await owner.locator('input[type="file"]').setInputFiles(zip!);
+  await importPackage(owner, zip!);
   await expect(
     owner.getByRole("region", { name: "My decks" }).getByRole("listitem").first(),
   ).toBeVisible({ timeout: 180_000 });

@@ -343,7 +343,7 @@ class MatchArtTest {
         assertEquals(false, art.mayFetch(bob, back))
     }
 
-    /** §6.128 — a token wears nothing, even when a picture shares its name. */
+    /** Spec 0022 — a token wears only a TOKEN picture, never a card's or a face's of its name. */
     @Test
     fun `a token gets no picture even when one is filed under its name`() {
         val art = MatchArt(mapOf(alice to mapOf("${MatchArt.FACE}goblin" to bolt, "Goblin" to bolt)))
@@ -372,5 +372,55 @@ class MatchArtTest {
         val seen = art.annotate(snapshot(card("card:1", alice, "Storm-Charged Slasher")), alice)
 
         assertNull(artOf(seen))
+    }
+
+    private fun token(
+        id: String,
+        controller: Int,
+        name: String,
+    ) = """{"id":"$id","seat":$controller,"name":"$name","known":true,"token":true}"""
+
+    /**
+     * Spec 0022, F-0022-B, owner S4 — Pongify gives Bob an Ape. Bob's deck
+     * brought no Ape picture, so his "Ape Token" wears the Ape Alice's deck
+     * brought, on both players' screens, and each may fetch it once shown.
+     */
+    @Test
+    fun `a token wears a picture by name, from the other deck when its controller brought none`() {
+        val ape = "d".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("${MatchArt.TOKEN}ape" to ape), bob to mapOf("Plains" to plains)))
+
+        assertEquals(ape, artOf(art.annotate(snapshot(token("card:5", bob, "Ape Token")), bob)))
+        assertEquals(ape, artOf(art.annotate(snapshot(token("card:5", bob, "Ape Token")), alice)))
+        assertTrue(art.mayFetch(bob, ape) && art.mayFetch(alice, ape))
+        assertNull(artOf(art.annotate(snapshot(token("card:6", bob, "Goblin Token")), bob)), "nobody brought a Goblin")
+    }
+
+    /** F-0022-C — when both decks brought one, each token wears its controller's. */
+    @Test
+    fun `the controller's token picture comes first`() {
+        val alicesApe = "d".repeat(64)
+        val bobsApe = "e".repeat(64)
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to mapOf("${MatchArt.TOKEN}ape" to alicesApe),
+                    bob to mapOf("${MatchArt.TOKEN}ape" to bobsApe),
+                ),
+            )
+        val both = snapshot(token("card:5", alice, "Ape Token"), token("card:6", bob, "Ape Token"))
+
+        val seen = art.annotate(both, alice)
+        assertEquals(alicesApe, artOf(seen, 0))
+        assertEquals(bobsApe, artOf(seen, 1))
+    }
+
+    /** A token Forge names by its own name ("Avacyn") matches as it is. */
+    @Test
+    fun `a token with its own name matches by that name`() {
+        val avacyn = "f".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("${MatchArt.TOKEN}avacyn" to avacyn)))
+
+        assertEquals(avacyn, artOf(art.annotate(snapshot(token("card:7", alice, "Avacyn")), alice)))
     }
 }

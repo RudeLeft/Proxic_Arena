@@ -146,6 +146,7 @@ class DatabaseTest {
                         // mail_settings, the Email account tab's one row.
                         // Spec 0021: device_code and device_link, a
                         // computer linked to download the deck rules.
+                        // Spec 0022: deck_token, a deck's token pictures.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -157,6 +158,7 @@ class DatabaseTest {
                                 "deck_entry",
                                 "deck_face_art",
                                 "deck_share",
+                                "deck_token",
                                 "device_code",
                                 "device_link",
                                 "imported_deck",

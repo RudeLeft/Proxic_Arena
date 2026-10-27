@@ -1,12 +1,21 @@
-// Deck import, through the real UI — PHASE_02 §2.81–§2.87.
+// The Deck Depot, through the real UI — PHASE_02 §2.81–§2.87.
 //
-// Playwright can set a file input, which is the one part of this
-// page a person cannot check from a terminal and I cannot click
-// through by hand. Everything here runs against the actual running
-// stack.
+// Since spec 0022 a deck arrives from a linked Deck Builder, and the
+// Depot's upload box is gone. These tests send a package through the
+// import route with the page's own session (uploadPackage), so the
+// import pipeline is still the real one, then check the page. Everything
+// here runs against the actual running stack.
 
 import { test, expect, type Page } from "@playwright/test";
-import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import {
+  importPackage,
+  secondPassword,
+  secondUser,
+  signIn,
+  signInAs,
+  testUser,
+  uploadPackage,
+} from "./helpers";
 import { chooseDeck, clearEverything, inviteIn, openRoom, sharedDeck } from "./match-helpers";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
@@ -64,13 +73,18 @@ test.beforeEach(async ({ page }) => {
   await clearDecks(page);
 });
 
-test("the page says what it imports, and it is not a generic importer", async ({ page }) => {
+test("decks come from the Deck Builder, and the Depot sends you to link a computer", async ({
+  page,
+}) => {
+  // Spec 0022, owner S3 -- no upload box; where it was, the way to link.
   await page.goto("/decks");
-  // §2.82 — Proxic Deck Builder by name.
-  await expect(page.getByText("Proxic Deck Builder")).toBeVisible();
-  // The format rules are no longer spelled out here (owner 2026-10-24);
-  // a deck that breaks them is refused with every reason listed.
+  await expect(page.getByText("Decks come from the Proxic Deck Builder")).toBeVisible();
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  // The format rules are not spelled out here (owner 2026-10-24).
   await expect(page.getByText(/60.65 cards/)).toHaveCount(0);
+  await page.getByRole("link", { name: "Link a computer on your Account page" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(page.getByRole("region", { name: "Deck Builder" })).toBeVisible();
 });
 
 test("a real package imports and its artwork renders", async ({ page }) => {
@@ -79,14 +93,16 @@ test("a real package imports and its artwork renders", async ({ page }) => {
   test.setTimeout(120_000);
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(realExport);
-
-  // §2.85 — the confirmation names what was imported, and counts it.
-  const confirmation = page.getByRole("status").filter({ hasText: "imported" });
-  await expect(confirmation).toContainText("Basic_Mono_Red_65_Card_Deck imported", {
-    timeout: 90_000,
+  const imported = await uploadPackage(page, realExport);
+  expect(imported.status()).toBe(201);
+  // §2.85 — what was imported, counted.
+  expect(await imported.json()).toMatchObject({
+    displayName: "Basic_Mono_Red_65_Card_Deck",
+    totalCards: 65,
+    distinctCards: 11,
+    entriesWithoutArt: 0,
   });
-  await expect(confirmation).toContainText("65 cards, 11 distinct, artwork stored for all of them");
+  await page.reload();
 
   // §2.87 — the images actually render. Checking naturalWidth, not
   // merely that the element exists: a broken image is still an
@@ -142,12 +158,10 @@ test("a rejected package explains itself without mentioning logs", async ({ page
   writeFileSync(notAPackage, "this is not a zip archive at all");
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(notAPackage);
-
-  await expect(page.getByRole("alert")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/not a deck package/i)).toBeVisible();
-
-  const text = (await page.getByRole("alert").textContent()) ?? "";
+  const refused = await uploadPackage(page, notAPackage);
+  expect(refused.status()).toBe(422);
+  const text = await refused.text();
+  expect(JSON.parse(text)).toMatchObject({ errorCode: "NOT_A_ZIP" });
   expect(text).not.toMatch(/stack|exception|logs|docker/i);
 });
 
@@ -177,13 +191,13 @@ test("an illegal deck lists every problem at once", async ({ page }) => {
   ]);
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(illegal);
-
-  await expect(page.getByRole("alert")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/not legal in Open Format/i).first()).toBeVisible();
-  // Both problems, not just the first: fixing one per upload is a
-  // worse experience than seeing the list.
-  await expect(page.getByRole("alert").getByRole("listitem")).toHaveCount(3);
+  const refused = await uploadPackage(page, illegal);
+  expect(refused.status()).toBe(422);
+  const body = (await refused.json()) as { errorCode: string; problems: string[] };
+  expect(body.errorCode).toBe("DECK_NOT_LEGAL");
+  // Every problem, not just the first: fixing one per send is a worse
+  // experience than seeing the list.
+  expect(body.problems).toHaveLength(3);
 });
 
 test("importing the same package twice is refused and points at the deck", async ({ page }) => {
@@ -194,14 +208,15 @@ test("importing the same package twice is refused and points at the deck", async
   test.setTimeout(180_000);
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(pkg!);
-  await expect(page.getByText("Artwork stored")).toBeVisible({ timeout: 90_000 });
+  await importPackage(page, pkg!);
 
-  await page.locator('input[type="file"]').setInputFiles(pkg!);
-  await expect(page.getByRole("alert")).toBeVisible({ timeout: 90_000 });
+  const again = await uploadPackage(page, pkg!);
+  expect(again.status()).toBe(409);
   // Owner decision D3: refusing is right, a dead end is not -- the
-  // sentence names the deck you have. Said once (spec 0008).
-  await expect(page.getByText(/You already have this deck: "/)).toHaveCount(1);
+  // sentence names the deck you have.
+  expect(((await again.json()) as { detail: string }).detail).toMatch(
+    /You already have this deck: "/,
+  );
 });
 
 /**
@@ -229,8 +244,7 @@ test("a card opens large, steps through the deck, turns over, and the size is re
   test.setTimeout(240_000);
   const pkg = delverPackage(mkdtempSync(join(tmpdir(), "proxic-e2e-")));
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(pkg);
-  await expect(page.getByText("Delver Zoom imported")).toBeVisible({ timeout: 180_000 });
+  await importPackage(page, pkg);
   await page.getByRole("button", { name: "View Delver Zoom" }).click();
 
   // Lands first, then creatures: Island is 1 of 2, Delver 2 of 2.
@@ -285,10 +299,7 @@ test("on a phone View goes to the deck and folds the library; a failed delete sa
   test.setTimeout(240_000);
   const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
   await page.goto("/decks");
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles(mountainPackage(directory, "phone", "Phone Deck", 60));
-  await expect(page.getByText("Phone Deck imported")).toBeVisible({ timeout: 120_000 });
+  await importPackage(page, mountainPackage(directory, "phone", "Phone Deck", 60));
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "View Phone Deck" }).click();
@@ -332,19 +343,17 @@ test("one name per player: a clash asks for another, rename refuses one, delete 
   const mine = page.getByRole("region", { name: "My decks" });
 
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(first);
-  await expect(page.getByText("Clash Deck imported")).toBeVisible({ timeout: 120_000 });
+  await importPackage(page, first);
 
-  // The clash: refused, said in words, and the name offered back.
-  await page.locator('input[type="file"]').setInputFiles(second);
-  await expect(page.getByRole("alert")).toContainText("already have a deck called", {
-    timeout: 120_000,
+  // The clash: refused, said in words, with the name; sent again under a
+  // new one, as the Deck Builder's export window does (spec 0022, S2).
+  const clash = await uploadPackage(page, second);
+  expect(clash.status()).toBe(409);
+  expect(await clash.json()).toMatchObject({
+    errorCode: "DECK_NAME_TAKEN",
+    problems: ["Clash Deck"],
   });
-  const importAs = page.getByLabel("Import it as");
-  await expect(importAs).toHaveValue("Clash Deck");
-  await importAs.fill("Clash Deck II");
-  await page.getByRole("button", { name: "Import", exact: true }).click();
-  await expect(page.getByText("Clash Deck II imported")).toBeVisible({ timeout: 120_000 });
+  await importPackage(page, second, "Clash Deck II");
   await expect(mine.getByRole("listitem")).toHaveCount(2);
 
   // Rename, refused into a name you use, then accepted.
@@ -438,32 +447,29 @@ test("a deck selected in a room can be renamed, and the other player sees the ne
   }
 });
 
-test("an imported deck is offered an icon from its colours, keeps the one chosen, and shows it in a room", async ({
+test("an imported deck shows the icon its colours suggest, keeps the one chosen, and shows it in a room", async ({
   page,
 }) => {
   // Spec 0012, F-0012-E. Delver of Secrets and Islands: a blue deck,
-  // so the Water drop is suggested -- Forge's colours, at import.
+  // so the Water drop is suggested -- Forge's colours, at import. Since
+  // spec 0022 the deck arrives from the Deck Builder, so the suggestion
+  // shows until one is chosen from Change icon.
   test.setTimeout(240_000);
   const pkg = delverPackage(mkdtempSync(join(tmpdir(), "proxic-e2e-")));
   await page.goto("/decks");
-  await page.locator('input[type="file"]').setInputFiles(pkg);
-  await expect(page.getByText("Delver Zoom imported")).toBeVisible({ timeout: 180_000 });
+  await importPackage(page, pkg);
 
-  // The new deck opens, asking for an icon, the suggestion chosen.
-  const picker = page.getByRole("group", { name: "Choose an icon" });
-  await expect(picker).toBeVisible();
-  await expect(picker.getByRole("button", { name: "Water (suggested)" })).toHaveAttribute(
+  const row = page.locator(".pa-deck-row", { hasText: "Delver Zoom" });
+  await expect(row.locator("img.pa-deck-icon")).toHaveAttribute("data-icon", "water");
+  await page.getByRole("button", { name: "View Delver Zoom" }).click();
+
+  // Changed: the Goblin, from Families, kept across a reload.
+  await page.getByRole("button", { name: "Change icon" }).click();
+  const change = page.getByRole("group", { name: "Change icon" });
+  await expect(change.getByRole("button", { name: "Water (suggested)" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  const row = page.locator(".pa-deck-row", { hasText: "Delver Zoom" });
-  await picker.getByRole("button", { name: "Later" }).click();
-  await expect(picker).toHaveCount(0);
-  await expect(row.locator("img.pa-deck-icon")).toHaveAttribute("data-icon", "water");
-
-  // Changed later: the Goblin, from Families, kept across a reload.
-  await page.getByRole("button", { name: "Change icon" }).click();
-  const change = page.getByRole("group", { name: "Change icon" });
   await change.getByRole("tab", { name: "Families", exact: true }).click();
   await change.getByRole("button", { name: "Goblin" }).click();
   await change.getByRole("button", { name: "Use this icon" }).click();
@@ -482,5 +488,34 @@ test("an imported deck is offered an icon from its colours, keeps the one chosen
     "data-icon",
     "goblin",
   );
+  await clearEverything(page);
+});
+
+/** A 60-Forest deck whose token section brings an Ape picture (spec 0022). */
+function apePackage(directory: string) {
+  const fixture = join(directory, "ape");
+  mkdirSync(fixture);
+  writeFileSync(join(fixture, "Ape.txt"), "// Ape Pictures\n\n60 Forest\n\n// Tokens\n1 Ape\n");
+  const zip = join(directory, "ape.zip");
+  execFileSync("node", [join(process.cwd(), "..", "scripts", "make-ci-deck.mjs"), zip, fixture]);
+  return zip;
+}
+
+test("a deck's token pictures show in their own band, outside the card count", async ({ page }) => {
+  // Spec 0022, F-0022-H.
+  test.setTimeout(240_000);
+  const pkg = apePackage(mkdtempSync(join(tmpdir(), "proxic-e2e-")));
+  await page.goto("/decks");
+  await importPackage(page, pkg);
+  await page.getByRole("button", { name: "View Ape Pictures" }).click();
+
+  const cards = page.getByRole("region", { name: "Cards" });
+  await expect(cards.getByRole("group", { name: "Lands, 60 cards" })).toBeVisible();
+  const tokens = cards.getByRole("group", { name: "Tokens, 1 picture" });
+  await expect(tokens).toContainText("not part of the deck");
+  const ape = tokens.getByRole("img", { name: "Ape token" });
+  await expect
+    .poll(() => ape.evaluate((i) => (i as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
   await clearEverything(page);
 });

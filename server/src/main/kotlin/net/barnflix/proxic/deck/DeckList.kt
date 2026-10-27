@@ -16,6 +16,14 @@ package net.barnflix.proxic.deck
 //
 // UTF-8, no BOM, LF line endings.
 //
+// Spec 0022 -- a `// Tokens` line starts the token section. Every line
+// after it is a token card, sent for its picture only:
+//
+// ```text
+// // Tokens
+// 1 Ape [TMH1:2]
+// ```
+//
 
 /** One parsed line. [sourceText] is kept verbatim (§2.42). */
 data class DeckEntry(
@@ -42,6 +50,11 @@ data class DeckEntry(
 data class ParsedDeck(
     val declaredName: String?,
     val entries: List<DeckEntry>,
+    /**
+     * Spec 0022 -- the token section: pictures only. Never resolved, never
+     * counted, never in legality, so nothing that reads [entries] sees them.
+     */
+    val tokens: List<DeckEntry> = emptyList(),
 ) {
     val totalCards: Int get() = entries.sumOf { it.quantity }
 }
@@ -70,6 +83,9 @@ object DeckListParser {
 
     private const val MAX_QUANTITY = 1000
 
+    /** Spec 0022 -- the comment that starts the token section. */
+    const val TOKENS_MARKER = "// Tokens"
+
     /**
      * Parse decklist text. Never throws; a bad file is a result.
      *
@@ -87,12 +103,18 @@ object DeckListParser {
 
         var declaredName: String? = null
         val entries = mutableListOf<DeckEntry>()
+        val tokens = mutableListOf<DeckEntry>()
+        var inTokens = false
 
         lines.forEachIndexed { index, raw ->
             val lineNumber = index + 1
             val line = raw.trim()
             when {
                 line.isEmpty() -> Unit
+
+                // Checked before the name, so a deck with no name line
+                // never takes "Tokens" as its name.
+                line.equals(TOKENS_MARKER, ignoreCase = true) -> inTokens = true
 
                 line.startsWith("//") -> {
                     // First comment is the deck name; the trailing
@@ -130,7 +152,7 @@ object DeckListParser {
                     if (name.isEmpty()) {
                         return DeckParseResult.Invalid("card name is empty", lineNumber)
                     }
-                    entries +=
+                    (if (inTokens) tokens else entries) +=
                         DeckEntry(
                             quantity = quantity,
                             name = name,
@@ -146,6 +168,6 @@ object DeckListParser {
         if (entries.isEmpty()) {
             return DeckParseResult.Invalid("the decklist contains no cards", 0)
         }
-        return DeckParseResult.Ok(ParsedDeck(declaredName, entries))
+        return DeckParseResult.Ok(ParsedDeck(declaredName, entries, tokens))
     }
 }

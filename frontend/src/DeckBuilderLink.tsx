@@ -1,8 +1,9 @@
-// The Account page's "Deck Builder" panel — spec 0021.
+// The Account page's "Deck Builder" panel — specs 0021 and 0022.
 //
 // Link a computer: a one-time code to type into the Proxic Deck Builder,
-// which then checks its exports against this Arena's deck rules. Below
-// it, the computers already linked, each with Remove.
+// which then checks its exports against this Arena's deck rules and sends
+// them to the Deck Depot. Below it, the computers already linked, each
+// with Remove.
 
 import { useEffect, useState } from "react";
 import {
@@ -58,9 +59,9 @@ export function DeckBuilderLink() {
       </div>
       <div className="pa-form">
         <p className="pa-help pa-device-intro">
-          Link the Proxic Deck Builder on your computer, so its exports follow this Arena&apos;s
-          deck rules: which cards and printings it plays, and how big a deck may be. A linked
-          computer can download those rules and do nothing else with your account.
+          Link the Proxic Deck Builder on your computer. A linked computer sends its decks, card
+          pictures and tokens to your Deck Depot, and follows this Arena&apos;s deck rules. It
+          can&apos;t play, join rooms, share or delete decks, or change your account.
         </p>
         <button type="button" className="pa-button" onClick={() => void link()}>
           Link a computer
@@ -71,7 +72,7 @@ export function DeckBuilderLink() {
               {code.code}
             </span>
             <span className="pa-help">
-              Type this into the Deck Builder&apos;s Proxic Arena connection. It works once, until{" "}
+              Type it into the Proxic Arena Export window in the Deck Builder. It works once, until{" "}
               {clockTime(code.expiresAt)}.
             </span>
           </div>

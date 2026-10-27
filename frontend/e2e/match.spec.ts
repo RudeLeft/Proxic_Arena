@@ -22,7 +22,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
+import {
+  importPackage,
+  secondPassword,
+  secondUser,
+  shareOpenDeckWith,
+  signIn,
+  signInAs,
+} from "./helpers";
 import {
   answer,
   choices,
@@ -68,8 +75,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       mine: { deckId: string; displayName: string }[];
     };
     if (existing.mine.length === 0) {
-      await host.locator('input[type="file"]').setInputFiles(pkg!);
-      await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
+      await importPackage(host, pkg!);
     }
     const library = (await (await host.request.get("/api/decks")).json()) as {
       mine: { deckId: string; displayName: string }[];

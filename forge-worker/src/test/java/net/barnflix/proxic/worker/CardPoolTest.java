@@ -125,4 +125,20 @@ class CardPoolTest {
         assertTrue(faces.toString().contains("Lightning Bolt"));
         assertTrue(printings("Lightning Bolt").contains("M10 146"), "Lightning Bolt keeps its own printings");
     }
+
+    /**
+     * Spec 0022, F-0022-G -- printings come in Forge's own order: the first
+     * listed is the edition Forge picks under that preference.
+     */
+    @Test
+    void printingsComeInForgesOrder() {
+        for (String name : List.of("Lightning Bolt", "Llanowar Elves", "Counterspell", "Island", "Sol Ring")) {
+            forge.item.PaperCard pick = forge.StaticData.instance().getCommonCards()
+                    .getCardFromEditions(name, CardPool.ORDER, 1, null);
+            assertNotNull(pick, name);
+            String first = printings(name).get(0);
+            assertEquals(pick.getEdition(), first.substring(0, first.indexOf(' ')),
+                    name + ": first listed " + first + ", Forge picks " + pick.getEdition());
+        }
+    }
 }

@@ -4,6 +4,7 @@
 // browser-like page without a server: fetch answers as the server would.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DecksPage from "./DecksPage";
 import { CardZoom } from "./CardZoom";
@@ -131,7 +132,11 @@ describe("the page (C1)", () => {
       }),
     );
 
-    render(<DecksPage />);
+    render(
+      <MemoryRouter>
+        <DecksPage />
+      </MemoryRouter>,
+    );
     fireEvent.click(await screen.findByRole("button", { name: "View Burn" }));
     fireEvent.click(screen.getByRole("button", { name: "View Goblins" }));
     expect(await screen.findByRole("heading", { name: "Goblins" })).toBeTruthy();
@@ -152,7 +157,11 @@ describe("the page (C1)", () => {
       "fetch",
       vi.fn(() => Promise.reject(new Error("down"))),
     );
-    render(<DecksPage />);
+    render(
+      <MemoryRouter>
+        <DecksPage />
+      </MemoryRouter>,
+    );
     expect(await screen.findByText("Your decks could not be loaded.")).toBeTruthy();
     expect(screen.queryByText("Nothing imported yet.")).toBeNull();
   });

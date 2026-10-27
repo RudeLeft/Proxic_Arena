@@ -26,6 +26,7 @@ import net.barnflix.proxic.auth.requireAuth
 import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.ArtStore
 import net.barnflix.proxic.deck.DeckAuthorization
+import net.barnflix.proxic.deck.deckBuilderRoutes
 import net.barnflix.proxic.deck.deckRoutes
 import net.barnflix.proxic.deck.deckRulesRoutes
 import net.barnflix.proxic.hall.HallGameSource
@@ -650,6 +651,12 @@ private fun Route.databaseRoutes(
         matchPresetRoutes()
         hallRoutes(HallGameSource(database.dataSource())) // spec 0018
 
+        val importer =
+            net.barnflix.proxic.deck.DeckImporter(
+                config,
+                database.dataSource(),
+                net.barnflix.proxic.deck.CardResolver(config),
+            )
         deckRoutes(
             config = config,
             dataSource = database.dataSource(),
@@ -667,12 +674,7 @@ private fun Route.databaseRoutes(
                     lobby,
                     net.barnflix.proxic.room.DeckRecipients(database.dataSource()),
                 ),
-            importer =
-                net.barnflix.proxic.deck.DeckImporter(
-                    config,
-                    database.dataSource(),
-                    net.barnflix.proxic.deck.CardResolver(config),
-                ),
+            importer = importer,
             // PHASE 2 AMENDMENT 1: on by default, by owner
             // decision, with the switch kept because the
             // endpoint is unauthenticated until Phase 3.
@@ -680,6 +682,8 @@ private fun Route.databaseRoutes(
         )
 
         deckRulesRoutes(config, sessions, devices) // spec 0021
+        // Spec 0022 -- a linked computer sends its decks.
+        deckBuilderRoutes(config, database.dataSource(), devices, importer, config.deckImportEnabled)
     }
 }
 

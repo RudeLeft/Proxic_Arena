@@ -1,28 +1,9 @@
-// Deck import client — PHASE_02 §2.81–§2.86.
+// Deck Depot client — PHASE_02 §2.81–§2.86, spec 0022.
 //
-// Deliberately UI-free, like status.ts: the import state machine and
-// the error shaping are where mistakes would be, and both should be
-// testable without a browser.
+// Deliberately UI-free, like status.ts. Since spec 0022 decks arrive
+// from a linked Proxic Deck Builder, so there is no upload here.
 
 import { apiFetch } from "./auth";
-
-export interface ImportedDeck {
-  deckId: string;
-  displayName: string;
-  status: string;
-  totalCards: number;
-  distinctCards: number;
-  artStored: number;
-  entriesWithoutArt: number;
-}
-
-export interface ImportFailure {
-  errorCode: string;
-  detail: string;
-  problems: string[];
-  /** PHASE_07 §7.65 — the name you already use, when that was the problem. */
-  takenName?: string;
-}
 
 export interface DeckSummary {
   deckId: string;
@@ -79,6 +60,15 @@ export interface CardBand {
   entries: DeckEntryView[];
 }
 
+/** Spec 0022 — a token card a deck brought, for its picture in play. */
+export interface DeckTokenView {
+  quantity: number;
+  name: string;
+  setCode?: string | null;
+  collectorNumber?: string | null;
+  artUrl?: string | null;
+}
+
 const BANDS: { category: CardCategory; label: string }[] = [
   { category: "LAND", label: "Lands" },
   { category: "CREATURE", label: "Creatures" },
@@ -124,122 +114,8 @@ export interface DeckDetail {
   distinctCards: number;
   importedAt: string;
   entries: DeckEntryView[];
-}
-
-/**
- * Human-readable headings for the server's error codes (§2.86).
- *
- * The server's `detail` is already a sentence; this adds the
- * category so a player sees "That is not a Proxic Deck Builder
- * package" rather than `NOT_A_ZIP`. An unknown code falls back to
- * the detail alone, because a new server code must not produce a
- * blank screen on an old client.
- */
-const ERROR_HEADINGS: Record<string, string> = {
-  NOT_A_ZIP: "That file is not a deck package",
-  ARCHIVE_TOO_LARGE: "That package is too large",
-  EMPTY_ARCHIVE: "That package is empty",
-  NO_DECK_LIST: "No decklist in that package",
-  MULTIPLE_DECK_LISTS: "That package has more than one decklist",
-  UNSAFE_PATH: "That package contains an unsafe file path",
-  DUPLICATE_PATH: "That package contains two files with the same name",
-  UNEXPECTED_ENTRY: "That package contains something unexpected",
-  COMPRESSION_RATIO: "That package expands too much to be a deck",
-  TOO_MANY_ENTRIES: "That package contains too many files",
-  TOO_MANY_IMAGES: "That package contains too many images",
-  INVALID_DECK_LIST: "The decklist could not be read",
-  DECK_NOT_LEGAL: "That deck is not legal in Open Format",
-  CARDS_NOT_RESOLVED: "Some cards in that deck are not supported yet",
-  INVALID_ARTWORK: "That package contains artwork that is not a usable image",
-  DUPLICATE_PACKAGE: "You already have this deck",
-  DECK_NAME_TAKEN: "You already have a deck with that name",
-  INVALID_DECK_NAME: "That name cannot be used",
-  IMPORT_DISABLED: "Deck import is turned off on this server",
-  NO_FILE: "No file was selected",
-  // Spec 0008 — the refusals that had no heading of their own.
-  NOT_A_FILE: "That upload is not a file",
-  ENTRY_TOO_LARGE: "A file inside that package is too large",
-  UNCOMPRESSED_TOO_LARGE: "That package unpacks to too much",
-  UNSUPPORTED_COMPRESSION: "That package is packed in a way that cannot be read",
-  DECK_TEXT_TOO_LARGE: "The decklist in that package is too long",
-  IMPORT_FAILED: "The import failed on the server",
-};
-
-export function headingFor(errorCode: string): string | null {
-  return ERROR_HEADINGS[errorCode] ?? null;
-}
-
-/**
- * Upload a package.
- *
- * Returns a discriminated result rather than throwing: a rejected
- * package is an ordinary outcome the page must display, not an
- * exception (§2.86 — the user should never be told to read container
- * logs for a package mistake).
- */
-export async function importDeck(
-  file: File,
-  fetchFn: typeof fetch = fetch,
-  /** PHASE_07 §7.65 — a name of your own, when the package's is one you already use. */
-  name?: string,
-): Promise<{ ok: true; deck: ImportedDeck } | { ok: false; failure: ImportFailure }> {
-  const body = new FormData();
-  if (name !== undefined) body.append("name", name);
-  body.append("package", file, file.name);
-
-  let response: Response;
-  try {
-    // apiFetch, not fetch: every deck endpoint now requires a
-    // session (PHASE 3 AMENDMENT 1) and every mutation requires the
-    // CSRF header (§3.52). A plain fetch here produced a 403 that
-    // looked like a permissions bug and was a missing header.
-    response = await apiFetch("/api/decks/import", { method: "POST", body }, fetchFn);
-  } catch {
-    return {
-      ok: false,
-      failure: {
-        errorCode: "NETWORK",
-        detail: "The server could not be reached. Is it running?",
-        problems: [],
-      },
-    };
-  }
-
-  if (response.status === 201) {
-    return { ok: true, deck: (await response.json()) as ImportedDeck };
-  }
-
-  const payload = (await response.json().catch(() => null)) as
-    | (ImportFailure & { problems?: string[] })
-    | null;
-
-  if (!payload) {
-    return {
-      ok: false,
-      failure: {
-        errorCode: "UNREADABLE_RESPONSE",
-        detail: `The server answered ${response.status} with something unreadable.`,
-        problems: [],
-      },
-    };
-  }
-
-  const failure: ImportFailure = {
-    errorCode: payload.errorCode,
-    detail: payload.detail,
-    problems: payload.problems ?? [],
-  };
-
-  // A name clash carries the name, so the page can offer it back to edit.
-  // (A duplicate's detail already names the deck you have, spec 0008.)
-  // `exactOptionalPropertyTypes` means an optional field cannot be
-  // assigned `undefined` — the element lookup is only narrowed by
-  // checking it, not by checking the array's length.
-  const existing = failure.problems[0];
-  if (payload.errorCode === "DECK_NAME_TAKEN" && existing !== undefined) {
-    failure.takenName = existing;
-  }
-  return { ok: false, failure };
+  /** Spec 0022 — the token pictures it brought, outside the card count. */
+  tokens?: DeckTokenView[];
 }
 
 /**

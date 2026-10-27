@@ -289,7 +289,7 @@ private fun artOf(
                 }
             }
         }
-    } + faceArtOf(connection, deckId)
+    } + faceArtOf(connection, deckId) + tokenArtOf(connection, deckId)
 
 /**
  * §7.59 — the other faces' pictures (a back face, by its own name,
@@ -305,6 +305,30 @@ private fun faceArtOf(
         statement.executeQuery().use { rows ->
             buildMap {
                 while (rows.next()) put(MatchArt.FACE + rows.getString(1), rows.getString(2))
+            }
+        }
+    }
+
+/**
+ * Spec 0022 — the token pictures a deck brought, by the token's front face
+ * name, lowercase, under a prefix of their own: they dress only tokens.
+ */
+private fun tokenArtOf(
+    connection: Connection,
+    deckId: UUID,
+): Map<String, String> =
+    connection.prepareStatement(
+        "SELECT token_name, art_sha256 FROM deck_token " +
+            "WHERE deck_id = ? AND art_sha256 IS NOT NULL ORDER BY line_number",
+    ).use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildMap {
+                while (rows.next()) {
+                    val name = rows.getString(1).substringBefore(" // ").trim().lowercase()
+                    // The first line of a name wins, as a deck lists it.
+                    putIfAbsent(MatchArt.TOKEN + name, rows.getString(2))
+                }
             }
         }
     }

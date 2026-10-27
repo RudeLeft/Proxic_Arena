@@ -15,7 +15,7 @@
 
 import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname } from "node:path";
-import { secondUser, shareOpenDeckWith, testUser } from "./helpers";
+import { importPackage, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 
 export async function csrfOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -470,8 +470,7 @@ export async function sharedDeck(
   const wanted = basename(pkg, extname(pkg));
   const ours = async () => (await mine()).find((deck) => deck.displayName === wanted);
   if (!(await ours())) {
-    await host.locator('input[type="file"]').setInputFiles(pkg);
-    await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
+    await importPackage(host, pkg);
     await expect.poll(async () => (await ours()) !== undefined, { timeout: 60_000 }).toBe(true);
   }
   const { deckId, displayName: deckName } = (await ours())!;

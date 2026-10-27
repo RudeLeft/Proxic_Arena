@@ -3,12 +3,16 @@ package net.barnflix.proxic.worker;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import forge.StaticData;
+import forge.card.CardDb;
 import forge.card.CardEdition;
 import forge.card.CardRules;
 import forge.item.IPaperCard;
 import forge.item.PaperCard;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -28,6 +32,14 @@ import java.util.TreeSet;
  * codes are found by asking Forge's own edition lookup, the same call
  * {@code CardDb.tryGetCard} makes for a decklist line.
  *
+ * <p>Spec 0022: each card's printings come in an order Forge itself
+ * defines -- its {@code CardArtPreference} "latest art, core, expansion
+ * and reprint editions only": those editions first, newest first -- so
+ * the Deck Builder needs no preference of its own. Forge's default
+ * preference is not used: it ranks every edition alike, so Lightning
+ * Bolt's first printing would be a Secret Lair one (measured). Ties keep
+ * the edition code and collector number order.
+ *
  * <p>Contraptions and Attractions are filed with Forge's variant cards;
  * they are included, as {@code ForgeRuntime.lookup} includes them, and
  * no other variant card is (a plane or a scheme stays unplayable).
@@ -43,6 +55,7 @@ final class CardPool {
 
         // Sorted, so the same Forge always produces the same document.
         Map<String, Entry> cards = new TreeMap<>();
+        Comparator<Printing> preferred = preferred(data);
         for (PaperCard card : data.getCommonCards().getAllCards()) {
             add(cards, card);
         }
@@ -55,7 +68,7 @@ final class CardPool {
         JsonObject pool = new JsonObject();
         JsonArray cardList = new JsonArray();
         for (Entry entry : cards.values()) {
-            cardList.add(entry.toJson());
+            cardList.add(entry.toJson(preferred));
         }
         pool.add("cards", cardList);
 
@@ -99,6 +112,33 @@ final class CardPool {
         return pool;
     }
 
+    /** The preference whose order the printings follow (spec 0022). */
+    static final CardDb.CardArtPreference ORDER = CardDb.CardArtPreference.LATEST_ART_CORE_EXPANSIONS_REPRINT_ONLY;
+
+    /** Forge's own preference between editions, then the printing's code and number. */
+    static Comparator<Printing> preferred(StaticData data) {
+        CardDb.CardArtPreference preference = ORDER;
+        CardEdition.Collection editions = data.getEditions();
+        Comparator<Printing> byForge = (a, b) -> {
+            CardEdition one = editions.get(a.edition);
+            CardEdition two = editions.get(b.edition);
+            if (one == null || two == null || one.getDate() == null || two.getDate() == null) {
+                // An edition Forge cannot date goes last, as it is least known.
+                return Boolean.compare(one == null || one.getDate() == null,
+                        two == null || two.getDate() == null);
+            }
+            return preference.compare(one, two);
+        };
+        return byForge.thenComparing(Printing::text);
+    }
+
+    /** One printing: its edition code and collector number, "M10 146". */
+    record Printing(String edition, String number) {
+        String text() {
+            return edition + " " + number;
+        }
+    }
+
     private static void add(Map<String, Entry> cards, PaperCard card) {
         Entry entry = cards.computeIfAbsent(card.getName(), name -> new Entry(card));
         String number = card.getCollectorNumber();
@@ -106,7 +146,10 @@ final class CardPool {
         // one, and a line naming only its set is answered by the set.
         if (number != null && !number.isBlank()
                 && !IPaperCard.NO_COLLECTOR_NUMBER.equals(number)) {
-            entry.printings.add(card.getEdition() + " " + number);
+            Printing printing = new Printing(card.getEdition(), number);
+            if (entry.seen.add(printing.text())) {
+                entry.printings.add(printing);
+            }
         }
     }
 
@@ -115,7 +158,8 @@ final class CardPool {
         final String name;
         final TreeSet<String> faces = new TreeSet<>();
         final String section;
-        final TreeSet<String> printings = new TreeSet<>();
+        final TreeSet<String> seen = new TreeSet<>();
+        final List<Printing> printings = new ArrayList<>();
 
         Entry(PaperCard card) {
             CardRules rules = card.getRules();
@@ -128,7 +172,7 @@ final class CardPool {
             this.section = side == null ? null : side.toUpperCase(Locale.ROOT);
         }
 
-        JsonObject toJson() {
+        JsonObject toJson(Comparator<Printing> preferred) {
             JsonObject one = new JsonObject();
             one.addProperty("name", name);
             JsonArray faceList = new JsonArray();
@@ -138,7 +182,7 @@ final class CardPool {
                 one.addProperty("section", section);
             }
             JsonArray printingList = new JsonArray();
-            printings.forEach(printingList::add);
+            printings.stream().sorted(preferred).map(Printing::text).forEach(printingList::add);
             one.add("printings", printingList);
             return one;
         }

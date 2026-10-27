@@ -130,8 +130,11 @@ class DeckRules(
     }
 
     companion object {
-        /** Raised when CARD_POOL's answer changes shape or meaning, so a kept pool is asked again. */
-        const val POOL_REVISION = 1
+        /**
+         * Raised when CARD_POOL's answer changes shape or meaning, so a kept pool
+         * is asked again. 2: printings in Forge's preferred order (spec 0022).
+         */
+        const val POOL_REVISION = 2
 
         private val POOL_PARTS = listOf("cards", "editions", "setCodes")
         private val JSON = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }

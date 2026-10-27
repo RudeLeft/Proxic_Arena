@@ -167,10 +167,14 @@ player's password.
 - **Kept as hashes.** Codes and tokens are stored only as SHA-256s, as
   session tokens are; a copy of `device_code` and `device_link` opens
   nothing.
-- **One route.** A token is sent as `Authorization: Bearer` and is read
-  by `GET /api/deck-rules` alone. Every other route ignores the header,
-  so a token cannot play, join a room, import, share or delete a deck,
-  or change the account.
+- **Its routes.** A token is sent as `Authorization: Bearer` and is read
+  by `GET /api/deck-rules` and, since spec 0022, the Deck Builder's own
+  routes under `/api/deck-builder/`: its deck names, which pictures its
+  decks already hold, and sending a deck (the browser import's pipeline,
+  owned by the token's account). Every other route ignores the header,
+  so a token cannot play, join a room, share or delete a deck, or change
+  the account. The `/api/deck-builder/` routes take a token only, never a
+  session, and need no CSRF header: nothing there reads a cookie.
 - **Ending one.** Remove on the Account page ends it at once. Signing
   out everywhere, an administrator's sign-out, a disabled account and a
   new password all end every token the account holds, in the same call
@@ -261,6 +265,10 @@ POST /api/auth/device-codes   a one-time code to link a computer (spec 0021)
 GET  /api/auth/devices        your linked computers
 DELETE /api/auth/devices/{id} unlink one
 POST /api/auth/device-link    open: a code -> a device token, once
+
+GET  /api/deck-builder/deck-names       device token: your decks' names (spec 0022)
+POST /api/deck-builder/pictures/known   device token: which picture hashes your decks hold
+POST /api/deck-builder/decks            device token: send a deck package
 ```
 
 `/api/auth/me` answers 200 for an anonymous caller rather than 401:
@@ -376,8 +384,8 @@ nothing else: it now needs a session, like `/api/version` and
 
 - No open self-registration (only by invitation, spec 0014), no
   password reset by email, no "remember me", no OAuth, no second factor.
-- No device token that does more than download the deck rules (spec
-  0021): uploading from the Deck Builder would be its own spec.
+- No device token that does more than download the deck rules and send
+  decks (specs 0021, 0022).
 - No account lockout — a throttle, not a lock, so a user cannot be
   locked out by someone else failing logins at their name.
 - No HSTS from this server: Cloudflare owns it (see

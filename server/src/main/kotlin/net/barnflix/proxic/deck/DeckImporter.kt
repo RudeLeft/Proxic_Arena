@@ -1,5 +1,8 @@
 package net.barnflix.proxic.deck
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import net.barnflix.proxic.ServerConfig
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -25,6 +28,8 @@ sealed interface ImportResult {
         val distinctCards: Int,
         val artStored: Int,
         val entriesWithoutArt: Int,
+        /** Spec 0022 -- the token cards that brought a picture. */
+        val tokenPictures: Int = 0,
     ) : ImportResult
 
     /** One reason, or many: a player fixing one problem per upload is worse. */
@@ -213,14 +218,7 @@ class DeckImporter(
 
         // 8. Artwork.
         val artByFrontName = mutableMapOf<String, StoredArt>()
-        val artProblems = storeArtwork(upload, inspected, staging, artByFrontName)
-        if (artProblems.isNotEmpty()) {
-            return ImportResult.Rejected(
-                "INVALID_ARTWORK",
-                "The package contains artwork that is not a usable image.",
-                artProblems,
-            )
-        }
+        artwork(upload, inspected, staging, ownerUserId, artByFrontName)?.let { return it }
 
         // 9-10. One transaction. Either the whole deck exists or
         // none of it does (§2.18).
@@ -292,6 +290,80 @@ class DeckImporter(
                 }
                 extracted.delete()
             }
+        }
+        return problems
+    }
+
+    /**
+     * Store the package's pictures, then file the ones it names as already
+     * sent (spec 0022); the refusal, or null when every picture is usable.
+     */
+    private fun artwork(
+        upload: File,
+        inspected: InspectedPackage,
+        staging: File,
+        ownerUserId: UUID,
+        into: MutableMap<String, StoredArt>,
+    ): ImportResult.Rejected? {
+        val artProblems = storeArtwork(upload, inspected, staging, into)
+        if (artProblems.isNotEmpty()) {
+            return ImportResult.Rejected(
+                "INVALID_ARTWORK",
+                "The package contains artwork that is not a usable image.",
+                artProblems,
+            )
+        }
+        // Pictures the package left out because the sender's own decks
+        // already hold them.
+        val notHeld = heldPictures(upload, inspected, ownerUserId, into)
+        if (notHeld.isNotEmpty()) {
+            return ImportResult.Rejected(
+                "PICTURE_NOT_HELD",
+                "Some pictures were not sent and are not in any of your decks.",
+                notHeld,
+            )
+        }
+        return null
+    }
+
+    /**
+     * Spec 0022 -- read `pictures.json` and file each picture it names,
+     * returning the ones the owner does not hold.
+     *
+     * Held means: the stored scan exists AND one of the owner's own decks
+     * uses it. Never "any deck on the server": a hash would then tell a
+     * player whether somebody else's deck has a picture.
+     */
+    private fun heldPictures(
+        upload: File,
+        inspected: InspectedPackage,
+        ownerUserId: UUID,
+        into: MutableMap<String, StoredArt>,
+    ): List<String> {
+        val entry = inspected.picturesEntry ?: return emptyList()
+        val text =
+            ZipFile(upload).use { zip ->
+                zip.getInputStream(zip.getEntry(entry)).use {
+                    it.readNBytes((PackageLimits.MAX_DECK_TEXT_BYTES + 1).toInt())
+                }
+            }
+        val named = picturesNamed(text) ?: return listOf("$entry is not a list of pictures.")
+        val total = named.size + inspected.imageEntries.size
+        if (total > PackageLimits.MAX_IMAGE_COUNT) {
+            return listOf("The package names $total pictures; the limit is ${PackageLimits.MAX_IMAGE_COUNT}.")
+        }
+        val held = ownedPictures(dataSource, ownerUserId, named.values.toSet())
+        val problems = mutableListOf<String>()
+        for ((member, sha) in named) {
+            val face = frontNameOf(member)
+            // A picture sent in full wins over one named.
+            if (face in into) continue
+            val size = held[sha]
+            if (size == null || !artStore.originalPath(sha).isFile) {
+                problems += member
+                continue
+            }
+            into[face] = StoredArt(sha, size, 0, 0)
         }
         return problems
     }
@@ -383,7 +455,7 @@ class DeckImporter(
 
                 // §7.59 — a picture that is no entry's front face: the back
                 // of a card that turns over, kept by that face's name.
-                val fronts = deck.entries.map { it.frontFaceName.lowercase() }.toSet()
+                val fronts = (deck.entries + deck.tokens).map { it.frontFaceName.lowercase() }.toSet()
                 for ((face, stored) in art.filterKeys { it !in fronts }) {
                     connection.prepareStatement(
                         """
@@ -397,6 +469,8 @@ class DeckImporter(
                         statement.executeUpdate()
                     }
                 }
+
+                insertTokens(connection, deckId, deck.tokens, art)
 
                 connection.commit()
             } catch (e: Exception) {
@@ -428,6 +502,7 @@ class DeckImporter(
             distinctCards = deck.entries.size,
             artStored = art.size,
             entriesWithoutArt = deck.entries.count { art[it.frontFaceName.lowercase()] == null },
+            tokenPictures = deck.tokens.count { art[it.frontFaceName.lowercase()] != null },
         )
     }
 
@@ -466,6 +541,99 @@ class DeckImporter(
             }
         }
         return null
+    }
+}
+
+/** Spec 0022 -- the token section's rows, each with the picture filed under its name. */
+private fun insertTokens(
+    connection: java.sql.Connection,
+    deckId: UUID,
+    tokens: List<DeckEntry>,
+    art: Map<String, StoredArt>,
+) {
+    for (token in tokens) {
+        connection.prepareStatement(
+            """
+            INSERT INTO deck_token
+              (deck_id, line_number, quantity, token_name, set_code, collector_number,
+               source_text, art_sha256)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setObject(1, deckId)
+            statement.setInt(2, token.lineNumber)
+            statement.setInt(3, token.quantity)
+            statement.setString(4, token.name)
+            statement.setString(5, token.setCode)
+            statement.setString(6, token.collectorNumber)
+            statement.setString(7, token.sourceText)
+            statement.setString(8, art[token.frontFaceName.lowercase()]?.sha256)
+            statement.executeUpdate()
+        }
+    }
+}
+
+private val SHA256 = Regex("^[0-9a-f]{64}$")
+
+/**
+ * Spec 0022 -- `{"real_cards/Pongify [PLC].png": "<sha-256>", ...}`, or null
+ * when the text is anything else: a name that is not a picture's, or a
+ * value that is not a lowercase SHA-256.
+ */
+internal fun picturesNamed(text: ByteArray): Map<String, String>? {
+    if (text.size > PackageLimits.MAX_DECK_TEXT_BYTES) return null
+    val parsed =
+        runCatching { Json.parseToJsonElement(text.toString(Charsets.UTF_8)) }.getOrNull() as? JsonObject
+            ?: return null
+    val named = mutableMapOf<String, String>()
+    for ((member, value) in parsed) {
+        val sha = (value as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+        val picture = member.removePrefix("real_cards/")
+        val isPicture =
+            member.startsWith("real_cards/") && picture.isNotEmpty() && !picture.contains('/') &&
+                picture.lowercase(Locale.ROOT).endsWith(".png")
+        if (!SHA256.matches(sha) || !isPicture) return null
+        named[member] = sha
+    }
+    return named
+}
+
+/**
+ * Spec 0022 -- of [hashes], the pictures used by a deck [ownerUserId] owns,
+ * with each one's size. Shared by the import and the Deck Builder's "which
+ * do you have" question, so the two can never disagree.
+ */
+internal fun ownedPictures(
+    dataSource: DataSource,
+    ownerUserId: UUID,
+    hashes: Set<String>,
+): Map<String, Long> {
+    if (hashes.isEmpty()) return emptyMap()
+    dataSource.connection.use { connection ->
+        connection.prepareStatement(
+            """
+            SELECT a.content_sha256, a.byte_size
+              FROM art_asset a
+             WHERE a.content_sha256 = ANY (?)
+               AND EXISTS (
+                     SELECT 1 FROM imported_deck d
+                      WHERE d.owner_user_id = ?
+                        AND (EXISTS (SELECT 1 FROM deck_entry e
+                                      WHERE e.deck_id = d.deck_id AND e.art_sha256 = a.content_sha256)
+                          OR EXISTS (SELECT 1 FROM deck_face_art f
+                                      WHERE f.deck_id = d.deck_id AND f.art_sha256 = a.content_sha256)
+                          OR EXISTS (SELECT 1 FROM deck_token t
+                                      WHERE t.deck_id = d.deck_id AND t.art_sha256 = a.content_sha256)))
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setArray(1, connection.createArrayOf("text", hashes.toTypedArray()))
+            statement.setObject(2, ownerUserId)
+            statement.executeQuery().use { rows ->
+                return buildMap {
+                    while (rows.next()) put(rows.getString(1), rows.getLong(2))
+                }
+            }
+        }
     }
 }
 

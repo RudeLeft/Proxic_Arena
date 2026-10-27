@@ -20,6 +20,8 @@ import java.util.zip.ZipFile
 data class InspectedPackage(
     val deckTextEntry: String,
     val imageEntries: List<String>,
+    /** Spec 0022 -- `pictures.json`, the pictures sent before, or null. */
+    val picturesEntry: String? = null,
     val compressedBytes: Long,
     val uncompressedBytes: Long,
 )
@@ -33,6 +35,9 @@ sealed interface PackageResult {
 object PackageInspector {
     /** Where the exporter files artwork. */
     private const val ART_DIRECTORY = "real_cards/"
+
+    /** Spec 0022 -- names the pictures a package leaves out because Arena holds them. */
+    const val PICTURES_ENTRY = "pictures.json"
 
     /**
      * Inspect an uploaded archive.
@@ -82,6 +87,7 @@ object PackageInspector {
         var uncompressed = 0L
         val deckTexts = mutableListOf<String>()
         val images = mutableListOf<String>()
+        var pictures: String? = null
         val normalised = mutableMapOf<String, String>()
 
         for (entry in entries) {
@@ -129,31 +135,21 @@ object PackageInspector {
                 )
             }
 
-            when {
-                isDeckText(name) -> deckTexts += name
-                isImage(name) -> images += name
+            when (memberKind(name)) {
+                MemberKind.PICTURES -> pictures = name
+                MemberKind.DECK_TEXT -> deckTexts += name
+                MemberKind.IMAGE -> images += name
                 // §2.32 — nested archives are not extracted, and are
                 // not silently ignored either: an unexpected member
                 // means this is not the package we think it is.
-                else -> return PackageResult.Rejected(
+                null -> return PackageResult.Rejected(
                     "UNEXPECTED_ENTRY",
                     "The package contains an unexpected file: \"$name\".",
                 )
             }
         }
 
-        // §2.31 — ratio, the signal absolute size misses. A 1 MB
-        // archive expanding to 4 GB passes every size check above.
-        if (compressed > 0) {
-            val ratio = uncompressed.toDouble() / compressed.toDouble()
-            if (ratio > PackageLimits.MAX_COMPRESSION_RATIO) {
-                return PackageResult.Rejected(
-                    "COMPRESSION_RATIO",
-                    "The package expands %.1f times, above the limit of %.1f."
-                        .format(ratio, PackageLimits.MAX_COMPRESSION_RATIO),
-                )
-            }
-        }
+        ratioRejection(compressed, uncompressed)?.let { return it }
 
         if (images.size > PackageLimits.MAX_IMAGE_COUNT) {
             return PackageResult.Rejected(
@@ -173,6 +169,7 @@ object PackageInspector {
                     InspectedPackage(
                         deckTextEntry = deckTexts.single(),
                         imageEntries = images,
+                        picturesEntry = pictures,
                         compressedBytes = compressed,
                         uncompressedBytes = uncompressed,
                     ),
@@ -251,6 +248,35 @@ object PackageInspector {
         if (name.contains('\u0000')) return true
         return false
     }
+
+    /**
+     * §2.31 — ratio, the signal absolute size misses. A 1 MB archive
+     * expanding to 4 GB passes every size check in [examine].
+     */
+    private fun ratioRejection(
+        compressed: Long,
+        uncompressed: Long,
+    ): PackageResult.Rejected? {
+        if (compressed <= 0) return null
+        val ratio = uncompressed.toDouble() / compressed.toDouble()
+        if (ratio <= PackageLimits.MAX_COMPRESSION_RATIO) return null
+        return PackageResult.Rejected(
+            "COMPRESSION_RATIO",
+            "The package expands %.1f times, above the limit of %.1f."
+                .format(ratio, PackageLimits.MAX_COMPRESSION_RATIO),
+        )
+    }
+
+    private enum class MemberKind { DECK_TEXT, IMAGE, PICTURES }
+
+    /** What a member is, or null for anything a package never holds. */
+    private fun memberKind(name: String): MemberKind? =
+        when {
+            name.equals(PICTURES_ENTRY, ignoreCase = true) -> MemberKind.PICTURES
+            isDeckText(name) -> MemberKind.DECK_TEXT
+            isImage(name) -> MemberKind.IMAGE
+            else -> null
+        }
 
     /** The decklist: a `.txt` at the archive ROOT, not nested. */
     private fun isDeckText(name: String): Boolean = !name.contains('/') && name.lowercase(Locale.ROOT).endsWith(".txt")

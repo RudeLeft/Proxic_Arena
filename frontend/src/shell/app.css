@@ -107,43 +107,41 @@
 .pa-section-notice {
   margin: 0 15px 15px;
 }
-.pa-drop {
-  position: relative;
+/* Spec 0022 -- where the upload box was: decks come from the Deck Builder. */
+.pa-builder-panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 104px;
-  padding: 14px;
-  box-sizing: border-box;
-  border: 1px dashed #4c5563;
-  border-radius: 4px;
-  background: var(--pa-field);
-  text-align: center;
-  cursor: pointer;
+  align-items: flex-start;
+  gap: 9px;
 }
-.pa-drop:hover,
-.pa-drop-active {
-  border-color: var(--pa-brass);
-  background: #131922;
-}
-.pa-drop:focus-within {
-  outline: 2px solid var(--pa-brass);
-  outline-offset: 2px;
-}
-.pa-drop-title {
+.pa-builder-title {
+  margin: 0;
   font-size: var(--pa-size-base);
   font-weight: 600;
   color: #dfe4ea;
 }
-.pa-drop-sub {
+.pa-builder-text,
+.pa-builder-note {
+  margin: 0;
   font-size: var(--pa-size-sm);
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--pa-muted);
 }
-.pa-drop code {
-  font-family: var(--pa-mono);
+.pa-builder-text {
+  color: #b4bbc4;
+}
+/* A link drawn as a button: a button's own box centres its text, a link's
+   does not, and the label wraps on a phone. */
+.pa-builder-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 8px 18px;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
 }
 .pa-problems {
   margin: 9px 0 0;
@@ -151,10 +149,6 @@
   font-size: var(--pa-size-sm);
   line-height: 1.7;
   color: #b4bbc4;
-}
-.pa-rename-import {
-  border-top: 0;
-  padding-top: 0;
 }
 .pa-group-head {
   margin: 0;
@@ -550,6 +544,19 @@
 .pa-card-art:focus-visible {
   outline: 2px solid var(--pa-brass);
   outline-offset: 2px;
+}
+/* Spec 0022 -- a token picture is shown, not zoomed. */
+.pa-token-art,
+.pa-token-art:hover {
+  cursor: default;
+  border-color: #2b333f;
+}
+.pa-band-note {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: var(--pa-size-sm);
+  line-height: 1.5;
+  color: var(--pa-muted);
 }
 .pa-card-art img {
   display: block;

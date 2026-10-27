@@ -23,6 +23,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+  importPackage,
   secondPassword,
   secondUser,
   shareOpenDeckWith,
@@ -98,8 +99,7 @@ test("two players choose decks, ready up, and the host prepares the match", asyn
   try {
     // --- a deck exists, and is shared -----------------------------
     await host.goto("/decks");
-    await host.locator('input[type="file"]').setInputFiles(pkg!);
-    await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 300_000 });
+    await importPackage(host, pkg!);
 
     // The name the server gave THIS import, read from the library
     // rather than guessed from the filename.

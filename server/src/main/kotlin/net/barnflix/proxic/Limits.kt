@@ -75,7 +75,11 @@ object Limits {
      * upload, with a 413 naming the global limit.
      */
     private val ROUTE_LIMITS: List<Pair<String, Long>> =
-        listOf("/api/decks/import" to 150L * 1024 * 1024)
+        listOf(
+            "/api/decks/import" to 150L * 1024 * 1024,
+            // Spec 0022 -- the same package, sent by a linked computer.
+            "/api/deck-builder/decks" to 150L * 1024 * 1024,
+        )
 
     fun bodyLimitFor(path: String): Long =
         ROUTE_LIMITS.firstOrNull { (prefix, _) -> path.startsWith(prefix) }?.second

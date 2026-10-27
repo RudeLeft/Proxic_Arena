@@ -83,6 +83,12 @@ private fun ApplicationCall.isDeckRules(path: String): Boolean {
     return get && path == "/api/deck-rules"
 }
 
+/**
+ * Spec 0022: the Deck Builder's own routes answer a device token only, and
+ * check it themselves, with the gate's own "Sign in to continue".
+ */
+private fun isDeckBuilder(path: String): Boolean = path.startsWith("/api/deck-builder/")
+
 /** Sign in, "who am I" (which tells a stranger nothing), sign out, and the sign-up page's two questions. */
 private fun ApplicationCall.isOpenAccountRoute(path: String): Boolean =
     path == "/api/auth/me" || (path in OPEN_POSTS && request.httpMethod == HttpMethod.Post)
@@ -118,6 +124,7 @@ fun Application.installSignedInGate(
             }
             call.isOpenAccountRoute(path) -> Unit
             call.isDeckRules(path) -> Unit
+            isDeckBuilder(path) -> Unit
             path == "/api" || path.startsWith("/api/") || path == "/ws/system" -> {
                 if (call.principal(sessions) == null) {
                     call.respond(

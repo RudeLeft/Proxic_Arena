@@ -1,22 +1,22 @@
 // The Deck Depot — PHASE_07 §7.65 and Amendment 10, over Phase 4; spec 0008.
 //
-// The canvas's Depot: import on the left with the library under it,
-// the open deck on the right with who holds it and its cards. Still
-// not a deck builder (§2.87): decks are made in Proxic Deck Builder
-// and arrive here as packages. Spec 0008 adds a card's close-up (click
-// it), a card size and the phone fixes.
+// The canvas's Depot: where decks come from on the left with the
+// library under it, the open deck on the right with who holds it and
+// its cards. Still not a deck builder (§2.87): decks are made in Proxic
+// Deck Builder, and since spec 0022 a linked Deck Builder sends them
+// here; the upload box is gone (owner S3). Spec 0008 adds a card's
+// close-up (click it), a card size and the phone fixes.
 //
 // Everything a player may do here the server decides again: hiding
 // Rename, Delete and Share on a deck lent to you is the courtesy, the
 // refusal is the protection (§4.71, §4.80).
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   bandsOf,
   deleteDeck,
   getDeck,
-  headingFor,
-  importDeck,
   listDecks,
   listShares,
   renameDeck,
@@ -27,8 +27,6 @@ import {
   type DeckEntryView,
   type DeckLibrary,
   type DeckSummary,
-  type ImportFailure,
-  type ImportedDeck,
   type ShareList,
 } from "./decks";
 import { CardZoom } from "./CardZoom";
@@ -38,167 +36,34 @@ import { Avatar } from "./avatars";
 import { ICON, avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
-type ImportView =
-  | { kind: "idle" }
-  | { kind: "working"; fileName: string }
-  | { kind: "imported"; deck: ImportedDeck }
-  | { kind: "failed"; failure: ImportFailure; file: File };
-
-/** §2.85 — what was actually imported, in one sentence. */
-function importedSentence(deck: ImportedDeck): string {
-  const art =
-    deck.entriesWithoutArt === 0
-      ? "artwork stored for all of them"
-      : `artwork stored for ${deck.artStored}; ${deck.entriesWithoutArt} arrived without art (Deck Builder omits art it could not fetch)`;
-  return `${deck.totalCards} cards, ${deck.distinctCards} distinct, ${art}.`;
-}
-
 /** Spec 0008 — the narrow layout, where the open deck sits below the library. */
 const PHONE = "(max-width: 720px)";
 const narrow = () => typeof window !== "undefined" && window.matchMedia?.(PHONE).matches === true;
 
 /**
- * Import — §2.81-§2.86, and §7.65's one name per owner.
- *
- * A name you already use is not a broken package: the notice offers
- * the name back to edit and imports the same file again under the new
- * one, so nobody has to find the file twice.
+ * Spec 0022 (owner S3) — decks come from a linked Proxic Deck Builder,
+ * so where the upload box was, the page says so and sends you to the
+ * Account page, where a computer is linked.
  */
-function ImportPanel({ onImported }: { onImported: (deck: ImportedDeck) => Promise<void> }) {
-  const [view, setView] = useState<ImportView>({ kind: "idle" });
-  const [dragging, setDragging] = useState(false);
-  const [newName, setNewName] = useState("");
-  const nameId = useId();
-
-  const upload = useCallback(
-    async (file: File, name?: string) => {
-      // One request does the whole import and reports no progress
-      // along the way, so the page says what is happening and does
-      // not pretend to know how far it has got (§2.84).
-      setView({ kind: "working", fileName: file.name });
-      const result = await importDeck(file, fetch, name);
-      if (result.ok) {
-        setView({ kind: "imported", deck: result.deck });
-        await onImported(result.deck);
-      } else {
-        setView({ kind: "failed", failure: result.failure, file });
-        setNewName(result.failure.takenName ?? "");
-      }
-    },
-    [onImported],
-  );
-
-  const working = view.kind === "working";
-
+function DeckBuilderPanel() {
   return (
-    <section className="pa-section" aria-labelledby="import-heading">
+    <section className="pa-section" aria-labelledby="add-heading">
       <div className="pa-section-head">
-        <h2 id="import-heading">Import</h2>
+        <h2 id="add-heading">Add a deck</h2>
       </div>
-      <div className="pa-section-body">
-        <label
-          className={`pa-drop${dragging ? " pa-drop-active" : ""}`}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setDragging(false);
-            const file = event.dataTransfer.files[0];
-            if (file && !working) void upload(file);
-          }}
-        >
-          <input
-            className="pa-visually-hidden"
-            type="file"
-            accept=".zip,application/zip"
-            disabled={working}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              // Cleared, because a file input fires NO change event
-              // when the same file is chosen again -- and the
-              // duplicate message is exactly what somebody re-picking
-              // a file needs to see. Found by a browser test doing it.
-              event.target.value = "";
-              if (file) void upload(file);
-            }}
-          />
-          {working ? (
-            <span className="pa-drop-title" role="status">
-              Checking {view.fileName}: the package, the deck and every card…
-            </span>
-          ) : (
-            <>
-              <span className="pa-drop-title">Drop a deck package here, or choose a file</span>
-              <span className="pa-drop-sub">
-                A <code>.zip</code> exported by Proxic Deck Builder.
-              </span>
-            </>
-          )}
-        </label>
+      <div className="pa-section-body pa-builder-panel">
+        <p className="pa-builder-title">Decks come from the Proxic Deck Builder</p>
+        <p className="pa-builder-text">
+          Link your computer once on your Account page. After that, the Proxic Arena Export button
+          in the Deck Builder sends the deck, its card pictures and its tokens straight here.
+        </p>
+        <Link className="pa-button pa-builder-link" to="/account">
+          Link a computer on your Account page
+        </Link>
+        <p className="pa-builder-note">
+          Already linked? Export from the Deck Builder and the deck appears in your library.
+        </p>
       </div>
-
-      {view.kind === "imported" && (
-        <div className="pa-notice pa-notice-ok pa-section-notice" role="status">
-          <span aria-hidden="true" className="pa-notice-mark" />
-          <span className="pa-notice-text">
-            <strong>{view.deck.displayName} imported</strong>
-            <span className="pa-notice-sub">{importedSentence(view.deck)}</span>
-          </span>
-        </div>
-      )}
-
-      {view.kind === "failed" && (
-        <div className="pa-notice pa-notice-bad pa-section-notice" role="alert">
-          <span aria-hidden="true" className="pa-notice-mark" />
-          <span className="pa-notice-text">
-            {/* §2.86 — a category, an explanation and the lines. A
-                duplicate's sentence already names the deck you have
-                (spec 0008: it was said twice). */}
-            <strong>
-              {headingFor(view.failure.errorCode) ?? "That package could not be imported"}
-            </strong>
-            <span className="pa-notice-sub">{view.failure.detail}</span>
-            {view.failure.problems.length > 0 &&
-              !["DUPLICATE_PACKAGE", "DECK_NAME_TAKEN"].includes(view.failure.errorCode) && (
-                <ul className="pa-problems">
-                  {view.failure.problems.map((problem) => (
-                    <li key={problem}>{problem}</li>
-                  ))}
-                </ul>
-              )}
-          </span>
-        </div>
-      )}
-
-      {view.kind === "failed" && view.failure.errorCode === "DECK_NAME_TAKEN" && (
-        <form
-          className="pa-form pa-rename-import"
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault();
-            void upload(view.file, newName);
-          }}
-        >
-          <label className="pa-label" htmlFor={nameId}>
-            Import it as
-          </label>
-          <div className="pa-form-inline">
-            <input
-              id={nameId}
-              className="pa-input"
-              value={newName}
-              maxLength={80}
-              onChange={(event) => setNewName(event.target.value)}
-              required
-            />
-            <button type="submit" className="pa-button">
-              Import
-            </button>
-          </div>
-        </form>
-      )}
     </section>
   );
 }
@@ -329,23 +194,20 @@ function DeckGroup({
 function OpenDeck({
   detail,
   summary,
-  justImported,
   onRenamed,
   onIcon,
-  onChosen,
 }: {
   detail: DeckDetail;
   /** Spec 0012 — the library's line for this deck: its colours and icon. */
   summary: DeckSummary | undefined;
-  /** Spec 0012 — just imported: the icon picker is open, with "Later". */
-  justImported: boolean;
   onRenamed: (displayName: string) => Promise<void>;
   onIcon: () => Promise<void>;
-  /** The picker closed, chosen or not. */
-  onChosen: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
-  const [choosingIcon, setChoosingIcon] = useState(justImported);
+  // Spec 0022 — a deck now arrives from the Deck Builder, not from this
+  // page, so the icon is chosen from Change icon; the suggestion shows
+  // until then.
+  const [choosingIcon, setChoosingIcon] = useState(false);
   const [iconBusy, setIconBusy] = useState(false);
   const [iconProblem, setIconProblem] = useState<string | null>(null);
   const changeIconButton = useRef<HTMLButtonElement | null>(null);
@@ -388,7 +250,6 @@ function OpenDeck({
   const closeIcons = () => {
     setChoosingIcon(false);
     setIconProblem(null);
-    onChosen();
     requestAnimationFrame(() => changeIconButton.current?.focus());
   };
   const saveIcon = async (name: string) => {
@@ -500,14 +361,14 @@ function OpenDeck({
       </div>
       {owned && choosingIcon && (
         <DeckIconPicker
-          title={justImported ? "Choose an icon" : "Change icon"}
+          title="Change icon"
           current={icon}
           suggested={suggested}
           busy={iconBusy}
           problem={iconProblem}
           onUse={(name) => void saveIcon(name)}
           onCancel={closeIcons}
-          cancelLabel={justImported ? "Later" : "Cancel"}
+          cancelLabel="Cancel"
         />
       )}
     </section>
@@ -743,10 +604,48 @@ function CardsPanel({ detail }: { detail: DeckDetail }) {
           </div>
         </div>
       ))}
+      <TokensBand detail={detail} size={size} />
       {zoomed !== null && order[zoomed] && (
         <CardZoom cards={order} index={zoomed} onIndex={setZoomed} onClose={close} />
       )}
     </section>
+  );
+}
+
+/**
+ * Spec 0022 — the token pictures the deck brought: shown in play when a
+ * token of that name arrives, never counted with the cards.
+ */
+function TokensBand({ detail, size }: { detail: DeckDetail; size: CardSize }) {
+  const tokens = detail.tokens ?? [];
+  if (tokens.length === 0) return null;
+  return (
+    <div
+      role="group"
+      aria-label={`Tokens, ${tokens.length} ${tokens.length === 1 ? "picture" : "pictures"}`}
+    >
+      <div className="pa-band-head" aria-hidden="true">
+        <span>Tokens</span>
+        <span className="pa-band-count">{tokens.length}</span>
+      </div>
+      <p className="pa-band-note">
+        Pictures for tokens in play, not part of the deck. A token without one still plays.
+      </p>
+      <div className="pa-card-grid" data-size={size}>
+        {tokens.map((token, index) => (
+          <figure key={`${token.name}-${index}`} className="pa-card">
+            <div className="pa-card-art pa-token-art">
+              {token.artUrl ? (
+                <img src={token.artUrl} alt={`${token.name} token`} loading="lazy" />
+              ) : (
+                <span className="pa-card-noart">No art</span>
+              )}
+            </div>
+            <figcaption>{token.name}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -757,8 +656,6 @@ export default function DecksPage() {
   const [openFailed, setOpenFailed] = useState(false);
   /** Spec 0008 — on a phone the library folds while a deck is open. */
   const [libraryFolded, setLibraryFolded] = useState(false);
-  /** Spec 0012 — the deck just imported, opened with its icon picker. */
-  const [justImported, setJustImported] = useState<string | null>(null);
   // The deck asked for last: a slower answer for an earlier click is
   // dropped, so two quick Views always show the second (spec 0008).
   const asked = useRef<string | null>(null);
@@ -797,13 +694,7 @@ export default function DecksPage() {
       <h1 className="pa-visually-hidden">Deck Depot</h1>
       <div className="pa-depot-layout">
         <div className="pa-depot-side">
-          <ImportPanel
-            onImported={async (deck) => {
-              await refresh();
-              setJustImported(deck.deckId);
-              view(deck.deckId);
-            }}
-          />
+          <DeckBuilderPanel />
 
           <section
             className={`pa-section${folded ? " pa-library-folded" : ""}`}
@@ -874,9 +765,7 @@ export default function DecksPage() {
                 summary={[...(shown?.mine ?? []), ...(shown?.sharedWithMe ?? [])].find(
                   (deck) => deck.deckId === open.deckId,
                 )}
-                justImported={justImported === open.deckId}
                 onIcon={refresh}
-                onChosen={() => setJustImported(null)}
                 onRenamed={async (displayName) => {
                   setOpen((current) => (current ? { ...current, displayName } : current));
                   await refresh();

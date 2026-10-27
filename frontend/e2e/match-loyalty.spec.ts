@@ -23,7 +23,14 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { secondPassword, secondUser, shareOpenDeckWith, signIn, signInAs } from "./helpers";
+import {
+  importPackage,
+  secondPassword,
+  secondUser,
+  shareOpenDeckWith,
+  signIn,
+  signInAs,
+} from "./helpers";
 import {
   answer,
   choices,
@@ -76,10 +83,9 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       ).mine;
 
     if (!(await mine()).some((deck) => deck.displayName === deckName)) {
-      await host.locator('input[type="file"]').setInputFiles(loyaltyPackage);
       // Forge resolves every card in the list; on a cold stack
       // that is minutes, not seconds.
-      await expect(host.getByText("Artwork stored")).toBeVisible({ timeout: 600_000 });
+      await importPackage(host, loyaltyPackage);
       await expect
         .poll(async () => (await mine()).some((d) => d.displayName === deckName), {
           timeout: 60_000,
