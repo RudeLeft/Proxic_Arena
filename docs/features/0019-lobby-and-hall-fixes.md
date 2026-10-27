@@ -1,6 +1,6 @@
 # 0019 — Lobby, Hall of Champions and Deck Depot fixes
 
-**Status:** Approved 2026-10-27 — built; look approved ("Yes, ship it")
+**Status:** Approved 2026-10-27 — built in 1.9.0
 **Owner decisions** (2026-10-27): F1 the Belt holder gets a mini belt
 beside their name wherever names appear; F2 pictures in the Players list
 and chat, and deck icons in rooms, share one size, 40px; F3 the rating

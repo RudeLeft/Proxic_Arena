@@ -3,7 +3,14 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.9.0 — 2026-10-27
+
+Polish across the lobby, the Hall of Champions, the Deck Depot and
+Admin: the deck check both players can see, a mini Champion's Belt by
+the holder's name, one set of picture sizes, and tidier Admin lists.
+
+**For whoever runs the server**
+- No database changes and no new settings.
 
 **Lobby, Hall of Champions, Deck Depot and Admin fixes** (owner,
 2026-10-27, spec 0019)

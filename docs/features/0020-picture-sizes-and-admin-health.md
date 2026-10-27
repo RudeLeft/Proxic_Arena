@@ -1,6 +1,6 @@
 # 0020 — One set of picture sizes, and Admin's room status and health
 
-**Status:** Approved 2026-10-26 — built; look approved ("Yes, ship it")
+**Status:** Approved 2026-10-26 — built in 1.9.0
 **Owner decisions** (2026-10-26): F1 the Hall's four places and the Belt
 holder use the big seat size, 56px; F2 a server problem also puts a red
 dot on the Server tab's name; F3 build it.

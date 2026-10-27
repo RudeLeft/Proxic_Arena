@@ -55,7 +55,7 @@ security fix, a dependency refresh, a failing test — needs no spec, but
 is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
-**Approved feature specs:** none in progress. Built after 1.8.0: 0019, 0020. Done in 1.1.0: 0001, 0002, 0003, 0005 (0004 dropped); in 1.2.0: 0006, 0007, 0008; in 1.3.0: 0009, 0010, 0011, 0012; in 1.4.0: 0013; in 1.5.0: 0014; in 1.6.0: 0015; in 1.7.0: 0016; in 1.8.0: 0017, 0018.
+**Approved feature specs:** none in progress. Done in 1.1.0: 0001, 0002, 0003, 0005 (0004 dropped); in 1.2.0: 0006, 0007, 0008; in 1.3.0: 0009, 0010, 0011, 0012; in 1.4.0: 0013; in 1.5.0: 0014; in 1.6.0: 0015; in 1.7.0: 0016; in 1.8.0: 0017, 0018; in 1.9.0: 0019, 0020.
 Update this line when one is approved or done.
 
 **Phases:** large work may still be a phase, locked and closed at an exit
