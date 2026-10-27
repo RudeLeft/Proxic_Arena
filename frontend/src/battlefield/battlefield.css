@@ -42,7 +42,7 @@
    * first live game screen). */
   overflow: clip;
   background: radial-gradient(ellipse at 42% 50%, var(--bf-table-glow) 0%, var(--bf-table) 70%);
-  font-family: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--pa-display, "Barlow Condensed", "Segoe UI", system-ui, sans-serif);
   color: var(--bf-ink);
 }
 
@@ -424,7 +424,7 @@
   pointer-events: none;
   text-align: right;
   white-space: nowrap;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--pa-text, "Segoe UI", system-ui, sans-serif);
   line-height: 1.25;
   text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
 }

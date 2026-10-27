@@ -9,7 +9,7 @@
   z-index: 20;
   background: #05070a;
   color: #e6e9ee;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--pa-text);
 }
 .gs-loading {
   position: absolute;
@@ -19,7 +19,7 @@
   align-items: center;
   justify-content: center;
   gap: 26px;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   color: #a9b0ba;
 }
 
@@ -70,9 +70,9 @@
 }
 .gs-ring-words {
   margin: 0;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.06em;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-lg);
+  letter-spacing: var(--pa-track-button);
   color: #d8dde4;
 }
 @keyframes gs-orbit {
@@ -115,7 +115,7 @@
   height: 900px;
   transform: scale(var(--rail-scale, 1));
   transform-origin: top left;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--pa-text);
 }
 .gs-seat {
   position: absolute;
@@ -158,9 +158,9 @@
   border-radius: 50%;
   background: #11161d;
   color: #e6e9ee;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 26px;
+  font-size: var(--pa-size-xl);
   font-variant-numeric: tabular-nums;
   cursor: default;
 }
@@ -183,7 +183,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .gs-priority-dot {
@@ -197,9 +197,9 @@
 .gs-seat-role {
   display: block;
   margin-top: 2px;
-  font-size: 8px;
+  font-size: var(--pa-size-xs);
   /* 0.17em before spec 0013's picture took some of the row. */
-  letter-spacing: 0.1em;
+  letter-spacing: var(--pa-track-button);
   white-space: nowrap;
   text-transform: uppercase;
   color: #7a828d;
@@ -209,7 +209,7 @@
 }
 .gs-seat-facts {
   margin: 6px 0 0;
-  font-size: 9px;
+  font-size: var(--pa-size-xs);
   line-height: 1.4;
   color: #c2c9d2;
   overflow: hidden;
@@ -258,15 +258,15 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-zone-key {
   flex: 1;
-  font-size: 9px;
-  letter-spacing: 0.15em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: #8a8f98;
 }
 .gs-zone-n {
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-variant-numeric: tabular-nums;
 }
 
@@ -315,8 +315,8 @@ button.gs-zone:not(:disabled):hover {
   background: none;
   color: #c9a46a;
   font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-button);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -349,10 +349,10 @@ button.gs-zone:not(:disabled):hover {
   background: #1b1710;
   color: #f0c46a;
   cursor: pointer;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.12em;
+  font-size: var(--pa-size-base);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
 }
 .gs-act-all:hover:not(:disabled) {
@@ -378,21 +378,21 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 6px;
   background: #2a1a18;
   color: #f2c9c2;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 1.4;
 }
 .gs-act-word {
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 19px;
-  letter-spacing: 0.12em;
+  font-size: var(--pa-size-lg);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
 }
 /* "Cancel Lightning Bolt" (owner 2026-10-22): a spell's name can be long,
  * so the word is smaller and may take two lines. */
 .gs-act-cancel .gs-act-word {
   max-width: 204px;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   line-height: 1.05;
   text-align: center;
   overflow: hidden;
@@ -401,8 +401,8 @@ button.gs-zone:not(:disabled):hover {
   -webkit-box-orient: vertical;
 }
 .gs-act-sub {
-  font-size: 9px;
-  letter-spacing: 0.04em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-button);
   color: #4a3a18;
 }
 .gs-waiting {
@@ -415,15 +415,15 @@ button.gs-zone:not(:disabled):hover {
   text-align: center;
   line-height: 1.15;
   gap: 7px;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.1em;
+  font-size: var(--pa-size-lg);
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   color: #8a8f98;
 }
 .gs-waiting-sub {
-  font-size: 9px;
+  font-size: var(--pa-size-xs);
   color: #7a828d;
 }
 .gs-waiting-question {
@@ -476,15 +476,15 @@ button.gs-zone:not(:disabled):hover {
   justify-content: center;
 }
 .gs-turn-key {
-  font-size: 8px;
-  letter-spacing: 0.18em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: #8a8f98;
 }
 .gs-turn-value {
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 25px;
+  font-size: var(--pa-size-xl);
   line-height: 0.9;
   font-variant-numeric: tabular-nums;
 }
@@ -506,8 +506,8 @@ button.gs-zone:not(:disabled):hover {
   display: grid;
   place-items: center;
   border-radius: 20px;
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   white-space: nowrap;
   color: #7a828d;
@@ -518,8 +518,8 @@ button.gs-zone:not(:disabled):hover {
   font-weight: 700;
 }
 .gs-day {
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: #c2c9d2;
 }
@@ -552,7 +552,7 @@ button.gs-zone:not(:disabled):hover {
   background: rgb(17 22 29 / 85%);
   color: #cfd5dd;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   cursor: pointer;
 }
 .gs-menu-button[aria-pressed="true"] {
@@ -572,7 +572,7 @@ button.gs-zone:not(:disabled):hover {
   border: 1px solid #6b5450;
   border-radius: 4px;
   background: #1c1a1c;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: #f4cdc6;
 }
 
@@ -617,7 +617,7 @@ button.gs-zone:not(:disabled):hover {
   transform: translateX(-50%);
 }
 .gs-question-slim .gs-question-title {
-  font-size: 17px;
+  font-size: var(--pa-size-lg);
 }
 .gs-question-slim p {
   margin: 0;
@@ -654,25 +654,25 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-question-title {
   margin: 0;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 600;
-  font-size: 20px;
+  font-size: var(--pa-size-xl);
 }
 .gs-question-prompt {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   line-height: 1.45;
   color: #dfe4ea;
 }
 .gs-question-hint,
 .gs-question-foot {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: #8a8f98;
 }
 .gs-question-notice {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: #f4cdc6;
 }
 .gs-options {
@@ -691,7 +691,7 @@ button.gs-zone:not(:disabled):hover {
   background: #1b222c;
   color: #e6e9ee;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   text-align: left;
   cursor: pointer;
 }
@@ -708,7 +708,7 @@ button.gs-zone:not(:disabled):hover {
   background: repeating-linear-gradient(135deg, #1b222c 0 6px, #171d26 6px 12px);
 }
 .gs-option-note {
-  font-size: 10px;
+  font-size: var(--pa-size-xs);
   color: #8a8f98;
 }
 .gs-all-toggle,
@@ -719,7 +719,7 @@ button.gs-zone:not(:disabled):hover {
   background: none;
   color: #9ccbff;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -731,10 +731,10 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 4px;
   background: transparent;
   color: #cfd5dd;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.1em;
+  font-size: var(--pa-size-base);
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -752,8 +752,8 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 8px;
   background: #11161d;
   box-shadow: 0 12px 30px rgb(0 0 0 / 70%);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 13px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-base);
   line-height: 1.35;
   color: #e6e9ee;
   text-align: center;
@@ -780,7 +780,7 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 8px;
   background: #11161d;
   box-shadow: 0 16px 40px rgb(0 0 0 / 75%);
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: var(--pa-text);
 }
 .gs-popup-head {
   padding: 11px 13px;
@@ -788,13 +788,13 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-popup-name {
   display: block;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   font-weight: 600;
 }
 .gs-popup-count {
   display: block;
   margin-top: 3px;
-  font-size: 10px;
+  font-size: var(--pa-size-xs);
   color: #8a8f98;
 }
 .gs-popup-actions {
@@ -833,10 +833,10 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 2px;
   background: #e0a44a;
   color: #17110a;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
   font-size: calc(var(--card-h) * 0.07);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--pa-track-button);
 }
 .bf-card.bf-selected,
 .bf-tag.bf-selected {
@@ -882,11 +882,11 @@ button.gs-zone:not(:disabled):hover {
   border: 1px solid #39424f;
   background: #11161d;
   color: #7a828d;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .gs-inspect-text {
   min-width: 200px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   line-height: 1.5;
   color: #c2c9d2;
 }
@@ -895,16 +895,16 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-inspect-name {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--pa-size-xl);
   color: #e6e9ee;
 }
 .gs-inspect-types {
   color: #8a8f98;
 }
 .gs-inspect-pt {
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 22px;
+  font-size: var(--pa-size-xl);
   color: #e6e9ee;
 }
 .gs-inspect-text .pa-button {
@@ -921,10 +921,10 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-viewer-title {
   margin: 0 0 10px;
-  font-size: 16px;
+  font-size: var(--pa-size-lg);
 }
 .gs-viewer-empty {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: #8a8f98;
 }
 .gs-viewer-list {
@@ -944,12 +944,12 @@ button.gs-zone:not(:disabled):hover {
   background: #11161d;
   color: #e6e9ee;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   text-align: left;
   cursor: pointer;
 }
 .gs-viewer-types {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: #8a8f98;
 }
 
@@ -976,7 +976,7 @@ button.gs-zone:not(:disabled):hover {
   border: 1px solid #39424f;
   border-radius: 6px;
   background: rgb(17 22 29 / 94%);
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: #dfe4ea;
   animation: gs-fade 7s ease forwards;
 }
@@ -1028,10 +1028,10 @@ button.gs-zone:not(:disabled):hover {
   border-radius: 0 8px 8px 0;
   background: #11161d;
   color: #c2c9d2;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
-  font-size: 13px;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-base);
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   writing-mode: vertical-rl;
   cursor: pointer;
@@ -1066,9 +1066,9 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-chat-panel .pa-panel-head h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: #cfd5dd;
 }
@@ -1106,13 +1106,13 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-over-title {
   margin: 0;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+  font-family: var(--pa-display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: var(--pa-size-xl);
 }
 .gs-over-text {
   margin: 10px 0 18px;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   line-height: 1.5;
   color: #c2c9d2;
 }
@@ -1127,18 +1127,18 @@ button.gs-zone:not(:disabled):hover {
   background: rgb(17 22 29 / 97%);
   box-shadow: 0 16px 40px rgb(0 0 0 / 70%);
   color: #e6e9ee;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .gs-stops-title {
   margin: 0 0 6px;
-  font-family: "Barlow Condensed", "Segoe UI", sans-serif;
-  font-size: 18px;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-lg);
   font-weight: 600;
 }
 .gs-stops-note {
   margin: 0 0 8px;
   color: #a8b0bb;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .gs-stops-table {
   width: 100%;
@@ -1156,8 +1156,8 @@ button.gs-zone:not(:disabled):hover {
 }
 .gs-stops-table thead th {
   color: #a8b0bb;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
 }
 .gs-stops-actions {
@@ -1283,7 +1283,7 @@ button.gs-zone:not(:disabled):hover {
   background: none;
   color: #dfe4ea;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   text-align: left;
   cursor: pointer;
 }
@@ -1298,7 +1298,7 @@ button.gs-zone:not(:disabled):hover {
   font-weight: 600;
 }
 .gs-dock-item-what {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   line-height: 1.35;
   color: #8a8f98;
 }

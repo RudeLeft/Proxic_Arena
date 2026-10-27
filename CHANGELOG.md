@@ -3,6 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Bigger, more even text** (owner, 2026-10-26, spec 0017)
+- Every page reads more easily: everyday text is 16px (it was mostly
+  12-13px), and nothing anywhere is smaller than 12px (some labels
+  were 8px).
+- One scale of seven sizes replaces 22 different ones, so the same
+  kind of text looks the same on every page, the game screen included.
+  The text on the cards on the board is unchanged.
+- If you set your browser's text size bigger, Proxic Arena follows it.
+
 ## 1.7.0 — 2026-10-26
 
 A polished lobby: room cards anybody can read, Ask to join, and the

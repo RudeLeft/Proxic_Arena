@@ -28,8 +28,6 @@
   --pa-ok: #8fd6b0;
   --pa-bad: #f0b2a8;
   --pa-warn: #e0d2a8;
-  --pa-display: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
-  --pa-text: "Segoe UI", system-ui, sans-serif;
 }
 
 body {
@@ -75,7 +73,7 @@ body {
 .pa-tab {
   padding: 10px 15px;
   border-radius: 3px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   text-decoration: none;
   color: #b4bbc4;
 }
@@ -100,7 +98,7 @@ body {
   padding: 6px 12px;
   border: 1px solid var(--pa-line);
   border-radius: 16px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: var(--pa-sub);
 }
 .pa-connection-quiet {
@@ -150,8 +148,8 @@ main.pa-main {
   margin: 0 0 4px;
   font-family: var(--pa-display);
   font-weight: 600;
-  font-size: 32px;
-  letter-spacing: 0.01em;
+  font-size: var(--pa-size-2xl);
+  letter-spacing: normal;
 }
 .pa-section {
   border: 1px solid var(--pa-line);
@@ -169,9 +167,9 @@ main.pa-main {
 }
 .pa-section-head h2 {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--pa-size-xs);
   font-weight: 400;
-  letter-spacing: 0.18em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-sub);
 }
@@ -188,12 +186,12 @@ main.pa-main {
 .pa-row-key {
   flex: 1 1 160px;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-muted);
 }
 .pa-row-value {
   flex: none;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 /* Explicit, because the Phase 1 stylesheet makes every <form> a flex
@@ -213,7 +211,7 @@ main.pa-main {
 .pa-help {
   flex: 1 1 100%;
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 1.55;
   color: var(--pa-faint);
 }
@@ -223,7 +221,7 @@ main.pa-main {
 .pa-label {
   display: block;
   margin-bottom: 7px;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   font-weight: 600;
   color: var(--pa-label);
 }
@@ -239,7 +237,7 @@ main.pa-main {
   background: var(--pa-field);
   color: var(--pa-ink);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
 }
 .pa-form-inline .pa-input {
   flex: 1 1 240px;
@@ -248,7 +246,7 @@ main.pa-main {
   margin-bottom: 0;
 }
 .pa-input[type="password"] {
-  letter-spacing: 0.18em;
+  letter-spacing: var(--pa-track-caps);
 }
 .pa-input:focus-visible {
   outline: 2px solid var(--pa-brass);
@@ -267,8 +265,8 @@ main.pa-main {
   color: var(--pa-ink-bright);
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.1em;
+  font-size: var(--pa-size-base);
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
 }
 .pa-button:hover:not(:disabled) {
@@ -297,8 +295,8 @@ main.pa-main {
   width: 100%;
   min-height: 50px;
   border-color: #c6ccd4;
-  font-size: 18px;
-  letter-spacing: 0.14em;
+  font-size: var(--pa-size-lg);
+  letter-spacing: var(--pa-track-caps);
 }
 
 /* --- notices: never colour alone (a mark and words) ----------------------- */
@@ -325,14 +323,14 @@ main.pa-main {
 .pa-notice-text {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   line-height: 1.5;
   color: var(--pa-label);
 }
 .pa-notice-sub {
   display: block;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: #9aa1ac;
 }
 .pa-notice-bad {
@@ -413,13 +411,13 @@ main.pa-main {
 .pa-join-title {
   margin: 0;
   font-family: var(--pa-display);
-  font-size: 26px;
+  font-size: var(--pa-size-xl);
   font-weight: 700;
   color: var(--pa-ink-bright);
 }
 .pa-join-sub {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 /* Under its own box: the box's 18px below gives way to the hint. */
@@ -430,7 +428,7 @@ main.pa-main {
   display: block;
   margin: 0 0 16px;
   min-height: 1.2em;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-join-ok {

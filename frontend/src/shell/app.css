@@ -43,7 +43,7 @@
   background: transparent;
   color: var(--pa-label);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .pa-small-button:hover {
   background: #1a212a;
@@ -65,12 +65,12 @@
 .pa-count {
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 16px;
+  font-size: var(--pa-size-lg);
   font-variant-numeric: tabular-nums;
 }
 .pa-field-problem {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: #f4cdc6;
 }
 
@@ -132,22 +132,22 @@
   outline-offset: 2px;
 }
 .pa-drop-title {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
   color: #dfe4ea;
 }
 .pa-drop-sub {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 1.5;
   color: var(--pa-muted);
 }
 .pa-drop code {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--pa-mono);
 }
 .pa-problems {
   margin: 9px 0 0;
   padding-left: 17px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 1.7;
   color: #b4bbc4;
 }
@@ -160,9 +160,9 @@
   padding: 9px 15px 7px;
   border-top: 1px solid var(--pa-line-soft);
   background: var(--pa-field);
-  font-size: 9px;
+  font-size: var(--pa-size-xs);
   font-weight: 400;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-faint);
 }
@@ -170,7 +170,7 @@
   margin: 0;
   padding: 12px 15px;
   border-top: 1px solid var(--pa-line-soft);
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-chips .pa-group-empty {
@@ -205,7 +205,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 /* A question must be read whole: "Delete attachment-de…?" is not one. */
@@ -216,7 +216,7 @@
 .pa-deck-meta {
   display: block;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: var(--pa-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -258,11 +258,11 @@
 }
 .pa-icon-picker-head h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   color: var(--pa-ink-bright);
 }
 .pa-icon-picker-chosen {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-icon-sheets {
@@ -276,7 +276,7 @@
   border: 1px solid var(--pa-line-strong);
   background: transparent;
   color: var(--pa-sub);
-  font: 600 12px var(--pa-text);
+  font: 600 var(--pa-size-md) var(--pa-text);
   cursor: pointer;
 }
 .pa-icon-sheet[aria-selected="true"] {
@@ -325,9 +325,9 @@
   padding: 1px 6px;
   background: var(--pa-brass);
   color: #1b1408;
-  font-size: 9px;
+  font-size: var(--pa-size-xs);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -360,19 +360,19 @@
   overflow-wrap: anywhere;
   font-family: var(--pa-display);
   font-weight: 600;
-  font-size: 30px;
-  letter-spacing: 0.01em;
+  font-size: var(--pa-size-2xl);
+  letter-spacing: normal;
 }
 .pa-open-owner {
   margin-top: 5px;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-open-empty {
   margin: 0;
   padding: 18px 16px 22px;
   border-top: 1px solid var(--pa-line-soft);
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-muted);
 }
 .pa-rename-input {
@@ -381,8 +381,8 @@
   margin: 0;
   font-family: var(--pa-display);
   font-weight: 600;
-  font-size: 26px;
-  letter-spacing: 0.01em;
+  font-size: var(--pa-size-xl);
+  letter-spacing: normal;
 }
 .pa-stats {
   display: flex;
@@ -394,8 +394,8 @@
   min-width: 74px;
 }
 .pa-stat dt {
-  font-size: 8px;
-  letter-spacing: 0.16em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-faint);
 }
@@ -403,7 +403,7 @@
   margin: 3px 0 0;
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 22px;
+  font-size: var(--pa-size-xl);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -421,7 +421,7 @@
   padding: 5px 7px 5px 6px;
   border: 1px solid #4c5563;
   border-radius: 18px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-chip-button {
   appearance: none;
@@ -435,7 +435,7 @@
   background: transparent;
   color: #a9b0ba;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
 }
 .pa-chip-button:hover {
   color: var(--pa-ink-bright);
@@ -469,7 +469,7 @@
   background: var(--pa-panel);
   color: var(--pa-ink);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-select-wrap svg {
   position: absolute;
@@ -485,12 +485,12 @@
 }
 .pa-share-form .pa-button {
   min-height: 44px;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
 }
 .pa-share-message {
   flex: 1 1 100%;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-ok);
 }
 .pa-share-message-bad {
@@ -503,8 +503,8 @@
   padding: 11px 16px 9px;
   border-top: 1px solid var(--pa-line-soft);
   background: var(--pa-field);
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-muted);
 }
@@ -512,7 +512,7 @@
   margin-left: auto;
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   letter-spacing: 0;
   color: #b4bbc4;
   font-variant-numeric: tabular-nums;
@@ -562,8 +562,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  letter-spacing: 0.2em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: #5d6470;
   background-image: repeating-linear-gradient(
@@ -584,7 +584,7 @@
   background: var(--pa-panel);
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 16px;
   text-align: center;
   color: var(--pa-ink-bright);
@@ -592,7 +592,7 @@
 }
 .pa-card figcaption {
   text-align: center;
-  font-size: 10px;
+  font-size: var(--pa-size-xs);
   line-height: 1.4;
   color: #a9b0ba;
   overflow-wrap: anywhere;
@@ -621,7 +621,7 @@
 }
 .pa-card-grid[data-size="medium"] figcaption,
 .pa-card-grid[data-size="large"] figcaption {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .pa-size-switch {
   display: flex;
@@ -634,7 +634,7 @@
   background: var(--pa-field);
   color: var(--pa-sub);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   cursor: pointer;
 }
 .pa-size-option + .pa-size-option {
@@ -661,7 +661,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: #f4cdc6;
 }
 .pa-open-failed {
@@ -740,7 +740,7 @@
   justify-content: center;
   padding: 24px;
   border: 1px solid var(--pa-line-strong);
-  font-size: 20px;
+  font-size: var(--pa-size-xl);
   font-weight: 600;
   text-align: center;
   color: var(--pa-ink);
@@ -788,12 +788,12 @@
   gap: 8px 16px;
 }
 .pa-zoom-name {
-  font-size: 16px;
+  font-size: var(--pa-size-lg);
   font-weight: 600;
   color: var(--pa-ink-bright);
 }
 .pa-zoom-meta {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-muted);
 }
 .pa-zoom-turn {
@@ -890,7 +890,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .pa-player-offline {
@@ -901,7 +901,7 @@
   align-items: center;
   gap: 7px;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
 }
 .pa-where-plain {
   color: #a9b0ba;
@@ -943,8 +943,8 @@
   background: transparent;
   color: var(--pa-label);
   font: inherit;
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: var(--pa-size-md);
+  letter-spacing: var(--pa-track-button);
 }
 .pa-invite:hover:not(:disabled) {
   background: #1a212a;
@@ -1028,7 +1028,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 17px;
+  font-size: var(--pa-size-lg);
   font-weight: 600;
 }
 .pa-seat {
@@ -1041,7 +1041,7 @@
   min-height: 32px;
   padding: 0 11px;
   border-radius: 16px;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   font-weight: 600;
 }
 .pa-seat-name {
@@ -1064,7 +1064,7 @@
   flex: none;
   width: 24px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1077,8 +1077,8 @@
   border: 1px solid #4c5563;
   border-radius: 2px;
   text-align: center;
-  font-size: 9px;
-  letter-spacing: 0.14em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--pa-sub);
@@ -1090,13 +1090,13 @@
   justify-content: center;
 }
 .pa-room-role {
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-brass);
 }
 .pa-room-note {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: #5d6470;
 }
 .pa-button-accept {
@@ -1137,7 +1137,7 @@
 .pa-your-room-note {
   flex: 1 1 100%;
   margin: 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   line-height: 1.55;
   color: var(--pa-faint);
 }
@@ -1177,24 +1177,24 @@
   background: transparent;
   color: #a9b0ba;
   font: inherit;
-  font-size: 16px;
+  font-size: var(--pa-size-lg);
   line-height: 1;
 }
 .pa-dialog-label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-sub);
 }
 .pa-dialog-title {
   margin: 10px 40px 0 0;
-  font-size: 19px;
+  font-size: var(--pa-size-lg);
   font-weight: 600;
   line-height: 1.4;
 }
 .pa-dialog-sub {
   margin: 9px 0 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   line-height: 1.5;
   color: #9aa1ac;
 }
@@ -1263,14 +1263,14 @@
 }
 .pa-lobby .pa-panel-head h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-label);
 }
 .pa-lobby .pa-panel-note {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 
@@ -1329,8 +1329,8 @@
   background: none;
   color: var(--pa-muted);
   font: inherit;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: var(--pa-size-md);
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -1524,9 +1524,9 @@
   gap: 7px;
 }
 .pa-hall-label {
-  font-size: 10px;
+  font-size: var(--pa-size-xs);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-muted);
 }
@@ -1548,13 +1548,13 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-family: var(--pa-display);
-  font-size: 20px;
+  font-size: var(--pa-size-xl);
   font-weight: 700;
   line-height: 1.1;
   color: var(--pa-ink-bright);
 }
 .pa-hall-record {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
   font-variant-numeric: tabular-nums;
 }
@@ -1586,13 +1586,13 @@
 }
 .pa-open-title {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--pa-size-xl);
   font-weight: 600;
   color: var(--pa-ink-bright);
 }
 .pa-open-sub {
   margin: 6px 0 14px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 .pa-lobby .pa-open-room {
@@ -1623,7 +1623,7 @@
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 24px;
+  font-size: var(--pa-size-xl);
   font-weight: 600;
   color: var(--pa-ink-bright);
 }
@@ -1632,7 +1632,7 @@
   border-radius: 999px;
   background: #1f2a22;
   color: var(--pa-ok);
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   font-weight: 600;
 }
 .pa-status-playing {
@@ -1640,7 +1640,7 @@
   color: var(--pa-brass);
 }
 .pa-room-closes {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-warn);
 }
 .pa-lobby .pa-room-top .pa-room-role {
@@ -1663,7 +1663,7 @@
   border-radius: 0;
   background: var(--pa-field);
   color: var(--pa-ink);
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 400;
 }
 .pa-lobby .pa-seat-open {
@@ -1685,14 +1685,14 @@
 }
 .pa-seat-tag {
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-seat-deck {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
 }
 .pa-seat-ready {
@@ -1700,7 +1700,7 @@
   padding: 4px 10px;
   border: 1px solid var(--pa-button-line);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
 }
 .pa-seat-ready-on {
@@ -1734,9 +1734,9 @@
   background: #121b16;
 }
 .pa-step-key {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-sub);
 }
@@ -1757,8 +1757,8 @@
   padding: 6px 10px;
   text-wrap: balance;
   line-height: 1.15;
-  font-size: 15px;
-  letter-spacing: 0.05em;
+  font-size: var(--pa-size-base);
+  letter-spacing: var(--pa-track-button);
 }
 .pa-lobby .pa-step-note a {
   color: var(--pa-brass);
@@ -1790,9 +1790,9 @@
   justify-content: center;
   gap: 9px;
   font-family: var(--pa-display);
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   text-align: center;
   cursor: default;
@@ -1835,7 +1835,7 @@
   }
 }
 .pa-step-note {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   line-height: 1.45;
   color: var(--pa-sub);
 }
@@ -1869,7 +1869,7 @@
 }
 .pa-lobby .pa-room-card .pa-room-name {
   flex: none;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
 }
 .pa-room-invite-line {
   white-space: normal;
@@ -1891,7 +1891,7 @@
   box-sizing: border-box;
   border: 1px solid var(--pa-line-strong);
   background: var(--pa-panel);
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-room-seat-name {
   min-width: 0;
@@ -1903,7 +1903,7 @@
   font-weight: 600;
 }
 .pa-room-seat-name small {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 400;
   color: var(--pa-warn);
 }
@@ -1942,7 +1942,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .pa-room-line-dot {
@@ -2016,9 +2016,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-brass);
 }
@@ -2058,13 +2058,13 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
   color: var(--pa-ink-bright);
 }
 .pa-chat-at {
   flex: none;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: var(--pa-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -2089,7 +2089,7 @@
 .pa-chat-text {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   line-height: 1.45;
   color: var(--pa-ink);
 }
@@ -2105,7 +2105,7 @@
   border-radius: 50%;
   background: #1b222c;
   color: var(--pa-sub);
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   line-height: 1;
   opacity: 0;
 }
@@ -2136,7 +2136,7 @@
   border: 0;
   border-radius: 50%;
   background: none;
-  font-size: 18px;
+  font-size: var(--pa-size-lg);
   line-height: 1;
 }
 .pa-react-pick:hover {
@@ -2161,14 +2161,14 @@
   border-radius: 999px;
   background: #11161d;
   color: var(--pa-ink);
-  font-size: 14px;
+  font-size: var(--pa-size-base);
 }
 .pa-reaction-mine {
   border-color: #a88a52;
   background: #2a2318;
 }
 .pa-reaction-count {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   font-variant-numeric: tabular-nums;
 }
 .pa-emoji-panel {
@@ -2188,7 +2188,7 @@
   border: 0;
   border-radius: 6px;
   background: none;
-  font-size: 20px;
+  font-size: var(--pa-size-xl);
   line-height: 1;
 }
 .pa-emoji:hover,
@@ -2311,7 +2311,7 @@
   gap: 8px;
   padding: 8px 14px;
   border: 1px solid var(--pa-line-strong);
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 .pa-admin-health-ok {
@@ -2363,8 +2363,8 @@
   border-top-color: #e0776a;
 }
 .pa-admin-tile dt {
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-muted);
 }
@@ -2375,14 +2375,14 @@
 }
 .pa-admin-tile-value {
   font-family: var(--pa-display);
-  font-size: 34px;
+  font-size: var(--pa-size-2xl);
   font-weight: 700;
   line-height: 1.1;
   color: var(--pa-ink-bright);
   font-variant-numeric: tabular-nums;
 }
 .pa-admin-tile-sub {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
 }
 .pa-admin-tile-bad .pa-admin-tile-sub {
@@ -2410,7 +2410,7 @@
   background: none;
   color: var(--pa-sub);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   cursor: pointer;
 }
 .pa-admin-tab:hover {
@@ -2444,14 +2444,14 @@
 }
 .pa-admin-panel-head h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-label);
 }
 .pa-admin-panel-note {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-admin-panel .pa-group-empty {
@@ -2472,8 +2472,8 @@
   padding-top: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--pa-line-soft);
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-muted);
 }
@@ -2502,7 +2502,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .pa-admin-username {
@@ -2510,16 +2510,16 @@
   color: var(--pa-muted);
 }
 .pa-admin-account-meta {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
   font-variant-numeric: tabular-nums;
 }
 .pa-admin-status-on {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-ok);
 }
 .pa-admin-status-off {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: #f4cdc6;
 }
 .pa-admin-fold {
@@ -2558,7 +2558,7 @@
   background: none;
   color: var(--pa-ink);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   text-align: left;
   cursor: pointer;
 }
@@ -2586,7 +2586,7 @@
 .pa-admin-new-title {
   margin: 0 0 14px;
   font-family: var(--pa-display);
-  font-size: 24px;
+  font-size: var(--pa-size-xl);
   font-weight: 700;
   color: var(--pa-ink-bright);
 }
@@ -2604,9 +2604,9 @@
   padding: 3px 9px;
   border: 1px solid var(--pa-line-strong);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--pa-track-button);
   color: var(--pa-sub);
 }
 .pa-chip-admin {
@@ -2645,7 +2645,7 @@
   padding: 8px 18px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--pa-line-soft);
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-admin-server-row dt {
   flex: 0 0 200px;
@@ -2691,12 +2691,12 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 15px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .pa-admin-room-who,
 .pa-admin-record-who {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 .pa-admin-record-who {
@@ -2709,11 +2709,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: #f4cdc6;
 }
 .pa-admin-outcome {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-admin-outcome-ok {
   color: var(--pa-ok);
@@ -2769,11 +2769,11 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--pa-size-base);
   font-weight: 600;
 }
 .pa-admin-signin-detail {
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 .pa-admin-signin-bad {
@@ -2792,7 +2792,7 @@
   grid-template-columns: 60px 90px 110px auto;
   gap: 12px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-sub);
   font-variant-numeric: tabular-nums;
 }
@@ -3023,7 +3023,7 @@
   margin: 0;
 }
 .pa-admin-invite-joined {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   padding: 2px 9px;
   border: 1px solid #2f5a44;
   border-radius: 999px;
@@ -3041,7 +3041,7 @@
   background: transparent;
   color: var(--pa-sub);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   cursor: pointer;
 }
 .pa-admin-invite-role-option[aria-checked="true"] {
@@ -3051,7 +3051,7 @@
 }
 .pa-admin-invite-note {
   margin: 4px 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
   max-width: 46ch;
 }
@@ -3063,7 +3063,7 @@
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .pa-admin-invite-link .pa-button {
   margin: 0;
@@ -3079,7 +3079,7 @@
 }
 .pa-admin-email-help {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
   color: var(--pa-sub);
 }
 .pa-admin-email-form,
@@ -3128,12 +3128,12 @@
   flex: none;
 }
 .pa-admin-email-hint {
-  font-size: 12px;
+  font-size: var(--pa-size-md);
   color: var(--pa-muted);
 }
 .pa-admin-email-result {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--pa-size-base);
 }
 .pa-admin-email-good {
   color: var(--pa-ok);
@@ -3179,7 +3179,7 @@
   border: 1px solid var(--pa-line-strong);
   border-radius: 4px;
   background: #141a22;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .pa-top-notice .pa-notice-mark {
   margin-top: 0;
@@ -3202,7 +3202,7 @@
   min-height: 30px;
   min-width: 0;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--pa-size-md);
 }
 .pa-small-button-brass {
   border-color: var(--pa-brass);
@@ -3210,7 +3210,7 @@
   color: #f0dcb6;
 }
 .pa-top-notice-more {
-  font-size: 11px;
+  font-size: var(--pa-size-sm);
   color: var(--pa-muted);
 }
 .pa-top-notice-bad {
@@ -3241,4 +3241,18 @@
 }
 .pa-lobby .pa-seat:has(.pa-seat-answer) .pa-seat-text {
   flex: 1 1 120px;
+}
+
+/* Spec 0017 — the room's three steps are narrow at 1280px: their controls take
+   the next step down so "Choose a deck" and the Start box's words fit. */
+.pa-steps .pa-select,
+.pa-steps .pa-start-box {
+  font-size: var(--pa-size-md);
+}
+.pa-steps .pa-select {
+  padding-left: 11px;
+  padding-right: 30px;
+}
+.pa-steps .pa-select-wrap svg {
+  right: 11px;
 }
