@@ -70,6 +70,10 @@ VERSION                         WORKER_READY  forgeCommit, forgeRelease, workerV
 VERIFY_RESOURCES                RESOURCES
 RESOLVE_CARDS                   CARDS_RESOLVED      (import, Phase 2)
 BUILD_DECK                      DECK_BUILT          (preflight, Phase 5)
+CARD_POOL                       CARD_POOL           cards (name, faces, section?, printings
+                                                    "EDITION NUMBER"), editions, setCodes:
+                                                    every card and printing this Forge
+                                                    resolves (spec 0021, the deck rules)
 START_GAME  matchId, players    GAME_STARTED        the running milestone
                                 MATCH_SNAPSHOT      one per seat, per change
                                 DECISION_REQUEST    authorisedSeat, actedForSeat, kind, options...

@@ -66,6 +66,8 @@ fun Route.authRoutes(
     signIns: SignInLog? = null,
     // Spec 0006 — told when a name or an avatar others see changes.
     changes: AccountChanges = AccountChanges(),
+    // Spec 0021 — linked computers; absent where no database backs them.
+    devices: DeviceLinks? = null,
 ) {
     // Spec 0014 — the sign-up page behind an invitation link.
     joinRoutes(config, accounts.invites(), throttle, signIns)
@@ -222,6 +224,8 @@ fun Route.authRoutes(
         // route table that has outgrown one function is a second
         // function, not a higher threshold.
         accountRoutes(config, accounts, sessions, changes)
+        // Spec 0021 -- linking a computer (the Deck Builder).
+        devices?.let { deviceRoutes(config, sessions, it, throttle) }
     }
 }
 

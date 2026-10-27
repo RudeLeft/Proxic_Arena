@@ -27,6 +27,7 @@ import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.ArtStore
 import net.barnflix.proxic.deck.DeckAuthorization
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.deck.deckRulesRoutes
 import net.barnflix.proxic.hall.HallGameSource
 import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
@@ -462,7 +463,8 @@ private fun Route.databaseRoutes(
     application.installSignedInGate(sessions, File(config.staticRoot))
     val accountChanges = net.barnflix.proxic.auth.AccountChanges() // spec 0006
 
-    route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges) }
+    val devices = net.barnflix.proxic.auth.DeviceLinks(database.dataSource()) // spec 0021
+    route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges, devices) }
 
     // §3.77-§3.82 — the authenticated WebSocket. Outside
     // /api, beside /ws/system, which stays anonymous
@@ -676,6 +678,8 @@ private fun Route.databaseRoutes(
             // endpoint is unauthenticated until Phase 3.
             importEnabled = config.deckImportEnabled,
         )
+
+        deckRulesRoutes(config, sessions, devices) // spec 0021
     }
 }
 

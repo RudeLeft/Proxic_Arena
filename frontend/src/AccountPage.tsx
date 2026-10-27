@@ -6,6 +6,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./AuthContext";
+import { DeckBuilderLink } from "./DeckBuilderLink";
 import { apiFetch } from "./auth";
 import { AVATARS, Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
@@ -164,8 +165,9 @@ export function AccountPage() {
             <div className="pa-notice pa-notice-warn" style={{ marginBottom: 16 }}>
               <span aria-hidden="true" className="pa-notice-mark" />
               <span className="pa-notice-text">
-                Changing your password ends every session on every device, including this one. You
-                will be signed out here and will need to sign in again.
+                Changing your password ends every session on every device, including this one, and
+                unlinks every computer linked to the Deck Builder. You will be signed out here and
+                will need to sign in again.
               </span>
             </div>
             <button type="submit" className="pa-button">
@@ -174,6 +176,8 @@ export function AccountPage() {
             {passwordMessage && <Message {...passwordMessage} />}
           </form>
         </section>
+
+        <DeckBuilderLink />
 
         <section className="pa-section" aria-labelledby="sessions">
           <div className="pa-section-head">
@@ -187,8 +191,9 @@ export function AccountPage() {
                 Sign out everywhere
               </span>
               <span className="pa-help" style={{ display: "block" }}>
-                Ends every session on every device, including this one. Reach for this after using a
-                shared computer, or if you think somebody else has your password.
+                Ends every session on every device, including this one, and unlinks every computer
+                linked to the Deck Builder. Reach for this after using a shared computer, or if you
+                think somebody else has your password.
               </span>
             </span>
             <button

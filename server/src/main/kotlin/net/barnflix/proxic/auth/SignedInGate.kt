@@ -65,8 +65,23 @@ internal fun signInFiles(staticRoot: File): Set<String>? {
     return files
 }
 
-/** POSTs a stranger may make: sign in, sign out, and an invitation's sign-up page (spec 0014). */
-private val OPEN_POSTS = setOf("/api/auth/login", "/api/auth/logout", "/api/auth/join", "/api/auth/join/peek")
+/**
+ * POSTs a stranger may make: sign in, sign out, an invitation's sign-up
+ * page (spec 0014), and trading a one-time code for a device token (spec
+ * 0021) -- the Deck Builder has no session to show.
+ */
+private val OPEN_POSTS =
+    setOf("/api/auth/login", "/api/auth/logout", "/api/auth/join", "/api/auth/join/peek", "/api/auth/device-link")
+
+/**
+ * Spec 0021: the deck rules answer a session OR a device token, and the
+ * Deck Builder has only the token. The route checks both itself and gives
+ * a stranger the gate's own "Sign in to continue".
+ */
+private fun ApplicationCall.isDeckRules(path: String): Boolean {
+    val get = request.httpMethod == HttpMethod.Get
+    return get && path == "/api/deck-rules"
+}
 
 /** Sign in, "who am I" (which tells a stranger nothing), sign out, and the sign-up page's two questions. */
 private fun ApplicationCall.isOpenAccountRoute(path: String): Boolean =
@@ -102,6 +117,7 @@ fun Application.installSignedInGate(
                 }
             }
             call.isOpenAccountRoute(path) -> Unit
+            call.isDeckRules(path) -> Unit
             path == "/api" || path.startsWith("/api/") || path == "/ws/system" -> {
                 if (call.principal(sessions) == null) {
                     call.respond(

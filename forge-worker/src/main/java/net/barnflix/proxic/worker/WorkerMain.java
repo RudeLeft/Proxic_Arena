@@ -162,6 +162,18 @@ public final class WorkerMain {
                     send(error("RESOLVE_FAILED", e.getClass().getSimpleName()));
                 }
             }
+            case "CARD_POOL" -> {
+                // Spec 0021: every card and printing this Forge
+                // accepts, for the deck rules the Deck Builder reads.
+                try {
+                    JsonObject response = frame("CARD_POOL", messageId);
+                    CardPool.describe(runtime).entrySet()
+                            .forEach(part -> response.add(part.getKey(), part.getValue()));
+                    send(response);
+                } catch (RuntimeException e) {
+                    send(error("CARD_POOL_FAILED", e.getClass().getSimpleName()));
+                }
+            }
             case "BUILD_DECK" -> {
                 // PHASE_02 2.92-2.94: prove an imported deck becomes
                 // a Forge deck, and report what FORGE sees.

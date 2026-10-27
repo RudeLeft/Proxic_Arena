@@ -144,6 +144,8 @@ class DatabaseTest {
                         // (§7.59) deck_face_art, a deck's back-face pictures.
                         // Spec 0014: account_invite, invitations; and
                         // mail_settings, the Email account tab's one row.
+                        // Spec 0021: device_code and device_link, a
+                        // computer linked to download the deck rules.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -155,6 +157,8 @@ class DatabaseTest {
                                 "deck_entry",
                                 "deck_face_art",
                                 "deck_share",
+                                "device_code",
+                                "device_link",
                                 "imported_deck",
                                 "mail_settings",
                                 "match",

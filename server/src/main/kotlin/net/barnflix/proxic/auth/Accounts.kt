@@ -412,9 +412,23 @@ class Sessions(private val dataSource: DataSource) {
         }
     }
 
-    /** §3.34, §3.36, §3.37 — every session this user holds. */
+    /**
+     * §3.34, §3.36, §3.37 — every session this user holds.
+     *
+     * Spec 0021: and every computer they linked. Signing out everywhere,
+     * an administrator's sign-out, a disabled account and a new password
+     * all come through here, and each must end a device token as surely
+     * as a session. Returns the sessions ended, as before.
+     */
     fun revokeAllForUser(userId: UUID): Int =
         dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "UPDATE device_link SET revoked_at = now() " +
+                    "WHERE user_id = ? AND revoked_at IS NULL",
+            ).use {
+                it.setObject(1, userId)
+                it.executeUpdate()
+            }
             connection.prepareStatement(
                 "UPDATE user_session SET revoked_at = now() " +
                     "WHERE user_id = ? AND revoked_at IS NULL",

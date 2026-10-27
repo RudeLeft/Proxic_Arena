@@ -2784,6 +2784,40 @@
   box-shadow: 0 12px 32px rgb(0 0 0 / 60%);
 }
 
+/* --- Account: Deck Builder (spec 0021) ------------------------------------ */
+.pa-device-intro {
+  margin: 0 0 14px;
+}
+.pa-device-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+.pa-device-code .pa-help {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.pa-device-code-value {
+  font-family: var(--pa-mono);
+  font-size: var(--pa-size-xl);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  color: #f3e4c8;
+}
+.pa-device-head {
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-device-head h3 {
+  margin: 0;
+  font-size: var(--pa-size-xs);
+  font-weight: 400;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: var(--pa-sub);
+}
+
 /* --- Account: avatar (spec 0006) ----------------------------------------- */
 .pa-avatar-current {
   display: flex;

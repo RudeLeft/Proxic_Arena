@@ -3,6 +3,35 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.10.0 — 2026-10-27
+
+The Proxic Deck Builder can now follow this Arena's own deck rules. Link
+a computer once from your Account page, and every Proxic Arena export
+from it checks the cards, printings and deck size Arena accepts, so a
+deck that exports is a deck that uploads.
+
+**For whoever runs the server**
+- The database gains two tables for linked computers; they are added by
+  themselves when the server starts. No new settings.
+- The first time the deck rules are asked for after an update, the
+  server takes a few seconds to prepare them; after that they are
+  answered at once.
+
+**Deck rules for the Deck Builder** (owner, 2026-10-27, spec 0021)
+- A new **Deck Builder** panel on the Account page: **Link a computer**
+  shows a code like `K7QX-M4PD`. Type it into the Deck Builder (File >
+  Proxic Arena Connection). It works once, for 10 minutes.
+- A linked computer can download the deck rules and nothing else: it
+  cannot play, join rooms, upload, share or delete decks, or change
+  your account. Your password never goes into the Deck Builder.
+- The panel lists your linked computers, when they were linked and last
+  used, with **Remove**. Signing out everywhere, changing your password
+  or a disabled account also unlinks every computer.
+- The rules are this Arena's own: every card and printing it plays, and
+  Open Format's limits (60 to 65 cards, 4 copies, basic lands exempt,
+  the Contraption and Attraction decks). When Arena moves to a new
+  version of its rules engine, linked Deck Builders follow at once.
+
 ## 1.9.0 — 2026-10-27
 
 Polish across the lobby, the Hall of Champions, the Deck Depot and

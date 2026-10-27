@@ -45,6 +45,9 @@ object OpenFormat {
     /** Phase 8 Amendment 3 — the side decks, and the least each may hold. */
     val SIDE_DECKS = mapOf("CONTRAPTIONS" to 15, "ATTRACTIONS" to 10)
 
+    /** Phase 8 Amendment 3 — a side deck holds one copy of each card. */
+    const val SIDE_DECK_MAX_COPIES = 1
+
     /**
      * The five basic land names.
      *
@@ -59,7 +62,7 @@ object OpenFormat {
      * Snow-covered basics are basic lands and are included. Wastes
      * is a basic land type and is included.
      */
-    private val BASIC_LAND_NAMES =
+    internal val BASIC_LAND_NAMES =
         setOf(
             "plains", "island", "swamp", "mountain", "forest", "wastes",
             "snow-covered plains", "snow-covered island", "snow-covered swamp",
@@ -110,7 +113,7 @@ object OpenFormat {
             }
             cards.groupBy { it.name.lowercase() }.forEach { (_, same) ->
                 val copies = same.sumOf { it.quantity }
-                if (copies > 1) {
+                if (copies > SIDE_DECK_MAX_COPIES) {
                     violations +=
                         DeckViolation(
                             "TOO_MANY_COPIES",

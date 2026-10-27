@@ -153,6 +153,28 @@ class CardResolver(private val config: ServerConfig) {
     }
 
     /**
+     * Spec 0021 -- every card and printing this Forge accepts, as the
+     * worker loaded them (CARD_POOL), or null when no worker answered.
+     *
+     * Generous on time: the answer is the whole card pool, ~3.5 MB.
+     */
+    fun cardPool(timeoutSeconds: Long = 180): JsonObject? {
+        val jar = config.forgeWorkerJar
+        if (jar.isNullOrBlank() || !File(jar).isFile) return null
+        val request =
+            buildJsonObject {
+                put("protocolVersion", net.barnflix.proxic.BuildInfo.PROTOCOL_VERSION)
+                put("type", "CARD_POOL")
+                put("messageId", UUID.randomUUID().toString())
+            }
+        val reply =
+            runCatching { exchange(request, File(jar), timeoutSeconds) }
+                .onFailure { log.warn("card pool failed: {}", it.javaClass.simpleName) }
+                .getOrNull() ?: return null
+        return reply.takeIf { it["type"]?.jsonPrimitive?.content == "CARD_POOL" }
+    }
+
+    /**
      * Send one request to a fresh worker and return its reply frame.
      *
      * One process per exchange. Forge costs ~2.8 s and ~611 MB to
@@ -218,7 +240,7 @@ class CardResolver(private val config: ServerConfig) {
                 ?: return unavailable(entries, "the card checker did not start")
 
             val messageId = UUID.randomUUID().toString()
-            writer.write(json.encodeToString(JsonObject.serializer(), request(entries, messageId)))
+            writer.write(json.encodeToString(JsonObject.serializer(), resolveCardsRequest(entries, messageId)))
             writer.write("\n")
             writer.flush()
 
@@ -234,30 +256,6 @@ class CardResolver(private val config: ServerConfig) {
             shutdown(process)
         }
     }
-
-    private fun request(
-        entries: List<DeckEntry>,
-        messageId: String,
-    ): JsonObject =
-        buildJsonObject {
-            put("protocolVersion", net.barnflix.proxic.BuildInfo.PROTOCOL_VERSION)
-            put("type", "RESOLVE_CARDS")
-            put("messageId", messageId)
-            put(
-                "cards",
-                buildJsonArray {
-                    entries.forEach { entry ->
-                        add(
-                            buildJsonObject {
-                                put("name", entry.name)
-                                entry.setCode?.let { put("set", it) }
-                                entry.collectorNumber?.let { put("number", it) }
-                            },
-                        )
-                    }
-                },
-            )
-        }
 
     private fun parse(
         reply: String,
@@ -333,3 +331,31 @@ class CardResolver(private val config: ServerConfig) {
         return if (candidate.isFile) candidate.absolutePath else "java"
     }
 }
+
+/**
+ * The RESOLVE_CARDS frame for one deck's distinct entries. Outside the
+ * class: detekt counts a class's functions, and this one needs nothing of it.
+ */
+private fun resolveCardsRequest(
+    entries: List<DeckEntry>,
+    messageId: String,
+): JsonObject =
+    buildJsonObject {
+        put("protocolVersion", net.barnflix.proxic.BuildInfo.PROTOCOL_VERSION)
+        put("type", "RESOLVE_CARDS")
+        put("messageId", messageId)
+        put(
+            "cards",
+            buildJsonArray {
+                entries.forEach { entry ->
+                    add(
+                        buildJsonObject {
+                            put("name", entry.name)
+                            entry.setCode?.let { put("set", it) }
+                            entry.collectorNumber?.let { put("number", it) }
+                        },
+                    )
+                }
+            },
+        )
+    }

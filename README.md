@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.9.0 (2026-10-27).** The main build was completed in 1.1.0,
+**Version 1.10.0 (2026-10-27).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -17,8 +17,9 @@ accounts by invitation, emailed from an account set on the Admin page;
 1.6.0 made card close-ups appear whole, never drawn from the top down;
 1.7.0 polished the lobby, with room cards anybody can read and Ask to
 join; 1.8.0 brought bigger, even text and the Hall of Champions page, with
-monthly seasons, a fair rating and the Champion's Belt; 1.9.0 polishes the
-lobby, the Hall, the Deck Depot and Admin.
+monthly seasons, a fair rating and the Champion's Belt; 1.9.0 polished the
+lobby, the Hall, the Deck Depot and Admin; 1.10.0 lets the Proxic Deck
+Builder follow this Arena's deck rules, linked from the Account page.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

@@ -149,6 +149,36 @@ account, or either lifetime runs out.
 
 ---
 
+## Device tokens (spec 0021)
+
+A second kind of credential, for the Proxic Deck Builder on a player's
+computer. The Deck Builder is not a browser: it cannot hold the session
+cookie or answer the CSRF check, and it must never be given the
+player's password.
+
+- **Linking.** Signed in, the Account page makes a one-time code
+  (`POST /api/auth/device-codes`): 8 characters from an alphabet without
+  look-alikes, shown as `K7QX-M4PD`, good for 10 minutes and one use. A
+  new code replaces the player's last unused one. The Deck Builder sends
+  it to `POST /api/auth/device-link`, the one open route besides
+  signing in and an invitation's sign-up page, throttled like signing in,
+  and every wrong, used or expired code gets the same 410. The answer is
+  a 256-bit token, given once.
+- **Kept as hashes.** Codes and tokens are stored only as SHA-256s, as
+  session tokens are; a copy of `device_code` and `device_link` opens
+  nothing.
+- **One route.** A token is sent as `Authorization: Bearer` and is read
+  by `GET /api/deck-rules` alone. Every other route ignores the header,
+  so a token cannot play, join a room, import, share or delete a deck,
+  or change the account.
+- **Ending one.** Remove on the Account page ends it at once. Signing
+  out everywhere, an administrator's sign-out, a disabled account and a
+  new password all end every token the account holds, in the same call
+  that ends its sessions (`Sessions.revokeAllForUser`). Tokens are
+  revoked, never deleted, like sessions.
+
+---
+
 ## Cookies
 
 ```text
@@ -227,6 +257,10 @@ POST /api/auth/logout-all     ends EVERY session this user holds
 GET  /api/auth/me             who am I (200 with a null user if nobody)
 POST /api/auth/password       change password; revokes EVERY session
 POST /api/auth/display-name   change display name
+POST /api/auth/device-codes   a one-time code to link a computer (spec 0021)
+GET  /api/auth/devices        your linked computers
+DELETE /api/auth/devices/{id} unlink one
+POST /api/auth/device-link    open: a code -> a device token, once
 ```
 
 `/api/auth/me` answers 200 for an anonymous caller rather than 401:
@@ -342,6 +376,8 @@ nothing else: it now needs a session, like `/api/version` and
 
 - No open self-registration (only by invitation, spec 0014), no
   password reset by email, no "remember me", no OAuth, no second factor.
+- No device token that does more than download the deck rules (spec
+  0021): uploading from the Deck Builder would be its own spec.
 - No account lockout — a throttle, not a lock, so a user cannot be
   locked out by someone else failing logins at their name.
 - No HSTS from this server: Cloudflare owns it (see
