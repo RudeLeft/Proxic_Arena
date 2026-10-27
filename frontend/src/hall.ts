@@ -114,6 +114,28 @@ export function heldFor(since: string | null, now: number): string {
   return `Held ${days} ${days === 1 ? "day" : "days"}`;
 }
 
+/** Spec 0019 — what a badge means, for its tooltip. */
+export function badgeTip(badge: { key: string; label: string }): string {
+  switch (badge.key) {
+    case "belt":
+      return "Holds the Champion's Belt right now.";
+    case "on-fire": {
+      const run = badge.label.match(/\d+/)?.[0] ?? "3";
+      return `${run} wins in a row (a loss or a draw ends the run).`;
+    }
+    case "giant-slayer":
+      return "Beat the player leading the season, this season.";
+    case "speed-demon":
+      return "Won a game by turn 5, this season.";
+    case "never-conceded":
+      return "10 or more games, and never conceded one.";
+    case "deck-master":
+      return "Won with 5 or more different decks.";
+    default:
+      return badge.label;
+  }
+}
+
 /** "1,184" */
 export const ratingText = (rating: number) => rating.toLocaleString("en");
 

@@ -18,6 +18,7 @@ import { useAuth } from "./AuthContext";
 import { Avatar } from "./avatars";
 import { DeckIcon, iconOf } from "./deckIcons";
 import {
+  badgeTip,
   fetchHall,
   heldFor,
   latestText,
@@ -31,7 +32,7 @@ import {
   type HallRow,
 } from "./hall";
 import type { LobbyState } from "./lobby";
-import { avatarOf, type Rank } from "./lobbyView";
+import { ICON, avatarOf, type Rank } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 const PLACES: { place: number; label: string; trophy: string; rank: Rank }[] = [
@@ -142,6 +143,46 @@ export default function HallPage() {
   );
 }
 
+/**
+ * Spec 0019 F3 — how the points work, behind an "i" by the Leaderboard
+ * title: shown on hover or focus, and toggled by a click (a touch screen
+ * has no hover). The page still fits one screen.
+ */
+function RatingHelp() {
+  // Hover shows it while the pointer is there; a click pins it open (a touch
+  // screen has no hover), and a second click or leaving the button closes it.
+  const [hover, setHover] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const open = hover || pinned;
+  const tipId = useId();
+  return (
+    <span
+      className="pa-hp-help"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <button
+        type="button"
+        className="pa-hp-help-button"
+        aria-label="How ratings work"
+        aria-expanded={open}
+        aria-describedby={open ? tipId : undefined}
+        onClick={() => setPinned((now) => !now)}
+        onBlur={() => setPinned(false)}
+      >
+        i
+      </button>
+      {open && (
+        <span id={tipId} role="tooltip" className="pa-hp-help-tip">
+          Everyone starts each season at 1000. A win adds points and a loss takes them away; beating
+          a higher-rated player is worth more (up to 32), a lower-rated one less. A draw changes
+          nothing. Five games in a season to be ranked.
+        </span>
+      )}
+    </span>
+  );
+}
+
 function Places({ places, lobby }: { places: HallPlace[]; lobby: LobbyState }) {
   return (
     <ol className="pa-hp-places">
@@ -196,9 +237,7 @@ function Board({
     <section className="pa-panel pa-hp-board" aria-labelledby={headingId}>
       <div className="pa-hp-head">
         <h2 id={headingId}>Leaderboard</h2>
-        <span className="pa-hp-note">
-          Ranked by rating: winning moves you up, playing more doesn't
-        </span>
+        <RatingHelp />
         <span className="pa-hp-seg" role="group" aria-label="Which games">
           <button type="button" aria-pressed={scope === "season"} onClick={() => onScope("season")}>
             This season
@@ -254,22 +293,33 @@ function Board({
                   </td>
                   <td>
                     <span className="pa-hp-player">
-                      <Avatar avatar={avatarOf(lobby, row.userId)} size={34} />
+                      <Avatar avatar={avatarOf(lobby, row.userId)} size={ICON} />
                       <span className="pa-hp-player-text">
                         <b>{nameIn(lobby, row.userId)}</b>
                         {row.badges.length > 0 && (
-                          <span
-                            className="pa-hp-badges"
-                            title={row.badges.map((b) => b.label).join(", ")}
-                          >
+                          <span className="pa-hp-badges">
+                            {/* Spec 0019 — each badge says how it was earned. */}
                             {row.badges.map((badge) => (
                               <span
                                 key={badge.key}
                                 className={`pa-hp-badge pa-hp-badge-${badge.key}`}
+                                title={badgeTip(badge)}
                               >
                                 {badge.label}
                               </span>
                             ))}
+                            {row.badges.length > 1 && (
+                              // Where a row shows one badge only (laptop widths), the rest.
+                              <span
+                                className="pa-hp-badge pa-hp-badge-more"
+                                title={row.badges
+                                  .slice(1)
+                                  .map((b) => `${b.label}: ${badgeTip(b)}`)
+                                  .join("\n")}
+                              >
+                                +{row.badges.length - 1}
+                              </span>
+                            )}
                           </span>
                         )}
                       </span>

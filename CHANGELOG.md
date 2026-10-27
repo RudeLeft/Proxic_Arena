@@ -3,6 +3,28 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Lobby, Hall of Champions, Deck Depot and Admin fixes** (owner,
+2026-10-27, spec 0019)
+- Both players now see "Checking both decks…" from the moment the host
+  presses Start, in the same dashed box as "Waiting for you to be ready".
+- The deck dropdown: the icon no longer covers the name, decks read
+  "Blue White Choices (60 Cards)", and "Choose a deck" can't be picked
+  once the list is open.
+- A mini Champion's Belt beside the holder's name: in the Players list,
+  rooms, chat and on the game's life totals.
+- Pictures in the Players list and chat, and deck icons in rooms, share
+  one bigger size.
+- Hall of Champions: the places line up and each has its colour (gold,
+  silver, bronze, green); badges are in title case and say how they were
+  earned when you hover them; an "i" by Leaderboard explains the rating;
+  the leaderboard has more room on its left.
+- Deck Depot: a wider Deck Library, View and Delete on one line, bigger
+  deck icons.
+- Admin: every list has named columns, and a finished game says who won
+  in words ("RudeLeft won on turn 19 · Pat conceded").
+
 ## 1.8.0 — 2026-10-27
 
 The Hall of Champions gets its own page, with monthly seasons, a fair

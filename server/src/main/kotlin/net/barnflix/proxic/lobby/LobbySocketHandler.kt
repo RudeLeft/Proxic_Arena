@@ -115,9 +115,7 @@ class LobbyService(
      * same list for every viewer: it carries seats and never decks
      * (RoomDirectory), so there is nothing to tailor.
      */
-    private suspend fun publishRooms() {
-        hub.broadcast(listed())
-    }
+    private val publishRooms: suspend () -> Unit = { hub.broadcast(listed()) }
 
     // --- RoomAnnouncer: what the HTTP routes cannot say themselves ----
     //
@@ -200,6 +198,13 @@ class LobbyService(
         detail: String,
     ) {
         hub.sendTo(userId, setupProblemMessage(roomId, code, detail))
+    }
+
+    override suspend fun roomChecking(
+        room: Room,
+        checking: Boolean,
+    ) {
+        for (member in room.members) hub.sendTo(member.userId, roomCheckingMessage(room.roomId, checking))
     }
 
     override suspend fun removedFromRoom(

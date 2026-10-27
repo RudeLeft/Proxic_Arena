@@ -10,6 +10,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.hall.HallGame
 import net.barnflix.proxic.match.GameRecords
 import java.util.UUID
 import javax.sql.DataSource
@@ -49,7 +50,8 @@ class AdminMatches(
                 """
                 SELECT m.match_id, m.status, m.created_at, m.ended_at,
                        m.result_summary, m.failure_code, m.failure_detail,
-                       string_agg(p.display_name_snapshot, ' vs ' ORDER BY p.seat_number) AS players
+                       string_agg(p.display_name_snapshot, ' vs ' ORDER BY p.seat_number) AS players,
+                       string_agg(p.seat_number || '=' || p.display_name_snapshot, '|') AS seats
                   FROM match m
                   LEFT JOIN match_participant p ON p.match_id = m.match_id
                  GROUP BY m.match_id
@@ -77,6 +79,7 @@ class AdminMatches(
                                             rows.getString("result_summary"),
                                             rows.getString("failure_code"),
                                             rows.getString("failure_detail"),
+                                            seatNames(rows.getString("seats")),
                                         ),
                                 ),
                             )
@@ -123,12 +126,45 @@ class AdminMatches(
             summary: String?,
             failureCode: String?,
             failureDetail: String?,
+            names: Map<Int, String> = emptyMap(),
         ): String? =
             when (status) {
-                "ENDED" -> summary
+                "ENDED" -> finishedWords(summary, names)
                 "FAILED_RUNTIME" -> "Stopped: " + (failureDetail ?: failureCode ?: "no reason recorded")
                 "FAILED_STARTUP" -> "Did not start: " + (failureCode ?: "no reason recorded")
                 else -> null
             }
+
+        /** "1=RudeLeft|2=Pat" -> {1: RudeLeft, 2: Pat}. */
+        fun seatNames(seats: String?): Map<Int, String> =
+            seats.orEmpty().split('|').mapNotNull { pair ->
+                val (seat, name) = pair.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+                seat.toIntOrNull()?.let { it to name }
+            }.toMap()
+
+        private val REASON = Regex("""\(([^)]*)\)""")
+        private val QUOTED = Regex("""'([^']+)'""")
+
+        /**
+         * Spec 0019 (11) — a finished game in words, by name: "RudeLeft won
+         * on turn 19", "… · Pat conceded", "… · Laboratory Maniac" (a card's
+         * own rule won it), "Draw on turn 17". Null for a record it cannot
+         * read: the page then says "Finished" alone, never the raw record.
+         */
+        private fun finishedWords(
+            summary: String?,
+            names: Map<Int, String>,
+        ): String? {
+            val (winner, turn, conceded) = HallGame.result(summary) ?: return null
+            if (winner == null) return "Draw on turn $turn"
+            val name = names[winner] ?: "Seat $winner"
+            val reason =
+                REASON.findAll(summary!!).map { it.groupValues[1] }.firstOrNull { !it.endsWith("conceded") }
+            return buildString {
+                append("$name won on turn $turn")
+                conceded?.let { append(" · ${names[it] ?: "Seat $it"} conceded") }
+                reason?.let { append(" · ${QUOTED.find(it)?.groupValues?.get(1) ?: it}") }
+            }
+        }
     }
 }

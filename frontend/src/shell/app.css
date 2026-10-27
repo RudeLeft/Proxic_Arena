@@ -86,8 +86,9 @@
   gap: 22px;
 }
 .pa-depot-side {
-  flex: 1 1 320px;
-  max-width: 400px;
+  /* Spec 0019 (10): wide enough that View and Delete sit on one line. */
+  flex: 1 1 420px;
+  max-width: 480px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1692,10 +1693,10 @@
   stroke-width: 1.6;
   stroke-linecap: round;
 }
+/* Spec 0019 (1) — exactly the waiting box beside it, a spinner for the hourglass. */
 .pa-start-loading {
-  border: 1px solid var(--pa-line-strong);
-  background: #1a212a;
-  color: var(--pa-sub);
+  border: 1px dashed var(--pa-line-strong);
+  color: var(--pa-muted);
 }
 .pa-start-spin {
   flex: none;
@@ -1809,8 +1810,8 @@
 }
 .pa-room-seat-empty {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   box-sizing: border-box;
   border: 1px dashed #4c5563;
   border-radius: 50%;
@@ -1920,7 +1921,7 @@
 }
 .pa-chat-face {
   flex: none;
-  width: 30px;
+  width: 40px;
   padding-top: 2px;
 }
 .pa-chat-body {
@@ -2560,10 +2561,10 @@
   border-bottom: 1px solid var(--pa-line-soft);
 }
 .pa-admin-room {
-  grid-template-columns: minmax(0, 1fr) 160px 90px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 160px 70px 150px;
 }
 .pa-admin-record {
-  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.4fr) 240px;
 }
 .pa-admin-room-text {
   min-width: 0;
@@ -2879,8 +2880,8 @@
   list-style: none;
 }
 .pa-admin-invite {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 110px minmax(0, 1.2fr) 110px 200px;
   align-items: center;
   gap: 8px 12px;
   padding: 10px 18px;
@@ -3130,6 +3131,11 @@
 .pa-steps .pa-select {
   padding-left: 11px;
   padding-right: 30px;
+}
+/* Spec 0019 (2) — the chosen deck's icon (40px since F2) has its own room:
+   the step's padding above had taken it away and the icon covered the name. */
+.pa-steps .pa-deck-pick .pa-select {
+  padding-left: 54px;
 }
 .pa-steps .pa-select-wrap svg {
   right: 11px;
@@ -3389,22 +3395,22 @@
   font-variant-numeric: tabular-nums;
 }
 .pa-hp-c-rank {
-  width: 60px;
+  width: 76px;
 }
 .pa-hp-c-rating {
-  width: 108px;
+  width: 124px;
 }
 .pa-hp-c-rec {
-  width: 120px;
+  width: 104px;
 }
 .pa-hp-c-pct {
-  width: 68px;
+  width: 64px;
 }
 .pa-hp-c-form {
-  width: 136px;
+  width: 124px;
 }
 .pa-hp-c-deck {
-  width: 200px;
+  width: 176px;
 }
 .pa-hp-table th {
   padding: 8px 10px;
@@ -3460,7 +3466,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 .pa-hp-player-text {
   min-width: 0;
@@ -3693,7 +3699,7 @@
   .pa-hp-who b {
     font-size: var(--pa-size-lg);
   }
-  .pa-hp-badge:nth-child(n + 2) {
+  .pa-hp-badge:nth-child(n + 2):not(.pa-hp-badge-more) {
     display: none;
   }
   .pa-hp-band,
@@ -3740,6 +3746,157 @@
 }
 @media (max-width: 560px) {
   .pa-hp-places {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Spec 0019 -------------------------------------------------------------- */
+
+/* F1 — the mini Champion's Belt beside the holder's name. */
+.pa-belt-mark {
+  display: inline-block;
+  width: 36px;
+  height: 14px;
+  margin-left: 6px;
+  vertical-align: -2px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.pa-name-line {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* A deck row in the Deck Depot keeps its buttons on its own line (10). */
+.pa-deck-row {
+  flex-wrap: nowrap;
+}
+
+/* The leaderboard's left side spreads out (9b). */
+.pa-hp-table th:first-child,
+.pa-hp-table td:first-child {
+  padding-left: 18px;
+}
+.pa-hp-table td.pa-hp-rating,
+.pa-hp-table th:nth-child(3) {
+  padding-left: 22px;
+}
+
+/* F3 — how ratings work, behind an "i". */
+.pa-hp-help {
+  position: relative;
+  display: inline-flex;
+}
+.pa-hp-help-button {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--pa-line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pa-sub);
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-sm);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.pa-hp-help-button:hover,
+.pa-hp-help-button[aria-expanded="true"] {
+  border-color: var(--pa-brass);
+  color: #f0dcb6;
+}
+.pa-hp-help-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: -8px;
+  z-index: 20;
+  width: 340px;
+  padding: 10px 12px;
+  border: 1px solid var(--pa-line-strong);
+  background: #161c25;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  font-size: var(--pa-size-md);
+  line-height: var(--pa-leading);
+  color: var(--pa-sub);
+}
+
+/* Places line up whether filled or empty (7), each with its own fade (8). */
+.pa-hp-place-text {
+  min-height: 72px;
+  justify-content: flex-start;
+}
+.pa-hp-p1 {
+  background: radial-gradient(80% 120% at 22% 50%, rgba(240, 196, 76, 0.2), transparent 70%);
+}
+.pa-hp-p2 {
+  background: radial-gradient(80% 120% at 22% 50%, rgba(201, 209, 219, 0.16), transparent 70%);
+}
+.pa-hp-p3 {
+  background: radial-gradient(80% 120% at 22% 50%, rgba(201, 138, 82, 0.18), transparent 70%);
+}
+.pa-hp-p4 {
+  background: radial-gradient(80% 120% at 22% 50%, rgba(143, 214, 176, 0.14), transparent 70%);
+}
+
+/* Badges: every one has its tooltip; "+N" only where a row shows one badge (9). */
+.pa-hp-badge {
+  cursor: help;
+}
+.pa-hp-badge-more {
+  display: none;
+}
+@media (max-width: 1440px) {
+  .pa-hp-badge-more {
+    display: inline;
+  }
+}
+
+/* Spec 0019 (12) — every Admin list has named columns, in Accounts' style. */
+.pa-admin-list-head {
+  min-height: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-top: 0;
+  border-bottom: 1px solid var(--pa-line-soft);
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-admin-list-head:hover {
+  background: none;
+}
+.pa-admin-invite-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pa-admin-invite-status {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-admin-invite-status small {
+  font-size: var(--pa-size-sm);
+  color: var(--pa-muted);
+}
+.pa-admin-invite-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+@media (max-width: 720px) {
+  .pa-admin-list-head {
+    display: none;
+  }
+  .pa-admin-invite,
+  .pa-admin-room,
+  .pa-admin-record {
     grid-template-columns: minmax(0, 1fr);
   }
 }

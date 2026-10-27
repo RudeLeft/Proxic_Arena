@@ -60,11 +60,19 @@ fun Route.matchSetupRoutes(
     post("/rooms/{$ROOM_ID}/prepare-match") {
         val roomId = roomIdOrNull() ?: return@post respondBadRoomId()
         val expected = call.request.queryParameters["expectedRoomRevision"]?.toLongOrNull()
+        // Spec 0019 — both players hear the check begin; a check that ends
+        // without a match says so too (a match arrives as its own news).
+        val checking = rooms.find(roomId)?.takeIf { it.isHost(callerId()) }
+        checking?.let { announcer.roomChecking(it, true) }
 
         when (val result = setups.prepare(roomId, callerId(), expected)) {
-            is PrepareResult.Refused -> respondRefusal(result.error)
+            is PrepareResult.Refused -> {
+                checking?.let { announcer.roomChecking(it, false) }
+                respondRefusal(result.error)
+            }
 
             is PrepareResult.NotReady -> {
+                checking?.let { announcer.roomChecking(it, false) }
                 // §5.100 — each player's own detail goes to that
                 // player, over the socket they already hold.
                 for (problem in result.problems) {

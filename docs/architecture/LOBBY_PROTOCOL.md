@@ -196,6 +196,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `INVITATION_ENDED` | an invitation stopped being one (`reason`, `direction`, `other`; `asked: true` for a request to join) | **both** sides |
 | `JOIN_ASKED` | somebody asks to join your room (`roomId`, `from`); again on reconnect | the host |
 | `JOIN_ASK_SENT` | your request reached the host (`roomId`, `roomName`, `host`); again on reconnect | the asker |
+| `ROOM_CHECKING` | the host pressed Start and both decks are being checked (`roomId`, `checking: true`), or the check ended without a match (`false`) — spec 0019 | the room's members |
 | `ROOMS` | on connect, and on any room change | everyone |
 | `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | the connection; everybody when it changes |
 | `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | the connection; everybody when it changes |
@@ -259,7 +260,9 @@ finished games only (`match.status = ENDED`, the rules engine's result
 by seat); names and pictures come from `PLAYERS`. The same for every
 viewer. Since spec 0018 these are the current season's places (by
 rating, five games to be ranked; `wins`/`games` this season), and the
-Hall page's own data is `GET /api/hall` (signed in).
+Hall page's own data is `GET /api/hall` (signed in). Since spec 0019
+`STANDINGS` also carries `belt` (the Champion's Belt holder's `userId`,
+absent when nobody holds it), for the mark beside their name.
 
 ---
 

@@ -27,5 +27,11 @@ class StandingsTest {
         assertEquals(2, podium[0].jsonObject["wins"]!!.jsonPrimitive.int)
         assertEquals(3, podium[0].jsonObject["games"]!!.jsonPrimitive.int)
         assertEquals(6, message["last"]!!.jsonObject["games"]!!.jsonPrimitive.int)
+        assertEquals(null, message["belt"], "nobody holds the Belt: no field")
+
+        // Spec 0019 F1 — the Belt holder rides along, for the mark by their name.
+        val holder = player("Pat", 2, 3).userId
+        val withBelt = standingsMessage(Standings(emptyList(), null, holder))
+        assertEquals(holder.toString(), withBelt["belt"]!!.jsonPrimitive.content)
     }
 }

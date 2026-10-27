@@ -286,7 +286,7 @@ function DeckGroup({
             ) : (
               <>
                 {/* Spec 0012 — the deck's icon, its owner's choice or the suggestion. */}
-                <DeckIcon name={iconOf(deck)} size={40} />
+                <DeckIcon name={iconOf(deck)} size={48} />
                 <span className="pa-deck-text">
                   <span className="pa-deck-name">{deck.displayName}</span>
                   {failed === deck.deckId ? (

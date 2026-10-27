@@ -136,19 +136,18 @@ export async function inviteIn(host: Page, guest: Page, guestName: string) {
 export async function chooseDeck(page: Page, deckName: string, sharedBy?: string) {
   const select = page.getByLabel("Your deck for this match");
   await expect(select.locator("option", { hasText: deckName }).first()).toBeAttached();
-  const value = await select
-    .locator("option")
-    .evaluateAll(
-      (options, [name, owner]) =>
-        options
-          .map((o) => o as HTMLOptionElement)
-          .find(
-            (o) =>
-              o.text.startsWith(`${name} — `) &&
-              (owner ? o.text.includes(`(shared by ${owner})`) : !o.text.includes("(shared by")),
-          )?.value ?? "",
-      [deckName, sharedBy ?? ""] as const,
-    );
+  const value = await select.locator("option").evaluateAll(
+    (options, [name, owner]) =>
+      options
+        .map((o) => o as HTMLOptionElement)
+        .find(
+          // Spec 0019: "Name (60 Cards)", "Name (60 Cards) · shared by Pat".
+          (o) =>
+            o.text.startsWith(`${name} (`) &&
+            (owner ? o.text.includes(`· shared by ${owner}`) : !o.text.includes("shared by")),
+        )?.value ?? "",
+    [deckName, sharedBy ?? ""] as const,
+  );
   expect(value, `no option for ${deckName}${sharedBy ? ` shared by ${sharedBy}` : ""}`).not.toBe(
     "",
   );

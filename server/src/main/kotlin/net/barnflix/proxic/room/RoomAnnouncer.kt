@@ -49,6 +49,16 @@ interface RoomAnnouncer {
         detail: String,
     )
 
+    /**
+     * Spec 0019 — the host pressed Start and the decks are being checked
+     * ([checking] true), or the check ended without a match (false). So
+     * the other player sees "Checking both decks…" too, not only the host.
+     */
+    suspend fun roomChecking(
+        room: Room,
+        checking: Boolean,
+    ) = Unit
+
     /** One person is out; the room continues without them (§5.81). */
     suspend fun removedFromRoom(
         roomId: UUID,

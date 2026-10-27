@@ -420,13 +420,14 @@ test("a deck selected in a room can be renamed, and the other player sees the ne
 
     // Pat, still in the room, sees the new name on the deck chosen there.
     const patsChoice = guest.getByLabel("Your deck for this match");
-    await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} — `), {
+    // Spec 0019: "Name (60 Cards) · shared by …".
+    await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} \\(`), {
       timeout: 15_000,
     });
     // And the room still holds the deck: nobody had to choose again.
     await host.goto("/play");
     await expect(host.getByLabel("Your deck for this match").locator("option:checked")).toHaveText(
-      new RegExp(`^${renamed} — `),
+      new RegExp(`^${renamed} \\(`),
     );
 
     await clearEverything(host);

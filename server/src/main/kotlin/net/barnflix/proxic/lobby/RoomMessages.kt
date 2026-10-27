@@ -52,6 +52,16 @@ fun roomMessage(
         put("room", viewJson.encodeToJsonElement(RoomView.serializer(), room.viewFor(viewerId)))
     }
 
+/** Spec 0019 — the host's Start is checking both decks (or stopped checking). */
+fun roomCheckingMessage(
+    roomId: UUID,
+    checking: Boolean,
+): JsonObject =
+    envelope("ROOM_CHECKING") {
+        put("roomId", roomId.toString())
+        put("checking", checking)
+    }
+
 /**
  * You are out of that room, and it carries on without you (§5.81).
  *

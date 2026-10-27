@@ -322,7 +322,7 @@ function AccountsPanel({
           <span>Status</span>
           <span>Last seen</span>
           <span>Sessions</span>
-          <span />
+          <span>Actions</span>
         </div>
         <ul className="pa-admin-account-list">
           {accounts === null && <li className="pa-group-empty">Loading accounts…</li>}
@@ -643,18 +643,26 @@ function RoomsPanel({ rooms, now, run }: { rooms: AdminRoom[]; now: number; run:
       </div>
       {rooms.length === 0 && <p className="pa-group-empty">No rooms are open.</p>}
       <ul className="pa-admin-rooms">
+        {rooms.length > 0 && (
+          // Spec 0019 (12) — named columns, as Accounts has.
+          <li className="pa-admin-list-head pa-admin-room" aria-hidden="true">
+            <span>Room</span>
+            <span>Players</span>
+            <span>Status</span>
+            <span>Idle</span>
+            <span>Actions</span>
+          </li>
+        )}
         {rooms.map(({ room, lastActivityAt }) => {
           const playing = room.status === "IN_MATCH";
           return (
             <li key={room.roomId} className="pa-admin-room">
-              <span className="pa-admin-room-text">
-                <span className="pa-admin-room-name">{room.name}</span>
-                <span className="pa-admin-room-who">
-                  {room.seats.map((seat) => seat.displayName).join(" vs ") || "Nobody seated"}
-                </span>
+              <span className="pa-admin-room-name">{room.name}</span>
+              <span className="pa-admin-room-who">
+                {room.seats.map((seat) => seat.displayName).join(" vs ") || "Nobody seated"}
               </span>
               <span className="pa-room-state">{roomStatus(room)}</span>
-              <span className="pa-admin-account-meta">Idle {idleText(lastActivityAt, now)}</span>
+              <span className="pa-admin-account-meta">{idleText(lastActivityAt, now)}</span>
               {confirming === room.roomId ? (
                 <span className="pa-admin-confirm" role="alert">
                   <span>
@@ -721,6 +729,15 @@ function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
       </div>
       {list.length === 0 && <p className="pa-group-empty">No matches yet.</p>}
       <ul className="pa-admin-records">
+        {list.length > 0 && (
+          // Spec 0019 (12) — named columns, as Accounts has.
+          <li className="pa-admin-list-head pa-admin-record" aria-hidden="true">
+            <span>Started</span>
+            <span>Players</span>
+            <span>Result</span>
+            <span>Record</span>
+          </li>
+        )}
         {list.map((m) => {
           const outcome = outcomeText(m);
           return (
@@ -786,6 +803,16 @@ function SignInsPanel({ events }: { events: SignInEvent[] }) {
       </div>
       {people.length === 0 && <p className="pa-group-empty">Nobody has tried to sign in today.</p>}
       <ul className="pa-admin-signins">
+        {people.length > 0 && (
+          // Spec 0019 (12) — named columns, as Accounts has.
+          <li className="pa-admin-list-head pa-admin-signin-line" aria-hidden="true">
+            <span>Result</span>
+            <span>Player</span>
+            <span>Details</span>
+            <span>Last attempt</span>
+            <span>Address</span>
+          </li>
+        )}
         {people.map((person) => {
           // Red only for a name that never got in; a typo now and then on a
           // real account is said in the line, in red, not as its label.
@@ -823,7 +850,7 @@ function SignInsPanel({ events }: { events: SignInEvent[] }) {
                   {parts.length > 0 && bad.length > 0 && " · "}
                   {bad.length > 0 && <span className="pa-admin-signin-bad">{bad.join(" · ")}</span>}
                 </span>
-                <span className="pa-admin-account-meta">last {clock(person.last)}</span>
+                <span className="pa-admin-account-meta">{clock(person.last)}</span>
                 <span className="pa-admin-account-meta">
                   {person.addresses.length === 1
                     ? person.addresses[0]

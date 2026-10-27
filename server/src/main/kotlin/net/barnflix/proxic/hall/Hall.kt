@@ -27,6 +27,12 @@ class Hall(
         return Places.of(seasons.table(month, now), counted)
     }
 
+    /** Spec 0019 F1 — who holds the Belt now, for the mark beside their name. */
+    fun beltHolder(now: Instant): UUID? {
+        val played = games.filter { !it.endedAt.isAfter(now) }
+        return Belt(played, seasons, counted).at(now).holder
+    }
+
     fun view(
         now: Instant,
         viewer: UUID,

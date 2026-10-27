@@ -37,6 +37,8 @@ data class PlayerRecord(
 data class Standings(
     val podium: List<PlayerRecord>,
     val last: PlayerRecord?,
+    /** Spec 0019 F1 — who holds the Champion's Belt; null when nobody. */
+    val belt: UUID? = null,
 )
 
 /** Every active account's record, from the matches table. */
@@ -75,10 +77,12 @@ class StandingsSource(private val dataSource: DataSource) {
 
     /** This season's places (spec 0018). */
     fun standings(): Standings {
-        val places = HallGameSource(dataSource).hall().places(Instant.now())
+        val hall = HallGameSource(dataSource).hall()
+        val now = Instant.now()
+        val places = hall.places(now)
 
         fun record(line: RatingLine) = PlayerRecord(line.userId, line.wins, line.games, null)
-        return Standings(places.podium.map(::record), places.last?.let(::record))
+        return Standings(places.podium.map(::record), places.last?.let(::record), hall.beltHolder(now))
     }
 }
 
@@ -96,6 +100,8 @@ fun standingsMessage(standings: Standings): JsonObject =
             }
         }
         standings.last?.let { record -> putJsonObject("last") { putRecord(record) } }
+        // Spec 0019 F1 — absent when nobody holds the Belt.
+        standings.belt?.let { put("belt", it.toString()) }
     }
 
 private fun JsonObjectBuilder.putRecord(record: PlayerRecord) {

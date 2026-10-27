@@ -236,6 +236,8 @@ export interface Standing {
 export interface Standings {
   podium: Standing[];
   last: Standing | null;
+  /** Spec 0019 F1 — who holds the Champion's Belt; null when nobody. */
+  belt: string | null;
 }
 
 export interface LobbyState {
@@ -282,6 +284,8 @@ export interface LobbyState {
   match: MatchView | null;
   /** Spec 0011 — null until the server has sent them. */
   standings: Standings | null;
+  /** Spec 0019 — the room whose decks are being checked for a Start, if any. */
+  checking: string | null;
 }
 
 export const EMPTY_LOBBY: LobbyState = {
@@ -304,6 +308,7 @@ export const EMPTY_LOBBY: LobbyState = {
   notice: null,
   match: null,
   standings: null,
+  checking: null,
 };
 
 /**
@@ -402,6 +407,8 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         invitation: null,
         // Spec 0016 — seated: whatever you asked for is settled.
         asking: null,
+        // Spec 0019 — a room that moved on (prepared, reopened) is not checking.
+        checking: null,
         notice: state.notice?.aboutMatch ? state.notice : null,
       };
     }
@@ -512,8 +519,16 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
             .filter((s): s is Standing => s !== null)
             .slice(0, 3),
           last: asStanding(message["last"]),
+          belt: asString(message["belt"]),
         },
       };
+
+    case "ROOM_CHECKING": {
+      // Spec 0019 — the host's Start is checking both decks; both players see it.
+      const roomId = asString(message["roomId"]);
+      if (!roomId || state.room?.roomId !== roomId) return state;
+      return { ...state, checking: message["checking"] === true ? roomId : null };
+    }
 
     case "SETUP_PROBLEM": {
       const roomId = asString(message["roomId"]);

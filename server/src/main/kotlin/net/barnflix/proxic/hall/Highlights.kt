@@ -89,18 +89,18 @@ class Highlights(
         beltHolder: UUID?,
     ): List<Badge> =
         buildList {
-            if (userId == beltHolder) add(Badge("belt", "Belt holder"))
+            if (userId == beltHolder) add(Badge("belt", "Belt Holder"))
             val streak = streaks[userId] ?: 0
-            if (streak >= ON_FIRE) add(Badge("on-fire", "On fire · $streak"))
-            if (userId in giantSlayers) add(Badge("giant-slayer", "Giant slayer"))
+            if (streak >= ON_FIRE) add(Badge("on-fire", "On Fire · $streak"))
+            if (userId in giantSlayers) add(Badge("giant-slayer", "Giant Slayer"))
             if (season.any { it.winner?.userId == userId && (it.turn ?: Int.MAX_VALUE) <= SPEED_TURN }) {
-                add(Badge("speed-demon", "Speed demon"))
+                add(Badge("speed-demon", "Speed Demon"))
             }
             val played = all.filter { it.seatOf(userId) != null }
             if (played.size >= NEVER_CONCEDED_GAMES && played.none { it.concededSeat == it.seatOf(userId)?.seat }) {
-                add(Badge("never-conceded", "Never conceded"))
+                add(Badge("never-conceded", "Never Conceded"))
             }
-            if ((decksWonWith[userId] ?: 0) >= DECK_MASTER) add(Badge("deck-master", "Deck master"))
+            if ((decksWonWith[userId] ?: 0) >= DECK_MASTER) add(Badge("deck-master", "Deck Master"))
         }
 
     fun records(counted: (UUID) -> Boolean): List<HallRecord> =

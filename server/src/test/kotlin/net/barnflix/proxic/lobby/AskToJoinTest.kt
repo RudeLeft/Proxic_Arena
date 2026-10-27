@@ -38,6 +38,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
 
 /**
@@ -105,6 +106,21 @@ class AskToJoinTest {
         return UUID.fromString(
             json.parseToJsonElement(body).jsonObject["room"]!!.jsonObject["roomId"]!!.jsonPrimitive.content,
         )
+    }
+
+    /** POST [path] as [username], as the page does (session and CSRF); the status. */
+    private suspend fun ApplicationTestBuilder.postAs(
+        username: String,
+        path: String,
+    ): Int {
+        val cookies = cookiesFor(username)
+        return client.post(path) {
+            header(
+                HttpHeaders.Cookie,
+                "$SESSION_COOKIE=${cookies.value(SESSION_COOKIE)}; $CSRF_COOKIE=${cookies.value(CSRF_COOKIE)}",
+            )
+            header(CSRF_HEADER, cookies.value(CSRF_COOKIE))
+        }.status.value
     }
 
     private fun userId(username: String): UUID =
@@ -233,5 +249,23 @@ class AskToJoinTest {
             val no = assertNotNull(host.await("INVITATION_ENDED") { it.text("reason") == "DECLINED" })
             assertEquals("Pat", no["other"]!!.jsonObject.text("displayName"))
             assertNotNull(host.await("ROOMS") { heldIn(it, roomId) == null })
+        }
+
+    /** Spec 0019, F-0019-A — the other player hears the deck check begin, and end. */
+    @Test
+    fun `pressing Start tells the other player the decks are being checked, and when the check stops`() =
+        withThree { roomId, host, pat, _ ->
+            pat.say("""{"type":"JOIN_ASK","roomId":"$roomId"}""")
+            host.await("JOIN_ASKED")
+            host.say("""{"type":"JOIN_ACCEPT"}""")
+            assertNotNull(pat.await("ROOM"))
+
+            // Nobody has chosen a deck, so the check ends without a match.
+            val status = postAs("RudeLeft", "/api/rooms/$roomId/prepare-match")
+            assertTrue(status >= 400, "prepared a room nobody was ready in: $status")
+            val began = assertNotNull(pat.await("ROOM_CHECKING"))
+            assertEquals("$roomId" to "true", began.text("roomId") to began.text("checking"))
+            val ended = assertNotNull(pat.await("ROOM_CHECKING"))
+            assertEquals("false", ended.text("checking"))
         }
 }

@@ -16,7 +16,8 @@ import {
   type FormEvent,
 } from "react";
 import { MAX_CHAT_LENGTH, type ChatLine, type LobbyState } from "./lobby";
-import { avatarOf, chatItems, presenceOf, rankOf, unreadAfter } from "./lobbyView";
+import { ICON, avatarOf, chatItems, holdsBelt, presenceOf, rankOf, unreadAfter } from "./lobbyView";
+import { BeltMark } from "./BeltMark";
 import { PICKER, REACTIONS } from "./chatEmoji";
 import { Avatar } from "./avatars";
 
@@ -175,14 +176,17 @@ export function ChatPanel({
               <span className="pa-chat-face">
                 <Avatar
                   avatar={avatarOf(lobby, item.fromUserId)}
-                  size={30}
+                  size={ICON}
                   rank={rankOf(lobby, item.fromUserId)}
                   {...presenceOf(lobby, item.fromUserId, item.displayName, Date.now())}
                 />
               </span>
               <div className="pa-chat-body">
                 <div className="pa-chat-meta">
-                  <span className="pa-chat-who">{item.displayName}</span>
+                  <span className="pa-chat-who">
+                    {item.displayName}
+                    {holdsBelt(lobby, item.fromUserId) && <BeltMark />}
+                  </span>
                   <span className="pa-chat-at">{timeOf(item.sentAt)}</span>
                 </div>
                 <div className="pa-chat-bubble">

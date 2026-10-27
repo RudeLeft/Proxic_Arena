@@ -23,17 +23,17 @@ function untilText(at: string, now: number): string {
   return minutes >= 60 ? `in ${Math.floor(minutes / 60)} h` : `in ${minutes} min`;
 }
 
-function stateText(invite: Invite, now: number): string {
-  const role = invite.role === "ADMIN" ? "administrator" : "player";
+/** Spec 0019 (12) — the Status column: what became of it. */
+function stateText(invite: Invite): string {
   switch (invite.state) {
     case "JOINED":
-      return `Joined as ${invite.joinedAs ?? "a player"} · invited ${agoText(invite.createdAt, now)}`;
+      return `Joined as ${invite.joinedAs ?? "a player"}`;
     case "CANCELLED":
-      return `Cancelled · sent ${agoText(invite.createdAt, now)}`;
+      return "Cancelled";
     case "EXPIRED":
-      return `Expired · sent ${agoText(invite.createdAt, now)} · ${role}`;
+      return "Expired";
     default:
-      return `Sent ${agoText(invite.createdAt, now)} · expires ${untilText(invite.expiresAt, now)} · ${role}`;
+      return "Waiting";
   }
 }
 
@@ -133,14 +133,29 @@ function InvitationList({
         </p>
       ) : (
         <ul className="pa-admin-invite-list">
+          {/* Spec 0019 (12) — named columns, as Accounts has. */}
+          <li className="pa-admin-list-head pa-admin-invite" aria-hidden="true">
+            <span>Email</span>
+            <span>Role</span>
+            <span>Status</span>
+            <span>Expires</span>
+            <span>Actions</span>
+          </li>
           {invites.map((invite) => (
             <li key={invite.inviteId} className="pa-admin-invite">
-              <span className="pa-admin-invite-text">
-                <span className="pa-admin-invite-email">{invite.email}</span>
-                <span className="pa-admin-account-meta">{stateText(invite, now)}</span>
+              <span className="pa-admin-invite-email">{invite.email}</span>
+              <span className="pa-admin-account-meta">
+                {invite.role === "ADMIN" ? "Administrator" : "Player"}
+              </span>
+              <span className="pa-admin-invite-status">
+                {stateText(invite)}
+                <small>sent {agoText(invite.createdAt, now)}</small>
+              </span>
+              <span className="pa-admin-account-meta">
+                {invite.state === "WAITING" ? untilText(invite.expiresAt, now) : "—"}
               </span>
               {invite.state === "JOINED" ? (
-                <span className="pa-admin-invite-joined">Joined</span>
+                <span className="pa-admin-invite-actions" />
               ) : (
                 <span className="pa-admin-invite-actions">
                   <button

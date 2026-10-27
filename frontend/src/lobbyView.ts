@@ -261,6 +261,9 @@ export function presenceOf(
   };
 }
 
+/** Spec 0019 F2 — the one size for pictures in lists and chat, and deck icons in rooms. */
+export const ICON = 40;
+
 /** Spec 0011 — a place in the Hall of Champions: 1st, 2nd, 3rd or dead last. */
 export type Rank = 1 | 2 | 3 | "last";
 
@@ -271,6 +274,11 @@ export function rankOf(lobby: LobbyState, userId: string): Rank | undefined {
   const place = standings.podium.findIndex((s) => s.userId === userId);
   if (place >= 0) return (place + 1) as Rank;
   return standings.last?.userId === userId ? "last" : undefined;
+}
+
+/** Spec 0019 F1 — whether [userId] holds the Champion's Belt. */
+export function holdsBelt(lobby: LobbyState, userId: string | null | undefined): boolean {
+  return !!userId && lobby.standings?.belt === userId;
 }
 
 /** Spec 0006 — a player's avatar, from the account list; null is the default. */

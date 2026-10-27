@@ -15,7 +15,8 @@ import logo from "../assets/logo-header.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import { Avatar } from "../avatars";
 import { ChatPanel } from "../LobbyChat";
-import { avatarOf } from "../lobbyView";
+import { avatarOf, holdsBelt } from "../lobbyView";
+import { BeltMark } from "../BeltMark";
 import {
   EMPTY_MATCH,
   concessionText,
@@ -752,6 +753,7 @@ function SeatBlock({
               </>
             )}
             <span className="gs-seat-name">{player.name}</span>
+            {holdsBelt(lobby, seatedAs) && <BeltMark />}
           </span>
           <span className={`gs-seat-role${mine ? " gs-seat-role-you" : ""}`}>{role}</span>
         </span>

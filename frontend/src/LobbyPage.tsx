@@ -43,7 +43,9 @@ import {
 import {
   avatarOf,
   closesSoon,
+  ICON,
   goneTitle,
+  holdsBelt,
   presenceOf,
   playerRows,
   rankOf,
@@ -56,6 +58,7 @@ import {
 import { Avatar } from "./avatars";
 import { DeckIcon, iconOf } from "./deckIcons";
 import { ChatPanel } from "./LobbyChat";
+import { BeltMark } from "./BeltMark";
 
 /** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
 function useMinute(): number {
@@ -72,7 +75,6 @@ const SETTLE_MS = 2200;
 
 /** The picture size on the seats: the Reigning Champion's (spec 0016, 10). */
 const SEAT_AVATAR = 56;
-
 export default function LobbyPage() {
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
@@ -446,7 +448,7 @@ function PlayersPanel({
       <span className={row.online ? "pa-player-face" : "pa-player-face pa-player-face-off"}>
         <Avatar
           avatar={row.user.avatar}
-          size={36}
+          size={ICON}
           rank={rankOf(lobby, row.user.userId)}
           {...presenceOf(lobby, row.user.userId, row.user.displayName, now)}
         />
@@ -454,6 +456,7 @@ function PlayersPanel({
       <span className="pa-player-text">
         <span className={`pa-player-name${row.online ? "" : " pa-player-offline"}`}>
           {row.user.displayName}
+          {holdsBelt(lobby, row.user.userId) && <BeltMark />}
         </span>
         <span className="pa-player-where">
           <span className={`pa-where-${row.tone}`}>{row.where}</span>
@@ -779,11 +782,14 @@ function RoomCard({
           <span key={seat.userId} className="pa-room-seat">
             <Avatar
               avatar={avatarOf(lobby, seat.userId)}
-              size={32}
+              size={ICON}
               rank={rankOf(lobby, seat.userId)}
             />
             <span className="pa-room-seat-name">
-              {seat.displayName}
+              <span className="pa-name-line">
+                {seat.displayName}
+                {holdsBelt(lobby, seat.userId) && <BeltMark />}
+              </span>
               {seat.ready && (
                 <span className="pa-room-seat-ready" aria-label="ready">
                   {" "}
@@ -796,7 +802,7 @@ function RoomCard({
         {open.map((_, index) =>
           index === 0 && room.held ? (
             <span key="held" className="pa-room-seat pa-room-seat-held">
-              <Avatar avatar={avatarOf(lobby, room.held.userId)} size={32} />
+              <Avatar avatar={avatarOf(lobby, room.held.userId)} size={ICON} />
               <span className="pa-room-seat-name">
                 {room.held.displayName}
                 <small>
@@ -931,7 +937,8 @@ function YourRoom({
       : other && !other.ready
         ? `Waiting for ${other.displayName} to be ready`
         : "Waiting for the host";
-  const checking = preparing || starting;
+  // Spec 0019 — the other player sees the check too, from the moment Start is pressed.
+  const checking = preparing || starting || lobby.checking === room.roomId;
 
   return (
     <article className="pa-panel pa-room pa-room-mine" aria-labelledby={headingId}>
@@ -962,6 +969,7 @@ function YourRoom({
             <span className="pa-seat-text">
               <span className="pa-seat-name">
                 {member.displayName}
+                {holdsBelt(lobby, member.userId) && <BeltMark />}
                 {/* Spec 0016 (7): no "· you" -- you know who you are. */}
                 {member.userId !== me && member.isHost && (
                   <span className="pa-seat-tag"> · host</span>
@@ -1042,7 +1050,7 @@ function YourRoom({
               <span className="pa-step-key">1 · Your deck{deckDone ? " ✓" : ""}</span>
               <span className={`pa-select-wrap pa-deck-select${chosen ? " pa-deck-pick" : ""}`}>
                 {/* Spec 0012 — the chosen deck's icon, inside the dropdown, shown only to you. */}
-                {chosen && <DeckIcon name={iconOf(chosen)} size={28} />}
+                {chosen && <DeckIcon name={iconOf(chosen)} size={ICON} />}
                 <label className="pa-visually-hidden" htmlFor={deckId}>
                   Your deck for this match
                 </label>
@@ -1053,7 +1061,11 @@ function YourRoom({
                   disabled={busy || preparing || starting}
                   onChange={(event) => onSelectDeck(event.target.value || null)}
                 >
-                  <option value="">{decks.length === 0 ? "No decks yet" : "Choose a deck"}</option>
+                  {/* Spec 0019 — shown until a deck is chosen, never offered in the
+                      open list: the only choices are decks. */}
+                  <option value="" disabled hidden>
+                    {decks.length === 0 ? "No decks yet" : "Choose a deck"}
+                  </option>
                   {decks.map(({ deck, shared }) => (
                     <option key={deck.deckId} value={deck.deckId}>
                       {/* The room's word for the chosen deck wins: it is the server's
@@ -1062,8 +1074,8 @@ function YourRoom({
                       {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
                         ? myMember.selectedDeckName
                         : deck.displayName}{" "}
-                      — {deck.totalCards} cards
-                      {shared ? ` (shared by ${deck.ownerDisplayName})` : ""}
+                      ({deck.totalCards} Cards)
+                      {shared ? ` · shared by ${deck.ownerDisplayName}` : ""}
                     </option>
                   ))}
                 </select>
