@@ -5,6 +5,25 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
+**The Hall of Champions page** (owner, 2026-10-27, spec 0018)
+- The trophies have their own page, Hall of Champions, in the top bar;
+  the lobby no longer shows them.
+- Ranked by a rating, so playing more never beats playing well: a win
+  moves you up and a loss down, more for beating a stronger player.
+  Five games in a season to be ranked.
+- Monthly seasons: when a month ends, 1st, 2nd, 3rd and Last place get
+  the trophies and keep them in Past seasons; then everyone starts
+  again at 1000. All-time standings stay on their own tab.
+- The Champion's Belt: beat whoever holds it, in any game, and it's
+  yours. A holder who doesn't play for 14 days hands it to the season
+  leader.
+- Badges (On fire, Giant slayer, Speed demon, Never conceded, Deck
+  master), records, rivalries, your rival, and the latest results.
+- A player's deck name and icon can now be seen by others on the Hall;
+  the cards in it are still private unless shared.
+- The Email account tab on the Admin page no longer shows the Gmail
+  help paragraph.
+
 **Bigger, more even text** (owner, 2026-10-26, spec 0017)
 - Every page reads more easily: everyday text is 16px (it was mostly
   12-13px), and nothing anywhere is smaller than 12px (some labels

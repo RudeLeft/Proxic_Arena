@@ -27,6 +27,8 @@ import net.barnflix.proxic.auth.userSocket
 import net.barnflix.proxic.deck.ArtStore
 import net.barnflix.proxic.deck.DeckAuthorization
 import net.barnflix.proxic.deck.deckRoutes
+import net.barnflix.proxic.hall.HallGameSource
+import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
@@ -433,6 +435,12 @@ internal fun resolveStaticFile(
 }
 
 /**
+ * The /api paths that need a session and put its principal in
+ * PRINCIPAL_KEY (see databaseRoutes). Spec 0018 added /api/hall.
+ */
+private val GUARDED_API = listOf("/api/decks", "/api/rooms", "/api/matches", "/api/match-presets", "/api/hall")
+
+/**
  * Routes, sweeps and dependencies that need PostgreSQL.
  *
  * Accounts, decks, the authenticated socket, rooms and match
@@ -543,12 +551,7 @@ private fun Route.databaseRoutes(
             // probed. The route test enumerates every one of these
             // now, so the next omission fails a build rather than
             // reaching production.
-            val guarded =
-                path.startsWith("/api/decks") ||
-                    path.startsWith("/api/rooms") ||
-                    path.startsWith("/api/matches") ||
-                    path.startsWith("/api/match-presets")
-            if (!guarded) return@intercept
+            if (GUARDED_API.none { path.startsWith(it) }) return@intercept
             val principal = call.requireAuth(sessions) ?: return@intercept finish()
             if (!call.csrfOk(config)) return@intercept finish()
             call.attributes.put(PRINCIPAL_KEY, principal)
@@ -643,6 +646,7 @@ private fun Route.databaseRoutes(
         // exist; a browser holding a stale list is
         // corrected rather than believed.
         matchPresetRoutes()
+        hallRoutes(HallGameSource(database.dataSource())) // spec 0018
 
         deckRoutes(
             config = config,

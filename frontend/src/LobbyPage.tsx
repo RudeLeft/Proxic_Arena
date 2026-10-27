@@ -12,8 +12,7 @@
 // (§5.141): names, seats, readiness — the room list carries no deck at
 // all, and your own deck is the only one ever named.
 //
-// Spec 0016 (owner 2026-10-26): the Hall of Champions is a strip across
-// the top; every room is a card anybody can read (seats, who a seat is
+// Spec 0016 (owner 2026-10-26): every room is a card anybody can read (seats, who a seat is
 // held for, where it stands), and a free seat can be asked for — Ask to
 // join — as well as offered. The notices live in the top bar (Shell).
 
@@ -55,7 +54,6 @@ import {
   type PlayerRow,
 } from "./lobbyView";
 import { Avatar } from "./avatars";
-import { HallOfChampions } from "./Champions";
 import { DeckIcon, iconOf } from "./deckIcons";
 import { ChatPanel } from "./LobbyChat";
 
@@ -282,9 +280,6 @@ export default function LobbyPage() {
   return (
     <main className="pa-main pa-lobby">
       <h1 className="pa-visually-hidden">Lobby</h1>
-
-      {/* Spec 0016 H1 — across the top, above everything. */}
-      <HallOfChampions lobby={lobby} />
 
       {/* Behind a game the lobby is out of reach -- of the mouse already, and
           now of the keyboard and screen readers too (2026-10-24 review). The

@@ -257,7 +257,9 @@ three of `place`, `userId`, `wins`, `games`, best first) and `last`
 (`userId`, `wins`, `games`, or absent). Counted on the server from
 finished games only (`match.status = ENDED`, the rules engine's result
 by seat); names and pictures come from `PLAYERS`. The same for every
-viewer.
+viewer. Since spec 0018 these are the current season's places (by
+rating, five games to be ranked; `wins`/`games` this season), and the
+Hall page's own data is `GET /api/hall` (signed in).
 
 ---
 

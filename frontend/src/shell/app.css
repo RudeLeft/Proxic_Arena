@@ -1280,7 +1280,7 @@
   max-width: none;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 150px - var(--pa-hall-space, 0px));
+  max-height: calc(100vh - 150px);
 }
 .pa-lobby .pa-player-list {
   flex: none;
@@ -1454,123 +1454,6 @@
 }
 .pa-seat .pa-medal {
   border-color: var(--pa-field);
-}
-
-/* The Hall -- spec 0016 (owner 2026-10-26): one strip across the top of
-   the lobby, four equal places, every trophy the champion's size, no
-   title, as tight as the trophies allow. Two by two when narrow. */
-.pa-hall {
-  container-type: inline-size;
-  margin-bottom: 20px;
-}
-.pa-hall-strip {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-@container (max-width: 860px) {
-  .pa-hall-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-/* A phone: one place a row, so the words beside a full-size trophy fit. */
-@container (max-width: 560px) {
-  .pa-hall-strip {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .pa-hall-place + .pa-hall-place {
-    border-left: 0;
-    border-top: 1px solid var(--pa-line-soft);
-  }
-}
-/* The lobby fills the window under the Hall: its height is taken off the columns. */
-.pa-lobby:has(.pa-hall) {
-  --pa-hall-space: 154px;
-}
-.pa-hall-place {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  padding: 6px 14px 6px 6px;
-}
-.pa-hall-place + .pa-hall-place {
-  border-left: 1px solid var(--pa-line-soft);
-}
-.pa-hall-first {
-  background: radial-gradient(120% 100% at 18% 50%, rgba(240, 196, 76, 0.13), transparent 65%);
-}
-.pa-hall-place:last-child {
-  background: linear-gradient(90deg, rgba(107, 122, 82, 0.1), transparent 70%);
-}
-.pa-hall-place-empty .pa-hall-cup {
-  opacity: 0.4;
-  filter: grayscale(0.7);
-}
-.pa-hall-cup {
-  display: block;
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
-}
-.pa-hall-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.pa-hall-label {
-  font-size: var(--pa-size-xs);
-  font-weight: 700;
-  letter-spacing: var(--pa-track-caps);
-  text-transform: uppercase;
-  color: var(--pa-muted);
-}
-.pa-hall-first .pa-hall-label {
-  color: #f0c44c;
-}
-.pa-hall-place:last-child .pa-hall-label {
-  color: #b9c7a0;
-}
-.pa-hall-name-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.pa-hall-name {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-family: var(--pa-display);
-  font-size: var(--pa-size-xl);
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--pa-ink-bright);
-}
-.pa-hall-record {
-  font-size: var(--pa-size-md);
-  color: var(--pa-sub);
-  font-variant-numeric: tabular-nums;
-}
-.pa-hall-empty {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 18px 0 6px;
-  color: var(--pa-sub);
-}
-.pa-hall-empty p {
-  margin: 0;
-}
-.pa-hall-empty .pa-hall-cup {
-  opacity: 0.45;
-  filter: grayscale(0.6);
 }
 
 /* The main column */
@@ -1997,7 +1880,7 @@
   display: flex;
   flex-direction: column;
   background: var(--pa-panel);
-  height: calc(100vh - 150px - var(--pa-hall-space, 0px));
+  height: calc(100vh - 150px);
   min-height: 360px;
 }
 .pa-chat-unread {
@@ -3077,11 +2960,6 @@
   padding: 16px 18px 20px;
   max-width: 620px;
 }
-.pa-admin-email-help {
-  margin: 0;
-  font-size: var(--pa-size-base);
-  color: var(--pa-sub);
-}
 .pa-admin-email-form,
 .pa-admin-email-test {
   display: flex;
@@ -3255,4 +3133,613 @@
 }
 .pa-steps .pa-select-wrap svg {
   right: 11px;
+}
+
+/* --- The Hall of Champions page (spec 0018) -------------------------------
+ * One screen on a desktop (owner H6): the app is the window's height and
+ * the page fills what the header leaves. A band (the season's places and
+ * the Belt) over the leaderboard and a tabbed panel. Lists that could
+ * outgrow their panel scroll inside it with no visible bar. A narrow
+ * window stacks and scrolls like every other page. */
+@media (min-width: 1100px) {
+  .pa-app:has(.pa-hall-page) {
+    height: 100vh;
+  }
+  .pa-hall-page {
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 16px;
+    padding-block: 16px;
+  }
+}
+.pa-hall-page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.pa-hall-page .pa-panel {
+  border: 1px solid var(--pa-line);
+  background: var(--pa-panel);
+  min-width: 0;
+  min-height: 0;
+}
+.pa-hp-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  background: radial-gradient(70% 160% at 8% 0%, rgba(240, 196, 76, 0.11), transparent 60%),
+    var(--pa-panel);
+}
+.pa-hp-season {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-hp-season-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 12px 18px 0;
+}
+.pa-hp-season-top h2 {
+  margin: 0;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  font-weight: 700;
+  line-height: var(--pa-leading-tight);
+  color: var(--pa-ink-bright);
+}
+.pa-hp-left {
+  font-size: var(--pa-size-md);
+  color: var(--pa-sub);
+}
+.pa-hp-left b {
+  font-weight: 600;
+  color: #f0c44c;
+}
+.pa-hp-places {
+  margin: 0;
+  padding: 2px 6px 8px;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.pa-hp-place {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+.pa-hp-cup {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6));
+}
+.pa-hp-place-empty .pa-hp-cup {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+.pa-hp-place-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pa-hp-place-label {
+  font-size: var(--pa-size-xs);
+  font-weight: 700;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+}
+.pa-hp-p1 .pa-hp-place-label {
+  color: #f0c44c;
+}
+.pa-hp-p2 .pa-hp-place-label {
+  color: #c9d1db;
+}
+.pa-hp-p3 .pa-hp-place-label {
+  color: #c98a52;
+}
+.pa-hp-p4 .pa-hp-place-label {
+  color: #b9c7a0;
+}
+.pa-hp-who {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pa-hp-who b {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  line-height: 1;
+  color: var(--pa-ink-bright);
+}
+.pa-hp-stat {
+  font-size: var(--pa-size-sm);
+  color: var(--pa-sub);
+  font-variant-numeric: tabular-nums;
+}
+.pa-hp-belt {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px 12px;
+  border-left: 1px solid var(--pa-line-soft);
+  background: linear-gradient(180deg, rgba(224, 164, 74, 0.1), transparent 70%);
+  text-align: center;
+}
+.pa-hp-belt-art {
+  width: 270px;
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+}
+.pa-hp-holder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.pa-hp-holder b,
+.pa-hp-holder-none {
+  display: block;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  line-height: 1;
+  color: var(--pa-ink-bright);
+}
+.pa-hp-holder small {
+  display: block;
+  font-size: var(--pa-size-sm);
+  color: var(--pa-muted);
+}
+.pa-hp-belt p {
+  margin: 0;
+  font-size: var(--pa-size-sm);
+  color: var(--pa-sub);
+}
+
+.pa-hp-lower {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+}
+.pa-hp-board,
+.pa-hp-side {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pa-hp-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-hp-head h2 {
+  margin: 0;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: var(--pa-sub);
+}
+.pa-hp-note {
+  font-size: var(--pa-size-sm);
+  color: var(--pa-muted);
+}
+.pa-hp-seg {
+  margin-left: auto;
+  display: flex;
+}
+.pa-hp-seg button {
+  appearance: none;
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid var(--pa-line);
+  background: transparent;
+  color: var(--pa-sub);
+  font: inherit;
+  font-size: var(--pa-size-md);
+  cursor: pointer;
+}
+.pa-hp-seg button + button {
+  border-left: 0;
+}
+.pa-hp-seg button[aria-pressed="true"] {
+  border-color: var(--pa-brass);
+  background: #2b2518;
+  color: #f0dcb6;
+}
+.pa-hp-empty {
+  padding: 16px;
+}
+/* Lists that could outgrow their panel scroll inside it, with no bar (H6). */
+.pa-hp-table-wrap,
+.pa-hp-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.pa-hp-table-wrap::-webkit-scrollbar,
+.pa-hp-tab-body::-webkit-scrollbar {
+  display: none;
+}
+.pa-hp-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+.pa-hp-c-rank {
+  width: 60px;
+}
+.pa-hp-c-rating {
+  width: 108px;
+}
+.pa-hp-c-rec {
+  width: 120px;
+}
+.pa-hp-c-pct {
+  width: 68px;
+}
+.pa-hp-c-form {
+  width: 136px;
+}
+.pa-hp-c-deck {
+  width: 200px;
+}
+.pa-hp-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--pa-muted);
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-hp-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--pa-line-soft);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pa-hp-me td {
+  background: rgba(224, 164, 74, 0.06);
+}
+.pa-hp-rank {
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pa-muted);
+}
+.pa-hp-r1 .pa-hp-rank {
+  color: #f0c44c;
+}
+.pa-hp-r2 .pa-hp-rank {
+  color: #c9d1db;
+}
+.pa-hp-r3 .pa-hp-rank {
+  color: #c98a52;
+}
+.pa-hp-rank span {
+  margin-left: 4px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+}
+.pa-hp-up {
+  color: var(--pa-ok);
+}
+.pa-hp-down {
+  color: var(--pa-bad);
+}
+.pa-hp-player {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pa-hp-player-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pa-hp-player-text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--pa-ink-bright);
+}
+.pa-hp-badges {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+.pa-hp-badge {
+  padding: 0 6px;
+  border: 1px solid var(--pa-line);
+  border-radius: 2px;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--pa-sub);
+}
+.pa-hp-badge-on-fire {
+  border-color: #8a4a2a;
+  color: #f4b38a;
+}
+.pa-hp-badge-belt,
+.pa-hp-badge-giant-slayer {
+  border-color: #6b5b36;
+  color: #f0dcb6;
+}
+.pa-hp-rating {
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pa-ink-bright);
+}
+.pa-hp-rating small {
+  margin-left: 4px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+}
+.pa-hp-rec b {
+  font-weight: 600;
+  color: var(--pa-ok);
+}
+.pa-hp-rec i {
+  font-style: normal;
+  color: var(--pa-bad);
+}
+.pa-hp-form {
+  display: flex;
+  gap: 3px;
+}
+.pa-hp-form span {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xs);
+  font-weight: 700;
+  color: #0a0d11;
+}
+.pa-hp-form-W {
+  background: var(--pa-ok);
+}
+.pa-hp-form-L {
+  background: var(--pa-bad);
+}
+.pa-hp-form-D {
+  background: #9aa7b6;
+}
+.pa-hp-deck {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--pa-size-md);
+  color: var(--pa-sub);
+}
+.pa-hp-deck span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pa-hp-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--pa-line-soft);
+  font-size: var(--pa-size-md);
+  color: var(--pa-sub);
+}
+.pa-hp-foot-label {
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-hp-q {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pa-hp-bar {
+  width: 70px;
+  height: 7px;
+  border: 1px solid var(--pa-line);
+  background: var(--pa-field);
+}
+.pa-hp-bar i {
+  display: block;
+  height: 100%;
+  background: var(--pa-brass);
+}
+
+.pa-hp-tabs {
+  flex: none;
+  display: flex;
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-hp-tabs button {
+  appearance: none;
+  flex: 1;
+  margin: 0;
+  padding: 10px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--pa-sub);
+  font: inherit;
+  font-size: var(--pa-size-md);
+  cursor: pointer;
+}
+.pa-hp-tabs button[aria-selected="true"] {
+  color: var(--pa-ink-bright);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--pa-brass);
+}
+.pa-hp-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+.pa-hp-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+}
+.pa-hp-list li + li {
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-hp-what {
+  flex: 1;
+  min-width: 0;
+}
+.pa-hp-what small {
+  display: block;
+  font-size: var(--pa-size-sm);
+  color: var(--pa-muted);
+}
+.pa-hp-val {
+  flex: none;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--pa-ink-bright);
+}
+.pa-hp-h2h {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.pa-hp-list .pa-hp-h2h {
+  display: grid;
+}
+.pa-hp-h2h-side {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pa-hp-h2h-b {
+  justify-content: flex-end;
+}
+.pa-hp-rival {
+  flex: none;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--pa-line-soft);
+}
+.pa-hp-rival-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+.pa-hp-rival .pa-hp-h2h {
+  font-size: var(--pa-size-md);
+}
+
+/* Laptop widths: smaller cups, one badge per row (all on hover). */
+@media (max-width: 1440px) {
+  .pa-hp-place {
+    grid-template-columns: 80px minmax(0, 1fr);
+    padding: 4px;
+  }
+  .pa-hp-cup {
+    width: 80px;
+    height: 80px;
+  }
+  .pa-hp-who b {
+    font-size: var(--pa-size-lg);
+  }
+  .pa-hp-badge:nth-child(n + 2) {
+    display: none;
+  }
+  .pa-hp-band,
+  .pa-hp-lower {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+@media (max-height: 820px) and (min-width: 1100px) {
+  .pa-hp-cup {
+    width: 76px;
+    height: 76px;
+  }
+  .pa-hp-place {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .pa-hp-belt-art {
+    width: 220px;
+  }
+}
+/* A phone or a narrow window: stack, and let the page scroll (owner H6). */
+@media (max-width: 1099px) {
+  .pa-hall-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pa-hp-band,
+  .pa-hp-lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pa-hp-belt {
+    border-left: 0;
+    border-top: 1px solid var(--pa-line-soft);
+  }
+  .pa-hp-places {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pa-hp-table-wrap {
+    overflow-x: auto;
+  }
+  .pa-hp-table {
+    min-width: 900px;
+  }
+}
+@media (max-width: 560px) {
+  .pa-hp-places {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

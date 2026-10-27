@@ -9,6 +9,7 @@ import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.Role
 import net.barnflix.proxic.deck.DeckAuthorization
 import net.barnflix.proxic.deck.DeckSharing
+import net.barnflix.proxic.hall.HallGameSource
 import net.barnflix.proxic.match.GameOutcome
 import net.barnflix.proxic.match.LaunchResult
 import net.barnflix.proxic.match.MatchLauncher
@@ -147,7 +148,19 @@ class StandingsSourceTest {
         val counted = StandingsSource(source()).records().associateBy { it.userId }
         assertEquals(2 to 4, counted.getValue(table.guest).let { it.wins to it.games })
         assertEquals(1 to 4, counted.getValue(table.host).let { it.wins to it.games })
+        // Spec 0018 — the places are the season's, and need five games.
+        assertEquals(emptyList(), StandingsSource(source()).standings().podium, "four games: nobody ranked")
+        table.play { pat, _ -> GameOutcome(GameOutcome.WINNER, pat, 6) }
         assertEquals(listOf(table.guest, table.host), StandingsSource(source()).standings().podium.map { it.userId })
+
+        // Spec 0018, F-0018-B — the Hall page from the same recorded games: the
+        // board, the deck by name (H8), the concession, the draw, no failed game.
+        val hall = HallGameSource(source()).hall().view(Instant.now(), table.host)
+        assertEquals(listOf(table.guest, table.host).map { it.toString() }, hall.board.map { it.userId })
+        val pat = hall.board.first()
+        assertEquals(Triple(3, 1, 1), Triple(pat.wins, pat.losses, pat.draws))
+        assertEquals("Mono Red", pat.deck?.name)
+        assertEquals(table.guest.toString(), hall.rival?.b, "the host's rival is Pat")
 
         // A disabled account leaves the Hall.
         Accounts(source()).setStatus(table.guest, AccountStatus.DISABLED)

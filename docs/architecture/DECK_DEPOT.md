@@ -191,8 +191,11 @@ choice the page shows the suggestion from the colours
 (`deckIcons.tsx`). Setting it is the owner's: a recipient gets `403`, a
 stranger `404`, a name outside the set `422 INVALID_ICON`. A new
 import opens with the picker; "Change icon" opens it later. The icon
-shows only where the deck's name does (the list, the deck's header,
-your own deck dropdown in a room), never to the other player.
+shows where the deck's name does (the list, the deck's header, your own
+deck dropdown in a room). Since spec 0018 (owner H8, 2026-10-27) a
+deck's **name and icon** may be shown to other players -- the Hall of
+Champions names the deck a player plays most -- but its **cards** never
+are, except to whoever it is shared with.
 
 ### Share, revoke, delete
 

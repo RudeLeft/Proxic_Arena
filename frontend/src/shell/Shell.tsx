@@ -302,6 +302,10 @@ function Header() {
         <NavLink to="/play" className={tab}>
           Lobby
         </NavLink>
+        {/* Spec 0018 — the trophies' own page. */}
+        <NavLink to="/hall" className={tab}>
+          Hall of Champions
+        </NavLink>
         <NavLink to="/decks" className={tab}>
           Deck Depot
         </NavLink>

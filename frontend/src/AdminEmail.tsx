@@ -110,12 +110,6 @@ export function EmailPanel() {
       </div>
 
       <div className="pa-admin-email-body">
-        <p className="pa-admin-email-help">
-          The account invitations come from. For Gmail: a dedicated account (e.g.
-          proxicarena@gmail.com) with 2-Step Verification on, and an <strong>app password</strong>{" "}
-          (Google Account → Security → App passwords), never your normal password.
-        </p>
-
         {/* Not before the saved settings have come: typing first and then
             having the load overwrite it lost what was typed. */}
         {!view && <p className="pa-group-empty">Loading the email settings…</p>}

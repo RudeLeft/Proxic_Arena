@@ -7,11 +7,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.barnflix.proxic.hall.HallGameSource
+import net.barnflix.proxic.hall.RatingLine
 import java.time.Instant
 import java.util.UUID
 import javax.sql.DataSource
 
-// Spec 0011 — the Hall of Champions.
+// Spec 0011 — the Hall of Champions; since spec 0018 the season's places
+// (the Hall page has the rest).
 //
 // Wins are FORGE's: a finished game (status ENDED) whose recorded result
 // names the player's seat ("winner:seat N ..."). A draw is a game played
@@ -27,46 +30,14 @@ data class PlayerRecord(
     val lastWinAt: Instant?,
 )
 
-/** The podium (up to three) and dead last, if anybody qualifies. */
+/**
+ * The season's places for the lobby's rings: 1st to 3rd and Last place
+ * (spec 0018 replaced spec 0011's "most wins" with the season rating).
+ */
 data class Standings(
     val podium: List<PlayerRecord>,
     val last: PlayerRecord?,
-) {
-    companion object {
-        /** C3 — dead last needs this many finished games. */
-        const val GAMES_FOR_LAST = 5
-
-        /**
-         * Spec 0011's order. Most wins first; on equal wins fewer games
-         * (more wins per game); then whoever reached that many wins first.
-         * Dead last: the fewest wins among players with 5+ games; on equal
-         * wins more games is further down, then whoever has been there
-         * longer. Never also on the podium.
-         */
-        fun of(records: List<PlayerRecord>): Standings {
-            val podium =
-                records
-                    .filter { it.wins > 0 }
-                    .sortedWith(
-                        compareByDescending<PlayerRecord> { it.wins }
-                            .thenBy { it.games }
-                            .thenBy { it.lastWinAt ?: Instant.MAX }
-                            .thenBy { it.userId },
-                    ).take(3)
-            val onPodium = podium.map { it.userId }.toSet()
-            val last =
-                records
-                    .filter { it.games >= GAMES_FOR_LAST && it.userId !in onPodium }
-                    .sortedWith(
-                        compareBy<PlayerRecord> { it.wins }
-                            .thenByDescending { it.games }
-                            .thenBy { it.lastWinAt ?: Instant.MIN }
-                            .thenBy { it.userId },
-                    ).firstOrNull()
-            return Standings(podium, last)
-        }
-    }
-}
+)
 
 /** Every active account's record, from the matches table. */
 class StandingsSource(private val dataSource: DataSource) {
@@ -102,7 +73,13 @@ class StandingsSource(private val dataSource: DataSource) {
             }
         }
 
-    fun standings(): Standings = Standings.of(records())
+    /** This season's places (spec 0018). */
+    fun standings(): Standings {
+        val places = HallGameSource(dataSource).hall().places(Instant.now())
+
+        fun record(line: RatingLine) = PlayerRecord(line.userId, line.wins, line.games, null)
+        return Standings(places.podium.map(::record), places.last?.let(::record))
+    }
 }
 
 /** `STANDINGS` — the same for everybody (spec 0011). */

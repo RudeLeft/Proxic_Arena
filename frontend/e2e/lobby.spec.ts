@@ -563,58 +563,54 @@ test("every room is listed for everybody, with seats, no decks and no way in una
   });
 });
 
-test("the Hall of Champions names the player the server counts, and their ring follows them", async ({
+test("the Hall of Champions has its own page, fits one screen, and the season leader's ring follows them", async ({
   page,
 }) => {
-  // Spec 0011, F-0011-D. Whatever games this database holds: the Hall
-  // shows the server's champion by name, with the gold medal, and the
-  // same medal is on their picture in the Players list (or, when the
-  // champion is you, beside your own chat line).
-  let standings: { podium: { userId: string; wins: number; games: number }[] } | null = null;
-  const names = new Map<string, string>();
-  page.on("websocket", (ws) =>
-    ws.on("framereceived", (frame) => {
-      const message = JSON.parse(String(frame.payload)) as Record<string, unknown>;
-      if (message["type"] === "STANDINGS") standings = message as unknown as typeof standings;
-      if (message["type"] === "PLAYERS") {
-        for (const p of message["players"] as { userId: string; displayName: string }[]) {
-          names.set(p.userId, p.displayName);
-        }
-      }
-    }),
-  );
+  // Spec 0018, F-0018-C/D. Whatever games this database holds: the page
+  // shows the server's season by name, the lobby shows no trophies, the
+  // desktop page never scrolls, and the season leader's gold ring is on
+  // their picture in the Players list (or beside your chat line).
+  await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page);
   await openLobby(page);
-  await expect.poll(() => standings !== null).toBe(true);
-  const hall = page.getByRole("region", { name: "Hall of Champions" });
-  await expect(hall).toBeVisible();
+  await expect(page.getByRole("region", { name: "This season" })).toHaveCount(0);
 
-  const champion = standings!.podium[0];
-  if (!champion) {
-    await expect(hall).toContainText("No champion yet. Win a game to take the crown.");
+  await page.getByRole("link", { name: "Hall of Champions" }).click();
+  await expect(page).toHaveURL(/\/hall$/);
+  const hall = (await (await page.request.get("/api/hall")).json()) as {
+    season: { number: number; places: { place: number; userId: string }[] };
+  };
+  const band = page.getByRole("region", { name: "This season" });
+  await expect(band).toContainText(`Season ${hall.season.number}`);
+  await expect(page.getByRole("region", { name: "Leaderboard" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "The Champion's Belt" })).toBeVisible();
+  await page.screenshot({ path: "test-results/seen/hall-of-champions.png" });
+  // H6 — one screen, no scroll bar.
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight),
+  ).toBe(true);
+
+  const leader = hall.season.places.find((p) => p.place === 1);
+  if (!leader) {
+    await expect(band).toContainText("Nobody yet");
     return;
   }
-  const name = names.get(champion.userId)!;
-  await expect(hall).toContainText("Reigning Proxic Champion");
-  await expect(hall).toContainText(name);
-  // Spec 0016 (12) — "Won 6 of 9 games".
-  await expect(hall).toContainText(
-    `Won ${champion.wins} of ${champion.games} ${champion.games === 1 ? "game" : "games"}`,
-  );
-
   const me = (await (await page.request.get("/api/auth/me")).json()) as {
-    user: { userId: string };
+    user: { userId: string; displayName: string };
   };
-  if (me.user.userId === champion.userId) {
+  await openLobby(page);
+  if (me.user.userId === leader.userId) {
     await page.getByLabel("Message the lobby").fill(`crowned ${Date.now()}`);
     await page.getByRole("button", { name: "Send" }).click();
     const chat = page.getByRole("region", { name: "Chat" });
     await expect(chat.getByRole("img", { name: "Reigning Proxic Champion" }).first()).toBeVisible();
     return;
   }
-  const offline = players(page).getByText(/^Offline · \d+/);
+  const offline = page.getByRole("region", { name: "Players" }).getByText(/^Offline · \d+/);
   if (await offline.isVisible()) await offline.click();
   await expect(
-    playerRow(page, name).getByRole("img", { name: "Reigning Proxic Champion" }),
+    page
+      .getByRole("region", { name: "Players" })
+      .getByRole("img", { name: "Reigning Proxic Champion" }),
   ).toBeVisible();
 });

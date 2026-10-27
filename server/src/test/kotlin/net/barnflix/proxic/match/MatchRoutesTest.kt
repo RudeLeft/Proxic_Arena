@@ -15,6 +15,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -218,6 +219,8 @@ class MatchRoutesTest {
                     "GET /api/matches/{id}" to client.get("/api/matches/${UUID.randomUUID()}"),
                     "GET /api/matches/stops" to client.get("/api/matches/stops"),
                     "PUT /api/matches/stops" to client.put("/api/matches/stops"),
+                    // Spec 0018.
+                    "GET /api/hall" to client.get("/api/hall"),
                 )
 
             for ((endpoint, answer) in answers) {
@@ -531,6 +534,20 @@ class MatchRoutesTest {
             val theirs = seats.first { it["userId"]!!.jsonPrimitive.content != "$guestId" }
             assertEquals("Mono Red", mine["deckName"]!!.jsonPrimitive.content)
             assertEquals(JsonNull, theirs["deckName"])
+        }
+
+    /** Spec 0018, F-0018-B — the Hall answers a signed-in player, even before anybody has played. */
+    @Test
+    fun `the Hall of Champions answers a signed-in player`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+
+            val response = client.get("/api/hall") { signedBy(host) }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val hall = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+            assertEquals(1, hall["season"]!!.jsonObject["number"]!!.jsonPrimitive.int)
+            assertEquals(0, hall["board"]!!.jsonArray.size)
         }
 
     /** A broken client gets 400, which reveals nothing. */
