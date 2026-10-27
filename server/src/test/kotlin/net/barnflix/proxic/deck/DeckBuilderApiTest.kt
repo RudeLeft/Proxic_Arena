@@ -30,12 +30,13 @@ import net.barnflix.proxic.auth.SESSION_COOKIE
 import net.barnflix.proxic.module
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
+import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import javax.imageio.ImageIO
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -45,10 +46,13 @@ import kotlin.test.assertTrue
 
 /**
  * Spec 0022 — a linked computer sends decks: the three Deck Builder routes,
- * with a real package, a real PostgreSQL and a real Forge worker.
+ * with a real PostgreSQL and a real Forge worker.
+ *
+ * The package is built here (basics and Lightning Bolt, with generated
+ * pictures) rather than taken from the real export, which is gitignored:
+ * this test proves the routes, so it must run on CI (ci/expected-skips.txt).
  */
 class DeckBuilderApiTest {
-    private val realExport = File("../Test Deck/Basic_Mono_Red_65_Card_Deck.zip")
     private val workerJar = File("../forge-worker/target/forge-worker-0.1.0.jar")
     private val resRoot = File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
     private val password = "a perfectly fine passphrase"
@@ -63,7 +67,6 @@ class DeckBuilderApiTest {
             runCatching { DockerClientFactory.instance().isDockerAvailable }.getOrDefault(false),
             "SKIPPED: Docker is not available (ADR 0001)",
         )
-        assumeTrue(realExport.isFile, "SKIPPED: no real export (PHASE_02 §2.3)")
         assumeTrue(workerJar.isFile, "SKIPPED: build the worker first")
         assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
         container = TestPostgres.fresh()
@@ -96,15 +99,29 @@ class DeckBuilderApiTest {
             databaseUserValue = container!!.username,
         )
 
-    // --- the real export, taken apart so a test can change one piece ---
+    // --- a legal package, taken apart so a test can change one piece ---
+
+    /** A solid-colour card-shaped PNG, distinct per colour. */
+    private fun picture(rgb: Int): ByteArray {
+        val image = BufferedImage(60, 84, BufferedImage.TYPE_INT_RGB)
+        for (x in 0 until 60) for (y in 0 until 84) image.setRGB(x, y, rgb)
+        return ByteArrayOutputStream().also { ImageIO.write(image, "png", it) }.toByteArray()
+    }
 
     private val exportEntries: Map<String, ByteArray> by lazy {
-        ZipFile(realExport).use { zip ->
-            zip.entries().toList().associate { it.name to zip.getInputStream(it).use { input -> input.readBytes() } }
-        }
+        mapOf(
+            "Builder Test.txt" to
+                // By name only: a made-up set would be a printing Arena refuses.
+                "// Builder Test (constructed)\n\n56 Mountain\n4 Lightning Bolt\n".toByteArray(),
+            "real_cards/Mountain [CI].png" to picture(0x8a3b2a),
+            "real_cards/Lightning Bolt [CI].png" to picture(0xd9a441),
+        )
     }
     private val deckText get() = exportEntries.entries.single { it.key.endsWith(".txt") }
     private val images get() = exportEntries.filterKeys { it.endsWith(".png") }
+
+    // Built once: a zip records when it was made, so two builds are two packages.
+    private val packageBytes by lazy { zip(exportEntries) }
 
     private fun zip(entries: Map<String, ByteArray>): ByteArray =
         ByteArrayOutputStream().also { bytes ->
@@ -211,7 +228,7 @@ class DeckBuilderApiTest {
             val bySession = client.get("/api/deck-builder/deck-names") { header(HttpHeaders.Cookie, pat.cookies) }
             assertEquals(HttpStatusCode.Unauthorized, bySession.status, "a browser imports through the Deck Depot")
             assertEquals(HttpStatusCode.Unauthorized, known(null, emptyList()).status)
-            assertEquals(HttpStatusCode.Unauthorized, send(null, realExport.readBytes()).status)
+            assertEquals(HttpStatusCode.Unauthorized, send(null, packageBytes).status)
 
             val listed = names(token)
             assertEquals(HttpStatusCode.OK, listed.status, listed.bodyAsText())
@@ -227,14 +244,14 @@ class DeckBuilderApiTest {
             application { module(config()) }
             val token = linkedToken(signIn("Pat"))
 
-            val sent = send(token, realExport.readBytes())
+            val sent = send(token, packageBytes)
             assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
             val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
-            assertEquals(65, accepted.totalCards)
+            assertEquals(60, accepted.totalCards)
             val deckName = accepted.displayName
             assertTrue(names(token).bodyAsText().contains(deckName))
 
-            val again = send(token, realExport.readBytes())
+            val again = send(token, packageBytes)
             assertEquals(HttpStatusCode.Conflict, again.status)
             assertTrue(again.bodyAsText().contains("DUPLICATE_PACKAGE"), again.bodyAsText())
 
@@ -257,7 +274,7 @@ class DeckBuilderApiTest {
             val sam = linkedToken(signIn("Sam"))
             val hashes = images.values.map(::sha256)
 
-            assertEquals(HttpStatusCode.Created, send(pat, realExport.readBytes()).status)
+            assertEquals(HttpStatusCode.Created, send(pat, packageBytes).status)
             val patKnows = json.decodeFromString(PicturesKnownResponse.serializer(), known(pat, hashes).bodyAsText())
             assertEquals(hashes.toSet(), patKnows.known.toSet())
             val samKnows = json.decodeFromString(PicturesKnownResponse.serializer(), known(sam, hashes).bodyAsText())
@@ -289,7 +306,7 @@ class DeckBuilderApiTest {
             application { module(config()) }
             val pat = signIn("Pat")
             val token = linkedToken(pat)
-            val apeBytes = images.values.first() + byteArrayOf(1)
+            val apeBytes = picture(0x4f7a3a)
             val withApe =
                 withDeckText(deckText.value.decodeToString().trimEnd() + "\n\n// Tokens\n1 Ape [TMH1:2]\n") +
                     ("real_cards/Ape [TMH1].png" to apeBytes)
@@ -297,7 +314,7 @@ class DeckBuilderApiTest {
             val sent = send(token, zip(withApe))
             assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
             val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
-            assertEquals(65, accepted.totalCards, "the token is outside the 60 to 65")
+            assertEquals(60, accepted.totalCards, "the token is outside the 60 to 65")
             assertEquals(1, accepted.tokenPictures)
 
             val detail =
