@@ -1,7 +1,9 @@
 package net.barnflix.proxic.lobby
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.auth.AccountStatus
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.Role
@@ -20,7 +22,6 @@ import net.barnflix.proxic.room.RoomResult
 import net.barnflix.proxic.room.RoomService
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.AfterTest
@@ -39,7 +40,7 @@ import kotlin.test.assertIs
  * nothing at all.
  */
 class StandingsSourceTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
 
     @BeforeTest
@@ -49,11 +50,7 @@ class StandingsSourceTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         database =
             Database.connect(
                 ServerConfig(

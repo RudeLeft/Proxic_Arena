@@ -1,14 +1,15 @@
 package net.barnflix.proxic.room
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.Role
 import net.barnflix.proxic.deck.DeckAuthorization
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.slf4j.LoggerFactory
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.time.Duration
 import java.util.UUID
 import kotlin.test.AfterTest
@@ -27,7 +28,7 @@ import kotlin.test.assertTrue
  * leaves, and what it does to the people who were in them.
  */
 class RoomMaintenanceTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private val log = LoggerFactory.getLogger(RoomMaintenanceTest::class.java)
 
@@ -38,11 +39,7 @@ class RoomMaintenanceTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         database = Database.connect(config())!!.also { it.migrate() }
 
         val accounts = Accounts(database!!.dataSource())

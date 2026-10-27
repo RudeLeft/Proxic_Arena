@@ -11,11 +11,12 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.withTimeoutOrNull
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.module
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -32,7 +33,7 @@ import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
  * what revocation is for.
  */
 class UserSocketTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private val password = "a perfectly fine passphrase"
 
     @BeforeTest
@@ -42,11 +43,7 @@ class UserSocketTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
     }
 
     @AfterTest

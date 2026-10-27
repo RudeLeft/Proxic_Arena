@@ -1,10 +1,11 @@
 package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -21,7 +22,7 @@ import kotlin.test.assertTrue
  * important than its successes.
  */
 class AdminToolTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private lateinit var tool: AdminTool
     private lateinit var accounts: Accounts
@@ -60,11 +61,7 @@ class AdminToolTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
 
         database =
             Database.connect(

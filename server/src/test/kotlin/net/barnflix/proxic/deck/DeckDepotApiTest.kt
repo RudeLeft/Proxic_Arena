@@ -15,7 +15,9 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.auth.AccountStatus
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.CSRF_COOKIE
@@ -25,7 +27,6 @@ import net.barnflix.proxic.auth.SESSION_COOKIE
 import net.barnflix.proxic.module
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.Connection
 import java.util.UUID
 import kotlin.test.AfterTest
@@ -46,7 +47,7 @@ import kotlin.test.assertTrue
  * party — a deck shared with Pat must stay invisible to Sam (§4.143).
  */
 class DeckDepotApiTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private val password = "a perfectly fine passphrase"
     private val sha = "c".repeat(64)
 
@@ -57,11 +58,7 @@ class DeckDepotApiTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         seedUsers()
     }
 

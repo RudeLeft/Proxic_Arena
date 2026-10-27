@@ -1,10 +1,11 @@
 package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.AfterTest
@@ -18,7 +19,7 @@ import kotlin.test.assertTrue
 
 /** Spec 0014 — accounts by invitation: once, for 48 hours, and nothing to guess. */
 class InvitesTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private var now = Instant.parse("2026-10-25T20:00:00Z")
     private val password = "a perfectly fine passphrase"
@@ -30,11 +31,7 @@ class InvitesTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         database =
             Database.connect(
                 ServerConfig(

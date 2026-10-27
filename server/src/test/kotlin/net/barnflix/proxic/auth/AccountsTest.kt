@@ -1,10 +1,11 @@
 package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -24,7 +25,7 @@ import kotlin.test.assertTrue
  * checked in the query rather than by a caller who might forget.
  */
 class AccountsTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private lateinit var accounts: Accounts
     private lateinit var sessions: Sessions
@@ -38,11 +39,7 @@ class AccountsTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
 
         database =
             Database.connect(

@@ -16,11 +16,12 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.module
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -41,7 +42,7 @@ class DeckApiTest {
     private val workerJar = File("../forge-worker/target/forge-worker-0.1.0.jar")
     private val resRoot = File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
 
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private lateinit var dataRoot: File
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -56,11 +57,7 @@ class DeckApiTest {
         assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
 
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         dataRoot = File("build/test-api-${System.currentTimeMillis()}")
     }
 

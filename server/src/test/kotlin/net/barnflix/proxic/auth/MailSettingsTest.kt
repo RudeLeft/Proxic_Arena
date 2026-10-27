@@ -1,10 +1,11 @@
 package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -16,7 +17,7 @@ import kotlin.test.assertTrue
 
 /** Spec 0014 amendment 1 — the Email tab's settings: sealed, one way, and the settings file as a fallback. */
 class MailSettingsTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private val secret = "test-only-session-secret-0123456789abcdef"
     private val appPassword = "abcd efgh ijkl mnop"
@@ -28,11 +29,7 @@ class MailSettingsTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         database =
             Database.connect(
                 ServerConfig(

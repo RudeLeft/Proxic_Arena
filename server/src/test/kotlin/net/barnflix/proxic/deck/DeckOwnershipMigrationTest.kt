@@ -1,12 +1,13 @@
 package net.barnflix.proxic.deck
 
+import net.barnflix.proxic.FreshDatabase
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.Role
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.postgresql.ds.PGSimpleDataSource
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.Connection
 import java.util.UUID
 import javax.sql.DataSource
@@ -26,7 +27,7 @@ import kotlin.test.assertTrue
  * V004 — which is the order production experienced.
  */
 class DeckOwnershipMigrationTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
 
     @BeforeTest
     fun start() {
@@ -35,11 +36,7 @@ class DeckOwnershipMigrationTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
     }
 
     @AfterTest

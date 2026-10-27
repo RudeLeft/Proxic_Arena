@@ -15,7 +15,9 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import net.barnflix.proxic.auth.AccountStatus
 import net.barnflix.proxic.auth.Accounts
 import net.barnflix.proxic.auth.CSRF_COOKIE
@@ -27,7 +29,6 @@ import net.barnflix.proxic.module
 import net.barnflix.proxic.room.RoomService
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -47,7 +48,7 @@ import kotlin.test.assertTrue
  * against the API, not only the page.
  */
 class AdminApiTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private val password = "a perfectly fine passphrase"
 
     @BeforeTest
@@ -57,11 +58,7 @@ class AdminApiTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
         database().use { db ->
             val accounts = Accounts(db.dataSource())
             accounts.createUser("RudeLeft", password, Role.ADMIN)

@@ -1,10 +1,11 @@
 package net.barnflix.proxic.deck
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -28,7 +29,7 @@ class DeckImportTest {
     private val workerJar = File("../forge-worker/target/forge-worker-0.1.0.jar")
     private val resRoot = File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
 
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
     private lateinit var dataRoot: File
     private lateinit var importer: DeckImporter
@@ -52,11 +53,7 @@ class DeckImportTest {
         assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
 
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
 
         dataRoot = File("build/test-import-${System.currentTimeMillis()}")
         val config =

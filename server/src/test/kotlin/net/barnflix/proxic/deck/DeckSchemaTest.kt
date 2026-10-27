@@ -1,10 +1,11 @@
 package net.barnflix.proxic.deck
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.FreshDatabase
 import net.barnflix.proxic.ServerConfig
+import net.barnflix.proxic.TestPostgres
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import java.sql.Connection
 import java.util.UUID
 import kotlin.test.AfterTest
@@ -22,7 +23,7 @@ import kotlin.test.assertTrue
  * and an in-memory fake would enforce none of them.
  */
 class DeckSchemaTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
     private var database: Database? = null
 
     @BeforeTest
@@ -32,11 +33,7 @@ class DeckSchemaTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
 
         val c = container!!
         database =

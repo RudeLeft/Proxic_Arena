@@ -2,7 +2,6 @@ package net.barnflix.proxic
 
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.testcontainers.DockerClientFactory
-import org.testcontainers.containers.PostgreSQLContainer
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -23,7 +22,7 @@ import kotlin.test.assertTrue
  * subsystems forward.
  */
 class DatabaseTest {
-    private var container: PostgreSQLContainer<*>? = null
+    private var container: FreshDatabase? = null
 
     private fun requireDocker() {
         val probe = runCatching { DockerClientFactory.instance().isDockerAvailable }
@@ -41,11 +40,7 @@ class DatabaseTest {
         requireDocker()
         // Pinned tag, not `latest` (§1.5, §1.56).
         container =
-            PostgreSQLContainer("postgres:16.15-alpine")
-                .withDatabaseName("proxic_test")
-                .withUsername("proxic")
-                .withPassword("test-only-not-a-secret")
-                .also { it.start() }
+            TestPostgres.fresh()
     }
 
     @AfterTest
@@ -53,7 +48,7 @@ class DatabaseTest {
         container?.stop()
     }
 
-    private fun configFor(c: PostgreSQLContainer<*>) =
+    private fun configFor(c: FreshDatabase) =
         ServerConfig(
             host = "0.0.0.0",
             port = 0,
