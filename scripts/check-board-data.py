@@ -16,7 +16,8 @@ read from the snapshots both seats were sent, never inferred.
              Counterspell's target is the Bolt on the stack. Mana left
              floating shows in the pool, to both players.
   tokens     Raise the Alarm's Soldiers carry `token`; every permanent's
-             `enteredAt` follows the order it arrived in.
+             `enteredAt` follows the order it arrived in, and both seats
+             are shown the same on every round.
   facedown   a morph cast face down: on the stack the opponent is shown
              "Face-down", never its name -- in the entry's name or its
              description -- while its controller is shown the card.
@@ -382,8 +383,9 @@ def tokens():
         s = g.state.get(1) or {}
         soldiers = [c for c in s.get("battlefield", []) if c.get("seat") == 1 and "Soldier" in (c.get("name") or "")]
         plains = [c for c in s.get("battlefield", []) if c.get("name") == "Plains" and c.get("seat") == 1]
-        return len(soldiers) >= 4 and len(plains) >= 5 and not s.get("stack") \
+        st["reached"] = len(soldiers) >= 4 and len(plains) >= 5 and not s.get("stack") \
             and bool(w.snaps[1]) and w.twin(w.snaps[1][-1]) is not None
+        return st["reached"]
 
     g.run(policy, until=until, max_turn=30)
     s = g.state.get(1) or {}
@@ -394,6 +396,10 @@ def tokens():
              "stopped": g.stopped_badly()}
     if len(soldiers) < 4:
         return "inconclusive", "never made four Soldier tokens", found
+    # Out of turns first (CI 40428482876: four Plains in 21 cards): the
+    # turn limit stops on seat 1's snapshot, before seat 2's of that round.
+    if not st.get("reached") and not found["stopped"]:
+        return "inconclusive", "the turn limit came before a fifth Plains", found
     problems = [found["stopped"]] if found["stopped"] else []
     if any(c.get("token") is not True for c in soldiers):
         problems.append(f"every Soldier is a token: {found['soldiers']}")
@@ -411,12 +417,27 @@ def tokens():
         problems.append("every permanent carries enteredAt")
     elif any(b < a for a, b in zip(stamps, stamps[1:])):
         problems.append(f"enteredAt should follow arrival order: {first_seen}")
-    twin = w.twin(w.snaps[1][-1]) or {}
-    theirs = {c["id"]: c.get("enteredAt") for c in twin.get("battlefield", [])}
-    if not twin or any(theirs.get(c["id"]) != c.get("enteredAt") for c in w.snaps[1][-1]["battlefield"]):
-        problems.append("seat 2 is shown the same enteredAt")
+    # Both seats, every round each was sent: never one seat's snapshot
+    # against the other's of a different round.
+    rounds, differ = 0, []
+    for snap in w.snaps[1]:
+        twin = w.twin(snap)
+        if twin is None:
+            continue
+        rounds += 1
+        theirs = {c["id"]: c.get("enteredAt") for c in twin.get("battlefield", [])}
+        ours = {c["id"]: c.get("enteredAt") for c in snap.get("battlefield", [])}
+        if theirs != ours:
+            differ.append((snap.get("stateRevision"), {k: (ours.get(k), theirs.get(k)) for k in set(ours) | set(theirs)
+                                                       if ours.get(k) != theirs.get(k)}))
+    found["rounds compared"] = rounds
+    if not w.twin(w.snaps[1][-1]):
+        problems.append("seat 2 was sent the last round seat 1 was")
+    if differ:
+        problems.append(f"seat 2 is shown the same enteredAt: {differ[:3]}")
     return result(problems, f"{len(soldiers)} Soldier tokens flagged token, no Plains; enteredAt follows the order "
-                            f"{len(first_seen)} permanents arrived in, the same for both seats", found)
+                            f"{len(first_seen)} permanents arrived in, the same for both seats on all {rounds} "
+                            f"rounds", found)
 
 
 # --- a face-down spell on the stack ---------------------------------------------------
