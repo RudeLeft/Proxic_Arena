@@ -29,6 +29,11 @@ enum class AdminAction {
     INVITE_CANCELLED,
     EMAIL_SETTINGS_SAVED,
     EMAIL_SETTINGS_REMOVED,
+
+    // Spec 0026 — RESET_PASSWORD above stays for the records already
+    // written; no route sets a password now.
+    PASSWORD_RESET_SENT,
+    EMAIL_CHANGED,
 }
 
 class AdminActions(private val dataSource: DataSource) {

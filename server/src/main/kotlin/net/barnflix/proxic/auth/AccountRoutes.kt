@@ -6,7 +6,11 @@ import io.ktor.server.application.log
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.ServerConfig
 
@@ -26,7 +30,11 @@ fun Route.accountRoutes(
     accounts: Accounts,
     sessions: Sessions,
     changes: AccountChanges,
+    // Spec 0026 — the "password was changed" and "email was changed" notices.
+    resets: ResetDesk? = null,
 ) {
+    resets?.let { accountEmailRoutes(config, accounts, sessions, it) }
+
     post("/password") {
         // §3.35, §3.36.
         if (!call.csrfOk(config)) return@post
@@ -64,6 +72,7 @@ fun Route.accountRoutes(
             userId = principal.user.userId,
             sessionId = principal.sessionId,
         )
+        resets?.let { desk -> call.application.launch(Dispatchers.IO) { desk.passwordChanged(principal.user) } }
         // Every session died, including this one (§3.36), so the
         // cookie is cleared rather than left pointing at a revoked
         // session.
@@ -117,5 +126,63 @@ fun Route.accountRoutes(
         accounts.updateAvatar(principal.user.userId, avatar)
         changes.changed()
         call.respond(HttpStatusCode.NoContent)
+    }
+}
+
+@Serializable
+data class EmailView(val email: String?)
+
+@Serializable
+data class EmailChangeRequest(val email: String = "", val currentPassword: String = "")
+
+/**
+ * Spec 0026 — your email address, where a password reset goes. Changing it
+ * takes your current password, as changing the password does: a borrowed
+ * session must not be enough to redirect the account's resets. The old
+ * address is told.
+ */
+private fun Route.accountEmailRoutes(
+    config: ServerConfig,
+    accounts: Accounts,
+    sessions: Sessions,
+    resets: ResetDesk,
+) {
+    val addresses = resets.addresses
+    get("/email") {
+        val principal = call.requireAuth(sessions) ?: return@get
+        call.respond(EmailView(addresses.of(principal.user.userId)))
+    }
+
+    post("/email") {
+        if (!call.csrfOk(config)) return@post
+        val principal = call.requireAuth(sessions) ?: return@post
+        val body =
+            runCatching { call.receive<EmailChangeRequest>() }.getOrNull()
+                ?: return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_REQUEST", "Expected an email address and your password.", null),
+                )
+        // Checked by signing in again, as the password change does; the
+        // session that makes is ended at once.
+        val check = accounts.login(principal.user.username, body.currentPassword)
+        if (check !is LoginResult.Success) {
+            return@post call.respond(
+                HttpStatusCode.Unauthorized,
+                ErrorResponse("INVALID_CREDENTIALS", "That password is not correct.", null),
+            )
+        }
+        sessions.revokeSession(check.principal.sessionId)
+        val email =
+            Emails.normalize(body.email)
+                ?: return@post call.respond(
+                    HttpStatusCode.UnprocessableEntity,
+                    ErrorResponse("INVALID_EMAIL", "That is not an email address.", null),
+                )
+        val old = addresses.of(principal.user.userId)
+        addresses.set(principal.user.userId, email)
+        if (old != null && old != email) {
+            call.application.launch(Dispatchers.IO) { resets.emailChanged(principal.user, old) }
+        }
+        call.respond(EmailView(email))
     }
 }

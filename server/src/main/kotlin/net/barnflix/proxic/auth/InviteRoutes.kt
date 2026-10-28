@@ -122,10 +122,15 @@ fun Route.joinRoutes(
     }
 }
 
-/** The same origin check and throttle as signing in; answers for itself when it refuses. */
-private suspend fun ApplicationCall.joinAllowed(
+/**
+ * The same origin check and throttle as signing in; answers for itself
+ * when it refuses. [key] keeps the join page's and the reset page's
+ * failures apart (spec 0026).
+ */
+internal suspend fun ApplicationCall.joinAllowed(
     config: ServerConfig,
     throttle: LoginThrottle,
+    key: String = JOIN_KEY,
 ): Boolean {
     if (!originAcceptable(config)) {
         respond(
@@ -134,7 +139,7 @@ private suspend fun ApplicationCall.joinAllowed(
         )
         return false
     }
-    val wait = throttle.retryAfter(clientSource(), JOIN_KEY) ?: return true
+    val wait = throttle.retryAfter(clientSource(), key) ?: return true
     response.headers.append("Retry-After", wait.toString())
     respond(
         HttpStatusCode.TooManyRequests,

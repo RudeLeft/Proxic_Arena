@@ -10,8 +10,6 @@ import jakarta.mail.internet.MimeBodyPart
 import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeMultipart
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.Properties
 
@@ -209,21 +207,12 @@ class SmtpMailer(
  * does not name who sent the invitation (owner 2026-10-28).
  */
 object InviteEmail {
-    private val WHEN = DateTimeFormatter.ofPattern("EEEE d MMMM 'at' HH:mm z", Locale.ENGLISH)
-
     /** Always the newest release: GitHub redirects `latest` to it. */
     const val DECK_BUILDER_DOWNLOAD = "https://github.com/RudeLeft/Proxic_Deck_Builder/releases/latest"
 
-    const val LOGO_ID = "proxic-arena-logo"
+    const val LOGO_ID = EmailFrame.LOGO_ID
 
-    /** The wordmark on the header's colour, 560x187 for a 280px slot on sharp screens. */
-    val logo: InlineImage by lazy {
-        val bytes =
-            checkNotNull(InviteEmail::class.java.getResourceAsStream("/email/invite-logo.png")) {
-                "email/invite-logo.png is missing from the server's resources"
-            }.use { it.readBytes() }
-        InlineImage(LOGO_ID, bytes)
-    }
+    val logo: InlineImage get() = EmailFrame.logo
 
     const val SUBJECT = "Your invitation to Proxic Arena"
 
@@ -293,23 +282,8 @@ object InviteEmail {
                     "should read <strong>$arenaHost</strong>; if it doesn't, click <strong>Change</strong> " +
                     "and enter $arena.",
             )
-        return """
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta name="color-scheme" content="light">
-            <title>Welcome to Proxic Arena</title>
-            </head>
-            <body style="margin:0;padding:0;background:#eceef1">
-            <div style="display:none;max-height:0;overflow:hidden">You have an invitation to play Magic on Proxic Arena.</div>
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eceef1">
-              <tr><td align="center" style="padding:28px 12px">
-                <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
-                  <tr><td align="center" style="background:#121519;padding:26px 24px 22px;border-bottom:3px solid #c8892f;border-radius:6px 6px 0 0">
-                    <img src="cid:$LOGO_ID" width="280" height="93" alt="Proxic Arena" style="display:block;width:280px;max-width:100%;height:auto;border:0;color:#e0a44a;font-size:24px;font-weight:bold">
-                  </td></tr>
+        val rows =
+            """
                   <tr><td style="background:#ffffff;padding:36px 40px 8px">
                     <h1 style="margin:0 0 14px;font-size:24px;line-height:1.3;color:#14171b">Welcome to Proxic Arena</h1>
                     <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#22262c">You have an invitation to play Magic on Proxic Arena.</p>
@@ -341,13 +315,9 @@ object InviteEmail {
                   <tr><td style="background:#ffffff;padding:22px 40px 26px;border-radius:0 0 6px 6px;border-top:1px solid #e3e5e9">
                     <p style="margin:0;font-size:12px;line-height:1.5;color:#6a6f77">Button not working? Paste this into your browser:<br><span style="word-break:break-all;color:#22262c">$href</span></p>
                   </td></tr>
-                  <tr><td align="center" style="padding:18px 12px 0;font-size:12px;color:#8a8f98">Proxic Arena &middot; $arenaHost</td></tr>
-                </table>
-              </td></tr>
-            </table>
-            </body>
-            </html>
-            """.trimIndent()
+            """
+        val preview = "You have an invitation to play Magic on Proxic Arena."
+        return EmailFrame.page("Welcome to Proxic Arena", preview, home, rows)
     }
 
     /** One numbered step of "Link your computer"; [body] is markup already escaped. */
@@ -361,11 +331,9 @@ object InviteEmail {
             "<td valign=\"top\" style=\"padding:3px 0 12px 0;font-size:15px;line-height:1.55;color:#22262c\">" +
             "$body</td></tr>"
 
-    private fun until(expiresAt: Instant): String = WHEN.format(expiresAt.atZone(ZoneId.of("UTC")))
+    private fun until(expiresAt: Instant): String = EmailFrame.until(expiresAt)
 
-    /** `proxic.barnflix.net` for `https://proxic.barnflix.net`. */
-    private fun host(origin: String): String = origin.substringAfter("://").substringBefore('/')
+    private fun host(origin: String): String = EmailFrame.host(origin)
 
-    private fun escape(value: String): String =
-        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    private fun escape(value: String): String = EmailFrame.escape(value)
 }

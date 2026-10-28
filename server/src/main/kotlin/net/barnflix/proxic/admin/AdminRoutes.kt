@@ -50,8 +50,9 @@ data class StatusRequest(val status: String = "")
 @Serializable
 data class RoleRequest(val role: String = "")
 
+/** Spec 0026 — an account's email address, from the Admin page. */
 @Serializable
-data class PasswordRequest(val password: String = "")
+data class AccountEmailRequest(val email: String = "")
 
 @Serializable
 data class AccountsResponse(val accounts: List<AdminAccountView>)
@@ -84,6 +85,8 @@ class AdminServices(
     val inviteDesk: net.barnflix.proxic.auth.InviteDesk? = null,
     /** Spec 0014 amendment 1 — the Email tab's settings. */
     val mailSettings: net.barnflix.proxic.auth.MailSettings? = null,
+    /** Spec 0026 — password resets by email; none without a database. */
+    val resetDesk: net.barnflix.proxic.auth.ResetDesk? = null,
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -95,7 +98,8 @@ fun Route.adminRoutes(admin: AdminServices) {
         post("/accounts") { createAccount(admin) }
         put("/accounts/{userId}/status") { changeStatus(admin) }
         put("/accounts/{userId}/role") { changeRole(admin) }
-        post("/accounts/{userId}/password") { resetPassword(admin) }
+        // Spec 0026 — a reset link by email; there is no route that sets a password.
+        adminResetRoutes(admin)
         post("/accounts/{userId}/sign-out") { signOut(admin) }
 
         get("/rooms") {
@@ -245,18 +249,6 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
             )
     val action = if (role == Role.ADMIN) AdminAction.MAKE_ADMIN else AdminAction.MAKE_PLAYER
     call.answer(admin, by, admin.adminAccounts.setRole(userId, role), action)
-}
-
-private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.resetPassword(admin: AdminServices) {
-    val by = call.asAdmin(admin) ?: return
-    val userId = call.userIdParam() ?: return
-    val password =
-        runCatching { call.receive<PasswordRequest>() }.getOrNull()?.password
-            ?: return call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_REQUEST", "Expected a new password.", null),
-            )
-    call.answer(admin, by, admin.adminAccounts.resetPassword(userId, password), AdminAction.RESET_PASSWORD)
 }
 
 private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.signOut(admin: AdminServices) {

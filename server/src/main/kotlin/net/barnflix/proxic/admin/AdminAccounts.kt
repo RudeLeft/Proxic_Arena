@@ -10,7 +10,8 @@ import java.util.UUID
 import javax.sql.DataSource
 
 // Accounts, as the Admin page manages them — PHASE_07 §7.67, owner
-// decisions 15 and 16, Amendment 9.
+// decisions 15 and 16. Amendment 9's "the administrator types a new
+// password" is gone: spec 0026 sends the player a reset link instead.
 //
 // The one rule here that is not Phase 3's: THE LAST ACTIVE
 // ADMINISTRATOR CANNOT BE DISABLED OR DEMOTED, by anyone, themselves
@@ -32,6 +33,8 @@ data class AdminAccountView(
     val lastSignInAt: String? = null,
     /** The only active administrator: no Disable, no Make player. */
     val lastAdmin: Boolean = false,
+    /** Spec 0026 — where a password reset goes; null when there is none. */
+    val email: String? = null,
 )
 
 /** What an account change came to. */
@@ -58,7 +61,8 @@ class AdminAccounts(
                        (SELECT count(*) FROM user_session s
                          WHERE s.user_id = u.user_id AND s.revoked_at IS NULL AND s.expires_at > now()),
                        (SELECT max(e.at) FROM sign_in_event e
-                         WHERE e.user_id = u.user_id AND e.kind = 'SIGNED_IN')
+                         WHERE e.user_id = u.user_id AND e.kind = 'SIGNED_IN'),
+                       u.email
                   FROM app_user u
                  ORDER BY u.status = 'ACTIVE' DESC, u.role = 'ADMIN' DESC, lower(u.display_name)
                 """.trimIndent(),
@@ -77,6 +81,7 @@ class AdminAccounts(
                                     sessions = rows.getInt(6),
                                     lastSignInAt = rows.getTimestamp(7)?.toInstant()?.toString(),
                                     lastAdmin = admins == listOf(userId),
+                                    email = rows.getString(8),
                                 ),
                             )
                         }
@@ -114,22 +119,6 @@ class AdminAccounts(
                 it.executeUpdate()
             }
         }
-
-    /**
-     * Amendment 9 — the administrator types the new password, every
-     * session ends, and they tell the player. No forced change later.
-     */
-    fun resetPassword(
-        userId: UUID,
-        password: String,
-    ): AdminChange {
-        val username = usernameOf(userId) ?: return AdminChange.NotFound
-        net.barnflix.proxic.auth.PasswordHasher.rejectionReason(password)?.let {
-            return AdminChange.Refused("INVALID_PASSWORD", it)
-        }
-        accounts.changePassword(userId, password)
-        return AdminChange.Done(username)
-    }
 
     /** End every session this account has, on every device. */
     fun signOutEverywhere(userId: UUID): Pair<AdminChange, Int> {

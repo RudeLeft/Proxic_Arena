@@ -464,8 +464,8 @@ private fun Route.databaseRoutes(
     application.installSignedInGate(sessions, File(config.staticRoot))
     val accountChanges = net.barnflix.proxic.auth.AccountChanges() // spec 0006
 
-    val devices = net.barnflix.proxic.auth.DeviceLinks(database.dataSource()) // spec 0021
-    route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges, devices) }
+    val reach = accountReach(config, database, accounts, sessions) // specs 0014, 0021, 0026
+    route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges, reach.links) }
 
     // §3.77-§3.82 — the authenticated WebSocket. Outside
     // /api, beside /ws/system, which stays anonymous
@@ -681,9 +681,9 @@ private fun Route.databaseRoutes(
             importEnabled = config.deckImportEnabled,
         )
 
-        deckRulesRoutes(config, sessions, devices) // spec 0021
+        deckRulesRoutes(config, sessions, reach.devices) // spec 0021
         // Spec 0022 -- a linked computer sends its decks.
-        deckBuilderRoutes(config, database.dataSource(), devices, importer, config.deckImportEnabled)
+        deckBuilderRoutes(config, database.dataSource(), reach.devices, importer, config.deckImportEnabled)
     }
 }
 

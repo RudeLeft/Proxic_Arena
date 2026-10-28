@@ -25,7 +25,8 @@ import {
   outcomeText,
   overview,
   recordUrl,
-  resetPassword,
+  sendPasswordReset,
+  setAccountEmail,
   setRole,
   setStatus,
   signInsByPerson,
@@ -375,9 +376,10 @@ function AccountRow({
 }) {
   const { lobby } = useLobbyConnection();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [settingPassword, setSettingPassword] = useState(false);
-  const [password, setPassword] = useState("");
-  const passwordId = useId();
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const emailId = useId();
+  const email = account.email ?? null;
   const menuRef = useRef<HTMLDivElement | null>(null);
   const name = account.displayName;
   const on = account.status === "ACTIVE";
@@ -410,17 +412,13 @@ function AccountRow({
     void run(what, done);
   };
 
-  const submitPassword = async (event: FormEvent) => {
+  const submitEmail = async (event: FormEvent) => {
     event.preventDefault();
     const ok = await run(
-      () => resetPassword(account.userId, password),
-      () =>
-        `${name}'s password is changed and every session of theirs has ended. Tell them the new one.`,
+      () => setAccountEmail(account.userId, emailDraft),
+      () => `${name}'s email address is saved.`,
     );
-    if (ok) {
-      setPassword("");
-      setSettingPassword(false);
-    }
+    if (ok) setEditingEmail(false);
   };
 
   return (
@@ -435,6 +433,12 @@ function AccountRow({
                 <span className="pa-admin-username"> @{account.username}</span>
               )}
               {account.userId === me && <span className="pa-admin-username"> (you)</span>}
+            </span>
+            {/* Spec 0026: where a password reset goes. */}
+            <span
+              className={`pa-admin-account-email${email ? "" : " pa-admin-account-email-none"}`}
+            >
+              {email ?? "No email"}
             </span>
           </span>
         </span>
@@ -467,16 +471,35 @@ function AccountRow({
           </button>
           {menuOpen && (
             <div className="pa-admin-menu" role="menu" aria-label={`Manage ${name}`}>
+              {/* Spec 0026: Arena emails the player a link and they choose
+                  their own password; nobody here sees it. The server says
+                  why when it can't send (no address, no email account). */}
               <button
                 type="button"
                 role="menuitem"
-                aria-label={`Set a new password for ${name}`}
+                aria-label={`Send ${name} a password reset`}
+                onClick={() =>
+                  act(
+                    () => sendPasswordReset(account.userId),
+                    (detail) => `${detail} ${name} chooses their own password from the link.`,
+                  )
+                }
+              >
+                Send password reset
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                aria-label={
+                  email ? `Change ${name}'s email address` : `Add an email address for ${name}`
+                }
                 onClick={() => {
                   setMenuOpen(false);
-                  setSettingPassword(true);
+                  setEmailDraft(email ?? "");
+                  setEditingEmail(true);
                 }}
               >
-                Set a new password…
+                {email ? "Change email address…" : "Add email address…"}
               </button>
               <button
                 type="button"
@@ -543,41 +566,36 @@ function AccountRow({
           )}
         </div>
       </div>
-      {settingPassword && (
-        // Amendment 9: the administrator types it, every session ends,
-        // and they tell the player. No forced change at next sign-in.
+      {editingEmail && (
         <form
           className="pa-form pa-form-inline pa-admin-password"
-          onSubmit={(e) => void submitPassword(e)}
+          onSubmit={(e) => void submitEmail(e)}
         >
-          <label className="pa-visually-hidden" htmlFor={passwordId}>
-            New password for {name}
+          <label className="pa-visually-hidden" htmlFor={emailId}>
+            Email address for {name}
           </label>
           <input
-            id={passwordId}
+            id={emailId}
             className="pa-input"
-            type="password"
-            autoComplete="new-password"
-            placeholder={`New password for ${name}`}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            type="email"
+            autoComplete="off"
+            placeholder={`Email address for ${name}`}
+            value={emailDraft}
+            onChange={(event) => setEmailDraft(event.target.value)}
             required
           />
           <button type="submit" className="pa-button">
-            Set password
+            Save
           </button>
           <button
             type="button"
             className="pa-button pa-button-quiet"
-            onClick={() => {
-              setPassword("");
-              setSettingPassword(false);
-            }}
+            onClick={() => setEditingEmail(false)}
           >
             Cancel
           </button>
           <p className="pa-help">
-            Every session {name} has ends now. You tell them the new password.
+            Password resets for {name} go here.{email ? " The old address is told it changed." : ""}
           </p>
         </form>
       )}

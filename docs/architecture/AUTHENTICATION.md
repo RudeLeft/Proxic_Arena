@@ -316,8 +316,9 @@ reads it from stdin instead, which is the automation path.
   the first version of it refused `--password-stdin` — the very
   automation path it was meant to leave open.
 - `set-password` and `revoke-sessions` both end every session for
-  that user. `set-password` is the administrator's reset: there is no
-  self-service reset and no email to send one with.
+  that user. `set-password` is the break-glass for whoever runs the
+  server, for an account with no working email; the everyday reset is
+  spec 0026's emailed link (below).
 - The **last active administrator cannot be disabled** (§3.110).
   Locking everyone out of account management would otherwise require
   a database session to undo.
@@ -380,10 +381,37 @@ nothing else: it now needs a session, like `/api/version` and
 
 ---
 
+## Password reset by email (spec 0026)
+
+An administrator clicks **Send password reset** on the Admin page; Arena
+emails the account's address a link (`/reset#<code>`) and the player
+chooses their own password. The Admin page has no way to set a password
+(owner 2026-10-28), and never shows the link.
+
+- The code is a 32-byte random token; only its SHA-256 is stored
+  (`password_reset`), and it rides after `#`, out of every log.
+- One use, one hour. A newer reset, or any password change, ends it.
+- At most one reset email per account per 5 minutes, and 5 a day. A
+  link whose email failed is deleted, so it neither works nor counts.
+- `POST /api/auth/reset/peek` and `POST /api/auth/reset` are open to a
+  stranger (the gate lets them through) with the join page's origin
+  check and throttle; every bad link gets the same `410 RESET_INVALID`.
+- A new password ends every session and unlinks every Deck Builder
+  computer (§3.36), signs the player in, and emails "Your password was
+  changed". Every password change sends that notice.
+- The address (`app_user.email`) comes from the invitation when the
+  account was made from one (V026 fills it in for older accounts too).
+  The player changes it on the Account page with their current
+  password; an administrator can set it on the Admin page. The old
+  address is told either way.
+
+---
+
 ## What is deliberately not here
 
 - No open self-registration (only by invitation, spec 0014), no
-  password reset by email, no "remember me", no OAuth, no second factor.
+  "Forgot your password?" (an administrator starts a reset, spec 0026),
+  no "remember me", no OAuth, no second factor.
 - No device token that does more than download the deck rules and send
   decks (specs 0021, 0022).
 - No account lockout — a throttle, not a lock, so a user cannot be

@@ -148,7 +148,8 @@ class AdminApiTest {
             "POST" to "/api/admin/accounts",
             "PUT" to "/api/admin/accounts/{id}/status",
             "PUT" to "/api/admin/accounts/{id}/role",
-            "POST" to "/api/admin/accounts/{id}/password",
+            "POST" to "/api/admin/accounts/{id}/password-reset",
+            "PUT" to "/api/admin/accounts/{id}/email",
             "POST" to "/api/admin/accounts/{id}/sign-out",
             "GET" to "/api/admin/rooms",
             "POST" to "/api/admin/rooms/{room}/close",
@@ -276,26 +277,40 @@ class AdminApiTest {
         }
 
     @Test
-    fun `a password reset ends every session, and the record never holds the password`() =
+    fun `no administrator can set a password, and an email address is the player's to have (spec 0026)`() =
         testApplication {
             application { module(config()) }
             val admin = session("RudeLeft")
-            val pat = session("Pat")
-            val newPassword = "an entirely new passphrase"
-            val path = "/api/admin/accounts/${userId("Pat")}/password"
-            val reset = call(admin, "POST", path, """{"password":"$newPassword"}""")
-            assertEquals(HttpStatusCode.OK, reset.status)
+            val pat = userId("Pat")
+            // Owner 2026-10-28: the route that set a password is gone.
+            val gone = "/api/admin/accounts/$pat/password"
+            val old = call(admin, "POST", gone, """{"password":"anything at all here"}""")
+            assertEquals(HttpStatusCode.NotFound, old.status)
+            assertEquals(HttpStatusCode.OK, signIn("Pat").status, "the password is unchanged")
 
-            assertEquals(HttpStatusCode.Unauthorized, call(pat, "GET", "/api/rooms/current").status)
-            assertEquals(HttpStatusCode.Unauthorized, signIn("Pat").status)
-            assertEquals(HttpStatusCode.OK, signIn("Pat", newPassword).status)
+            // No address yet: the reset is refused with the reason.
+            val noEmail = call(admin, "POST", "/api/admin/accounts/$pat/password-reset")
+            assertEquals(HttpStatusCode.UnprocessableEntity, noEmail.status)
+            assertTrue(noEmail.bodyAsText().contains("NO_EMAIL"), noEmail.bodyAsText())
+
+            val bad = call(admin, "PUT", "/api/admin/accounts/$pat/email", """{"email":"not an address"}""")
+            assertEquals(HttpStatusCode.UnprocessableEntity, bad.status)
+            val saved = call(admin, "PUT", "/api/admin/accounts/$pat/email", """{"email":" Pat@Example.com "}""")
+            assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
+            val listed = call(admin, "GET", "/api/admin/accounts").bodyAsText()
+            assertTrue(listed.contains("\"email\":\"pat@example.com\""), listed)
+
+            // An address, but no email account in a test: refused, and no link anywhere.
+            val notSetUp = call(admin, "POST", "/api/admin/accounts/$pat/password-reset")
+            assertEquals(HttpStatusCode.UnprocessableEntity, notSetUp.status)
+            assertTrue(notSetUp.bodyAsText().contains("EMAIL_NOT_SET_UP"), notSetUp.bodyAsText())
+            assertFalse(notSetUp.bodyAsText().contains("/reset#"))
 
             val recorded =
-                sql("SELECT action || ' ' || target || ' ' || coalesce(detail, '') FROM admin_action") { rows ->
+                sql("SELECT action || ' ' || target FROM admin_action") { rows ->
                     buildList { while (rows.next()) add(rows.getString(1)) }
                 }
-            assertEquals(1, recorded.count { it.startsWith("RESET_PASSWORD Pat") }, recorded.toString())
-            assertFalse(recorded.any { it.contains(newPassword) })
+            assertEquals(listOf("EMAIL_CHANGED Pat"), recorded)
         }
 
     @Test

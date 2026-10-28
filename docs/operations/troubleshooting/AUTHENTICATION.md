@@ -274,8 +274,15 @@ http://127.0.0.1:8080/api/health/ready`).
 
 ## Password reset
 
-There is no self-service reset, by design — no email is configured
-and none should be. An administrator sets a new password:
+The everyday way (spec 0026): on the Admin page, open the player's
+**Manage** menu and choose **Send password reset**. Arena emails them a
+link that works once, for an hour, and they choose their own password.
+It needs an email account set up on the Admin page's Email tab, and an
+email address on the player's account (Manage → Add email address).
+If the page says why it can't send, that is what to fix.
+
+For an account with no working email (an administrator who has lost
+theirs, say), whoever runs the server can still set a password:
 
 ```bash
 printf '%s' 'the-new-password' | docker compose exec -T arena-server /app/bin/arena-admin set-password RudeLeft --password-stdin

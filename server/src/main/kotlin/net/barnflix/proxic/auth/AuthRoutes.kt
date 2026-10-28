@@ -51,6 +51,12 @@ data class DisplayNameRequest(val displayName: String = "")
 @Serializable
 data class AvatarRequest(val avatar: String? = null)
 
+/** Spec 0021's linked computers and spec 0026's password resets: an account's reach beyond the browser. */
+class AccountLinks(
+    val devices: DeviceLinks? = null,
+    val resets: ResetDesk? = null,
+)
+
 @Serializable
 data class PasswordChangeRequest(
     val currentPassword: String = "",
@@ -66,11 +72,16 @@ fun Route.authRoutes(
     signIns: SignInLog? = null,
     // Spec 0006 — told when a name or an avatar others see changes.
     changes: AccountChanges = AccountChanges(),
-    // Spec 0021 — linked computers; absent where no database backs them.
-    devices: DeviceLinks? = null,
+    // Specs 0021 and 0026 — linked computers, password resets and account
+    // emails; absent where no database backs them.
+    links: AccountLinks = AccountLinks(),
 ) {
+    val devices = links.devices
+    val resets = links.resets
     // Spec 0014 — the sign-up page behind an invitation link.
     joinRoutes(config, accounts.invites(), throttle, signIns)
+    // Spec 0026 — the page behind a password reset link.
+    resets?.let { resetRoutes(config, it, throttle, signIns) }
     route("/auth") {
         post("/login") {
             // The login endpoint itself is NOT CSRF-protected: there
@@ -223,7 +234,7 @@ fun Route.authRoutes(
         // function past its complexity threshold: the answer to a
         // route table that has outgrown one function is a second
         // function, not a higher threshold.
-        accountRoutes(config, accounts, sessions, changes)
+        accountRoutes(config, accounts, sessions, changes, resets)
         // Spec 0021 -- linking a computer (the Deck Builder).
         devices?.let { deviceRoutes(config, sessions, it, throttle) }
     }

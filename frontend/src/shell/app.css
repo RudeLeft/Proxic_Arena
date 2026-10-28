@@ -2407,6 +2407,19 @@
   font-weight: 400;
   color: var(--pa-muted);
 }
+/* Spec 0026 — where a password reset goes, under the name. */
+.pa-admin-account-email {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--pa-size-md);
+  color: var(--pa-sub);
+}
+.pa-admin-account-email-none {
+  color: var(--pa-muted);
+  font-style: italic;
+}
 .pa-admin-account-meta {
   font-size: var(--pa-size-md);
   color: var(--pa-sub);

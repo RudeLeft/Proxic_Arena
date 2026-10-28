@@ -147,6 +147,7 @@ class DatabaseTest {
                         // Spec 0021: device_code and device_link, a
                         // computer linked to download the deck rules.
                         // Spec 0022: deck_token, a deck's token pictures.
+                        // Spec 0026: password_reset, emailed reset links.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -167,6 +168,7 @@ class DatabaseTest {
                                 "match_participant",
                                 "match_setup",
                                 "match_setup_player",
+                                "password_reset",
                                 "player_stops",
                                 "room",
                                 "room_member",

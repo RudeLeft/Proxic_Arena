@@ -17,6 +17,8 @@ export interface AdminAccount {
   lastSignInAt: string | null;
   /** The only active administrator: the page offers no Disable and no Make player. */
   lastAdmin: boolean;
+  /** Spec 0026 — where a password reset goes; null when the account has none. */
+  email: string | null;
 }
 
 export interface AdminRoom {
@@ -220,8 +222,12 @@ export const setStatus = (
 export const setRole = (userId: string, role: "ADMIN" | "PLAYER", fetchFn: typeof fetch = fetch) =>
   act(`/api/admin/accounts/${userId}/role`, "PUT", { role }, fetchFn);
 
-export const resetPassword = (userId: string, password: string, fetchFn: typeof fetch = fetch) =>
-  act(`/api/admin/accounts/${userId}/password`, "POST", { password }, fetchFn);
+/** Spec 0026 — Arena emails the player a link; nobody here sees it or a password. */
+export const sendPasswordReset = (userId: string, fetchFn: typeof fetch = fetch) =>
+  act(`/api/admin/accounts/${userId}/password-reset`, "POST", undefined, fetchFn);
+
+export const setAccountEmail = (userId: string, email: string, fetchFn: typeof fetch = fetch) =>
+  act(`/api/admin/accounts/${userId}/email`, "PUT", { email }, fetchFn);
 
 export const signOutEverywhere = (userId: string, fetchFn: typeof fetch = fetch) =>
   act(`/api/admin/accounts/${userId}/sign-out`, "POST", undefined, fetchFn);

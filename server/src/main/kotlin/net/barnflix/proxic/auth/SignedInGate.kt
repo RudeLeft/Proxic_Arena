@@ -31,7 +31,8 @@ import java.io.File
 //   - POST /api/auth/login; GET /api/auth/me, which tells a stranger
 //     nothing (204); POST /api/auth/logout, a quiet 204 either way;
 //   - POST /api/auth/join and /join/peek, an invitation link's sign-up
-//     page (spec 0014);
+//     page (spec 0014), and /reset and /reset/peek, a password reset
+//     link's page (spec 0026);
 //   - the health checks, from inside the server's own box only (Docker's
 //     check); from anywhere else they do not exist.
 //
@@ -67,11 +68,20 @@ internal fun signInFiles(staticRoot: File): Set<String>? {
 
 /**
  * POSTs a stranger may make: sign in, sign out, an invitation's sign-up
- * page (spec 0014), and trading a one-time code for a device token (spec
- * 0021) -- the Deck Builder has no session to show.
+ * page (spec 0014), a password reset link's page (spec 0026), and trading
+ * a one-time code for a device token (spec 0021) -- the Deck Builder has
+ * no session to show.
  */
 private val OPEN_POSTS =
-    setOf("/api/auth/login", "/api/auth/logout", "/api/auth/join", "/api/auth/join/peek", "/api/auth/device-link")
+    setOf(
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/auth/join",
+        "/api/auth/join/peek",
+        "/api/auth/reset",
+        "/api/auth/reset/peek",
+        "/api/auth/device-link",
+    )
 
 /**
  * Spec 0021: the deck rules answer a session OR a device token, and the

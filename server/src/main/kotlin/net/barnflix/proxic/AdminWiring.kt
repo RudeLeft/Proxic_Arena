@@ -39,6 +39,19 @@ internal class AdminParts(
     val lobby: net.barnflix.proxic.lobby.LobbyService,
 )
 
+/**
+ * How an account is reached beyond the browser: the Email tab's settings
+ * (spec 0014 amendment 1), password resets that send with them (spec 0026)
+ * and linked computers (spec 0021).
+ */
+internal class AccountReach(
+    val mail: net.barnflix.proxic.auth.MailSettings,
+    val resets: net.barnflix.proxic.auth.ResetDesk,
+    val devices: net.barnflix.proxic.auth.DeviceLinks,
+) {
+    val links = net.barnflix.proxic.auth.AccountLinks(devices, resets)
+}
+
 /** PHASE_07 §7.67 — the Admin API's dependencies, and the server state it reports. */
 internal fun adminServices(
     config: ServerConfig,
@@ -53,7 +66,9 @@ internal fun adminServices(
             parts.runtime,
             parts.lobby,
         )
-    val mail = mailSettings(config, database)
+    // Its own copy: both read the same settings and rows, and hold nothing else.
+    val reach = accountReach(config, database, parts.accounts, parts.sessions)
+    val mail = reach.mail
     return net.barnflix.proxic.admin.AdminServices(
         config = config,
         sessions = parts.sessions,
@@ -69,6 +84,7 @@ internal fun adminServices(
         accountsChanged = { parts.lobby.accountChanges?.changed() },
         inviteDesk = inviteDesk(config, parts, mail),
         mailSettings = mail,
+        resetDesk = reach.resets,
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(
@@ -98,6 +114,26 @@ private fun inviteDesk(
         emailReady = { settings.current().configured },
         publicOrigin = config.publicOrigin,
     )
+}
+
+/** [AccountReach]: password resets are emailed with the same account as invitations. */
+internal fun accountReach(
+    config: ServerConfig,
+    database: Database,
+    accounts: net.barnflix.proxic.auth.Accounts,
+    sessions: net.barnflix.proxic.auth.Sessions,
+): AccountReach {
+    val settings = mailSettings(config, database)
+    val log = org.slf4j.LoggerFactory.getLogger("net.barnflix.proxic.resets")
+    val desk =
+        net.barnflix.proxic.auth.ResetDesk(
+            resets = net.barnflix.proxic.auth.PasswordResets(database.dataSource(), accounts, sessions),
+            addresses = net.barnflix.proxic.auth.EmailAddresses(database.dataSource()),
+            mailer = SmtpMailer(settings::current, log),
+            emailReady = { settings.current().configured },
+            publicOrigin = config.publicOrigin,
+        )
+    return AccountReach(settings, desk, net.barnflix.proxic.auth.DeviceLinks(database.dataSource()))
 }
 
 /** Spec 0014 amendment 1 — the Email tab's settings, sealed with the server's secret. */

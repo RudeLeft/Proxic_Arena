@@ -225,6 +225,14 @@ class Accounts(
         PasswordHasher.rejectionReason(newPassword)?.let { throw IllegalArgumentException(it) }
         dataSource.connection.use { connection ->
             updatePasswordHash(connection, userId, PasswordHasher.hash(newPassword))
+            // Spec 0026 — a reset link sent before this change is dead now.
+            connection.prepareStatement(
+                "UPDATE password_reset SET cancelled_at = now() " +
+                    "WHERE user_id = ? AND used_at IS NULL AND cancelled_at IS NULL",
+            ).use {
+                it.setObject(1, userId)
+                it.executeUpdate()
+            }
         }
         val revoked = sessions.revokeAllForUser(userId)
         log.authEvent(

@@ -5,6 +5,7 @@
 // all. Now it loads only after signing in (routes.tsx, lazily).
 
 import { useState, type FormEvent } from "react";
+import { AccountEmail } from "./AccountEmail";
 import { useAuth } from "./AuthContext";
 import { DeckBuilderLink } from "./DeckBuilderLink";
 import { apiFetch } from "./auth";
@@ -131,6 +132,9 @@ export function AccountPage() {
         </section>
 
         <AvatarPicker />
+
+        {/* Spec 0026 — where a password reset goes. */}
+        <AccountEmail />
 
         <section className="pa-section" aria-labelledby="password-head">
           <div className="pa-section-head">

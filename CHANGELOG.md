@@ -5,6 +5,11 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
+**Password resets by email** (spec 0026, owner 2026-10-28)
+- The Admin page no longer sets passwords. **Send password reset** emails the player a link that works once, for an hour, and they choose their own password.
+- Each account has an email address: the one it was invited with, or one added on the Account page (it asks for your password) or by an administrator.
+- After every password change, the player gets a "Your password was changed" email.
+
 **Hall of Champions** (owner, 2026-10-28)
 - The leaderboard's deck icon is the same size as the player's picture.
 

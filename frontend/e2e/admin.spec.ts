@@ -74,13 +74,12 @@ test("a player sees no Admin, and the API refuses them whatever they try", async
   }
 });
 
-test("an administrator invites someone, who makes their own account; then resets and disables it", async ({
+test("an administrator invites someone, who makes their own account; then sends a reset and disables it", async ({
   browser,
 }) => {
   const admin = await asAdmin(browser);
   const username = `e2e${Date.now() % 1_000_000_000}`;
   const first = "a first password for the test";
-  const second = "a second password for the test";
   const player = await browser.newContext();
   const playerPage = await player.newPage();
   try {
@@ -121,17 +120,47 @@ test("an administrator invites someone, who makes their own account; then resets
     await admin.reload();
     await expect(accountRow(admin, username)).toContainText("Active");
 
-    // Amendment 9: typed by the administrator; every session ends.
+    // Spec 0026: the invitation's address is the account's, and nobody
+    // here can set a password -- Arena emails the player a link instead.
     const row = accountRow(admin, username);
+    await expect(row).toContainText(`${username}@example.com`);
     await manage(row);
-    await row.getByRole("menuitem", { name: /Set a new password/ }).click();
-    await row.getByPlaceholder(/New password for/).fill(second);
-    await row.getByRole("button", { name: "Set password" }).click();
+    await expect(row.getByRole("menuitem", { name: /Set a new password/ })).toHaveCount(0);
+    await row
+      .getByRole("menuitem", { name: `Send ${`Test ${username}`} a password reset` })
+      .click();
+    // No email account on this stack (or, while the Email tab test runs,
+    // one nothing listens on): refused in words, and no link shown.
     await expect(
-      admin.getByRole("status").filter({ hasText: "every session of theirs has ended" }),
+      admin
+        .getByRole("alert")
+        .filter({ hasText: /No email account is set up|The email didn't go/ }),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(await admin.content()).not.toContain("/reset#");
+
+    await manage(row);
+    await row.getByRole("menuitem", { name: /Change .*'s email address/ }).click();
+    await row.getByLabel(/Email address for/).fill(`${username}.new@example.com`);
+    await row.getByRole("button", { name: "Save" }).click();
+    await expect(
+      admin.getByRole("status").filter({ hasText: "email address is saved" }),
     ).toBeVisible();
-    expect((await playerPage.request.get("/api/rooms/current")).status()).toBe(401);
-    await signInAs(playerPage, username, second);
+    await expect(row).toContainText(`${username}.new@example.com`);
+
+    // The player sees it on the Account page; changing it takes their password.
+    await playerPage.goto("/account");
+    const email = playerPage.getByRole("region", { name: "Email address" });
+    await expect(email.getByLabel("Email address")).toHaveValue(`${username}.new@example.com`);
+    await email.getByLabel("Email address").fill(`${username}.mine@example.com`);
+    await email.getByLabel("Current password").fill("not my password at all");
+    await email.getByRole("button", { name: "Save email address" }).click();
+    await expect(email.getByRole("alert")).toContainText("That password is not correct.");
+
+    // A reset link that doesn't work says so, the same for every bad link.
+    await playerPage.goto("/reset#not-a-real-link");
+    await expect(
+      playerPage.getByRole("heading", { name: "This reset link no longer works" }),
+    ).toBeVisible();
 
     // Disable: refused at sign-in from then on. A disabled account
     // folds under "Disabled · N" (spec 0010).

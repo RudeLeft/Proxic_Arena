@@ -215,6 +215,14 @@ class Invites(
                 it.setObject(2, claimed.first)
                 it.executeUpdate()
             }
+            // Spec 0026 — the invitation's address is where a password reset goes.
+            connection.prepareStatement(
+                "UPDATE app_user SET email = (SELECT email FROM account_invite WHERE invite_id = ?) WHERE user_id = ?",
+            ).use {
+                it.setObject(1, claimed.first)
+                it.setObject(2, user.userId)
+                it.executeUpdate()
+            }
         }
         val (sessionId, sessionToken) = sessions.open(user.userId)
         return JoinResult.Joined(user, sessionId, sessionToken)

@@ -164,6 +164,7 @@ describe("the overview (spec 0010)", () => {
       sessions: 0,
       lastSignInAt: null,
       lastAdmin: false,
+      email: null,
     });
     const today = Date.parse("2026-10-24T00:00:00Z");
     const numbers = overview({
