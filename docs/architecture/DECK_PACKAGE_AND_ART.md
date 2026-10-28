@@ -56,6 +56,17 @@ limitation of the art pipeline, not of Forge, and it interacts with
 §0A.9A's exact-printing work: Proxic can know the printing from the
 decklist, but may not have distinct art for it.
 
+**Spec 0024 (2026-10-27): any printing of a card Forge plays is
+accepted.** When Forge knows the card but not the printing a line asks
+for, import keeps the line's printing and picture on the entry
+(`set_code`, `collector_number`, `art_sha256`) and records the printing
+Forge will play (`resolved_set`, `resolved_number`,
+`resolution_status = PRINTING_MISMATCH`). The room's check and the match
+both send Forge's. The exception is a card whose printing changes what it
+does (Forge's functional variants: Attractions, Everythingamajig, Garbage
+Elemental, Sly Spy): that one must be a printing Forge has. The deck rules
+say so (`format.anyPrinting`, `printingMatters` on those cards).
+
 ### 2.2 Sideboard cards are excluded at source
 
 ```text

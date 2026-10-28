@@ -68,14 +68,17 @@ PING                            PONG
 VERSION                         WORKER_READY  forgeCommit, forgeRelease, workerVersion,
                                               javaVersion, pid, resourcesUsable
 VERIFY_RESOURCES                RESOURCES
-RESOLVE_CARDS                   CARDS_RESOLVED      (import, Phase 2)
+RESOLVE_CARDS                   CARDS_RESOLVED      (import, Phase 2); printingMatters? on a
+                                                    card whose printing changes it (spec 0024)
 BUILD_DECK                      DECK_BUILT          (preflight, Phase 5)
 CARD_POOL                       CARD_POOL           cards (name, faces, section?, printings
                                                     "EDITION NUMBER"), editions, setCodes:
                                                     every card and printing this Forge
                                                     resolves (spec 0021, the deck rules);
                                                     each card's printings in Forge's
-                                                    preferred order (spec 0022)
+                                                    preferred order (spec 0022), real since
+                                                    editions load once (spec 0023);
+                                                    printingMatters? (spec 0024)
 START_GAME  matchId, players    GAME_STARTED        the running milestone
                                 MATCH_SNAPSHOT      one per seat, per change
                                 DECISION_REQUEST    authorisedSeat, actedForSeat, kind, options...

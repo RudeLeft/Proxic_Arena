@@ -40,6 +40,12 @@ import java.util.TreeSet;
  * Bolt's first printing would be a Secret Lair one (measured). Ties keep
  * the edition code and collector number order.
  *
+ * <p>Spec 0024: import accepts any printing of a listed card, so the
+ * printings matter only for a card marked {@code printingMatters}, whose
+ * printing changes what it does; for the rest they are what Forge has.
+ * Spec 0023: the order is real now that Forge reads each edition's own
+ * type (it read every one as a custom set).
+ *
  * <p>Contraptions and Attractions are filed with Forge's variant cards;
  * they are included, as {@code ForgeRuntime.lookup} includes them, and
  * no other variant card is (a plane or a scheme stays unplayable).
@@ -158,12 +164,14 @@ final class CardPool {
         final String name;
         final TreeSet<String> faces = new TreeSet<>();
         final String section;
+        final boolean printingMatters;
         final TreeSet<String> seen = new TreeSet<>();
         final List<Printing> printings = new ArrayList<>();
 
         Entry(PaperCard card) {
             CardRules rules = card.getRules();
             this.name = card.getName();
+            this.printingMatters = ForgeRuntime.Resolution.printingMatters(rules);
             faces.add(rules.getMainPart().getName());
             if (rules.getOtherPart() != null) {
                 faces.add(rules.getOtherPart().getName());
@@ -180,6 +188,11 @@ final class CardPool {
             one.add("faces", faceList);
             if (section != null) {
                 one.addProperty("section", section);
+            }
+            // Spec 0024: any printing of a card is accepted, except one
+            // whose printing changes what it does; that one must be listed.
+            if (printingMatters) {
+                one.addProperty("printingMatters", true);
             }
             JsonArray printingList = new JsonArray();
             printings.stream().sorted(preferred).map(Printing::text).forEach(printingList::add);

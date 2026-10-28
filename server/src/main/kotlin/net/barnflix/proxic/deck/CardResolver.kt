@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -43,7 +44,22 @@ data class CardResolution(
     val backFace: String? = null,
     /** Spec 0012 — the card's colour identity as Forge reads it, "WUBRG" letters ("" colourless). */
     val colors: String? = null,
+    /**
+     * Spec 0024 — the card's printing changes what it does (an Attraction's
+     * lights), as Forge reads it; such a card must come in a printing Forge has.
+     */
+    val printingMatters: Boolean = false,
 ) {
+    /**
+     * Spec 0024 — a deck may hold this card as the entry asks. Forge knows the
+     * printing, or knows the card and the printing does not change it: the
+     * player's printing and picture are kept and Forge plays the one it
+     * recorded (`actualSet`/`actualNumber`). Supersedes PHASE_02 D2/§2.94 for
+     * printings, by owner decision 2026-10-27.
+     */
+    val playable: Boolean
+        get() = status == Status.RESOLVED || (status == Status.PRINTING_MISMATCH && !printingMatters)
+
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
 
@@ -296,6 +312,7 @@ class CardResolver(private val config: ServerConfig) {
                 section =
                     (card["section"] as? JsonPrimitive)?.content
                         ?.takeIf { it in OpenFormat.SIDE_DECKS },
+                printingMatters = (card["printingMatters"] as? JsonPrimitive)?.booleanOrNull == true,
             )
         }
     }

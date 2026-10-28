@@ -123,12 +123,49 @@ class MatchPreflightTest {
     }
 
     /**
+     * Spec 0024, F-0024-D (the room's half) — a card kept in the player's
+     * own printing (one Forge lacks) passes the check before a game, because
+     * the check asks Forge about the printing it recorded at import, as the
+     * match does. Asking with the player's printing refused it ("Not
+     * supported yet") and the game could never start.
+     */
+    @Test
+    fun `a card kept in the player's own printing passes the check`() {
+        val workerJar = java.io.File("../forge-worker/target/forge-worker-0.1.0.jar")
+        val resRoot = java.io.File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
+        assumeTrue(workerJar.isFile, "SKIPPED: build the worker first")
+        assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
+
+        val deckId = deckOf(60, withEntries = false)
+        database!!.dataSource().connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO deck_entry
+                    (deck_id, line_number, quantity, card_name, set_code, collector_number,
+                     source_text, resolution_status, resolved_set, resolved_number)
+                VALUES (?, 1, 59, 'Mountain', 'M10', '242', '59 Mountain', 'RESOLVED', 'M10', '242'),
+                       (?, 2, 1, 'Lightning Bolt', 'ZZZ', '1', '1 Lightning Bolt [ZZZ:1]',
+                        'PRINTING_MISMATCH', 'M10', '146')
+                """.trimIndent(),
+            ).use {
+                it.setObject(1, deckId)
+                it.setObject(2, deckId)
+                it.executeUpdate()
+            }
+        }
+        val withWorker = config().copy(forgeWorkerJar = workerJar.path, forgeResRoot = resRoot.path)
+        val check = MatchPreflight(database!!.dataSource(), CardResolver(withWorker)).validate(deckId)
+        assertEquals(DeckVerdict.VALID, check.verdict, check.detail)
+    }
+
+    /**
      * A deck with 60 cards across 15 distinct names, or 61 with one
      * name appearing five times.
      */
     private fun deckOf(
         total: Int,
         fiveOfOne: Boolean = false,
+        withEntries: Boolean = true,
     ): UUID {
         val deckId = UUID.randomUUID()
         val owner = Accounts(database!!.dataSource()).findByUsername("RudeLeft")!!.userId
@@ -149,6 +186,7 @@ class MatchPreflightTest {
                 it.executeUpdate()
             }
 
+            if (!withEntries) return@use
             // Non-basic names, so the copy limit actually applies.
             val perEntry = if (fiveOfOne) 5 else 4
             var remaining = total

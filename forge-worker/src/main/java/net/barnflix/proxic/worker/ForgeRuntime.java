@@ -70,13 +70,33 @@ public final class ForgeRuntime {
         // Forge otherwise leaves out every silver-bordered card, and
         // Unstable's Contraptions and the cards that assemble them could
         // not even be imported.
+        //
+        // Custom editions: an empty folder of our own -- spec 0023. Forge
+        // reads custom editions with their type forced to CUSTOM_SET and
+        // lays each over the real edition of the same code, so handing it
+        // the editions folder here a second time made every edition a
+        // custom set (682 of 682, measured), and Forge's "core, expansion,
+        // reprint" preference had nothing to sort on. Not a missing path:
+        // Forge creates a missing folder, and the resource tree is
+        // read-only in production.
         new StaticData(
                 cards, tokens, null, null,
-                root + "/editions", root + "/editions",
+                root + "/editions", noCustomEditions(),
                 root + "/blockdata", root + "/setlookup",
                 "Latest", false, true, false, false);
 
         loaded = true;
+    }
+
+    /** A new empty folder for Forge's custom editions; it holds none, and goes when the worker does. */
+    private static String noCustomEditions() {
+        try {
+            File folder = java.nio.file.Files.createTempDirectory("proxic-custom-editions").toFile();
+            folder.deleteOnExit();
+            return folder.getAbsolutePath();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("no temporary folder for Forge's custom editions", e);
+        }
     }
 
     public int cardCount() {
@@ -269,9 +289,16 @@ public final class ForgeRuntime {
          * suggest a deck icon; null when Forge found no card.
          */
         public final String colors;
+        /**
+         * Spec 0024: true when the card's printing changes what it does, so
+         * another printing of it would not play the same -- Forge's own
+         * functional variants (an Attraction's lights, Everythingamajig's
+         * abilities). False when Forge found no card.
+         */
+        public final boolean printingMatters;
 
         private Resolution(String status, String detail, String actualSet, String actualNumber,
-                String category, String section, String backFace, String colors) {
+                String category, String section, String backFace, String colors, boolean printingMatters) {
             this.status = status;
             this.detail = detail;
             this.actualSet = actualSet;
@@ -280,17 +307,18 @@ public final class ForgeRuntime {
             this.section = section;
             this.backFace = backFace;
             this.colors = colors;
+            this.printingMatters = printingMatters;
         }
 
         static Resolution resolved(PaperCard card) {
             return new Resolution("RESOLVED", null, card.getEdition(),
                     card.getCollectorNumber(), categoryOf(card), sectionOf(card), backFaceOf(card),
-                    colorsOf(card));
+                    colorsOf(card), printingMatters(card.getRules()));
         }
 
         static Resolution notFound(String name) {
             return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
-                    null, null, null, null, null, null);
+                    null, null, null, null, null, null, false);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
@@ -299,7 +327,29 @@ public final class ForgeRuntime {
                     "Requested " + requested + ", Forge returned "
                             + got.getEdition() + "/" + got.getCollectorNumber() + ".",
                     got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got),
-                    backFaceOf(got), colorsOf(got));
+                    backFaceOf(got), colorsOf(got), printingMatters(got.getRules()));
+        }
+
+        /**
+         * Spec 0024 -- does a printing of this card change what it does?
+         * Forge files a card that differs by printing as "functional
+         * variants". It also files a printing that only shows another name
+         * (Godzilla series, Universes Within) that way, with a flavour name
+         * on the variant's face; that one plays the same, so it does not
+         * count. Measured on forge-2.0.15: 24 cards -- 21 Attractions,
+         * Everythingamajig, Garbage Elemental, Sly Spy.
+         */
+        static boolean printingMatters(forge.card.CardRules rules) {
+            if (!rules.hasFunctionalVariants()) {
+                return false;
+            }
+            for (String variant : rules.getSupportedFunctionalVariants()) {
+                forge.card.ICardFace face = rules.getMainPart().getFunctionalVariant(variant);
+                if (face != null && face.getFlavorName() == null) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /**

@@ -108,6 +108,19 @@ new StaticData(cards, tokens, null, null, editions, editions,
                blockdata, setlookup, "Latest", false, false, false, false)
 ```
 
+**Amended 2026-10-27 (owner decision, spec 0023):** the custom-editions
+argument is a new empty temporary folder, not `editions` again. Forge
+reads custom editions with their type forced to custom set and lays each
+over the real edition of the same code, so passing `editions` twice made
+all 682 editions custom sets. Not a missing folder: Forge creates one, and
+the production resource tree is read-only. The line also predates Phase 8
+Amendment 3, which made `loadNonLegalCards` true. Today's call:
+
+```text
+new StaticData(cards, tokens, null, null, editions, <new empty temp folder>,
+               blockdata, setlookup, "Latest", false, true, false, false)
+```
+
 ~2.8 s to load 96,916 cards from 33,980 scripts.
 
 ## Forge resource requirements

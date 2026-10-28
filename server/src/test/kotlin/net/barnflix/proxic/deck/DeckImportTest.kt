@@ -13,6 +13,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -249,6 +250,103 @@ class DeckImportTest {
             result.problems.single().contains("Totally Not A Real Card"),
             "the error should name the card: ${result.problems}",
         )
+        assertEquals(0, rowCount("imported_deck"))
+    }
+
+    /** A package holding [decklist], with the real export's first picture filed as [picture]. */
+    private fun packageOf(
+        file: File,
+        decklist: String,
+        picture: String? = null,
+    ): File {
+        val image =
+            java.util.zip.ZipFile(realExport).use { source ->
+                source.entries().asSequence().first { it.name.endsWith(".png") }
+                    .let { entry -> source.getInputStream(entry).use { it.readBytes() } }
+            }
+        ZipOutputStream(file.outputStream()).use { out ->
+            out.putNextEntry(ZipEntry("Deck.txt"))
+            out.write(decklist.toByteArray())
+            out.closeEntry()
+            if (picture != null) {
+                out.putNextEntry(ZipEntry("real_cards/$picture"))
+                out.write(image)
+                out.closeEntry()
+            }
+        }
+        return file
+    }
+
+    /**
+     * Spec 0024, F-0024-A — a card Forge knows, in a printing it does not,
+     * is kept as the player picked it: their printing and picture are on
+     * the entry, Forge's own printing is recorded beside them, and that is
+     * the deck Forge builds for a game (as the room's check and the match
+     * read it). Refused before spec 0024.
+     */
+    @Test
+    fun `a printing Forge does not have is kept as the player picked it`() {
+        val deck =
+            packageOf(
+                File("build/promo-bolt.zip"),
+                "// Promo Bolt\n\n59 Mountain [FRA:287]\n1 Lightning Bolt [ZZZ:1]\n",
+                picture = "Lightning Bolt [ZZZ].png",
+            )
+        val result = importer.import(deck, deck.name, owner)
+        assertTrue(result is ImportResult.Imported, "got $result")
+
+        val row =
+            database!!.dataSource().connection.use { connection ->
+                connection.createStatement().executeQuery(
+                    "SELECT set_code, collector_number, resolution_status, resolved_set, resolved_number, " +
+                        "art_sha256 FROM deck_entry WHERE card_name = 'Lightning Bolt'",
+                ).use { rows ->
+                    assertTrue(rows.next())
+                    (1..6).map { rows.getString(it) }
+                }
+            }
+        assertEquals(listOf("ZZZ", "1", "PRINTING_MISMATCH"), row.take(3), "the player's printing is kept")
+        assertTrue(row[3] != null && row[3] != "ZZZ" && row[4] != null, "Forge's printing is recorded: $row")
+        assertTrue(row[5] != null, "the player's picture is on the entry")
+
+        val config =
+            ServerConfig(
+                host = "0.0.0.0",
+                port = 0,
+                databaseUrl = container!!.jdbcUrl,
+                forgeWorkerJar = workerJar.path,
+                dataRoot = dataRoot.path,
+                forgeResRoot = resRoot.path,
+            )
+        val played =
+            listOf(
+                DeckEntry(59, "Mountain", "FRA", "287", "", 1),
+                DeckEntry(1, "Lightning Bolt", row[3], row[4], "", 2),
+            )
+        val built = CardResolver(config).buildDeck(played)
+        assertEquals(emptyList(), built.unresolved, "Forge plays its recorded printing")
+        assertEquals(1, built.countsByName["Lightning Bolt"])
+    }
+
+    /**
+     * Spec 0024, F-0024-B — a card whose printing changes what it does
+     * stays strict: Everythingamajig in a printing Forge lacks is refused,
+     * naming the card, in game words.
+     */
+    @Test
+    fun `a card that plays differently by printing must be one Arena has`() {
+        val deck =
+            packageOf(
+                File("build/unknown-variant.zip"),
+                "// Variant\n\n59 Mountain [FRA:287]\n1 Everythingamajig [ZZZ:1]\n",
+            )
+        val result = importer.import(deck, deck.name, owner)
+        assertTrue(result is ImportResult.Rejected, "got $result")
+        result as ImportResult.Rejected
+        assertEquals("CARDS_NOT_RESOLVED", result.code)
+        val problem = result.problems.single()
+        assertTrue(problem.contains("Everythingamajig") && problem.contains("plays differently"), problem)
+        assertFalse(problem.contains("Forge"), "no engine name in player text: $problem")
         assertEquals(0, rowCount("imported_deck"))
     }
 

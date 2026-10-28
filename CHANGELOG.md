@@ -3,6 +3,31 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+Players keep the printing they picked, and the Deck Builder's swapped-in
+printings come from ordinary sets.
+
+**For whoever runs the server**
+- No database changes and no new settings. The deck rules are rebuilt
+  once after the update (a few seconds), and linked Deck Builders pick
+  up the new copy on their next export.
+
+**Keep the printing you picked** (owner, 2026-10-27, spec 0024)
+- A deck may hold any printing of a card Arena can play, even one from a
+  promo or special set Arena has never heard of. The deck keeps that
+  printing and its picture, and in a game the card plays like any copy
+  of it.
+- Still refused: a card Arena cannot play at all, and the 24 cards whose
+  printing changes what they do (the Attractions, Everythingamajig,
+  Garbage Elemental and Sly Spy) when the printing is not one Arena has.
+
+**Ordinary sets first** (owner, 2026-10-27, spec 0023)
+- When the Deck Builder does have to swap a printing, it now picks one
+  from a regular set rather than the newest special edition (Lightning
+  Bolt: Avatar: The Last Airbender Eternal instead of a collector
+  printing). Nothing in a game changes.
+
 ## 1.12.0 — 2026-10-27
 
 Admin's column titles line up with their data, and the project now

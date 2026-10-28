@@ -151,6 +151,9 @@ public final class WorkerMain {
                         if (resolution.colors != null) {
                             item.addProperty("colors", resolution.colors);
                         }
+                        if (resolution.printingMatters) {
+                            item.addProperty("printingMatters", true);
+                        }
                         out.add(item);
                     }
                     response.add("cards", out);

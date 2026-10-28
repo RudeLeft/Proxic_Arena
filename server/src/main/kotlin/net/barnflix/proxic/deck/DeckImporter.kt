@@ -193,9 +193,11 @@ class DeckImporter(
         // or Attractions -- and so outside the 60–65 -- is Forge's reading
         // of the card.
         val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
+        // Spec 0024: a card Forge knows in another printing is kept in the
+        // player's, unless its printing changes what it does.
         val unresolved =
             deck.entries.filter {
-                resolutions[it.name.lowercase()]?.status != CardResolution.Status.RESOLVED
+                resolutions[it.name.lowercase()]?.playable != true
             }
         val violations = legalityByForge(deck, resolutions.values)
         if (violations.isNotEmpty()) {
@@ -205,14 +207,13 @@ class DeckImporter(
         if (unresolved.isNotEmpty()) {
             // Owner decision D2: one unresolvable card rejects the
             // whole import. Never a degraded or flagged deck, and
-            // never a substitution (§2.94).
+            // never a substitution (§2.94) -- of a CARD. A printing
+            // is no longer one (spec 0024): the entry keeps the
+            // player's printing and picture, and records Forge's.
             return ImportResult.Rejected(
                 "CARDS_NOT_RESOLVED",
                 "Some cards in this deck are not supported yet.",
-                unresolved.map { entry ->
-                    val detail = resolutions[entry.name.lowercase()]?.detail
-                    "Line ${entry.lineNumber}: ${entry.name}${detail?.let { " — $it" } ?: ""}"
-                },
+                unresolved.map { entry -> notPlayable(entry, resolutions[entry.name.lowercase()]) },
             )
         }
 
@@ -250,6 +251,20 @@ class DeckImporter(
         if (resolutions.any { it.status == CardResolution.Status.UNAVAILABLE }) return emptyList()
         val sections = resolutions.mapNotNull { r -> r.section?.let { r.name to it } }.toMap()
         return OpenFormat.validate(deck, sections)
+    }
+
+    /** One refused line, naming the card; spec 0024's printing case in game words. */
+    private fun notPlayable(
+        entry: DeckEntry,
+        resolution: CardResolution?,
+    ): String {
+        val detail =
+            if (resolution?.printingMatters == true) {
+                "this card plays differently in each printing, and this printing is not one Arena has"
+            } else {
+                resolution?.detail
+            }
+        return "Line ${entry.lineNumber}: ${entry.name}${detail?.let { " — $it" } ?: ""}"
     }
 
     private fun notLegal(violations: List<DeckViolation>) =

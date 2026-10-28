@@ -141,4 +141,81 @@ class CardPoolTest {
                     name + ": first listed " + first + ", Forge picks " + pick.getEdition());
         }
     }
+
+    private static Map<String, String> editionTypes() {
+        Map<String, String> types = new HashMap<>();
+        for (JsonElement edition : pool.getAsJsonArray("editions")) {
+            JsonObject one = edition.getAsJsonObject();
+            types.put(one.get("code").getAsString(), one.get("type").getAsString());
+        }
+        return types;
+    }
+
+    /**
+     * Spec 0023, F-0023-A -- each edition has the type its own file gives
+     * it. Forge was once handed the editions folder a second time as custom
+     * editions, and every edition read as a custom set (682 of 682), so
+     * F-0022-G's order had nothing to sort on. Only Forge's own bucket for
+     * custom cards, USER, is a custom set.
+     */
+    @Test
+    void editionsHaveTheirOwnType() {
+        Map<String, String> types = editionTypes();
+        List<String> custom = new ArrayList<>();
+        types.forEach((code, type) -> {
+            if ("CUSTOM_SET".equals(type)) {
+                custom.add(code);
+            }
+        });
+        assertEquals(List.of("USER"), custom, "custom sets");
+        assertEquals("CORE", types.get("M10"));
+        assertEquals("EXPANSION", types.get("ZEN"));
+        assertEquals("REPRINT", types.get("DMR"));
+        assertEquals("COLLECTOR_EDITION", types.get("SLZ"));
+        assertEquals("PROMO", types.get("PF26"));
+    }
+
+    /**
+     * Spec 0024, F-0024-E (worker half) -- the cards whose printing changes
+     * what they do are marked, and only those: 24 at forge-2.0.15. A
+     * printing that only shows another name (Adeline's Godzilla-style
+     * flavour name) plays the same and is not marked.
+     */
+    @Test
+    void cardsWhosePrintingMattersAreMarked() {
+        List<String> marked = new ArrayList<>();
+        for (JsonObject card : BY_NAME.values()) {
+            JsonElement flag = card.get("printingMatters");
+            if (flag != null && flag.getAsBoolean()) {
+                marked.add(card.get("name").getAsString());
+            }
+        }
+        assertEquals(24, marked.size(), "marked: " + marked);
+        assertTrue(marked.contains("Everythingamajig"));
+        assertTrue(marked.contains("Balloon Stand"), "an Attraction's lights differ by printing");
+        assertFalse(marked.contains("Lightning Bolt"));
+        assertFalse(marked.contains("Adeline, Resplendent Cathar"), "a flavour name only");
+
+        ForgeRuntime.Resolution attraction = runtime.resolve("Balloon Stand", "ZZZ", "1");
+        assertEquals("PRINTING_MISMATCH", attraction.status);
+        assertTrue(attraction.printingMatters);
+        assertFalse(runtime.resolve("Lightning Bolt", "ZZZ", "1").printingMatters);
+    }
+
+    /**
+     * Spec 0023, F-0023-B -- F-0022-G compares the list with Forge, which
+     * read the same wrong types, so it passed either way. This asks what the
+     * first printing IS: a core, expansion or reprint set, not the newest
+     * special printing (Lightning Bolt was SLZ 184, a collector edition).
+     */
+    @Test
+    void firstPrintingIsFromAnOrdinarySet() {
+        Map<String, String> types = editionTypes();
+        for (String name : List.of("Lightning Bolt", "Counterspell", "Llanowar Elves", "Sol Ring")) {
+            String first = printings(name).get(0);
+            String type = types.get(first.substring(0, first.indexOf(' ')));
+            assertTrue(List.of("CORE", "EXPANSION", "REPRINT").contains(type),
+                    name + ": first listed " + first + " is " + type);
+        }
+    }
 }

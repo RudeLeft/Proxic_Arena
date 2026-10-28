@@ -133,8 +133,12 @@ class DeckRules(
         /**
          * Raised when CARD_POOL's answer changes shape or meaning, so a kept pool
          * is asked again. 2: printings in Forge's preferred order (spec 0022).
+         * 3: each edition's own type, so that order is real (spec 0023), and
+         * `printingMatters` on a card whose printing changes it (spec 0024).
+         * Neither changes the Forge commit, so without this the kept pool and
+         * the ETag would never refresh.
          */
-        const val POOL_REVISION = 2
+        const val POOL_REVISION = 3
 
         private val POOL_PARTS = listOf("cards", "editions", "setCodes")
         private val JSON = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
@@ -153,6 +157,10 @@ class DeckRules(
                     buildJsonArray { OpenFormat.BASIC_LAND_NAMES.sorted().forEach { add(it) } },
                 )
                 put("sideboard", false)
+                // Spec 0024: import keeps any printing of a listed card, so
+                // the Deck Builder need not swap one -- except a card marked
+                // `printingMatters`, which must be a printing listed for it.
+                put("anyPrinting", true)
                 putJsonObject("sideDecks") {
                     OpenFormat.SIDE_DECKS.toSortedMap().forEach { (section, least) ->
                         putJsonObject(section) {

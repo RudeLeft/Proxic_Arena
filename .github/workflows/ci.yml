@@ -434,6 +434,11 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/attachment-deck.zip" protocol/fixtures/attachment-deck
 
+      # And a printing Forge does not have (spec 0024): kept as picked.
+      - name: Build the own-printing deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/own-printing-deck.zip" protocol/fixtures/own-printing-deck
+
       # And a face-down creature (P6-I): morph.
       - name: Build the morph deck package
         run: |

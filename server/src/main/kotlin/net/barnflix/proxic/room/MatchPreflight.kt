@@ -141,12 +141,20 @@ class MatchPreflight(
             "That deck is no longer available to you. Choose another.",
         )
 
-    /** Null when the deck does not exist at all. */
+    /**
+     * Null when the deck does not exist at all.
+     *
+     * The printing import agreed with Forge, as the match itself sends it
+     * (`MatchRecords.entriesOf`, §6.33) -- spec 0024. A card kept in the
+     * player's own printing plays as the one Forge recorded at import;
+     * asking again with the player's printing would refuse it here and the
+     * game would never start.
+     */
     private fun entriesOf(deckId: UUID): List<DeckEntry>? =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT quantity, card_name, set_code, collector_number,
+                SELECT quantity, card_name, resolved_set, resolved_number,
                        source_text, line_number
                   FROM deck_entry
                  WHERE deck_id = ?

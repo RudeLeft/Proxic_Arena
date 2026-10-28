@@ -77,6 +77,36 @@ class DeckRulesTest {
         assertEquals(2, asked, "a new Forge commit is asked again")
     }
 
+    /**
+     * Specs 0023 and 0024 (F-0023-E, F-0024-E) — neither changes the Forge
+     * commit, so the pool revision is what makes a server holding the
+     * revision-2 pool ask its worker again: the kept file is not read, and
+     * the format says any printing of a listed card is accepted.
+     */
+    @Test
+    fun `a pool kept by revision 2 is asked again, and any printing is accepted`() {
+        val root = folder()
+        File(root, "deck-rules").mkdirs()
+        File(root, "deck-rules/pool-r2-ffff.json").writeText(
+            """{"cards":[{"name":"Lightning Bolt","faces":["Lightning Bolt"],"printings":["SLZ 184"]}],""" +
+                """"editions":[],"setCodes":{}}""",
+        )
+        var asked = 0
+        val document =
+            parse(
+                DeckRules(root, {
+                    asked++
+                    pool
+                }, forgeCommit = "ffff").document()!!,
+            )
+        assertEquals(3, DeckRules.POOL_REVISION)
+        assertEquals(1, asked, "the revision-2 pool is not served")
+        val printing = document["cards"]!!.jsonArray[0].jsonObject["printings"]!!.jsonArray[0]
+        assertEquals("M10 146", printing.jsonPrimitive.content)
+        assertTrue(File(root, "deck-rules/pool-r3-ffff.json").isFile)
+        assertEquals("true", document["format"]!!.jsonObject["anyPrinting"]!!.jsonPrimitive.content)
+    }
+
     @Test
     fun `no worker means no document, and nothing half-written is kept`() {
         val root = folder()
