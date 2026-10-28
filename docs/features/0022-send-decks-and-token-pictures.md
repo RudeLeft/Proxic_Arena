@@ -147,3 +147,10 @@ All made 2026-10-27 (S1-S7, above).
     warning (S5); Arena does not guess it.
   - The browser tests send packages through the import route with the
     page's own session, so the import they test is still the real one.
+- **2026-10-27, after release (evidence).** CI's skip gate refused the
+  first 1.11.0 build because `DeckBuilderApiTest` needed the real Deck
+  Builder export, which is gitignored; it now builds its own legal
+  package and runs on CI (commit 279e015). F-0022-I and F-0022-B: the
+  owner sent a deck from Deck Builder 1.3.1 to the live Deck Depot and,
+  in a real game, the Ape token wore the picture the deck brought
+  (owner, 2026-10-27).

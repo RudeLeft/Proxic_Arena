@@ -73,7 +73,9 @@ BUILD_DECK                      DECK_BUILT          (preflight, Phase 5)
 CARD_POOL                       CARD_POOL           cards (name, faces, section?, printings
                                                     "EDITION NUMBER"), editions, setCodes:
                                                     every card and printing this Forge
-                                                    resolves (spec 0021, the deck rules)
+                                                    resolves (spec 0021, the deck rules);
+                                                    each card's printings in Forge's
+                                                    preferred order (spec 0022)
 START_GAME  matchId, players    GAME_STARTED        the running milestone
                                 MATCH_SNAPSHOT      one per seat, per change
                                 DECISION_REQUEST    authorisedSeat, actedForSeat, kind, options...

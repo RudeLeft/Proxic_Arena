@@ -35,7 +35,8 @@ The archive filename is **not** meaningful. It is a label.
 
 ```text
 <DeckName>.txt                            exactly one, at the root
-real_cards/<front face name> [SET].png    zero or more
+real_cards/<front face name> [SET].png    zero or more (cards and token cards)
+pictures.json                             optional (spec 0022)
 ```
 
 Nothing else is permitted. A package containing any other member is
@@ -49,6 +50,24 @@ it; the two match only by coincidence.
 Exactly one `.txt` must be present. Zero is `NO_DECK_LIST`; two or
 more is `MULTIPLE_DECK_LISTS`, because importing the wrong one
 silently would hand a player a deck they did not build.
+
+### 2.1 Pictures already sent (spec 0022, 1.11.0)
+
+Arena keeps every picture it has been sent, by its SHA-256. Before
+packing, a linked Deck Builder asks which of its pictures the
+player's own decks already hold (`POST /api/deck-builder/pictures/known`)
+and leaves those out, naming each in `pictures.json` instead:
+
+```json
+{"real_cards/Lightning Bolt [LEA].png": "<sha-256 of the PNG>"}
+```
+
+Each one must be a picture a deck **the sender owns** already uses;
+any other refuses the import (`PICTURE_NOT_HELD`), and the Deck
+Builder sends it in full. Never "any deck on the server": a hash
+would then tell a player what somebody else's decks hold. A picture
+sent in the package wins over one named. This keeps a big deck under
+Cloudflare's 100 MB upload cap and makes sending a deck again quick.
 
 ## 3. Deck text
 
@@ -87,8 +106,28 @@ name     := text, may contain " // " for a multi-face card
 
 ### 3.2 Sections
 
-There are none. Arena has no sideboard, so Deck Builder exports
-main-deck entries only.
+Arena has no sideboard, so Deck Builder exports main-deck entries
+only. Since spec 0022 (1.11.0) there is one section: a `// Tokens`
+line starts it, and every line after it is a **token card**, sent
+for its picture only:
+
+```text
+// Ape Tribal (constructed)
+
+4 Pongify [PLC:44]
+56 Forest [M21:274]
+
+// Tokens
+1 Ape [TOTC:15]
+```
+
+Token lines are never resolved by Forge, never counted toward 60-65
+and never in the copy limit. Their pictures are stored with the deck
+(`deck_token`), and in a game a token wears the picture of the same
+name, from its controller's deck first, then the other player's
+(`MATCH_ASSET_AUTHORIZATION.md`). The marker is checked before the
+deck-name comment, so a deck with no name line never takes "Tokens"
+as its name.
 
 ## 4. Card identity
 
@@ -201,7 +240,7 @@ Structural, in order, before anything is extracted:
 | No path escapes the staging directory | `UNSAFE_PATH` |
 | No two entries normalise to one path, case-insensitively | `DUPLICATE_PATH` |
 | Expansion ratio ≤ 10 | `COMPRESSION_RATIO` |
-| Only the two permitted member shapes | `UNEXPECTED_ENTRY` |
+| Only the permitted members: the decklist, `real_cards/` PNGs, `pictures.json` | `UNEXPECTED_ENTRY` |
 | Exactly one decklist | `NO_DECK_LIST`, `MULTIPLE_DECK_LISTS` |
 
 A legitimate package expands at a ratio of **1.0001** — PNGs are
@@ -216,6 +255,7 @@ Then content:
 | Open Format legality | `DECK_NOT_LEGAL` |
 | Every card resolves in Forge | `CARDS_NOT_RESOLVED` |
 | Every image decodes as a PNG | `INVALID_ARTWORK` |
+| Every picture `pictures.json` names is in one of the sender's decks | `PICTURE_NOT_HELD` |
 | Package not already imported | `DUPLICATE_PACKAGE` |
 
 Open Format: **60–65 cards, at most 4 copies of any card, basic

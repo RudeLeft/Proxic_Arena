@@ -4,9 +4,11 @@ PHASE_02 §2.125. Each entry names what the player or operator sees,
 what it means, and what to do.
 
 **The import never asks anyone to read container logs for an
-ordinary package mistake.** Every rejection below is shown on the
-page with its reason. If you find one that is not, that is a bug in
-the error view, not in the package.
+ordinary package mistake.** Every rejection below is shown with its
+reason: since 1.11.0 (spec 0022) in the Deck Builder's Proxic Arena
+Export window, which sends decks straight to the Deck Depot. If you
+find one that is not, that is a bug in the error view, not in the
+package.
 
 The contract is `docs/architecture/DECK_PACKAGE_FORMAT.md`; the
 mechanism is `docs/architecture/DECK_IMPORT_PIPELINE.md`.
@@ -131,6 +133,15 @@ decklist nor a PNG in `real_cards/`.
 
 Not produced by Deck Builder. Something rebuilt the archive.
 
+## `PICTURE_NOT_HELD` — a picture was named but not sent
+
+The package's `pictures.json` named a picture by its hash instead of
+sending it, but none of the sender's own decks uses that picture
+(spec 0022). The Deck Builder only names pictures Arena told it the
+player's decks already hold, so this means a deck was deleted between
+that question and the send. Send again: the Deck Builder asks again
+and sends the picture in full.
+
 ## `DUPLICATE_PACKAGE` — already imported
 
 The byte-for-byte identical package was imported before. The message
@@ -171,8 +182,10 @@ names which subdirectory is missing.
 ### Imports fail only for large packages
 
 Almost certainly the route body limit rather than the package.
-`/api/decks/import` accepts 150 MB; every other endpoint accepts
-1 MB. A reverse proxy in front may impose its own smaller limit —
+`/api/deck-builder/decks` and `/api/decks/import` accept 150 MB;
+every other endpoint accepts 1 MB. The Deck Builder leaves out
+pictures the player's decks already hold (spec 0022), so only a first
+send of a big deck comes near the cap. A reverse proxy in front may impose its own smaller limit —
 Cloudflare's free tier caps uploads at 100 MB, which is **below**
 Arena's own limit, so a 120 MB package fails at the edge with no
 Arena error at all.

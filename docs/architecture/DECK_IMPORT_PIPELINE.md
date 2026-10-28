@@ -10,10 +10,12 @@ The contract for the package itself is `DECK_PACKAGE_FORMAT.md`.
 ## Flow
 
 ```text
-browser  /decks
-    │  multipart POST, one .zip
-    ▼
-/api/decks/import ─────────────── DeckRoutes.handleImport
+Deck Builder (linked computer)        browser (Arena's own tests)
+    │  POST /api/deck-builder/decks       │  POST /api/decks/import
+    │  device token, spec 0022            │  session + CSRF
+    ▼                                     ▼
+DeckBuilderRoutes ──────────────── DeckRoutes.handleImport
+    │  one .zip, multipart; the owner is the token's or the session's account
     │  streamed to /data/temp/uploads/<id>.zip
     │  route limit 150 MB; the GLOBAL body limit stays at 1 MB
     ▼
@@ -38,9 +40,12 @@ resolve ────────────────────────
 artwork ───────────────────────── ArtStore.store
     │  one member at a time into staging, decoded, hashed
     │  stored content-addressed; display derivative generated
+    │  pictures.json: each named picture must be in one of the
+    │  owner's decks (PICTURE_NOT_HELD otherwise), spec 0022
     ▼
 persist ───────────────────────── DeckImporter.persist
-    │  ONE transaction: imported_deck, art_asset, deck_entry
+    │  ONE transaction: imported_deck, art_asset, deck_entry,
+    │  deck_face_art (back faces), deck_token (token pictures)
     ▼
 cleanup ───────────────────────── always, including on failure
     │  /data/temp/deck-imports/<id> removed
@@ -52,9 +57,14 @@ cleanup ────────────────────────
 
 ### Upload
 
-`POST /api/decks/import`, multipart, one `.zip`.
+`POST /api/deck-builder/decks` (a linked computer's device token,
+spec 0022) or `POST /api/decks/import` (a signed-in browser), multipart,
+one `.zip` and an optional typed `name`. Both run the same handler.
+Since 1.11.0 the Deck Depot page has no upload box: players' decks come
+from the Deck Builder, and the browser route is used by Arena's own
+tests.
 
-The route carries its **own** 150 MB limit. The global body limit
+Both routes carry their **own** 150 MB limit. The global body limit
 stays at 1 MB: raising it instead would let every endpoint accept a
 deck-sized body.
 

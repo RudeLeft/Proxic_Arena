@@ -88,6 +88,14 @@ never left where a complete one is expected. Proxic's import should be
 equally atomic from the user's perspective, which Phase 2 §2.18
 already requires.
 
+**Since spec 0022 (Arena 1.11.0, Deck Builder 1.3.0)** no file is
+written at all: the Deck Builder builds the package in memory and a
+linked computer sends it straight to the Deck Depot
+(`POST /api/deck-builder/decks`). The package also carries token
+cards' pictures (a `// Tokens` decklist section) and may name
+pictures Arena already holds in `pictures.json` instead of sending
+them; `DECK_PACKAGE_FORMAT.md` §2.1 and §3.2 are the contract.
+
 ---
 
 ## 3. Measured sizes

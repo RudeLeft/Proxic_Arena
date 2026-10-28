@@ -133,15 +133,30 @@ delivered — and nothing prevents a screenshot.
 
 ### Upload
 
+Since spec 0022 (1.11.0) decks come from the Proxic Deck Builder, not
+from this page. Its upload box is replaced by "Decks come from the
+Proxic Deck Builder" and a button to the Account page, where a computer
+is linked (spec 0021). A linked computer sends a deck with
+**Proxic Arena Export**:
+
 ```text
-sign in -> /decks -> choose a .zip exported by Proxic Deck Builder
-         -> Phase 2 pipeline (inspect, parse, legality, Forge, art)
-         -> deck row written with owner_user_id in the same transaction
+Deck Builder -> POST /api/deck-builder/decks (device token)
+             -> Phase 2 pipeline (inspect, parse, legality, Forge, art)
+             -> deck row written with the token's account as owner_user_id
 ```
 
-Authentication and CSRF are required (§4.51), the Phase 2 pipeline is
-unchanged (§4.55), and a failed import creates no ownership and no
-rows (§4.75, §2.18).
+The token can also read the owner's deck names, so the Deck Builder
+warns before it sends a name already in use, and ask which pictures
+the owner's decks already hold. The browser route
+(`POST /api/decks/import`, session and CSRF, §4.51) remains for Arena's
+own tests. The Phase 2 pipeline is unchanged (§4.55), and a failed
+import creates no ownership and no rows (§4.75, §2.18).
+
+A deck's page shows the token pictures it brought in a **Tokens** band
+under its cards, outside the card count. A deck now arrives without
+the page opening it, so the icon its colours suggest shows until one
+is chosen from **Change icon** (spec 0012's "Choose an icon" after an
+import went with the upload box).
 
 **The same package may be imported by different owners** (PHASE 4
 AMENDMENT 4). Each account may import a given package once; a
