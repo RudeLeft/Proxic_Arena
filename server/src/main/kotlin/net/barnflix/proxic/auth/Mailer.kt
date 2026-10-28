@@ -233,6 +233,7 @@ object InviteEmail {
         origin: String,
     ): String {
         val home = origin.trimEnd('/')
+        val arenaHost = host(home)
         return """
             Welcome to Proxic Arena
 
@@ -259,7 +260,7 @@ object InviteEmail {
 
             1. Sign in to Proxic Arena, open your Account page ($home/account) and click Link a computer. It shows a short code.
             2. In the Deck Builder, click Proxic Arena Export at the top of the window.
-            3. Type the code into Link code and click Link. The Arena address should read ${host(home)}; if it doesn't, click Change and enter $home.
+            3. Type the code into Link code and click Link. The Arena address should read $arenaHost; if it doesn't, click Change and enter $home.
 
             That's it. From then on, Send to Arena puts your decks straight into your Deck Depot.
             """.trimIndent()
@@ -277,6 +278,21 @@ object InviteEmail {
         val arenaHost = escape(host(home))
         val expires = escape(until(expiresAt))
         val download = escape(DECK_BUILDER_DOWNLOAD)
+        // Built here, not inside the template: ktlint wants a call's arguments on their own lines.
+        val step1 =
+            step(
+                1,
+                "Sign in to Proxic Arena, open your <a href=\"$account\" style=\"color:#9a6420;font-weight:bold\">" +
+                    "Account page</a> and click <strong>Link a computer</strong>. It shows a short code.",
+            )
+        val step2 = step(2, "In the Deck Builder, click <strong>Proxic Arena Export</strong> at the top of the window.")
+        val step3 =
+            step(
+                3,
+                "Type the code into <strong>Link code</strong> and click <strong>Link</strong>. The Arena address " +
+                    "should read <strong>$arenaHost</strong>; if it doesn't, click <strong>Change</strong> " +
+                    "and enter $arena.",
+            )
         return """
             <!DOCTYPE html>
             <html lang="en">
@@ -316,9 +332,9 @@ object InviteEmail {
                     <h2 style="margin:0 0 4px;font-size:19px;line-height:1.35;color:#14171b">Link your computer to Arena</h2>
                     <p style="margin:0 0 18px;font-size:14px;color:#6a6f77">You do this once, after you've created your account.</p>
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                      ${step(1, "Sign in to Proxic Arena, open your <a href=\"$account\" style=\"color:#9a6420;font-weight:bold\">Account page</a> and click <strong>Link a computer</strong>. It shows a short code.")}
-                      ${step(2, "In the Deck Builder, click <strong>Proxic Arena Export</strong> at the top of the window.")}
-                      ${step(3, "Type the code into <strong>Link code</strong> and click <strong>Link</strong>. The Arena address should read <strong>$arenaHost</strong>; if it doesn't, click <strong>Change</strong> and enter $arena.")}
+                      $step1
+                      $step2
+                      $step3
                     </table>
                     <p style="margin:4px 0 0;font-size:14px;line-height:1.55;color:#22262c">That's it. From then on, <strong>Send to Arena</strong> puts your decks straight into your Deck Depot.</p>
                   </td></tr>
