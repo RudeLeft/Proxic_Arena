@@ -1,6 +1,6 @@
 # 0025 — Forge release watch
 
-**Status:** Approved 2026-10-27 — built
+**Status:** Approved 2026-10-27 — built in 1.12.0
 **Owner decisions** (2026-10-27): W1 a weekly check for a new Forge
 release, as a report only; W2 the report includes the cards whose
 printing changes what they do; no separate printing check (spec 0024

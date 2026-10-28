@@ -3,7 +3,14 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.12.0 — 2026-10-27
+
+Admin's column titles line up with their data, and the project now
+watches for new Forge releases and says what moving to one would mean.
+
+**For whoever runs the server**
+- No database changes and no new settings. The Forge release watch runs
+  on GitHub, not on your server.
 
 **Forge release watch** (owner, 2026-10-27, spec 0025)
 - For whoever runs the server: every Monday GitHub checks whether Forge
