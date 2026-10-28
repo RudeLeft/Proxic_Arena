@@ -168,4 +168,14 @@ Builder half.**
 
 ## Amendments
 
-None.
+- **2026-10-28, after release (evidence).** Released in 1.13.0
+  (c57a70a); CI's first run of 21deb17 failed only on a Mechanics Lab
+  scenario dealt no second land twice (`blocks`/`reasons`, INCONCLUSIVE),
+  which passed 4 of 4 locally and on the re-run. F-0024-G: the Deck
+  Builder's part shipped as Deck Builder 1.3.2 (its commit b4ab67f). It
+  reads `format.anyPrinting` and `printingMatters` and sends every other
+  card as the deck holds it; rules without `anyPrinting` still swap. Its
+  real export window sent four P09 146 Lightning Bolts to a local 1.13.0
+  Arena with no swap offered; import stored `P09 146`,
+  `PRINTING_MISMATCH`, Forge's `SLZ 63`. The owner updated the live
+  server and Deck Builder 2026-10-28; their own send is the last check.
