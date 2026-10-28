@@ -3,7 +3,13 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.14.0 — 2026-10-28
+
+The Hall of Champions is tidied up: a leaderboard that spreads out,
+bigger trophies and a wider Belt, and losses in red.
+
+**For whoever runs the server**
+- No database changes and no new settings.
 
 **Hall of Champions tidy-up** (owner, 2026-10-28)
 - "This season" and "All time" no longer touch.
