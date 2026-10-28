@@ -14,6 +14,10 @@ words, newest first. Each release on GitHub carries the same notes.
 - The player panels show just the name and the Champion's Belt; "Opponent", "You" and "active turn" are gone (the gold ring on the life total still shows whose turn it is). The picture wears the same gold, silver or bronze ring as in the lobby.
 - The graveyard count fits in its box, two digits included.
 
+**Player plates** (spec 0029, owner 2026-10-28)
+- Each player in the game's right-hand column sits on a raised plate: picture with its Hall ring, name and Belt, life in a red banner.
+- Hand, library, graveyard and exile are big tiles with an icon, a large count and the word. Whose turn it is: the plate's top edge and the banner turn gold.
+
 ## 1.15.0 — 2026-10-28
 
 Password resets by email, every linked computer on the Admin page, 132

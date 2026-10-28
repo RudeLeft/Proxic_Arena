@@ -117,10 +117,22 @@
   transform-origin: top left;
   font-family: var(--pa-text);
 }
+/* Spec 0029 — each player on a raised plate. Every size here is in the
+   rail's 900-pixel units and fixed, because motion.ts (PLATE) reads the
+   same numbers to put the points cards fly to and from on the tiles: a
+   plate is 216 wide, 1 px border, 10 px padding; a 56 px head; a gap of
+   10; then the tiles, 52 px high, 6 px apart. Change one, change both. */
 .gs-seat {
   position: absolute;
   left: 7.4px;
   width: 216px;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #2f3742;
+  border-top: 2px solid #5c6472;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #1b2129, #11161d);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
 }
 .gs-seat-opponent {
   top: 96px;
@@ -128,63 +140,48 @@
 .gs-seat-viewer {
   top: 656px;
 }
+/* Whose turn it is: the plate's top edge and the banner turn gold. */
+.gs-seat-active {
+  border-top-color: #e0a44a;
+}
 .gs-seat-head {
   display: flex;
   align-items: center;
   gap: 10px;
+  height: 56px;
+  /* The plate's top border is 2 px, its other borders 1: the head sits
+     1 px lower than the numbers in motion.ts assume, which is fine. */
 }
-/* Spec 0013 (G1) — the player's picture against the life circle's left
-   edge; the circle itself is unchanged. */
 .gs-life-face {
-  position: relative;
-  z-index: 1;
   flex: none;
-  margin-right: -22px;
   border-radius: 50%;
-  box-shadow:
-    0 0 0 2px #11161d,
-    0 2px 8px rgb(0 0 0 / 50%);
 }
 .gs-life-face .pa-avatar {
   display: block;
 }
-.gs-life {
-  flex: none;
-  width: 58px;
-  height: 58px;
-  margin: 0;
-  padding: 0;
-  border: 2px solid #39424f;
-  border-radius: 50%;
-  background: #11161d;
-  color: #e6e9ee;
-  font-family: var(--pa-display);
-  font-weight: 700;
-  font-size: var(--pa-size-xl);
-  font-variant-numeric: tabular-nums;
-  cursor: default;
-}
-/* Whose turn it is: the ring. Who may act: the dot (canvas). */
-.gs-life-active {
-  border-color: #e0a44a;
-}
 .gs-seat-who {
   flex: 1;
   min-width: 0;
+  display: grid;
+  gap: 3px;
 }
-.gs-seat-name-row {
+.gs-seat-marks {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  min-height: 14px;
 }
 .gs-seat-name {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--pa-size-base);
-  font-weight: 600;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  color: #f1f4f8;
 }
 .gs-priority-dot {
   flex: none;
@@ -194,8 +191,47 @@
   border-radius: 50%;
   background: #e0a44a;
 }
+/* The life banner: a button (it can be chosen as a target), its shape
+   drawn by ::before and its gold edge on your turn by ::after, so the
+   chosen outline and the target glow are not clipped by the shape. */
+.gs-life {
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  width: 46px;
+  height: 54px;
+  margin: 0;
+  padding: 0 0 8px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-xl);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.gs-life::before,
+.gs-life::after {
+  content: "";
+  position: absolute;
+  clip-path: polygon(50% 100%, 0 74%, 0 0, 100% 0, 100% 74%);
+}
+.gs-life::before {
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(#7a1f1f, #3d0e0e);
+}
+.gs-life-active::after {
+  inset: -2px;
+  z-index: -2;
+  background: #e0a44a;
+}
+.gs-life-n {
+  position: relative;
+}
 .gs-seat-facts {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   font-size: var(--pa-size-xs);
   line-height: 1.4;
   color: #c2c9d2;
@@ -204,45 +240,30 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+/* The tiles: two a row; on your side the third spans the row. */
 .gs-zones {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
   margin-top: 10px;
 }
-/* Graveyard and exile share a row (owner 2026-10-21). */
-.gs-zone-pair {
-  display: flex;
-  gap: 6px;
+.gs-zones-3 > :last-child {
+  grid-column: 1 / -1;
 }
-.gs-zone-pair .gs-zone {
-  flex: 1 1 0;
-  min-width: 0;
-  gap: 6px;
-  padding: 0 9px;
-}
-/* "Graveyard" is the longer word: it gets the bigger share, so a
-   two-digit count fits beside it (owner 2026-10-28). */
-.gs-zone-pair .gs-zone:first-child {
-  flex-grow: 1.4;
-}
-.gs-zone-n {
-  flex: none;
-}
-
 .gs-zone {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 9px;
-  width: 100%;
+  column-gap: 8px;
+  height: 52px;
   box-sizing: border-box;
-  min-height: 30px;
   margin: 0;
-  padding: 0 11px;
-  border: 1px solid #262d36;
-  border-radius: 4px;
-  background: #11161d;
-  color: inherit;
+  padding: 6px 10px;
+  border: 1px solid #2a323c;
+  border-radius: 8px;
+  background: linear-gradient(#0e1319, #0a0d12);
+  color: #9aa1ab;
   font: inherit;
   text-align: left;
 }
@@ -250,20 +271,41 @@ button.gs-zone:not(:disabled) {
   cursor: pointer;
 }
 button.gs-zone:not(:disabled):hover {
-  border-color: #39424f;
+  border-color: #4a5462;
+  color: #c2c9d2;
 }
-.gs-zone-key {
-  flex: 1;
-  font-size: var(--pa-size-xs);
-  letter-spacing: var(--pa-track-caps);
-  text-transform: uppercase;
-  color: #8a8f98;
+/* The opponent's hand opens only when some of it is shown to you; it
+   looks like the other tiles either way, just not clickable. */
+button.gs-zone:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.gs-zone-icon {
+  grid-row: 1;
 }
 .gs-zone-n {
+  grid-row: 1;
+  justify-self: end;
   font-family: var(--pa-display);
   font-weight: 700;
-  font-size: var(--pa-size-base);
+  font-size: var(--pa-size-xl);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+  color: #f1f4f8;
+}
+.gs-zone-key {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  /* Not capitals: at the scale's smallest size "GRAVEYARD" is wider
+     than its tile, "Graveyard" is not. */
+  letter-spacing: 0.02em;
+  color: #8a8f98;
 }
 
 .gs-act,
@@ -1298,19 +1340,15 @@ button.gs-zone:not(:disabled):hover {
   outline: none;
 }
 
-/* A spell on the stack targets this player: the life circle glows gold. */
+/* A spell on the stack targets this player: the life banner glows gold
+   (a drop-shadow, so the glow follows the banner's shape). */
 .gs-life.gs-targeted {
-  border-color: #f4c25e;
-  box-shadow:
-    0 0 0 2px rgb(244 194 94 / 45%),
-    0 0 20px 6px rgb(240 168 48 / 50%);
+  filter: drop-shadow(0 0 6px rgb(240 168 48 / 70%));
   animation: gs-life-targeted 1.6s ease-in-out infinite;
 }
 @keyframes gs-life-targeted {
   50% {
-    box-shadow:
-      0 0 0 3px rgb(255 240 200 / 60%),
-      0 0 28px 10px rgb(240 168 48 / 65%);
+    filter: drop-shadow(0 0 12px rgb(255 220 140 / 90%));
   }
 }
 @media (prefers-reduced-motion: reduce) {

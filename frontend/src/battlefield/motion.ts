@@ -109,25 +109,31 @@ export function bandOf(g: Geometry, row: RowId): { top: number; bottom: number }
 export type ZoneName = "library" | "graveyard" | "exile" | "hand" | "life";
 export type AnchorId = `${Side}:${ZoneName}` | "stack";
 
-// As built (game.css), as fractions of the rail's 900 px: each player's
-// block (life, then -- the opponent's only -- a hand row, library, and
-// graveyard beside exile), the opponent's at the top and the viewer's at
-// the bottom, and the stack between them. The opponent's rows were one
-// row high until 2026-10-21: they predated its hand row.
-const PANEL_X = 7.4 / 900; // a block's left edge, from the rail's
+// As built (game.css, spec 0029's plates), in the rail's 900-pixel units:
+// a plate is 216 wide from x 7.4, with a 2 px top border, 1 px sides and
+// 10 px padding; a 56 px head (life in the banner at its right); 10 px;
+// then 52 px tiles, two a row, 6 px apart. The opponent's plate starts at
+// y 96 (Hand, Library / Graveyard, Exile), the viewer's at 656 (Library,
+// Graveyard / Exile across the row). The stack is between them.
+const PANEL_X = 7.4 / 900; // a plate's left edge, from the rail's
 const PANEL_W = 216 / 900;
-const ZONE_Y: Record<Side, Record<Exclude<ZoneName, "hand">, number>> = {
-  opponent: { life: 125 / 900, library: 215 / 900, graveyard: 251 / 900, exile: 251 / 900 },
-  viewer: { life: 685 / 900, library: 739 / 900, graveyard: 775 / 900, exile: 775 / 900 },
+const PLATE_TOP: Record<Side, number> = { opponent: 96, viewer: 656 };
+const INNER_X = 7.4 + 1 + 10;
+const TILE_W = (216 - 2 - 20 - 6) / 2;
+const COLUMN_X = [INNER_X + TILE_W / 2, INNER_X + TILE_W + 6 + TILE_W / 2, INNER_X + TILE_W + 3];
+const TILES_Y = 2 + 10 + 56 + 10;
+const ROW_Y = [TILES_Y + 26, TILES_Y + 52 + 6 + 26];
+/** Each zone's tile, as [row, column]; column 2 is a tile across the whole row. */
+const TILE: Record<Side, Partial<Record<ZoneName, [number, number]>>> = {
+  opponent: { library: [0, 1], graveyard: [1, 0], exile: [1, 1] },
+  viewer: { library: [0, 0], graveyard: [0, 1], exile: [1, 2] },
 };
-// Graveyard and exile share a row: each is half of it (owner 2026-10-21).
-const HALF_X: Partial<Record<ZoneName, number>> = { graveyard: -0.25, exile: 0.25 };
 const STACK_Y = 424 / 900;
-// The life circle (58 px and its 2 px border): its centre from the rail's
-// left, and its radius. Lines and hits meet the circle's edge, not the
-// middle of the block where the player's name is.
-const LIFE_X = (7.4 + 31) / 900;
-export const LIFE_R = 31 / 900;
+// The life banner (46 x 54 at the head's right): its centre, and the
+// radius lines and hits stop at, so they meet its edge, not its number.
+const LIFE_X = (7.4 + 216 - 1 - 10 - 23) / 900;
+const LIFE_Y = 2 + 10 + 28;
+export const LIFE_R = 27 / 900;
 
 /** Where each zone is on the board: a card travels to or from here. */
 export function anchors(g: Geometry): Record<AnchorId, Point> {
@@ -135,13 +141,15 @@ export function anchors(g: Geometry): Record<AnchorId, Point> {
   const x = g.rail.x + (PANEL_X + PANEL_W / 2) * h;
   const out = { stack: { x, y: STACK_Y * h } } as Record<AnchorId, Point>;
   for (const side of ["viewer", "opponent"] as const) {
-    for (const [zone, y] of Object.entries(ZONE_Y[side])) {
-      out[`${side}:${zone as ZoneName}`] = {
-        x:
-          zone === "life"
-            ? g.rail.x + LIFE_X * h
-            : x + (HALF_X[zone as ZoneName] ?? 0) * PANEL_W * h,
-        y: y * h,
+    const top = PLATE_TOP[side];
+    out[`${side}:life`] = { x: g.rail.x + LIFE_X * h, y: ((top + LIFE_Y) / 900) * h };
+    for (const [zone, [row, column]] of Object.entries(TILE[side]) as [
+      ZoneName,
+      [number, number],
+    ][]) {
+      out[`${side}:${zone}`] = {
+        x: g.rail.x + (COLUMN_X[column]! / 900) * h,
+        y: ((top + ROW_Y[row]!) / 900) * h,
       };
     }
   }

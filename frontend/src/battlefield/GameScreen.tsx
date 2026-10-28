@@ -719,7 +719,12 @@ function SeatBlock({
     ...(Object.keys(player.manaPool).length > 0 ? [`mana ${manaText(player.manaPool)}`] : []),
   ];
   return (
-    <div className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}`} data-seat={player.seat}>
+    // Spec 0029 — a raised plate: picture, name and Belt, life in a banner,
+    // and a grid of tiles for the zones. Whose turn: the plate's top edge.
+    <div
+      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}`}
+      data-seat={player.seat}
+    >
       <span className="pa-visually-hidden">
         {player.name} ({role}): {player.life} life, {player.handCount} in hand,{" "}
         {player.libraryCount} in library, {player.graveyardCount} in graveyard, {exiled} in exile.
@@ -729,9 +734,27 @@ function SeatBlock({
           {/* The lobby's gold, silver or bronze ring for a Hall place. */}
           <Avatar
             avatar={seatedAs ? avatarOf(lobby, seatedAs) : null}
-            size={40}
+            size={48}
             rank={seatedAs ? rankOf(lobby, seatedAs) : undefined}
           />
+        </span>
+        <span className="gs-seat-who">
+          <span className="gs-seat-name" title={player.name}>
+            {player.name}
+          </span>
+          {/* Under the name: who may act (the dot) and the Belt, so the
+              name keeps the whole row. */}
+          {(priority || holdsBelt(lobby, seatedAs)) && (
+            <span className="gs-seat-marks">
+              {priority && (
+                <>
+                  <span aria-hidden="true" className="gs-priority-dot" />
+                  <span className="pa-visually-hidden">has priority</span>
+                </>
+              )}
+              {holdsBelt(lobby, seatedAs) && <BeltMark />}
+            </span>
+          )}
         </span>
         <button
           type="button"
@@ -742,20 +765,55 @@ function SeatBlock({
           disabled={busy && choosable}
           onClick={() => onPick(id)}
         >
-          {player.life}
+          <span className="gs-life-n">{player.life}</span>
         </button>
-        <span className="gs-seat-who">
-          <span className="gs-seat-name-row">
-            {priority && (
-              <>
-                <span aria-hidden="true" className="gs-priority-dot" />
-                <span className="pa-visually-hidden">has priority</span>
-              </>
-            )}
-            <span className="gs-seat-name">{player.name}</span>
-            {holdsBelt(lobby, seatedAs) && <BeltMark />}
-          </span>
-        </span>
+      </div>
+      <div className={`gs-zones gs-zones-${mine ? 3 : 4}`}>
+        {!mine && (
+          <button
+            type="button"
+            className="gs-zone"
+            title="Hand"
+            aria-label={`${player.name}'s hand, ${player.handCount} cards${visibleHand.length ? `, ${visibleHand.length} visible to you` : ""}`}
+            disabled={visibleHand.length === 0}
+            onClick={() => onView({ seat: player.seat, zone: "hand" })}
+          >
+            <ZoneIcon zone="hand" />
+            <span className="gs-zone-n">{player.handCount}</span>
+            <span className="gs-zone-key">Hand</span>
+          </button>
+        )}
+        <div
+          className="gs-zone"
+          title="Library"
+          aria-label={`${player.name}'s library, ${player.libraryCount} cards`}
+        >
+          <ZoneIcon zone="library" />
+          <span className="gs-zone-n">{player.libraryCount}</span>
+          <span className="gs-zone-key">Library</span>
+        </div>
+        <button
+          type="button"
+          className="gs-zone"
+          title="Graveyard"
+          aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
+          onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
+        >
+          <ZoneIcon zone="graveyard" />
+          <span className="gs-zone-n">{player.graveyardCount}</span>
+          <span className="gs-zone-key">Graveyard</span>
+        </button>
+        <button
+          type="button"
+          className="gs-zone"
+          title="Exile"
+          aria-label={`${player.name}'s exile, ${exiled} cards`}
+          onClick={() => onView({ seat: player.seat, zone: "exile" })}
+        >
+          <ZoneIcon zone="exile" />
+          <span className="gs-zone-n">{exiled}</span>
+          <span className="gs-zone-key">Exile</span>
+        </button>
       </div>
       {facts.length > 0 && <p className="gs-seat-facts board-totals">{facts.join("  ")}</p>}
       {player.command.length > 0 && (
@@ -764,50 +822,35 @@ function SeatBlock({
           {player.ringTempted > 0 && ` · the Ring has tempted ${player.ringTempted}×`}
         </p>
       )}
-      <div className="gs-zones">
-        {!mine && (
-          <button
-            type="button"
-            className="gs-zone"
-            aria-label={`${player.name}'s hand, ${player.handCount} cards${visibleHand.length ? `, ${visibleHand.length} visible to you` : ""}`}
-            disabled={visibleHand.length === 0}
-            onClick={() => onView({ seat: player.seat, zone: "hand" })}
-          >
-            <span className="gs-zone-key">Hand</span>
-            <span className="gs-zone-n">{player.handCount}</span>
-          </button>
-        )}
-        <div
-          className="gs-zone"
-          aria-label={`${player.name}'s library, ${player.libraryCount} cards`}
-        >
-          <span className="gs-zone-key">Library</span>
-          <span className="gs-zone-n">{player.libraryCount}</span>
-        </div>
-        {/* Owner 2026-10-21: exile beside the graveyard, one row, so
-            nothing else in the rail moves. */}
-        <div className="gs-zone-pair">
-          <button
-            type="button"
-            className="gs-zone"
-            aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
-            onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
-          >
-            <span className="gs-zone-key">Graveyard</span>
-            <span className="gs-zone-n">{player.graveyardCount}</span>
-          </button>
-          <button
-            type="button"
-            className="gs-zone"
-            aria-label={`${player.name}'s exile, ${exiled} cards`}
-            onClick={() => onView({ seat: player.seat, zone: "exile" })}
-          >
-            <span className="gs-zone-key">Exile</span>
-            <span className="gs-zone-n">{exiled}</span>
-          </button>
-        </div>
-      </div>
     </div>
+  );
+}
+
+/** Spec 0029 — the zone tiles' icons; the word is beside them (and read aloud). */
+const ZONE_PATHS: Record<"hand" | "library" | "graveyard" | "exile", string> = {
+  hand: "M7 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z M18 7l1.5.4a2 2 0 0 1 1.4 2.5l-2.4 9",
+  library: "M6 3h11a1 1 0 0 1 1 1v15H7a2 2 0 0 0 0 4h11 M6 3a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2",
+  graveyard: "M7 21V10a5 5 0 0 1 10 0v11 M4 21h16 M12 9v6 M9.5 11.5h5",
+  exile: "M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 11a1 1 0 1 0 1 1",
+};
+
+function ZoneIcon({ zone }: { zone: keyof typeof ZONE_PATHS }) {
+  return (
+    <svg
+      className="gs-zone-icon"
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={ZONE_PATHS[zone]} />
+    </svg>
   );
 }
 

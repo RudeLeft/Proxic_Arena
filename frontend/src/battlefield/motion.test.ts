@@ -94,17 +94,26 @@ describe("the rail's zones (AMENDMENT 6)", () => {
     }
   });
 
-  it("put exile beside the graveyard, on its row, to the right (owner 2026-10-21)", () => {
+  it("sit on the plates' tiles and the life banner (spec 0029)", () => {
     const g = geometry({ width: 1600, height: 900 });
     const a = anchors(g);
-    for (const side of ["viewer", "opponent"] as const) {
-      expect(a[`${side}:exile`].y).toBe(a[`${side}:graveyard`].y);
-      expect(a[`${side}:exile`].x).toBeGreaterThan(a[`${side}:graveyard`].x);
-      expect(a[`${side}:graveyard`].y).toBeGreaterThan(a[`${side}:library`].y);
-    }
-    // The rows as built: the opponent's library is under its hand row.
-    expect(a["opponent:library"].y).toBeCloseTo(215, 0);
-    expect(a["viewer:library"].y).toBeCloseTo(739, 0);
+    const at = (x: number) => g.rail.x + x; // the rail is 900 high here: 1 px = 1 unit
+    // The opponent: Hand, Library / Graveyard, Exile, two a row.
+    expect(a["opponent:library"].x).toBeCloseTo(at(165.4), 0);
+    expect(a["opponent:library"].y).toBeCloseTo(200, 0);
+    expect(a["opponent:graveyard"].x).toBeCloseTo(at(65.4), 0);
+    expect(a["opponent:exile"].x).toBeCloseTo(at(165.4), 0);
+    expect(a["opponent:exile"].y).toBe(a["opponent:graveyard"].y);
+    expect(a["opponent:graveyard"].y).toBeCloseTo(258, 0);
+    // You: Library, Graveyard / Exile across the row.
+    expect(a["viewer:library"].y).toBe(a["viewer:graveyard"].y);
+    expect(a["viewer:graveyard"].x).toBeGreaterThan(a["viewer:library"].x);
+    expect(a["viewer:exile"].x).toBeCloseTo(at(115.4), 0);
+    expect(a["viewer:exile"].y).toBeGreaterThan(a["viewer:graveyard"].y);
+    // Life: the banner at the head's right.
+    expect(a["opponent:life"].x).toBeCloseTo(at(189.4), 0);
+    expect(a["opponent:life"].y).toBeCloseTo(136, 0);
+    expect(a["viewer:life"].y).toBeCloseTo(696, 0);
   });
 });
 
