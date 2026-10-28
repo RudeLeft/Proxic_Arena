@@ -1,6 +1,6 @@
 # 0023 — Load Forge's editions once
 
-**Status:** Approved 2026-10-27 — built, not yet released
+**Status:** Approved 2026-10-27 — built in 1.13.0
 **Owner decisions:** D1 load the editions once, and the Deck Builder (in
 its own project) skips crossover (Universes Beyond) printings when it has
 to swap one in (owner, 2026-10-27: "I would rather not get a Sol Ring or

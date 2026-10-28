@@ -3,7 +3,7 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.13.0 — 2026-10-28
 
 Players keep the printing they picked, and the Deck Builder's swapped-in
 printings come from ordinary sets.

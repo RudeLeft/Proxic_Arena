@@ -1,6 +1,6 @@
 # 0024 — Keep the printing you picked
 
-**Status:** Approved 2026-10-27 — built, not yet released
+**Status:** Approved 2026-10-27 — built in 1.13.0
 **Owner decisions (2026-10-27):** D1 yes, keep the printing the player
 picked; D2 no note to the player; D3 spec 0023 keeps its Arena half and
 drops its Deck Builder half (0023 Amendment 1). The idea is the owner's (2026-10-27):
