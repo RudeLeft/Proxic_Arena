@@ -15,7 +15,7 @@ import logo from "../assets/logo-header.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import { Avatar } from "../avatars";
 import { ChatPanel } from "../LobbyChat";
-import { avatarOf, holdsBelt } from "../lobbyView";
+import { avatarOf, holdsBelt, rankOf } from "../lobbyView";
 import { BeltMark } from "../BeltMark";
 import {
   EMPTY_MATCH,
@@ -484,14 +484,13 @@ export function GameScreen({
       </div>
 
       {/* Owner 2026-10-21: the game's controls at the bottom left, where no
-          card is drawn -- a gear (Stops, Concede, Abandon) and chat. */}
+          card is drawn -- a gear (Stops, Concede, Abandon). The chat opens
+          from its tab on the left edge, which pulses for a new message
+          (owner 2026-10-28: no chat icon here). */}
       <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
         <GameMenu
           match={match}
           live={live && !finished}
-          chatOpen={chatOpen}
-          unread={unread}
-          onChat={() => setChatOpen((open) => !open)}
           choices={decision ? decision.options.length : null}
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
@@ -709,13 +708,9 @@ function SeatBlock({
   const targeted = (board.stack[0]?.targets ?? []).some(
     (t) => "player" in t && t.player === player.seat,
   );
-  const role = mine
-    ? active
-      ? "You · active turn"
-      : "You"
-    : active
-      ? "Opponent · active turn"
-      : "Opponent";
+  // Said to a screen reader only (owner 2026-10-28: the medallion shows
+  // just the name and the Belt; the gold ring on the life says whose turn).
+  const role = `${mine ? "you" : "opponent"}${active ? ", active turn" : ""}`;
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
   const exiled = board.exile.filter((card) => card.seat === player.seat).length;
   const facts = [
@@ -726,12 +721,17 @@ function SeatBlock({
   return (
     <div className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}`} data-seat={player.seat}>
       <span className="pa-visually-hidden">
-        {player.name}: {player.life} life, {player.handCount} in hand, {player.libraryCount} in
-        library, {player.graveyardCount} in graveyard, {exiled} in exile.
+        {player.name} ({role}): {player.life} life, {player.handCount} in hand,{" "}
+        {player.libraryCount} in library, {player.graveyardCount} in graveyard, {exiled} in exile.
       </span>
       <div className="gs-seat-head">
         <span className="gs-life-face">
-          <Avatar avatar={seatedAs ? avatarOf(lobby, seatedAs) : null} size={40} />
+          {/* The lobby's gold, silver or bronze ring for a Hall place. */}
+          <Avatar
+            avatar={seatedAs ? avatarOf(lobby, seatedAs) : null}
+            size={40}
+            rank={seatedAs ? rankOf(lobby, seatedAs) : undefined}
+          />
         </span>
         <button
           type="button"
@@ -755,7 +755,6 @@ function SeatBlock({
             <span className="gs-seat-name">{player.name}</span>
             {holdsBelt(lobby, seatedAs) && <BeltMark />}
           </span>
-          <span className={`gs-seat-role${mine ? " gs-seat-role-you" : ""}`}>{role}</span>
         </span>
       </div>
       {facts.length > 0 && <p className="gs-seat-facts board-totals">{facts.join("  ")}</p>}
@@ -1599,9 +1598,6 @@ function Notices({ board }: { board: Snapshot }) {
 function GameMenu({
   match,
   live,
-  chatOpen,
-  unread,
-  onChat,
   choices,
   listOpen,
   onList,
@@ -1611,10 +1607,6 @@ function GameMenu({
 }: {
   match: MatchView;
   live: boolean;
-  chatOpen: boolean;
-  /** Somebody else said something since the chat was last open. */
-  unread: boolean;
-  onChat: () => void;
   /** How many options the question on screen has, or null for none. */
   choices: number | null;
   listOpen: boolean;
@@ -1764,17 +1756,6 @@ function GameMenu({
             <GearIcon />
           </button>
         )}
-        <button
-          type="button"
-          className={`gs-icon-button${unread ? " gs-icon-unread" : ""}`}
-          aria-label={unread ? "Chat, new messages" : "Chat"}
-          aria-pressed={chatOpen}
-          title="Chat"
-          onClick={onChat}
-        >
-          <ChatIcon />
-          {unread && <span className="gs-icon-dot" aria-hidden="true" />}
-        </button>
         {choices !== null && choices > 0 && (
           // §7.29 and the keyboard: every answer, as a plain list, from
           // anywhere -- the board is the quick way, never the only way.
@@ -1799,18 +1780,6 @@ function GearIcon() {
         fill="currentColor"
         fillRule="evenodd"
         d="M10.3 2h3.4l.5 2.6c.7.2 1.3.5 1.9.9l2.3-1.4 2.4 2.4-1.4 2.3c.4.6.7 1.2.9 1.9l2.6.5v3.4l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.4 2.3-2.4 2.4-2.3-1.4c-.6.4-1.2.7-1.9.9l-.5 2.6h-3.4l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.3 1.4-2.4-2.4 1.4-2.3c-.4-.6-.7-1.2-.9-1.9L1 13.7v-3.4l2.6-.5c.2-.7.5-1.3.9-1.9L3.1 5.6 5.5 3.2l2.3 1.4c.6-.4 1.2-.7 1.9-.9L10.3 2ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
-      />
-    </svg>
-  );
-}
-
-function ChatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 4v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
       />
     </svg>
   );
@@ -1941,7 +1910,7 @@ function GameChat({
     <aside className={`gs-chat${open ? " gs-chat-open" : ""}`} aria-label="Game chat">
       <button
         type="button"
-        className="gs-chat-tab"
+        className={`gs-chat-tab${unread && !open ? " gs-chat-tab-unread" : ""}`}
         aria-expanded={open}
         aria-label={
           open

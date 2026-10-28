@@ -9,6 +9,11 @@ words, newest first. Each release on GitHub carries the same notes.
 - Changing your email address no longer asks for your password. The old address is still told.
 - The gold ring around the avatar you've chosen fits the picture instead of stretching into an oval.
 
+**Game screen** (owner, 2026-10-28)
+- The chat icon by the gear is gone. The Game chat tab on the left edge pulses when the other player says something.
+- The player panels show just the name and the Champion's Belt; "Opponent", "You" and "active turn" are gone (the gold ring on the life total still shows whose turn it is). The picture wears the same gold, silver or bronze ring as in the lobby.
+- The graveyard count fits in its box, two digits included.
+
 ## 1.15.0 — 2026-10-28
 
 Password resets by email, every linked computer on the Admin page, 132

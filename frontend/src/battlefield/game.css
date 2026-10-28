@@ -194,19 +194,6 @@
   border-radius: 50%;
   background: #e0a44a;
 }
-.gs-seat-role {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--pa-size-xs);
-  /* 0.17em before spec 0013's picture took some of the row. */
-  letter-spacing: var(--pa-track-button);
-  white-space: nowrap;
-  text-transform: uppercase;
-  color: #7a828d;
-}
-.gs-seat-role-you {
-  color: #e0a44a;
-}
 .gs-seat-facts {
   margin: 6px 0 0;
   font-size: var(--pa-size-xs);
@@ -231,7 +218,16 @@
 .gs-zone-pair .gs-zone {
   flex: 1 1 0;
   min-width: 0;
+  gap: 6px;
   padding: 0 9px;
+}
+/* "Graveyard" is the longer word: it gets the bigger share, so a
+   two-digit count fits beside it (owner 2026-10-28). */
+.gs-zone-pair .gs-zone:first-child {
+  flex-grow: 1.4;
+}
+.gs-zone-n {
+  flex: none;
 }
 
 .gs-zone {
@@ -1232,21 +1228,12 @@ button.gs-zone:not(:disabled):hover {
   outline: 2px solid #f1f4f8;
   outline-offset: 2px;
 }
-/* Somebody said something while the chat was closed: the icon flashes. */
-.gs-icon-unread {
+/* Somebody said something while the chat was closed: its tab pulses
+   (owner 2026-10-28; there is no chat icon by the gear any more). */
+.gs-chat-tab-unread {
   border-color: #e0a44a;
   color: #f1d9ad;
   animation: gs-chat-flash 1.1s ease-in-out infinite;
-}
-.gs-icon-dot {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #e0a44a;
-  box-shadow: 0 0 0 2px #0d1117;
 }
 @keyframes gs-chat-flash {
   0%,
@@ -1260,7 +1247,7 @@ button.gs-zone:not(:disabled):hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gs-icon-unread {
+  .gs-chat-tab-unread {
     animation: none;
     background: rgb(92 64 22 / 95%);
   }

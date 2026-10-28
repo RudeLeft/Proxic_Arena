@@ -48,30 +48,24 @@ test("conceding is a real loss: Forge names the other player the winner, and bot
 
     const menu = matchPanel(host);
 
-    // Chat, beside the gear (owner 2026-10-21): the guest says something,
-    // and the host's chat icon flashes until the host opens the chat --
-    // which opens on the left.
-    await matchPanel(guest).getByRole("button", { name: "Chat", exact: true }).click();
-    // Spec 0013 — the game's own chat, not the lobby's.
+    // Chat opens from its tab on the left edge; there is no chat icon by
+    // the gear (owner 2026-10-28). The guest says something, and the
+    // host's tab pulses until the host opens the chat.
+    await expect(menu.getByRole("button", { name: /^Chat/ })).toHaveCount(0);
     const guestChat = guest.getByRole("complementary", { name: "Game chat" });
+    await guestChat.getByRole("button", { name: "Open the game chat" }).click();
+    // Spec 0013 — the game's own chat, not the lobby's.
     await guestChat.getByLabel("Message the game").fill("good game");
     await guestChat.getByRole("button", { name: "Send" }).click();
-    const flashing = menu.getByRole("button", { name: "Chat, new messages", exact: true });
-    // Spec 0013 — the chat's tab shows it too.
-    await expect(
-      menu.getByRole("button", { name: "Open the game chat, new messages" }),
-    ).toBeVisible({
-      timeout: 15_000,
-    });
+    const flashing = menu.getByRole("button", { name: "Open the game chat, new messages" });
     await expect(flashing).toBeVisible({ timeout: 15_000 });
-    await expect(flashing).toHaveClass(/gs-icon-unread/);
+    await expect(flashing).toHaveClass(/gs-chat-tab-unread/);
     await host.screenshot({ path: "test-results/seen/chat-flashing.png", fullPage: true });
     await flashing.click();
     const chat = host.getByRole("complementary", { name: "Game chat" });
     await expect(chat).toContainText("good game");
     const box = await chat.boundingBox();
     expect(box?.x ?? 99, "the chat should open on the left").toBeLessThan(10);
-    await expect(menu.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
     // Spec 0016 (6) — no Close button: the tab closes it.
     await expect(chat.getByRole("button", { name: "Close", exact: true })).toHaveCount(0);
     await chat.getByRole("button", { name: "Close the game chat" }).click();
