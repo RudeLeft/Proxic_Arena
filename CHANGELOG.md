@@ -8,6 +8,11 @@ words, newest first. Each release on GitHub carries the same notes.
 **Hall of Champions** (owner, 2026-10-28)
 - The leaderboard's deck icon is the same size as the player's picture.
 
+**Invitation email** (owner, 2026-10-28)
+- A new look with the Proxic Arena logo, and a "Welcome to Proxic Arena" heading.
+- It links to the newest Proxic Deck Builder and explains how to link a computer to Arena.
+- It no longer names who sent the invitation. The subject line is "Your invitation to Proxic Arena".
+
 ## 1.14.0 — 2026-10-28
 
 The Hall of Champions is tidied up: a leaderboard that spreads out,

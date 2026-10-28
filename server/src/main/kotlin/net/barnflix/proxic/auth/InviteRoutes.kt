@@ -47,16 +47,14 @@ class InviteDesk(
     fun emailReady(): Boolean = emailReady.invoke()
 
     /** Emails the link when it can. */
-    fun deliver(
-        invite: NewInvite,
-        inviter: String,
-    ): Delivery {
+    fun deliver(invite: NewInvite): Delivery {
         val link = linkFor(invite.token)
         return mailer.send(
             invite.email,
-            InviteEmail.subject(inviter),
-            InviteEmail.text(inviter, link, invite.expiresAt),
-            InviteEmail.html(inviter, link, invite.expiresAt),
+            InviteEmail.SUBJECT,
+            InviteEmail.text(link, invite.expiresAt, publicOrigin),
+            InviteEmail.html(link, invite.expiresAt, publicOrigin),
+            listOf(InviteEmail.logo),
         )
     }
 
@@ -67,6 +65,7 @@ class InviteDesk(
             "Proxic Arena: test email",
             "This is a test from Proxic Arena's Admin page. The email account works.",
             "<p>This is a test from Proxic Arena's Admin page. The email account works.</p>",
+            emptyList(),
         )
 }
 

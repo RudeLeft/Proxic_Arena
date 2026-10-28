@@ -67,7 +67,7 @@ fun Route.adminInviteRoutes(admin: AdminServices) {
                 )
         val actions = admin.records.actions
         actions.record(by.user.userId, by.user.username, AdminAction.INVITE_SENT, invite.email, "role=$role")
-        call.respond(HttpStatusCode.Created, sent(desk, invite, by.user.displayName))
+        call.respond(HttpStatusCode.Created, sent(desk, invite))
     }
 
     post("/invites/{inviteId}/resend") {
@@ -80,7 +80,7 @@ fun Route.adminInviteRoutes(admin: AdminServices) {
                     ErrorResponse("INVITE_NOT_FOUND", "No such invitation.", null),
                 )
         admin.records.actions.record(by.user.userId, by.user.username, AdminAction.INVITE_RESENT, invite.email)
-        call.respond(sent(desk, invite, by.user.displayName))
+        call.respond(sent(desk, invite))
     }
 
     post("/invites/{inviteId}/cancel") {
@@ -101,9 +101,8 @@ fun Route.adminInviteRoutes(admin: AdminServices) {
 private suspend fun sent(
     desk: InviteDesk,
     invite: NewInvite,
-    inviter: String,
 ): InviteSent {
-    val delivery = withContext(Dispatchers.IO) { desk.deliver(invite, inviter) }
+    val delivery = withContext(Dispatchers.IO) { desk.deliver(invite) }
     return InviteSent(
         email = invite.email,
         link = desk.linkFor(invite.token),
