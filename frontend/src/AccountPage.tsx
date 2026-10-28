@@ -233,10 +233,11 @@ function Message({ ok, text }: { ok: boolean; text: string }) {
 }
 
 /**
- * Spec 0006 (owner 2026-10-24) — your avatar, from the owner's set of 50.
- * Saved with your account; everybody's Players list is told at once, so
- * the lobby shows it without a reload. Your current one comes from that
- * same list.
+ * Spec 0006 (owner 2026-10-24) — your avatar, from the owner's set (132
+ * since 2026-10-28). Saved with your account; everybody's Players list is
+ * told at once, so the lobby shows it without a reload. Your current one
+ * comes from that same list. The set opens on request (owner 2026-10-28):
+ * 132 pictures would otherwise fill the page.
  */
 function AvatarPicker() {
   const { state } = useAuth();
@@ -245,6 +246,7 @@ function AvatarPicker() {
   const saved = lobby.players.find((p) => p.userId === me)?.avatar ?? null;
   const [chosen, setChosen] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [open, setOpen] = useState(false);
   const current = chosen ?? saved;
 
   const choose = async (avatar: string) => {
@@ -257,6 +259,7 @@ function AvatarPicker() {
       body: JSON.stringify({ avatar }),
     });
     if (response.ok) {
+      setOpen(false);
       setMessage({ ok: true, text: "Avatar saved." });
     } else {
       setChosen(before);
@@ -271,11 +274,31 @@ function AvatarPicker() {
       </div>
       <div className="pa-avatar-current">
         <Avatar avatar={current} size={72} label="Your avatar" />
-        <p className="pa-help">
-          Shown beside your name in the lobby, on your seat in a room, and in chat.
-        </p>
+        <div className="pa-avatar-current-text">
+          <p className="pa-help">
+            Shown beside your name in the lobby, on your seat in a room, and in chat.
+          </p>
+          <button
+            type="button"
+            className="pa-button pa-button-quiet pa-avatar-toggle"
+            aria-expanded={open}
+            aria-controls="avatar-choices"
+            onClick={() => setOpen((was) => !was)}
+          >
+            {open ? "Close" : `Choose an avatar (${AVATARS.length})`}
+            <span aria-hidden="true" className="pa-avatar-toggle-mark">
+              {open ? "▴" : "▾"}
+            </span>
+          </button>
+        </div>
       </div>
-      <div className="pa-avatar-grid" role="group" aria-label="Choose your avatar">
+      <div
+        id="avatar-choices"
+        className="pa-avatar-grid"
+        role="group"
+        aria-label="Choose your avatar"
+        hidden={!open}
+      >
         {AVATARS.map((avatar, index) => (
           <button
             key={avatar}

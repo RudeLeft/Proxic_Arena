@@ -16,7 +16,7 @@ import "./shell/base.css";
 /** The server's own rule (PasswordHasher), shown as the person types. */
 const MIN_PASSWORD = 12;
 
-type Stage = { kind: "checking" } | { kind: "dead" } | { kind: "ready"; username: string };
+type Stage = { kind: "checking" } | { kind: "dead" } | { kind: "ready" };
 
 async function post(path: string, body: unknown): Promise<Response | null> {
   try {
@@ -45,14 +45,9 @@ export function ResetPage() {
       setStage({ kind: "dead" });
       return;
     }
-    void post("/api/auth/reset/peek", { token }).then(async (response) => {
-      if (!response?.ok) {
-        setStage({ kind: "dead" });
-        return;
-      }
-      const peek = (await response.json()) as { username: string };
-      setStage({ kind: "ready", username: peek.username });
-    });
+    void post("/api/auth/reset/peek", { token }).then((response) =>
+      setStage({ kind: response?.ok ? "ready" : "dead" }),
+    );
   }, [token]);
 
   const longEnough = password.length >= MIN_PASSWORD;
@@ -108,7 +103,6 @@ export function ResetPage() {
             <h2 id="reset-title" className="pa-join-title">
               Choose a new password
             </h2>
-            <p className="pa-join-sub">For {stage.username}</p>
             {problem && (
               <div role="alert" className="pa-notice pa-notice-bad">
                 <span aria-hidden="true" className="pa-notice-mark" />
@@ -116,8 +110,6 @@ export function ResetPage() {
               </div>
             )}
             <form className="pa-signin-form" onSubmit={(event) => void submit(event)}>
-              {/* For the browser's password manager: which account this is. */}
-              <input type="text" autoComplete="username" value={stage.username} readOnly hidden />
               <label className="pa-label" htmlFor="reset-password">
                 New password
               </label>

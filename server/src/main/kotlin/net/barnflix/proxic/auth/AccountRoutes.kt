@@ -22,8 +22,8 @@ import net.barnflix.proxic.ServerConfig
 
 private const val MAX_DISPLAY_NAME = 64
 
-/** Spec 0006 — the owner's set: avatar-01 .. avatar-50 (as the database's CHECK). */
-private val AVATAR = Regex("^avatar-(0[1-9]|[1-4][0-9]|50)$")
+/** The owner's set: avatar-01 .. avatar-132 (as the database's CHECK, V028; owner 2026-10-28). */
+private val AVATAR = Regex("^avatar-(0[1-9]|[1-9][0-9]|1[0-2][0-9]|13[0-2])$")
 
 fun Route.accountRoutes(
     config: ServerConfig,

@@ -2932,6 +2932,28 @@
 .pa-avatar-current .pa-help {
   margin: 0;
 }
+/* Owner 2026-10-28 — the 132 pictures open on request, in a scrolling box. */
+.pa-avatar-current-text {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+.pa-avatar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* The grid's own display would otherwise win over [hidden]. */
+.pa-avatar-grid[hidden] {
+  display: none;
+}
+.pa-avatar-grid:not([hidden]) {
+  max-height: 440px;
+  overflow-y: auto;
+  margin: 12px 15px 0;
+  border: 1px solid var(--pa-line-soft);
+}
 .pa-avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));

@@ -15,6 +15,13 @@ words, newest first. Each release on GitHub carries the same notes.
 - **Remove** asks first, then ends that computer's link. The player's decks already on Arena stay.
 - Each account shows how many computers it has linked, and Manage → **Linked computers** opens just theirs.
 
+**Avatars** (owner, 2026-10-28)
+- A new set of 132 avatars replaces the old 50. A player who had chosen one keeps its number, so it shows the new picture with that number.
+- On the Account page the avatars fold away: **Choose an avatar** opens them, and picking one saves it and folds them again.
+
+**Password reset page** (owner, 2026-10-28)
+- The page no longer shows whose account the link is for.
+
 **Hall of Champions** (owner, 2026-10-28)
 - The leaderboard's deck icon is the same size as the player's picture.
 

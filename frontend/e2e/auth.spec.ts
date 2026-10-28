@@ -8,7 +8,7 @@
 // Credentials come from the environment so this file carries none.
 
 import { test, expect } from "@playwright/test";
-import { signIn, testPassword, testUser } from "./helpers";
+import { secondPassword, secondUser, signIn, signInAs, testPassword, testUser } from "./helpers";
 
 const username = testUser;
 const password = testPassword;
@@ -223,4 +223,28 @@ test("a stranger is sent the sign-in screen and nothing else", async ({ page }) 
   await signIn(page);
   expect((await page.request.get("/api/version")).status()).toBe(200);
   expect((await page.request.get(`/${elsewhere}`)).status()).toBe(200);
+});
+
+test("the avatars fold away, open on request, and a pick saves and folds them again (owner 2026-10-28)", async ({
+  page,
+}) => {
+  await signInAs(page, secondUser, secondPassword);
+  await page.goto("/account");
+  const section = page.getByRole("region", { name: "Avatar" });
+  const choices = section.getByRole("group", { name: "Choose your avatar" });
+  await expect(choices).toBeHidden();
+  const open = section.getByRole("button", { name: /Choose an avatar \(132\)/ });
+  await expect(open).toHaveAttribute("aria-expanded", "false");
+  await open.click();
+  await expect(choices).toBeVisible();
+  await expect(choices.getByRole("button")).toHaveCount(132);
+  await choices.getByRole("button", { name: "Avatar 132", exact: true }).click();
+  await expect(section.getByRole("status")).toContainText("Avatar saved.");
+  await expect(choices).toBeHidden();
+  await page.reload();
+  await section.getByRole("button", { name: /Choose an avatar/ }).click();
+  await expect(choices.getByRole("button", { name: "Avatar 132", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });

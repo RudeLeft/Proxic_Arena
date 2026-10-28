@@ -133,3 +133,12 @@ Wording:
 - An invitation that was withdrawn (or accepted a moment too late) says
   only its title; the line "Nothing changed for you — you are still in
   the lobby…" is gone.
+
+## Amendment 2 (owner, 2026-10-28)
+
+- A new set of 132 avatars, cut from two sheets the owner supplied,
+  replaces the 50; the old pictures are removed. Names stay `avatar-NN`
+  (`avatar-132` past 99), so a saved choice keeps its number (V028 widens
+  the database rule).
+- The Account page shows the current avatar and **Choose an avatar (132)**;
+  the set opens in its own scrolling box and folds again after a pick.

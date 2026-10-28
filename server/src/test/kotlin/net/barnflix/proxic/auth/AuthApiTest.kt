@@ -322,7 +322,10 @@ class AuthApiTest {
                 val listed = net.barnflix.proxic.lobby.AccountNames(database.dataSource()).active()
                 assertEquals("avatar-07", listed.single { it.username == "RudeLeft" }.avatar)
             }
-            for (bad in listOf("""{"avatar":"avatar-51"}""", """{"avatar":"../etc/passwd"}""", """{"avatar":null}""")) {
+            assertEquals(HttpStatusCode.NoContent, choose("""{"avatar":"avatar-132"}""").status, "the last of the 132")
+            val bads =
+                listOf("""{"avatar":"avatar-133"}""", """{"avatar":"avatar-00"}""", """{"avatar":"../etc/passwd"}""")
+            for (bad in bads + """{"avatar":null}""") {
                 assertEquals(HttpStatusCode.UnprocessableEntity, choose(bad).status, bad)
             }
         }

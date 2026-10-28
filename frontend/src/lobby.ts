@@ -755,7 +755,8 @@ function asPresenceUser(value: unknown): PresenceUser | null {
     username: asString(v["username"]) ?? displayName,
     displayName,
     // Only a name of the owner's set; anything else is the default picture.
-    ...(avatar && /^avatar-\d\d$/.test(avatar) ? { avatar } : {}),
+    // "avatar-07" .. "avatar-132" (owner 2026-10-28: three digits past 99).
+    ...(avatar && /^avatar-\d{2,3}$/.test(avatar) ? { avatar } : {}),
     ...(awaySince ? { awaySince } : {}),
     ...(lastSeenAt ? { lastSeenAt } : {}),
   };

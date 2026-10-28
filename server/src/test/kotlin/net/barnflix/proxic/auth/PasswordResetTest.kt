@@ -251,8 +251,8 @@ class PasswordResetTest {
 
             assertEquals(HttpStatusCode.Gone, anonymous("/api/auth/reset/peek", """{"token":"made-up"}""").status)
             val peek = anonymous("/api/auth/reset/peek", """{"token":"$code"}""")
-            assertEquals(HttpStatusCode.OK, peek.status, "a stranger with the link may ask whose it is")
-            assertEquals("""{"username":"Pat"}""", peek.bodyAsText())
+            assertEquals(HttpStatusCode.NoContent, peek.status, "a stranger with the link may ask if it works")
+            assertEquals("", peek.bodyAsText(), "and is not told whose account it is (owner 2026-10-28)")
 
             val weak = anonymous("/api/auth/reset", """{"token":"$code","password":"short"}""")
             assertEquals(HttpStatusCode.UnprocessableEntity, weak.status)

@@ -18,14 +18,12 @@ import net.barnflix.proxic.ServerConfig
 // stranger reaches it (the gate lets it through), so it gets the sign-in
 // route's origin check and throttle, and every bad link the same answer.
 //
-//   POST /api/auth/reset/peek   which account the link is for
+//   POST /api/auth/reset/peek   whether the link still works (204); it does
+//                               not say whose account it is (owner 2026-10-28)
 //   POST /api/auth/reset        the new password; signs the player in
 
 @Serializable
 data class ResetPeekRequest(val token: String = "")
-
-@Serializable
-data class ResetPeekResponse(val username: String)
 
 @Serializable
 data class ResetRequest(val token: String = "", val password: String = "")
@@ -50,12 +48,11 @@ fun Route.resetRoutes(
         post("/peek") {
             if (!call.joinAllowed(config, throttle, RESET_KEY)) return@post
             val token = runCatching { call.receive<ResetPeekRequest>() }.getOrNull()?.token.orEmpty()
-            val username = desk.resets.peek(token)
-            if (username == null) {
+            if (desk.resets.peek(token) == null) {
                 throttle.recordFailure(call.clientSource(), RESET_KEY)
                 return@post call.respond(HttpStatusCode.Gone, RESET_INVALID)
             }
-            call.respond(ResetPeekResponse(username))
+            call.respond(HttpStatusCode.NoContent)
         }
 
         post {

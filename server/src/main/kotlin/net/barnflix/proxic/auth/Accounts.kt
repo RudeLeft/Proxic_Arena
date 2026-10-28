@@ -289,7 +289,7 @@ class Accounts(
         }
     }
 
-    /** Spec 0006 — one of the owner's 50 avatars ("avatar-07"), or null for the default. */
+    /** Spec 0006 — one of the owner's 132 avatars ("avatar-07"), or null for the default. */
     fun updateAvatar(
         userId: UUID,
         avatar: String?,

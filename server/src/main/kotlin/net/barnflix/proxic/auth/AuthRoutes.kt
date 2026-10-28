@@ -47,7 +47,7 @@ data class LogoutAllResponse(val revokedSessions: Int)
 @Serializable
 data class DisplayNameRequest(val displayName: String = "")
 
-/** Spec 0006 — "avatar-01".."avatar-50", or null for the default picture. */
+/** Spec 0006 — "avatar-01".."avatar-132", or null for the default picture. */
 @Serializable
 data class AvatarRequest(val avatar: String? = null)
 
