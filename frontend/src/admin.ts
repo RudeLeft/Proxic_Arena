@@ -19,6 +19,8 @@ export interface AdminAccount {
   lastAdmin: boolean;
   /** Spec 0026 — where a password reset goes; null when the account has none. */
   email: string | null;
+  /** Spec 0027 — computers linked to the Deck Builder. */
+  computers?: number;
 }
 
 export interface AdminRoom {
@@ -111,6 +113,48 @@ export function sizeText(bytes: number): string {
 
 export const fetchSignIns = (fetchFn: typeof fetch = fetch) =>
   read("/api/admin/sign-ins", (b) => (b["events"] as SignInEvent[]) ?? [], fetchFn);
+
+/** Spec 0027 — a computer linked to the Deck Builder, for the Computers tab. */
+export interface AdminComputer {
+  deviceId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  /** The name the player gave it when linking. */
+  name: string;
+  linkedAt: string;
+  lastUsedAt?: string | null;
+  /** Where it last connected from (owner decision 1). */
+  lastUsedFrom?: string | null;
+}
+
+export const fetchComputers = (fetchFn: typeof fetch = fetch) =>
+  read("/api/admin/computers", (b) => (b["computers"] as AdminComputer[]) ?? [], fetchFn);
+
+export const removeComputer = (deviceId: string, fetchFn: typeof fetch = fetch) =>
+  act(`/api/admin/computers/${encodeURIComponent(deviceId)}/remove`, "POST", undefined, fetchFn);
+
+/** A computer not used for this long reads greyed out. */
+const STALE_MS = 30 * 24 * 3_600_000;
+
+/**
+ * "Just now", "3h ago", "Oct 27" -- and whether it reads greyed out: never
+ * used, or not for a month.
+ */
+export function lastUsedText(
+  lastUsedAt: string | null | undefined,
+  now: number,
+  dateOf: (iso: string) => string,
+): { text: string; stale: boolean } {
+  if (!lastUsedAt) return { text: "Not used yet", stale: true };
+  const ms = now - Date.parse(lastUsedAt);
+  const stale = ms > STALE_MS;
+  if (ms < 24 * 3_600_000) {
+    const idle = idleText(lastUsedAt, now);
+    return { text: idle === "now" ? "Just now" : `${idle} ago`, stale };
+  }
+  return { text: dateOf(lastUsedAt), stale };
+}
 
 async function act(
   path: string,

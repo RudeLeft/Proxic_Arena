@@ -175,7 +175,10 @@ player's password.
   so a token cannot play, join a room, share or delete a deck, or change
   the account. The `/api/deck-builder/` routes take a token only, never a
   session, and need no CSRF header: nothing there reads a cookie.
-- **Ending one.** Remove on the Account page ends it at once. Signing
+- **Ending one.** Remove on the Account page ends it at once, and so
+  does Remove on the Admin page's Computers tab (spec 0027), which lists
+  every live link with its player, when it was last used and the address
+  it last connected from (`last_used_from`, written on each use). Signing
   out everywhere, an administrator's sign-out, a disabled account and a
   new password all end every token the account holds, in the same call
   that ends its sessions (`Sessions.revokeAllForUser`). Tokens are
@@ -264,6 +267,8 @@ POST /api/auth/display-name   change display name
 POST /api/auth/device-codes   a one-time code to link a computer (spec 0021)
 GET  /api/auth/devices        your linked computers
 DELETE /api/auth/devices/{id} unlink one
+GET  /api/admin/computers                 administrators: every linked computer (spec 0027)
+POST /api/admin/computers/{id}/remove     administrators: unlink one
 POST /api/auth/device-link    open: a code -> a device token, once
 
 GET  /api/deck-builder/deck-names       device token: your decks' names (spec 0022)

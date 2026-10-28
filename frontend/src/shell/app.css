@@ -2655,6 +2655,64 @@
 .pa-admin-signin {
   border-bottom: 1px solid var(--pa-line-soft);
 }
+/* Spec 0027 — the Computers tab: the Sign-ins tab's table, with Remove
+   asking first in the row. */
+.pa-admin-computers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pa-admin-computer {
+  border-bottom: 1px solid var(--pa-line-soft);
+}
+.pa-admin-computer-line {
+  min-height: 58px;
+  padding: 8px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) 110px 200px 110px;
+  align-items: center;
+  gap: 12px;
+}
+.pa-admin-computer-line.pa-admin-list-head {
+  min-height: 0;
+}
+.pa-admin-computer-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.pa-admin-computer-from {
+  display: block;
+  font-size: var(--pa-size-sm);
+  color: var(--pa-muted);
+}
+.pa-admin-computer-stale {
+  color: var(--pa-muted);
+}
+/* The words are the column titles' on a wide screen, said in the line on a phone. */
+.pa-admin-computer-label {
+  display: none;
+}
+.pa-admin-computer-confirm {
+  margin: 0 18px 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  border: 1px solid #6b3a33;
+  background: rgba(229, 89, 78, 0.08);
+}
+.pa-admin-computer-confirm p {
+  margin: 0;
+  flex: 1 1 320px;
+}
+.pa-admin-account-computers {
+  display: block;
+  color: var(--pa-sub);
+}
 .pa-admin-signin-trouble {
   background: #1a1416;
 }
@@ -2754,6 +2812,30 @@
   }
   .pa-admin-signin-line {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+  .pa-admin-computer-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding-block: 12px;
+  }
+  .pa-admin-computer-line.pa-admin-list-head {
+    display: none;
+  }
+  .pa-admin-computer-line > :nth-child(2),
+  .pa-admin-computer-line > :nth-child(3),
+  .pa-admin-computer-line > :nth-child(4) {
+    grid-column: 1;
+  }
+  .pa-admin-computer-line > :nth-child(5) {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+  }
+  .pa-admin-computer-label {
+    display: inline;
+  }
+  .pa-admin-computer-from {
+    display: inline;
+    margin-left: 4px;
   }
   .pa-admin-signin-attempts {
     padding-left: 18px;

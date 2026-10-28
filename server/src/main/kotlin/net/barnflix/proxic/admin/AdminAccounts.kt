@@ -35,6 +35,8 @@ data class AdminAccountView(
     val lastAdmin: Boolean = false,
     /** Spec 0026 — where a password reset goes; null when there is none. */
     val email: String? = null,
+    /** Spec 0027 — computers linked to the Deck Builder. */
+    val computers: Int = 0,
 )
 
 /** What an account change came to. */
@@ -62,7 +64,9 @@ class AdminAccounts(
                          WHERE s.user_id = u.user_id AND s.revoked_at IS NULL AND s.expires_at > now()),
                        (SELECT max(e.at) FROM sign_in_event e
                          WHERE e.user_id = u.user_id AND e.kind = 'SIGNED_IN'),
-                       u.email
+                       u.email,
+                       (SELECT count(*) FROM device_link d
+                         WHERE d.user_id = u.user_id AND d.revoked_at IS NULL)
                   FROM app_user u
                  ORDER BY u.status = 'ACTIVE' DESC, u.role = 'ADMIN' DESC, lower(u.display_name)
                 """.trimIndent(),
@@ -82,6 +86,7 @@ class AdminAccounts(
                                     lastSignInAt = rows.getTimestamp(7)?.toInstant()?.toString(),
                                     lastAdmin = admins == listOf(userId),
                                     email = rows.getString(8),
+                                    computers = rows.getInt(9),
                                 ),
                             )
                         }

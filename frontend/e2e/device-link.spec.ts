@@ -6,7 +6,7 @@
 // context, so the test needs nothing but the stack.
 
 import { expect, test } from "@playwright/test";
-import { secondPassword, secondUser, signInAs } from "./helpers";
+import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 
 test("a code from the Account page links a computer, and Remove unlinks it", async ({
   page,
@@ -54,4 +54,50 @@ test("a code from the Account page links a computer, and Remove unlinks it", asy
   });
   expect(after.status()).toBe(401);
   await deckBuilder.dispose();
+});
+
+test("an administrator sees the computer on the Computers tab, with its address, and removes it (spec 0027)", async ({
+  browser,
+  playwright,
+}) => {
+  const player = await (await browser.newContext()).newPage();
+  await signInAs(player, secondUser, secondPassword);
+  await player.goto("/account");
+  const panel = player.getByRole("region", { name: "Deck Builder" });
+  await panel.getByRole("button", { name: "Link a computer" }).click();
+  const code = (await panel.getByLabel("Link code").textContent()) ?? "";
+  const computer = `Admin test PC ${Date.now() % 100_000}`;
+  const deckBuilder = await playwright.request.newContext({
+    baseURL: test.info().project.use.baseURL,
+  });
+  const linked = await deckBuilder.post("/api/auth/device-link", {
+    data: { code, deviceName: computer },
+  });
+  const { token } = (await linked.json()) as { token: string };
+  const bearer = { headers: { Authorization: `Bearer ${token}` } };
+  expect((await deckBuilder.get("/api/deck-rules", bearer)).status()).toBe(200);
+
+  const admin = await (await browser.newContext()).newPage();
+  await signIn(admin);
+  await admin.goto("/admin?tab=computers");
+  const tab = admin.getByRole("region", { name: "Linked computers" });
+  const line = tab.getByRole("listitem").filter({ hasText: computer });
+  await expect(line).toBeVisible();
+  await expect(line).toContainText(/Just now|ago/);
+  await expect(line).toContainText("from ");
+  expect(await admin.content()).not.toContain(token);
+
+  // Remove asks first, in the row; Cancel changes nothing.
+  const remove = line.getByRole("button", { name: new RegExp(`^Remove ${computer} from`) });
+  await remove.click();
+  await line.getByRole("button", { name: "Cancel" }).click();
+  expect((await deckBuilder.get("/api/deck-rules", bearer)).status()).toBe(200);
+  await remove.click();
+  await line.getByRole("button", { name: "Remove computer" }).click();
+  await expect(admin.getByRole("status").filter({ hasText: "is no longer linked" })).toBeVisible();
+  await expect(line).toHaveCount(0);
+  expect((await deckBuilder.get("/api/deck-rules", bearer)).status()).toBe(401);
+  await deckBuilder.dispose();
+  await player.context().close();
+  await admin.context().close();
 });

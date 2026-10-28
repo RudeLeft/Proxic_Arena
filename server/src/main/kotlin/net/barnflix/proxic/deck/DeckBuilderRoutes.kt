@@ -16,6 +16,7 @@ import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.auth.DeviceLinks
 import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.auth.bearerToken
+import net.barnflix.proxic.auth.clientSource
 import java.util.UUID
 import javax.sql.DataSource
 
@@ -82,7 +83,8 @@ fun Route.deckBuilderRoutes(
 
 /** The linked computer's account, or null after answering a stranger. */
 private suspend fun ImportContext.linked(devices: DeviceLinks): User? {
-    val user = call.bearerToken()?.let { token -> withContext(Dispatchers.IO) { devices.authenticate(token) } }
+    val from = call.clientSource()
+    val user = call.bearerToken()?.let { token -> withContext(Dispatchers.IO) { devices.authenticate(token, from) } }
     if (user == null) {
         call.respond(
             HttpStatusCode.Unauthorized,

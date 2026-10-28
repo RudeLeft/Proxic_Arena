@@ -18,6 +18,7 @@ import {
   fetchAccounts,
   fetchAdminMatches,
   fetchAdminRooms,
+  fetchComputers,
   fetchServerState,
   fetchSignIns,
   forceClose,
@@ -36,12 +37,14 @@ import {
   versionParts,
   workerText,
   type AdminAccount,
+  type AdminComputer,
   type AdminMatches,
   type AdminOutcome,
   type AdminRoom,
   type ServerState,
   type SignInEvent,
 } from "./admin";
+import { ComputersPanel } from "./AdminComputers";
 import { EmailPanel } from "./AdminEmail";
 import { Invitations } from "./AdminInvites";
 import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
@@ -58,6 +61,8 @@ const TABS = [
   { id: "rooms", label: "Rooms" },
   { id: "games", label: "Games" },
   { id: "sign-ins", label: "Sign-ins" },
+  // Spec 0027 — every computer linked to the Deck Builder.
+  { id: "computers", label: "Computers" },
   // Spec 0014 amendment 1 — the account invitations are emailed from.
   { id: "email", label: "Email account" },
   { id: "server", label: "Server" },
@@ -72,6 +77,7 @@ export default function AdminPage() {
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
   const [server, setServer] = useState<ServerState | null>(null);
   const [signIns, setSignIns] = useState<SignInEvent[]>([]);
+  const [computers, setComputers] = useState<AdminComputer[]>([]);
   const [matches, setMatches] = useState<AdminMatches | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -82,18 +88,20 @@ export default function AdminPage() {
   const tabsId = useId();
 
   const refresh = useCallback(async () => {
-    const [a, r, s, e, m] = await Promise.all([
+    const [a, r, s, e, m, c] = await Promise.all([
       fetchAccounts(),
       fetchAdminRooms(),
       fetchServerState(),
       fetchSignIns(),
       fetchAdminMatches(),
+      fetchComputers(),
     ]);
     setAccounts(a);
     setRooms(r ?? []);
     setServer(s);
     setSignIns(e ?? []);
     setMatches(m);
+    setComputers(c ?? []);
     setNow(Date.now());
   }, []);
 
@@ -174,6 +182,7 @@ export default function AdminPage() {
     rooms: String(numbers.rooms),
     games: String(matches?.matches.length ?? 0),
     "sign-ins": String(signInsByPerson(signIns).length),
+    computers: String(computers.length),
     email: "",
     server: "",
   };
@@ -241,6 +250,15 @@ export default function AdminPage() {
           {tab === "rooms" && <RoomsPanel rooms={rooms} now={now} run={run} />}
           {tab === "games" && <RecordsPanel matches={matches} />}
           {tab === "sign-ins" && <SignInsPanel events={signIns} />}
+          {tab === "computers" && (
+            <ComputersPanel
+              computers={computers}
+              only={params.get("player")}
+              showAll={() => choose("computers")}
+              now={now}
+              run={run}
+            />
+          )}
           {tab === "email" && <EmailPanel />}
           {tab === "server" && <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />}
         </div>
@@ -375,11 +393,13 @@ function AccountRow({
   run: Run;
 }) {
   const { lobby } = useLobbyConnection();
+  const [, setParams] = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const emailId = useId();
   const email = account.email ?? null;
+  const computers = account.computers ?? 0;
   const menuRef = useRef<HTMLDivElement | null>(null);
   const name = account.displayName;
   const on = account.status === "ACTIVE";
@@ -453,7 +473,15 @@ function AccountRow({
             {on ? "Active" : "Disabled"}
           </span>
           <span className="pa-admin-account-meta">{lastSeen}</span>
-          <span className="pa-admin-account-meta">{sessionsText(account.sessions)}</span>
+          <span className="pa-admin-account-meta">
+            {sessionsText(account.sessions)}
+            {/* Spec 0027 — computers linked to the Deck Builder. */}
+            {computers > 0 && (
+              <span className="pa-admin-account-computers">
+                {computers === 1 ? "1 computer" : `${computers} computers`}
+              </span>
+            )}
+          </span>
         </span>
         <div className="pa-admin-manage" ref={menuRef}>
           <button
@@ -500,6 +528,17 @@ function AccountRow({
                 }}
               >
                 {email ? "Change email address…" : "Add email address…"}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                aria-label={`See the computers ${name} has linked`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setParams({ tab: "computers", player: account.userId }, { replace: true });
+                }}
+              >
+                Linked computers ({computers})…
               </button>
               <button
                 type="button"

@@ -85,6 +85,7 @@ internal fun adminServices(
         inviteDesk = inviteDesk(config, parts, mail),
         mailSettings = mail,
         resetDesk = reach.resets,
+        computers = net.barnflix.proxic.admin.AdminComputers(database.dataSource()),
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(

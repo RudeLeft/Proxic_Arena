@@ -15,6 +15,7 @@ import {
   type AdminAccount,
   type AdminMatch,
   type SignInEvent,
+  lastUsedText,
 } from "./admin";
 
 const event = (overrides: Partial<SignInEvent>): SignInEvent => ({
@@ -191,6 +192,30 @@ describe("the overview (spec 0010)", () => {
       didNotStart: 1,
       signedIn: 1,
       failed: 1,
+    });
+  });
+});
+
+describe("a linked computer's last use (spec 0027)", () => {
+  const now = Date.parse("2026-10-28T20:00:00Z");
+  const date = (iso: string) => `date ${iso.slice(5, 10)}`;
+  it("reads as time ago today, as a date before, and greys out when never used or a month old", () => {
+    expect(lastUsedText(null, now, date)).toEqual({ text: "Not used yet", stale: true });
+    expect(lastUsedText("2026-10-28T19:59:40Z", now, date)).toEqual({
+      text: "Just now",
+      stale: false,
+    });
+    expect(lastUsedText("2026-10-28T17:00:00Z", now, date)).toEqual({
+      text: "3h ago",
+      stale: false,
+    });
+    expect(lastUsedText("2026-10-20T17:00:00Z", now, date)).toEqual({
+      text: "date 10-20",
+      stale: false,
+    });
+    expect(lastUsedText("2026-09-20T17:00:00Z", now, date)).toEqual({
+      text: "date 09-20",
+      stale: true,
     });
   });
 });

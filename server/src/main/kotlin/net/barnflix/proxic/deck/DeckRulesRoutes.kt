@@ -16,6 +16,7 @@ import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.auth.DeviceLinks
 import net.barnflix.proxic.auth.Sessions
 import net.barnflix.proxic.auth.bearerToken
+import net.barnflix.proxic.auth.clientSource
 import net.barnflix.proxic.auth.principal
 import java.io.File
 
@@ -49,7 +50,7 @@ fun Route.deckRulesRoutes(
         val token = call.bearerToken()
         val allowed =
             if (token != null) {
-                devices.authenticate(token) != null
+                devices.authenticate(token, call.clientSource()) != null
             } else {
                 call.principal(sessions) != null
             }

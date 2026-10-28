@@ -87,6 +87,8 @@ class AdminServices(
     val mailSettings: net.barnflix.proxic.auth.MailSettings? = null,
     /** Spec 0026 — password resets by email; none without a database. */
     val resetDesk: net.barnflix.proxic.auth.ResetDesk? = null,
+    /** Spec 0027 — every linked computer; none without a database. */
+    val computers: AdminComputers? = null,
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -100,6 +102,8 @@ fun Route.adminRoutes(admin: AdminServices) {
         put("/accounts/{userId}/role") { changeRole(admin) }
         // Spec 0026 — a reset link by email; there is no route that sets a password.
         adminResetRoutes(admin)
+        // Spec 0027 — the Computers tab.
+        adminComputerRoutes(admin)
         post("/accounts/{userId}/sign-out") { signOut(admin) }
 
         get("/rooms") {

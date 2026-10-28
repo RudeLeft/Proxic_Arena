@@ -10,6 +10,11 @@ words, newest first. Each release on GitHub carries the same notes.
 - Each account has an email address: the one it was invited with, or one added on the Account page (it asks for your password) or by an administrator.
 - After every password change, the player gets a "Your password was changed" email.
 
+**Linked computers on the Admin page** (spec 0027, owner 2026-10-28)
+- A new **Computers** tab lists every computer linked to the Deck Builder: whose it is, its name, when it was linked, and when and from where it was last used.
+- **Remove** asks first, then ends that computer's link. The player's decks already on Arena stay.
+- Each account shows how many computers it has linked, and Manage → **Linked computers** opens just theirs.
+
 **Hall of Champions** (owner, 2026-10-28)
 - The leaderboard's deck icon is the same size as the player's picture.
 

@@ -129,8 +129,14 @@ class DeviceLinks(
         }
     }
 
-    /** The account behind a device token, or null; notes when it was last used. */
-    fun authenticate(token: String): User? {
+    /**
+     * The account behind a device token, or null; notes when it was last
+     * used, and [from] where (spec 0027, the Admin page's Computers tab).
+     */
+    fun authenticate(
+        token: String,
+        from: String? = null,
+    ): User? {
         if (token.isBlank()) return null
         dataSource.connection.use { connection ->
             val found =
@@ -148,8 +154,11 @@ class DeviceLinks(
                         }
                     }
                 } ?: return null
-            connection.prepareStatement("UPDATE device_link SET last_used_at = now() WHERE device_id = ?").use {
-                it.setObject(1, found.first)
+            connection.prepareStatement(
+                "UPDATE device_link SET last_used_at = now(), last_used_from = ? WHERE device_id = ?",
+            ).use {
+                it.setString(1, from)
+                it.setObject(2, found.first)
                 it.executeUpdate()
             }
             return activeUser(connection, found.second)

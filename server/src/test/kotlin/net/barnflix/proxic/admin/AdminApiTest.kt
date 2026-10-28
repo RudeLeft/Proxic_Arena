@@ -38,6 +38,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -153,6 +154,8 @@ class AdminApiTest {
             "POST" to "/api/admin/accounts/{id}/sign-out",
             "GET" to "/api/admin/rooms",
             "POST" to "/api/admin/rooms/{room}/close",
+            "GET" to "/api/admin/computers",
+            "POST" to "/api/admin/computers/{room}/remove",
             "GET" to "/api/admin/server",
             "GET" to "/api/admin/sign-ins",
             "GET" to "/api/admin/matches",
@@ -311,6 +314,43 @@ class AdminApiTest {
                     buildList { while (rows.next()) add(rows.getString(1)) }
                 }
             assertEquals(listOf("EMAIL_CHANGED Pat"), recorded)
+        }
+
+    @Test
+    fun `the Computers tab lists every linked computer with its address, and Remove ends the link (spec 0027)`() =
+        testApplication {
+            application { module(config()) }
+            val token =
+                database().use { db ->
+                    val devices = net.barnflix.proxic.auth.DeviceLinks(db.dataSource())
+                    val code = devices.makeCode(userId("Pat")).code
+                    val token = devices.link(code, "PAT-PC")!!.token
+                    assertNotNull(devices.authenticate(token, "203.0.113.7"))
+                    token
+                }
+            val admin = session("RudeLeft")
+            val listed = call(admin, "GET", "/api/admin/computers").bodyAsText()
+            assertTrue(listed.contains("\"name\":\"PAT-PC\""), listed)
+            assertTrue(listed.contains("\"username\":\"Pat\""), listed)
+            assertTrue(listed.contains("\"lastUsedFrom\":\"203.0.113.7\""), listed)
+            assertFalse(listed.contains(token), "never the link's token")
+            val accounts = call(admin, "GET", "/api/admin/accounts").bodyAsText()
+            assertTrue(Regex("\"username\":\"Pat\"[^}]*\"computers\":1").containsMatchIn(accounts), accounts)
+
+            val deviceId = Regex("\"deviceId\":\"([^\"]+)\"").find(listed)!!.groupValues[1]
+            val removed = call(admin, "POST", "/api/admin/computers/$deviceId/remove")
+            assertEquals(HttpStatusCode.OK, removed.status, removed.bodyAsText())
+            assertEquals(HttpStatusCode.NotFound, call(admin, "POST", "/api/admin/computers/$deviceId/remove").status)
+            assertFalse(call(admin, "GET", "/api/admin/computers").bodyAsText().contains("PAT-PC"))
+            database().use { db ->
+                val devices = net.barnflix.proxic.auth.DeviceLinks(db.dataSource())
+                assertNull(devices.authenticate(token), "the link is dead")
+            }
+            val recorded =
+                sql("SELECT action || ' ' || target || ' ' || coalesce(detail, '') FROM admin_action") { rows ->
+                    buildList { while (rows.next()) add(rows.getString(1)) }
+                }
+            assertEquals(listOf("COMPUTER_REMOVED Pat computer=PAT-PC"), recorded)
         }
 
     @Test

@@ -34,6 +34,9 @@ enum class AdminAction {
     // written; no route sets a password now.
     PASSWORD_RESET_SENT,
     EMAIL_CHANGED,
+
+    // Spec 0027 — a linked computer removed from the Computers tab.
+    COMPUTER_REMOVED,
 }
 
 class AdminActions(private val dataSource: DataSource) {
