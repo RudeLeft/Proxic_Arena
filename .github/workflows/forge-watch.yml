@@ -2,7 +2,7 @@
 # open one issue saying what moving to it would mean. A report only: the
 # pin in forge-pin.properties changes by hand, never here (AGENTS
 # VEND-005).
-name: Forge release watch
+name: Forge Release Watch
 
 on:
   schedule:
