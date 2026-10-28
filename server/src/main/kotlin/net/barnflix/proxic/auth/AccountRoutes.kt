@@ -33,7 +33,7 @@ fun Route.accountRoutes(
     // Spec 0026 — the "password was changed" and "email was changed" notices.
     resets: ResetDesk? = null,
 ) {
-    resets?.let { accountEmailRoutes(config, accounts, sessions, it) }
+    resets?.let { accountEmailRoutes(config, sessions, it) }
 
     post("/password") {
         // §3.35, §3.36.
@@ -133,17 +133,16 @@ fun Route.accountRoutes(
 data class EmailView(val email: String?)
 
 @Serializable
-data class EmailChangeRequest(val email: String = "", val currentPassword: String = "")
+data class EmailChangeRequest(val email: String = "")
 
 /**
- * Spec 0026 — your email address, where a password reset goes. Changing it
- * takes your current password, as changing the password does: a borrowed
- * session must not be enough to redirect the account's resets. The old
- * address is told.
+ * Spec 0026 — your email address, where a password reset goes. Since
+ * owner 2026-10-28 (spec 0026 Amendment 1) changing it no longer asks for
+ * your password; the old address is told, so a change the player did not
+ * make does not go unnoticed.
  */
 private fun Route.accountEmailRoutes(
     config: ServerConfig,
-    accounts: Accounts,
     sessions: Sessions,
     resets: ResetDesk,
 ) {
@@ -160,18 +159,8 @@ private fun Route.accountEmailRoutes(
             runCatching { call.receive<EmailChangeRequest>() }.getOrNull()
                 ?: return@post call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_REQUEST", "Expected an email address and your password.", null),
+                    ErrorResponse("INVALID_REQUEST", "Expected an email address.", null),
                 )
-        // Checked by signing in again, as the password change does; the
-        // session that makes is ended at once.
-        val check = accounts.login(principal.user.username, body.currentPassword)
-        if (check !is LoginResult.Success) {
-            return@post call.respond(
-                HttpStatusCode.Unauthorized,
-                ErrorResponse("INVALID_CREDENTIALS", "That password is not correct.", null),
-            )
-        }
-        sessions.revokeSession(check.principal.sessionId)
         val email =
             Emails.normalize(body.email)
                 ?: return@post call.respond(

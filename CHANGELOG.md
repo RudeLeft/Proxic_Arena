@@ -3,6 +3,12 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Account page** (owner, 2026-10-28)
+- Changing your email address no longer asks for your password. The old address is still told.
+- The gold ring around the avatar you've chosen fits the picture instead of stretching into an oval.
+
 ## 1.15.0 — 2026-10-28
 
 Password resets by email, every linked computer on the Admin page, 132

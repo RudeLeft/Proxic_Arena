@@ -1,8 +1,7 @@
 // The Account page's "Email address" — spec 0026.
 //
-// Where a password reset goes. Changing it takes your current password,
-// as changing the password does: a borrowed session must not be enough to
-// send the account's resets somewhere else. The old address is told.
+// Where a password reset goes. The old address is told when it changes
+// (no password asked since owner 2026-10-28).
 
 import { useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "./auth";
@@ -10,7 +9,6 @@ import { apiFetch } from "./auth";
 export function AccountEmail() {
   const [email, setEmail] = useState<string | null | undefined>(undefined);
   const [draft, setDraft] = useState("");
-  const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -32,13 +30,12 @@ export function AccountEmail() {
       response = await apiFetch("/api/auth/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: draft, currentPassword: password }),
+        body: JSON.stringify({ email: draft }),
       });
     } catch {
       setMessage({ ok: false, text: "The server could not be reached. Try again." });
       return;
     }
-    setPassword("");
     const body = (await response.json().catch(() => null)) as {
       email?: string;
       detail?: string;
@@ -75,18 +72,6 @@ export function AccountEmail() {
           autoComplete="email"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          required
-        />
-        <label className="pa-label" htmlFor="account-email-password">
-          Current password
-        </label>
-        <input
-          className="pa-input"
-          id="account-email-password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
           required
         />
         <button type="submit" className="pa-button" disabled={draft.trim() === (email ?? "")}>

@@ -76,7 +76,7 @@ Out (and why):
 | F-0026-C | Resets are limited per account; an account with no email, or no email set up, is refused with the reason | server test |
 | F-0026-D | Using the link sets the password, ends every session, signs the player in and sends "password was changed" | server test |
 | F-0026-E | The Admin page has no way to set a password; the old route is gone | server test + browser |
-| F-0026-F | The player changes their email only with their current password; the old address is told | server test |
+| F-0026-F | The player changes their own email (no password since Amendment 1); the old address is told | server test |
 | F-0026-G | The emails carry the username, never a password; the logo is inside the email | server test |
 | F-0026-H | Admin sends a reset, the player follows the link, sets a password, signs in with it | server test (HTTP) + browser check on the local server; CI has no mail server, so e2e covers the pages, not the email |
 | F-0026-I | The pages and emails look right | owner |
@@ -87,4 +87,9 @@ All taken 2026-10-28 (see the top).
 
 ## Amendments
 
-None.
+### Amendment 1 (owner, 2026-10-28, after 1.15.0)
+
+Changing your own email address on the Account page no longer asks for
+your current password. The old address is still told, so a change the
+player did not make does not go unnoticed. F-0026-F now proves the
+change works without a password, and only for the signed-in player.

@@ -406,8 +406,8 @@ chooses their own password. The Admin page has no way to set a password
   changed". Every password change sends that notice.
 - The address (`app_user.email`) comes from the invitation when the
   account was made from one (V026 fills it in for older accounts too).
-  The player changes it on the Account page with their current
-  password; an administrator can set it on the Admin page. The old
+  The player changes it on the Account page (no password asked, spec
+  0026 Amendment 1); an administrator can set it on the Admin page. The old
   address is told either way.
 
 ---

@@ -287,7 +287,7 @@ class PasswordResetTest {
         }
 
     @Test
-    fun `F-0026-F the player changes their address only with their password`() =
+    fun `F-0026-F the player changes their own address, without a password (amendment 1)`() =
         testApplication {
             withAccounts { _, _ -> }
             application { module(config()) }
@@ -305,19 +305,12 @@ class PasswordResetTest {
 
             val none = client.get("/api/auth/email") { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session") }
             assertEquals("""{"email":null}""", none.bodyAsText())
-            assertEquals(
-                HttpStatusCode.Unauthorized,
-                change("""{"email":"pat@example.com","currentPassword":"not my password"}""").status,
-            )
-            assertEquals(
-                HttpStatusCode.UnprocessableEntity,
-                change("""{"email":"no","currentPassword":"$password"}""").status,
-            )
-            val ok = change("""{"email":"Pat@Example.com","currentPassword":"$password"}""")
+            assertEquals(HttpStatusCode.UnprocessableEntity, change("""{"email":"no"}""").status)
+            val ok = change("""{"email":"Pat@Example.com"}""")
             assertEquals(HttpStatusCode.OK, ok.status, ok.bodyAsText())
             assertEquals("""{"email":"pat@example.com"}""", ok.bodyAsText())
-            val still = client.get("/api/auth/email") { header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session") }
-            assertEquals(HttpStatusCode.OK, still.status, "checking the password opened and ended no session")
+            val anonymous = client.post("/api/auth/email") { contentType(ContentType.Application.Json) }
+            assertEquals(HttpStatusCode.Unauthorized, anonymous.status, "only the signed-in player")
         }
 
     @Test

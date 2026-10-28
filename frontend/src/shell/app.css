@@ -2963,7 +2963,11 @@
 .pa-avatar-choice {
   display: grid;
   place-items: center;
-  min-height: 76px;
+  /* Square, so the round ring hugs the picture instead of stretching
+     into an oval across the grid cell (owner 2026-10-28). */
+  justify-self: center;
+  width: 76px;
+  height: 76px;
   padding: 4px;
   border: 2px solid transparent;
   border-radius: 50%;

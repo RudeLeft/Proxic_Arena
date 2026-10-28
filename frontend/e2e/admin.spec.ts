@@ -147,14 +147,17 @@ test("an administrator invites someone, who makes their own account; then sends 
     ).toBeVisible();
     await expect(row).toContainText(`${username}.new@example.com`);
 
-    // The player sees it on the Account page; changing it takes their password.
+    // The player sees it on the Account page and changes it there, with no
+    // password asked (owner 2026-10-28); the Admin page shows the new one.
     await playerPage.goto("/account");
     const email = playerPage.getByRole("region", { name: "Email address" });
     await expect(email.getByLabel("Email address")).toHaveValue(`${username}.new@example.com`);
+    await expect(email.getByLabel("Current password")).toHaveCount(0);
     await email.getByLabel("Email address").fill(`${username}.mine@example.com`);
-    await email.getByLabel("Current password").fill("not my password at all");
     await email.getByRole("button", { name: "Save email address" }).click();
-    await expect(email.getByRole("alert")).toContainText("That password is not correct.");
+    await expect(email.getByRole("status")).toContainText("Email address saved.");
+    await admin.reload();
+    await expect(row).toContainText(`${username}.mine@example.com`);
 
     // A reset link that doesn't work says so, the same for every bad link.
     await playerPage.goto("/reset#not-a-real-link");
