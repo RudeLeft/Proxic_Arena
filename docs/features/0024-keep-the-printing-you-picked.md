@@ -178,4 +178,5 @@ Builder half.**
   real export window sent four P09 146 Lightning Bolts to a local 1.13.0
   Arena with no swap offered; import stored `P09 146`,
   `PRINTING_MISMATCH`, Forge's `SLZ 63`. The owner updated the live
-  server and Deck Builder 2026-10-28; their own send is the last check.
+  server and Deck Builder 2026-10-28 and sent a promo Lightning Bolt deck
+  to the live Deck Depot: it worked (owner, 2026-10-28).
