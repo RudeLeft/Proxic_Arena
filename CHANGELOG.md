@@ -3,6 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Hall of Champions tidy-up** (owner, 2026-10-28)
+- "This season" and "All time" no longer touch.
+- On wider screens the leaderboard's column titles spread across the
+  table instead of bunching up on the right, and every badge shows (a
+  row with many wraps onto a second line).
+- The Champion's Belt box is wider, and on a big screen the trophies
+  fill their boxes.
+- A loss is red rather than pink, with a green for wins to match.
+
 ## 1.13.0 — 2026-10-28
 
 Players keep the printing they picked, and the Deck Builder's swapped-in

@@ -3211,6 +3211,10 @@
   }
 }
 .pa-hall-page {
+  --pa-hp-win: #4fb67f;
+  --pa-hp-win-ink: #62c98f;
+  --pa-hp-loss: #e5594e;
+  --pa-hp-loss-ink: #f07065;
   max-width: 1500px;
   margin: 0 auto;
 }
@@ -3222,7 +3226,7 @@
 }
 .pa-hp-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 460px;
   background: radial-gradient(70% 160% at 8% 0%, rgba(240, 196, 76, 0.11), transparent 60%),
     var(--pa-panel);
 }
@@ -3255,6 +3259,7 @@
   color: #f0c44c;
 }
 .pa-hp-places {
+  flex: 1;
   margin: 0;
   padding: 2px 6px 8px;
   list-style: none;
@@ -3403,6 +3408,7 @@
 .pa-hp-seg {
   margin-left: auto;
   display: flex;
+  gap: 8px;
 }
 .pa-hp-seg button {
   appearance: none;
@@ -3414,9 +3420,6 @@
   font: inherit;
   font-size: var(--pa-size-md);
   cursor: pointer;
-}
-.pa-hp-seg button + button {
-  border-left: 0;
 }
 .pa-hp-seg button[aria-pressed="true"] {
   border-color: var(--pa-brass);
@@ -3461,6 +3464,25 @@
 }
 .pa-hp-c-deck {
   width: 176px;
+}
+/* Wider than a laptop, the columns take a share of the width, so their
+ * titles spread across the table (owner 2026-10-28). */
+@media (min-width: 1441px) {
+  .pa-hp-c-rating {
+    width: 11%;
+  }
+  .pa-hp-c-rec {
+    width: 10%;
+  }
+  .pa-hp-c-pct {
+    width: 8%;
+  }
+  .pa-hp-c-form {
+    width: 11%;
+  }
+  .pa-hp-c-deck {
+    width: 14%;
+  }
 }
 .pa-hp-table th {
   padding: 8px 10px;
@@ -3507,10 +3529,10 @@
   font-weight: 600;
 }
 .pa-hp-up {
-  color: var(--pa-ok);
+  color: var(--pa-hp-win-ink);
 }
 .pa-hp-down {
-  color: var(--pa-bad);
+  color: var(--pa-hp-loss-ink);
 }
 .pa-hp-player {
   min-width: 0;
@@ -3530,7 +3552,8 @@
 }
 .pa-hp-badges {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 3px 4px;
   overflow: hidden;
 }
 .pa-hp-badge {
@@ -3566,11 +3589,11 @@
 }
 .pa-hp-rec b {
   font-weight: 600;
-  color: var(--pa-ok);
+  color: var(--pa-hp-win-ink);
 }
 .pa-hp-rec i {
   font-style: normal;
-  color: var(--pa-bad);
+  color: var(--pa-hp-loss-ink);
 }
 .pa-hp-form {
   display: flex;
@@ -3588,10 +3611,10 @@
   color: #0a0d11;
 }
 .pa-hp-form-W {
-  background: var(--pa-ok);
+  background: var(--pa-hp-win);
 }
 .pa-hp-form-L {
-  background: var(--pa-bad);
+  background: var(--pa-hp-loss);
 }
 .pa-hp-form-D {
   background: #9aa7b6;
@@ -3755,8 +3778,19 @@
   .pa-hp-badge:nth-child(n + 2):not(.pa-hp-badge-more) {
     display: none;
   }
-  .pa-hp-band,
+  .pa-hp-badges {
+    flex-wrap: nowrap;
+  }
+  .pa-hp-band {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
   .pa-hp-lower {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+/* A small laptop has no room for a wider Belt: the names in the places come first. */
+@media (max-width: 1300px) and (min-width: 1100px) {
+  .pa-hp-band {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
 }
@@ -3770,6 +3804,27 @@
   }
   .pa-hp-belt-art {
     width: 220px;
+  }
+}
+/* A big screen: a wider Belt, and trophies that fill their place's box.
+ * Each trophy is as big as its box leaves after the name (172px), 96-150px. */
+@media (min-width: 1700px) {
+  .pa-hp-band {
+    grid-template-columns: minmax(0, 1fr) 520px;
+  }
+  .pa-hp-place {
+    container-type: inline-size;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .pa-hp-cup {
+    width: clamp(96px, 100cqw - 172px, 150px);
+    height: auto;
+    aspect-ratio: 1;
+  }
+}
+@media (min-width: 1700px) and (max-height: 820px) {
+  .pa-hp-cup {
+    width: clamp(76px, 100cqw - 172px, 120px);
   }
 }
 /* A phone or a narrow window: stack, and let the page scroll (owner H6). */

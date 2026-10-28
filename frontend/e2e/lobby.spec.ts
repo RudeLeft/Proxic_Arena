@@ -617,3 +617,66 @@ test("the Hall of Champions has its own page, fits one screen, and the season le
     });
   }).toPass({ timeout: 20_000 });
 });
+
+test("the Hall's leaderboard spreads out, every badge shows and the trophies fill their boxes", async ({
+  page,
+}) => {
+  // Owner 2026-10-28. At each width: the two leaderboard buttons stand
+  // apart, no place's name is cut off, and the page fits one screen. On a
+  // big screen the column titles spread across the table, every badge
+  // shows, the Belt is wider and the trophies fill their boxes. A loss is
+  // red, not pink.
+  await signIn(page);
+  for (const [width, height] of [
+    [1920, 1080],
+    [1600, 900],
+    [1366, 768],
+    [1280, 720],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto("/hall");
+    await page.locator(".pa-hp-table, .pa-hp-empty").first().waitFor();
+    const seen = await page.evaluate(() => {
+      const box = (el: Element | null) => el?.getBoundingClientRect();
+      const [season, all] = [...document.querySelectorAll(".pa-hp-seg button")].map((b) =>
+        b.getBoundingClientRect(),
+      );
+      const titles = [...document.querySelectorAll(".pa-hp-table th")].map((th) => {
+        const range = document.createRange();
+        range.selectNodeContents(th);
+        return range.getBoundingClientRect().left;
+      });
+      const table = box(document.querySelector(".pa-hp-table"));
+      const lossBox = document.querySelector(".pa-hp-form-L");
+      return {
+        buttonGap: all!.left - season!.right,
+        cut: [...document.querySelectorAll(".pa-hp-who b, .pa-hp-rating, .pa-hp-rec")]
+          .filter((b) => b.scrollWidth > b.clientWidth)
+          .map((b) => b.textContent),
+        ratingAt: table && titles.length > 2 ? (titles[2]! - table.left) / table.width : null,
+        hiddenBadges: [...document.querySelectorAll(".pa-hp-badge:not(.pa-hp-badge-more)")].filter(
+          (b) => getComputedStyle(b).display === "none",
+        ).length,
+        belt: box(document.querySelector(".pa-hp-belt"))!.width,
+        cups: [...document.querySelectorAll(".pa-hp-cup")].map(
+          (c) => c.getBoundingClientRect().height,
+        ),
+        place: box(document.querySelector(".pa-hp-place"))!.height,
+        loss: lossBox ? getComputedStyle(lossBox).backgroundColor : null,
+        fits: document.documentElement.scrollHeight <= window.innerHeight,
+      };
+    });
+    const at = `${width}x${height}`;
+    expect(seen.buttonGap, at).toBeGreaterThanOrEqual(6);
+    expect(seen.cut, at).toEqual([]);
+    expect(seen.fits, at).toBe(true);
+    if (seen.loss) expect(seen.loss, at).toBe("rgb(229, 89, 78)");
+    if (width === 1920) {
+      if (seen.ratingAt !== null) expect(seen.ratingAt, at).toBeLessThan(0.5);
+      expect(seen.hiddenBadges, at).toBe(0);
+      expect(seen.belt, at).toBeGreaterThanOrEqual(500);
+      for (const cup of seen.cups) expect(cup, at).toBeGreaterThanOrEqual(seen.place - 24);
+    }
+  }
+  await page.screenshot({ path: "test-results/seen/hall-1280.png" });
+});
