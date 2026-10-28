@@ -20,4 +20,10 @@ describe("picture sizes (F-0020-A)", () => {
     expect(sizes.length).toBeGreaterThan(0);
     expect(sizes.filter((size) => size !== "ICON" && size !== "SEAT_AVATAR")).toEqual([]);
   });
+
+  it("the leaderboard's deck icon is the size of the player's picture (owner 2026-10-28)", () => {
+    const source = readFileSync(join(__dirname, "HallPage.tsx"), "utf8");
+    const sizes = [...source.matchAll(/<DeckIcon\b[^>]*?\bsize=\{([^}]+)\}/gs)].map((m) => m[1]);
+    expect(sizes).toEqual(["ICON"]);
+  });
 });

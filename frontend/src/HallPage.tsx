@@ -356,7 +356,8 @@ function Board({
                   <td>
                     {row.deck && (
                       <span className="pa-hp-deck">
-                        <DeckIcon name={iconOf(row.deck)} size={26} />
+                        {/* The same size as the player's picture (owner 2026-10-28). */}
+                        <DeckIcon name={iconOf(row.deck)} size={ICON} />
                         <span>{row.deck.name}</span>
                       </span>
                     )}

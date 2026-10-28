@@ -3,6 +3,11 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Hall of Champions** (owner, 2026-10-28)
+- The leaderboard's deck icon is the same size as the player's picture.
+
 ## 1.14.0 — 2026-10-28
 
 The Hall of Champions is tidied up: a leaderboard that spreads out,
