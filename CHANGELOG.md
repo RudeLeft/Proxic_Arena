@@ -3,7 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.15.0 — 2026-10-28
+
+Password resets by email, every linked computer on the Admin page, 132
+new avatars, and a new invitation email.
+
+**For whoever runs the server**
+- Three database updates run by themselves on start: email addresses on
+  accounts and password reset links, the address a linked computer last
+  connected from, and room for 132 avatars.
+- Password resets send with the email account on the Admin page's Email
+  tab. No new settings.
 
 **Password resets by email** (spec 0026, owner 2026-10-28)
 - The Admin page no longer sets passwords. **Send password reset** emails the player a link that works once, for an hour, and they choose their own password.

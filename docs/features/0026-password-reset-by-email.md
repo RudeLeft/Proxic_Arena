@@ -1,6 +1,6 @@
 # 0026 — Password reset by email
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.15.0
 **Owner decisions:** 2026-10-28 — a one-time link, never a temporary
 password; the Admin page's "Change password" is removed; resets are
 started by an administrator only (no "Forgot your password?"); an

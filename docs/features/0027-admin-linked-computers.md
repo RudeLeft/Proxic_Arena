@@ -1,6 +1,6 @@
 # 0027 — Linked computers on the Admin page
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.15.0
 **Owner decisions:** 2026-10-28 — a Computers tab with Remove, as on the
 canvas; (1) show the address each computer last connected from, yes;
 (2) email the player when a computer is removed, no (the Deck Builder
