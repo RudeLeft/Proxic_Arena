@@ -2428,7 +2428,8 @@
 }
 .pa-admin-manage {
   position: relative;
-  justify-self: end;
+  /* Under its column's title, like every other cell (owner 2026-10-27). */
+  justify-self: start;
 }
 .pa-admin-manage > .pa-small-button {
   margin: 0;
@@ -2631,10 +2632,11 @@
   justify-content: center;
   /* One size whatever the file's (owner 2026-10-25), so the column
      beside it lines up too. */
-  width: 184px;
+  width: 200px;
   box-sizing: border-box;
-  justify-self: end;
+  justify-self: start;
   margin: 0;
+  white-space: nowrap;
   text-decoration: none;
 }
 .pa-admin-signin {
@@ -2649,7 +2651,7 @@
   margin: 0;
   padding: 8px 18px;
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.6fr) 90px 130px;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.6fr) 140px 130px;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -3917,6 +3919,9 @@
   letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   color: var(--pa-muted);
+}
+.pa-admin-list-head > * {
+  white-space: nowrap;
 }
 .pa-admin-list-head:hover {
   background: none;

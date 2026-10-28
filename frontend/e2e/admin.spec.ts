@@ -184,6 +184,95 @@ test("the server's health is a pill beside the Server tab's title", async ({ bro
   }
 });
 
+/**
+ * Each column title against the first row under it: where the title's
+ * words start and where the cell's content starts (its button or pill
+ * when it has one, else its words). Returns the columns more than 2px
+ * apart, and any title that wrapped onto a second line.
+ */
+async function misaligned(page: Page, head: string, row: string): Promise<string[]> {
+  return page.evaluate(
+    ([h, r]) => {
+      const headEl = document.querySelector(h);
+      const rowEl = document.querySelector(r);
+      if (!headEl || !rowEl) return [];
+      // A display:contents wrapper's children are the grid's cells.
+      const cells = (el: Element): Element[] =>
+        [...el.children].flatMap((c) =>
+          getComputedStyle(c).display === "contents" ? cells(c) : [c],
+        );
+      const boxed = (el: Element) =>
+        parseFloat(getComputedStyle(el).borderLeftWidth) > 0 ||
+        el.matches("button, a, .pa-small-button");
+      const start = (el: Element): number => {
+        if (boxed(el)) return el.getBoundingClientRect().left;
+        const box = [...el.querySelectorAll("*")].find(
+          (d) => boxed(d) && d.getBoundingClientRect().width > 0,
+        );
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const lefts = [...range.getClientRects()].filter((x) => x.width > 0).map((x) => x.left);
+        if (box) lefts.push(box.getBoundingClientRect().left);
+        return lefts.length ? Math.min(...lefts) : NaN;
+      };
+      const titles = cells(headEl);
+      const data = cells(rowEl);
+      const lineHeight = parseFloat(getComputedStyle(titles[0]).lineHeight) || 20;
+      return titles.flatMap((title, i) => {
+        const name = (title.textContent ?? "").trim();
+        const out: string[] = [];
+        if (title.getBoundingClientRect().height > lineHeight * 1.5) out.push(`${name} wraps`);
+        const cell = data[i];
+        if (!cell || !cell.textContent?.trim()) return out;
+        const gap = Math.round(start(cell) - start(title));
+        if (Math.abs(gap) > 2) out.push(`${name} ${gap}px`);
+        return out;
+      });
+    },
+    [head, row],
+  );
+}
+
+test("every Admin column title sits over its data", async ({ browser }) => {
+  // Owner 2026-10-27: titles drifted from their data (Manage and
+  // Download record sat right of theirs; "Last attempt" wrapped). A list
+  // with no rows on this stack is skipped.
+  const admin = await asAdmin(browser);
+  try {
+    const lists: [string, string, string][] = [
+      ["Accounts", ".pa-admin-table-head", ".pa-admin-account-line"],
+      [
+        "Accounts",
+        ".pa-admin-list-head.pa-admin-invite",
+        ".pa-admin-invite:not(.pa-admin-list-head)",
+      ],
+      ["Rooms", ".pa-admin-list-head.pa-admin-room", ".pa-admin-room:not(.pa-admin-list-head)"],
+      ["Games", ".pa-admin-list-head.pa-admin-record", ".pa-admin-record:not(.pa-admin-list-head)"],
+      [
+        "Sign-ins",
+        ".pa-admin-list-head.pa-admin-signin-line",
+        ".pa-admin-signin-line:not(.pa-admin-list-head)",
+      ],
+    ];
+    for (const [tab, head, row] of lists) {
+      await openTab(admin, tab);
+      // An empty list shows no titles (Rooms, when nobody has one open).
+      const shown = await admin
+        .locator(row)
+        .first()
+        .waitFor({ timeout: 5_000 })
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!shown) continue;
+      expect(await misaligned(admin, head, row), `${tab} ${head}`).toEqual([]);
+    }
+  } finally {
+    await admin.context().close();
+  }
+});
+
 test("sign-in activity shows a failed attempt on a name that does not exist", async ({
   browser,
 }) => {

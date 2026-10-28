@@ -3,6 +3,13 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**Admin columns line up** (owner, 2026-10-27)
+- Every Admin list's column titles now sit directly over their data:
+  Manage under Actions, Download record under Record (and no longer
+  wrapping "2.5 MB" onto a second line), and "Last attempt" on one line.
+
 ## 1.11.0 — 2026-10-27
 
 Decks now come straight from the Proxic Deck Builder, and a token in a
