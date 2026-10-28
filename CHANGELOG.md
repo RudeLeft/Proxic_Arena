@@ -5,6 +5,14 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
+**Forge release watch** (owner, 2026-10-27, spec 0025)
+- For whoever runs the server: every Monday GitHub checks whether Forge
+  has a release newer than the one Proxic Arena plays. If it has, one
+  issue on the project says what moving to it would mean (new questions
+  for players, whether our Forge fixes still apply, new cards and sets,
+  cards whose printing changes what they do). Nothing on the site
+  changes until you decide to move.
+
 **Admin columns line up** (owner, 2026-10-27)
 - Every Admin list's column titles now sit directly over their data:
   Manage under Actions, Download record under Record (and no longer

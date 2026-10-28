@@ -1,0 +1,88 @@
+# Spec 0025 — when Forge publishes a release newer than the one we play,
+# open one issue saying what moving to it would mean. A report only: the
+# pin in forge-pin.properties changes by hand, never here (AGENTS
+# VEND-005).
+name: Forge release watch
+
+on:
+  schedule:
+    # Mondays, 14:00 UTC (the morning in Denver).
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+    inputs:
+      old:
+        description: "Test only: the release to compare from (default: the one we play)"
+        required: false
+      new:
+        description: "Test only: the release to compare to (default: Forge's latest)"
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Which releases
+        id: tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD: ${{ inputs.old }}
+          NEW: ${{ inputs.new }}
+        run: |
+          pinned=$(sed -n 's/^forge\.release=//p' forge-pin.properties)
+          latest=$(gh api repos/Card-Forge/forge/releases/latest --jq .tag_name)
+          old=${OLD:-$pinned}
+          new=${NEW:-$latest}
+          echo "We play $pinned; Forge's latest is $latest; comparing $old -> $new"
+          newest=$(printf '%s\n%s\n' "$old" "$new" | sort -V | tail -1)
+          if [ "$old" = "$new" ] || [ "$newest" != "$new" ]; then
+            echo "Nothing newer than $old."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          title="Forge $new is out (we play $old)"
+          if [ -n "$OLD$NEW" ]; then title="[test] $title"; fi
+          # Once per release: an issue with this title, open or closed, is enough.
+          if gh issue list --state all --limit 200 --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "Already reported: $title"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "go=true"
+            echo "old=$old"
+            echo "new=$new"
+            echo "title=$title"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fetch both releases (only the files the report reads)
+        if: steps.tags.outputs.go == 'true'
+        env:
+          OLD: ${{ steps.tags.outputs.old }}
+          NEW: ${{ steps.tags.outputs.new }}
+        run: |
+          for tag in "$OLD" "$NEW"; do
+            git -c advice.detachedHead=false clone -q --depth 1 --branch "$tag" \
+              --filter=blob:none --sparse https://github.com/Card-Forge/forge "$RUNNER_TEMP/$tag"
+            git -C "$RUNNER_TEMP/$tag" sparse-checkout set \
+              forge-gui/res/cardsfolder forge-gui/res/editions forge-game/src/main/java/forge/game
+          done
+
+      - name: Open the issue
+        if: steps.tags.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD: ${{ steps.tags.outputs.old }}
+          NEW: ${{ steps.tags.outputs.new }}
+          TITLE: ${{ steps.tags.outputs.title }}
+        run: |
+          python3 -I scripts/forge-release-report.py \
+            "$RUNNER_TEMP/$OLD" "$RUNNER_TEMP/$NEW" "$OLD" "$NEW" > "$RUNNER_TEMP/report.md"
+          cat "$RUNNER_TEMP/report.md"
+          gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/report.md"

@@ -99,6 +99,10 @@ jobs:
       # the record to the compiled code: ForgeQuestionRecordTest.)
       - run: python3 -I scripts/check-question-record.py
 
+      # Spec 0025 F-0025-A: the Forge release watch's report reads a new
+      # question, a stale patch and a printing-dependent card correctly.
+      - run: python3 -I scripts/forge-release-report.py --self-test
+
       - run: npm ci
         working-directory: frontend
       - run: npx tsc --noEmit
