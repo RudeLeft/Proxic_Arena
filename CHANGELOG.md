@@ -3,7 +3,15 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.16.0 — 2026-10-28
+
+A new look for the game screen: the stack fanned out so every card shows,
+player plates with pictures for library, graveyard and exile, the turn's
+steps beside the plates, your opponent's hand along the top, the font
+Magic cards use for their names, and a new life banner.
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
 
 **Account page** (owner, 2026-10-28)
 - Changing your email address no longer asks for your password. The old address is still told.

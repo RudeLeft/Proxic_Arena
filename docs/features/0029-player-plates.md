@@ -1,6 +1,6 @@
 # 0029 — Player plates in the game's right-hand column
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.16.0
 **Owner decisions:** 2026-10-28 — the "Plates" look from the canvas, with
 the P1 grid of bigger zone boxes (round 2 of the canvas).
 

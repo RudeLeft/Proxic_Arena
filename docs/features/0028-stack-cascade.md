@@ -1,6 +1,6 @@
 # 0028 — The stack as a cascade
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.16.0
 **Owner decisions:** 2026-10-28 — layout A, the Cascade, with the six
 ideas marked "In the plan" on the canvas.
 

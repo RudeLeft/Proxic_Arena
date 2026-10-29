@@ -1,6 +1,6 @@
 # 0032 — The card-title font on the battlefield, and the new life banner
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.16.0
 **Owner decisions:** 2026-10-28 — from the canvas
 (https://claude.ai/artifact/DFdLiGuErNQgvGWnJvjjkT): the life banner L2
 "Drawn, ornate"; the owner's card-title font (Beleren 2016 Bold) on the

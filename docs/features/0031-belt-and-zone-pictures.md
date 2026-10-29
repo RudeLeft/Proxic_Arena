@@ -1,6 +1,6 @@
 # 0031 — Belt mark, zone pictures, and the opponent's hand on the board
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.16.0
 **Owner decisions:** 2026-10-28 — from the canvas
 (https://claude.ai/artifact/HqWgE8zUfntQmGjTRoSSXc): belt B3 "Filled",
 zone tiles Z3 "Behind the count"; then, the same day, the opponent's hand

@@ -1,6 +1,6 @@
 # 0030 — The turn's steps as a ladder between the plates
 
-**Status:** Approved 2026-10-28
+**Status:** Built in 1.16.0
 **Owner decisions:** 2026-10-28 — option A, the Ladder, from the canvas
 (https://claude.ai/artifact/8Bgc6Q6e4HvcWDfBfH59pq); the top of the
 board is left to the cards.
