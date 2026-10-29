@@ -5,6 +5,14 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
+**For whoever runs the server**
+- One database update runs by itself on start: everyone's saved stop settings are deleted (there are none any more).
+
+**One rule for when the game stops for you** (spec 0035, owner 2026-10-29)
+- The Stop options are gone from the game menu, and so is "Skip to end of turn". One rule for everyone: the game only stops for you when you hold something you could play and the moment can matter.
+- New chances to act that the old settings skipped: your opponent's end step (flash in a creature, cast a draw spell), before they attack (kill a creature before it swings), the one step a card of yours only works in ("only during your upkeep"), and sacrificing to Ashnod's Altar and the like in answer to a spell.
+- The countdown on your own spell or trigger now runs 5 seconds, with the same rings round the button and the card. Clicking the button resolves it at once; clicking a card you could play still stops it.
+
 **The action button and the turn's steps** (spec 0034, owner 2026-10-29)
 - The action button says more: where a pass really lands ("Nothing can attack · to Main 2"), where your opponent goes next, whose spell resolves and at what ("Pat’s Lightning Bolt → you"), the power coming at you and the power that gets through, and who won.
 - While you wait it says what your opponent is doing when the screen shows it ("Pat is choosing blockers").

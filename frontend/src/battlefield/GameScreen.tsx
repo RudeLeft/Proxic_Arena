@@ -42,16 +42,12 @@ import { useSettled } from "../useSettled";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import {
-  STOP_STEPS,
   combatPart,
-  fetchStops,
   gameOverWords,
   passWords,
-  saveStops,
   totalPower,
   unblockedPower,
   waitingLine,
-  type StopSettings,
 } from "./stops";
 import "./game.css";
 
@@ -79,8 +75,8 @@ const STEPS: { label: string; phases: string[] }[] = [
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 const NOTICE_MS = 7000;
-/** Spec 0005 — the response window on your own spell or trigger (owner 2026-10-23: 2 s). */
-const RESPONSE_WINDOW_MS = 2000;
+/** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
+const RESPONSE_WINDOW_MS = 5000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
 const HOLD_MS = 1500;
 
@@ -114,20 +110,6 @@ export function GameScreen({
       socket.close();
     };
   }, [match.matchId, live]);
-
-  // Spec 0034 — your stops, so the button can say where a pass lands;
-  // null (the server's defaults) until they load.
-  const [myStops, setMyStops] = useState<StopSettings | null>(null);
-  useEffect(() => {
-    if (!live) return undefined;
-    let alive = true;
-    void fetchStops().then((loaded) => {
-      if (alive && loaded) setMyStops(loaded);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [live]);
 
   // Owner 2026-10-22: a spell the other player cast, that you could not
   // answer, resolved before it was ever drawn -- it read as being skipped.
@@ -469,16 +451,10 @@ export function GameScreen({
                   : null
               }
               onAnswer={answer}
-              onPassTurn={() => {
-                socketRef.current?.passTurn();
-                answer(null);
-              }}
               countdown={countdown}
-              onPauseWindow={pauseWindow}
               onView={setViewer}
               finished={finished}
               outcome={match.outcome}
-              stops={myStops}
             />
           }
           overlay={(at) =>
@@ -532,7 +508,7 @@ export function GameScreen({
       </div>
 
       {/* Owner 2026-10-21: the game's controls at the bottom left, where no
-          card is drawn -- a gear (Stops, Concede, Abandon). The chat opens
+          card is drawn -- a gear (Concede, Abandon; spec 0035 took Stops out). The chat opens
           from its tab on the left edge, which pulses for a new message
           (owner 2026-10-28: no chat icon here). */}
       <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
@@ -543,10 +519,6 @@ export function GameScreen({
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
           concession={finished ? null : concessionText(game.concession)}
-          onStops={(settings) => {
-            setMyStops(settings);
-            socketRef.current?.stops(settings);
-          }}
           onConcede={() => {
             setGame((previous) => ({ ...previous, concession: null }));
             socketRef.current?.concede();
@@ -1028,13 +1000,10 @@ function Rail({
   combat,
   cancel,
   onAnswer,
-  onPassTurn,
   countdown,
-  onPauseWindow,
   onView,
   finished,
   outcome,
-  stops,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -1049,19 +1018,13 @@ function Rail({
   /** A question whose "no" backs out (a target, a payment): what Cancel says. */
   cancel: { word: string; sub: string } | null;
   onAnswer: (actionId: string | null) => void;
-  /** §7.53 extra — pass now, and no more stops this turn. */
-  onPassTurn: () => void;
   /** Spec 0005 — seconds left in a response window, or null when none is counting. */
   countdown: number | null;
-  /** Spec 0005 — stop the countdown for good: an ordinary question from here. */
-  onPauseWindow: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
   /** Spec 0034 — who won, for the game-over box. */
   outcome: MatchOutcome | null;
-  /** Spec 0034 — your stops (null: the server's defaults), for where a pass lands. */
-  stops: StopSettings | null;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -1069,7 +1032,7 @@ function Rail({
   const resolving = useResolving(asking);
   const lastAsked = useLastAsked(asking);
   const myPriority = question?.context === "priority";
-  const words = passWords(board, mySeat, stops);
+  const words = passWords(board, mySeat);
   const over = gameOverWords(board, mySeat, outcome);
   return (
     <div className="gs-rail">
@@ -1153,21 +1116,22 @@ function Rail({
         </button>
       ) : myPriority && countdown !== null ? (
         // Spec 0005: your own spell or trigger is on top. It resolves when
-        // the countdown runs out; clicking here waits (an ordinary Pass).
+        // the countdown runs out; clicking here resolves it now (spec 0035:
+        // an ordinary Pass). Clicking a card you could play still pauses.
         <div className="gs-act-group">
           <button
             type="button"
             className="gs-act gs-act-window"
             disabled={busy}
-            onClick={onPauseWindow}
-            aria-label={`Pass: Resolve ${top?.name ?? "it"} in ${countdown}. Click to wait and respond.`}
+            onClick={() => onAnswer(null)}
+            aria-label={`Pass: Resolve ${top?.name ?? "it"} now, or in ${countdown}.`}
           >
             {/* Keyed: a new spell on top starts its ring again. */}
             <Coin key={top?.id} emblem="resolve" seconds={countdown} />
             <span className="gs-act-text">
               <span className="gs-act-word">Resolves in {countdown}</span>
               <span className="gs-act-sub">
-                {top ? `Your ${top.name}` : "Yours"} · click to wait
+                {top ? `Your ${top.name}` : "Yours"} · click to resolve now
               </span>
             </span>
           </button>
@@ -1190,11 +1154,6 @@ function Rail({
               <span className="gs-act-sub">{words.sub}</span>
             </span>
           </button>
-          {!top && (
-            <button type="button" className="gs-act-turn" disabled={busy} onClick={onPassTurn}>
-              Skip to end of turn
-            </button>
-          )}
         </div>
       ) : !question ? (
         <div className="gs-waiting" role="status">
@@ -1822,7 +1781,6 @@ function GameMenu({
   onList,
   concession,
   onConcede,
-  onStops,
 }: {
   match: MatchView;
   live: boolean;
@@ -1833,11 +1791,8 @@ function GameMenu({
   /** Where a concession stands, in words (§7.55). */
   concession: string | null;
   onConcede: () => void;
-  /** §7.53 — saved stops, to apply to this game now. */
-  onStops: (settings: StopSettings) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [stopsOpen, setStopsOpen] = useState(false);
   // §7.55: Concede is a real loss, Forge's; Abandon is for a stuck or
   // broken game and has no winner. Each asks first, and only one asks
   // at a time.
@@ -1868,10 +1823,9 @@ function GameMenu({
     setConfirming(null);
     if (!result.ok) setFailure(result.failure.detail);
   };
-  const choose = (what: "stops" | "concede" | "abandon") => {
+  const choose = (what: "concede" | "abandon") => {
     setMenuOpen(false);
-    if (what === "stops") setStopsOpen(true);
-    else setConfirming(what);
+    setConfirming(what);
   };
   return (
     <div className="gs-dock" ref={dock}>
@@ -1881,12 +1835,6 @@ function GameMenu({
         {live && menuOpen && (
           <div className="gs-dock-menu" role="group" aria-label="Game menu">
             {/* Spec 0013 — each option says what it does. */}
-            <button type="button" className="gs-dock-item" onClick={() => choose("stops")}>
-              <span className="gs-dock-item-name">Stop options</span>
-              <span className="gs-dock-item-what">
-                Choose the steps where the game waits for you instead of passing.
-              </span>
-            </button>
             <button type="button" className="gs-dock-item" onClick={() => choose("concede")}>
               <span className="gs-dock-item-name">Concede</span>
               <span className="gs-dock-item-what">End the game now; your opponent wins.</span>
@@ -1902,15 +1850,6 @@ function GameMenu({
               </span>
             </button>
           </div>
-        )}
-        {live && stopsOpen && (
-          <StopsPanel
-            onClose={() => setStopsOpen(false)}
-            onSaved={(settings) => {
-              onStops(settings);
-              setStopsOpen(false);
-            }}
-          />
         )}
         {live && confirming === "concede" && (
           <span className="gs-menu-confirm" role="alert">
@@ -2001,110 +1940,6 @@ function GearIcon() {
         d="M10.3 2h3.4l.5 2.6c.7.2 1.3.5 1.9.9l2.3-1.4 2.4 2.4-1.4 2.3c.4.6.7 1.2.9 1.9l2.6.5v3.4l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.4 2.3-2.4 2.4-2.3-1.4c-.6.4-1.2.7-1.9.9l-.5 2.6h-3.4l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.3 1.4-2.4-2.4 1.4-2.3c-.4-.6-.7-1.2-.9-1.9L1 13.7v-3.4l2.6-.5c.2-.7.5-1.3.9-1.9L3.1 5.6 5.5 3.2l2.3 1.4c.6-.4 1.2-.7 1.9-.9L10.3 2ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
       />
     </svg>
-  );
-}
-
-/**
- * §7.53 — where you are asked "act or pass?". Everywhere else the game
- * passes for you, and only ever passes: targets, payments, blocks and
- * mulligans are always asked. Saved for your account, and applied to the
- * game in progress.
- */
-function StopsPanel({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: (settings: StopSettings) => void;
-}) {
-  const [settings, setSettings] = useState<StopSettings | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    void fetchStops().then((loaded) => {
-      if (!alive) return;
-      if (loaded) setSettings(loaded);
-      else setFailure("Your stops could not be loaded.");
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const toggle = (side: "own" | "opponent", key: string) =>
-    setSettings((current) => {
-      if (!current) return current;
-      const list = current[side];
-      return {
-        ...current,
-        [side]: list.includes(key) ? list.filter((k) => k !== key) : [...list, key],
-      };
-    });
-  const save = async () => {
-    if (!settings) return;
-    setSaving(true);
-    const saved = await saveStops(settings);
-    setSaving(false);
-    if (saved) onSaved(saved);
-    else setFailure("Your stops could not be saved. Try again.");
-  };
-  return (
-    <div className="gs-stops" role="dialog" aria-label="Stop options">
-      <h2 className="gs-stops-title">Stop options</h2>
-      <p className="gs-stops-note">
-        At a step without a tick the game passes for you, but only when nothing your opponent did is
-        waiting to resolve, and never past a target, a payment or a block. Your main phases stop
-        only when you have something to play.
-      </p>
-      {settings ? (
-        <table className="gs-stops-table">
-          <thead>
-            <tr>
-              <th scope="col">Step</th>
-              <th scope="col">Your turn</th>
-              <th scope="col">Their turn</th>
-            </tr>
-          </thead>
-          <tbody>
-            {STOP_STEPS.map((step) => (
-              <tr key={step.key}>
-                <th scope="row">{step.label}</th>
-                {(["own", "opponent"] as const).map((side) => (
-                  <td key={side}>
-                    <input
-                      type="checkbox"
-                      aria-label={`${step.label}, ${side === "own" ? "your turn" : "their turn"}`}
-                      checked={settings[side].includes(step.key)}
-                      onChange={() => toggle(side, step.key)}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        !failure && <p className="gs-stops-note">Loading…</p>
-      )}
-      {failure && (
-        <p className="gs-menu-failure" role="alert">
-          {failure}
-        </p>
-      )}
-      <div className="gs-stops-actions">
-        <button
-          type="button"
-          className="gs-menu-button gs-menu-warn"
-          disabled={!settings || saving}
-          onClick={() => void save()}
-        >
-          Save
-        </button>
-        <button type="button" className="gs-menu-button" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
   );
 }
 

@@ -34,7 +34,6 @@ import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
-import net.barnflix.proxic.match.stopRoutes
 import net.barnflix.proxic.room.matchPresetRoutes
 import net.barnflix.proxic.room.matchSetupRoutes
 import net.barnflix.proxic.room.roomRoutes
@@ -627,8 +626,6 @@ private fun Route.databaseRoutes(
         // prepared setup, and find the one you are in. No Forge is
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
-        // PHASE_07 §7.53 — each player's priority stops.
-        stopRoutes(net.barnflix.proxic.match.StopStore(database.dataSource()))
         matchRoutes(
             MatchLauncher(database.dataSource(), DeckAuthorization(database.dataSource())),
             net.barnflix.proxic.match.MatchStore(database.dataSource()),

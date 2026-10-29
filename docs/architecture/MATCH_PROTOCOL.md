@@ -100,22 +100,25 @@ travels with it.
 DECISION_RESPONSE   decisionId, actionId     actionId null = pass
 DECISION_SEARCH     decisionId, query        searchable questions only
 CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
-STOPS               own[], opponent[]        §7.53: your stops, applied to this game
-PASS_TURN           (nothing)                §7.53: no more stops for you this turn
 ```
 
-**Stops (PHASE_07 §7.53, AMENDMENT 13).** Saved with `GET`/`PUT
-/api/matches/stops` (Forge's step names); the server hands each seat's
-stops to the worker in `START_GAME` and, changed mid-game, as `STOPS`.
-The worker then passes priority for a player at a step they do not stop
-at -- only priority, never a target, payment, block or other question --
-unless something is on the stack and they could act: the opponent's spell
-or trigger is asked plainly; their OWN is asked as a **response window**
-(spec 0005, Phase 8 Amendment 4) -- marked `window: true`, the page counts
-down 2 seconds and passes for them if they let it run out; clicking a
-card they could play, the close look, a list or the countdown pauses it
-for good. With nothing they could do, they are passed for. A seat without
-stops is asked at every step.
+**Stops (spec 0035; was PHASE_07 §7.53, AMENDMENT 13).** One rule for
+every player, nothing to save (`STOPS`, `PASS_TURN` and
+`/api/matches/stops` are gone). The server marks each seat in
+`START_GAME` with `"stops": true`; the worker then passes priority for
+that player -- only priority, never a target, payment, block or other
+question -- unless they hold something they could play AND the moment
+is one the rule keeps: their Main 1 and Main 2, after they attack and
+after blocks; on the opponent's turn before they attack (when something
+could), after they attack, after blocks and the end step; the one step a
+card of theirs works only in; and anything on the stack. The opponent's
+spell or trigger is asked plainly; their OWN is asked as a **response
+window** (spec 0005, Phase 8 Amendment 4) -- marked `window: true`, the
+page counts down 5 seconds and passes for them if they let it run out;
+clicking the countdown passes at once; clicking a card they could play,
+the close look or a list pauses it for good. A sacrifice that makes mana
+counts while something is on the stack; tapping for mana alone never
+does. A seat without `stops` (the Mechanics Lab) is asked at every step.
 
 **Only `decisionId` and `actionId` are read.** Not a seat, not a user,
 not a Forge player id, not a state version: a client that could supply

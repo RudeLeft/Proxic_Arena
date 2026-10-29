@@ -51,8 +51,8 @@ class Game:
         self.res = res or sys.argv[2]
         trace = trace if trace is not None else (sys.argv[3] if len(sys.argv) > 3 else None)
         self.decks = {1: seat1, 2: seat2}
-        # PHASE_07 §7.53 -- {seat: {"own": [...], "opponent": [...]}}; a seat
-        # without stops is asked at every step, as before.
+        # Spec 0035 -- {seat: True}: the seat follows the one stops rule; a
+        # seat without it is asked at every step, as before.
         self.stops = stops or {}
         self.state = {}            # seat -> latest snapshot, that seat's view
         self.ended = None          # the GAME_ENDED frame
@@ -101,11 +101,6 @@ class Game:
                    "messageId": str(uuid.uuid4()), "decisionId": frame["decisionId"],
                    "seat": frame["authorisedSeat"], "stateVersion": frame["stateVersion"],
                    "actionId": action_id})
-
-    def pass_turn(self, seat):
-        """PHASE_07 §7.53 -- "Pass until end of turn" for `seat`."""
-        self.send({"protocolVersion": 1, "type": "PASS_TURN",
-                   "messageId": str(uuid.uuid4()), "seat": seat})
 
     def concede(self, seat):
         """PHASE_07 §7.55 -- `seat` concedes, as the server would send it."""

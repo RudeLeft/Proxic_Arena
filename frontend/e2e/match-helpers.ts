@@ -22,41 +22,10 @@ export async function csrfOf(page: Page): Promise<string> {
   return cookies.find((c) => c.name === "proxicarena_csrf")?.value ?? "";
 }
 
-/** Every step Forge gives priority in (PHASE_07 §7.53). */
-export const EVERY_STEP = [
-  "UPKEEP",
-  "DRAW",
-  "MAIN1",
-  "COMBAT_BEGIN",
-  "COMBAT_DECLARE_ATTACKERS",
-  "COMBAT_DECLARE_BLOCKERS",
-  "COMBAT_FIRST_STRIKE_DAMAGE",
-  "COMBAT_DAMAGE",
-  "COMBAT_END",
-  "MAIN2",
-  "END_OF_TURN",
-  "CLEANUP",
-];
-
-/** Set this account's priority stops (PHASE_07 §7.53). */
-export async function setStops(page: Page, own: string[], opponent: string[]) {
-  const response = await page.request.put("/api/matches/stops", {
-    headers: { "X-CSRF-Token": await csrfOf(page) },
-    data: { own, opponent },
-  });
-  expect(response.ok(), "the stops were not saved").toBe(true);
-}
-
 /** Leave whatever a previous run left behind. */
 export async function clearEverything(page: Page) {
   const csrf = await csrfOf(page);
   const headers = { "X-CSRF-Token": csrf };
-
-  // The game specs SCRIPT every step -- they answer each priority window
-  // themselves -- so their accounts are asked at every step, as before
-  // stops existed (§7.53: every stop on is the old behaviour exactly).
-  // match-stops.spec.ts sets the real defaults for itself.
-  await setStops(page, EVERY_STEP, EVERY_STEP);
 
   // A match first: while one is running the room cannot be left
   // (§6.152), which is the whole reason the abandon route exists.

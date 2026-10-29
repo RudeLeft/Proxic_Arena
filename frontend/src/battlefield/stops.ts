@@ -1,79 +1,12 @@
-// Priority stops and the Pass button's words — PHASE_07 §7.53, AMENDMENT 13.
+// The Pass button's words — PHASE_07 §7.53, spec 0034, spec 0035.
 //
-// The game server passes priority for a player wherever they do not stop
-// (and only priority: targets, payments and blocks are always asked).
-// This module is the page's half: the player's settings, and what the
-// Pass button says it will do.
+// The game server passes priority for a player wherever one rule says
+// nothing can matter (spec 0035: no settings; only priority is ever
+// passed -- targets, payments and blocks are always asked). This module
+// says what the Pass button will do.
 
-import { apiFetch } from "../auth";
 import type { MatchOutcome } from "../lobby";
 import type { Snapshot } from "../match";
-
-export interface StopSettings {
-  own: string[];
-  opponent: string[];
-}
-
-/** The steps a player can choose to stop at, in turn order, by Forge's names. */
-export const STOP_STEPS: { key: string; label: string }[] = [
-  { key: "UPKEEP", label: "Upkeep" },
-  { key: "DRAW", label: "Draw" },
-  { key: "MAIN1", label: "Main 1" },
-  { key: "COMBAT_BEGIN", label: "Beginning of combat" },
-  { key: "COMBAT_DECLARE_ATTACKERS", label: "Attackers declared" },
-  { key: "COMBAT_DECLARE_BLOCKERS", label: "Blockers declared" },
-  { key: "COMBAT_DAMAGE", label: "Combat damage" },
-  { key: "COMBAT_END", label: "End of combat" },
-  { key: "MAIN2", label: "Main 2" },
-  { key: "END_OF_TURN", label: "End step" },
-];
-
-export async function fetchStops(fetchFn: typeof fetch = fetch): Promise<StopSettings | null> {
-  try {
-    const response = await apiFetch("/api/matches/stops", {}, fetchFn);
-    if (!response.ok) return null;
-    return asStops(await response.json());
-  } catch {
-    return null;
-  }
-}
-
-export async function saveStops(
-  settings: StopSettings,
-  fetchFn: typeof fetch = fetch,
-): Promise<StopSettings | null> {
-  try {
-    const response = await apiFetch(
-      "/api/matches/stops",
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      },
-      fetchFn,
-    );
-    if (!response.ok) return null;
-    return asStops(await response.json());
-  } catch {
-    return null;
-  }
-}
-
-function asStops(value: unknown): StopSettings | null {
-  if (typeof value !== "object" || value === null) return null;
-  const record = value as Record<string, unknown>;
-  const names = (list: unknown) =>
-    Array.isArray(list) ? list.filter((n): n is string => typeof n === "string") : null;
-  const own = names(record["own"]);
-  const opponent = names(record["opponent"]);
-  return own && opponent ? { own, opponent } : null;
-}
-
-/** The server's StopSettings.DEFAULT: what a player stops at until they change it. */
-export const DEFAULT_STOPS: StopSettings = {
-  own: ["MAIN1", "COMBAT_DECLARE_BLOCKERS", "MAIN2"],
-  opponent: ["COMBAT_DECLARE_ATTACKERS", "COMBAT_DECLARE_BLOCKERS"],
-};
 
 type BoardCard = Snapshot["battlefield"][number];
 
@@ -158,11 +91,7 @@ const NEXT_STEP: Record<string, string> = {
  * pass itself is the same answer whatever the button says. Spec 0034:
  * where it really lands, whose spell it is, and the power in combat.
  */
-export function passWords(
-  board: Snapshot,
-  mySeat: number,
-  stops: StopSettings | null = null,
-): { word: string; sub: string } {
+export function passWords(board: Snapshot, mySeat: number): { word: string; sub: string } {
   if (board.stack[0]) return { word: "Resolve", sub: stackLine(board, mySeat) };
   const other = board.players.find((p) => p.seat !== mySeat)?.name ?? "your opponent";
   const active = board.players.find((p) => p.seat === board.activeSeat);
@@ -198,12 +127,8 @@ export function passWords(
       return { word: "Next", sub: "To your main phase" };
     case "MAIN1": {
       if (couldAttack(board, mySeat)) return { word: "Next", sub: "To attacks" };
-      const own = (stops ?? DEFAULT_STOPS).own;
-      if (own.includes("MAIN2")) return { word: "Next", sub: "Nothing can attack · to Main 2" };
-      if (own.includes("END_OF_TURN")) {
-        return { word: "Next", sub: "Nothing can attack · to the end step" };
-      }
-      return { word: "End turn", sub: `Nothing can attack · over to ${other}` };
+      // Spec 0035: Main 2 is always a stop when you have something to do.
+      return { word: "Next", sub: "Nothing can attack · to Main 2" };
     }
     case "COMBAT_BEGIN":
       return { word: "Next", sub: "To attacks" };

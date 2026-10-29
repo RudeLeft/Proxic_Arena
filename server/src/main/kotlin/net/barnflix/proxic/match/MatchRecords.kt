@@ -190,9 +190,8 @@ internal class MatchRecords(private val dataSource: DataSource) {
                     participant.displayName,
                     participant.seatNumber,
                     cards,
-                    // §7.53 — the player's own stops (the defaults when
-                    // they never changed them).
-                    StopStore(dataSource).get(participant.userId),
+                    // Spec 0035 — every player follows the one stops rule.
+                    stops = true,
                 )
             }
         }

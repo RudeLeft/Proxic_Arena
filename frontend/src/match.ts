@@ -851,10 +851,6 @@ export interface MatchSocket {
   search(decisionId: number, query: string): void;
   /** §7.55 — concede. Nothing else is sent: who concedes is the session's. */
   concede(): void;
-  /** §7.53 — apply changed stops to the game in progress (saved over HTTP first). */
-  stops(settings: { own: string[]; opponent: string[] }): void;
-  /** §7.53 extra — no more stops for you this turn, unless the opponent acts. */
-  passTurn(): void;
   close(): void;
 }
 
@@ -947,16 +943,6 @@ export function connectMatch(
     concede() {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({ type: "CONCEDE" }));
-    },
-    stops(settings) {
-      if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(
-        JSON.stringify({ type: "STOPS", own: settings.own, opponent: settings.opponent }),
-      );
-    },
-    passTurn() {
-      if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify({ type: "PASS_TURN" }));
     },
     close() {
       closedByUs = true;

@@ -1,10 +1,9 @@
-// PHASE_07 §7.53, AMENDMENT 13 — the Pass button's words, and the stops a
-// player saves.
+// The Pass button's words — PHASE_07 §7.53, specs 0034 and 0035.
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { MatchOutcome } from "../lobby";
 import type { Snapshot } from "../match";
-import { combatPart, fetchStops, gameOverWords, passWords, saveStops, waitingLine } from "./stops";
+import { combatPart, gameOverWords, passWords, waitingLine } from "./stops";
 
 function board(
   phase: string,
@@ -67,17 +66,6 @@ describe("passWords", () => {
       creature("card:1", 1, 2, { sick: true, keywords: ["Haste"] }),
     ] as never[]);
     expect(passWords(hasty, 1).sub).toBe("To attacks");
-    // Your stops decide where an idle pass lands.
-    expect(
-      passWords(board("MAIN1", 1), 1, { own: ["MAIN1", "END_OF_TURN"], opponent: [] }),
-    ).toEqual({
-      word: "Next",
-      sub: "Nothing can attack · to the end step",
-    });
-    expect(passWords(board("MAIN1", 1), 1, { own: ["MAIN1"], opponent: [] })).toEqual({
-      word: "End turn",
-      sub: "Nothing can attack · over to Bob",
-    });
   });
 
   it("on the opponent's turn says where they go next (spec 0034)", () => {
@@ -166,31 +154,6 @@ describe("gameOverWords (spec 0034)", () => {
   it("says Game over without a winner", () => {
     expect(gameOverWords(lives(5, 5), 1, null).word).toBe("Game over");
     expect(gameOverWords(lives(5, 5), 1, { ...outcome(null), kind: "DRAW" }).word).toBe("A draw");
-  });
-});
-
-describe("stops over HTTP", () => {
-  it("reads the saved settings, and sends a change as PUT", async () => {
-    const answer = { own: ["MAIN1", "MAIN2"], opponent: ["END_OF_TURN"] };
-    const fetchFn = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify(answer), { status: 200 })),
-    );
-    expect(await fetchStops(fetchFn as unknown as typeof fetch)).toEqual(answer);
-    expect(await saveStops(answer, fetchFn as unknown as typeof fetch)).toEqual(answer);
-    const [url, init] = fetchFn.mock.calls[1] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/matches/stops");
-    expect(init.method).toBe("PUT");
-  });
-
-  it("is null, not a guess, when the server refuses or sends nonsense", async () => {
-    const refused = vi.fn(() => Promise.resolve(new Response("{}", { status: 400 })));
-    expect(
-      await saveStops({ own: [], opponent: [] }, refused as unknown as typeof fetch),
-    ).toBeNull();
-    const nonsense = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify({ own: "MAIN1" }), { status: 200 })),
-    );
-    expect(await fetchStops(nonsense as unknown as typeof fetch)).toBeNull();
   });
 });
 

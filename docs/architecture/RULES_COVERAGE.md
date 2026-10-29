@@ -54,10 +54,9 @@ own human screen or a rule that leaves no choice:
 
 | Question | Arena's answer | Why |
 |---|---|---|
-| A priority pass at a step you do not stop at, with nothing on the stack | pass | Your own stops (PHASE_07 Amendment 13) |
+| A priority pass with nothing on the stack, outside the stops rule's moments | pass | One rule for everyone, nothing to set (spec 0035; was PHASE_07 Amendment 13) |
 | A priority pass with something on the stack but nothing you could do | pass | Nothing to choose |
-| Your OWN spell or trigger on top, and you could act | asked, as a **response window**: your page passes after a visible 2-second countdown you let run out; any pause cancels it | Phase 8 Amendment 4, spec 0005 |
-| "Skip to end of turn" | no more stops of your own this turn; the opponent's spells still stop you | PHASE_07 §7.53 |
+| Your OWN spell or trigger on top, and you could act | asked, as a **response window**: your page passes after a visible 5-second countdown you let run out (a click on it passes at once); any pause cancels it | Phase 8 Amendment 4, specs 0005 and 0035 |
 | One legal answer (one colour, one defender, one blocker taking all the damage) | that answer | Forge's human screen does the same |
 | `chooseNumberForCostReduction` | the whole reduction | Forge's human screen asks only in its "full control" mode |
 | `chooseManaFromPool` (Forge's automatic pool payment, a tie) | the first | as Forge's screen; only reached while a cost is checked |

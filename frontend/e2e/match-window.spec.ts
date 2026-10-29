@@ -1,11 +1,11 @@
 // The response window, in the browser — spec 0005 (owner 2026-10-23),
-// Phase 8 Amendment 4.
+// Phase 8 Amendment 4, spec 0035 (owner 2026-10-29: 5 s, a click resolves).
 //
 // Your own spell on top of the stack, with something left to respond with:
-// the act button counts down "Resolves in 2" and, if you let it run out,
-// your page passes and the spell resolves. Clicking the countdown pauses it
-// for good: an ordinary Pass from then on. scripts/check-stops.py proves the
-// worker half (only your own spell, only when you could respond).
+// the act button counts down "Resolves in 5" and, if you let it run out,
+// your page passes and the spell resolves. Clicking the countdown resolves
+// it at once. scripts/check-stops.py proves the worker half (only your own
+// spell, only when you could respond).
 
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
@@ -20,7 +20,7 @@ const click = clickNow;
 const opponentLife = async (page: Page) =>
   Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
 
-test("your own spell counts down and resolves; a click on the countdown waits instead", async ({
+test("your own spell counts down from 5 and resolves; a click on the countdown resolves it now", async ({
   browser,
 }) => {
   test.skip(!existsSync(pkg), "no interaction deck package (CI builds it)");
@@ -38,16 +38,16 @@ test("your own spell counts down and resolves; a click on the countdown waits in
   await expect(matchPanel(host).locator("button.gs-hold")).toHaveCount(0);
 
   let ranOut = false;
-  let paused = false;
+  let clicked = false;
   // The opponent may still pass after us before the spell resolves, so the
   // life total is checked as the game goes on.
   let ranOutFrom: number | null = null;
-  let pausedFrom: number | null = null;
+  let clickedFrom: number | null = null;
   const deadline = Date.now() + 780_000;
-  while (!(ranOut && paused) && Date.now() < deadline) {
+  while (!(ranOut && clicked) && Date.now() < deadline) {
     const life = await opponentLife(host);
     if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
-    if (pausedFrom !== null && life < pausedFrom) [paused, pausedFrom] = [true, null];
+    if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);
@@ -57,21 +57,24 @@ test("your own spell counts down and resolves; a click on the countdown waits in
         if (!ranOut && ranOutFrom === null) {
           // F-0005-B: let it run out -- no click at all.
           ranOutFrom = await opponentLife(page);
-          await expect(windowButton).toContainText("Resolves in");
+          // F-0035-H: it starts from 5, and is still counting past 2 s.
+          await expect(windowButton).toContainText(/Resolves in [45]/);
+          await expect(windowButton).toContainText("click to resolve now");
           await host.screenshot({ path: "test-results/seen/window-counting.png" });
+          await page.waitForTimeout(2_500);
+          await expect(windowButton, "still counting after 2.5 s").toHaveCount(1);
           await expect(windowButton, "the countdown ends by itself").toHaveCount(0, {
-            timeout: 8_000,
+            timeout: 6_000,
           });
-        } else if (ranOut && !paused && pausedFrom === null) {
-          // F-0005-C: a click on the countdown waits -- an ordinary Pass.
+        } else if (ranOut && !clicked && clickedFrom === null) {
+          // F-0035-H: a click on the countdown resolves it now -- an ordinary Pass.
+          clickedFrom = await opponentLife(page);
+          const before = Date.now();
           await click(windowButton);
-          const pass = panel.locator("button.gs-act:not(.gs-act-window):not(.gs-act-cancel)");
-          await expect(pass, "the button becomes an ordinary pass").toContainText("Resolve");
-          await page.waitForTimeout(3_500);
-          await expect(pass, "and nothing passed for us while we waited").toHaveCount(1);
-          await host.screenshot({ path: "test-results/seen/window-paused.png" });
-          pausedFrom = await opponentLife(page);
-          await click(pass);
+          await expect(windowButton, "a click resolves at once").toHaveCount(0, {
+            timeout: 3_000,
+          });
+          expect(Date.now() - before, "well before the countdown ran out").toBeLessThan(3_500);
         } else {
           // An earlier window's spell is still on its way: let this one run out.
           await expect(windowButton).toHaveCount(0, { timeout: 8_000 });
@@ -116,7 +119,7 @@ test("your own spell counts down and resolves; a click on the countdown waits in
     }
   }
   expect(ranOut, "a response window ran out and the spell resolved").toBe(true);
-  expect(paused, "a paused response window waited for the pass").toBe(true);
+  expect(clicked, "a clicked response window resolved the spell").toBe(true);
   await clearEverything(host).catch(() => undefined);
   await clearEverything(guest).catch(() => undefined);
 });

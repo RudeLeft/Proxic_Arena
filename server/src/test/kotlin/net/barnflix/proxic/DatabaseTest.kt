@@ -139,9 +139,9 @@ class DatabaseTest {
                         // and admin_action, what the Admin page reads.
                         // Records of attempts and of administrators'
                         // actions, not of play.
-                        // Phase 7 (§7.53, Amendment 13): player_stops,
-                        // each player's own priority-stop setting; and
-                        // (§7.59) deck_face_art, a deck's back-face pictures.
+                        // Phase 7 (§7.59): deck_face_art, a deck's back-face
+                        // pictures. (Amendment 13's player_stops went with
+                        // spec 0035: one stops rule, nothing to save.)
                         // Spec 0014: account_invite, invitations; and
                         // mail_settings, the Email account tab's one row.
                         // Spec 0021: device_code and device_link, a
@@ -169,7 +169,6 @@ class DatabaseTest {
                                 "match_setup",
                                 "match_setup_player",
                                 "password_reset",
-                                "player_stops",
                                 "room",
                                 "room_member",
                                 "sign_in_event",

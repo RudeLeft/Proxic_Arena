@@ -11,6 +11,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
@@ -217,8 +218,6 @@ class MatchRoutesTest {
                     "POST /api/matches" to client.post("/api/matches"),
                     "GET /api/matches/current" to client.get("/api/matches/current"),
                     "GET /api/matches/{id}" to client.get("/api/matches/${UUID.randomUUID()}"),
-                    "GET /api/matches/stops" to client.get("/api/matches/stops"),
-                    "PUT /api/matches/stops" to client.put("/api/matches/stops"),
                     // Spec 0018.
                     "GET /api/hall" to client.get("/api/hall"),
                 )
@@ -228,44 +227,22 @@ class MatchRoutesTest {
             }
         }
 
-    /**
-     * PHASE_07 §7.53, AMENDMENT 13 — a player's stops: the Arena-style
-     * defaults until changed, then theirs; only Forge's step names, in
-     * turn order, each once.
-     */
+    /** Spec 0035 — one stops rule for everyone: there are no stops to read or save. */
     @Test
-    fun `a player's stops default, save, and refuse what is not a step`() =
+    fun `there are no stop settings to read or save`() =
         testApplication {
             application { module(config()) }
             val host = signIn("RudeLeft")
 
-            val first = client.get("/api/matches/stops") { signedBy(host) }
-            assertEquals(HttpStatusCode.OK, first.status)
-            val defaults = json.parseToJsonElement(first.bodyAsText()).jsonObject
-            assertEquals(
-                listOf("MAIN1", "COMBAT_DECLARE_BLOCKERS", "MAIN2"),
-                defaults["own"]!!.jsonArray.map { it.jsonPrimitive.content },
-            )
-
+            val read = client.get("/api/matches/stops") { signedBy(host) }
+            assertTrue(!read.status.isSuccess(), "GET stops answered ${read.status}")
             val saved =
                 client.put("/api/matches/stops") {
                     signedBy(host)
                     contentType(ContentType.Application.Json)
-                    setBody("""{"own":["MAIN2","MAIN1","MAIN1"],"opponent":["END_OF_TURN"]}""")
+                    setBody("""{"own":["MAIN1"],"opponent":[]}""")
                 }
-            assertEquals(HttpStatusCode.OK, saved.status)
-            val reread = client.get("/api/matches/stops") { signedBy(host) }.bodyAsText()
-            val again = json.parseToJsonElement(reread).jsonObject
-            assertEquals(listOf("MAIN1", "MAIN2"), again["own"]!!.jsonArray.map { it.jsonPrimitive.content })
-            assertEquals(listOf("END_OF_TURN"), again["opponent"]!!.jsonArray.map { it.jsonPrimitive.content })
-
-            val refused =
-                client.put("/api/matches/stops") {
-                    signedBy(host)
-                    contentType(ContentType.Application.Json)
-                    setBody("""{"own":["MAIN1","ATTACK_NOW"],"opponent":[]}""")
-                }
-            assertEquals(HttpStatusCode.BadRequest, refused.status)
+            assertTrue(!saved.status.isSuccess(), "PUT stops answered ${saved.status}")
         }
 
     /** §3.51 — and a mutation needs the CSRF pair, not just a session. */
