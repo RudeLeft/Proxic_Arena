@@ -18,6 +18,12 @@ words, newest first. Each release on GitHub carries the same notes.
 - Each player in the game's right-hand column sits on a raised plate: picture with its Hall ring, name and Belt, life in a red banner.
 - Hand, library, graveyard and exile are big tiles with an icon, a large count and the word. Whose turn it is: the plate's top edge and the banner turn gold.
 
+**The stack as a cascade** (spec 0028, owner 2026-10-28)
+- Every spell and ability on the stack shows, fanned at the right edge of the board so each name is visible, numbered in the order they resolve.
+- Your cards are edged gold and your opponent's red, with the caster's picture beside each. Point at one to see what it targets; click it for a close look.
+- An ability has a faint line back to the card it came from. Resolving, a card glows, a spark runs to its target, then it leaves.
+- When you are asked to respond, a ring round the front card counts down the two-second auto-pass.
+
 ## 1.15.0 — 2026-10-28
 
 Password resets by email, every linked computer on the Admin page, 132

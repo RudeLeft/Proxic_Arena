@@ -543,11 +543,18 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
       ),
       ...(scene.combat?.blocks ?? []).map((b) => `block ${b.blocker}>${b.attacker}`),
+      // Spec 0028: the pointed-at stack object's line, else the front one's;
+      // and every ability's faint line back to its permanent.
       ...scene.stack
-        .filter((s, i) => i === 0 || s.id === scene.pointedStack)
+        .filter((s) =>
+          scene.stack.some((x) => x.id === scene.pointedStack)
+            ? s.id === scene.pointedStack
+            : s === scene.stack[0],
+        )
         .flatMap((s) =>
           s.targets.map((t) => `target ${s.id}>${"player" in t ? `player:${t.player}` : t.object}`),
         ),
+      ...scene.stack.filter((s) => s.source).map((s) => `source ${s.source}>${s.id}`),
       ...(scene.attaching ? [`attach ${scene.attaching.source}>${scene.attaching.host}`] : []),
     ];
     expect(drawnLines.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
@@ -586,7 +593,18 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           `${what}: ${line.kind} starts in ${line.from}`,
         ).toBe(true);
       }
-      if (line.to.startsWith("player:")) {
+      if (line.to.startsWith("stack:")) {
+        // An ability's line ends on its own card in the cascade.
+        const spot = stackSpotBoxes(expected.geometry, scene.stack.length);
+        const box = spot[scene.stack.findIndex((s) => s.id === line.to)]!;
+        expect(
+          end.x >= box.x - 1 &&
+            end.x <= box.x + box.w + 1 &&
+            end.y >= box.y - 1 &&
+            end.y <= box.y + box.h + 1,
+          `${what}: ${line.kind} ends on ${line.to}'s card`,
+        ).toBe(true);
+      } else if (line.to.startsWith("player:")) {
         // On the life circle's edge, never over the total.
         const life = where["viewer:life"];
         const fromCentre = Math.hypot(end.x - life.x, end.y - life.y);

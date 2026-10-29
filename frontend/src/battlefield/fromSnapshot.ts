@@ -86,6 +86,10 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     by: snapshot.players.find((p) => p.seat === entry.controller)?.name ?? null,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
     targets: entry.targets,
+    // Spec 0028 — whose it is, and the card it is (a permanent spell
+    // flies onto the table from its place in the stack).
+    ...(entry.controller ? { seat: entry.controller } : {}),
+    card: entry.kind === "spell" ? (entry.source ?? null) : null,
   }));
 
   const arrivals = new Map<string, AnchorId>();

@@ -36,6 +36,8 @@ export const LINE_THEME = {
   block: { aura: "#3aa8ff", body: "#6cc6ff", core: "#e4f5ff" },
   target: { aura: "#f0a830", body: "#f4c25e", core: "#fff4d6" },
   attach: { aura: "#b9782f", body: "#d6a15c", core: "#ffdfac" },
+  // Spec 0028 — an ability on the stack, back to the permanent it came from: faint.
+  source: { aura: "#5c6472", body: "#8a8f98", core: "#d8dde4" },
 } as const;
 export type LineKind = keyof typeof LINE_THEME;
 
@@ -72,7 +74,7 @@ export function curve(kind: LineKind, start: Point, end: Point, lane = 0): Curve
   const dist = Math.max(1, Math.hypot(dx, dy));
   const nx = -dy / dist;
   const ny = dx / dist;
-  if (kind === "attach") {
+  if (kind === "attach" || kind === "source") {
     const bend = Math.min(40, dist * 0.08);
     return {
       start,
@@ -166,34 +168,47 @@ export function swoopBox(
 
 /** How much bigger than a battlefield card a spell on the stack is drawn. */
 export const STACK_SCALE = 1.5;
-/** How many of the stack's objects are drawn as cards; the rest are in the list. */
-export const STACK_SHOWN = 4;
+/** How much of each card behind the front one shows: its name bar and a little art. */
+export const STACK_PEEK = 0.2;
+/** The least of it that may show when a tall stack has to tighten: the name bar. */
+export const STACK_PEEK_MIN = 0.12;
 
 /**
- * Where the stack's objects are drawn while they wait: as cards, at the
- * right edge of the play area, centred on the line between the two sides
- * (MTG Arena's place for a spell being cast). The top object is the
- * front card; each one under it peeks out behind, up and to the left.
+ * Spec 0028 — where the stack's objects are drawn while they wait: a
+ * cascade at the right edge of the play area. The object that resolves
+ * next is the front card, lowest; each one under it on the stack sits
+ * higher, behind it, so its name bar shows. Every object is drawn, all
+ * the same size. A tall stack tightens towards STACK_PEEK_MIN; past what
+ * still fits between the turn track and the hand, the oldest are left
+ * out (the caption counts them). Centred on the board's middle line when
+ * there is room. The boxes come top-of-stack first, as the stack does.
  */
 export function stackSpotBoxes(g: Geometry, count: number): Box[] {
-  const shown = Math.min(count, STACK_SHOWN);
+  if (count <= 0) return [];
   const w = g.cardW * STACK_SCALE;
   const h = g.cardH * STACK_SCALE;
   const right = g.play.x + g.play.w - g.inset * 2;
-  return Array.from({ length: shown }, (_, i) => {
-    const scale = STACK_SCALE * Math.pow(0.9, i);
-    const bw = g.cardW * scale;
-    const bh = g.cardH * scale;
-    return {
-      x: right - bw - i * w * 0.18,
-      y: g.height / 2 - bh / 2 - i * h * 0.06,
-      w: bw,
-      h: bh,
-      scale,
-      rotation: 0,
-      z: 0,
-    };
-  });
+  // Between the turn track (the top tenth) and the hand.
+  const top = g.height * 0.1;
+  const bottom = Math.max(top + h, g.handTop - g.inset);
+  const room = bottom - top;
+  const most = Math.max(1, Math.floor((room - h) / (h * STACK_PEEK_MIN)) + 1);
+  const shown = Math.min(count, most);
+  const peek =
+    shown > 1
+      ? Math.min(h * STACK_PEEK, Math.max(h * STACK_PEEK_MIN, (room - h) / (shown - 1)))
+      : 0;
+  const total = h + peek * (shown - 1);
+  const y0 = Math.min(Math.max(g.height / 2 - total / 2, top), bottom - total);
+  return Array.from({ length: shown }, (_, i) => ({
+    x: right - w,
+    y: y0 + (shown - 1 - i) * peek,
+    w,
+    h,
+    scale: STACK_SCALE,
+    rotation: 0,
+    z: 0,
+  }));
 }
 
 /** Where a line from inside an upright box toward `toward` leaves its edge. */

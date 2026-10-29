@@ -57,4 +57,7 @@ All taken 2026-10-28 (see the top).
 
 ## Amendments
 
-None.
+None. Note (2026-10-28, as built): the number and the caster's picture sit
+just left of each card's name bar rather than on its corners, so neither
+covers the name; the caption under the front card has a dark backing,
+since it often sits over the board's right-hand cards.

@@ -126,6 +126,13 @@ export interface StackView {
    * activated ability); null for a spell, whose line starts at the stack. */
   source: string | null;
   targets: readonly TargetRef[];
+  /** Spec 0028 — the seat that controls it: gold edge yours, red theirs. */
+  seat?: number;
+  /** Spec 0028 — its caster's picture, on the card's corner. */
+  caster?: string | null;
+  /** Spec 0028 — the card it is (a spell's own card), so a permanent spell
+   * that resolves flies onto the table from its place in the stack. */
+  card?: string | null;
 }
 
 /** An Aura or Equipment whose host is being chosen (the gold chain). */
@@ -161,6 +168,11 @@ export interface BoardProps {
   stack?: readonly StackView[];
   /** A stack object the player is pointing at: its lines show too. */
   pointedStack?: string | null;
+  /** Spec 0028 — a key for the response window now counting down (a new
+   * key restarts the ring round the front card), or null for none. */
+  clock?: string | null;
+  /** How long that countdown runs. */
+  clockMs?: number;
   /** What each hand card's cast costs right now, by card id (Forge's reckoning). */
   handCosts?: ReadonlyMap<string, string>;
   /** An attachment's host being chosen. */
@@ -207,6 +219,19 @@ const GLYPH: Record<Look, string> = {
   artifact: "M12 4 V20 M4 12 H20 M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5",
   walker: "M12 3 L19 9 V17 L12 21 L5 17 V9 Z",
 };
+
+/** Spec 0028 — the stack object whose line shows: the pointed one, else the front. */
+function stackFocus(stack: readonly StackView[] | undefined, pointed: string | null | undefined) {
+  if (!stack || stack.length === 0) return null;
+  return pointed && stack.some((s) => s.id === pointed) ? pointed : stack[0]!.id;
+}
+
+/** "1st", "2nd", "3rd", "4th"… for a screen reader's "2nd to resolve". */
+function ordinal(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+}
 
 /** A stack object's kind, on its card's bottom bar. */
 const STACK_KIND: Record<string, string> = {
@@ -345,16 +370,21 @@ interface Ghost extends Drawn {
   delay: number;
 }
 
-/** A burst or a damage number, on its way out. */
+/** A burst, a damage number or a resolving spell's spark, on its way out. */
 interface Effect {
   key: string;
-  kind: "burst" | "number";
+  kind: "burst" | "number" | "spark";
   /** What was hit: an object id, or "player:N". */
   target: string;
   at: Point;
   amount: number;
   delay: number;
+  /** A spark's end: where it travels to (spec 0028). */
+  to?: Point;
 }
+
+/** Spec 0028 — how long a resolving stack card glows, its spark travelling, before it leaves. */
+const RESOLVE_MS = 380;
 
 /** A line, ready to draw. */
 interface Line {
@@ -400,6 +430,8 @@ export function Board({
   combat,
   stack,
   pointedStack,
+  clock,
+  clockMs,
   handCosts,
   attaching,
   damage,
@@ -417,6 +449,9 @@ export function Board({
   const cardsRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [pointed, setPointed] = useState<string | null>(null);
+  // Spec 0028 — the stack card the player points at: its line shows
+  // instead of the front card's, and the rest of the stack fades.
+  const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
@@ -433,6 +468,8 @@ export function Board({
     at: Map<string, { box: Box; origin: { x: number; y: number } }>;
     drawn: Map<string, Drawn>;
     mounted: Set<string>;
+    /** Spec 0028 — the stack as it was drawn: each object and its card's box. */
+    stack: { s: StackView; box: Box }[];
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -473,10 +510,10 @@ export function Board({
     () =>
       new Set(
         (stack ?? [])
-          .filter((s, i) => i === 0 || s.id === pointedStack)
+          .filter((s) => s.id === stackFocus(stack, pointedOnStack ?? pointedStack))
           .flatMap((s) => s.targets.flatMap((t) => ("object" in t ? [t.object] : []))),
       ),
-    [stack, pointedStack],
+    [stack, pointedStack, pointedOnStack],
   );
   const act = useMemo(() => {
     const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
@@ -856,14 +893,17 @@ export function Board({
         // A new element: from wherever the object was drawn before (a
         // pile it left, the hand), or else from its zone in the rail.
         const was = before.at.get(item.id);
+        const fromStack = was ? undefined : before.stack.find((e) => e.s.card === item.id);
         const from = was
           ? placement(was.box, g.cardW, g.cardH, was.origin).transform
-          : placement(
-              boxAt(where[arrivals?.get(item.id) ?? "stack"], g),
-              g.cardW,
-              g.cardH,
-              item.origin,
-            ).transform;
+          : fromStack
+            ? placement(fromStack.box, g.cardW, g.cardH, item.origin).transform
+            : placement(
+                boxAt(where[arrivals?.get(item.id) ?? "stack"], g),
+                g.cardW,
+                g.cardH,
+                item.origin,
+              ).transform;
         const to = placement(item.box, g.cardW, g.cardH, item.origin).transform;
         element.animate(
           [
@@ -901,15 +941,80 @@ export function Board({
         );
       }
       if (leaving.length > 0) setGhosts((list) => [...list, ...leaving]);
+
+      // Spec 0028 — a stack object that resolved (or was countered) glows,
+      // its spark runs to what it targeted, then it leaves: a spell to its
+      // owner's graveyard, an ability into the permanent it came from. A
+      // permanent spell flies onto the table instead (the arrivals above).
+      const stillThere = new Set((stack ?? []).map((s) => s.id));
+      const sparks: Effect[] = [];
+      const gone: Ghost[] = [];
+      for (const { s, box } of before.stack) {
+        if (stillThere.has(s.id)) continue;
+        if (s.card && now.has(s.card)) continue;
+        const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
+        const centreBox = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+        for (const t of s.targets) {
+          const at =
+            "player" in t
+              ? where[`${t.player === viewerSeat ? "viewer" : "opponent"}:life`]
+              : (() => {
+                  const p = before.at.get(t.object);
+                  return p ? centreOf(p.box, p.origin) : null;
+                })();
+          if (at) {
+            sparks.push({
+              key: `spark:${s.id}:${sparks.length}`,
+              kind: "spark",
+              target: "player" in t ? `player:${t.player}` : t.object,
+              at: centreBox,
+              to: at,
+              amount: 0,
+              delay: 0,
+            });
+          }
+        }
+        const into = s.source ? now.get(s.source) : undefined;
+        gone.push({
+          name: s.name,
+          look: "artifact",
+          type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+          pt: "",
+          art: s.art ? artUrl(s.art) : null,
+          faceDown: s.name === "Face-down",
+          known: false,
+          cost: s.manaCost ?? null,
+          side,
+          id: s.id,
+          box,
+          origin: { x: 0, y: 0 },
+          to: into ? into.box : boxAt(where[`${side}:graveyard`], g),
+          toOrigin: into ? into.origin : { x: 0, y: 0 },
+          fade: true,
+          delay: RESOLVE_MS,
+        });
+      }
+      if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
+      if (sparks.length > 0) {
+        setEffects((list) => [...list, ...sparks]);
+        timers.current.push(
+          window.setTimeout(
+            () => setEffects((list) => list.filter((e) => !sparks.includes(e))),
+            RESOLVE_MS + 200,
+          ),
+        );
+      }
     }
 
+    const spots = stackSpotBoxes(g, (stack ?? []).length);
     previous.current = {
       viewport: { width: g.width, height: g.height },
       at: now,
       drawn,
       mounted: new Set(items.map((item) => item.id)),
+      stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
-  }, [items, result, arrivals, departures]);
+  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl]);
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
@@ -966,7 +1071,8 @@ export function Board({
     if (!from || !to) continue;
     add("block", b.blocker, b.attacker, edge(b.blocker, to, 0.2), edge(b.attacker, from, 0.22));
   }
-  const shown = (stack ?? []).filter((s, i) => i === 0 || s.id === pointedStack);
+  const focus = stackFocus(stack, pointedOnStack ?? pointedStack);
+  const shown = (stack ?? []).filter((s) => s.id === focus);
   for (const s of shown) {
     // From the spell's own card on the stack (the last drawn one, for an
     // object further down than the cards shown).
@@ -978,6 +1084,14 @@ export function Board({
       const end = "player" in t ? ringEdge(aim, from, lifeR) : edge(t.object, from, 0.18);
       add("target", s.id, refKey(t), box ? rectEdge(box, end) : from, end);
     }
+  }
+  // Spec 0028 — an ability, faintly, back to the permanent it came from.
+  for (const s of stack ?? []) {
+    const box = spotBox.get(s.id);
+    if (!s.source || !box || !centre(s.source)) continue;
+    const mid = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    const end = rectEdge(box, centre(s.source)!);
+    add("source", s.source, s.id, edge(s.source, mid, 0.22), end);
   }
   if (attaching) {
     const from = centre(attaching.source);
@@ -1060,10 +1174,20 @@ export function Board({
         {(stack ?? []).slice(0, spot.length).map((s, i) => {
           const box = spot[i]!;
           const a = act([s.id]);
+          // Spec 0028: whose (gold yours, red theirs), its place in the
+          // order (1 resolves next), its caster's picture; pointing at it
+          // shows its line and fades the rest.
+          const whose =
+            s.seat === undefined
+              ? ""
+              : s.seat === viewerSeat
+                ? " bf-stack-mine"
+                : " bf-stack-theirs";
+          const faded = pointedOnStack !== null && pointedOnStack !== s.id;
           return (
             <div
               key={`stack-spot:${s.id}`}
-              className="bf-slot bf-stack-slot"
+              className={`bf-slot bf-stack-slot${faded ? " bf-stack-faded" : ""}`}
               style={{
                 width: g.cardW,
                 height: g.cardH,
@@ -1074,19 +1198,24 @@ export function Board({
             >
               <button
                 type="button"
-                className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${a.className}`}
+                className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
                 aria-label={[
                   `${s.name}, on the stack`,
+                  `${ordinal(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
-                  i === 0 ? "resolves next" : "",
                   ...a.words,
                 ]
                   .filter(Boolean)
                   .join(", ")}
                 data-object-id={s.id}
                 data-zone="stack"
+                data-order={i + 1}
                 {...a.data}
                 {...a.handlers}
+                onPointerEnter={() => setPointedOnStack(s.id)}
+                onPointerLeave={() => setPointedOnStack((now) => (now === s.id ? null : now))}
+                onFocus={() => setPointedOnStack(s.id)}
+                onBlur={() => setPointedOnStack((now) => (now === s.id ? null : now))}
               >
                 <CardFace
                   name={s.name}
@@ -1099,6 +1228,24 @@ export function Board({
                   cost={s.manaCost ?? null}
                 />
               </button>
+              {/* Beside the card's name bar, so neither covers the name. */}
+              <span className="bf-stack-tag" aria-hidden="true">
+                <span className="bf-stack-n">{i + 1}</span>
+                {s.caster && <img className="bf-stack-by" src={s.caster} alt="" />}
+              </span>
+              {i === 0 && clock && (
+                // Spec 0028 — the 2-second auto-pass, counting down round the card.
+                <svg
+                  key={clock}
+                  className="bf-stack-clock"
+                  viewBox="0 0 100 140"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                  style={{ ["--clock-ms" as string]: `${clockMs ?? 2000}ms` }}
+                >
+                  <rect x="1.5" y="1.5" width="97" height="137" rx="6" pathLength={100} />
+                </svg>
+              )}
             </div>
           );
         })}
@@ -1119,14 +1266,14 @@ export function Board({
             }}
           >
             <span className="bf-stack-next">
-              {stack[0]!.by ? `${stack[0]!.by} · resolves next` : "Resolves next"}
+              {stack[0]!.by ? `1 resolves next · ${stack[0]!.by}` : "1 resolves next"}
             </span>
             {stack.length > 1 && (
               <span className="bf-stack-count">
                 {stack.length} on the stack
                 {stack.length > spot.length
-                  ? ` · ${stack.length - spot.length} more not shown`
-                  : ""}
+                  ? ` · ${stack.length - spot.length} older not shown`
+                  : " · point at one to see its target"}
               </span>
             )}
           </div>
@@ -1203,7 +1350,20 @@ export function Board({
         {overlay?.((id) => positions.get(id)?.box ?? null, g)}
         <div className="bf-effects" style={{ zIndex: Z_EFFECTS }} aria-hidden="true">
           {effects.map((effect) =>
-            effect.kind === "burst" ? (
+            effect.kind === "spark" ? (
+              <div
+                key={effect.key}
+                className="bf-spark"
+                data-spark={effect.target}
+                style={{
+                  left: effect.at.x,
+                  top: effect.at.y,
+                  ["--dx" as string]: `${(effect.to?.x ?? effect.at.x) - effect.at.x}px`,
+                  ["--dy" as string]: `${(effect.to?.y ?? effect.at.y) - effect.at.y}px`,
+                  ["--spark-ms" as string]: `${RESOLVE_MS}ms`,
+                }}
+              />
+            ) : effect.kind === "burst" ? (
               <div
                 key={effect.key}
                 className="bf-burst"

@@ -411,8 +411,115 @@
     0 0 0 1px rgb(244 194 94 / 55%),
     0 0 22px rgb(240 168 48 / 25%);
 }
-.bf-stack-slot:not(:has(.bf-stack-top)) .bf-stack-card {
-  filter: brightness(0.7);
+/* Spec 0028 — the cascade. Whose it is: a gold edge for yours, red for
+   theirs. Its place: a numbered badge (1 resolves next). Its caster: a
+   small picture on the other corner. Pointing at one fades the rest. */
+.bf-stack-slot {
+  transition:
+    transform var(--move-ms, 320ms) var(--move-easing, ease),
+    opacity 160ms ease;
+}
+.bf-stack-mine {
+  outline: 2px solid #e0a44a;
+  outline-offset: -1px;
+}
+.bf-stack-theirs {
+  outline: 2px solid #d9534f;
+  outline-offset: -1px;
+}
+.bf-stack-faded {
+  opacity: 0.45;
+}
+.bf-stack-tag {
+  position: absolute;
+  right: 100%;
+  top: 1%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  pointer-events: none;
+}
+.bf-stack-n,
+.bf-stack-by {
+  width: calc(var(--card-h) * 0.15);
+  height: calc(var(--card-h) * 0.15);
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 70%);
+}
+.bf-stack-n {
+  display: grid;
+  place-items: center;
+  background: #39424f;
+  color: #e6e9ee;
+  font-family: var(--pa-display, "Barlow Condensed", sans-serif);
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.1);
+}
+.bf-stack-slot:has(.bf-stack-top) .bf-stack-n {
+  background: #e0a44a;
+  color: #1a1206;
+}
+.bf-stack-by {
+  order: -1;
+  box-sizing: border-box;
+  border: 2px solid #0d1117;
+  object-fit: cover;
+}
+/* The response window's 2 seconds, running down round the front card. */
+.bf-stack-clock {
+  position: absolute;
+  inset: -4%;
+  width: 108%;
+  height: 108%;
+  overflow: visible;
+  pointer-events: none;
+}
+.bf-stack-clock rect {
+  fill: none;
+  stroke: #f4c25e;
+  stroke-width: 3;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 4px rgb(240 168 48 / 80%));
+  animation: bf-stack-clock var(--clock-ms, 2000ms) linear forwards;
+}
+@keyframes bf-stack-clock {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+/* A resolving stack card glows while its spark runs, then leaves. */
+.bf-ghost[data-ghost-of^="stack:"] .bf-card {
+  box-shadow:
+    0 0 0 2px #f4c25e,
+    0 0 26px 8px rgb(240 168 48 / 60%);
+}
+.bf-spark {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: radial-gradient(#fff6dc, #f4c25e 55%, rgb(240 168 48 / 0%) 72%);
+  box-shadow: 0 0 18px 6px rgb(240 168 48 / 70%);
+  animation: bf-spark var(--spark-ms, 380ms) cubic-bezier(0.45, 0, 0.25, 1) forwards;
+}
+@keyframes bf-spark {
+  to {
+    transform: translate(var(--dx), var(--dy)) scale(1.6);
+    opacity: 0.2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-stack-clock rect,
+  .bf-spark {
+    animation: none;
+  }
+  .bf-spark {
+    display: none;
+  }
 }
 /* Under the front card: who cast it, and how many wait (owner 2026-10-22). */
 .bf-stack-caption {
@@ -427,6 +534,14 @@
   font-family: var(--pa-text, "Segoe UI", system-ui, sans-serif);
   line-height: 1.25;
   text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
+}
+/* A dark backing on each line: the caption often sits over the board's
+   right-hand cards (spec 0028). */
+.bf-stack-next,
+.bf-stack-count {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgb(13 17 23 / 85%);
 }
 .bf-stack-next {
   color: #f0c46a;

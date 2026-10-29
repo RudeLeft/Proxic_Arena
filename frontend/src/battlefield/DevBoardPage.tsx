@@ -20,6 +20,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Board } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
+import { avatarUrl } from "../avatars";
 
 function number(params: URLSearchParams, key: string, fallback: number, max: number): number {
   const raw = params.get(key);
@@ -88,8 +89,14 @@ export default function DevBoardPage() {
         arrivals={now.arrivals}
         departures={now.departures}
         combat={scene?.combat ?? null}
-        stack={scene?.stack ?? []}
+        // Spec 0028: a picture for each caster, as the game gives them.
+        stack={(scene?.stack ?? []).map((s) => ({
+          ...s,
+          caster: avatarUrl(s.seat === 1 ? "avatar-01" : "avatar-46"),
+        }))}
         pointedStack={scene?.pointedStack ?? null}
+        // `&clock=1`: the response window's ring round the front card (spec 0028).
+        clock={params.get("clock") ? `dev:${change}` : null}
         attaching={scene?.attaching ?? null}
         damage={scene?.damage ?? null}
       />

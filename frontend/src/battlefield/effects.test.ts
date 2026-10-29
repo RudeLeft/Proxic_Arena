@@ -8,7 +8,8 @@ import {
   rectEdge,
   ringEdge,
   stackSpotBoxes,
-  STACK_SHOWN,
+  STACK_PEEK,
+  STACK_PEEK_MIN,
   swoopBox,
 } from "./effects";
 import { combatScript } from "./fixture";
@@ -139,20 +140,43 @@ describe("line curves", () => {
 describe("the stack, as cards (owner 2026-10-21)", () => {
   const g = layout(combatScript(0).board, { width: 1920, height: 1080 }).geometry;
 
-  it("sits at the play area's right edge, centred on the middle line, the top card in front", () => {
-    const [top, under] = stackSpotBoxes(g, 2);
+  it("sits at the play area's right edge, centred on the middle line (one card)", () => {
+    const [top] = stackSpotBoxes(g, 1);
     expect(top!.x + top!.w).toBeLessThanOrEqual(g.play.x + g.play.w);
     expect(top!.x).toBeGreaterThan(g.play.x + g.play.w / 2);
     expect(top!.y + top!.h / 2).toBeCloseTo(g.height / 2, 0);
-    // Bigger than a battlefield card; the one under it smaller, behind and up-left.
     expect(top!.w).toBeGreaterThan(g.cardW);
-    expect(under!.w).toBeLessThan(top!.w);
-    expect(under!.x).toBeLessThan(top!.x);
   });
 
-  it("draws at most a few cards; the rest stay in the list", () => {
-    expect(stackSpotBoxes(g, 9)).toHaveLength(STACK_SHOWN);
+  it("fans every object so each name bar shows, the next to resolve in front and lowest (F-0028-A)", () => {
+    const boxes = stackSpotBoxes(g, 3);
+    expect(boxes).toHaveLength(3);
+    const [front, second, third] = boxes;
+    // The same size, one above the other by a name bar's height.
+    expect(second!.w).toBe(front!.w);
+    expect(front!.y - second!.y).toBeCloseTo(front!.h * STACK_PEEK, 5);
+    expect(second!.y - third!.y).toBeCloseTo(front!.h * STACK_PEEK, 5);
+    expect(second!.x).toBe(front!.x);
     expect(stackSpotBoxes(g, 0)).toHaveLength(0);
+  });
+
+  it("tightens a tall stack to fit between the turn track and the hand (F-0028-F)", () => {
+    for (const n of [6, 10, 30]) {
+      const boxes = stackSpotBoxes(g, n);
+      const top = Math.min(...boxes.map((b) => b.y));
+      const bottom = Math.max(...boxes.map((b) => b.y + b.h));
+      expect(top, `${n}: below the turn track`).toBeGreaterThanOrEqual(g.height * 0.1 - 0.5);
+      expect(bottom, `${n}: above the hand`).toBeLessThanOrEqual(g.handTop + 0.5);
+      // Never tighter than a name bar.
+      if (boxes.length > 1) {
+        expect(boxes[0]!.y - boxes[1]!.y).toBeGreaterThanOrEqual(
+          boxes[0]!.h * STACK_PEEK_MIN - 0.01,
+        );
+      }
+    }
+    // Ten fit at 1080 high; thirty do not, and the oldest are left out.
+    expect(stackSpotBoxes(g, 10)).toHaveLength(10);
+    expect(stackSpotBoxes(g, 30).length).toBeLessThan(30);
   });
 
   it("a line leaves a card at its edge and meets a life circle at its rim", () => {

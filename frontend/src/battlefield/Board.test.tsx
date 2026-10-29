@@ -356,13 +356,21 @@ describe("Board lines and effects", () => {
     expect(c.querySelectorAll("[data-line]")).toHaveLength(0);
   });
 
-  it("only the stack's top object's target line, plus a pointed-at one (AMENDMENT 7)", () => {
+  it("the front stack object's target line; a pointed-at one's instead (spec 0028)", () => {
     const view = render(scene(8));
     expect(lines(view.container, "target")).toEqual(["stack:2>card:202"]);
     view.rerender(scene(9));
-    expect(lines(view.container, "target").sort()).toEqual(
-      ["stack:1>card:215", "stack:2>card:202"].sort(),
-    );
+    expect(lines(view.container, "target")).toEqual(["stack:1>card:215"]);
+  });
+
+  it("draws every stack object, numbered in the order they resolve (F-0028-A)", () => {
+    const view = render(scene(8));
+    const cards = [...view.container.querySelectorAll<HTMLElement>('[data-zone="stack"]')];
+    expect(cards.map((c) => `${c.dataset.objectId} ${c.dataset.order}`)).toEqual([
+      "stack:2 1",
+      "stack:1 2",
+    ]);
+    expect(cards[0]!.getAttribute("aria-label")).toContain("1st to resolve");
   });
 
   it("a gold chain while Equip's host is chosen, a tag once attached", () => {

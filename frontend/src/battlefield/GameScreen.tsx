@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import logo from "../assets/logo-header.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
-import { Avatar } from "../avatars";
+import { Avatar, avatarUrl } from "../avatars";
 import { ChatPanel } from "../LobbyChat";
 import { avatarOf, holdsBelt, rankOf } from "../lobbyView";
 import { BeltMark } from "../BeltMark";
@@ -226,6 +226,15 @@ export function GameScreen({
   // chat is closed (owner 2026-10-21). By the line's id, not a count: the
   // log keeps only the latest lines, so its length stops growing.
   const { lobby } = useLobbyConnection();
+  // Spec 0028 — each stack object with its caster's picture.
+  const stackShown = useMemo(
+    () =>
+      (data?.stack ?? []).map((entry) => {
+        const userId = match.participants.find((p) => p.seatNumber === entry.seat)?.userId;
+        return { ...entry, caster: userId ? avatarUrl(avatarOf(lobby, userId)) : null };
+      }),
+    [data, match.participants, lobby],
+  );
   const latestFromOthers = useMemo(() => {
     // Spec 0013 — the game's own chat, not the lobby's.
     for (let i = lobby.gameChat.length - 1; i >= 0; i--) {
@@ -269,6 +278,11 @@ export function GameScreen({
       setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
         answer(result.actionId);
+        return;
+      }
+      // Spec 0028 — a stack card with nothing to do opens its close-up.
+      if (result.kind === "select" && objectId.startsWith("stack:")) {
+        setInspecting(objectId);
         return;
       }
       // A card with nothing to do is only highlighted: no window
@@ -379,7 +393,9 @@ export function GameScreen({
           arrivals={data.arrivals}
           departures={data.departures}
           combat={data.combat}
-          stack={data.stack}
+          stack={stackShown}
+          clock={counting && windowId !== null ? String(windowId) : null}
+          clockMs={RESPONSE_WINDOW_MS}
           handCosts={handCosts}
           damage={data.damage}
           onPick={pick}

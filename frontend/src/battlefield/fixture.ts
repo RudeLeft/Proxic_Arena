@@ -603,6 +603,7 @@ export function combatScript(n: number): SyntheticScene {
     id: "stack:1",
     name: "Lightning Bolt",
     by: "Ash",
+    seat: 1,
     source: null,
     targets: [{ object: emperor.id }],
   };
@@ -610,11 +611,24 @@ export function combatScript(n: number): SyntheticScene {
     id: "stack:2",
     name: "Shock",
     by: "Bree",
+    seat: 2,
     source: null,
     targets: [{ object: knight.id }],
   };
+  // Spec 0028: an activated ability on top at step 9 -- from a permanent
+  // on the table, so its faint line runs back to it.
+  const ability: StackView = {
+    id: "stack:3",
+    name: emperor.name,
+    by: "Ash",
+    seat: 1,
+    kind: "ability",
+    source: emperor.id,
+    targets: [],
+  };
   if (step === 7) scene.stack = [bolt];
-  if (step === 8 || step === 9) scene.stack = [shock, bolt];
+  if (step === 8) scene.stack = [shock, bolt];
+  if (step === 9) scene.stack = [ability, shock, bolt];
   if (step === 9) scene.pointedStack = bolt.id;
   if (step >= 10) {
     remove(knight.id);
