@@ -47,7 +47,8 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
     const deckName = await sharedDeck(host, guest, karnPackage);
     await startAMatch(host, guest, deckName, { settle: false });
 
-    const restarted = /Game 2 ·/;
+    // Spec 0030: the ladder's turn line reads "Turn 1 · Game 2".
+    const restarted = /· Game 2\b/;
     const asking = async (page: Page) =>
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;

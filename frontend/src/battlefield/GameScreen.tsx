@@ -40,6 +40,7 @@ import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
 import { ManaCost, costChange, withSymbols } from "./ManaCost";
 import {
   STOP_STEPS,
+  combatPart,
   fetchStops,
   passWords,
   saveStops,
@@ -404,7 +405,6 @@ export function GameScreen({
           unpayable={unpayable}
           selected={selected}
           asking={question?.context === "choose"}
-          top={<TopBar board={board} />}
           rail={
             <Rail
               board={board}
@@ -619,12 +619,17 @@ function nameOf(board: Snapshot | null, id: string): string {
   return card.faceDown && !card.known ? "Face-down card" : card.name;
 }
 
-// --- top bar ------------------------------------------------------------------------
+// --- the turn ladder ------------------------------------------------------------------
 
-/** How long the step bar rests on each step it passes (owner 2026-10-22). */
+/** How long the highlight rests on each step it passes (owner 2026-10-22). */
 const STEP_MS = 240;
 
-function TopBar({ board }: { board: Snapshot }) {
+/**
+ * Spec 0030 — the turn's steps, top to bottom, between the plates: the
+ * step the game is in gold, the passed ones dimmed. It replaced the bar
+ * over the board.
+ */
+function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
   const target = STEPS.findIndex((step) => step.phases.includes(board.phase));
   // Owner 2026-10-22: steps nobody stops at went by in one jump, and the
   // game felt fast-forwarded. The bar walks through what was passed, a
@@ -656,11 +661,28 @@ function TopBar({ board }: { board: Snapshot }) {
     }, STEP_MS);
     return () => window.clearInterval(timer);
   }, [board.turn, target]);
+  const mine = board.activeSeat === mySeat;
+  const theirs = board.players.find((p) => p.seat === board.activeSeat)?.name;
+  const whose = mine ? "Your turn" : theirs ? `${theirs}’s turn` : "Their turn";
+  const part = combatPart(board.phase);
   return (
-    <div className="gs-top">
-      <div className="gs-turn" aria-label={`Turn ${board.turn}`}>
-        <span className="gs-turn-key">Turn</span>
-        <span className="gs-turn-value">{board.turn}</span>
+    <div className="gs-ladder">
+      <div className="gs-ladder-head">
+        <span className="gs-turn" aria-label={`Turn ${board.turn}`}>
+          Turn <span className="gs-turn-value">{board.turn}</span>
+          {board.dayTime && (
+            <span className="gs-day"> · {board.dayTime === "night" ? "Night" : "Day"}</span>
+          )}
+          {/* §6.70 — after a restart, say which game this is, or "turn 1"
+              reads as the game having gone backwards. */}
+          {board.gameEpoch > 1 && (
+            <span className="gs-day gs-game" title="The game was restarted">
+              {" "}
+              · Game {board.gameEpoch}
+            </span>
+          )}
+        </span>
+        <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
       </div>
       {/* data-step: the step the game is IN; the highlight may still be
           walking towards it. */}
@@ -668,21 +690,15 @@ function TopBar({ board }: { board: Snapshot }) {
         {STEPS.map((step, i) => (
           <li
             key={step.label}
-            className={`gs-step${i === now ? " gs-step-now" : ""}`}
+            className={`gs-step${i === now ? " gs-step-now" : i < now ? " gs-step-past" : ""}`}
             aria-current={i === now ? "step" : undefined}
           >
-            {step.label}
+            <span className="gs-step-dot" aria-hidden="true" />
+            <span className="gs-step-name">{step.label}</span>
+            {i === now && i === target && part && <span className="gs-step-part">{part}</span>}
           </li>
         ))}
       </ol>
-      {board.dayTime && (
-        <span className="gs-day">{board.dayTime === "night" ? "Night" : "Day"}</span>
-      )}
-      {/* §6.70 — after a restart, say which game this is, or "turn 1"
-          reads as the game having gone backwards. */}
-      {board.gameEpoch > 1 && (
-        <span className="gs-day gs-game">Game {board.gameEpoch} · restarted</span>
-      )}
     </div>
   );
 }
@@ -960,6 +976,8 @@ function Rail({
           onView={onView}
         />
       )}
+
+      <StepLadder board={board} mySeat={mySeat} />
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone). */}

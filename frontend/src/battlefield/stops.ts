@@ -143,3 +143,18 @@ export function waitingLine(
   if (seat === null || seat === mySeat) return "One moment";
   return `Waiting for ${nameOf(seat)}`;
 }
+
+/** Spec 0030 — which part of combat a phase is, for the turn ladder; null outside those parts. */
+export function combatPart(phase: string): string | null {
+  switch (phase) {
+    case "COMBAT_DECLARE_ATTACKERS":
+      return "Attackers";
+    case "COMBAT_DECLARE_BLOCKERS":
+      return "Blockers";
+    case "COMBAT_FIRST_STRIKE_DAMAGE":
+    case "COMBAT_DAMAGE":
+      return "Damage";
+    default:
+      return null;
+  }
+}

@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { Snapshot } from "../match";
-import { fetchStops, passWords, saveStops, waitingLine } from "./stops";
+import { combatPart, fetchStops, passWords, saveStops, waitingLine } from "./stops";
 
 function board(
   phase: string,
@@ -112,5 +112,20 @@ describe("waitingLine", () => {
     // Their spell on the stack: it is theirs that is going on.
     const theirs = table(1, [{ name: "Shock", controller: 2 }]);
     expect(waitingLine(theirs, 1, null, null, false)).toBe("Waiting for Bob");
+  });
+});
+
+describe("combatPart (spec 0030)", () => {
+  it("names the part of combat the ladder's Combat row shows", () => {
+    expect(combatPart("COMBAT_DECLARE_ATTACKERS")).toBe("Attackers");
+    expect(combatPart("COMBAT_DECLARE_BLOCKERS")).toBe("Blockers");
+    expect(combatPart("COMBAT_FIRST_STRIKE_DAMAGE")).toBe("Damage");
+    expect(combatPart("COMBAT_DAMAGE")).toBe("Damage");
+  });
+
+  it("says nothing at the start or end of combat, or outside it", () => {
+    expect(combatPart("COMBAT_BEGIN")).toBeNull();
+    expect(combatPart("COMBAT_END")).toBeNull();
+    expect(combatPart("MAIN1")).toBeNull();
   });
 });

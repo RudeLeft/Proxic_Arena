@@ -404,10 +404,12 @@ button.gs-zone:disabled {
   outline: 2px solid #f1f4f8;
   outline-offset: 2px;
 }
+/* Spec 0030 — just left of the column, on the board's edge, so it never
+   covers the turn ladder; its bottom lines up with "All attack". */
 .gs-combat-notice {
   position: absolute;
-  left: 7.4px;
-  bottom: 386px;
+  left: -228.6px;
+  bottom: 338px;
   width: 216px;
   box-sizing: border-box;
   margin: 0;
@@ -479,7 +481,7 @@ button.gs-zone:disabled {
   outline-offset: 2px;
 }
 
-/* --- the top bar -------------------------------------------------------------- */
+/* --- the top of the board ------------------------------------------------------ */
 
 .bf-top {
   position: absolute;
@@ -489,77 +491,100 @@ button.gs-zone:disabled {
   z-index: 15000;
   pointer-events: none;
 }
-.gs-top {
+/* Spec 0030 — the turn ladder between the plates, in the rail's 900-pixel
+   units: from 308 to 506, clear of the opponent's plate (ends 295) and of
+   "All attack" (starts 524). Eight rows of 20 with gaps of 2 under an
+   18-pixel head. */
+.gs-ladder {
   position: absolute;
-  left: 50%;
-  top: calc(12px * var(--rail-scale, 1));
+  left: 7.4px;
+  top: 308px;
+  width: 216px;
   display: flex;
-  align-items: center;
-  gap: 20px;
-  transform: translateX(-50%) scale(var(--rail-scale, 1));
-  transform-origin: top center;
-  pointer-events: auto;
+  flex-direction: column;
+  gap: 6px;
+}
+.gs-ladder-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  height: 18px;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-md);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #c2c9d2;
 }
 .gs-turn {
   flex: none;
-  width: 62px;
-  height: 62px;
-  box-sizing: border-box;
-  border: 2px solid #5c6472;
-  border-radius: 50%;
-  background: #11161d;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.gs-turn-key {
-  font-size: var(--pa-size-xs);
-  letter-spacing: var(--pa-track-caps);
-  text-transform: uppercase;
-  color: #8a8f98;
 }
 .gs-turn-value {
-  font-family: var(--pa-display);
-  font-weight: 700;
-  font-size: var(--pa-size-xl);
-  line-height: 0.9;
   font-variant-numeric: tabular-nums;
+}
+.gs-day {
+  color: #8a8f98;
+}
+.gs-whose {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gs-whose-mine {
+  color: #e0a44a;
 }
 .gs-steps {
   display: flex;
+  flex-direction: column;
   gap: 2px;
-  width: 744px;
-  height: 54px;
-  box-sizing: border-box;
   margin: 0;
-  padding: 5px;
+  padding: 0;
   list-style: none;
-  border: 1px solid #262d36;
-  border-radius: 27px;
-  background: #11161d;
 }
 .gs-step {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 20px;
+  padding: 0 10px;
+  border-radius: 10px;
   font-size: var(--pa-size-xs);
   letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
   white-space: nowrap;
-  color: #7a828d;
+  color: #b4bbc4;
+}
+.gs-step-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 1.5px solid #5c6472;
+  border-radius: 50%;
+}
+.gs-step-name {
+  flex: 1;
+}
+.gs-step-past {
+  color: #737a84;
+}
+.gs-step-past .gs-step-dot {
+  border-color: #7a6a4c;
+  background: #7a6a4c;
 }
 .gs-step-now {
   background: #e0a44a;
   color: #17110a;
   font-weight: 700;
 }
-.gs-day {
-  font-size: var(--pa-size-xs);
-  letter-spacing: var(--pa-track-caps);
-  text-transform: uppercase;
-  color: #c2c9d2;
+.gs-step-now .gs-step-dot {
+  border-color: #17110a;
+  background: #17110a;
+}
+.gs-step-part {
+  letter-spacing: 0.06em;
 }
 
 /* The logo and the game's state in words: top left. */
@@ -617,7 +642,7 @@ button.gs-zone:disabled {
 .gs-banner {
   position: absolute;
   left: 50%;
-  top: 90px;
+  top: 12px;
   z-index: 16000;
   max-width: 560px;
   transform: translateX(-50%);
@@ -641,10 +666,11 @@ button.gs-zone:disabled {
   box-shadow: 0 16px 40px rgb(0 0 0 / 70%);
   transform: translate(-50%, -50%);
 }
-/* A question the board answers: one line under the steps, so the
- * highlighted cards stay in plain view (AMENDMENT 12). */
+/* A question the board answers: one line at the top of the board, so the
+ * highlighted cards stay in plain view (AMENDMENT 12; spec 0030 moved it
+ * up into the place the step bar left). */
 .gs-question-slim {
-  top: calc(84px * var(--gs-scale, 1));
+  top: calc(12px * var(--gs-scale, 1));
   width: auto;
   max-width: min(64vw, 960px);
   padding: 8px 16px;
