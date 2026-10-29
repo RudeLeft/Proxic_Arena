@@ -1,7 +1,7 @@
 // Spec 0017 — the type scale is the only way to size text (F-0017-A).
 //
 // Every `font-size` in the app's stylesheets is one of the scale's
-// steps (styles.css), and every typeface is one of the two shared ones.
+// steps (styles.css), and every typeface is one of the shared ones.
 // The only sizes allowed outside the scale are text drawn ON a card,
 // which grows with the card (`--card-h`): it is part of the measured
 // board, and spec 0017 leaves it alone.
@@ -53,9 +53,13 @@ describe("the type scale", () => {
 
     it(`${sheet}: every typeface is one of the shared ones`, () => {
       const typed = values(read(sheet), "font-family").filter(
-        ({ value }) => value !== "inherit" && !/^var\(--pa-(display|text|mono)\b/.test(value),
+        ({ value }) =>
+          value !== "inherit" &&
+          !/^var\(--pa-(display|text|mono|card)\b/.test(value) &&
+          value !== '"Proxic Card Title"',
       );
-      // Only styles.css itself names the faces, in their variables.
+      // Only styles.css itself names the faces, in their variables (and the
+      // card-title face's own @font-face, spec 0032).
       expect(typed, `hand-typed typeface in ${sheet}`).toEqual([]);
     });
   }

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 108" width="92" height="108">
+  <!-- Spec 0032: the life banner, drawn after the owner's banner (canvas L2):
+       a gold frame, red velvet, a ruby in each top corner and at the point. -->
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7e1a0"/>
+      <stop offset="0.35" stop-color="#d4a14a"/>
+      <stop offset="0.7" stop-color="#9c6a24"/>
+      <stop offset="1" stop-color="#6e4614"/>
+    </linearGradient>
+    <radialGradient id="velvet" cx="0.5" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#8f1822"/>
+      <stop offset="0.55" stop-color="#560c13"/>
+      <stop offset="1" stop-color="#2c0509"/>
+    </radialGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a92"/>
+      <stop offset="0.45" stop-color="#d8162b"/>
+      <stop offset="1" stop-color="#6a0612"/>
+    </linearGradient>
+  </defs>
+  <polygon points="0,0 92,0 92,80 46,108 0,80" fill="url(#gold)"/>
+  <polyline points="1,79 1,1 91,1" fill="none" stroke="#fff3cc" stroke-width="1" opacity="0.7"/>
+  <polygon points="6,6 86,6 86,76.6 46,101 6,76.6" fill="url(#velvet)"/>
+  <polygon points="9,9 83,9 83,75 46,97.5 9,75" fill="none" stroke="#d9a94f" stroke-width="0.8" opacity="0.55"/>
+  <polygon points="6,6 22,6 6,22" fill="url(#gold)"/>
+  <polygon points="86,6 70,6 86,22" fill="url(#gold)"/>
+  <polygon points="11.5,7.5 15,11 11.5,14.5 8,11" fill="url(#gem)" stroke="#5a3a10" stroke-width="0.6"/>
+  <polygon points="80.5,7.5 84,11 80.5,14.5 77,11" fill="url(#gem)" stroke="#5a3a10" stroke-width="0.6"/>
+  <polygon points="6,76.6 6,66 14,81.5" fill="url(#gold)"/>
+  <polygon points="86,76.6 86,66 78,81.5" fill="url(#gold)"/>
+  <polygon points="46,90 52,98 46,107 40,98" fill="url(#gold)"/>
+  <polygon points="46,92.5 49.6,98 46,104 42.4,98" fill="url(#gem)"/>
+  <polygon points="46,92.5 47.6,96 46,98" fill="#ffd0d4" opacity="0.8"/>
+</svg>

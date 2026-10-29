@@ -1,5 +1,16 @@
 /* Foundation UI styling — PHASE_01 1.68. Diagnostic, not the game. */
 
+/* Spec 0032 — the card-title face, used on the battlefield only (card
+   names and types, the numbers, names and big words of the game screen).
+   One bold face, so every weight maps to it rather than a faked one. */
+@font-face {
+  font-family: "Proxic Card Title";
+  src: url("./assets/fonts/card-title.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg: #0d1014;
@@ -15,6 +26,8 @@
   --pa-display: "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
   --pa-text: "Segoe UI", system-ui, sans-serif;
   --pa-mono: ui-monospace, Consolas, monospace; /* codes and links to copy */
+  /* Spec 0032: the battlefield's card-title face; falls back to the display face. */
+  --pa-card: "Proxic Card Title", "Barlow Condensed", "Segoe UI", system-ui, sans-serif;
   --pa-size-xs: 0.75rem; /* 12px: spaced-capital labels, tiny tags */
   --pa-size-sm: 0.8125rem; /* 13px: times, meta lines, notes */
   --pa-size-md: 0.875rem; /* 14px: secondary text, small buttons */

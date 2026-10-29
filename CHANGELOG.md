@@ -18,6 +18,10 @@ words, newest first. Each release on GitHub carries the same notes.
 - Each player in the game's right-hand column sits on a raised plate: picture with its Hall ring, name and Belt, life in a red banner.
 - Hand, library, graveyard and exile are big tiles with an icon, a large count and the word. Whose turn it is: the plate's top edge and the banner turn gold.
 
+**Card-title font and life banner** (spec 0032, owner 2026-10-28)
+- On the game screen, card names and type lines, power/toughness, counts, player names, the life total and the big words are in the font Magic cards use for their names. Everything else, and every other page, keeps its current font; no wording changed.
+- The life total sits in a new banner: a gold frame, red velvet and rubies. It glows gold on that player's turn.
+
 **Belt mark and zone pictures** (spec 0031, owner 2026-10-28)
 - The small Champion's Belt beside the holder's name is a new gold belt, drawn bolder so it reads at that size. The Hall of Champions keeps its big belt.
 - The Library, Graveyard and Exile tiles on the player plates show new pictures (card backs, a tombstone, a portal) faded behind the count. Library runs across the top of each plate, Graveyard and Exile side by side beneath.

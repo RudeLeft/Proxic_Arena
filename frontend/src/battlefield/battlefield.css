@@ -160,7 +160,9 @@
     0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
 
+/* Spec 0032: the bars are in the card-title face, as on a real card. */
 .bf-bar {
+  font-family: var(--pa-card);
   position: absolute;
   left: 0;
   right: 0;
@@ -292,6 +294,7 @@
 }
 /* Left, under the name, so a squeezed row still shows it. */
 .bf-pile {
+  font-family: var(--pa-card);
   left: calc(var(--card-h) * 0.03);
   top: calc(var(--card-h) * 0.155);
   background: var(--bf-ink);
@@ -343,6 +346,7 @@
   stroke-linecap: round;
 }
 .bf-tag-name {
+  font-family: var(--pa-card);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -465,7 +469,7 @@
   place-items: center;
   background: #39424f;
   color: #e6e9ee;
-  font-family: var(--pa-display, "Barlow Condensed", sans-serif);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: calc(var(--card-h) * 0.1);
 }
@@ -626,6 +630,7 @@
 }
 /* The damage number: rises a little and fades, about a second. */
 .bf-number {
+  font-family: var(--pa-card);
   position: absolute;
   font-weight: 700;
   line-height: 1;

@@ -176,7 +176,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-size: var(--pa-size-lg);
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -191,9 +191,10 @@
   border-radius: 50%;
   background: #e0a44a;
 }
-/* The life banner: a button (it can be chosen as a target), its shape
-   drawn by ::before and its gold edge on your turn by ::after, so the
-   chosen outline and the target glow are not clipped by the shape. */
+/* The life banner: a button (it can be chosen as a target), its picture
+   drawn by ::before so the chosen outline and the target glow are not
+   clipped by the shape. Spec 0032: the owner's banner redrawn (canvas L2):
+   gold frame, red velvet, rubies; on your turn it glows gold. */
 .gs-life {
   position: relative;
   isolation: isolate;
@@ -205,27 +206,24 @@
   border: 0;
   background: none;
   color: #fff;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: var(--pa-size-xl);
   font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 90%),
+    0 0 6px rgb(0 0 0 / 60%);
   cursor: default;
 }
-.gs-life::before,
-.gs-life::after {
+.gs-life::before {
   content: "";
   position: absolute;
-  clip-path: polygon(50% 100%, 0 74%, 0 0, 100% 0, 100% 74%);
-}
-.gs-life::before {
   inset: 0;
   z-index: -1;
-  background: linear-gradient(#7a1f1f, #3d0e0e);
+  background: url("../assets/life-banner.svg") center / 100% 100% no-repeat;
 }
-.gs-life-active::after {
-  inset: -2px;
-  z-index: -2;
-  background: #e0a44a;
+.gs-life-active::before {
+  filter: drop-shadow(0 0 4px rgb(240 190 90 / 95%));
 }
 .gs-life-n {
   position: relative;
@@ -290,7 +288,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   position: absolute;
   left: 10px;
   top: 5px;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: var(--pa-size-xl);
   line-height: 1;
@@ -306,11 +304,11 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--pa-size-xs);
+  font-family: var(--pa-card);
+  font-size: var(--pa-size-sm);
   font-weight: 600;
-  /* Not capitals: at the scale's smallest size "GRAVEYARD" is wider
-     than its tile, "Graveyard" is not. */
-  letter-spacing: 0.02em;
+  /* Not capitals: "GRAVEYARD" is wider than its tile, "Graveyard" is not. */
+  letter-spacing: 0.03em;
   color: #c2c9d2;
   text-shadow: 0 1px 2px #000;
 }
@@ -429,7 +427,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   line-height: 1.4;
 }
 .gs-act-word {
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: var(--pa-size-lg);
   letter-spacing: var(--pa-track-caps);
@@ -462,7 +460,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   text-align: center;
   line-height: 1.15;
   gap: 7px;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: var(--pa-size-lg);
   letter-spacing: var(--pa-track-button);
@@ -517,7 +515,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   align-items: baseline;
   gap: 8px;
   height: 18px;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 700;
   font-size: var(--pa-size-md);
   letter-spacing: 0.1em;
@@ -725,7 +723,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-question-title {
   margin: 0;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 600;
   font-size: var(--pa-size-xl);
 }
@@ -1177,7 +1175,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-over-title {
   margin: 0;
-  font-family: var(--pa-display);
+  font-family: var(--pa-card);
   font-weight: 600;
   font-size: var(--pa-size-xl);
 }
