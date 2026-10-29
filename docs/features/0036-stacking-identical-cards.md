@@ -1,6 +1,6 @@
 # 0036 — Identical cards stack, up to 15
 
-**Status:** Approved 2026-10-29 (spec only; build when the owner says)
+**Status:** Approved 2026-10-29; built (unreleased)
 **Owner decisions:** 2026-10-29 — any identical cards stack, not only
 basic lands and tokens; any difference splits them; at most 15 to a
 stack; clicking a stack in an attack sends one card per click; cards

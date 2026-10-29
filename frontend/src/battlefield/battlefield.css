@@ -316,6 +316,16 @@
   background: var(--bf-attack);
   border-color: var(--bf-attack);
 }
+/* Spec 0037 — a blocker sitting on the attacker it blocks: blue. */
+.bf-state-blocking {
+  color: #eaf4ff;
+  background: #2f6fae;
+  border-color: #6aaee8;
+}
+.bf-card[data-rides] {
+  outline: 2px solid #3b8fd6;
+  outline-offset: -2px;
+}
 /* Left, under the name, so a squeezed row still shows it. */
 .bf-pile {
   font-family: var(--pa-card);

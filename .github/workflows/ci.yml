@@ -434,6 +434,11 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/attachment-deck.zip" protocol/fixtures/attachment-deck
 
+      # And a swarm of identical Goblin tokens (specs 0036, 0037): big combats.
+      - name: Build the swarm deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/swarm-deck.zip" protocol/fixtures/swarm-deck
+
       # And a printing Forge does not have (spec 0024): kept as picked.
       - name: Build the own-printing deck package
         run: |

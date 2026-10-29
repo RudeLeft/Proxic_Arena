@@ -95,11 +95,17 @@ export interface LayoutCard {
   token?: boolean;
   /**
    * Spec 0003 — what this attacker attacks ("player:2", "card:N"), set
-   * only while it is attacking and unblocked: such identical tokens pile
-   * together, one card and one fire line. A blocked attacker has none and
-   * stands alone, so its block can be drawn.
+   * only while it is attacking and unblocked: such identical attackers
+   * pile together, one card and one fire line.
    */
   attackPile?: string;
+  /** Spec 0037 — the one attacker this blocker blocks: it rides on it. */
+  blocks?: string;
+  /** Spec 0036 — facts a stack compares (absent: as if none). */
+  damage?: number;
+  ringBearer?: boolean;
+  sector?: string | null;
+  sprocket?: number | null;
 }
 
 export interface LayoutInput {
@@ -148,6 +154,9 @@ export interface Slot {
    * (§7.52a L7 as amended by PHASE 7 AMENDMENT 4). */
   attached: string[];
   box: Box;
+  /** Spec 0037 — a blocker riding on an attacker: that attacker's slot
+   * lead. Its box hangs from the attacker's toward the board's middle. */
+  rides?: string;
 }
 
 export interface Geometry {
@@ -226,44 +235,100 @@ export function kindOf(card: LayoutCard): Kind {
   return "other";
 }
 
-/** A basic land: Forge's type line says so ("Basic Land — Forest"). */
-function isBasicLand(card: LayoutCard): boolean {
-  return /\bBasic\b/.test(card.types) && /\bLand\b/.test(card.types);
+/**
+ * Combat, as layout needs it (spec 0003, spec 0037): unblocked attackers
+ * say what they attack, so identical ones pile (one card, one fire line);
+ * a blocker of exactly one attacker rides on it. The board and its tests
+ * both lay out through this, so they agree.
+ */
+export function inCombat<C extends LayoutCard>(
+  battlefield: readonly C[],
+  combat: {
+    attackers: readonly { id: string; target: { player: number } | { object: string } }[];
+    blocks: readonly { blocker: string; attacker: string }[];
+  },
+): C[] {
+  const aims = new Map(
+    combat.attackers.map((a) => [
+      a.id,
+      "player" in a.target ? `player:${a.target.player}` : a.target.object,
+    ]),
+  );
+  const blocked = new Set(combat.blocks.map((b) => b.attacker));
+  const blocking = new Map<string, string[]>();
+  for (const b of combat.blocks) {
+    blocking.set(b.blocker, [...(blocking.get(b.blocker) ?? []), b.attacker]);
+  }
+  return battlefield.map((card) => {
+    const blocks = blocking.get(card.id);
+    if (blocks?.length === 1) return { ...card, blocks: blocks[0]! };
+    return card.attacking && aims.has(card.id) && !blocked.has(card.id)
+      ? { ...card, attackPile: aims.get(card.id)! }
+      : card;
+  });
 }
 
+/** Spec 0036 — at most this many cards to a stack; the next starts another. */
+export const PILE_MAX = 15;
+
 /**
- * Which pile a card belongs to, or null for a card that never piles.
- *
- * Identical untapped basics pile from the start, tapped ones in their own
- * pile (§7.58, §7.52a L8); identical tokens pile too (§7.52a L5). A card
- * piles only when nothing about it differs from its twins: anything that
- * could make one of them a different choice -- counters, an attachment,
- * blocking or being blocked, summoning sickness, a changed characteristic
- * -- keeps it out.
- *
- * Attacking no longer does (spec 0003, owner 2026-10-23, amending §7.52a
- * L5's "not in combat"): 300 Goblin tokens attacking one player split into
- * 300 cards and 300 fire lines and stalled the page. Unblocked attackers
- * of the same thing pile, as `attackPile` says.
+ * Spec 0036 — everything a stack compares: two cards stack only when all
+ * of it matches, so a stack never hides a difference that could change a
+ * choice. Artwork is not compared (two printings of one card stack).
  */
-function pileKey(card: LayoutCard, attachedHosts: ReadonlySet<string>): string | null {
-  const pileable = isBasicLand(card) || card.token === true;
-  if (!pileable || card.faceDown || !card.known) return null;
-  if (card.counters.length > 0 || card.attachedTo !== null || attachedHosts.has(card.id))
-    return null;
-  if (card.blocking || (card.attacking && card.attackPile === undefined)) return null;
+function identity(card: LayoutCard): string {
   return JSON.stringify([
-    card.attacking ? card.attackPile : null,
     card.seat,
     card.name,
+    card.token === true,
     card.types,
     card.power,
     card.toughness,
     [...card.keywords].sort(),
     card.tapped,
     card.sick,
+    card.counters.map((c) => `${c.name}:${c.count}`).sort(),
+    card.damage ?? 0,
+    card.ringBearer ?? false,
+    card.sector ?? null,
+    card.sprocket ?? null,
   ]);
 }
+
+/**
+ * Which stack a card belongs to, or null for a card that stands alone.
+ *
+ * Spec 0036 (owner 2026-10-29, replacing §7.58 / §7.52a L5 / L8's "basic
+ * lands and tokens only"): any identical cards stack -- `identity` says
+ * what identical means. Alone: a face-down card, anything with an
+ * attachment or attached, and a blocker that does not ride (spec 0037).
+ *
+ * Attacking (spec 0003): unblocked attackers of the same thing stack, as
+ * `attackPile` says. A blocked attacker stacks with the attackers its
+ * twins are, blocked by twins of its blockers (spec 0037: identical pairs
+ * stack); `riders` are its blockers.
+ */
+function pileKey(
+  card: LayoutCard,
+  attachedHosts: ReadonlySet<string>,
+  riders: readonly LayoutCard[] | undefined,
+): string | null {
+  if (card.faceDown || !card.known) return null;
+  if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
+  if (card.blocking) return null;
+  if (riders) return JSON.stringify(["pair", identity(card), riders.map(identity).sort()]);
+  if (card.attacking && card.attackPile === undefined) return null;
+  return JSON.stringify([card.attacking ? card.attackPile : null, identity(card)]);
+}
+
+/**
+ * Spec 0037 — where a blocker sits on its attacker, of a card: a little
+ * toward the board's middle and to the right, drawn over it. Measured on
+ * the real board (2026-10-29): the two front rows touch in the middle, so
+ * a blocker hanging further out covered the defender's own front row.
+ */
+const RIDE_DOWN = 0.14;
+const RIDE_ACROSS = 0.14;
 
 // --- the overflow ladder ----------------------------------------------------
 
@@ -459,12 +524,26 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   const isAttachment = (card: LayoutCard): boolean =>
     card.attachedTo !== null && byId.has(card.attachedTo) && card.attachedTo !== card.id;
 
+  // Spec 0037 — a blocker rides on the one attacker it blocks, unless
+  // something is attached to it (its tags need a card of its own).
+  const ridersOf = new Map<string, LayoutCard[]>();
+  for (const card of [...input.battlefield].sort(arrival)) {
+    const host = card.blocks ? byId.get(card.blocks) : undefined;
+    if (!card.blocking || !host || isAttachment(card) || hosts.has(card.id)) continue;
+    const list = ridersOf.get(host.id) ?? [];
+    list.push(card);
+    ridersOf.set(host.id, list);
+  }
+  const riding = new Set([...ridersOf.values()].flat().map((card) => card.id));
+  // The same order for every pair, so a stack's k-th riders are twins.
+  for (const list of ridersOf.values()) list.sort((a, b) => (identity(a) < identity(b) ? -1 : 1));
+
   // Group the free-standing permanents into slots, per side and kind.
   type Group = { side: Side; kind: Kind; slots: LayoutCard[][] };
   const groups = new Map<string, Group>();
   const piles = new Map<string, LayoutCard[]>();
   for (const card of [...input.battlefield].sort(arrival)) {
-    if (isAttachment(card)) continue;
+    if (isAttachment(card) || riding.has(card.id)) continue;
     const side: Side = card.seat === input.viewerSeat ? "viewer" : "opponent";
     const kind = kindOf(card);
     const groupKey = `${side}:${kind}`;
@@ -473,9 +552,10 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
       group = { side, kind, slots: [] };
       groups.set(groupKey, group);
     }
-    const key = pileKey(card, hosts);
+    const key = pileKey(card, hosts, ridersOf.get(card.id));
     const pile = key === null ? undefined : piles.get(key);
-    if (pile) {
+    // Spec 0036: a full stack stays full; the next twin starts another.
+    if (pile && pile.length < PILE_MAX) {
       pile.push(card);
     } else {
       const slot = [card];
@@ -529,6 +609,30 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           attached: attachedCards.map((card) => card.id),
           box,
         });
+        // Spec 0037 — the blockers ride: each member's k-th blocker shares
+        // the k-th rider box, sitting on the attacker, over every row.
+        const toward = group.side === "opponent" ? 1 : -1;
+        const deepest = Math.max(0, ...members.map((m) => ridersOf.get(m.id)?.length ?? 0));
+        for (let k = 0; k < deepest; k++) {
+          const ids = members.flatMap((m) => {
+            const rider = ridersOf.get(m.id)?.[k];
+            return rider ? [rider.id] : [];
+          });
+          const ride: Box = {
+            x: box.x + (k + 1) * RIDE_ACROSS * w,
+            y: box.y + toward * (RIDE_DOWN + k * 0.06) * h,
+            w,
+            h,
+            scale: plan.scale,
+            rotation: 0,
+            z: box.z + 4000 + k,
+          };
+          for (const id of ids) {
+            boxes.set(id, ride);
+            rowOf.set(id, rowId);
+          }
+          slots.push({ row: rowId, ids, attached: [], box: ride, rides: lead.id });
+        }
       });
     });
   }

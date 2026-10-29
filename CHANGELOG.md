@@ -3,6 +3,21 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
+
+**Identical cards stack** (spec 0036, owner 2026-10-29)
+- Any identical cards now stack into one card with a count, not only basic lands and tokens: four Grizzly Bears show as one card "×4".
+- Any difference splits a stack: tapped or not, attacking and at whom, power and toughness, abilities like flying, counters, damage, summoning sickness, token or real card. Four with flying and four with deathtouch are two stacks of four.
+- At most 15 to a stack: 40 Goblins show as ×15, ×15 and ×10.
+
+**Big combats** (spec 0037, owner 2026-10-29)
+- A blocker now sits on the attacker it blocks, marked BLOCKING, instead of a blue line across the board. Identical blocked pairs stack too.
+- A blocked attacker no longer draws its orange line to you: it is hitting its blockers.
+- Block many at once: click a stack of your creatures, then a stack of attackers, and choose how many to block in the "Block how many?" box. Single cards still block one at a time.
+
 ## 1.18.0 — 2026-10-29
 
 The game moves faster and asks better: one rule for when the game stops

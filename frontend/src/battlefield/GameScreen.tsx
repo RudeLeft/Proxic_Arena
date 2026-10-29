@@ -272,8 +272,49 @@ export function GameScreen({
     [decision],
   );
 
+  // Spec 0037 — block many at once: a stack of your creatures clicked as
+  // one choice, then a stack of attackers and how many. The page answers
+  // Forge's own questions one block at a time, each checked by Forge; it
+  // stops at the first one Forge does not offer.
+  const [blockGroup, setBlockGroup] = useState<string[] | null>(null);
+  const [blockChooser, setBlockChooser] = useState<BlockChooserState | null>(null);
+  const blockQueue = useRef<{ blocker: string; attacker: string; sent: boolean }[]>([]);
+  const blockHandled = useRef<number | null>(null);
+  const oneAnswer = useCallback(
+    (id: string) => {
+      const options = question?.onBoard.get(id) ?? [];
+      return options.length === 1 ? options[0]!.actionId : null;
+    },
+    [question],
+  );
+  // Between two questions there is a moment with none: only a question of
+  // another kind ends the group.
+  useEffect(() => {
+    if (decision && decision.kind !== "declareBlockers" && decision.kind !== "chooseBlockTarget") {
+      setBlockGroup(null);
+      setBlockChooser(null);
+    }
+  }, [decision]);
+
   const pick = useCallback(
-    (objectId: string) => {
+    (objectId: string, members?: readonly string[]) => {
+      if (decision?.kind === "declareBlockers" && members && members.length > 1) {
+        const group = members.filter((id) => oneAnswer(id)?.startsWith("blocker:"));
+        if (group.length > 1) {
+          setBlockGroup(group);
+          answer(oneAnswer(group[0]!));
+          return;
+        }
+      }
+      if (decision?.kind === "chooseBlockTarget" && blockGroup && members && members.length > 1) {
+        const targets = members.filter((id) => oneAnswer(id) !== null);
+        if (targets.length > 1) {
+          const max = Math.min(blockGroup.length, targets.length);
+          setBlockChooser({ at: objectId, attackers: targets, max, n: max });
+          return;
+        }
+      }
+      if (decision?.kind === "chooseBlockTarget") setBlockGroup(null);
       const result = clickOn(question, objectId);
       // Spec 0005: a card you could play pauses the response window.
       if (result.kind !== "select" && decision?.window) setPausedWindow(decision.decisionId);
@@ -293,8 +334,62 @@ export function GameScreen({
       setSelected(objectId);
       setOffer(result.kind === "offer" ? result.options : null);
     },
-    [question, answer, decision],
+    [question, answer, decision, blockGroup, oneAnswer],
   );
+
+  // Spec 0037 — "Block N": the first attacker answers this question; the
+  // rest go one pair at a time as Forge asks again.
+  const blockMany = useCallback(
+    (n: number) => {
+      if (!blockChooser || !blockGroup) return;
+      const attackers = blockChooser.attackers.slice(0, n);
+      blockQueue.current = attackers.slice(1).map((attacker, i) => ({
+        blocker: blockGroup[i + 1]!,
+        attacker,
+        sent: false,
+      }));
+      setBlockChooser(null);
+      setBlockGroup(null);
+      const first = oneAnswer(attackers[0]!);
+      if (first) answer(first);
+    },
+    [blockChooser, blockGroup, oneAnswer, answer],
+  );
+  useEffect(() => {
+    const queue = blockQueue.current;
+    if (queue.length === 0 || !decision || game.awaiting !== null) return;
+    // The same question back means Forge refused the last answer: stop.
+    if (blockHandled.current === decision.decisionId) {
+      queue.length = 0;
+      return;
+    }
+    blockHandled.current = decision.decisionId;
+    const optionFor = (id: string, prefix: string) =>
+      decision.options.find((o) => o.objectId === id && o.actionId.startsWith(prefix));
+    if (decision.kind === "declareBlockers") {
+      // Asked for a blocker again after sending one: Forge chose its only
+      // attacker itself, and that pair is done.
+      if (queue[0]!.sent) queue.shift();
+      const next = queue[0];
+      const option = next ? optionFor(next.blocker, "blocker:") : undefined;
+      if (!next || !option) {
+        queue.length = 0;
+        return;
+      }
+      next.sent = true;
+      answer(option.actionId);
+    } else if (decision.kind === "chooseBlockTarget") {
+      const option = optionFor(queue[0]!.attacker, "blocked:");
+      queue.shift();
+      if (!option) {
+        queue.length = 0;
+        return;
+      }
+      answer(option.actionId);
+    } else {
+      queue.length = 0;
+    }
+  }, [decision, game.awaiting, answer]);
 
   // Esc backs out of a target, a payment or an ability choice (owner
   // 2026-10-22), unless a window of its own is open and takes Esc first.
@@ -458,7 +553,15 @@ export function GameScreen({
             />
           }
           overlay={(at) =>
-            why && !offer ? (
+            blockChooser ? (
+              <BlockManyChooser
+                box={at(blockChooser.at)}
+                state={blockChooser}
+                busy={busy}
+                onChange={(n) => setBlockChooser({ ...blockChooser, n })}
+                onBlock={blockMany}
+              />
+            ) : why && !offer ? (
               <WhyNot box={at(why.objectId)} text={why.text} />
             ) : selected && offer ? (
               <ActionPopup
@@ -1489,6 +1592,91 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
             : `${through} power still gets through`,
       }
     : { word: "No blocks", sub: "Click your creatures to block with them" };
+}
+
+interface BlockChooserState {
+  /** The attacker stack's lead, where the chooser opens. */
+  at: string;
+  /** That stack's attackers that can be blocked, oldest first. */
+  attackers: string[];
+  /** The smaller of the two stacks: one blocker on each attacker. */
+  max: number;
+  n: number;
+}
+
+/**
+ * Spec 0037 — "Block how many of these?": one of your creatures on each,
+ * starting at as many as you can. Escape blocks just the one: Forge's
+ * question needs an answer.
+ */
+function BlockManyChooser({
+  box,
+  state,
+  busy,
+  onChange,
+  onBlock,
+}: {
+  box: { x: number; y: number; w: number; h: number } | null;
+  state: BlockChooserState;
+  busy: boolean;
+  onChange: (n: number) => void;
+  onBlock: (n: number) => void;
+}) {
+  const go = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => go.current?.focus({ preventScroll: true }), []);
+  const style = box
+    ? {
+        left: box.x + box.w / 2,
+        top: box.y > 300 ? box.y - 12 : box.y + box.h + 12,
+        transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+      }
+    : { left: "40%", top: "40%" };
+  return (
+    <div
+      className="gs-popup gs-block-many"
+      role="dialog"
+      aria-label="Block how many"
+      style={style}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onBlock(1);
+      }}
+    >
+      <span className="gs-block-many-ask">Block how many of these {state.attackers.length}?</span>
+      <div className="gs-block-many-row">
+        <button
+          type="button"
+          className="gs-block-many-step"
+          aria-label="One fewer"
+          disabled={busy || state.n <= 1}
+          onClick={() => onChange(state.n - 1)}
+        >
+          −
+        </button>
+        <span className="gs-block-many-n" aria-live="polite">
+          {state.n}
+        </span>
+        <button
+          type="button"
+          className="gs-block-many-step"
+          aria-label="One more"
+          disabled={busy || state.n >= state.max}
+          onClick={() => onChange(state.n + 1)}
+        >
+          +
+        </button>
+        <button
+          ref={go}
+          type="button"
+          className="gs-block-many-go"
+          disabled={busy}
+          onClick={() => onBlock(state.n)}
+        >
+          Block {state.n}
+        </button>
+      </div>
+      <span className="gs-block-many-note">One of your creatures on each, at most {state.max}</span>
+    </div>
+  );
 }
 
 /** How long a "why not" stays beside the card. */

@@ -339,14 +339,21 @@ describe("Board lines and effects", () => {
       (g) => `${g.getAttribute("data-from")}>${g.getAttribute("data-to")}`,
     );
 
-  it("fire lines from each attacker to what it attacks, shield lines from each blocker", () => {
+  it("fire lines from unblocked attackers; blockers ride on what they block (spec 0037)", () => {
     const c = render(scene(2)).container;
-    expect(lines(c, "attack").sort()).toEqual(
-      ["card:201>player:1", "card:202>player:1", "card:203>card:215"].sort(),
-    );
-    expect(lines(c, "block").sort()).toEqual(
-      ["card:211>card:201", "card:212>card:201", "card:213>card:202"].sort(),
-    );
+    // Serra Angel and White Knight are blocked: they hit their blockers,
+    // not the player, so only the Goblin token's line is drawn.
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
+    // Each blocker rides on its attacker: no shield lines.
+    expect(lines(c, "block")).toEqual([]);
+    const rides = (id: string) =>
+      c.querySelector(`[data-object-id="${id}"]`)!.getAttribute("data-rides");
+    expect([rides("card:211"), rides("card:212"), rides("card:213")]).toEqual([
+      "card:201",
+      "card:201",
+      "card:202",
+    ]);
+    expect(c.querySelector('[data-object-id="card:211"]')!.textContent).toContain("BLOCKING");
     // The lines layer takes no clicks.
     expect(c.querySelector(".bf-lines")!.getAttribute("aria-hidden")).toBe("true");
   });
@@ -414,7 +421,9 @@ describe("Board lines and effects", () => {
     const angelBurst = view.container.querySelector<HTMLElement>('[data-impact="card:201"]')!;
     expect(parseFloat(angelNumber.style.left)).toBeCloseTo(home.x, 3);
     expect(parseFloat(angelNumber.style.top)).toBeCloseTo(home.y, 3);
-    expect(parseFloat(angelBurst.style.top)).toBeGreaterThan(home.y + 20);
+    // Its blockers ride on it (spec 0037), so the swoop is short -- but
+    // the burst is still where it landed, not at home.
+    expect(Math.abs(parseFloat(angelBurst.style.top) - home.y)).toBeGreaterThan(3);
     // A wave plays once: the same damage again draws nothing new.
     calls.length = 0;
     view.rerender(scene(5));
@@ -462,27 +471,32 @@ describe("Board lines and effects", () => {
     );
   }
 
-  it("300 identical attackers are one pile, one fire line and one swoop (spec 0003)", () => {
+  it("300 identical attackers are 20 piles of 15, a fire line and a swoop each (specs 0003, 0036)", () => {
     const view = render(horde(4, false));
     const fire = view.container.querySelectorAll('[data-line="attack"]');
-    expect(fire).toHaveLength(1);
-    expect(fire[0]!.getAttribute("data-count")).toBe("300");
-    const piles = view.container.querySelectorAll('[data-pile="300"]');
-    expect(piles).toHaveLength(1);
+    expect(fire).toHaveLength(20);
+    expect([...fire].every((line) => line.getAttribute("data-count") === "15")).toBe(true);
+    const piles = view.container.querySelectorAll('[data-pile="15"]');
+    expect(piles).toHaveLength(20);
     view.rerender(horde(5, false));
-    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(1);
+    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(20);
     // One number on the player hit, for all 300.
     expect(view.container.querySelector('[data-damage-number="player:1"]')!.textContent).toBe(
       "−300",
     );
   });
 
-  it("a blocked attacker steps out of the pile with its own lines (spec 0003)", () => {
+  it("a blocked attacker steps out of the pile and carries its blocker (specs 0003, 0037)", () => {
     const c = render(horde(4, true)).container;
-    expect(c.querySelectorAll('[data-pile="299"]')).toHaveLength(1);
+    expect(c.querySelectorAll('[data-pile="15"]')).toHaveLength(19);
+    expect(c.querySelectorAll('[data-pile="14"]')).toHaveLength(1);
     expect(c.querySelector('[data-object-id="card:5000"]')!.getAttribute("data-pile")).toBeNull();
-    expect(lines(c, "attack")).toHaveLength(2);
-    expect(lines(c, "block")).toEqual(["card:211>card:5000"]);
+    expect(c.querySelector('[data-object-id="card:211"]')!.getAttribute("data-rides")).toBe(
+      "card:5000",
+    );
+    // The 299 unblocked: a line per pile; the blocked one none; no shield line.
+    expect(lines(c, "attack")).toHaveLength(20);
+    expect(lines(c, "block")).toEqual([]);
   });
 
   it("a creature the same update killed waits for its impact before it leaves", () => {

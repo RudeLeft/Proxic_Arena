@@ -34,6 +34,7 @@ import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import { ManaCost, costChange } from "./ManaCost";
 import {
+  inCombat,
   HAND_ORIGIN,
   OPPONENT_HAND_ORIGIN,
   TAPPED_ORIGIN,
@@ -197,7 +198,7 @@ export interface BoardProps {
   damage?: DamageWave | null;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
-  onPick?: (objectId: string) => void;
+  onPick?: (objectId: string, members?: readonly string[]) => void;
   /** Right-click (or the context-menu key): inspect, never act (§7.30). */
   onInspect?: (objectId: string) => void;
   /** Objects the question on screen can be answered with (§7.27): shown
@@ -422,7 +423,7 @@ interface Item {
   ids: string[];
   box: Box;
   origin: { x: number; y: number };
-  clip?: string;
+  clip?: string | undefined;
   drawn: Drawn;
   content: ReactNode;
 }
@@ -501,18 +502,10 @@ export function Board({
     return () => observer.disconnect();
   }, []);
 
-  // Spec 0003 — unblocked attackers say what they attack, so identical
-  // ones pile (one card, one fire line) instead of 300 of each.
-  const laidOut = useMemo(() => {
-    if (!combat) return battlefield;
-    const aims = new Map(combat.attackers.map((a) => [a.id, refKey(a.target)]));
-    const blocked = new Set(combat.blocks.map((b) => b.attacker));
-    return battlefield.map((card) =>
-      card.attacking && aims.has(card.id) && !blocked.has(card.id)
-        ? { ...card, attackPile: aims.get(card.id)! }
-        : card,
-    );
-  }, [battlefield, combat]);
+  const laidOut = useMemo(
+    () => (combat ? inCombat(battlefield, combat) : battlefield),
+    [battlefield, combat],
+  );
   const result = useMemo(
     () =>
       viewport ? layout({ battlefield: laidOut, hand, opponentHand, viewerSeat }, viewport) : null,
@@ -557,7 +550,8 @@ export function Board({
           "data-unpayable": dim ? "true" : undefined,
         },
         handlers: {
-          onClick: onPick ? () => onPick(id) : undefined,
+          // Spec 0037: and the whole stack, for "block with all of these".
+          onClick: onPick ? () => onPick(id, ids) : undefined,
           onContextMenu: onInspect
             ? (event: { preventDefault: () => void }) => {
                 event.preventDefault();
@@ -579,7 +573,13 @@ export function Board({
       const lead = byId.get(slot.ids[0]!)!;
       const count = slot.ids.length;
       const look = lookOf(lead.kind, lead.types);
-      const side = slot.row.startsWith("viewer") ? "viewer" : "opponent";
+      // A rider (spec 0037) sits in its attacker's row but is its own
+      // controller's card.
+      const side = slot.rides
+        ? sideOf(lead.seat)
+        : slot.row.startsWith("viewer")
+          ? "viewer"
+          : "opponent";
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
       const band = bandOf(g, slot.row);
@@ -593,6 +593,7 @@ export function Board({
         pt,
         lead.tapped ? "tapped" : "",
         lead.attacking ? "attacking" : "",
+        slot.rides ? `blocking ${byId.get(slot.rides)?.name ?? "an attacker"}` : "",
         lead.ringBearer ? "Ring-bearer" : "",
         lead.sector ? `sector ${lead.sector}` : "",
         lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
@@ -618,8 +619,11 @@ export function Board({
         ids: [...slot.ids, ...slot.attached],
         box: slot.box,
         origin: TAPPED_ORIGIN,
-        // Tilted corners tuck under the next band (AMENDMENT 4).
-        clip: bandClip(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN, band.top, band.bottom),
+        // Tilted corners tuck under the next band (AMENDMENT 4). A rider
+        // hangs out of its band on purpose (spec 0037).
+        clip: slot.rides
+          ? undefined
+          : bandClip(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN, band.top, band.bottom),
         drawn,
         content: (
           <>
@@ -637,9 +641,13 @@ export function Board({
               data-pt={pt || undefined}
               data-face={lead.faceDown ? "down" : "up"}
               data-pile={count > 1 ? count : undefined}
+              data-rides={slot.rides}
             >
               <CardFace {...drawn} />
-              {lead.attacking ? (
+              {slot.rides ? (
+                // Spec 0037: blue, on the blocker sitting on its attacker.
+                <span className="bf-state bf-state-blocking">BLOCKING</span>
+              ) : lead.attacking ? (
                 <span className="bf-state bf-state-attacking">ATTACKING</span>
               ) : lead.tapped ? (
                 <span className="bf-state">TAPPED</span>
@@ -1148,7 +1156,12 @@ export function Board({
     if (same) same.count += 1;
     else byKey.set(key, { key, kind, from, to, start, end, lane: 0, count: 1 });
   };
+  // Spec 0037 — a blocked attacker hits its blockers, not the player: no
+  // fire line; and a blocker riding on its attacker needs no block line.
+  const blockedIds = new Set((combat?.blocks ?? []).map((b) => b.attacker));
+  const riders = new Set(result?.slots.flatMap((slot) => (slot.rides ? slot.ids : [])) ?? []);
   for (const a of combat?.attackers ?? []) {
+    if (blockedIds.has(a.id)) continue;
     const from = centre(a.id);
     const aim = refPoint(a.target);
     if (!from || !aim) continue;
@@ -1157,6 +1170,7 @@ export function Board({
     add("attack", a.id, refKey(a.target), edge(a.id, end, 0.22), end);
   }
   for (const b of combat?.blocks ?? []) {
+    if (riders.has(b.blocker)) continue;
     const from = centre(b.blocker);
     const to = centre(b.attacker);
     if (!from || !to) continue;

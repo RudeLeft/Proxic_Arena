@@ -26,6 +26,7 @@ import {
 import {
   HAND_ORIGIN,
   TAPPED_ORIGIN,
+  inCombat,
   layout,
   type Box,
   type RowId,
@@ -445,8 +446,11 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
 
   for (let n = 1; n < COMBAT_SCRIPT_LENGTH; n++) {
     const scene = combatScript(n);
-    const before = layout(combatScript(n - 1).board, viewport);
-    const expected = layout(scene.board, viewport);
+    // Laid out as the board does: with combat's piles and riders (0037).
+    const laid = (s: ReturnType<typeof combatScript>) =>
+      s.combat ? { ...s.board, battlefield: inCombat(s.board.battlefield, s.combat) } : s.board;
+    const before = layout(laid(combatScript(n - 1)), viewport);
+    const expected = layout(laid(scene), viewport);
     const where = anchors(expected.geometry);
     const what = `step ${n} (${scene.what})`;
     await page.getByRole("button", { name: "Next change" }).click();
@@ -514,7 +518,7 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     // Once it has all played out: the board is exactly the layout, nothing
     // still moving or showing, and the lines are the scene's.
     await page.waitForTimeout(1400);
-    const result = await differences(page, scene.board, viewport, false);
+    const result = await differences(page, laid(scene), viewport, false);
     expect(result.wrong, what).toEqual([]);
     // Nothing moves any more but the lines' own sparks (CSS animations).
     const stillMoving = await page.evaluate(
@@ -537,12 +541,21 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
         shown: g.getBoundingClientRect().width + g.getBoundingClientRect().height > 4,
       })),
     );
+    // Spec 0037: a blocked attacker draws no fire line, and a blocker of
+    // one attacker rides on it instead of a shield line.
+    const blocks = scene.combat?.blocks ?? [];
+    const blockedIds = new Set(blocks.map((b) => b.attacker));
+    const blocksOf = (id: string) => blocks.filter((b) => b.blocker === id).length;
     const want: string[] = [
-      ...(scene.combat?.attackers ?? []).map(
-        (a) =>
-          `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
-      ),
-      ...(scene.combat?.blocks ?? []).map((b) => `block ${b.blocker}>${b.attacker}`),
+      ...(scene.combat?.attackers ?? [])
+        .filter((a) => !blockedIds.has(a.id))
+        .map(
+          (a) =>
+            `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
+        ),
+      ...blocks
+        .filter((b) => blocksOf(b.blocker) > 1)
+        .map((b) => `block ${b.blocker}>${b.attacker}`),
       // Spec 0028: the pointed-at stack object's line, else the front one's;
       // and every ability's faint line back to its permanent.
       ...scene.stack

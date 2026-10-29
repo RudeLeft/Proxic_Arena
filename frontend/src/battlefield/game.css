@@ -1490,3 +1490,62 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   margin: 0 2px;
   vertical-align: -3px;
 }
+
+/* Spec 0037 — "Block how many of these?" */
+.gs-block-many {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-color: #c9a46a;
+}
+.gs-block-many-ask {
+  font-size: var(--pa-size-base);
+  color: #e7dcc4;
+}
+.gs-block-many-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gs-block-many-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  border: 1px solid #5a4a2c;
+  background: #141a22;
+  color: #c9a46a;
+  font: inherit;
+  font-size: var(--pa-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.gs-block-many-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.gs-block-many-n {
+  min-width: 36px;
+  text-align: center;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: var(--pa-size-xl);
+  color: #f2d48a;
+}
+.gs-block-many-go {
+  margin-left: 6px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 17px;
+  border: 1px solid #f2d48a;
+  background: linear-gradient(180deg, #f6cf7f, #c08530);
+  color: #1d1408;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gs-block-many-note {
+  font-size: var(--pa-size-sm);
+  color: #9aa2ad;
+}

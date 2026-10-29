@@ -502,7 +502,7 @@ describe("piles (§7.58, §7.52a L5, L8)", () => {
     }
   });
 
-  it("nonbasic lands, non-tokens and face-down cards never pile", () => {
+  it("spec 0036: nonbasic lands and non-tokens pile; face-down cards never do", () => {
     const canopy = () =>
       card({
         seat: 1,
@@ -517,7 +517,7 @@ describe("piles (§7.58, §7.52a L5, L8)", () => {
       card({ seat: 2, name: "Face-down", faceDown: true, known: false, token: true });
     const list = [canopy(), canopy(), bears(), bears(), hidden(), hidden()];
     const out = layout({ viewerSeat: 1, hand: [], battlefield: list }, vp);
-    expect(out.slots).toHaveLength(6);
+    expect(out.slots.map((s) => s.ids.length).sort()).toEqual([1, 1, 2, 2]);
   });
 
   it("a pile is one slot of the overflow ladder", () => {
@@ -711,5 +711,210 @@ describe("stacking", () => {
       expect(Math.max(...field)).toBeLessThan(5000);
       expect(Math.min(...hand)).toBeGreaterThan(6000);
     }
+  });
+});
+
+// Spec 0036 — identical cards stack, up to 15; any difference splits them.
+describe("stacking identical cards (spec 0036)", () => {
+  const vp = { width: 1920, height: 1080 };
+  const bear = (over: Partial<LayoutCard> = {}) => card({ seat: 1, ...over });
+  const pileSizes = (list: LayoutCard[]) =>
+    layout({ viewerSeat: 1, hand: [], battlefield: list }, vp)
+      .slots.map((s) => s.ids.length)
+      .sort((a, b) => a - b);
+
+  it("F-0036-A: identical non-token creatures, nonbasic lands, artifacts and enchantments stack", () => {
+    const sol = () =>
+      card({
+        seat: 1,
+        name: "Sol Ring",
+        kind: "other",
+        types: "Artifact",
+        power: null,
+        toughness: null,
+      });
+    const anthem = () =>
+      card({
+        seat: 1,
+        name: "Glorious Anthem",
+        kind: "other",
+        types: "Enchantment",
+        power: null,
+        toughness: null,
+      });
+    expect(pileSizes([bear(), bear(), bear(), bear()])).toEqual([4]);
+    expect(pileSizes([sol(), sol(), anthem(), anthem()])).toEqual([2, 2]);
+  });
+
+  it("F-0036-B: each fact splits a stack", () => {
+    const splits: Partial<LayoutCard>[] = [
+      { tapped: true },
+      { sick: true },
+      { power: 4, toughness: 4 },
+      { keywords: ["Flying"] },
+      { damage: 1 },
+      { token: true },
+      { types: "Artifact Creature — Bear" },
+      { ringBearer: true },
+      { counters: [{ name: "P1P1", count: 1 }] },
+    ];
+    for (const over of splits) {
+      expect(pileSizes([bear(), bear(), bear(over)]), JSON.stringify(over)).toEqual([1, 2]);
+    }
+    // The owner's example: 4 with flying and 4 with deathtouch are two stacks of 4.
+    const flying = Array.from({ length: 4 }, () => bear({ keywords: ["Flying"] }));
+    const deathtouch = Array.from({ length: 4 }, () => bear({ keywords: ["Deathtouch"] }));
+    expect(pileSizes([...flying, ...deathtouch])).toEqual([4, 4]);
+    // Attacking, and at whom.
+    expect(
+      pileSizes([
+        bear({ attacking: true, tapped: true, attackPile: "player:2" }),
+        bear({ attacking: true, tapped: true, attackPile: "player:2" }),
+        bear({ attacking: true, tapped: true, attackPile: "card:99" }),
+      ]),
+    ).toEqual([1, 2]);
+  });
+
+  it("F-0036-C: the same counters stack; a different count splits", () => {
+    const two = () => bear({ counters: [{ name: "P1P1", count: 2 }] });
+    expect(pileSizes([two(), two()])).toEqual([2]);
+    expect(pileSizes([two(), two(), bear({ counters: [{ name: "P1P1", count: 1 }] })])).toEqual([
+      1, 2,
+    ]);
+  });
+
+  it("F-0036-D: different artwork stacks; a token copy and the real card do not", () => {
+    // Artwork is not part of a layout card at all: nothing to compare.
+    expect(
+      pileSizes([bear({ token: false }), bear({ token: false }), bear({ token: true })]),
+    ).toEqual([1, 2]);
+  });
+
+  it("F-0036-E: at most 15 to a stack, oldest first", () => {
+    const goblins = Array.from({ length: 40 }, () =>
+      card({ seat: 1, name: "Goblin Token", token: true, power: 1, toughness: 1 }),
+    );
+    expect(pileSizes(goblins)).toEqual([10, 15, 15]);
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: goblins }, vp);
+    expect(out.slots[0]!.ids).toEqual(goblins.slice(0, 15).map((g) => g.id));
+  });
+
+  it("F-0036-F: attached, attached-to, blocking and face-down cards stand alone", () => {
+    const host = bear();
+    const aura = card({
+      seat: 1,
+      name: "Rancor",
+      kind: "other",
+      types: "Enchantment — Aura",
+      attachedTo: host.id,
+      power: null,
+      toughness: null,
+    });
+    const lone = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [
+          host,
+          bear(),
+          bear(),
+          aura,
+          bear({ blocking: true }),
+          bear({ faceDown: true, known: false }),
+        ],
+      },
+      vp,
+    );
+    const sizes = lone.slots.map((s) => s.ids.length).sort((a, b) => a - b);
+    expect(sizes).toEqual([1, 1, 1, 2]);
+  });
+});
+
+// Spec 0037 — a blocker rides on the attacker it blocks; identical pairs stack.
+describe("big combats (spec 0037)", () => {
+  const vp = { width: 1738, height: 1000 };
+  const goblin = (seat: number, over: Partial<LayoutCard> = {}) =>
+    card({
+      seat,
+      name: "Goblin Token",
+      types: "Creature — Goblin",
+      token: true,
+      power: 2,
+      toughness: 2,
+      ...over,
+    });
+
+  it("F-0037-B: a blocker hangs from its attacker toward the middle; two blockers both do", () => {
+    const attacker = goblin(2, { attacking: true, tapped: true });
+    const b1 = goblin(1, { blocking: true, blocks: attacker.id, power: 5, toughness: 5 });
+    const b2 = card({ seat: 1, name: "Wall of Wood", blocking: true, blocks: attacker.id });
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [attacker, b1, b2] }, vp);
+    const host = out.boxes.get(attacker.id)!;
+    const riders = out.slots.filter((s) => s.rides === attacker.id);
+    expect(riders).toHaveLength(2);
+    for (const rider of riders) {
+      // The attacker is the opponent's: its riders sit on it, shifted
+      // toward the middle, drawn over it (and over the rows).
+      expect(rider.box.y).toBeGreaterThan(host.y);
+      expect(rider.box.y - host.y).toBeLessThan(host.h * 0.25);
+      expect(rider.box.z).toBeGreaterThan(host.z);
+      expect(rider.box.rotation).toBe(0);
+    }
+    // A blocker of your attacker hangs up toward the middle instead.
+    const mine = goblin(1, { attacking: true, tapped: true });
+    const theirs = goblin(2, { blocking: true, blocks: mine.id });
+    const up = layout({ viewerSeat: 1, hand: [], battlefield: [mine, theirs] }, vp);
+    expect(up.boxes.get(theirs.id)!.y).toBeLessThan(up.boxes.get(mine.id)!.y);
+  });
+
+  it("F-0037-C: identical pairs stack, at most 15; a different blocker splits", () => {
+    const list: LayoutCard[] = [];
+    for (let i = 0; i < 20; i++) {
+      const a = goblin(2, { attacking: true, tapped: true });
+      list.push(a, goblin(1, { blocking: true, blocks: a.id, power: 5, toughness: 5 }));
+    }
+    const odd = goblin(2, { attacking: true, tapped: true });
+    list.push(odd, card({ seat: 1, name: "Goblin Chieftain", blocking: true, blocks: odd.id }));
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: list }, vp);
+    const hosts = out.slots.filter((s) => !s.rides && s.ids.length > 0);
+    expect(hosts.map((s) => s.ids.length).sort((a, b) => a - b)).toEqual([1, 5, 15]);
+    const riders = out.slots.filter((s) => s.rides);
+    expect(riders.map((s) => s.ids.length).sort((a, b) => a - b)).toEqual([1, 5, 15]);
+  });
+
+  it("F-0037-A: the owner's Goblin swarm, after 30 blocks, draws at most 16 cards a side", () => {
+    const list: LayoutCard[] = [];
+    const attackers = Array.from({ length: 85 }, () =>
+      goblin(2, { attacking: true, tapped: true }),
+    );
+    const named = [
+      "Krenko, Mob Boss",
+      "Mogg Fanatic",
+      "Goblin Instigator",
+      "Goblin Ringleader",
+      "Goblin Trashmaster",
+      "Gempalm Incinerator",
+    ].map((name) => card({ seat: 2, name, attacking: true, tapped: true, attackPile: "player:1" }));
+    const defenders = Array.from({ length: 40 }, () => goblin(1, { power: 5, toughness: 5 }));
+    attackers.forEach((a, i) => {
+      if (i < 30) Object.assign(defenders[i]!, { blocking: true, blocks: a.id });
+      else a.attackPile = "player:1";
+    });
+    list.push(...attackers, ...named, ...defenders);
+    for (const name of [
+      "Goblin Rabblemaster",
+      "Goblin Warchief",
+      "Goblin Chieftain",
+      "Mogg Flunkies",
+    ]) {
+      list.push(card({ seat: 1, name, power: 6, toughness: 6 }));
+    }
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: list }, vp);
+    const drawn = (seat: number) =>
+      out.slots.filter((s) => list.find((c) => c.id === s.ids[0])!.seat === seat && !s.rides)
+        .length;
+    expect(drawn(2)).toBeLessThanOrEqual(16);
+    expect(drawn(1)).toBeLessThanOrEqual(16);
+    expect(out.overcrowded).toEqual([]);
   });
 });
