@@ -131,7 +131,9 @@ test("with the default stops, turns flow to the main phases and nobody is asked 
         // its neighbours, and the click then waited for ever on a Mountain
         // the enlarged card covered. Every click is bounded.
         await page.mouse.move(0, 0);
-        if (!skipped && turn >= 3 && step === "Main 1" && label.includes("To combat")) {
+        // Spec 0034: Main 1's pass says "To attacks" or "Nothing can
+        // attack"; either way it is a pass with nothing on the stack.
+        if (!skipped && turn >= 3 && step === "Main 1" && /^Pass: (Next|End turn)/.test(label)) {
           // Once, the first Main 1 asked from turn 3 -- before the land: a
           // Main 1 with only a land to play is asked once, and after the
           // land nothing more is asked there (CI never saw the moment).

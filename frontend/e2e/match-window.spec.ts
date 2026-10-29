@@ -2,7 +2,7 @@
 // Phase 8 Amendment 4.
 //
 // Your own spell on top of the stack, with something left to respond with:
-// the act button counts down "Resolving in 2…" and, if you let it run out,
+// the act button counts down "Resolves in 2" and, if you let it run out,
 // your page passes and the spell resolves. Clicking the countdown pauses it
 // for good: an ordinary Pass from then on. scripts/check-stops.py proves the
 // worker half (only your own spell, only when you could respond).
@@ -57,7 +57,7 @@ test("your own spell counts down and resolves; a click on the countdown waits in
         if (!ranOut && ranOutFrom === null) {
           // F-0005-B: let it run out -- no click at all.
           ranOutFrom = await opponentLife(page);
-          await expect(windowButton).toContainText("Resolving in");
+          await expect(windowButton).toContainText("Resolves in");
           await host.screenshot({ path: "test-results/seen/window-counting.png" });
           await expect(windowButton, "the countdown ends by itself").toHaveCount(0, {
             timeout: 8_000,

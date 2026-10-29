@@ -3,6 +3,15 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**The action button and the turn's steps** (spec 0034, owner 2026-10-29)
+- The action button says more: where a pass really lands ("Nothing can attack · to Main 2"), where your opponent goes next, whose spell resolves and at what ("Pat’s Lightning Bolt → you"), the power coming at you and the power that gets through, and who won.
+- While you wait it says what your opponent is doing when the screen shows it ("Pat is choosing blockers").
+- A new look for the button: dark and rounded with a gold edge and a coin that shows what pressing does (an arrow, a sword, a shield, an X, or the countdown's seconds). Combat is red, Cancel silver.
+- The turn's steps are gems on a rail. The bright gem slides smoothly to the step the game is in; at a new turn the steps dim and it starts again from the top.
+- The line above the steps reads "Your turn" or "Opponent’s turn".
+
 ## 1.17.0 — 2026-10-29
 
 The table dressed up: the green battlefield becomes lit velvet, and your

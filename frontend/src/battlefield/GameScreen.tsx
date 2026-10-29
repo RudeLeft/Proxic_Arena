@@ -31,7 +31,7 @@ import {
   type SnapshotCard,
   type SnapshotPlayer,
 } from "../match";
-import { abandonMatch, type MatchView } from "../lobby";
+import { abandonMatch, type MatchOutcome, type MatchView } from "../lobby";
 import { NameSearch, cancelWords, headingFor, hintFor, matchUrl, resultText } from "../matchText";
 import { Board, CardFace, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
@@ -45,8 +45,11 @@ import {
   STOP_STEPS,
   combatPart,
   fetchStops,
+  gameOverWords,
   passWords,
   saveStops,
+  totalPower,
+  unblockedPower,
   waitingLine,
   type StopSettings,
 } from "./stops";
@@ -111,6 +114,20 @@ export function GameScreen({
       socket.close();
     };
   }, [match.matchId, live]);
+
+  // Spec 0034 — your stops, so the button can say where a pass lands;
+  // null (the server's defaults) until they load.
+  const [myStops, setMyStops] = useState<StopSettings | null>(null);
+  useEffect(() => {
+    if (!live) return undefined;
+    let alive = true;
+    void fetchStops().then((loaded) => {
+      if (alive && loaded) setMyStops(loaded);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [live]);
 
   // Owner 2026-10-22: a spell the other player cast, that you could not
   // answer, resolved before it was ever drawn -- it read as being skipped.
@@ -460,6 +477,8 @@ export function GameScreen({
               onPauseWindow={pauseWindow}
               onView={setViewer}
               finished={finished}
+              outcome={match.outcome}
+              stops={myStops}
             />
           }
           overlay={(at) =>
@@ -524,7 +543,10 @@ export function GameScreen({
           listOpen={listOpen}
           onList={() => setListOpen((open) => !open)}
           concession={finished ? null : concessionText(game.concession)}
-          onStops={(settings) => socketRef.current?.stops(settings)}
+          onStops={(settings) => {
+            setMyStops(settings);
+            socketRef.current?.stops(settings);
+          }}
           onConcede={() => {
             setGame((previous) => ({ ...previous, concession: null }));
             socketRef.current?.concede();
@@ -634,52 +656,77 @@ function nameOf(board: Snapshot | null, id: string): string {
 
 // --- the turn ladder ------------------------------------------------------------------
 
-/** How long the highlight rests on each step it passes (owner 2026-10-22). */
-const STEP_MS = 240;
+/** Spec 0034 (M2) — how long the gem takes to sweep to a new step, however far. */
+const SWEEP_MS = 450;
+/** Spec 0034 (M4) — how long the steps dim at a new turn before the gem starts again. */
+const HANDOFF_MS = 220;
+/** The ladder's row pitch: a 20px row and a 2px gap (game.css). */
+const ROW_PX = 22;
 
 /**
- * Spec 0030 — the turn's steps, top to bottom, between the plates: the
- * step the game is in gold, the passed ones dimmed. It replaced the bar
- * over the board.
+ * Spec 0030 — the turn's steps, top to bottom, between the plates. It
+ * replaced the bar over the board. Spec 0034 — a gem for each step on a
+ * rail (S1); the glowing gem sweeps to the step the game is in (M2), and
+ * at a new turn the steps dim and it starts again from the top (M4).
  */
 function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
   const target = STEPS.findIndex((step) => step.phases.includes(board.phase));
   // Owner 2026-10-22: steps nobody stops at went by in one jump, and the
-  // game felt fast-forwarded. The bar walks through what was passed, a
-  // beat on each, into the next turn too. It only shows; the game is
-  // never held for it.
-  const [now, setNow] = useState(target);
-  const from = useRef({ turn: board.turn, index: target });
+  // game felt fast-forwarded. The gem sweeps over every step passed, the
+  // passed gems filling as it goes. It only shows; the game is never held
+  // for it. `from`: where this sweep started; `still`: placed, not swept.
+  const [shown, setShown] = useState({ index: target, from: target, still: true, dim: false });
+  const was = useRef({ turn: board.turn, index: target });
+  // A hand-off under way: the step it sweeps to when it is done. A new
+  // turn comes as several boards in quick succession (Untap, then Main 1),
+  // and the later ones only move where the hand-off ends.
+  const handoff = useRef<{ target: number; timers: number[] } | null>(null);
+  useEffect(() => () => handoff.current?.timers.forEach((t) => window.clearTimeout(t)), []);
   useEffect(() => {
-    const was = from.current;
-    from.current = { turn: board.turn, index: target };
-    const path: number[] = [];
-    if (target >= 0 && was.index >= 0 && board.turn === was.turn && target > was.index) {
-      for (let i = was.index + 1; i <= target; i++) path.push(i);
-    } else if (target >= 0 && was.index >= 0 && board.turn === was.turn + 1) {
-      for (let i = was.index + 1; i < STEPS.length; i++) path.push(i);
-      for (let i = 0; i <= target; i++) path.push(i);
-    } else {
-      path.push(target);
+    const before = was.current;
+    was.current = { turn: board.turn, index: target };
+    if (target < 0) return;
+    if (handoff.current && board.turn >= before.turn) {
+      handoff.current.target = target;
+      return;
     }
-    setNow(path[0]!);
-    let k = 0;
-    const timer = window.setInterval(() => {
-      k += 1;
-      if (k >= path.length) {
-        window.clearInterval(timer);
-        return;
-      }
-      setNow(path[k]!);
-    }, STEP_MS);
-    return () => window.clearInterval(timer);
+    if (board.turn === before.turn && target >= before.index) {
+      setShown((s) => ({ index: target, from: s.index, still: false, dim: false }));
+      return;
+    }
+    if (board.turn > before.turn) {
+      setShown((s) => ({ ...s, dim: true }));
+      const run = { target, timers: [] as number[] };
+      handoff.current = run;
+      run.timers.push(
+        window.setTimeout(
+          () => setShown({ index: 0, from: 0, still: true, dim: false }),
+          HANDOFF_MS,
+        ),
+        window.setTimeout(() => {
+          handoff.current = null;
+          setShown({ index: run.target, from: 0, still: false, dim: false });
+        }, HANDOFF_MS + 40),
+      );
+      return;
+    }
+    // Backwards in the same turn, or an earlier turn (a restart): placed.
+    handoff.current?.timers.forEach((t) => window.clearTimeout(t));
+    handoff.current = null;
+    setShown({ index: target, from: target, still: true, dim: false });
   }, [board.turn, target]);
+  const now = shown.index;
   const mine = board.activeSeat === mySeat;
-  const theirs = board.players.find((p) => p.seat === board.activeSeat)?.name;
-  const whose = mine ? "Your turn" : theirs ? `${theirs}’s turn` : "Their turn";
+  // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name.
+  const whose = mine ? "Your turn" : "Opponent’s turn";
   const part = combatPart(board.phase);
+  // The passed gems fill in order as the gem goes over them.
+  const delayOf = (i: number) =>
+    !shown.still && i > shown.from && i <= now && now > shown.from
+      ? `${Math.round(((i - shown.from) / (now - shown.from)) * SWEEP_MS * 0.8)}ms`
+      : undefined;
   return (
-    <div className="gs-ladder">
+    <div className={`gs-ladder${shown.dim ? " gs-ladder-dim" : ""}`}>
       <div className="gs-ladder-head">
         <span className="gs-turn" aria-label={`Turn ${board.turn}`}>
           Turn <span className="gs-turn-value">{board.turn}</span>
@@ -699,19 +746,34 @@ function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
       </div>
       {/* data-step: the step the game is IN; the highlight may still be
           walking towards it. */}
-      <ol className="gs-steps" aria-label="Steps of the turn" data-step={STEPS[target]?.label}>
-        {STEPS.map((step, i) => (
-          <li
-            key={step.label}
-            className={`gs-step${i === now ? " gs-step-now" : i < now ? " gs-step-past" : ""}`}
-            aria-current={i === now ? "step" : undefined}
-          >
-            <span className="gs-step-dot" aria-hidden="true" />
-            <span className="gs-step-name">{step.label}</span>
-            {i === now && i === target && part && <span className="gs-step-part">{part}</span>}
-          </li>
-        ))}
-      </ol>
+      <div className={`gs-steps-rail${shown.still ? " gs-steps-still" : ""}`}>
+        <span
+          className="gs-gem"
+          aria-hidden="true"
+          style={{
+            transform: `translateY(${Math.max(0, now) * ROW_PX}px) rotate(45deg)`,
+            visibility: now < 0 ? "hidden" : undefined,
+          }}
+        />
+        <ol className="gs-steps" aria-label="Steps of the turn" data-step={STEPS[target]?.label}>
+          {STEPS.map((step, i) => (
+            <li
+              key={step.label}
+              className={`gs-step${i === now ? " gs-step-now" : i < now ? " gs-step-past" : ""}`}
+              aria-current={i === now ? "step" : undefined}
+              style={{ transitionDelay: delayOf(i) }}
+            >
+              <span
+                className="gs-step-dot"
+                aria-hidden="true"
+                style={{ transitionDelay: delayOf(i) }}
+              />
+              <span className="gs-step-name">{step.label}</span>
+              {i === now && i === target && part && <span className="gs-step-part">{part}</span>}
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
@@ -872,6 +934,59 @@ function ZoneIcon({ zone }: { zone: keyof typeof ZONE_ART }) {
   return <img className="gs-zone-art" src={ZONE_ART[zone]} alt="" draggable={false} />;
 }
 
+/** Spec 0034 (B2, Seal) — the act button's coin: what pressing it does, as a picture. */
+const EMBLEM = {
+  next: "M5 12h14M13 6l6 6-6 6",
+  end: "M5 6l6 6-6 6M12 6l6 6-6 6",
+  resolve: "M12 4v11M7 10l5 5 5-5M6 20h12",
+  sword: "M14.5 17.5L4 7V4h3l10.5 10.5M13 19l6-6M16 16l4 4",
+  shield: "M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z",
+  cancel: "M7 7l10 10M17 7L7 17",
+  wait: "M7 4h10M7 20h10M8 4c0 5 8 5 8 8s-8 3-8 8M16 4c0 5-8 5-8 8s8 3 8 8",
+  flag: "M6 21V4M6 4h11l-2.5 4L17 12H6",
+  ask: "M12 19V6M6 11l6-6 6 6",
+} as const;
+
+function passEmblem(word: string): keyof typeof EMBLEM {
+  if (word === "Resolve") return "resolve";
+  if (word === "End turn") return "end";
+  if (word === "To blocks") return "shield";
+  if (word === "To damage") return "sword";
+  return "next";
+}
+
+/**
+ * The coin; with `seconds`, the countdown's seconds inside a gold ring
+ * that empties once over the response window (it starts when the
+ * countdown button appears, as the countdown does).
+ */
+function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: number }) {
+  if (seconds !== undefined) {
+    return (
+      <span className="gs-coin gs-coin-timer" aria-hidden="true">
+        <svg viewBox="0 0 46 46" width="46" height="46">
+          <circle
+            className="gs-coin-ring"
+            cx="23"
+            cy="23"
+            r="20"
+            pathLength={100}
+            style={{ animationDuration: `${RESPONSE_WINDOW_MS}ms` }}
+          />
+        </svg>
+        <span className="gs-coin-n">{seconds}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="gs-coin" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22">
+        <path d={EMBLEM[emblem]} />
+      </svg>
+    </span>
+  );
+}
+
 /** Spec 0002 — how long nobody must be asked before the rail says "Resolving…". */
 const RESOLVING_AFTER_MS = 500;
 
@@ -918,6 +1033,8 @@ function Rail({
   onPauseWindow,
   onView,
   finished,
+  outcome,
+  stops,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -941,6 +1058,10 @@ function Rail({
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
+  /** Spec 0034 — who won, for the game-over box. */
+  outcome: MatchOutcome | null;
+  /** Spec 0034 — your stops (null: the server's defaults), for where a pass lands. */
+  stops: StopSettings | null;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -948,7 +1069,8 @@ function Rail({
   const resolving = useResolving(asking);
   const lastAsked = useLastAsked(asking);
   const myPriority = question?.context === "priority";
-  const words = passWords(board, mySeat);
+  const words = passWords(board, mySeat, stops);
+  const over = gameOverWords(board, mySeat, outcome);
   return (
     <div className="gs-rail">
       {them && (
@@ -969,8 +1091,11 @@ function Rail({
           on the board (owner 2026-10-22: the column's Stack box is gone). */}
       {finished ? (
         <div className="gs-waiting" role="status">
-          <span className="gs-waiting-word">Game over</span>
-          <span className="gs-waiting-sub">Nobody holds priority now</span>
+          <Coin emblem="flag" />
+          <span className="gs-act-text">
+            <span className="gs-waiting-word">{over.word}</span>
+            {over.sub && <span className="gs-waiting-sub">{over.sub}</span>}
+          </span>
         </div>
       ) : combat ? (
         // Owner 2026-10-22: combat on the act button, as MTG Arena has it --
@@ -1003,8 +1128,11 @@ function Rail({
             onClick={() => onAnswer(null)}
             aria-label={`Pass: ${combat.word}. ${combat.sub}`}
           >
-            <span className="gs-act-word">{combat.word}</span>
-            <span className="gs-act-sub">{combat.sub}</span>
+            <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
+            <span className="gs-act-text">
+              <span className="gs-act-word">{combat.word}</span>
+              <span className="gs-act-sub">{combat.sub}</span>
+            </span>
           </button>
         </div>
       ) : cancel ? (
@@ -1017,8 +1145,11 @@ function Rail({
           onClick={() => onAnswer(null)}
           aria-label={`${cancel.word}: ${cancel.sub}`}
         >
-          <span className="gs-act-word">{cancel.word}</span>
-          <span className="gs-act-sub">{cancel.sub} · Esc</span>
+          <Coin emblem="cancel" />
+          <span className="gs-act-text">
+            <span className="gs-act-word">{cancel.word}</span>
+            <span className="gs-act-sub">{cancel.sub} · Esc</span>
+          </span>
         </button>
       ) : myPriority && countdown !== null ? (
         // Spec 0005: your own spell or trigger is on top. It resolves when
@@ -1031,8 +1162,14 @@ function Rail({
             onClick={onPauseWindow}
             aria-label={`Pass: Resolve ${top?.name ?? "it"} in ${countdown}. Click to wait and respond.`}
           >
-            <span className="gs-act-word">Resolving in {countdown}…</span>
-            <span className="gs-act-sub">Click to wait · Space resolves now</span>
+            {/* Keyed: a new spell on top starts its ring again. */}
+            <Coin key={top?.id} emblem="resolve" seconds={countdown} />
+            <span className="gs-act-text">
+              <span className="gs-act-word">Resolves in {countdown}</span>
+              <span className="gs-act-sub">
+                {top ? `Your ${top.name}` : "Yours"} · click to wait
+              </span>
+            </span>
           </button>
         </div>
       ) : myPriority ? (
@@ -1047,8 +1184,11 @@ function Rail({
             onClick={onPass}
             aria-label={`Pass: ${words.word}. ${words.sub}`}
           >
-            <span className="gs-act-word">{words.word}</span>
-            <span className="gs-act-sub">{words.sub}</span>
+            <Coin emblem={passEmblem(words.word)} />
+            <span className="gs-act-text">
+              <span className="gs-act-word">{words.word}</span>
+              <span className="gs-act-sub">{words.sub}</span>
+            </span>
           </button>
           {!top && (
             <button type="button" className="gs-act-turn" disabled={busy} onClick={onPassTurn}>
@@ -1059,15 +1199,20 @@ function Rail({
       ) : !question ? (
         <div className="gs-waiting" role="status">
           {/* Owner 2026-10-22: one plain line. */}
-          <span className="gs-waiting-word">
-            <span aria-hidden="true" className="gs-priority-dot" />
-            {waitingLine(board, mySeat, asking, lastAsked, resolving)}
+          <Coin emblem="wait" />
+          <span className="gs-act-text">
+            <span className="gs-waiting-word">
+              {waitingLine(board, mySeat, asking, lastAsked, resolving)}
+            </span>
           </span>
         </div>
       ) : (
         <div className="gs-waiting gs-waiting-question" role="status">
-          <span className="gs-waiting-word">Your answer</span>
-          <span className="gs-waiting-sub">Your choice is above the board</span>
+          <Coin emblem="ask" />
+          <span className="gs-act-text">
+            <span className="gs-waiting-word">Your answer</span>
+            <span className="gs-waiting-sub">Your choice is above the board</span>
+          </span>
         </div>
       )}
 
@@ -1365,14 +1510,25 @@ interface CombatButton {
  */
 function combatWords(kind: string, board: Snapshot, mySeat: number): { word: string; sub: string } {
   if (kind === "declareAttackers") {
-    const n = board.battlefield.filter((c) => c.attacking && c.seat === mySeat).length;
-    return n > 0
-      ? { word: `Attack (${n})`, sub: "Click a creature to add it or take it back" }
+    const attacking = board.battlefield.filter((c) => c.attacking && c.seat === mySeat);
+    // Spec 0034: and their total power.
+    return attacking.length > 0
+      ? {
+          word: `Attack with ${attacking.length}`,
+          sub: `${totalPower(attacking)} power · click creatures to change`,
+        }
       : { word: "No attacks", sub: "Click creatures to attack with them" };
   }
   const n = board.battlefield.filter((c) => c.blocking && c.seat === mySeat).length;
+  const through = unblockedPower(board);
   return n > 0
-    ? { word: `Done blocking (${n})`, sub: "Click a creature to add a block or take it back" }
+    ? {
+        word: `Block with ${n}`,
+        sub:
+          through === null
+            ? "Click a creature to add a block or take it back"
+            : `${through} power still gets through`,
+      }
     : { word: "No blocks", sub: "Click your creatures to block with them" };
 }
 
