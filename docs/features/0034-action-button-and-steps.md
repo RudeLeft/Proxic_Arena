@@ -1,6 +1,6 @@
 # 0034 — The action button says more, and the turn's steps move smoothly
 
-**Status:** Approved 2026-10-29
+**Status:** Built in 1.18.0
 **Owner decisions:** 2026-10-29 — from the canvas
 (https://claude.ai/artifact/4DmFqMhu2sg7HT4HunQ6Ch): every proposed
 word on the action button; button look B2 "Seal"; step look S1 "Gems on

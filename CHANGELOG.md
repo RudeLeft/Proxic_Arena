@@ -3,7 +3,11 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.18.0 — 2026-10-29
+
+The game moves faster and asks better: one rule for when the game stops
+for you, with new chances to act at the moments that matter, and an
+action button that says what happens next.
 
 **For whoever runs the server**
 - One database update runs by itself on start: everyone's saved stop settings are deleted (there are none any more).

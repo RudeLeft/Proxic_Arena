@@ -1,6 +1,6 @@
 # 0035 — One rule for when the game stops for you
 
-**Status:** Approved 2026-10-29 (owner: "build it")
+**Status:** Built in 1.18.0
 **Owner decisions:** 2026-10-29 —
 remove the stop options and everyone's saved settings;
 on the opponent's turn stop before they attack, after they attack,
