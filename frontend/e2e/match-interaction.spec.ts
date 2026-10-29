@@ -30,6 +30,10 @@ const click = clickNow;
 const opponentLife = async (page: Page) =>
   Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
 
+// The step the game is in (data-step), not the highlight walking towards it.
+const stepOf = async (page: Page) =>
+  ((await page.locator(".gs-steps").first().getAttribute("data-step")) ?? "").trim();
+
 test("a click with nothing asked selects and does not attack; a cancelled target casts nothing", async ({
   browser,
 }) => {
@@ -73,7 +77,12 @@ test("a click with nothing asked selects and does not attack; a cancelled target
         }
       }
 
-      if (page === host && priority && selected && !cancelled) {
+      // Only in a main phase. Cancelled at the UPKEEP stop, priority passed
+      // on and the DRAW step drew a second copy, so the hand held one more
+      // than before (CI run 40893297305). From a main phase, passing on
+      // stops at the next main phase or a stop of the guest's, who does
+      // not act until this check is done -- never at our draw.
+      if (page === host && priority && selected && !cancelled && /^Main [12]$/.test(await stepOf(page))) {
         // P7-H: a burn spell we can pay for, started and then cancelled.
         const burn = hand
           .filter({ hasText: BURN })
