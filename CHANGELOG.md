@@ -5,6 +5,9 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
+**The battlefield as lit velvet** (spec 0033, owner 2026-10-29)
+- The green table has a brushed-velvet texture, evenly lit, with a deep shadow and a faint gold rim round its edge.
+
 **The Proxic card back** (spec 0031 Amendment 1, owner 2026-10-29)
 - Your opponent's hand at the top of the board shows the Proxic card back, turned round as if held across the table.
 - Face-down cards on the table (a morph, a manifest) show the same back.

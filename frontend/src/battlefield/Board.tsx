@@ -1210,6 +1210,7 @@ export function Board({
 
   return (
     <div ref={ref} className="bf-board" data-testid="battlefield">
+      <div className="bf-felt-edge" style={{ width: g.play.w }} />
       <div className="bf-divider" style={{ top: g.height / 2, width: g.play.w }} />
       <aside
         className="bf-rail"
