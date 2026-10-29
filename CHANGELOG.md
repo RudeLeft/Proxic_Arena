@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.19.0 — 2026-10-29
+
+Big boards made readable: identical cards stack, blockers sit on the
+attackers they block, and a whole stack can block a stack in two clicks.
 
 **For whoever runs the server**
 - Nothing to do: no database updates and no new settings.

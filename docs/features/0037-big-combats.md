@@ -1,6 +1,6 @@
 # 0037 — Big combats: blocked pairs ride together, and block many at once
 
-**Status:** Approved 2026-10-29; built (unreleased)
+**Status:** Built in 1.19.0
 **Owner decisions:** 2026-10-29 — from the canvas
 (https://claude.ai/artifact/6j3VMyzcqUuWWYGHdYd6s3): P1 "a blocker rides
 on its attacker", identical pairs stack; fire lines stay one per
