@@ -1,6 +1,6 @@
 # 0033 — The battlefield as lit velvet
 
-**Status:** Approved 2026-10-29
+**Status:** Built in 1.17.0
 **Owner decisions:** 2026-10-29 — from the canvas
 (https://claude.ai/artifact/6FUBeeymzZZnjhvxbw7ZDT): the T4 velvet texture,
 without its spotlight, with lighting L4 "Lit edge".

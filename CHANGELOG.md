@@ -3,7 +3,13 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.17.0 — 2026-10-29
+
+The table dressed up: the green battlefield becomes lit velvet, and your
+opponent's hidden cards show the Proxic card back.
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
 
 **The battlefield as lit velvet** (spec 0033, owner 2026-10-29)
 - The green table has a brushed-velvet texture, evenly lit, with a deep shadow and a faint gold rim round its edge.
