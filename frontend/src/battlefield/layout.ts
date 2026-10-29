@@ -60,6 +60,8 @@ const TAPPED_TILT = 15; // degrees (§7.52a, from the canvas)
  * transform-origin percentages of the card box. */
 export const TAPPED_ORIGIN = { x: 0.5, y: 0.92 } as const;
 export const HAND_ORIGIN = { x: 0.5, y: 1.2 } as const;
+/** Spec 0031 — the opponent's hand turns about a point above its cards. */
+export const OPPONENT_HAND_ORIGIN = { x: 0.5, y: -0.2 } as const;
 
 // --- inputs and outputs ---------------------------------------------------
 
@@ -104,6 +106,9 @@ export interface LayoutInput {
   battlefield: readonly LayoutCard[];
   /** The viewer's own hand, in Forge's order. */
   hand: readonly { id: string }[];
+  /** Spec 0031 — the opponent's hand: a back for each hidden card, the
+   * card for one shown to the viewer. */
+  opponentHand?: readonly { id: string }[];
   /** Whose view this is (§7.12: the layout is per viewer). */
   viewerSeat: number;
 }
@@ -413,6 +418,15 @@ function planRows(
 const Z_BATTLEFIELD = 10;
 const Z_HAND = 10000; // above every battlefield z (rows reach ~2000), the lines and the effects
 
+/** A hand of [n] cards fanned across the play area: where the first
+ * card's left edge is, the step between cards, and the middle index. */
+function handFan(n: number, g: Geometry): { left: number; pitch: number; mid: number } {
+  const room = g.play.w - 2 * g.inset - g.cardW;
+  const pitch = n > 1 ? Math.min(HAND_PITCH * g.cardW, room / (n - 1)) : 0;
+  const groupW = Math.max(0, n - 1) * pitch + g.cardW;
+  return { left: g.play.x + (g.play.w - groupW) / 2, pitch, mid: (n - 1) / 2 };
+}
+
 export function layout(input: LayoutInput, viewport: Viewport): Layout {
   const g = geometry(viewport);
   const boxes = new Map<string, Box>();
@@ -521,26 +535,37 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
 
   // The viewer's hand: a shallow arc along the baseline, centred in the
   // play area, partly below the edge (§7.52a, from the canvas).
-  const n = input.hand.length;
-  if (n > 0) {
-    const room = g.play.w - 2 * g.inset - g.cardW;
-    const pitch = n > 1 ? Math.min(HAND_PITCH * g.cardW, room / (n - 1)) : 0;
-    const groupW = (n - 1) * pitch + g.cardW;
-    const left = g.play.x + (g.play.w - groupW) / 2;
-    const mid = (n - 1) / 2;
-    input.hand.forEach((card, i) => {
-      const off = i - mid;
-      boxes.set(card.id, {
-        x: left + i * pitch,
-        y: g.handTop + Math.abs(off) * HAND_DIP * g.height,
-        w: g.cardW,
-        h: g.cardH,
-        scale: 1,
-        rotation: off * HAND_TILT,
-        z: Z_HAND + i,
-      });
+  const fan = handFan(input.hand.length, g);
+  input.hand.forEach((card, i) => {
+    const off = i - fan.mid;
+    boxes.set(card.id, {
+      x: fan.left + i * fan.pitch,
+      y: g.handTop + Math.abs(off) * HAND_DIP * g.height,
+      w: g.cardW,
+      h: g.cardH,
+      scale: 1,
+      rotation: off * HAND_TILT,
+      z: Z_HAND + i,
     });
-  }
+  });
+
+  // Spec 0031 — the opponent's hand: the viewer's mirrored about the
+  // board's middle, fanning down from the top edge into the band above
+  // the opponent's back row.
+  const theirs = input.opponentHand ?? [];
+  const theirFan = handFan(theirs.length, g);
+  theirs.forEach((card, i) => {
+    const off = i - theirFan.mid;
+    boxes.set(card.id, {
+      x: theirFan.left + i * theirFan.pitch,
+      y: g.height - g.handTop - g.cardH - Math.abs(off) * HAND_DIP * g.height,
+      w: g.cardW,
+      h: g.cardH,
+      scale: 1,
+      rotation: -off * HAND_TILT,
+      z: Z_HAND + i,
+    });
+  });
 
   return { geometry: g, boxes, slots, rowOf, overcrowded };
 }

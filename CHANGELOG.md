@@ -18,6 +18,11 @@ words, newest first. Each release on GitHub carries the same notes.
 - Each player in the game's right-hand column sits on a raised plate: picture with its Hall ring, name and Belt, life in a red banner.
 - Hand, library, graveyard and exile are big tiles with an icon, a large count and the word. Whose turn it is: the plate's top edge and the banner turn gold.
 
+**Belt mark and zone pictures** (spec 0031, owner 2026-10-28)
+- The small Champion's Belt beside the holder's name is a new gold belt, drawn bolder so it reads at that size. The Hall of Champions keeps its big belt.
+- The Library, Graveyard and Exile tiles on the player plates show new pictures (card backs, a tombstone, a portal) faded behind the count. Library runs across the top of each plate, Graveyard and Exile side by side beneath.
+- Your opponent's hand is drawn at the top of the board as card backs, the mirror of yours at the bottom. A card they've shown you is face up there; click it to look.
+
 **The turn ladder** (spec 0030, owner 2026-10-28)
 - The steps of the turn moved from the bar across the top of the board to a ladder between the two player plates: the turn number, whose turn it is, then Untap to Cleanup, top to bottom.
 - The step the game is in is gold and the steps already passed are dimmed; in combat it also says Attackers, Blockers or Damage. The top of the board is left to the cards.

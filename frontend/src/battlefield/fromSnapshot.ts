@@ -12,12 +12,22 @@
 // direction, never a wrong board, because the board is the snapshot.
 
 import type { Snapshot, SnapshotCard } from "../match";
-import type { BoardCard, BoardHandCard, CombatView, DamageWave, StackView } from "./Board";
+import type {
+  BoardCard,
+  BoardHandCard,
+  CombatView,
+  DamageWave,
+  OpponentHandCard,
+  StackView,
+} from "./Board";
 import type { AnchorId } from "./motion";
 
 export interface BoardData {
   battlefield: BoardCard[];
   hand: BoardHandCard[];
+  /** Spec 0031 — the opponent's hand: a back per hidden card (its count is
+   * the snapshot's), then the cards the server showed this viewer. */
+  opponentHand: OpponentHandCard[];
   combat: CombatView | null;
   stack: StackView[];
   damage: DamageWave | null;
@@ -63,6 +73,21 @@ function toHandCard(card: SnapshotCard): BoardHandCard {
     art: card.art,
     manaCost: card.manaCost,
   };
+}
+
+/** Spec 0031 — what the viewer may see of the opponent's hand. */
+function opponentHandOf(snapshot: Snapshot): OpponentHandCard[] {
+  const them = snapshot.players.find((p) => p.seat !== snapshot.seat);
+  if (!them) return [];
+  const shown = snapshot.otherHands.filter((card) => card.seat === them.seat);
+  const hidden = Math.max(0, them.handCount - shown.length);
+  return [
+    ...Array.from({ length: hidden }, (_, i) => ({
+      id: `hidden-hand:${them.seat}:${i}`,
+      shown: null,
+    })),
+    ...shown.map((card) => ({ id: card.id, shown: toHandCard(card) })),
+  ];
 }
 
 /**
@@ -138,6 +163,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   return {
     battlefield: snapshot.battlefield.map(toBoardCard),
     hand: snapshot.hand.map(toHandCard),
+    opponentHand: opponentHandOf(snapshot),
     combat: snapshot.combat,
     stack,
     damage: snapshot.damage,

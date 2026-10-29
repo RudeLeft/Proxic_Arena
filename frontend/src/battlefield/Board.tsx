@@ -34,6 +34,7 @@ import "./battlefield.css";
 import { ManaCost, costChange } from "./ManaCost";
 import {
   HAND_ORIGIN,
+  OPPONENT_HAND_ORIGIN,
   TAPPED_ORIGIN,
   layout,
   type Box,
@@ -104,6 +105,13 @@ export interface BoardHandCard {
   manaCost?: string | null;
 }
 
+/** Spec 0031 — a card in the opponent's hand: hidden (drawn as a back),
+ * or one the server has shown this viewer. */
+export interface OpponentHandCard {
+  id: string;
+  shown: BoardHandCard | null;
+}
+
 /** Who attacks what, and who blocks whom (§7.61 B4). */
 export interface CombatView {
   attackers: readonly { id: string; target: TargetRef }[];
@@ -151,6 +159,13 @@ export interface DamageWave {
 export interface BoardProps {
   battlefield: readonly BoardCard[];
   hand: readonly BoardHandCard[];
+  /** Spec 0031 — the opponent's hand, fanned down from the top edge. */
+  opponentHand?: readonly OpponentHandCard[];
+  /** Whose that hand is, for its words. */
+  opponentName?: string | undefined;
+  /** Clicking the opponent's hand: opens the cards shown to the viewer;
+   * absent when none are. */
+  onOpponentHand?: (() => void) | undefined;
   viewerSeat: number;
   /** Turns a picture reference into a URL (a match-scoped asset route in a
    * match, the reference itself for a synthetic board). */
@@ -419,10 +434,15 @@ function reducedMotion(): boolean {
     : true;
 }
 
+const NO_CARDS: readonly OpponentHandCard[] = [];
+
 /** The board fills its container and lays itself out for that size. */
 export function Board({
   battlefield,
   hand,
+  opponentHand = NO_CARDS,
+  opponentName = "Your opponent",
+  onOpponentHand,
   viewerSeat,
   artUrl,
   arrivals,
@@ -495,8 +515,9 @@ export function Board({
     );
   }, [battlefield, combat]);
   const result = useMemo(
-    () => (viewport ? layout({ battlefield: laidOut, hand, viewerSeat }, viewport) : null),
-    [laidOut, hand, viewerSeat, viewport],
+    () =>
+      viewport ? layout({ battlefield: laidOut, hand, opponentHand, viewerSeat }, viewport) : null,
+    [laidOut, hand, opponentHand, viewerSeat, viewport],
   );
   const byId = useMemo(() => new Map(battlefield.map((card) => [card.id, card])), [battlefield]);
 
@@ -725,8 +746,80 @@ export function Board({
         ),
       });
     }
+
+    // Spec 0031 — the opponent's hand: backs, and any card shown to you.
+    // Clicking it opens the shown cards, as the plate's Hand tile did.
+    opponentHand.forEach((card, i) => {
+      const box = result.boxes.get(card.id);
+      if (!box) return;
+      const shown = card.shown;
+      const drawn: Drawn = shown
+        ? {
+            name: shown.name,
+            look: lookOf(shown.kind, shown.types),
+            type: shortType(shown.types),
+            pt: figure(shown),
+            art: shown.art ? artUrl(shown.art) : null,
+            faceDown: false,
+            side: "opponent",
+            cost: shown.manaCost ?? null,
+          }
+        : {
+            name: "",
+            look: "artifact",
+            type: "",
+            pt: "",
+            art: null,
+            faceDown: true,
+            side: "opponent",
+          };
+      out.push({
+        id: card.id,
+        ids: [card.id],
+        box,
+        origin: OPPONENT_HAND_ORIGIN,
+        drawn,
+        content: (
+          <button
+            type="button"
+            className={`bf-card bf-opp-hand${shown ? ` bf-look-${drawn.look} bf-opp-hand-shown` : ""}`}
+            aria-label={
+              shown
+                ? `${shown.name}, in ${opponentName}'s hand, shown to you`
+                : `Card ${i + 1} of ${opponentHand.length} in ${opponentName}'s hand`
+            }
+            disabled={!onOpponentHand}
+            onClick={onOpponentHand}
+            data-object-id={card.id}
+            data-zone="opponent:hand"
+            data-controller="opponent"
+            data-face={shown ? "up" : "down"}
+          >
+            {shown ? (
+              <CardFace {...drawn} />
+            ) : (
+              <span className="bf-card-back" aria-hidden="true">
+                <span className="bf-card-back-mark" />
+              </span>
+            )}
+          </button>
+        ),
+      });
+    });
     return out;
-  }, [result, byId, hand, viewerSeat, artUrl, pointed, act, handCosts]);
+  }, [
+    result,
+    byId,
+    hand,
+    opponentHand,
+    opponentName,
+    onOpponentHand,
+    viewerSeat,
+    artUrl,
+    pointed,
+    act,
+    handCosts,
+  ]);
 
   /** Where every object is drawn now: piles' members and hosts' tags
    * share their card's box. */

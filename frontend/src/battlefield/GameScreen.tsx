@@ -12,6 +12,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import logo from "../assets/logo-header.webp";
+import libraryArt from "../assets/zones/library.webp";
+import graveyardArt from "../assets/zones/graveyard.webp";
+import exileArt from "../assets/zones/exile.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import { Avatar, avatarUrl } from "../avatars";
 import { ChatPanel } from "../LobbyChat";
@@ -389,6 +392,16 @@ export function GameScreen({
         <Board
           battlefield={data.battlefield}
           hand={data.hand}
+          opponentHand={data.opponentHand}
+          opponentName={board.players.find((p) => p.seat !== board.seat)?.name}
+          onOpponentHand={
+            data.opponentHand.some((card) => card.shown)
+              ? () => {
+                  const them = board.players.find((p) => p.seat !== board.seat);
+                  if (them) setViewer({ seat: them.seat, zone: "hand" });
+                }
+              : undefined
+          }
           viewerSeat={board.seat}
           artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
           arrivals={data.arrivals}
@@ -800,21 +813,14 @@ function SeatBlock({
           <span className="gs-life-n">{player.life}</span>
         </button>
       </div>
-      <div className={`gs-zones gs-zones-${mine ? 3 : 4}`}>
-        {!mine && (
-          <button
-            type="button"
-            className="gs-zone"
-            title="Hand"
-            aria-label={`${player.name}'s hand, ${player.handCount} cards${visibleHand.length ? `, ${visibleHand.length} visible to you` : ""}`}
-            disabled={visibleHand.length === 0}
-            onClick={() => onView({ seat: player.seat, zone: "hand" })}
-          >
-            <ZoneIcon zone="hand" />
-            <span className="gs-zone-n">{player.handCount}</span>
-            <span className="gs-zone-key">Hand</span>
-          </button>
-        )}
+      {/* Spec 0031 — the opponent's hand is drawn on the board, fanned down
+          from the top edge; its count stays here for screen readers. */}
+      {!mine && (
+        <p className="pa-visually-hidden">
+          {`${player.name}'s hand, ${player.handCount} cards${visibleHand.length ? `, ${visibleHand.length} visible to you` : ""}`}
+        </p>
+      )}
+      <div className="gs-zones">
         <div
           className="gs-zone"
           title="Library"
@@ -859,31 +865,11 @@ function SeatBlock({
 }
 
 /** Spec 0029 — the zone tiles' icons; the word is beside them (and read aloud). */
-const ZONE_PATHS: Record<"hand" | "library" | "graveyard" | "exile", string> = {
-  hand: "M7 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z M18 7l1.5.4a2 2 0 0 1 1.4 2.5l-2.4 9",
-  library: "M6 3h11a1 1 0 0 1 1 1v15H7a2 2 0 0 0 0 4h11 M6 3a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2",
-  graveyard: "M7 21V10a5 5 0 0 1 10 0v11 M4 21h16 M12 9v6 M9.5 11.5h5",
-  exile: "M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 11a1 1 0 1 0 1 1",
-};
+/** Spec 0031 — the owner's pictures, drawn faded behind each tile's count. */
+const ZONE_ART = { library: libraryArt, graveyard: graveyardArt, exile: exileArt };
 
-function ZoneIcon({ zone }: { zone: keyof typeof ZONE_PATHS }) {
-  return (
-    <svg
-      className="gs-zone-icon"
-      viewBox="0 0 24 24"
-      width="22"
-      height="22"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d={ZONE_PATHS[zone]} />
-    </svg>
-  );
+function ZoneIcon({ zone }: { zone: keyof typeof ZONE_ART }) {
+  return <img className="gs-zone-art" src={ZONE_ART[zone]} alt="" draggable={false} />;
 }
 
 /** Spec 0002 — how long nobody must be asked before the rail says "Resolving…". */

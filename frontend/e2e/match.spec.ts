@@ -145,14 +145,19 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       // makes it a table rather than a list.
       expect(await page.getByText(/in library/).count()).toBe(2);
     }
-    // Each player's own hand is drawn, card by card; the opponent's
-    // is not drawn at all, because its contents never arrived -- only
-    // its count, in the totals.
+    // Each player's own hand is drawn, card by card; the opponent's is
+    // drawn only as backs (spec 0031), because its contents never
+    // arrived -- one back per card of its count, no name on any.
     for (const page of [asked, waiting]) {
       await expect(handCards(page).first()).toBeVisible();
-      await expect(
-        page.locator('.bf-cards [data-zone$=":hand"]:not([data-zone="viewer:hand"])'),
-      ).toHaveCount(0);
+      const theirs = page.locator('.bf-cards [data-zone="opponent:hand"]');
+      await expect(theirs.first()).toBeVisible();
+      await expect(theirs.and(page.locator('[data-face="up"]'))).toHaveCount(0);
+      for (const label of await theirs.evaluateAll((els) =>
+        els.map((el) => el.getAttribute("aria-label") ?? ""),
+      )) {
+        expect(label).toMatch(/^Card \d+ of \d+ in .+'s hand$/);
+      }
     }
 
     // --- ANSWER IT, AND SEE THE GAME MOVE ---------------------

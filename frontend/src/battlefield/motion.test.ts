@@ -89,7 +89,9 @@ describe("the rail's zones (AMENDMENT 6)", () => {
       expect(a["opponent:exile"].y).toBeLessThan(a.stack.y);
       expect(a.stack.y).toBeLessThan(a["viewer:life"].y);
       expect(a["opponent:life"].y).toBeLessThan(a["opponent:library"].y);
-      expect(a["opponent:hand"].y).toBeLessThan(0);
+      // Spec 0031: the opponent's hand fans down from the top edge, above
+      // their back row.
+      expect(a["opponent:hand"].y).toBeLessThan(g.rows["opponent:land-back"].y);
       expect(a["viewer:hand"].y).toBeGreaterThan(g.handTop);
     }
   });
@@ -98,18 +100,18 @@ describe("the rail's zones (AMENDMENT 6)", () => {
     const g = geometry({ width: 1600, height: 900 });
     const a = anchors(g);
     const at = (x: number) => g.rail.x + x; // the rail is 900 high here: 1 px = 1 unit
-    // The opponent: Hand, Library / Graveyard, Exile, two a row.
-    expect(a["opponent:library"].x).toBeCloseTo(at(165.4), 0);
-    expect(a["opponent:library"].y).toBeCloseTo(200, 0);
-    expect(a["opponent:graveyard"].x).toBeCloseTo(at(65.4), 0);
-    expect(a["opponent:exile"].x).toBeCloseTo(at(165.4), 0);
-    expect(a["opponent:exile"].y).toBe(a["opponent:graveyard"].y);
-    expect(a["opponent:graveyard"].y).toBeCloseTo(258, 0);
-    // You: Library, Graveyard / Exile across the row.
-    expect(a["viewer:library"].y).toBe(a["viewer:graveyard"].y);
-    expect(a["viewer:graveyard"].x).toBeGreaterThan(a["viewer:library"].x);
-    expect(a["viewer:exile"].x).toBeCloseTo(at(115.4), 0);
-    expect(a["viewer:exile"].y).toBeGreaterThan(a["viewer:graveyard"].y);
+    // Spec 0031 — both plates: Library across the row, then Graveyard / Exile.
+    for (const [side, top] of [
+      ["opponent", 96],
+      ["viewer", 656],
+    ] as const) {
+      expect(a[`${side}:library`].x).toBeCloseTo(at(115.4), 0);
+      expect(a[`${side}:library`].y).toBeCloseTo(top + 104, 0);
+      expect(a[`${side}:graveyard`].x).toBeCloseTo(at(65.4), 0);
+      expect(a[`${side}:exile`].x).toBeCloseTo(at(165.4), 0);
+      expect(a[`${side}:exile`].y).toBe(a[`${side}:graveyard`].y);
+      expect(a[`${side}:graveyard`].y).toBeCloseTo(top + 162, 0);
+    }
     // Life: the banner at the head's right.
     expect(a["opponent:life"].x).toBeCloseTo(at(189.4), 0);
     expect(a["opponent:life"].y).toBeCloseTo(136, 0);

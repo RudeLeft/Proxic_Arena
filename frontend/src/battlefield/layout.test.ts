@@ -674,6 +674,30 @@ describe("the hand", () => {
       }
     }
   });
+
+  it("the opponent's mirrors yours from the top edge, above their back row (spec 0031)", () => {
+    for (const vp of VIEWPORTS) {
+      for (const n of [1, 7, 15]) {
+        const hand = Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` }));
+        const theirs = Array.from({ length: n }, (_, i) => ({ id: `hidden-hand:2:${i}` }));
+        const out = layout({ viewerSeat: 1, hand, opponentHand: theirs, battlefield: [] }, vp);
+        const g = out.geometry;
+        const backRow = Math.min(g.rows["opponent:land-back"].y, g.rows["opponent:other-back"].y);
+        theirs.forEach((card, i) => {
+          const b = out.boxes.get(card.id)!;
+          const mine = out.boxes.get(hand[i]!.id)!;
+          // The same fan, flipped top to bottom.
+          expect(b.x).toBeCloseTo(mine.x, 9);
+          expect(b.rotation).toBeCloseTo(-mine.rotation, 9);
+          expect(b.y + b.h).toBeCloseTo(g.height - mine.y, 9);
+          // Partly off the top edge, and clear of the opponent's cards.
+          expect(b.y).toBeLessThan(0);
+          expect(b.y + b.h).toBeLessThan(backRow);
+          expect(right(b)).toBeLessThanOrEqual(g.rail.x + EPS);
+        });
+      }
+    }
+  });
 });
 
 describe("stacking", () => {

@@ -234,6 +234,18 @@
   opacity: 0.55;
 }
 
+/* Spec 0031 — the opponent's hand along the top edge: backs, and a card
+ * shown to you edged gold. It opens only when something in it is shown. */
+.bf-opp-hand:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.bf-opp-hand-shown {
+  box-shadow:
+    0 0 0 2px #e0a44a,
+    0 4px 12px rgb(0 0 0 / 60%);
+}
+
 /* Face down: the same back for both seats (§7.18); the controller knows
  * the card from its label and inspect, not from its face. */
 .bf-card-back {

@@ -112,9 +112,10 @@ export type AnchorId = `${Side}:${ZoneName}` | "stack";
 // As built (game.css, spec 0029's plates), in the rail's 900-pixel units:
 // a plate is 216 wide from x 7.4, with a 2 px top border, 1 px sides and
 // 10 px padding; a 56 px head (life in the banner at its right); 10 px;
-// then 52 px tiles, two a row, 6 px apart. The opponent's plate starts at
-// y 96 (Hand, Library / Graveyard, Exile), the viewer's at 656 (Library,
-// Graveyard / Exile across the row). The stack is between them.
+// then 52 px tiles, two a row, 6 px apart. Both plates (opponent's at y
+// 96, viewer's at 656) read Library across the row, then Graveyard /
+// Exile (spec 0031: the opponent's hand is drawn on the board instead).
+// The stack is between them.
 const PANEL_X = 7.4 / 900; // a plate's left edge, from the rail's
 const PANEL_W = 216 / 900;
 const PLATE_TOP: Record<Side, number> = { opponent: 96, viewer: 656 };
@@ -125,8 +126,8 @@ const TILES_Y = 2 + 10 + 56 + 10;
 const ROW_Y = [TILES_Y + 26, TILES_Y + 52 + 6 + 26];
 /** Each zone's tile, as [row, column]; column 2 is a tile across the whole row. */
 const TILE: Record<Side, Partial<Record<ZoneName, [number, number]>>> = {
-  opponent: { library: [0, 1], graveyard: [1, 0], exile: [1, 1] },
-  viewer: { library: [0, 0], graveyard: [0, 1], exile: [1, 2] },
+  opponent: { library: [0, 2], graveyard: [1, 0], exile: [1, 1] },
+  viewer: { library: [0, 2], graveyard: [1, 0], exile: [1, 1] },
 };
 const STACK_Y = 424 / 900;
 // The life banner (46 x 54 at the head's right): its centre, and the
@@ -153,11 +154,11 @@ export function anchors(g: Geometry): Record<AnchorId, Point> {
       };
     }
   }
-  // Hands: the viewer's fans along the bottom; the opponent's is off the
-  // top edge (it is a count, not cards).
+  // Hands: the viewer's fans along the bottom; the opponent's down from
+  // the top edge, its mirror (spec 0031).
   const mid = g.play.x + g.play.w / 2;
   out["viewer:hand"] = { x: mid, y: g.handTop + g.cardH / 2 };
-  out["opponent:hand"] = { x: mid, y: -g.cardH / 2 };
+  out["opponent:hand"] = { x: mid, y: g.height - g.handTop - g.cardH / 2 };
   return out;
 }
 

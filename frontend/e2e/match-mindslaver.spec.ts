@@ -53,10 +53,11 @@ test("under Mindslaver the controller answers for the other player and sees thei
     await startAMatch(host, guest, deckName, { settle: false });
 
     const controlling = matchPanel(host).getByRole("heading", { name: /Playing for seat 2/ });
-    // PHASE_07: the opponent's hand row opens once some of it is visible.
-    const theirHand = matchPanel(host).getByRole("button", {
-      name: new RegExp(`^${secondUser}'s hand, [0-9]+ cards, [0-9]+ visible to you`),
-    });
+    // Spec 0031: the opponent's hand is fanned along the top of the board;
+    // a card shown to you is face up, and clicking it opens the hand.
+    const theirHand = matchPanel(host)
+      .locator('[data-zone="opponent:hand"][data-face="up"]')
+      .first();
     const asking = async (page: Page) =>
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;

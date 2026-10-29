@@ -240,30 +240,30 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-/* The tiles: two a row; on your side the third spans the row. */
+/* The tiles (spec 0031): Library across the row, then Graveyard and
+   Exile; each zone's picture faded behind the right of its tile, the
+   count large on the left over it, the word under the count. */
 .gs-zones {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
   margin-top: 10px;
 }
-.gs-zones-3 > :last-child {
+.gs-zones > :first-child {
   grid-column: 1 / -1;
 }
 .gs-zone {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 8px;
+  position: relative;
+  display: block;
   height: 52px;
   box-sizing: border-box;
   margin: 0;
-  padding: 6px 10px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid #2a323c;
   border-radius: 8px;
-  background: linear-gradient(#0e1319, #0a0d12);
-  color: #9aa1ab;
+  background: linear-gradient(#141a22, #0a0d12);
+  color: #c9a35a;
   font: inherit;
   text-align: left;
 }
@@ -272,31 +272,37 @@ button.gs-zone:not(:disabled) {
 }
 button.gs-zone:not(:disabled):hover {
   border-color: #4a5462;
-  color: #c2c9d2;
 }
-/* The opponent's hand opens only when some of it is shown to you; it
-   looks like the other tiles either way, just not clickable. */
-button.gs-zone:disabled {
-  opacity: 1;
-  cursor: default;
+button.gs-zone:not(:disabled):hover .gs-zone-art {
+  opacity: 0.62;
 }
-.gs-zone-icon {
-  grid-row: 1;
+.gs-zone-art {
+  position: absolute;
+  right: -10px;
+  top: -14px;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  opacity: 0.42;
+  pointer-events: none;
 }
 .gs-zone-n {
-  grid-row: 1;
-  justify-self: end;
+  position: absolute;
+  left: 10px;
+  top: 5px;
   font-family: var(--pa-display);
   font-weight: 700;
   font-size: var(--pa-size-xl);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: #f1f4f8;
+  text-shadow: 0 1px 3px #000;
 }
 .gs-zone-key {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  margin-top: 2px;
+  position: absolute;
+  left: 10px;
+  bottom: 5px;
+  max-width: calc(100% - 20px);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -305,7 +311,8 @@ button.gs-zone:disabled {
   /* Not capitals: at the scale's smallest size "GRAVEYARD" is wider
      than its tile, "Graveyard" is not. */
   letter-spacing: 0.02em;
-  color: #8a8f98;
+  color: #c2c9d2;
+  text-shadow: 0 1px 2px #000;
 }
 
 .gs-act,

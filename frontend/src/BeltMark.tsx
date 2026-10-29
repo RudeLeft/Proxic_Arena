@@ -2,7 +2,9 @@
 // names appear (the Players list, rooms, chat, the game). The holder is the
 // server's (STANDINGS `belt`), the same the Hall of Champions shows.
 
-import belt from "./assets/trophies/belt.webp";
+// Spec 0031 — the owner's own belt drawing, its line thickened and its
+// plates filled so it reads at this size (the Hall keeps the big belt).
+import belt from "./assets/trophies/belt-mark.webp";
 
 export function BeltMark() {
   return (
@@ -11,8 +13,8 @@ export function BeltMark() {
       src={belt}
       alt="Champion's Belt holder"
       title="Champion's Belt holder"
-      width={36}
-      height={14}
+      width={40}
+      height={13}
     />
   );
 }

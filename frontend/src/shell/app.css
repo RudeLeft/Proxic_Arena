@@ -3984,8 +3984,8 @@
 /* F1 — the mini Champion's Belt beside the holder's name. */
 .pa-belt-mark {
   display: inline-block;
-  width: 36px;
-  height: 14px;
+  width: 40px;
+  height: 13px;
   margin-left: 6px;
   vertical-align: -2px;
   object-fit: contain;
