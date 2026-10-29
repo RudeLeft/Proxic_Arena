@@ -31,6 +31,7 @@ import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
+import cardBack from "../assets/card-back.webp";
 import { ManaCost, costChange } from "./ManaCost";
 import {
   HAND_ORIGIN,
@@ -312,9 +313,7 @@ export function CardFace({
     // server told (the snapshot carries no name for anybody else).
     return (
       <>
-        <span className="bf-card-back" aria-hidden="true">
-          <span className="bf-card-back-mark" />
-        </span>
+        <span className="bf-card-back" aria-hidden="true" />
         {known && (
           <span className="bf-bar bf-bar-top bf-bar-secret">
             <span className="bf-name">{name}</span>
@@ -798,9 +797,8 @@ export function Board({
             {shown ? (
               <CardFace {...drawn} />
             ) : (
-              <span className="bf-card-back" aria-hidden="true">
-                <span className="bf-card-back-mark" />
-              </span>
+              // The Proxic card back (docs/assets/brand), owner 2026-10-28.
+              <img className="bf-opp-back" src={cardBack} alt="" draggable={false} />
             )}
           </button>
         ),

@@ -64,4 +64,10 @@ All taken 2026-10-28 (see the top).
 
 ## Amendments
 
-None.
+### Amendment 1 (owner, 2026-10-29, after 1.16.0)
+
+The opponent's hidden cards show the Proxic card back
+(`docs/assets/brand/Proxic Card Back.png`, the owner's newer version with
+the black gem), turned round as if held across the table. Face-down cards
+on the table use the same back, upright, still with their face-down bar.
+Approved from the canvas demo (https://claude.ai/artifact/DFdLiGuErNQgvGWnJvjjkT).

@@ -242,6 +242,20 @@
   cursor: default;
   opacity: 1;
 }
+/* A hidden card: the Proxic card back, edge to edge. */
+.bf-opp-hand:not(.bf-opp-hand-shown) {
+  border: 0;
+  background: none;
+}
+/* Turned round: the opponent holds their cards facing them, across the table. */
+.bf-opp-back {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  transform: rotate(180deg);
+  pointer-events: none;
+}
 .bf-opp-hand-shown {
   box-shadow:
     0 0 0 2px #e0a44a,
@@ -252,18 +266,10 @@
  * the card from its label and inspect, not from its face. */
 .bf-card-back {
   position: absolute;
-  inset: calc(var(--card-h) * 0.03);
-  border-radius: calc(var(--card-h) * 0.03);
-  background: repeating-linear-gradient(45deg, rgb(255 255 255 / 4%) 0 4px, transparent 4px 9px),
-    #1f2a36;
-  display: grid;
-  place-items: center;
-}
-.bf-card-back-mark {
-  width: 38%;
-  aspect-ratio: 1;
-  border: 2px solid rgb(204 216 228 / 45%);
-  border-radius: 50%;
+  inset: 0;
+  border-radius: inherit;
+  /* The Proxic card back (docs/assets/brand), owner 2026-10-28. */
+  background: url("../assets/card-back.webp") center / 100% 100% no-repeat;
 }
 
 /* --- badges ------------------------------------------------------------- */

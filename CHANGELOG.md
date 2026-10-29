@@ -3,6 +3,12 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**The Proxic card back** (spec 0031 Amendment 1, owner 2026-10-29)
+- Your opponent's hand at the top of the board shows the Proxic card back, turned round as if held across the table.
+- Face-down cards on the table (a morph, a manifest) show the same back.
+
 ## 1.16.0 — 2026-10-28
 
 A new look for the game screen: the stack fanned out so every card shows,
