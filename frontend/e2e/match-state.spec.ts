@@ -81,11 +81,14 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       const poisoned = await seen(/\d+ poison/);
 
       let pick = -1;
-      if (
-        /Choose a creature to attack/.test(
-          (await panel.locator(".decision-prompt").allTextContents()).join(" "),
-        )
-      ) {
+      const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
+      if (/Choose a creature to block with/.test(prompt)) {
+        // Never block: every infect attacker connects, so the game poisons
+        // somebody. Taking Forge's first answer here blocked every infect
+        // creature, and poison came only when a blocker happened to be
+        // missing (CI and locally, 2026-10-29: three runs in six).
+        pick = -1;
+      } else if (/Choose a creature to attack/.test(prompt)) {
         // Infect attacks until someone has been poisoned once.
         if (!poisoned)
           pick = labels.findIndex((label) => INFECT.some((name) => label.startsWith(name)));
