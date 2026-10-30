@@ -21,6 +21,7 @@ import net.barnflix.proxic.auth.SignInLog
 import net.barnflix.proxic.auth.SignInView
 import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAdmin
+import net.barnflix.proxic.report.adminReportRoutes
 import java.util.UUID
 
 // The Admin page's API — PHASE_07 §7.67, Amendment 9.
@@ -89,6 +90,8 @@ class AdminServices(
     val resetDesk: net.barnflix.proxic.auth.ResetDesk? = null,
     /** Spec 0027 — every linked computer; none without a database. */
     val computers: AdminComputers? = null,
+    /** Spec 0039 — players' reports of problems and ideas; none without a database. */
+    val reports: net.barnflix.proxic.report.Reports? = null,
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -114,6 +117,8 @@ fun Route.adminRoutes(admin: AdminServices) {
 
         adminInviteRoutes(admin)
         adminEmailRoutes(admin)
+        // Spec 0039 — the Reports tab.
+        adminReportRoutes(admin)
 
         get("/server") {
             call.asAdmin(admin) ?: return@get

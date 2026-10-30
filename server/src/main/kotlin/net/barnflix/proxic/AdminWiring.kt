@@ -86,6 +86,8 @@ internal fun adminServices(
         mailSettings = mail,
         resetDesk = reach.resets,
         computers = net.barnflix.proxic.admin.AdminComputers(database.dataSource()),
+        // Spec 0039 — the Reports tab.
+        reports = net.barnflix.proxic.report.Reports(database.dataSource(), config.dataRoot, config.gameRecords()),
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(

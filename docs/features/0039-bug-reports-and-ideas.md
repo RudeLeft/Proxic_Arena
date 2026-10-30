@@ -1,6 +1,6 @@
 # 0039 — Bug reports and ideas, with the logs to go with them
 
-**Status:** Approved 2026-10-30 (spec only; build when the owner says)
+**Status:** Built 2026-10-30 (owner: "build 0039"); unreleased
 **Owner decisions:** 2026-10-30 — from the canvas
 (https://claude.ai/artifact/Wmfu4cPwY6yH3Qr73buB8D): the button, the two
 forms, the Admin tab and the zip as drawn; a picture of the screen taken
@@ -123,4 +123,9 @@ All taken 2026-10-30 (see the top).
 
 ## Amendments
 
-None.
+**Amendment 1 (2026-10-30, at build).** "When? → In an earlier game" is
+an answer only: the form does not list the player's last five games to
+pick from. The report still says which page and which game it was sent
+from; a game played earlier is found by its time and player in
+Admin › Games. A picker can come later if reports show it is needed.
+The version in a report is the one the server says it is running.

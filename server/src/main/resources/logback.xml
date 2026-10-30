@@ -29,8 +29,13 @@
         </encoder>
     </appender>
 
+    <!-- Spec 0039: the newest lines, kept in memory, so a player's report
+         can carry the ones about their game and themselves. -->
+    <appender name="RECENT" class="net.barnflix.proxic.report.RecentLogLines"/>
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="RECENT"/>
     </root>
 
     <!-- Netty is chatty at INFO and drowns everything useful. -->

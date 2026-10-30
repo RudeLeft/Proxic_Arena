@@ -220,6 +220,8 @@ class MatchRoutesTest {
                     "GET /api/matches/{id}" to client.get("/api/matches/${UUID.randomUUID()}"),
                     // Spec 0018.
                     "GET /api/hall" to client.get("/api/hall"),
+                    // Spec 0039.
+                    "POST /api/reports" to client.post("/api/reports"),
                 )
 
             for ((endpoint, answer) in answers) {

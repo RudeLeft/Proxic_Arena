@@ -1,5 +1,6 @@
 package net.barnflix.proxic.admin
 
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -139,6 +140,7 @@ class AdminApiTest {
         return when (method) {
             "GET" -> client.get(path, build)
             "PUT" -> client.put(path, build)
+            "DELETE" -> client.delete(path, build)
             else -> client.post(path, build)
         }
     }
@@ -160,6 +162,13 @@ class AdminApiTest {
             "GET" to "/api/admin/sign-ins",
             "GET" to "/api/admin/matches",
             "GET" to "/api/admin/matches/{room}/record",
+            // Spec 0039 — the Reports tab.
+            "GET" to "/api/admin/reports",
+            "GET" to "/api/admin/reports/1",
+            "PUT" to "/api/admin/reports/1",
+            "DELETE" to "/api/admin/reports/1",
+            "GET" to "/api/admin/reports/1/files/screen.png",
+            "GET" to "/api/admin/reports/1/zip",
         )
 
     @Test
@@ -459,5 +468,101 @@ class AdminApiTest {
             )
             val list = call(admin, "GET", "/api/admin/matches").bodyAsText()
             assertTrue(list.contains("\"keepDays\":30"), list)
+        }
+
+    /**
+     * Spec 0039 (F-0039-B, D, E, F) — a player's report reaches the
+     * administrators, its zip holds the report and its files, and only an
+     * administrator reads any of it.
+     */
+    @Test
+    fun `a player's report reaches the admins, and its zip holds it all`() =
+        testApplication {
+            application { module(config()) }
+            val pat = session("Pat")
+            val admin = session("RudeLeft")
+            val png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+
+            // Refused whole: nothing said about what happened.
+            val empty = call(pat, "POST", "/api/reports", """{"kind":"PROBLEM","answers":{"happened":"  "}}""")
+            assertEquals(HttpStatusCode.UnprocessableEntity, empty.status)
+            assertTrue(empty.bodyAsText().contains("Say what happened"))
+            // Not a picture: refused, and not saved.
+            val notPng =
+                call(
+                    pat,
+                    "POST",
+                    "/api/reports",
+                    """{"kind":"PROBLEM","answers":{"happened":"x"},"picture":"data:,aGVsbG8="}""",
+                )
+            assertEquals(HttpStatusCode.UnprocessableEntity, notPng.status)
+
+            val sent =
+                call(
+                    pat,
+                    "POST",
+                    "/api/reports",
+                    """
+                    {"kind":"PROBLEM",
+                     "answers":{"where":"Lobby and rooms","happened":"The rooms list did not update.",
+                                "expected":"My room to show.","impact":"Small thing","cards":["Lightning Bolt"]},
+                     "context":{"page":"Lobby","version":"1.20.0","browser":"Chrome","screen":"1920×1080"},
+                     "matchId":"${UUID.randomUUID()}",
+                     "picture":"data:image/png;base64,$png",
+                     "browserLog":"{\"t\":1,\"kind\":\"click\",\"text\":\"Open a room\"}\n"}
+                    """.trimIndent(),
+                )
+            assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
+            val number = Regex("\"number\":(\\d+)").find(sent.bodyAsText())!!.groupValues[1]
+            // A game Pat did not play in is not attached: no record.
+            val idea =
+                call(pat, "POST", "/api/reports", """{"kind":"IDEA","answers":{"title":"A sound on my turn"}}""")
+            assertEquals(HttpStatusCode.Created, idea.status)
+
+            // A player cannot read them, even their own.
+            assertEquals(HttpStatusCode.Forbidden, call(pat, "GET", "/api/admin/reports").status)
+
+            val list = call(admin, "GET", "/api/admin/reports").bodyAsText()
+            assertTrue(list.contains("The rooms list did not update."), list)
+            assertTrue(list.contains("\"newCount\":2"), list)
+            assertTrue(list.contains("\"where\":\"Lobby\""), list)
+            val detail = call(admin, "GET", "/api/admin/reports/$number").bodyAsText()
+            assertTrue(detail.contains("screen.png") && detail.contains("browser-log.jsonl"), detail)
+            assertTrue(detail.contains("\"matchId\":null"), detail)
+            assertFalse(detail.contains("game-record"), detail)
+
+            val seen = call(admin, "PUT", "/api/admin/reports/$number", """{"status":"SEEN","adminNote":"Looking"}""")
+            assertEquals(HttpStatusCode.OK, seen.status)
+            assertTrue(seen.bodyAsText().contains("\"status\":\"SEEN\""))
+            val badStatus = call(admin, "PUT", "/api/admin/reports/$number", """{"status":"LATER"}""")
+            assertEquals(HttpStatusCode.NotFound, badStatus.status)
+
+            val picture = call(admin, "GET", "/api/admin/reports/$number/files/screen.png")
+            assertEquals(HttpStatusCode.OK, picture.status)
+            assertEquals(
+                HttpStatusCode.NotFound,
+                call(admin, "GET", "/api/admin/reports/$number/files/..%2F..%2Fsecret").status,
+            )
+
+            val zip = call(admin, "GET", "/api/admin/reports/$number/zip")
+            assertEquals(HttpStatusCode.OK, zip.status)
+            val entries = mutableMapOf<String, String>()
+            java.util.zip.ZipInputStream(zip.readBytes().inputStream()).use { input ->
+                generateSequence { input.nextEntry }.forEach { entries[it.name] = input.readBytes().decodeToString() }
+            }
+            val folder = "proxic-report-$number/"
+            assertTrue(
+                entries.keys.containsAll(
+                    listOf("README.md", "report.json", "screen.png", "browser-log.jsonl").map { folder + it },
+                ),
+                entries.keys.toString(),
+            )
+            val readme = entries[folder + "README.md"]!!
+            assertTrue(readme.contains("## What happened") && readme.contains("The rooms list did not update."), readme)
+            assertTrue(readme.contains("**From**") || readme.contains("From **Pat**"), readme)
+            assertTrue(readme.contains("Looking"), readme)
+
+            assertEquals(HttpStatusCode.NoContent, call(admin, "DELETE", "/api/admin/reports/$number").status)
+            assertEquals(HttpStatusCode.NotFound, call(admin, "GET", "/api/admin/reports/$number").status)
         }
 }

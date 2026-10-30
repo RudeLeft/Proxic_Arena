@@ -3,6 +3,18 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**For whoever runs the server**
+- One database update, made by itself on start: a table for reports. Reports' files are kept in the data folder under `bug-reports/`, until an administrator deletes them.
+
+**Report a problem or an idea** (spec 0039, owner 2026-10-30)
+- A Report button on every page, beside Sign out, and in a game beside the gear.
+- Report a problem: where you were, what part of the game, which cards, what happened, what you expected, how much it got in the way. A picture of your screen is taken when you press it (untick to leave it out, or add your own).
+- A problem report also sends what your screen did in the last 15 minutes and, from a game, that game's full record, so the cause can be found. The game carries on while you write.
+- Suggest an idea: in a few words, what you would like, what it would help with, how much it would matter.
+- Admin › Reports lists them with a red count of new ones: open one to read the answers, see the picture and the logs, set its status (New, Seen, Fixed, Won't fix, Planned), keep a private note, delete it, or download it all as one zip.
+
 ## 1.20.0 — 2026-10-29
 
 A tidier right-hand column: everything evenly spaced, and a tray for

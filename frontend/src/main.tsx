@@ -6,7 +6,11 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./AuthContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AppRoutes } from "./routes";
+import { installReportLog } from "./reportLog";
 import "./styles.css";
+
+// Spec 0039 — the page's own log, for a report: from the first moment.
+installReportLog();
 
 const host = document.getElementById("root");
 if (!host) {

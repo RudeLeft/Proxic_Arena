@@ -11,6 +11,7 @@
 // for again before these actions. A browser left signed in as an
 // administrator can change accounts; that was decided, not missed.
 
+import { ReportsPanel, fetchReports, type ReportsList } from "./AdminReports";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -60,6 +61,8 @@ const TABS = [
   { id: "accounts", label: "Accounts" },
   { id: "rooms", label: "Rooms" },
   { id: "games", label: "Games" },
+  // Spec 0039 — players' reports of problems and their ideas.
+  { id: "reports", label: "Reports" },
   { id: "sign-ins", label: "Sign-ins" },
   // Spec 0027 — every computer linked to the Deck Builder.
   { id: "computers", label: "Computers" },
@@ -78,6 +81,7 @@ export default function AdminPage() {
   const [server, setServer] = useState<ServerState | null>(null);
   const [signIns, setSignIns] = useState<SignInEvent[]>([]);
   const [computers, setComputers] = useState<AdminComputer[]>([]);
+  const [reports, setReports] = useState<ReportsList | null>(null);
   const [matches, setMatches] = useState<AdminMatches | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -88,14 +92,16 @@ export default function AdminPage() {
   const tabsId = useId();
 
   const refresh = useCallback(async () => {
-    const [a, r, s, e, m, c] = await Promise.all([
+    const [a, r, s, e, m, c, b] = await Promise.all([
       fetchAccounts(),
       fetchAdminRooms(),
       fetchServerState(),
       fetchSignIns(),
       fetchAdminMatches(),
       fetchComputers(),
+      fetchReports(),
     ]);
+    setReports(b);
     setAccounts(a);
     setRooms(r ?? []);
     setServer(s);
@@ -181,6 +187,7 @@ export default function AdminPage() {
     accounts: String(numbers.active),
     rooms: String(numbers.rooms),
     games: String(matches?.matches.length ?? 0),
+    reports: String(reports?.reports.length ?? 0),
     "sign-ins": String(signInsByPerson(signIns).length),
     computers: String(computers.length),
     email: "",
@@ -235,6 +242,10 @@ export default function AdminPage() {
             >
               {t.label}
               {counts[t.id] && <span className="pa-admin-tab-count">{counts[t.id]}</span>}
+              {/* Spec 0039 — new reports, in red, from every tab. */}
+              {t.id === "reports" && (reports?.newCount ?? 0) > 0 && (
+                <span className="pa-admin-tab-new">{reports!.newCount} new</span>
+              )}
               {/* A problem shows from every tab (spec 0020). */}
               {t.id === "server" && server && !serverHealthy(server) && (
                 <span className="pa-admin-tab-alert" role="img" aria-label="Server problem" />
@@ -249,6 +260,18 @@ export default function AdminPage() {
           )}
           {tab === "rooms" && <RoomsPanel rooms={rooms} now={now} run={run} />}
           {tab === "games" && <RecordsPanel matches={matches} />}
+          {tab === "reports" && (
+            <ReportsPanel
+              list={reports}
+              open={params.get("report") ? Number(params.get("report")) : null}
+              onOpen={(n) =>
+                setParams(n === null ? { tab: "reports" } : { tab: "reports", report: String(n) }, {
+                  replace: false,
+                })
+              }
+              refresh={refresh}
+            />
+          )}
           {tab === "sign-ins" && <SignInsPanel events={signIns} />}
           {tab === "computers" && (
             <ComputersPanel

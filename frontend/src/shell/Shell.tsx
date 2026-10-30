@@ -7,6 +7,8 @@
 // alone is the courtesy: the server re-reads the role from the session
 // on every request (Phase 3 §3.19).
 
+import { ReportButton } from "../ReportDialog";
+import { logLine } from "../reportLog";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
@@ -281,6 +283,8 @@ function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setMenuOpen(false), [pathname]);
+  // Spec 0039 — a page change is a line in the page's log.
+  useEffect(() => logLine("page", `went to ${pathname}`), [pathname]);
   return (
     <header className={`pa-header${menuOpen ? " pa-header-open" : ""}`}>
       <NavLink to="/play" className="pa-logo" aria-label="Proxic Arena — Lobby">
@@ -320,6 +324,8 @@ function Header() {
       </nav>
       <TopNotices />
       <ConnectionState />
+      {/* Spec 0039 — a problem or an idea, from any page. */}
+      <ReportButton place="header" />
       <button
         type="button"
         className="pa-button pa-button-quiet pa-sign-out"

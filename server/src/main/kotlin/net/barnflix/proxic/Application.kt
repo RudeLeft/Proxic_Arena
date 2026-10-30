@@ -34,6 +34,8 @@ import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
+import net.barnflix.proxic.report.Reports
+import net.barnflix.proxic.report.reportRoutes
 import net.barnflix.proxic.room.matchPresetRoutes
 import net.barnflix.proxic.room.matchSetupRoutes
 import net.barnflix.proxic.room.roomRoutes
@@ -437,9 +439,11 @@ internal fun resolveStaticFile(
 
 /**
  * The /api paths that need a session and put its principal in
- * PRINCIPAL_KEY (see databaseRoutes). Spec 0018 added /api/hall.
+ * PRINCIPAL_KEY (see databaseRoutes). Spec 0018 added /api/hall;
+ * spec 0039 /api/reports, where any signed-in player sends a report.
  */
-private val GUARDED_API = listOf("/api/decks", "/api/rooms", "/api/matches", "/api/match-presets", "/api/hall")
+private val GUARDED_API =
+    listOf("/api/decks", "/api/rooms", "/api/matches", "/api/match-presets", "/api/hall", "/api/reports")
 
 /**
  * Routes, sweeps and dependencies that need PostgreSQL.
@@ -647,6 +651,7 @@ private fun Route.databaseRoutes(
         // corrected rather than believed.
         matchPresetRoutes()
         hallRoutes(HallGameSource(database.dataSource())) // spec 0018
+        reportRoutes(Reports(database.dataSource(), config.dataRoot, config.gameRecords())) // spec 0039
 
         val importer =
             net.barnflix.proxic.deck.DeckImporter(

@@ -10,6 +10,7 @@
 // click becomes an answer only through interaction.ts's rules over the
 // options Forge sent; what a viewer may not see was never sent (§7.45).
 
+import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
   useCallback,
   useEffect,
@@ -165,6 +166,22 @@ export function GameScreen({
     previous: null,
   });
   const board = held && !askedNow ? held : latest;
+  // Spec 0039 — what a report sent from here knows about this moment.
+  const reportGame = useMemo<ReportGame | undefined>(() => {
+    if (!board) return undefined;
+    const them = board.players.find((p) => p.seat !== board.seat);
+    const names = [...board.battlefield, ...board.hand, ...board.stack]
+      .map((card) => card.name)
+      .filter((name) => name && name !== "Face-down");
+    return {
+      matchId: match.matchId,
+      opponent: them?.name ?? "your opponent",
+      turn: board.turn,
+      whose: board.activeSeat === board.seat ? "your turn" : `${them?.name ?? "their"}’s turn`,
+      step: STEPS.find((s) => s.phases.includes(board.phase))?.label ?? board.phase,
+      cards: [...new Set(names)].sort(),
+    };
+  }, [board, match.matchId]);
   if (board && board !== frames.current.current) {
     frames.current = { current: board, previous: frames.current.current };
   }
@@ -625,6 +642,7 @@ export function GameScreen({
       <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
         <GameMenu
           match={match}
+          report={reportGame}
           live={live && !finished}
           choices={decision ? decision.options.length : null}
           listOpen={listOpen}
@@ -2119,6 +2137,7 @@ function Notices({ board }: { board: Snapshot }) {
 
 function GameMenu({
   match,
+  report,
   live,
   choices,
   listOpen,
@@ -2127,6 +2146,8 @@ function GameMenu({
   onConcede,
 }: {
   match: MatchView;
+  /** Spec 0039 — what a report from here knows about the game. */
+  report: ReportGame | undefined;
   live: boolean;
   /** How many options the question on screen has, or null for none. */
   choices: number | null;
@@ -2252,12 +2273,14 @@ function GameMenu({
             className="gs-icon-button"
             aria-label="Game menu"
             aria-expanded={menuOpen}
-            title="Stop options, Concede, Abandon match"
+            title="Concede, Abandon match"
             onClick={() => setMenuOpen((open) => !open)}
           >
             <GearIcon />
           </button>
         )}
+        {/* Spec 0039 — a problem or an idea, beside the gear. */}
+        <ReportButton place="game" {...(report ? { game: report } : {})} />
         {choices !== null && choices > 0 && (
           // §7.29 and the keyboard: every answer, as a plain list, from
           // anywhere -- the board is the quick way, never the only way.

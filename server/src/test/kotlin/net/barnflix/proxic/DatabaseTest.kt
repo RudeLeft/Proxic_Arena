@@ -148,6 +148,7 @@ class DatabaseTest {
                         // computer linked to download the deck rules.
                         // Spec 0022: deck_token, a deck's token pictures.
                         // Spec 0026: password_reset, emailed reset links.
+                        // Spec 0039: bug_report, players' reports and ideas.
                         // Still forbidden until their own phases:
                         // friends, ratings, spectators.
                         assertEquals(
@@ -156,6 +157,7 @@ class DatabaseTest {
                                 "admin_action",
                                 "app_user",
                                 "art_asset",
+                                "bug_report",
                                 "deck_entry",
                                 "deck_face_art",
                                 "deck_share",

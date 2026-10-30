@@ -20,6 +20,7 @@
 // action. Everything else is the server's to know.
 
 /** §6.49 — a presentation hint, never authority. */
+import { logLine, summarise } from "./reportLog";
 import { onPageBack, pageIsLeaving } from "./pageLife";
 
 export interface DecisionOption {
@@ -882,16 +883,19 @@ export function connectMatch(
     socket = current;
     let dropped = false;
     current.onopen = () => {
+      if (attempt > 0) logLine("connection", "game connection back");
       attempt = 0;
     };
     current.onmessage = (event) => {
       const parsed = parse(event.data);
       if (!parsed) return;
+      logLine("game", summarise("in", parsed)); // spec 0039
       onState((previous) => reduceMatch(previous, parsed));
     };
     current.onclose = (event) => {
       if (dropped || closedByUs) return;
       dropped = true;
+      logLine("connection", `game connection closed (${event.code})`);
       // A refresh closes it on the way out: not a lost connection, and
       // the game screen says nothing (owner 2026-10-24).
       if (pageIsLeaving()) return;
@@ -926,15 +930,12 @@ export function connectMatch(
   return {
     answer(decisionId, actionId) {
       if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(
-        JSON.stringify(
-          // A null action is a PASS, and it is sent explicitly
-          // rather than by omitting the field, so "I choose to do
-          // nothing" and "this message lost a field" are not the
-          // same message.
-          { type: "DECISION_RESPONSE", decisionId, actionId },
-        ),
-      );
+      // A null action is a PASS, and it is sent explicitly rather than by
+      // omitting the field, so "I choose to do nothing" and "this message
+      // lost a field" are not the same message.
+      const response = { type: "DECISION_RESPONSE", decisionId, actionId };
+      logLine("game", summarise("out", response)); // spec 0039
+      socket.send(JSON.stringify(response));
     },
     search(decisionId, query) {
       if (socket.readyState !== WebSocket.OPEN) return;
