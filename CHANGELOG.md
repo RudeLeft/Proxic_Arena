@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.20.0 — 2026-10-29
+
+A tidier right-hand column: everything evenly spaced, and a tray for
+each player showing floating mana, counters and markers.
 
 **For whoever runs the server**
 - Nothing to do: no database updates and no new settings.

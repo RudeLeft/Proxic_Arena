@@ -1,6 +1,6 @@
 # 0038 — The rail evenly spaced, with a status tray for each player
 
-**Status:** Approved 2026-10-29
+**Status:** Built in 1.20.0
 **Owner decisions:** 2026-10-29 — from the canvas
 (https://claude.ai/artifact/DPXDJm6hRV7aoCDnyiwMuJ): R1 "even spacing,
 a tray held for each player"; the mana pool as M1 "a symbol and a
