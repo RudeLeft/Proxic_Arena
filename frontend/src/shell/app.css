@@ -3435,11 +3435,17 @@
   align-items: center;
   gap: 8px;
 }
+/* A name too long for one line takes a second beside the picture rather
+   than being cut: at 1366 "RudeLeft" has 6px to spare in Barlow and is 13px
+   short in the fallback face shown until Barlow loads. Two lines at line
+   height 1 stay within the 56px picture, so the place keeps its height. */
 .pa-hp-who b {
   min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   font-family: var(--pa-display);
   font-size: var(--pa-size-xl);
   line-height: 1;

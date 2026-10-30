@@ -671,6 +671,38 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
     expect(seen.cut, at).toEqual([]);
     expect(seen.fits, at).toBe(true);
     if (seen.loss) expect(seen.loss, at).toBe("rgb(229, 89, 78)");
+    // A place's name is never cut whatever this database's names are: a
+    // long one, and a short one in the fallback face shown until Barlow
+    // loads (RudeLeft was cut at 1366 that way, 2026-10-29). Two lines fit
+    // beside the picture, so the place keeps its height.
+    const long = await page.evaluate(() => {
+      const place = document.querySelector(".pa-hp-place");
+      const before = place?.getBoundingClientRect().height ?? 0;
+      const tries: [string, string][] = [
+        ["Maximilian", ""],
+        ["RudeLeft", "sans-serif"],
+      ];
+      const cut: string[] = [];
+      let grew = 0;
+      for (const b of document.querySelectorAll<HTMLElement>(".pa-hp-who b")) {
+        const [name, face] = [b.textContent, b.style.fontFamily];
+        for (const [text, font] of tries) {
+          b.textContent = text;
+          b.style.fontFamily = font;
+          // At line height 1 the letters overhang a line by a pixel or two;
+          // a third line hidden by the two-line limit adds a whole line.
+          const line = parseFloat(getComputedStyle(b).lineHeight);
+          if (b.scrollWidth > b.clientWidth || b.scrollHeight > b.clientHeight + line / 2)
+            cut.push(`${text} ${font}`);
+          grew = Math.max(grew, (place?.getBoundingClientRect().height ?? 0) - before);
+        }
+        b.textContent = name;
+        b.style.fontFamily = face;
+      }
+      return { cut, grew };
+    });
+    expect(long.cut, at).toEqual([]);
+    expect(long.grew, at).toBeLessThanOrEqual(0);
     if (width === 1920) {
       if (seen.ratingAt !== null) expect(seen.ratingAt, at).toBeLessThan(0.5);
       expect(seen.hiddenBadges, at).toBe(0);

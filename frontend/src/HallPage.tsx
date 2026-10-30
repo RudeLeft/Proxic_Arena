@@ -204,7 +204,7 @@ function Places({ places, lobby }: { places: HallPlace[]; lobby: LobbyState }) {
                       size={SEAT_AVATAR}
                       rank={slot.rank}
                     />
-                    <b>{nameIn(lobby, holder.userId)}</b>
+                    <b title={nameIn(lobby, holder.userId)}>{nameIn(lobby, holder.userId)}</b>
                   </span>
                   <span className="pa-hp-stat">
                     {ratingText(holder.rating)} · {wonText(holder.wins, holder.games)}
