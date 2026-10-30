@@ -3,6 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
+
+**The right-hand column, evenly spaced** (spec 0038, owner 2026-10-29)
+- The player plates, the turn's steps and the action button are spread evenly down the column; nothing is squeezed in the middle any more.
+- Each player has a status tray beside their plate. Tap five Mountains and an Island and it shows the real mana symbols, red 5 and blue 1, while the mana floats.
+- Counters (poison, energy, experience...) show there as chips with their numbers; held markers (Monarch, the initiative, the city's blessing, the Ring) in gold; the command zone (an emblem, the Ring, a dungeon) in purple, listing what is there when clicked.
+- The plates never grow any more: before, a long line of counters could push your plate off the bottom of the screen.
+
 ## 1.19.0 — 2026-10-29
 
 Big boards made readable: identical cards stack, blockers sit on the

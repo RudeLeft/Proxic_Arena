@@ -55,7 +55,8 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     const deckName = await sharedDeck(host, guest, statePackage);
     await startAMatch(host, guest, deckName);
 
-    const totals = (page: Page) => matchPanel(page).locator(".gs-seat");
+    // Spec 0038: counters and markers are in the status trays.
+    const totals = (page: Page) => matchPanel(page).locator(".gs-seat, .gs-status");
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;

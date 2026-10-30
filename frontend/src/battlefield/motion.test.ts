@@ -96,14 +96,15 @@ describe("the rail's zones (AMENDMENT 6)", () => {
     }
   });
 
-  it("sit on the plates' tiles and the life banner (spec 0029)", () => {
+  it("sit on the plates' tiles and the life banner (specs 0029, 0038)", () => {
     const g = geometry({ width: 1600, height: 900 });
     const a = anchors(g);
     const at = (x: number) => g.rail.x + x; // the rail is 900 high here: 1 px = 1 unit
     // Spec 0031 — both plates: Library across the row, then Graveyard / Exile.
     for (const [side, top] of [
-      ["opponent", 96],
-      ["viewer", 656],
+      // Spec 0038: the plates' tops in the evenly spaced rail.
+      ["opponent", 26],
+      ["viewer", 675],
     ] as const) {
       expect(a[`${side}:library`].x).toBeCloseTo(at(115.4), 0);
       expect(a[`${side}:library`].y).toBeCloseTo(top + 104, 0);
@@ -114,8 +115,8 @@ describe("the rail's zones (AMENDMENT 6)", () => {
     }
     // Life: the banner at the head's right.
     expect(a["opponent:life"].x).toBeCloseTo(at(189.4), 0);
-    expect(a["opponent:life"].y).toBeCloseTo(136, 0);
-    expect(a["viewer:life"].y).toBeCloseTo(696, 0);
+    expect(a["opponent:life"].y).toBeCloseTo(66, 0);
+    expect(a["viewer:life"].y).toBeCloseTo(715, 0);
   });
 });
 

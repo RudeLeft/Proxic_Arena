@@ -56,7 +56,8 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
     const deckName = await sharedDeck(host, guest, ringPackage);
     await startAMatch(host, guest, deckName);
 
-    const totals = (page: Page) => matchPanel(page).locator(".gs-seat");
+    // Spec 0038: counters and markers are in the status trays.
+    const totals = (page: Page) => matchPanel(page).locator(".gs-seat, .gs-status");
     const bearers = (page: Page) =>
       matchPanel(page).locator(".bf-cards button.bf-card").filter({ hasText: "Ring-bearer" });
     const seen = async (pattern: RegExp) =>

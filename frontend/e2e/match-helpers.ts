@@ -254,7 +254,9 @@ export async function cardCount(cards: Locator): Promise<number> {
 }
 
 /** Both players' facts: life, hand size, counters, designations, command zone. */
-export const totals = (page: Page) => page.locator(".gs-seat");
+// Spec 0038: counters, markers, mana and the command zone are in each
+// player's status tray, beside the plate.
+export const totals = (page: Page) => page.locator(".gs-seat, .gs-status");
 
 /**
  * Whichever page is currently being asked for a decision.

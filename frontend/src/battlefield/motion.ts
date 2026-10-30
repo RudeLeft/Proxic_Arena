@@ -113,12 +113,12 @@ export type AnchorId = `${Side}:${ZoneName}` | "stack";
 // a plate is 216 wide from x 7.4, with a 2 px top border, 1 px sides and
 // 10 px padding; a 56 px head (life in the banner at its right); 10 px;
 // then 52 px tiles, two a row, 6 px apart. Both plates (opponent's at y
-// 96, viewer's at 656) read Library across the row, then Graveyard /
+// 26, viewer's at 675: spec 0038) read Library across the row, then Graveyard /
 // Exile (spec 0031: the opponent's hand is drawn on the board instead).
 // The stack is between them.
 const PANEL_X = 7.4 / 900; // a plate's left edge, from the rail's
 const PANEL_W = 216 / 900;
-const PLATE_TOP: Record<Side, number> = { opponent: 96, viewer: 656 };
+const PLATE_TOP: Record<Side, number> = { opponent: 26, viewer: 675 };
 const INNER_X = 7.4 + 1 + 10;
 const TILE_W = (216 - 2 - 20 - 6) / 2;
 const COLUMN_X = [INNER_X + TILE_W / 2, INNER_X + TILE_W + 6 + TILE_W / 2, INNER_X + TILE_W + 3];
