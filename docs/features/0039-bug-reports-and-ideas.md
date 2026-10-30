@@ -1,7 +1,7 @@
 # 0039 — Bug reports and ideas, with the logs to go with them
 
-**Status:** Built 2026-10-30 (owner: "build 0039"); unreleased
-**Owner decisions:** 2026-10-30 — from the canvas
+**Status:** Built in 1.21.0
+**Owner decisions:** 2026-10-29 — from the canvas
 (https://claude.ai/artifact/Wmfu4cPwY6yH3Qr73buB8D): the button, the two
 forms, the Admin tab and the zip as drawn; a picture of the screen taken
 automatically, ticked by default; a count on the Admin tab, no email;
@@ -13,7 +13,7 @@ The owner wants players to report a problem or suggest an idea from any
 page, and to get each report as a zip with everything needed to find the
 cause, to hand to Claude.
 
-Found (2026-10-30):
+Found (2026-10-29):
 
 - The server already records every game (PHASE_07 §7.56, GameRecord):
   every question, answer and refusal, every board each seat was sent,
@@ -119,11 +119,11 @@ notification (owner: the tab's count only); anything the game does.
 
 ## Decisions for the owner
 
-All taken 2026-10-30 (see the top).
+All taken 2026-10-29 (see the top).
 
 ## Amendments
 
-**Amendment 1 (2026-10-30, at build).** "When? → In an earlier game" is
+**Amendment 1 (2026-10-29, at build).** "When? → In an earlier game" is
 an answer only: the form does not list the player's last five games to
 pick from. The report still says which page and which game it was sent
 from; a game played earlier is found by its time and player in
