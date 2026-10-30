@@ -171,6 +171,25 @@ the copies**, 2 clicks:
 - The bubble names what happens in plain words ("Deal 1 damage to
   RudeLeft?") and shows which trigger it is ("2 of 7").
 
+**W-01, W-02, W-03 decided (2026-10-30, canvas
+https://claude.ai/artifact/4bM7QkuXj1o22V2T5QWc2q) -- group 2:**
+
+- **W-01, the answer is a click on the table** (a target, paying mana,
+  discarding, sacrificing): **a bubble beside the card asking** -- the
+  spell being cast, in its place on the stack, or the card being paid for
+  -- with its name, what to click in plain words ("3 damage to any
+  target. Click a highlighted creature or player."), what is still owed
+  when paying, and its Cancel. The top banner goes.
+- **W-02, choices the table can't show** (modes, a colour, a type, "choose
+  one"): **a bubble for up to six short choices; the tray from the bottom
+  for more, or when the choices are cards**, with a search box when the
+  list is long. Modes are counted in one go ("Choose three, 2 of 3");
+  colours are the five mana symbols.
+- **W-03, "List choices"**: **the corner button stays** and opens a tidy
+  tray: every option grouped by its card, with the card's picture, in
+  plain words ("Cast · {2}{R}"), the ones that can't be paid now dimmed
+  with the reason.
+
 Still open: every other item, one at a time.
 
 ## Amendments
