@@ -3,6 +3,17 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
+
+**A tidier battlefield** (spec 0040, owner 2026-10-30)
+- Each kind of card has its own lines across the whole table: creatures nearest the middle, then artifacts, enchantments and planeswalkers, then lands at your edge. Lands, creatures and the rest never share a line any more.
+- When a side fills up, cards overlap but always show at least half of themselves (name, picture, power and toughness). A crowded kind takes a line nobody else needs: a creature horde uses the empty artifacts line instead of shrinking.
+- Only then does that side's cards shrink, all together, in steps (90%, 80%, 75%, 70%). Each side is sized on its own, so your opponent's busy board never makes yours smaller, and cards grow back only when there is clear room.
+- Tapped cards tilt a gentle 5° and are never cut: their corners used to be trimmed off at the edge of their row.
+
 ## 1.21.0 — 2026-10-29
 
 A Report button on every page: tell us about a problem or suggest an

@@ -4,7 +4,7 @@
 //   npx vite-node scripts/layout-preview.ts <out-dir>
 //
 // Writes one SVG per viewport of a seeded mid-game board. Labels are the
-// card names; the dashed outlines are the contract's rows and the rail.
+// card names; the dashed outlines are the lines in use (spec 0040) and the rail.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -87,7 +87,7 @@ for (const vp of [
   const g = l.geometry;
   const parts: string[] = [];
   parts.push(`<rect width="${vp.width}" height="${vp.height}" fill="#0d1014"/>`);
-  for (const r of Object.values(g.rows)) {
+  for (const { rect: r } of l.lines) {
     parts.push(
       `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="#2c3440" stroke-dasharray="6 4"/>`,
     );

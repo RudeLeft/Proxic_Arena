@@ -1,5 +1,5 @@
 // The battlefield layout — PHASE_07 §7.5–§7.12, §7.52a, §7.58;
-// docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md §2–§3;
+// docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md as amended by spec 0040;
 // docs/architecture/BATTLEFIELD_RENDERING.md §3–§4.
 //
 //   layout(input, viewport) -> where every object sits
@@ -7,54 +7,57 @@
 // PURE. No DOM, no clock, no randomness, no stored state: the same
 // (state, viewport, viewer) always gives the same boxes (§7.6). It
 // positions what it is handed and decides nothing about the game
-// (§6.50): which row a card is in follows Forge's own `kind`, and the
-// order within a row follows Forge's own entry timestamp.
+// (§6.50): which line a card is in follows Forge's own `kind`, and the
+// order within a line follows Forge's own entry timestamp.
 //
 // The renderer applies it, the overlays read it, the tests assert it.
 // Nothing else positions a card.
 
-// --- the contract's constants (BATTLEFIELD_LAYOUT_CONTRACT.md §2) ----------
+// --- the lines (spec 0040) ---------------------------------------------------
 
-/** The six fractional rectangles of the OPPONENT's half, as the contract
- * tables them: x and w are fractions of the 16:9 board width, y of its
- * height. The viewer's half is their mirror about y = 0.5. */
-const ROWS = {
-  "land-back": { x: 0.0, y: 0.0964, w: 0.425 },
-  "other-back": { x: 0.4293, y: 0.0964, w: 0.4238 },
-  "land-front": { x: 0.0, y: 0.2302, w: 0.1609 },
-  "creature-back": { x: 0.1883, y: 0.2302, w: 0.4246 },
-  "other-front": { x: 0.64, y: 0.2302, w: 0.2129 },
-  "creature-front": { x: 0.0, y: 0.3642, w: 0.7422 },
-} as const;
+/**
+ * Spec 0040 (owner 2026-10-30, replacing the contract's six fixed boxes a
+ * side): each side of the table is a band of LINES running the whole play
+ * width, and a line holds one kind only -- creatures nearest the middle,
+ * then everything else, then lands at the player's own edge.
+ *
+ * The opponent's band, as fractions of the board's height; the viewer's is
+ * its mirror about y = 0.5. It is exactly what the contract's three rows
+ * covered, so a full-size line is one of those rows.
+ */
+const HALF_TOP = 0.0964;
+const HALF_BOTTOM = 0.3642 + 0.1333;
+const LINE_PITCH = 0.2302 - 0.0964; // of board height, between line tops, at full size
 
-export type RowName = keyof typeof ROWS;
 export type Side = "viewer" | "opponent";
-export type RowId = `${Side}:${RowName}`;
 export type Kind = "creature" | "land" | "other";
+/** A line: its side, its kind, and its place among that kind's lines
+ * (1 = nearest the middle for creatures and the rest, at the edge for lands). */
+export type RowId = `${Side}:${Kind}-${number}`;
 
-/** Which row fills first, per kind (§7.52a L4, PHASE 7 AMENDMENT 1):
- * lands start in the long back row by the player's edge; creatures and
- * everything else start in their front row. */
-const FILL_ORDER: Record<Kind, readonly [RowName, RowName]> = {
-  land: ["land-back", "land-front"],
-  creature: ["creature-front", "creature-back"],
-  other: ["other-front", "other-back"],
-};
+/** Spec 0040: a side's card size steps down only through these; four
+ * lines fit from 75% on. */
+export const SIZE_STEPS = [1, 0.9, 0.8, 0.75, 0.7] as const;
+/** Each card shows at least this share of its width before cards shrink. */
+export const SHOW_MIN = 0.5;
+/** A side grows back a step only when every card would show this much. */
+export const GROW_SHOW = 0.6;
 
-const ZONE_H = 0.1333; // of board height (2/15)
+const ZONE_H = 0.1333; // of board height (2/15): a line at full size
 const CARD_H_OF_ZONE = 0.9479;
 const CARD_ASPECT = 0.7143; // w / h, 5:7
-const INSET = 0.00347; // of board height: the minimum gap and the row inset
+const INSET = 0.00347; // of board height: the minimum gap and the line inset
 const REFERENCE_PITCH = 0.09375; // of board height; = card width + minimum gap
-const SLIVER = 0.33; // of card width (§7.51 decision 1)
-const SCALE_FLOOR = 0.75; // of reference card size (§7.51 decision 2)
+const SLIVER = 0.33; // of card width (§7.51 decision 1): the least ever showing
 const RAIL_X = 0.8529; // the rail starts here on the 16:9 board
 const HAND_BASELINE = 0.9167; // of board height: the top of a resting hand card
 // From the canvas (a 1600x900 board), as fractions of its height:
 const HAND_DIP = 5 / 900; // per card from the middle of the hand
 const HAND_TILT = 2.4; // degrees per card from the middle of the hand
 const HAND_PITCH = 0.78; // of card width
-const TAPPED_TILT = 15; // degrees (§7.52a, from the canvas)
+/** Spec 0040: 5 degrees (was 15), so a tapped card fits its line and
+ * nothing of it is cut. */
+export const TAPPED_TILT = 5;
 
 /** Where a tapped card and a hand card rotate about, as CSS
  * transform-origin percentages of the card box. */
@@ -117,6 +120,12 @@ export interface LayoutInput {
   opponentHand?: readonly { id: string }[];
   /** Whose view this is (§7.12: the layout is per viewer). */
   viewerSeat: number;
+  /**
+   * Spec 0040 — each side's card size in the layout before this one. A side
+   * grows back only with room to spare (GROW_SHOW), so one card coming and
+   * going never makes it jump between sizes. Passed in, never stored here.
+   */
+  previousScale?: Partial<Record<Side, number>>;
 }
 
 export interface Viewport {
@@ -144,7 +153,7 @@ export interface Rect {
   h: number;
 }
 
-/** One place in a row: a single permanent (with whatever is attached to
+/** One place in a line: a single permanent (with whatever is attached to
  * it) or a pile of identical ones (§7.58). */
 export interface Slot {
   row: RowId;
@@ -166,11 +175,24 @@ export interface Geometry {
   cardH: number;
   inset: number;
   referencePitch: number;
-  /** Everything left of the rail; the rows stretch across it (§7.52a L1). */
+  /** Everything left of the rail; the lines stretch across it (§7.52a L1). */
   play: Rect;
   rail: Rect;
-  rows: Record<RowId, Rect>;
+  /** Spec 0040 — each side's band of lines. */
+  halves: Record<Side, Rect>;
+  /** A full-size line's height, and the step between line tops. */
+  lineH: number;
+  linePitch: number;
   handTop: number;
+}
+
+/** Spec 0040 — one line as laid out: one kind, at its side's size. */
+export interface Line {
+  id: RowId;
+  side: Side;
+  kind: Kind;
+  rect: Rect;
+  scale: number;
 }
 
 export interface Layout {
@@ -179,10 +201,13 @@ export interface Layout {
    * viewer's hand. Pile members share their pile's box. */
   boxes: Map<string, Box>;
   slots: Slot[];
-  /** Which row each battlefield object is in. */
+  /** Which line each battlefield object is in. */
   rowOf: Map<string, RowId>;
-  /** Kind groups that did not fit even at the scale floor, so their
-   * cards overlap more than the minimum sliver. */
+  /** Spec 0040 — the lines in use, and each side's card size. */
+  lines: Line[];
+  scales: Record<Side, number>;
+  /** Sides ("viewer:creature"...) whose cards show less than the minimum
+   * sliver even at the smallest size. */
   overcrowded: string[];
 }
 
@@ -190,28 +215,15 @@ export interface Layout {
 
 /**
  * The fixed geometry for a viewport. Card size follows the HEIGHT; the
- * rail's width follows the height too (§7.52a L2); the rows stretch
- * across whatever width is left (§7.52a L1). At 16:9 this reproduces
- * the contract's 36 rectangles exactly.
+ * rail's width follows the height too (§7.52a L2); the lines stretch
+ * across whatever width is left (§7.52a L1).
  */
 export function geometry(viewport: Viewport): Geometry {
   const { width, height } = viewport;
   const railW = (1 - RAIL_X) * (16 / 9) * height;
   const playW = Math.max(0, width - railW);
-  // A contract x/w is a fraction of the 16:9 board, whose play area is
-  // RAIL_X of it -- so scale by the play area actually available.
-  const unit = playW / RAIL_X;
   const zoneH = ZONE_H * height;
-  const rows = {} as Record<RowId, Rect>;
-  for (const [name, r] of Object.entries(ROWS) as [RowName, (typeof ROWS)[RowName]][]) {
-    rows[`opponent:${name}`] = { x: r.x * unit, y: r.y * height, w: r.w * unit, h: zoneH };
-    rows[`viewer:${name}`] = {
-      x: r.x * unit,
-      y: (1 - r.y) * height - zoneH,
-      w: r.w * unit,
-      h: zoneH,
-    };
-  }
+  const half = (HALF_BOTTOM - HALF_TOP) * height;
   const cardH = CARD_H_OF_ZONE * zoneH;
   return {
     width,
@@ -222,7 +234,12 @@ export function geometry(viewport: Viewport): Geometry {
     referencePitch: REFERENCE_PITCH * height,
     play: { x: 0, y: 0, w: playW, h: height },
     rail: { x: playW, y: 0, w: railW, h: height },
-    rows,
+    halves: {
+      opponent: { x: 0, y: HALF_TOP * height, w: playW, h: half },
+      viewer: { x: 0, y: (1 - HALF_BOTTOM) * height, w: playW, h: half },
+    },
+    lineH: zoneH,
+    linePitch: LINE_PITCH * height,
     handTop: HAND_BASELINE * height,
   };
 }
@@ -330,13 +347,13 @@ function pileKey(
 const RIDE_DOWN = 0.14;
 const RIDE_ACROSS = 0.14;
 
-// --- the overflow ladder ----------------------------------------------------
+// --- the overflow ladder (spec 0040) -----------------------------------------
 
 /**
  * How far a tilted card reaches past its upright box, left and right,
  * for a card of size w x h tilted TAPPED_TILT degrees about
- * TAPPED_ORIGIN. Computed from the rotation, not estimated: at 15 degrees
- * it is ~1% of a card on the left and ~32% on the right.
+ * TAPPED_ORIGIN. Computed from the rotation, not estimated: at 5 degrees
+ * it is a few percent of a card each way.
  */
 export function tiltOverhang(w: number, h: number): { left: number; right: number } {
   const t = (TAPPED_TILT * Math.PI) / 180;
@@ -351,137 +368,160 @@ export function tiltOverhang(w: number, h: number): { left: number; right: numbe
   return { left: Math.max(0, -Math.min(...xs)), right: Math.max(0, Math.max(...xs) - w) };
 }
 
-/** One row's share of a kind group: which slots, at what scale, where. */
-interface RowPlan {
-  row: Rect;
-  /** Indices into the group's slots, in order. */
-  slots: number[];
-  scale: number;
-  /** Each slot's upright box's left edge. */
+/** One line's cards placed: each upright box's left edge, and the least
+ * share of any card's width left showing (1 when nothing overlaps). */
+interface LinePlan {
   xs: number[];
+  showing: number;
 }
 
 /**
- * Lay a kind's slots into its two rows (contract §3, §7.9, §7.51, §7.52a):
- *
- *   1. fill the first row, each card one reference pitch from the last
- *      plus the TILT ROOM a tapped card needs (PHASE 7 AMENDMENT 3: while
- *      a row is not overflowing, a tapped card overlaps nothing);
- *   2. then the second row the same way;
- *   3. past both, split the slots between the rows by width and squeeze
- *      every gap in a row by the same factor -- tilt room included, so
- *      squeezing starts from exactly where step 2 stopped and nothing
- *      jumps -- down to the minimum sliver (33% of a card);
- *   4. then shrink both rows uniformly, down to the 75% floor;
- *   5. past that the cards overlap more than the sliver, and the group is
- *      reported overcrowded.
- *
- * Piling (step 5 of the contract) already happened before this: a pile is
- * one slot. Steps 1 and 2 of the contract are one step here
- * (BATTLEFIELD_RENDERING.md §4: the reference pitch IS card width plus the
- * minimum gap, so there is no spare width to spread).
- *
- * Every length here is proportional to the scale, so a row is described at
- * scale 1 and scaled: `gaps` are the distances between consecutive left
- * edges, `ends` the first card plus the tilt hanging off either end.
+ * Lay one line's slots from x0 to x1 at scale s: one reference pitch apart
+ * plus the tilt room a tapped card needs (PHASE 7 AMENDMENT 3: while a line
+ * has room, a tapped card overlaps nothing); past the line's width every
+ * gap squeezes by one factor, so cards overlap evenly. Creatures and the
+ * rest are centred on the table, lands start at its left edge.
  */
-function planRows(
+function planLine(
   tapped: readonly boolean[],
-  first: Rect,
-  second: Rect,
+  x0: number,
+  x1: number,
+  s: number,
   g: Geometry,
-): { plans: [RowPlan, RowPlan]; overcrowded: boolean } {
-  const { cardW, cardH, inset, referencePitch } = g;
+  centred: boolean,
+): LinePlan {
   const n = tapped.length;
-  const { left: L, right: R } = tiltOverhang(cardW, cardH);
+  if (n === 0) return { xs: [], showing: 1 };
+  const w = g.cardW * s;
+  const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
+  const at: number[] = [];
+  const reach: number[] = [];
+  let offset = 0;
+  for (let i = 0; i < n; i++) {
+    if (i > 0) offset += g.referencePitch * s + (tapped[i - 1] ? R : 0) + (tapped[i] ? L : 0);
+    at.push(offset);
+    reach.push(w + (tapped[i] ? R : 0));
+  }
+  const lead = tapped[0] ? L : 0;
+  const avail = x1 - x0;
+  // The largest squeeze <= 1 at which no card's drawn edge leaves the line.
+  let squeeze = 1;
+  at.forEach((a, i) => {
+    if (a > 0) squeeze = Math.min(squeeze, (avail - lead - reach[i]!) / a);
+  });
+  squeeze = Math.max(0, squeeze);
+  const used = lead + Math.max(...at.map((a, i) => a * squeeze + reach[i]!));
+  const left = (centred ? x0 + Math.max(0, (avail - used) / 2) : x0) + lead;
+  let showing = 1;
+  for (let i = 1; i < n; i++) showing = Math.min(showing, ((at[i]! - at[i - 1]!) * squeeze) / w);
+  return { xs: at.map((a) => left + a * squeeze), showing: Math.min(1, showing) };
+}
 
-  /** A run of slots [from, to) at scale 1. */
-  /**
-   * A run of slots [from, to) at scale 1: where each card's left edge is
-   * (`at`, from the first card's), how far each reaches to the right
-   * (`reach`: the card, plus its tilt if tapped), and the tilt hanging off
-   * the left end (`lead`). Squeezing multiplies every `at` by one factor.
-   */
-  const measure = (from: number, to: number) => {
-    const at: number[] = [];
-    const reach: number[] = [];
-    let offset = 0;
-    let min = Infinity;
-    for (let i = from; i < to; i++) {
-      if (i > from) {
-        const gap = referencePitch + (tapped[i - 1] ? R : 0) + (tapped[i] ? L : 0);
-        offset += gap;
-        min = Math.min(min, gap);
+/** Split a kind's slots over n lines, in arrival order, as evenly as can be. */
+function share<T>(slots: readonly T[], n: number): T[][] {
+  return Array.from({ length: n }, (_, i) =>
+    slots.slice(Math.round((i * slots.length) / n), Math.round(((i + 1) * slots.length) / n)),
+  );
+}
+
+/** A side's lines at one size: each line's kind, rectangle and plan. */
+interface SidePlan {
+  scale: number;
+  lines: { kind: Kind; index: number; rect: Rect; slots: number[]; plan: LinePlan }[];
+  showing: number;
+}
+
+const KIND_ORDER: readonly Kind[] = ["creature", "other", "land"];
+
+/**
+ * Spec 0040 — a side's lines at size s. Every kind present gets a line; a
+ * spare line goes, one at a time, to the kind whose cards overlap most;
+ * creature lines run from the middle of the table outward, the rest next,
+ * land lines from the player's edge inward.
+ */
+function planSide(
+  side: Side,
+  kinds: ReadonlyMap<Kind, readonly boolean[]>,
+  s: number,
+  g: Geometry,
+): SidePlan {
+  const half = g.halves[side];
+  const lineH = g.lineH * s;
+  const pitch = g.linePitch * s;
+  const total = Math.floor((half.h - lineH) / pitch + 1e-9) + 1;
+  const x0 = g.play.x + g.inset;
+  const x1 = g.play.x + g.play.w - g.inset;
+  const present = KIND_ORDER.filter((k) => (kinds.get(k)?.length ?? 0) > 0);
+  const count = new Map(present.map((k) => [k, 1]));
+  const indices = (k: Kind) => kinds.get(k)!.map((_, i) => i);
+  const plansOf = (k: Kind, n: number) =>
+    share(indices(k), n).map((part) => ({
+      slots: part,
+      plan: planLine(
+        part.map((i) => kinds.get(k)![i]!),
+        x0,
+        x1,
+        s,
+        g,
+        k !== "land",
+      ),
+    }));
+  const showingOf = (k: Kind, n: number) => Math.min(...plansOf(k, n).map((p) => p.plan.showing));
+  for (let spare = total - present.length; spare > 0; spare--) {
+    let worst: Kind | null = null;
+    let least = 1 - 1e-9;
+    for (const k of present) {
+      const showing = showingOf(k, count.get(k)!);
+      if (showing < least) {
+        least = showing;
+        worst = k;
       }
-      at.push(offset);
-      reach.push(cardW + (tapped[i] ? R : 0));
     }
-    const lead = to > from && tapped[from] ? L : 0;
-    return { at, reach, lead, min };
-  };
-  type Run = ReturnType<typeof measure>;
-  /** The run's drawn width at a squeeze: its furthest-reaching card,
-   * which in a tight squeeze need not be the last one. */
-  const extent = (m: Run, squeeze: number) =>
-    m.at.length === 0 ? 0 : m.lead + Math.max(...m.at.map((a, i) => a * squeeze + m.reach[i]!));
-  const avail = (row: Rect) => row.w - 2 * inset;
-  const fits = (row: Rect, from: number, to: number) =>
-    extent(measure(from, to), 1) <= avail(row) + 1e-9;
-
-  /** Place a run in a row at a scale, squeezing its gaps if it must: by
-   * the largest factor <= 1 at which no card's drawn edge leaves the row. */
-  const place = (row: Rect, from: number, to: number, scale: number): RowPlan => {
-    const m = measure(from, to);
-    let squeeze = 1;
-    m.at.forEach((a, i) => {
-      if (a > 0) squeeze = Math.min(squeeze, (avail(row) / scale - m.lead - m.reach[i]!) / a);
+    if (worst === null) break;
+    count.set(worst, count.get(worst)! + 1);
+  }
+  const fromMiddle = (j: number) =>
+    side === "opponent" ? half.y + half.h - lineH - j * pitch : half.y + j * pitch;
+  const fromEdge = (j: number) =>
+    side === "opponent" ? half.y + j * pitch : half.y + half.h - lineH - j * pitch;
+  const lines: SidePlan["lines"] = [];
+  let j = 0;
+  for (const k of present) {
+    plansOf(k, count.get(k)!).forEach((p, index) => {
+      const y = k === "land" ? fromEdge(index) : fromMiddle(j++);
+      lines.push({ kind: k, index, rect: { x: x0, y, w: x1 - x0, h: lineH }, ...p });
     });
-    squeeze = Math.max(0, squeeze);
-    const used = extent(m, squeeze) * scale;
-    const left = Math.max(row.x + inset, row.x + (row.w - used) / 2) + m.lead * scale;
-    const slots = Array.from({ length: to - from }, (_, k) => from + k);
-    return { row, slots, scale, xs: m.at.map((a) => left + a * squeeze * scale) };
-  };
-
-  // Steps 1 and 2.
-  if (fits(first, 0, n)) {
-    return { plans: [place(first, 0, n, 1), place(second, n, n, 1)], overcrowded: false };
   }
-  let k = 0;
-  while (k < n && fits(first, 0, k + 1)) k++;
-  if (fits(second, k, n)) {
-    return { plans: [place(first, 0, k, 1), place(second, k, n, 1)], overcrowded: false };
-  }
+  return { scale: s, lines, showing: Math.min(1, ...lines.map((l) => l.plan.showing)) };
+}
 
-  // Step 3 on: both rows full. Share the slots by width, never fewer in
-  // the first than it held at step 2 (so the split moves on smoothly).
-  const share = Math.round((n * first.w) / (first.w + second.w));
-  const inFirst = Math.min(n - 1, Math.max(k, share));
-  const runs: [Rect, number, number][] = [
-    [first, 0, inFirst],
-    [second, inFirst, n],
-  ];
-
-  // The largest scale (<= 1) at which every row still fits with its
-  // tightest gap squeezed no further than the sliver.
-  let scale = 1;
-  for (const [row, from, to] of runs) {
-    const m = measure(from, to);
-    if (m.at.length <= 1) continue;
-    scale = Math.min(scale, avail(row) / extent(m, (SLIVER * cardW) / m.min));
+/**
+ * Spec 0040 — a side's size: the largest step at which every card shows at
+ * least SHOW_MIN of itself (GROW_SHOW for a step above the side's previous
+ * size); at the floor, whatever it takes, overcrowded below the sliver.
+ */
+function sizeSide(
+  side: Side,
+  kinds: ReadonlyMap<Kind, readonly boolean[]>,
+  g: Geometry,
+  previous: number | undefined,
+): SidePlan & { overcrowded: boolean } {
+  let plan: SidePlan | null = null;
+  for (const s of SIZE_STEPS) {
+    plan = planSide(side, kinds, s, g);
+    const needed = previous !== undefined && s > previous + 1e-9 ? GROW_SHOW : SHOW_MIN;
+    if (plan.showing >= needed - 1e-9) return { ...plan, overcrowded: false };
   }
-  const overcrowded = scale < SCALE_FLOOR - 1e-9;
-  scale = Math.max(SCALE_FLOOR, scale);
-  return {
-    plans: [place(first, 0, inFirst, scale), place(second, inFirst, n, scale)],
-    overcrowded,
-  };
+  return { ...plan!, overcrowded: plan!.showing < SLIVER - 1e-9 };
 }
 
 // --- layout -------------------------------------------------------------------
 
 const Z_BATTLEFIELD = 10;
-const Z_HAND = 10000; // above every battlefield z (rows reach ~2000), the lines and the effects
+/** Spec 0037 — a riding blocker draws over every line's cards (which stay
+ * under 2000), and under the lines and effects (5000, 6000). */
+const RIDER_Z = 2000;
+const Z_HAND = 10000; // above every battlefield z (riders reach ~4000), the lines and the effects
 
 /** A hand of [n] cards fanned across the play area: where the first
  * card's left edge is, the step between cards, and the middle index. */
@@ -564,33 +604,43 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     }
   }
 
-  for (const [groupKey, group] of [...groups.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    const [firstName, secondName] = FILL_ORDER[group.kind];
-    const first = g.rows[`${group.side}:${firstName}`];
-    const second = g.rows[`${group.side}:${secondName}`];
-    const tapped = group.slots.map((members) => members[0]!.tapped);
-    const { plans, overcrowded: crowded } = planRows(tapped, first, second, g);
-    if (crowded) overcrowded.push(groupKey);
+  // Spec 0040 — each side's lines and size, then every slot's box.
+  const lines: Line[] = [];
+  const scales: Record<Side, number> = { viewer: 1, opponent: 1 };
+  for (const side of ["opponent", "viewer"] as const) {
+    const kinds = new Map<Kind, LayoutCard[][]>();
+    for (const kind of KIND_ORDER) {
+      const group = groups.get(`${side}:${kind}`);
+      if (group) kinds.set(kind, group.slots);
+    }
+    const tapped = new Map(
+      [...kinds].map(([kind, list]) => [kind, list.map((members) => members[0]!.tapped)]),
+    );
+    const plan = sizeSide(side, tapped, g, input.previousScale?.[side]);
+    scales[side] = plan.scale;
+    if (plan.overcrowded) overcrowded.push(side);
+    const w = g.cardW * plan.scale;
+    const h = g.cardH * plan.scale;
 
-    plans.forEach((plan, rowIndex) => {
-      const rowId: RowId = `${group.side}:${rowIndex === 0 ? firstName : secondName}`;
-      const w = g.cardW * plan.scale;
-      const h = g.cardH * plan.scale;
-      const top = plan.row.y + (plan.row.h - h) / 2;
-      plan.slots.forEach((slotIndex, i) => {
-        const members = group.slots[slotIndex]!;
+    plan.lines.forEach((line, lineIndex) => {
+      const rowId: RowId = `${side}:${line.kind}-${line.index + 1}`;
+      lines.push({ id: rowId, side, kind: line.kind, rect: line.rect, scale: plan.scale });
+      const top = line.rect.y + (line.rect.h - h) / 2;
+      line.slots.forEach((slotIndex, i) => {
+        const members = kinds.get(line.kind)![slotIndex]!;
         const lead = members[0]!;
         // An attacker keeps its place (PHASE 7 AMENDMENT 4): what it
         // attacks is shown by a line, not by moving it over the divider.
         const box: Box = {
-          x: plan.xs[i]!,
+          x: line.plan.xs[i]!,
           y: top,
           w,
           h,
           scale: plan.scale,
           rotation: lead.tapped ? TAPPED_TILT : 0,
-          // Left to right, so a card overlaps the one before it (§7.9).
-          z: Z_BATTLEFIELD + (rowIndex * 100 + i) * 10,
+          // Left to right, so a card overlaps the one before it (§7.9);
+          // up to four lines a side stay under RIDER_Z.
+          z: Z_BATTLEFIELD + (lineIndex * 100 + i) * 4,
         };
         const attachedCards = attachmentsOf.get(lead.id) ?? [];
         for (const member of members) {
@@ -610,8 +660,8 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           box,
         });
         // Spec 0037 — the blockers ride: each member's k-th blocker shares
-        // the k-th rider box, sitting on the attacker, over every row.
-        const toward = group.side === "opponent" ? 1 : -1;
+        // the k-th rider box, sitting on the attacker, over every line.
+        const toward = side === "opponent" ? 1 : -1;
         const deepest = Math.max(0, ...members.map((m) => ridersOf.get(m.id)?.length ?? 0));
         for (let k = 0; k < deepest; k++) {
           const ids = members.flatMap((m) => {
@@ -625,7 +675,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
             h,
             scale: plan.scale,
             rotation: 0,
-            z: box.z + 4000 + k,
+            z: box.z + RIDER_Z + k,
           };
           for (const id of ids) {
             boxes.set(id, ride);
@@ -671,5 +721,5 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     });
   });
 
-  return { geometry: g, boxes, slots, rowOf, overcrowded };
+  return { geometry: g, boxes, slots, rowOf, lines, scales, overcrowded };
 }

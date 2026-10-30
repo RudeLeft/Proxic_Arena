@@ -1,9 +1,14 @@
 // Tier 1 of BATTLEFIELD_RENDERING.md §6: the layout maths, proved before
 // a pixel exists. PHASE_07 §7.42's properties, across viewports × card
-// counts × both seats, plus every 2026-10-20 layout decision (§7.52a).
+// counts × both seats, plus every 2026-10-20 layout decision (§7.52a) and
+// spec 0040's lines.
 
 import { describe, expect, it } from "vitest";
 import {
+  GROW_SHOW,
+  SHOW_MIN,
+  TAPPED_TILT,
+  kindOf,
   tiltOverhang,
   geometry,
   layout,
@@ -13,6 +18,7 @@ import {
   type Viewport,
 } from "./layout";
 import { syntheticBoard } from "./fixture";
+import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
 
 const VIEWPORTS: Viewport[] = [
   { width: 1366, height: 768 }, // the minimum (§1.19)
@@ -87,62 +93,40 @@ function board(n: number, seat = 1): LayoutInput {
 
 const right = (b: Box) => b.x + b.w;
 /** The card's outline as drawn: a tilted card reaches past its box. */
-const reach = (b: Box) => (b.rotation === 15 ? tiltOverhang(b.w, b.h) : { left: 0, right: 0 });
+const reach = (b: Box) =>
+  b.rotation === TAPPED_TILT ? tiltOverhang(b.w, b.h) : { left: 0, right: 0 };
+/** Each line, by id. */
+const linesOf = (out: ReturnType<typeof layout>) => new Map(out.lines.map((l) => [l.id, l]));
 
 describe("geometry", () => {
-  it("reproduces the contract's rectangles at 16:9 (§2 Verification)", () => {
-    // The contract's own table at 1920x1080, opponent half.
+  it("keeps the contract's card, and a full-size line is one of its rows (§2 Verification)", () => {
     const g = geometry({ width: 1920, height: 1080 });
-    const table: [string, number, number, number][] = [
-      ["opponent:land-back", 0.0, 0.0964, 0.425],
-      ["opponent:other-back", 0.4293, 0.0964, 0.4238],
-      ["opponent:land-front", 0.0, 0.2302, 0.1609],
-      ["opponent:creature-back", 0.1883, 0.2302, 0.4246],
-      ["opponent:other-front", 0.64, 0.2302, 0.2129],
-      ["opponent:creature-front", 0.0, 0.3642, 0.7422],
-    ];
-    for (const [id, x, y, w] of table) {
-      const r = g.rows[id as keyof typeof g.rows];
-      expect(r.x).toBeCloseTo(x * 1920, 1);
-      expect(r.y).toBeCloseTo(y * 1080, 1);
-      expect(r.w).toBeCloseTo(w * 1920, 1);
-      expect(r.h).toBeCloseTo(0.1333 * 1080, 1);
-    }
     // The contract's measured card at 1080: 97.5 x 136.5.
     expect(g.cardW).toBeCloseTo(97.5, 0);
     expect(g.cardH).toBeCloseTo(136.5, 0);
-    // And the rail starts where every rectangle stops.
+    expect(g.lineH).toBeCloseTo(0.1333 * 1080, 6);
+    // The opponent's band is exactly where the contract's three rows were.
+    expect(g.halves.opponent.y).toBeCloseTo(0.0964 * 1080, 6);
+    expect(g.halves.opponent.y + g.halves.opponent.h).toBeCloseTo((0.3642 + 0.1333) * 1080, 6);
+    // And the rail starts where the lines stop.
     expect(g.rail.x).toBeCloseTo(0.8529 * 1920, 1);
+    expect(g.halves.viewer.w).toBeCloseTo(g.rail.x, 6);
   });
 
-  it("mirrors each viewer row about the middle", () => {
+  it("mirrors the viewer's band about the middle", () => {
     for (const vp of VIEWPORTS) {
       const g = geometry(vp);
-      for (const name of [
-        "land-back",
-        "other-back",
-        "land-front",
-        "creature-back",
-        "other-front",
-        "creature-front",
-      ] as const) {
-        const o = g.rows[`opponent:${name}`];
-        const v = g.rows[`viewer:${name}`];
-        expect(v.x).toBeCloseTo(o.x, 6);
-        expect(v.w).toBeCloseTo(o.w, 6);
-        expect(v.y + v.h).toBeCloseTo(vp.height - o.y, 6);
-      }
+      expect(g.halves.viewer.h).toBeCloseTo(g.halves.opponent.h, 6);
+      expect(g.halves.viewer.y + g.halves.viewer.h).toBeCloseTo(vp.height - g.halves.opponent.y, 6);
     }
   });
 
-  it("stretches rows on a wide window and keeps the rail's width to the height (§7.52a L1, L2)", () => {
+  it("stretches lines on a wide window and keeps the rail's width to the height (§7.52a L1, L2)", () => {
     const normal = geometry({ width: 2560, height: 1440 });
     const wide = geometry({ width: 3440, height: 1440 });
     expect(wide.cardW).toBeCloseTo(normal.cardW, 9);
     expect(wide.rail.w).toBeCloseTo(normal.rail.w, 9);
-    expect(wide.rows["viewer:creature-front"].w).toBeGreaterThan(
-      normal.rows["viewer:creature-front"].w * 1.3,
-    );
+    expect(wide.halves.viewer.w).toBeGreaterThan(normal.halves.viewer.w * 1.3);
   });
 });
 
@@ -162,25 +146,26 @@ describe("§7.42 properties, across viewports × counts × both seats", () => {
           const again = layout(input, vp);
           expect([...again.boxes.entries()]).toEqual([...out.boxes.entries()]);
 
+          const lines = linesOf(out);
           for (const c of input.battlefield) {
             const b = out.boxes.get(c.id)!;
-            const row = g.rows[out.rowOf.get(c.id)!];
+            const row = lines.get(out.rowOf.get(c.id)!)!.rect;
             // The right side of the table: own cards below the middle.
             const mine = c.seat === seat;
             expect(mine ? b.y >= vp.height / 2 : b.y + b.h <= vp.height / 2).toBe(true);
-            // No card escapes its row (§7.42), nor runs into the rail.
-            // Tilt included: a tapped card's drawn outline stays in its row.
+            // No card escapes its line (§7.42), nor runs into the rail.
+            // Tilt included: a tapped card's drawn outline stays in its line.
             const r = reach(b);
             expect(b.x - r.left).toBeGreaterThanOrEqual(row.x - EPS);
             expect(right(b) + r.right).toBeLessThanOrEqual(row.x + row.w + EPS);
             expect(right(b) + r.right).toBeLessThanOrEqual(g.rail.x + EPS);
             expect(b.y).toBeGreaterThanOrEqual(row.y - EPS);
             expect(b.y + b.h).toBeLessThanOrEqual(row.y + row.h + EPS);
-            // Never smaller than the floor.
-            expect(b.scale).toBeGreaterThanOrEqual(0.75 - EPS);
+            // Never smaller than the floor (spec 0040: 70%).
+            expect(b.scale).toBeGreaterThanOrEqual(0.7 - EPS);
           }
 
-          // Within a row: left to right, later on top, and never closer
+          // Within a line: left to right, later on top, and never closer
           // than the minimum sliver unless reported overcrowded.
           const byRow = new Map<string, Box[]>();
           for (const s of out.slots) byRow.set(s.row, [...(byRow.get(s.row) ?? []), s.box]);
@@ -223,7 +208,8 @@ describe("mirror symmetry within a viewer (§7.8)", () => {
 });
 
 describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
-  /** The kind groups (side + kind) in which some card changed rows. */
+  /** The kind groups (side + kind) in which some card changed lines, and
+   * every group of a side that changed size (spec 0040). */
   function hopped(
     input: LayoutInput,
     a: ReturnType<typeof layout>,
@@ -231,7 +217,10 @@ describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
   ): Set<string> {
     const groups = new Set<string>();
     for (const c of input.battlefield) {
-      if (a.rowOf.get(c.id) !== b.rowOf.get(c.id)) groups.add(`${c.seat}:${c.kind}`);
+      const side = c.seat === input.viewerSeat ? "viewer" : "opponent";
+      if (a.rowOf.get(c.id) !== b.rowOf.get(c.id) || a.scales[side] !== b.scales[side]) {
+        groups.add(`${c.seat}:${c.kind}`);
+      }
     }
     return groups;
   }
@@ -244,7 +233,7 @@ describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
   ) {
     const skip = hopped(input, a, b);
     for (const c of input.battlefield) {
-      // At a capacity point one card changes rows and its row-mates
+      // At a capacity point one card changes lines and its line-mates
       // re-centre by half a card: that group is exempt, nothing else.
       if (skip.has(`${c.seat}:${c.kind}`)) continue;
       const ba = a.boxes.get(c.id)!;
@@ -254,7 +243,7 @@ describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
     }
   }
 
-  it("a 1px resize moves no card more than a few px, except where a card changed rows", () => {
+  it("a 1px resize moves no card more than a few px, except where a card changed lines", () => {
     let hops = 0;
     for (const n of [1, 8, 9, 23, 31]) {
       for (const height of [768, 1080]) {
@@ -274,7 +263,7 @@ describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
   });
 });
 
-describe("rows (§7.52a L3, L4)", () => {
+describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
   const vp = { width: 1920, height: 1080 };
 
   it("creature before land before other", () => {
@@ -319,19 +308,19 @@ describe("rows (§7.52a L3, L4)", () => {
       { viewerSeat: 1, hand: [], battlefield: [arbor, saga, citadel, ravager, karn, hidden] },
       vp,
     );
-    expect(out.rowOf.get(arbor.id)).toBe("viewer:creature-front");
-    expect(out.rowOf.get(ravager.id)).toBe("viewer:creature-front");
-    expect(out.rowOf.get(saga.id)).toBe("viewer:land-back");
-    expect(out.rowOf.get(citadel.id)).toBe("viewer:land-back");
-    expect(out.rowOf.get(karn.id)).toBe("viewer:other-front");
-    // An unrecognised kind falls back to the noncreature row, never vanishes (§7.10).
-    expect(out.rowOf.get(hidden.id)).toBe("opponent:other-front");
+    expect(out.rowOf.get(arbor.id)).toBe("viewer:creature-1");
+    expect(out.rowOf.get(ravager.id)).toBe("viewer:creature-1");
+    expect(out.rowOf.get(saga.id)).toBe("viewer:land-1");
+    expect(out.rowOf.get(citadel.id)).toBe("viewer:land-1");
+    expect(out.rowOf.get(karn.id)).toBe("viewer:other-1");
+    // An unrecognised kind falls back to the noncreature line, never vanishes (§7.10).
+    expect(out.rowOf.get(hidden.id)).toBe("opponent:other-1");
   });
 
-  it("a permanent that changes type moves rows at once (§7.11, P7-D)", () => {
+  it("a permanent that changes type moves lines at once (§7.11, P7-D)", () => {
     // A creature-land animates, then stops; an Equipment that was a
     // creature (reconfigure) stops being one. Same card, same id: the next
-    // layout puts it in the row its new type says, and nothing else moves rows.
+    // layout puts it in the line its new type says, and nothing else moves lines.
     const land = card({
       seat: 1,
       name: "Mutavault",
@@ -351,8 +340,8 @@ describe("rows (§7.52a L3, L4)", () => {
       layout({ viewerSeat: 1, hand: [], battlefield }, vp).rowOf;
 
     const before = at([land, rabbit, bear]);
-    expect(before.get(land.id)).toBe("viewer:land-back");
-    expect(before.get(rabbit.id)).toBe("viewer:creature-front");
+    expect(before.get(land.id)).toBe("viewer:land-1");
+    expect(before.get(rabbit.id)).toBe("viewer:creature-1");
 
     const animated = {
       ...land,
@@ -369,44 +358,165 @@ describe("rows (§7.52a L3, L4)", () => {
       toughness: null,
     };
     const after = at([animated, attached, bear]);
-    expect(after.get(land.id)).toBe("viewer:creature-front");
-    expect(after.get(rabbit.id)).toBe("viewer:other-front");
+    expect(after.get(land.id)).toBe("viewer:creature-1");
+    expect(after.get(rabbit.id)).toBe("viewer:other-1");
     expect(after.get(bear.id)).toBe(before.get(bear.id));
 
     // And back, the moment it stops.
-    expect(at([land, rabbit, bear]).get(land.id)).toBe("viewer:land-back");
+    expect(at([land, rabbit, bear]).get(land.id)).toBe("viewer:land-1");
   });
 
-  it("lands fill the back row first, then spill forward; creatures fill the front first", () => {
-    const g = geometry(vp);
+  it("F-0040-A: no line ever holds two kinds, on every named board and seeded boards up to 200", () => {
+    const boards = [
+      ...SCENARIO_NAMES.map((n) => scenarioBoard(n)!),
+      ...[12, 40, 90, 200].map((n) => syntheticBoard(n, 30, n)),
+    ];
+    for (const viewport of VIEWPORTS) {
+      for (const board of boards) {
+        const out = layout(board, viewport);
+        const byId = new Map(board.battlefield.map((c) => [c.id, c]));
+        const lines = linesOf(out);
+        for (const slot of out.slots) {
+          const line = lines.get(slot.row)!;
+          if (slot.rides) continue; // a blocker sits on its attacker (spec 0037)
+          for (const id of slot.ids) expect(kindOf(byId.get(id)!)).toBe(line.kind);
+        }
+        // From the middle outward: creatures, then the rest, then lands at the edge.
+        for (const side of ["viewer", "opponent"] as const) {
+          const mid = viewport.height / 2;
+          const distance = (kind: string) =>
+            out.lines
+              .filter((l) => l.side === side && l.kind === kind)
+              .map((l) => Math.abs(l.rect.y + l.rect.h / 2 - mid));
+          const creature = distance("creature");
+          const other = distance("other");
+          const land = distance("land");
+          if (creature.length && other.length) {
+            expect(Math.max(...creature)).toBeLessThan(Math.min(...other));
+          }
+          if (land.length && (creature.length || other.length)) {
+            expect(Math.min(...land)).toBeGreaterThan(Math.max(...creature, ...other));
+          }
+        }
+      }
+    }
+  });
+
+  it("F-0040-C: a normal midgame is full size, three lines a side", () => {
+    const out = layout(scenarioBoard("mid")!, vp);
+    expect(out.scales).toEqual({ viewer: 1, opponent: 1 });
+    for (const side of ["viewer", "opponent"] as const) {
+      expect(out.lines.filter((l) => l.side === side)).toHaveLength(3);
+    }
+  });
+
+  it("F-0040-C: cards overlap down to half before anything shrinks", () => {
+    const creatures = many(24, 1, "creature");
     const out = layout(
-      { viewerSeat: 1, hand: [], battlefield: [...many(9, 1, "land"), ...many(15, 1, "creature")] },
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [...creatures, ...many(2, 1, "land"), ...many(2, 1, "other")],
+      },
       vp,
     );
-    const rows = (prefix: string) =>
-      out.slots.filter((s) => s.row.startsWith(prefix)).map((s) => s.row);
-    const landRows = rows("viewer:land");
-    const back = landRows.filter((r) => r === "viewer:land-back").length;
-    expect(back).toBeGreaterThan(0);
-    expect(landRows.filter((r) => r === "viewer:land-front").length).toBe(9 - back);
-    // The back row is full before anything goes forward.
-    const backCap =
-      1 + Math.floor((g.rows["viewer:land-back"].w - 2 * g.inset - g.cardW) / g.referencePitch);
-    expect(back).toBe(Math.min(9, backCap));
-    const creatureRows = rows("viewer:creature");
-    expect(creatureRows[0]).toBe("viewer:creature-front");
+    // 24 creatures in one full-width line: they overlap, but each shows half.
+    expect(out.scales.viewer).toBe(1);
+    const xs = creatures.map((c) => out.boxes.get(c.id)!.x).sort((a, b) => a - b);
+    const least = Math.min(...xs.slice(1).map((x, i) => x - xs[i]!));
+    expect(least).toBeLessThan(out.geometry.cardW);
+    expect(least).toBeGreaterThanOrEqual(SHOW_MIN * out.geometry.cardW - EPS);
   });
 
-  it("one land sits in the middle of the back row (centre-out)", () => {
+  it("F-0040-C: a horde takes the line no other kind needs, before shrinking", () => {
+    const out = layout(scenarioBoard("horde")!, vp);
+    expect(out.scales.viewer).toBe(1);
+    const mine = out.lines.filter((l) => l.side === "viewer");
+    expect(mine.filter((l) => l.kind === "creature")).toHaveLength(2);
+    expect(mine.filter((l) => l.kind === "other")).toHaveLength(0);
+  });
+
+  it("F-0040-C: the biggest boards shrink in steps, each card still showing half", () => {
+    for (const viewport of [vp, { width: 1366, height: 768 }]) {
+      const out = layout(scenarioBoard("commander")!, viewport);
+      expect([0.9, 0.8, 0.75, 0.7]).toContain(out.scales.viewer);
+      expect(out.overcrowded).toEqual([]);
+      for (const slot of out.slots) {
+        const side = slot.row.startsWith("viewer") ? "viewer" : "opponent";
+        expect(slot.box.scale).toBe(out.scales[side]);
+      }
+    }
+  });
+
+  it("F-0040-C: four lines open at 75%", () => {
+    const out = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [...many(60, 1, "creature"), ...many(14, 1, "other"), ...many(14, 1, "land")],
+      },
+      vp,
+    );
+    expect(out.scales.viewer).toBeLessThanOrEqual(0.75);
+    expect(out.lines.filter((l) => l.side === "viewer")).toHaveLength(4);
+  });
+
+  it("F-0040-C: each side is sized alone", () => {
+    const mine = many(5, 1, "creature").concat(many(4, 1, "land"));
+    const quiet = layout({ viewerSeat: 1, hand: [], battlefield: mine }, vp);
+    const busy = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [
+          ...mine,
+          ...many(60, 2, "creature"),
+          ...many(20, 2, "other"),
+          ...many(20, 2, "land"),
+        ],
+      },
+      vp,
+    );
+    expect(busy.scales.opponent).toBeLessThan(1);
+    expect(busy.scales.viewer).toBe(1);
+    for (const c of mine) expect(busy.boxes.get(c.id)).toEqual(quiet.boxes.get(c.id));
+  });
+
+  it("F-0040-D: a side grows back only with room to spare", () => {
+    const input = (n: number): LayoutInput => ({
+      viewerSeat: 1,
+      hand: [],
+      battlefield: [...many(n, 1, "creature"), ...many(16, 1, "other"), ...many(16, 1, "land")],
+    });
+    // Some board is full size when seen fresh, yet stays at 90% after a
+    // 90% layout: growing back needs GROW_SHOW, not SHOW_MIN.
+    const held = Array.from({ length: 60 }, (_, i) => i + 20).filter((n) => {
+      const fresh = layout(input(n), vp).scales.viewer;
+      const after = layout({ ...input(n), previousScale: { viewer: 0.9 } }, vp).scales.viewer;
+      return fresh === 1 && after === 0.9;
+    });
+    expect(held.length).toBeGreaterThan(0);
+    expect(GROW_SHOW).toBeGreaterThan(SHOW_MIN);
+    // And a side that has a size keeps it: laying out again from it changes nothing.
+    for (let n = 20; n < 80; n += 3) {
+      const first = layout(input(n), vp);
+      const again = layout({ ...input(n), previousScale: first.scales }, vp);
+      expect(again.scales).toEqual(first.scales);
+    }
+  });
+
+  it("one land starts at the left edge; one creature sits in the middle of the table", () => {
     const [land] = many(1, 1, "land");
-    const out = layout({ viewerSeat: 1, hand: [], battlefield: [land!] }, vp);
-    const b = out.boxes.get(land!.id)!;
-    const row = out.geometry.rows["viewer:land-back"];
-    expect(b.x + b.w / 2).toBeCloseTo(row.x + row.w / 2, 6);
+    const [bear] = many(1, 1, "creature");
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [land!, bear!] }, vp);
+    const g = out.geometry;
+    expect(out.boxes.get(land!.id)!.x).toBeCloseTo(g.play.x + g.inset, 6);
+    const b = out.boxes.get(bear!.id)!;
+    expect(b.x + b.w / 2).toBeCloseTo(g.play.x + g.play.w / 2, 6);
   });
 });
 
-describe("order within a row (§7.52a L6)", () => {
+describe("order within a line (§7.52a L6)", () => {
   const vp = { width: 1920, height: 1080 };
 
   it("is arrival order, by Forge's timestamp when given", () => {
@@ -473,7 +583,7 @@ describe("piles (§7.58, §7.52a L5, L8)", () => {
     const out = layout({ viewerSeat: 1, hand: [], battlefield: lands }, vp);
     expect(out.slots.map((s) => s.ids.length).sort()).toEqual([2, 3]);
     const tapped = out.slots.find((s) => s.ids.length === 3)!;
-    expect(tapped.box.rotation).toBe(15);
+    expect(tapped.box.rotation).toBe(TAPPED_TILT);
   });
 
   it("identical tokens pile; a token that differs does not", () => {
@@ -576,22 +686,23 @@ describe("attachments (§7.52a L7, PHASE 7 AMENDMENT 4)", () => {
     });
     const out = layout({ viewerSeat: 1, hand: [], battlefield: [curse] }, vp);
     expect(out.slots).toHaveLength(1);
-    expect(out.rowOf.get(curse.id)).toBe("viewer:other-front");
+    expect(out.rowOf.get(curse.id)).toBe("viewer:other-1");
   });
 });
 
 describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
   const vp = { width: 1920, height: 1080 };
 
-  it("the overhang is computed from the rotation: ~1% left, ~32% right at 15 degrees", () => {
+  it("the overhang is computed from the rotation: ~1% left, ~11% right at 5 degrees (spec 0040)", () => {
+    expect(TAPPED_TILT).toBe(5);
     const { left, right: r } = tiltOverhang(100, 140);
     expect(left).toBeGreaterThan(0.5);
-    expect(left).toBeLessThan(2);
-    expect(r).toBeGreaterThan(30);
-    expect(r).toBeLessThan(33);
+    expect(left).toBeLessThan(1.2);
+    expect(r).toBeGreaterThan(10);
+    expect(r).toBeLessThan(12);
   });
 
-  it("a tapped card overlaps nothing while its row is not overflowing", () => {
+  it("a tapped card overlaps nothing while its line is not overflowing", () => {
     for (const viewport of VIEWPORTS) {
       for (const every of [1, 2, 3]) {
         const lands = many(6, 1, "land", every);
@@ -614,25 +725,28 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
     }
   });
 
-  it("tapped cards take more room, so a row holds fewer of them", () => {
-    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(8, 1, "land") }, vp);
-    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(8, 1, "land", 1) }, vp);
-    const inBack = (o: typeof upright) =>
-      o.slots.filter((s) => s.row === "viewer:land-back").length;
-    expect(inBack(upright)).toBe(8);
-    expect(inBack(tapped)).toBeLessThan(8);
+  it("tapped cards take more room: tapped neighbours stand a tilt further apart", () => {
+    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "land") }, vp);
+    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "land", 1) }, vp);
+    const step = (o: typeof upright) => {
+      const xs = o.slots.map((s) => s.box.x).sort((p, q) => p - q);
+      return xs[1]! - xs[0]!;
+    };
+    const { left, right: r } = tiltOverhang(upright.geometry.cardW, upright.geometry.cardH);
+    expect(step(tapped)).toBeCloseTo(step(upright) + left + r, 6);
     expect(tapped.overcrowded).toEqual([]);
   });
 
-  it("tapping one card re-centres its row: neighbours glide a little, nothing jumps", () => {
+  it("tapping one card moves its neighbours a little, nothing jumps", () => {
     const lands = many(5, 1, "land");
     const before = layout({ viewerSeat: 1, hand: [], battlefield: lands }, vp);
     const withTap = lands.map((c, i) => (i === 2 ? { ...c, tapped: true } : c));
     const after = layout({ viewerSeat: 1, hand: [], battlefield: withTap }, vp);
-    const { right: r } = tiltOverhang(before.geometry.cardW, before.geometry.cardH);
+    // Lands start at the left edge, so the cards after it move by the tilt room.
+    const { left, right: r } = tiltOverhang(before.geometry.cardW, before.geometry.cardH);
     for (const c of lands) {
       const moved = Math.abs(before.boxes.get(c.id)!.x - after.boxes.get(c.id)!.x);
-      expect(moved).toBeLessThanOrEqual(r + EPS);
+      expect(moved).toBeLessThanOrEqual(left + r + EPS);
     }
   });
 });
@@ -640,7 +754,7 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
 describe("combat and tapped", () => {
   const vp = { width: 1920, height: 1080 };
 
-  it("an attacker keeps its place (AMENDMENT 4); a tapped card tilts 15 degrees", () => {
+  it("an attacker keeps its place (AMENDMENT 4); a tapped card tilts 5 degrees (spec 0040)", () => {
     const mine = card({ seat: 1 });
     const mineAttacking = card({ seat: 1, attacking: true, tapped: true });
     const theirs = card({ seat: 2 });
@@ -651,7 +765,7 @@ describe("combat and tapped", () => {
     );
     expect(out.boxes.get(mineAttacking.id)!.y).toBe(out.boxes.get(mine.id)!.y);
     expect(out.boxes.get(theirsAttacking.id)!.y).toBe(out.boxes.get(theirs.id)!.y);
-    expect(out.boxes.get(mineAttacking.id)!.rotation).toBe(15);
+    expect(out.boxes.get(mineAttacking.id)!.rotation).toBe(TAPPED_TILT);
     expect(out.boxes.get(mine.id)!.rotation).toBe(0);
   });
 });
@@ -675,14 +789,14 @@ describe("the hand", () => {
     }
   });
 
-  it("the opponent's mirrors yours from the top edge, above their back row (spec 0031)", () => {
+  it("the opponent's mirrors yours from the top edge, above their lines (spec 0031)", () => {
     for (const vp of VIEWPORTS) {
       for (const n of [1, 7, 15]) {
         const hand = Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` }));
         const theirs = Array.from({ length: n }, (_, i) => ({ id: `hidden-hand:2:${i}` }));
         const out = layout({ viewerSeat: 1, hand, opponentHand: theirs, battlefield: [] }, vp);
         const g = out.geometry;
-        const backRow = Math.min(g.rows["opponent:land-back"].y, g.rows["opponent:other-back"].y);
+        const backRow = g.halves.opponent.y;
         theirs.forEach((card, i) => {
           const b = out.boxes.get(card.id)!;
           const mine = out.boxes.get(hand[i]!.id)!;

@@ -12,6 +12,10 @@
 // spell resolves...), and "Next change" applies one more, so movement can
 // be watched -- and tested -- step by step (§7 step 4).
 //
+// `&scenario=<name>` draws one of spec 0040's ten named boards instead
+// (scenarios.ts: early, mid, landsheavy, wide, tokens, artifacts, combat,
+// stress, horde, commander).
+//
 // `&script=combat` instead plays a fixed little game, step by step: an
 // attack, blocks, first-strike and regular damage, a Bolt and a response
 // on the stack, an Equip choice (§7 step 5's lines and effects).
@@ -20,6 +24,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Board } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
+import { scenarioBoard, scenarioLabel } from "./scenarios";
 import { avatarUrl } from "../avatars";
 
 function number(params: URLSearchParams, key: string, fallback: number, max: number): number {
@@ -37,7 +42,11 @@ export default function DevBoardPage() {
   const faces = number(params, "faces", 30, 60);
   const seed = number(params, "seed", 1, 1_000_000);
   const change = number(params, "change", 0, 10_000);
-  const start = useMemo(() => syntheticBoard(permanents, faces, seed), [permanents, faces, seed]);
+  const scenario = params.get("scenario") ?? "";
+  const start = useMemo(
+    () => scenarioBoard(scenario) ?? syntheticBoard(permanents, faces, seed),
+    [scenario, permanents, faces, seed],
+  );
   const script = params.get("script") === "combat";
   const scene = useMemo(() => (script ? combatScript(change) : null), [script, change]);
   const now = useMemo(
@@ -104,7 +113,9 @@ export default function DevBoardPage() {
         <span>
           {script
             ? "Synthetic combat"
-            : `Synthetic board — permanents ${permanents}, faces ${faces}, seed ${seed}`}
+            : scenarioLabel(scenario)
+              ? `Named board — ${scenarioLabel(scenario)}`
+              : `Synthetic board — permanents ${permanents}, faces ${faces}, seed ${seed}`}
           , change {change}
           {change > 0 ? ` (${now.what})` : ""}. Not a game.
         </span>

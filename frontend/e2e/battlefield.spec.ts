@@ -9,8 +9,9 @@
 // cannot drift apart without this failing.
 //
 // It then checks, on the boxes the browser actually drew, what Amendment 4
-// promised the owner: no card covers a card in another row, nothing
-// crosses the divider, and tilted corners really are clipped. And, step 4,
+// promised the owner: no card covers a card in another line, and nothing
+// crosses the divider -- and, spec 0040, that a tapped card's corners stay
+// inside its line with nothing clipped. And, step 4,
 // that after any change the board MOVES and then settles exactly there;
 // step 5, that the lines and combat effects follow the game.
 
@@ -31,14 +32,7 @@ import {
   type Box,
   type RowId,
 } from "../src/battlefield/layout";
-import {
-  LIFE_R,
-  MOVE_MS,
-  anchors,
-  bandOf,
-  handZoomBox,
-  placement,
-} from "../src/battlefield/motion";
+import { LIFE_R, MOVE_MS, anchors, handZoomBox, placement } from "../src/battlefield/motion";
 import { stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
 
 type Point = [number, number];
@@ -73,27 +67,6 @@ function bounds(points: Point[]) {
     right: Math.max(...xs),
     bottom: Math.max(...ys),
   };
-}
-
-/** A convex polygon cut to the band top <= y <= bottom. */
-function clipToBand(poly: Point[], top: number, bottom: number): Point[] {
-  const cut = (input: Point[], keep: (y: number) => boolean, line: number) => {
-    const out: Point[] = [];
-    input.forEach((a, i) => {
-      const b = input[(i + 1) % input.length]!;
-      if (keep(a[1])) out.push(a);
-      if (keep(a[1]) !== keep(b[1])) {
-        const t = (line - a[1]) / (b[1] - a[1]);
-        out.push([a[0] + t * (b[0] - a[0]), line]);
-      }
-    });
-    return out;
-  };
-  return cut(
-    cut(poly, (y) => y >= top, top),
-    (y) => y <= bottom,
-    bottom,
-  );
 }
 
 /** How deep two convex polygons overlap (0 if they do not). */
@@ -200,7 +173,7 @@ async function differences(
   page: Page,
   board: SyntheticBoard,
   viewport: { width: number; height: number },
-  probeCorners: boolean,
+  checkCorners: boolean,
 ): Promise<{ wrong: string[]; shrunk: number; seen: Seen }> {
   const seen = await readBoard(page);
   const wrong: string[] = [];
@@ -218,10 +191,10 @@ async function differences(
   const placed: {
     id: string;
     row: RowId;
-    whole: Point[];
     band: { top: number; bottom: number };
     poly: Point[];
   }[] = [];
+  const lines = new Map(expected.lines.map((l) => [l.id, l.rect]));
   const check = (id: string, box: Box, origin: { x: number; y: number }) => {
     const d = byId.get(id);
     if (!d) {
@@ -248,14 +221,14 @@ async function differences(
       if (!tag?.tag || tag.attachedTo !== slot.ids[0])
         wrong.push(`${id} is not a name tag on ${slot.ids[0]}`);
     }
-    const band = bandOf(expected.geometry, slot.row);
-    const whole = corners(slot.box, TAPPED_ORIGIN);
+    // A blocker rides on its attacker, across the divider, on purpose (spec 0037).
+    if (slot.rides) continue;
+    const rect = lines.get(slot.row)!;
     placed.push({
       id: d.id,
       row: slot.row,
-      whole,
-      band,
-      poly: clipToBand(whole, band.top, band.bottom),
+      band: { top: rect.y, bottom: rect.y + rect.h },
+      poly: corners(slot.box, TAPPED_ORIGIN),
     });
   }
   for (const card of board.hand) check(card.id, expected.boxes.get(card.id)!, HAND_ORIGIN);
@@ -265,8 +238,8 @@ async function differences(
       `${drawnCards} cards drawn, layout() has ${expected.slots.length + board.hand.length}`,
     );
 
-  // AMENDMENT 4, measured: no card covers a card of another row, and no
-  // card reaches past the divider, as its band clips it.
+  // AMENDMENT 4, measured: no card covers a card of another line, and no
+  // card reaches past the divider.
   const half = viewport.height / 2;
   for (let i = 0; i < placed.length; i++) {
     const a = placed[i]!;
@@ -276,41 +249,29 @@ async function differences(
       wrong.push(`${a.id} crosses the divider`);
     for (let j = i + 1; j < placed.length; j++) {
       const b = placed[j]!;
-      if (a.row === b.row) continue; // a squeezed row overlaps by design (§7.51)
+      if (a.row === b.row) continue; // a squeezed line overlaps by design (§7.51)
       const depth = overlap(a.poly, b.poly);
       if (depth >= 0.5) wrong.push(`${a.id} (${a.row}) covers ${b.id} (${b.row}) by ${depth}px`);
     }
   }
 
-  // ...and the clipping is real, not assumed: just inside a corner tip
-  // that leaves its band, the browser must not find that card.
-  if (probeCorners) {
-    const probes: { id: string; x: number; y: number }[] = [];
+  // Spec 0040: a tapped card's corners stay inside its line (a 5-degree
+  // tilt is at most half a pixel taller than it at 1080), and nothing is
+  // clipped to make that so.
+  if (checkCorners) {
     for (const a of placed) {
-      const cx = a.whole.reduce((n, p) => n + p[0], 0) / 4;
-      const cy = a.whole.reduce((n, p) => n + p[1], 0) / 4;
-      for (const [x, y] of a.whole) {
-        const k = 2 / Math.hypot(cx - x, cy - y);
-        const px = x + (cx - x) * k;
-        const py = y + (cy - y) * k;
-        if (py < a.band.top - 0.5 || py > a.band.bottom + 0.5)
-          probes.push({ id: a.id, x: px, y: py });
-      }
+      const ys = a.poly.map((p) => p[1]);
+      const slack = 0.005 * (a.band.bottom - a.band.top) + TOLERANCE;
+      if (Math.min(...ys) < a.band.top - slack || Math.max(...ys) > a.band.bottom + slack)
+        wrong.push(`${a.id} leaves its line ${a.row}`);
     }
-    if (board.battlefield.length >= 40 && probes.length === 0)
-      wrong.push("no tilted corner to probe");
-    const hits = await page.evaluate(
-      (points) =>
-        points.map(
-          (p) =>
-            (document.elementFromPoint(p.x, p.y)?.closest("[data-object-id]") as HTMLElement | null)
-              ?.dataset.objectId ?? null,
-        ),
-      probes,
+    const clipped = await page.evaluate(
+      () =>
+        [...document.querySelectorAll<HTMLElement>(".bf-slot")].filter(
+          (el) => getComputedStyle(el).clipPath !== "none",
+        ).length,
     );
-    probes.forEach((probe, i) => {
-      if (hits[i] === probe.id) wrong.push(`${probe.id}'s corner tip is not clipped`);
-    });
+    if (clipped > 0) wrong.push(`${clipped} card(s) clipped`);
   }
   return { wrong, shrunk, seen };
 }
@@ -324,7 +285,9 @@ function watchErrors(page: Page): string[] {
   return problems;
 }
 
-test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4", async ({ page }) => {
+test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spec 0040", async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   const problems = watchErrors(page);
   await signIn(page);

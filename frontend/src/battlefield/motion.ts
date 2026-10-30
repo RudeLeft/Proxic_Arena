@@ -2,12 +2,12 @@
 // step 4; PHASE_07 §7.34-§7.36, PHASE 7 AMENDMENTS 4 and 6.
 //
 // Pure geometry, like layout(): where each card is drawn (as a CSS
-// transform), the clip that tucks a tilted card's corners under the next
-// band of rows, where the zones in the rail are (cards travel to and from
-// them), and where a pointed-at hand card rises to. The Board only applies
+// transform), where the zones in the rail are (cards travel to and from
+// them), and where a pointed-at hand card rises to. (Spec 0040 removed the
+// clip that cut a tilted card's corners: a 5-degree tilt fits its line.) The Board only applies
 // what these return; the timing is CSS's and the Web Animations API's.
 
-import type { Box, Geometry, RowId, Side } from "./layout";
+import type { Box, Geometry, Side } from "./layout";
 
 /** How long a move takes (owner decision 2026-10-20, AMENDMENT 6). */
 export const MOVE_MS = 250;
@@ -39,69 +39,6 @@ export function placement(
     transformOrigin: `${ox}px ${oy}px`,
     transform: `translate3d(${tx}px, ${ty}px, 0) rotate(${box.rotation}deg) scale(${box.scale})`,
   };
-}
-
-// --- the band clip (AMENDMENT 4) ----------------------------------------------
-
-/**
- * A CSS `clip-path: polygon(...)` that keeps only the part of the card
- * whose DRAWN position lies between `top` and `bottom` (board px).
- *
- * clip-path is in the card's own, untransformed coordinates and moves with
- * it, so the band's two horizontal lines are mapped back through the
- * card's transform: each becomes a straight line across the card, and the
- * card's rectangle (grown by `margin` so a ring or shadow at the sides
- * survives) is cut by the two. Because it rides with the card, a card on
- * its way somewhere is never cut in half by a band it passes through.
- */
-export function bandClip(
-  box: Box,
-  cardW: number,
-  cardH: number,
-  origin: { x: number; y: number },
-  top: number,
-  bottom: number,
-  margin = 8,
-): string {
-  const ox = origin.x * cardW;
-  const oy = origin.y * cardH;
-  const ty = box.y - oy * (1 - box.scale);
-  const t = (box.rotation * Math.PI) / 180;
-  // Drawn y of the local point (x, y): ty + oy + s * (sin t (x - ox) + cos t (y - oy)).
-  const drawnY = (x: number, y: number) =>
-    ty + oy + box.scale * (Math.sin(t) * (x - ox) + Math.cos(t) * (y - oy));
-  let poly: [number, number][] = [
-    [-margin, -margin],
-    [cardW + margin, -margin],
-    [cardW + margin, cardH + margin],
-    [-margin, cardH + margin],
-  ];
-  // drawnY is linear in (x, y), so each edge crossing is found exactly.
-  const cut = (keep: (v: number) => boolean, line: number) => {
-    const out: [number, number][] = [];
-    poly.forEach((a, i) => {
-      const b = poly[(i + 1) % poly.length]!;
-      const va = drawnY(a[0], a[1]);
-      const vb = drawnY(b[0], b[1]);
-      if (keep(va)) out.push(a);
-      if (keep(va) !== keep(vb)) {
-        const k = (line - va) / (vb - va);
-        out.push([a[0] + k * (b[0] - a[0]), a[1] + k * (b[1] - a[1])]);
-      }
-    });
-    poly = out;
-  };
-  cut((v) => v >= top, top);
-  cut((v) => v <= bottom, bottom);
-  return `polygon(${poly.map(([x, y]) => `${round(x)}px ${round(y)}px`).join(", ")})`;
-}
-
-const round = (v: number) => Math.round(v * 100) / 100;
-
-/** The band a row is in: the rows that share its height on the board. */
-export function bandOf(g: Geometry, row: RowId): { top: number; bottom: number } {
-  const r = g.rows[row];
-  return { top: r.y, bottom: r.y + r.h };
 }
 
 // --- the rail's zones (from the canvas, AMENDMENT 6) --------------------------

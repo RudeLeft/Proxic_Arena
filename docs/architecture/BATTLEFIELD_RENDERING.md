@@ -4,6 +4,10 @@
 **Amends:** Phase 7 §7.15 (renderer), §7.16 (texture strategy), §7.48 (acceptance); Phase 1 stack table row "Battlefield renderer" via `docs/history/phases/phase-01/PHASE_01_AMENDMENTS.md` Amendment 3
 **Companion:** `BATTLEFIELD_LAYOUT_CONTRACT.md` (geometry — unchanged by this document)
 **Date:** 2026-10-19
+**Amended by:** spec 0040 (owner 2026-10-30): §4's centre-out placement now
+applies per line, to creatures and everything else; lands start at the left
+edge. A tapped card tilts 5° and is never clipped (PHASE 7 AMENDMENT 4 item 6
+superseded).
 
 ---
 
@@ -116,6 +120,9 @@ Box = { x, y, w, h, scale, rotation, z }   in CSS px for the given viewport
 ---
 
 ## 4. Centre-out placement (owner decision 2026-10-19)
+
+*Spec 0040: per line now, and for creatures and everything else only;
+lands start at the left edge of their line.*
 
 Every zone fills from its horizontal centre outward. One permanent sits
 in the middle of its rectangle; a second joins it and the pair stays

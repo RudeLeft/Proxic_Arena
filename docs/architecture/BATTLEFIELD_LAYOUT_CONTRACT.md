@@ -6,6 +6,15 @@ centre-out (`BATTLEFIELD_RENDERING.md` §4, owner decision 2026-10-19).
 **Supersedes:** `designer-blueprint.json` as a source of coordinates
 **Preserves:** every proportion the owner tuned in that file
 **Date:** 2026-10-14
+**Amended by:** spec 0040 (`docs/features/0040-flexible-lines.md`, owner
+2026-10-30). The six fixed rectangles a side (§2) and the overflow ladder
+(§3) are replaced: each side is the band its three rows covered, holding
+LINES across the whole play width, one kind to a line (creatures nearest
+the middle, then everything else, then lands at the player's edge); a
+crowded kind takes a spare line; each card shows at least half of itself
+before a side shrinks, in steps of 90, 80, 75 and 70%; the sliver (33%)
+stays the least ever shown. The card size, the band, the rail and the
+mirror are unchanged. Where §2–§3 disagree with spec 0040, the spec wins.
 
 ---
 

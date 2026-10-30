@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { HAND_ORIGIN, TAPPED_ORIGIN, geometry, layout, type Box } from "./layout";
-import { HAND_ZOOM, anchors, bandClip, bandOf, handZoomBox } from "./motion";
+import { HAND_ZOOM, anchors, handZoomBox } from "./motion";
 import { applyChanges, syntheticBoard } from "./fixture";
+import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
 
 /**
  * Movement geometry — BATTLEFIELD_RENDERING.md §7 step 4, PHASE 7
- * AMENDMENTS 4 and 6. Pure, like layout(): the browser only applies it.
+ * AMENDMENTS 4 and 6, spec 0040. Pure, like layout(): the browser only applies it.
  */
 
 const VIEWPORTS = [
@@ -28,52 +29,31 @@ function drawn(box: Box, cardW: number, cardH: number, origin: { x: number; y: n
   });
 }
 
-function points(clip: string): [number, number][] {
-  return [...clip.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [Number(m[1]), Number(m[2])]);
-}
-
-describe("the band clip (AMENDMENT 4)", () => {
-  it("keeps exactly the part of every card drawn inside its band", () => {
+describe("tapped cards fit their line (spec 0040, F-0040-B)", () => {
+  it("every card's drawn corners stay inside its line, so nothing is cut", () => {
+    const boards = [syntheticBoard(90, 30, 3), ...SCENARIO_NAMES.map((n) => scenarioBoard(n)!)];
     for (const vp of VIEWPORTS) {
-      const board = syntheticBoard(90, 30, 3);
-      const out = layout(board, vp);
-      const g = out.geometry;
-      for (const slot of out.slots) {
-        const band = bandOf(g, slot.row);
-        const clip = bandClip(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN, band.top, band.bottom);
-        const at = drawn(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN);
-        const ys = points(clip).map(([x, y]) => at(x, y).y);
-        expect(ys.length).toBeGreaterThanOrEqual(3);
-        expect(Math.min(...ys)).toBeGreaterThanOrEqual(band.top - 0.05);
-        expect(Math.max(...ys)).toBeLessThanOrEqual(band.bottom + 0.05);
-        // An upright card fits its band, so nothing of it is cut.
-        if (slot.box.rotation === 0) {
-          expect(points(clip)).toHaveLength(4);
+      for (const board of boards) {
+        const out = layout(board, vp);
+        const g = out.geometry;
+        const rects = new Map(out.lines.map((l) => [l.id, l.rect]));
+        for (const slot of out.slots) {
+          if (slot.rides) continue; // a blocker hangs off its attacker on purpose (spec 0037)
+          const rect = rects.get(slot.row)!;
+          const at = drawn(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN);
+          const ys = [
+            [0, 0],
+            [g.cardW, 0],
+            [0, g.cardH],
+            [g.cardW, g.cardH],
+          ].map(([x, y]) => at(x!, y!).y);
+          // A 5-degree tilt is at most half a pixel taller than its line at 1080.
+          const slack = 0.005 * rect.h;
+          expect(Math.min(...ys)).toBeGreaterThanOrEqual(rect.y - slack);
+          expect(Math.max(...ys)).toBeLessThanOrEqual(rect.y + rect.h + slack);
         }
       }
     }
-  });
-
-  it("cuts a tilted card's corner tips, and only them", () => {
-    const g = geometry({ width: 1920, height: 1080 });
-    const box: Box = {
-      x: 100,
-      y: g.rows["viewer:land-back"].y + 4,
-      w: g.cardW,
-      h: g.cardH,
-      scale: 1,
-      rotation: 15,
-      z: 0,
-    };
-    const band = bandOf(g, "viewer:land-back");
-    const clip = points(bandClip(box, g.cardW, g.cardH, TAPPED_ORIGIN, band.top, band.bottom));
-    expect(clip.length).toBeGreaterThan(4);
-    // Most of the card survives: the cut corners are small.
-    const area = clip.reduce((sum, [x1, y1], i) => {
-      const [x2, y2] = clip[(i + 1) % clip.length]!;
-      return sum + (x1 * y2 - x2 * y1) / 2;
-    }, 0);
-    expect(Math.abs(area)).toBeGreaterThan(0.95 * g.cardW * g.cardH);
   });
 });
 
@@ -91,7 +71,7 @@ describe("the rail's zones (AMENDMENT 6)", () => {
       expect(a["opponent:life"].y).toBeLessThan(a["opponent:library"].y);
       // Spec 0031: the opponent's hand fans down from the top edge, above
       // their back row.
-      expect(a["opponent:hand"].y).toBeLessThan(g.rows["opponent:land-back"].y);
+      expect(a["opponent:hand"].y).toBeLessThan(g.halves.opponent.y);
       expect(a["viewer:hand"].y).toBeGreaterThan(g.handTop);
     }
   });

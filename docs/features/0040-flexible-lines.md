@@ -1,6 +1,6 @@
 # 0040 — Flexible lines: a busy battlefield kept in order, and tapped cards whole
 
-**Status:** Approved 2026-10-30 (spec only; build when the owner says)
+**Status:** Built 2026-10-30 (owner: "build it"); unreleased
 **Owner decisions:** 2026-10-30 — from the canvas
 (https://claude.ai/artifact/5xcXeSuHf4ZwCNJNgtwV7K): layout D "flexible
 lines"; a tapped card tilts 5°; each card shows at least half of itself
@@ -145,4 +145,14 @@ All taken 2026-10-30 (see the top).
 
 ## Amendments
 
-None.
+**Amendment 1 (2026-10-30, at build).** Three things the build settled:
+
+- *Which cards count as overlapping.* A tapped card's tilt room may be
+  squeezed before anything counts as overlapping: "showing" is measured
+  between cards' upright edges. At 5° the tilt is a few pixels.
+- *Riders.* A blocker riding its attacker (spec 0037) is drawn over every
+  line, so it may cross the divider and cover the defender's line, as
+  spec 0037 already draws it; the line checks leave riders out.
+- *Draw order.* Up to four lines a side, so a line's cards are stacked
+  four apart (was ten) and a rider sits 2000 above them, keeping every
+  battlefield card under the lines and effects layers.

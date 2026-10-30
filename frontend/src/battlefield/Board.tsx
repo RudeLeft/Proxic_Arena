@@ -26,7 +26,7 @@
 // of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
 // inferred here.
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -42,12 +42,11 @@ import {
   type Box,
   type Geometry,
   type LayoutCard,
+  type Side,
   type Viewport,
 } from "./layout";
 import {
   anchors,
-  bandClip,
-  bandOf,
   boxAt,
   handZoomBox,
   LIFE_R,
@@ -423,7 +422,6 @@ interface Item {
   ids: string[];
   box: Box;
   origin: { x: number; y: number };
-  clip?: string | undefined;
   drawn: Drawn;
   content: ReactNode;
 }
@@ -506,11 +504,25 @@ export function Board({
     () => (combat ? inCombat(battlefield, combat) : battlefield),
     [battlefield, combat],
   );
+  // Spec 0040 — each side's card size last time, so a side grows back only
+  // with room to spare. Kept in state, so layout() itself stays pure.
+  const [sideSizes, setSideSizes] = useState<Partial<Record<Side, number>>>({});
   const result = useMemo(
     () =>
-      viewport ? layout({ battlefield: laidOut, hand, opponentHand, viewerSeat }, viewport) : null,
-    [laidOut, hand, opponentHand, viewerSeat, viewport],
+      viewport
+        ? layout(
+            { battlefield: laidOut, hand, opponentHand, viewerSeat, previousScale: sideSizes },
+            viewport,
+          )
+        : null,
+    [laidOut, hand, opponentHand, viewerSeat, viewport, sideSizes],
   );
+  const scales = result?.scales;
+  useEffect(() => {
+    if (scales && (scales.viewer !== sideSizes.viewer || scales.opponent !== sideSizes.opponent)) {
+      setSideSizes(scales);
+    }
+  }, [scales, sideSizes]);
   const byId = useMemo(() => new Map(battlefield.map((card) => [card.id, card])), [battlefield]);
 
   /**
@@ -582,7 +594,6 @@ export function Board({
           : "opponent";
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
-      const band = bandOf(g, slot.row);
       const label = [
         lead.faceDown && !lead.known
           ? "Face-down card"
@@ -619,11 +630,6 @@ export function Board({
         ids: [...slot.ids, ...slot.attached],
         box: slot.box,
         origin: TAPPED_ORIGIN,
-        // Tilted corners tuck under the next band (AMENDMENT 4). A rider
-        // hangs out of its band on purpose (spec 0037).
-        clip: slot.rides
-          ? undefined
-          : bandClip(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN, band.top, band.bottom),
         drawn,
         content: (
           <>
@@ -1270,7 +1276,6 @@ export function Board({
               width: g.cardW,
               height: g.cardH,
               ...placement(item.box, g.cardW, g.cardH, item.origin),
-              clipPath: item.clip,
               zIndex: item.box.z,
             }}
           >
