@@ -46,7 +46,7 @@ For each item below, in an order the owner sets:
 Building happens only after an item's decision (in groups, as the owner
 chooses), each with its screenshots before it ships.
 
-**Group 1 (building first):** the W-00 frame (the bubble beside the card,
+**Group 1 (built, in 1.23.0):** the W-00 frame (the bubble beside the card,
 the tray from the bottom, the seven rules) as used by the yes/no questions
 (W-04), trigger ordering (W-05) and the same question again and again
 (W-06): Boggart Shenanigans in 2 clicks. Every other window moves into the

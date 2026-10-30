@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.23.0 — 2026-10-30
+
+Many triggers at once in two clicks, a new look for the game's questions,
+and the screens Proxic Arena is made for.
 
 **For whoever runs the server**
 - Nothing to do: no database updates and no new settings.
