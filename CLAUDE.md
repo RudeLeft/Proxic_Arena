@@ -10,9 +10,10 @@ philosophy — and it maps the rest of the documents.
 and 1-8 all passed their gates; Phase 8 (every Forge question, answered
 and proven) was accepted by the owner 2026-10-24. Their documents are
 frozen history in `docs/history/phases/` and are never edited. **Work
-is one feature at a time**, or a locked phase — **Phase 9 (every game
-window, `PHASE_09_GAME_WINDOWS_LOCKED.md`) is ACTIVE** — only on a feature spec the owner has
-approved (`docs/features/`, listed in `ROADMAP.md`); see AGENTS.md
+is one feature at a time**: only on a feature spec the owner has
+approved (`docs/features/`, listed in `ROADMAP.md`), or under a locked
+phase — **Phase 9 (every game window,
+`PHASE_09_GAME_WINDOWS_LOCKED.md`) is LOCKED and ACTIVE**; see AGENTS.md
 "Current work". Who applies each Magic rule, and the proof, is
 `docs/architecture/RULES_COVERAGE.md`.
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
