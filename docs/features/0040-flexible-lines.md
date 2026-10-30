@@ -1,6 +1,6 @@
 # 0040 — Flexible lines: a busy battlefield kept in order, and tapped cards whole
 
-**Status:** Built 2026-10-30 (owner: "build it"); unreleased
+**Status:** Built in 1.22.0
 **Owner decisions:** 2026-10-30 — from the canvas
 (https://claude.ai/artifact/5xcXeSuHf4ZwCNJNgtwV7K): layout D "flexible
 lines"; a tapped card tilts 5°; each card shows at least half of itself

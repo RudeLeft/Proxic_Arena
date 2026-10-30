@@ -3,7 +3,10 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.22.0 — 2026-10-30
+
+A tidier battlefield: each kind of card on its own lines, busy boards
+kept in order, and tapped cards no longer lose their corners.
 
 **For whoever runs the server**
 - Nothing to do: no database updates and no new settings.
