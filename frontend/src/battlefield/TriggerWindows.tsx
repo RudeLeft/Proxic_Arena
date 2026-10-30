@@ -8,6 +8,7 @@ import { CardFace, figure, lookOf, shortType } from "./Board";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { Bubble, Tray } from "./GameWindow";
 import type { Box, Geometry } from "./layout";
+import { ManaText } from "./ManaCost";
 import { abilityWords, confirmTitle, copiesOnStack, orderGroups, orderOf, yesNo } from "./triggers";
 
 /** A card's picture, small, as the board draws it. */
@@ -150,7 +151,11 @@ export function ConfirmWindow({
           At {top.targets.map((t) => targetName(board, t)).join(" and ")}
         </span>
       )}
-      {decision.prompt && <p className="gs-win-prompt">{decision.prompt}</p>}
+      {decision.prompt && (
+        <p className="gs-win-prompt">
+          <ManaText text={decision.prompt} />
+        </p>
+      )}
     </Bubble>
   );
 }
@@ -194,7 +199,11 @@ export function CopyTargetWindow({
       picture={<Picture card={source.card} name={about.name} art={source.art} artUrl={artUrl} />}
       actions={null}
     >
-      {decision.prompt && <p className="gs-win-prompt">{decision.prompt}</p>}
+      {decision.prompt && (
+        <p className="gs-win-prompt">
+          <ManaText text={decision.prompt} />
+        </p>
+      )}
       <div className="gs-win-chips">
         {decision.options.map((o) => (
           <button
@@ -204,9 +213,13 @@ export function CopyTargetWindow({
             disabled={busy}
             onClick={() => onAnswer(o.actionId)}
           >
-            {o.objectId === `player:${board.seat}`
-              ? `${o.label ?? "You"} (you)`
-              : (o.label ?? o.actionId)}
+            <ManaText
+              text={
+                o.objectId === `player:${board.seat}`
+                  ? `${o.label ?? "You"} (you)`
+                  : (o.label ?? o.actionId)
+              }
+            />
           </button>
         ))}
       </div>
@@ -335,7 +348,9 @@ function BigCard({
     <span className="gs-win-bigcard gs-win-bigcard-words">
       <b>{name}</b>
       {card && <i>{card.types}</i>}
-      <span>{words}</span>
+      <span>
+        <ManaText text={words} />
+      </span>
     </span>
   );
 }

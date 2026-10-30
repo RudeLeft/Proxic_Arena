@@ -135,7 +135,7 @@ test("surveil and scry show their cards to the player looking, and are answered 
           continue;
         }
         if (!priority) {
-          const listed = panel.locator(".gs-question li button");
+          const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = panel.locator(
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );

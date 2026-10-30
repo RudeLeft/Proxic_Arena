@@ -33,6 +33,7 @@ import {
   EMPTY_MATCH,
   concessionText,
   connectMatch,
+  type Decision,
   type DecisionOption,
   type MatchSocket,
   type MatchState,
@@ -48,12 +49,13 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Geometry } from "./layout";
+import { ChoiceWindow, ListTray, TableQuestionWindow } from "./QuestionWindows";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import { afterAuto, autoAnswer, endsCopies, isCopyTarget, yesNo, type Copies } from "./triggers";
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
-import { ManaCost, costChange, symbolUrl, withSymbols } from "./ManaCost";
+import { ManaCost, ManaText, costChange, symbolUrl, withSymbols } from "./ManaCost";
 import {
   combatPart,
   gameOverWords,
@@ -567,17 +569,45 @@ export function GameScreen({
   // trigger's target for many copies, different triggers to order. The
   // old question bar steps aside for them, and while the page answers for
   // the player; "List choices" still lists every option (§7.29).
-  const windowed =
+  //
+  // PHASE_09 group 2 -- every other question too (W-01, W-02), and "List
+  // choices" as the tray (W-03). The bar stays only where it is its own
+  // window already: cards you are looking at (scry, surveil), naming a
+  // card, and your move with nothing to list (the bar is then only words
+  // for a screen reader). Combat is the act button (owner 2026-10-22).
+  // Naming a card is its search box, list or no list.
+  const barOnly =
     !!decision &&
-    !listOpen &&
-    (answeredForYou ||
-      yesNo(decision) !== null ||
-      isCopyTarget(decision) ||
-      decision.kind === "orderSimultaneousAbilities");
+    !!question &&
+    (decision.searchable ||
+      (!listOpen &&
+        (decision.looking.length > 0 ||
+          COMBAT_KINDS.has(decision.kind) ||
+          (question.context === "priority" && question.listed.length === 0))));
+  const windowed = !!decision && (answeredForYou || !barOnly);
   const artUrl = (art: string) => `/api/matches/${match.matchId}/assets/${art}`;
   const gameWindow = (geometry: Geometry) => {
-    if (!decision || !board || listOpen || answeredForYou) return null;
+    if (!decision || !question || !board || answeredForYou) return null;
     const anchor = stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    const common = {
+      decision,
+      question,
+      board,
+      geometry,
+      anchor,
+      busy,
+      notice: game.notice,
+      heading:
+        decision.actedForSeat === mine?.seatNumber
+          ? headingFor(decision.kind)
+          : `Playing for seat ${decision.actedForSeat}`,
+      passWord: passWordFor(decision, question, listOpen),
+      artUrl,
+      onAnswer: answer,
+    };
+    if (listOpen && !decision.searchable) {
+      return <ListTray key={decision.decisionId} {...common} onClose={() => setListOpen(false)} />;
+    }
     if (yesNo(decision)) {
       return (
         <ConfirmWindow
@@ -632,7 +662,14 @@ export function GameScreen({
         />
       );
     }
-    return null;
+    if (barOnly) return null;
+    const onBoardCount = [...question.onBoard.values()].reduce((n, list) => n + list.length, 0);
+    // Everything asked is on the table (a target, a land to tap): a
+    // bubble asking, the table is the answer (W-01).
+    if (question.listed.length <= 3 && onBoardCount > 0) {
+      return <TableQuestionWindow key={decision.decisionId} {...common} />;
+    }
+    return <ChoiceWindow key={decision.decisionId} {...common} />;
   };
   const objectName = (id: string) => nameOf(board, id);
 
@@ -816,8 +853,6 @@ export function GameScreen({
           mySeat={mine?.seatNumber ?? null}
           busy={busy}
           notice={game.notice}
-          all={listOpen}
-          onToggleAll={() => setListOpen((open) => !open)}
           onAnswer={answer}
           onSearch={search}
           artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
@@ -1298,7 +1333,9 @@ export function StatusTray({
       {open && (
         <ul className="gs-status-list" aria-label={`${player.name}: everything in play for them`}>
           {items.map((item) => (
-            <li key={item.key}>{item.text}</li>
+            <li key={item.key}>
+              <ManaText text={item.text} />
+            </li>
           ))}
           {player.command.length > 1 &&
             player.command.map((thing) => <li key={`zone:${thing}`}>· {thing}</li>)}
@@ -1491,7 +1528,7 @@ function Rail({
                   disabled={busy}
                   onClick={() => onAnswer(combat.all!.actionId)}
                 >
-                  {combat.all.label ?? "All attack"}
+                  <ManaText text={combat.all.label ?? "All attack"} />
                 </button>
               </li>
             </ul>
@@ -1610,8 +1647,6 @@ function QuestionBar({
   mySeat,
   busy,
   notice,
-  all,
-  onToggleAll,
   onAnswer,
   onSearch,
   artUrl,
@@ -1621,22 +1656,17 @@ function QuestionBar({
   mySeat: number | null;
   busy: boolean;
   notice: string | null;
-  /** Every option as a list (§7.29: reachable without the board). */
-  all: boolean;
-  onToggleAll: () => void;
   onAnswer: (actionId: string | null) => void;
   onSearch: (query: string) => void;
   artUrl: (art: string) => string;
 }) {
   // Declaring attackers or blockers is answered on the board and the act
   // button (owner 2026-10-22); the list, opened from the menu, still works.
-  if (!all && COMBAT_KINDS.has(decision.kind)) return null;
+  if (COMBAT_KINDS.has(decision.kind)) return null;
   const onBoardCount = [...question.onBoard.values()].reduce((n, list) => n + list.length, 0);
   // On your move with nothing to list, the board and the Pass button are
-  // the whole question: NO bar over the table (AMENDMENT 12), unless the
-  // list is asked for from the menu.
+  // the whole question: NO bar over the table (AMENDMENT 12).
   if (
-    !all &&
     question.context === "priority" &&
     question.listed.length === 0 &&
     !notice &&
@@ -1661,7 +1691,7 @@ function QuestionBar({
         disabled={busy}
         onClick={() => onAnswer(o.actionId)}
       >
-        {o.label ?? o.actionId}
+        <ManaText text={o.label ?? o.actionId} />
         {!o.payable && <span className="gs-option-note"> — not enough mana right now</span>}
       </button>
     </li>
@@ -1674,7 +1704,7 @@ function QuestionBar({
   // to you alone as pictures, and clicked like the board. A card no
   // option is about is only shown -- or, while others are still being
   // chosen, already chosen.
-  if (!all && decision.looking.length > 0) {
+  if (decision.looking.length > 0) {
     const byCard = new Map<string, DecisionOption>();
     for (const o of decision.options) if (o.objectId) byCard.set(o.objectId, o);
     const shown = new Set(decision.looking.map((card) => card.id));
@@ -1683,10 +1713,14 @@ function QuestionBar({
     return (
       <div className="gs-question gs-question-looking" data-kind={decision.kind}>
         <h2 className="gs-question-title">{heading}</h2>
-        {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
+        {decision.prompt && (
+          <p className="gs-question-prompt decision-prompt">
+            <ManaText text={decision.prompt} />
+          </p>
+        )}
         {notice && (
           <p className="gs-question-notice" role="alert">
-            {notice}
+            <ManaText text={notice} />
           </p>
         )}
         <ul className="gs-looking bf-asking" aria-label="The cards you are looking at">
@@ -1734,11 +1768,15 @@ function QuestionBar({
   // Everything asked is on the board (a target, a land to tap): the
   // board is the answer, so the question is one line over the table,
   // never a box in the middle of it (AMENDMENT 12).
-  if (!all && !decision.searchable && question.listed.length <= 3 && onBoardCount > 0) {
+  if (!decision.searchable && question.listed.length <= 3 && onBoardCount > 0) {
     return (
       <div className="gs-question gs-question-slim" data-kind={decision.kind}>
         <h2 className="gs-question-title">{heading}</h2>
-        {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
+        {decision.prompt && (
+          <p className="gs-question-prompt decision-prompt">
+            <ManaText text={decision.prompt} />
+          </p>
+        )}
         <p className="gs-question-hint">{hintFor(decision.kind, decision.options.length)}</p>
         {/* A few choices the board cannot show ("All attack"): inline. */}
         {question.listed.length > 0 && (
@@ -1746,12 +1784,12 @@ function QuestionBar({
         )}
         {notice && (
           <p className="gs-question-notice" role="alert">
-            {notice}
+            <ManaText text={notice} />
           </p>
         )}
         {question.context !== "priority" &&
           question.canPass &&
-          (all || !CANCEL_KINDS.has(decision.kind)) && (
+          !CANCEL_KINDS.has(decision.kind) && (
             <button
               type="button"
               className="gs-pass"
@@ -1767,10 +1805,14 @@ function QuestionBar({
   return (
     <div className="gs-question" data-kind={decision.kind}>
       <h2 className="gs-question-title">{heading}</h2>
-      {decision.prompt && <p className="gs-question-prompt decision-prompt">{decision.prompt}</p>}
+      {decision.prompt && (
+        <p className="gs-question-prompt decision-prompt">
+          <ManaText text={decision.prompt} />
+        </p>
+      )}
       {notice && (
         <p className="gs-question-notice" role="alert">
-          {notice}
+          <ManaText text={notice} />
         </p>
       )}
       {decision.searchable ? (
@@ -1790,24 +1832,8 @@ function QuestionBar({
                 : "Click a highlighted card or player to choose it."}
             </p>
           )}
-          {/* One list at a time: what the board cannot show, or, opened,
-              every choice -- never the same option twice. */}
-          {all ? (
-            <ul className="gs-options gs-options-all">{decision.options.map(option)}</ul>
-          ) : (
-            question.listed.length > 0 && (
-              <ul className="gs-options">{question.listed.map(option)}</ul>
-            )
-          )}
-          {onBoardCount > 0 && (
-            <button
-              type="button"
-              className="gs-all-toggle"
-              aria-expanded={all}
-              onClick={onToggleAll}
-            >
-              {all ? "Hide the list" : `Every choice as a list (${decision.options.length})`}
-            </button>
+          {question.listed.length > 0 && (
+            <ul className="gs-options">{question.listed.map(option)}</ul>
           )}
           <p className="gs-question-foot">{hintFor(decision.kind, decision.options.length)}</p>
         </>
@@ -1815,13 +1841,11 @@ function QuestionBar({
       {/* On your move, Pass is the act button under the stack (the
           canvas); here only when this question's "no" is not a pass of
           priority. Never when the rules give no "no" (Phase 6). */}
-      {question.context !== "priority" &&
-        question.canPass &&
-        (all || !CANCEL_KINDS.has(decision.kind)) && (
-          <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
-            Pass
-          </button>
-        )}
+      {question.context !== "priority" && question.canPass && !CANCEL_KINDS.has(decision.kind) && (
+        <button type="button" className="gs-pass" disabled={busy} onClick={() => onAnswer(null)}>
+          Pass
+        </button>
+      )}
     </div>
   );
 }
@@ -1831,6 +1855,19 @@ function QuestionBar({
  * payment, which ability, a cost's counters (the hints say "cancel"). The
  * act button reads Cancel for them, and Esc does the same.
  */
+/**
+ * A window's "no": Pass where the rules allow one; none on your move (the
+ * act button passes) or when the rules give no "no" (Phase 6). Backing out
+ * of a target or a payment is the act button under the stack and Esc, not
+ * the window (owner 2026-10-30) -- except in "List choices", which the act
+ * button steps aside for.
+ */
+function passWordFor(decision: Decision, question: Question, inList: boolean): string | null {
+  if (question.context === "priority" || !question.canPass) return null;
+  if (!CANCEL_KINDS.has(decision.kind)) return "Pass";
+  return inList ? cancelWords(decision.about).word : null;
+}
+
 const CANCEL_KINDS = new Set([
   "chooseTargetsFor",
   "getAbilityToPlay",
@@ -2008,7 +2045,7 @@ function WhyNot({
     : { left: "50%", top: "45%", transform: "translate(-50%, 0)" };
   return (
     <div className="gs-why" role="status" style={style}>
-      {text}
+      <ManaText text={text} />
     </div>
   );
 }
@@ -2069,7 +2106,7 @@ function ActionPopup({
               disabled={busy}
               onClick={() => onChoose(o.actionId)}
             >
-              {o.label ?? o.actionId}
+              <ManaText text={o.label ?? o.actionId} />
               {!o.payable && <span className="gs-option-note"> — not enough mana right now</span>}
             </button>
           </li>
@@ -2261,7 +2298,7 @@ function Notices({ board }: { board: Snapshot }) {
     <ul className="gs-notices" aria-live="polite">
       {shown.map((n) => (
         <li key={n.key} className="gs-notice">
-          {n.text}
+          <ManaText text={n.text} />
         </li>
       ))}
     </ul>

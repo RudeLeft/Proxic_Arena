@@ -188,7 +188,7 @@ export async function choices(page: Page): Promise<Locator> {
       .click({ timeout: 2_000 })
       .catch(() => undefined);
   }
-  return page.locator(".gs-question").getByRole("listitem").getByRole("button");
+  return page.locator(".gs-question, .gs-win").getByRole("listitem").getByRole("button");
 }
 
 /**

@@ -75,7 +75,9 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
         if ((await act.count()) === 0) {
           // A question that is not a priority pass (attackers, a target):
           // always asked, answered with its first choice or a pass.
-          const question = matchPanel(page).locator(".gs-question li button, .gs-combat li button");
+          const question = matchPanel(page).locator(
+            ".gs-question li button, .gs-win li button, .gs-combat li button",
+          );
           if ((await question.count()) > 0) {
             await question
               .first()
@@ -83,7 +85,7 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
               .catch(() => undefined);
             acted = true;
           } else if (
-            (await matchPanel(page).locator(".gs-question, .gs-combat").count()) > 0 &&
+            (await matchPanel(page).locator(".gs-question, .gs-win, .gs-combat").count()) > 0 &&
             (await matchPanel(page).locator('.bf-cards button[data-choosable="true"]').count()) > 0
           ) {
             // A question answered on the board -- discarding down to seven

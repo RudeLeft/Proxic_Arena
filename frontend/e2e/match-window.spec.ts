@@ -88,7 +88,9 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
       if (!priority) {
         // Targets go to the opponent; anything else: first choice or pass.
         const face = page.locator(".gs-seat-opponent .gs-life.gs-choosable");
-        const listed = panel.locator(".gs-question li button, .gs-combat li button");
+        const listed = panel.locator(
+          ".gs-question li button, .gs-win li button, .gs-combat li button",
+        );
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await face.count()) > 0) await click(face);
         else if ((await listed.count()) > 0) await click(listed);

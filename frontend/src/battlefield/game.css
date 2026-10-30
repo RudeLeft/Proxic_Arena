@@ -915,7 +915,6 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-xs);
   color: #8a8f98;
 }
-.gs-all-toggle,
 .gs-link {
   margin: 10px 0 0;
   padding: 0;
@@ -1682,6 +1681,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   bottom: 12px;
   align-items: stretch;
   width: max-content;
+  max-height: calc(100% - 24px);
   transform: translateX(-50%);
 }
 .gs-tray .gs-win-prompt {
@@ -1690,6 +1690,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-tray-body {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
 }
 .gs-win-head {
   display: flex;
@@ -1917,6 +1918,141 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-weight: 700;
   line-height: 28px;
   text-align: center;
+}
+/* PHASE_09 group 2 -- the everyday questions (W-01, W-02, W-03). */
+.gs-win-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-win-tiles.gs-win-list {
+  flex-direction: row;
+}
+/* Many plain choices in the tray: columns, not one long ribbon. */
+.gs-win-grid {
+  display: grid;
+}
+.gs-win-chips.gs-win-list {
+  flex-direction: row;
+  flex-wrap: wrap;
+  max-width: 560px;
+}
+.gs-win-option {
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #3a4a42;
+  border-radius: 8px;
+  background: #1b2420;
+  color: #e3e8e4;
+  font: inherit;
+  font-size: var(--pa-size-md);
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-win-option:hover:not(:disabled) {
+  border-color: #d9b26a;
+}
+.gs-win-option:focus-visible {
+  outline: 2px solid #f0d49a;
+  outline-offset: 2px;
+}
+.gs-win-option.gs-option-unpayable {
+  opacity: 0.55;
+}
+.gs-win-option .gs-option-note {
+  color: #9fb0a7;
+  font-size: var(--pa-size-sm);
+}
+/* The card's name, already shown by the window: kept in the text only. */
+.gs-win-option-card {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Colours as the mana symbols. */
+.gs-win-colours {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.gs-win-colour {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #3a4a42;
+  border-radius: 50%;
+  background: #1b2420;
+  cursor: pointer;
+}
+.gs-win-colour img {
+  width: 36px;
+  height: 36px;
+}
+.gs-win-colour:hover:not(:disabled),
+.gs-win-colour:focus-visible {
+  border-color: #d9b26a;
+  outline: none;
+}
+.gs-win-search {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  padding: 8px 12px;
+  border: 1px solid #3a4a42;
+  border-radius: 8px;
+  background: #121915;
+  color: #e3e8e4;
+  font: inherit;
+  font-size: var(--pa-size-md);
+}
+.gs-win-search:focus-visible {
+  border-color: #d9b26a;
+  outline: none;
+}
+.gs-win-notice {
+  color: #f0b4a0;
+}
+/* "List choices": each card's picture beside what it can do. */
+.gs-win-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  max-width: 1120px;
+}
+.gs-win-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 340px;
+}
+.gs-win-group-card {
+  position: relative;
+  flex: none;
+}
+.gs-win-group .gs-win-list {
+  flex: 1;
+}
+.gs-win-bigcard-small {
+  width: 100px;
+  height: 140px;
+  border-radius: 6px;
+}
+.gs-win-bigcard-small.gs-win-bigcard-words {
+  padding: 8px;
+  font-size: var(--pa-size-xs);
+}
+.gs-win-bigcard-small.gs-win-bigcard-words b {
+  font-size: var(--pa-size-sm);
 }
 @media (prefers-reduced-motion: reduce) {
   .gs-win {

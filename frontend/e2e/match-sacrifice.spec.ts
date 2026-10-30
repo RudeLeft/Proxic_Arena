@@ -30,7 +30,7 @@ import {
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "sacrifice-deck.zip");
-const SACRIFICE = '.gs-question[data-kind="choosePermanentsToSacrifice"]';
+const SACRIFICE = '[data-kind="choosePermanentsToSacrifice"]';
 
 /** A DOM click, and no wait when there is nothing to click (see clickNow). */
 const click = clickNow;
@@ -114,7 +114,7 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
         if (!priority) {
           // Any other question (paying mana, a discard): the first choice,
           // a board choice, or pass.
-          const listed = panel.locator(".gs-question li button");
+          const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = panel.locator(
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );

@@ -894,21 +894,36 @@ describe("what Cancel says", () => {
         about: { name: "Arc Trail", kind: "spell", from: "hand", copy: null, copies: null },
       },
     ]);
-    expect(state.decision?.about).toEqual({ name: "Arc Trail", kind: "spell", from: "hand", copy: null, copies: null });
+    expect(state.decision?.about).toEqual({
+      name: "Arc Trail",
+      kind: "spell",
+      from: "hand",
+      copy: null,
+      copies: null,
+    });
     expect(apply([QUESTION]).decision?.about).toBeNull();
   });
 
   it("names the spell and where it goes back to, or says nothing happens", () => {
-    expect(cancelWords({ name: "Arc Trail", kind: "spell", from: "hand", copy: null, copies: null })).toEqual({
+    expect(
+      cancelWords({ name: "Arc Trail", kind: "spell", from: "hand", copy: null, copies: null }),
+    ).toEqual({
       word: "Cancel Arc Trail",
       sub: "Back to your hand · nothing is spent",
     });
-    expect(cancelWords({ name: "Faithless Looting", kind: "spell", from: "graveyard", copy: null, copies: null }).sub).toBe(
-      "Back to your graveyard · nothing is spent",
-    );
-    expect(cancelWords({ name: "Gingerbrute", kind: "ability", from: null, copy: null, copies: null }).sub).toContain(
-      "not activated",
-    );
+    expect(
+      cancelWords({
+        name: "Faithless Looting",
+        kind: "spell",
+        from: "graveyard",
+        copy: null,
+        copies: null,
+      }).sub,
+    ).toBe("Back to your graveyard · nothing is spent");
+    expect(
+      cancelWords({ name: "Gingerbrute", kind: "ability", from: null, copy: null, copies: null })
+        .sub,
+    ).toContain("not activated");
     expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out — nothing happens" });
   });
 });

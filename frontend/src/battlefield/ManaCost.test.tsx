@@ -4,7 +4,7 @@
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ManaCost, costChange, manaSymbols, manaValue, withSymbols } from "./ManaCost";
+import { ManaCost, ManaText, costChange, manaSymbols, manaValue, withSymbols } from "./ManaCost";
 
 describe("mana costs", () => {
   it("reads Forge's notation into the symbols' names", () => {
@@ -42,5 +42,13 @@ describe("card text with costs in it", () => {
     expect(container.textContent).toContain("Spectacle");
     expect(container.querySelectorAll(".bf-cost")).toHaveLength(2);
     expect(container.querySelectorAll("img.bf-pip")).toHaveLength(3);
+  });
+});
+
+describe("game words with mana in them", () => {
+  it("draws the symbols and keeps the letters in the text", () => {
+    const { container } = render(<p>{<ManaText text="{T}: Add {R}. Still owing {1}{R}" />}</p>);
+    expect(container.querySelectorAll("img.bf-pip")).toHaveLength(4);
+    expect(container.textContent).toBe("{T}: Add {R}. Still owing {1}{R}");
   });
 });

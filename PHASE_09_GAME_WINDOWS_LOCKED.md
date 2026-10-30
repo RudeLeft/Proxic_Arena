@@ -52,6 +52,11 @@ the tray from the bottom, the seven rules) as used by the yes/no questions
 (W-06): Boggart Shenanigans in 2 clicks. Every other window moves into the
 frame as its own item is decided.
 
+**Group 2 (built, for 1.24.0):** the everyday questions in the same frame
+-- a click on the table (W-01) and choices the table can't show (W-02) as
+a bubble beside the card or the tray, "List choices" as the tray grouped
+by card (W-03). See Amendment 2.
+
 ## The inventory
 
 **W-00 — One look for every window.** First, so every later canvas uses
@@ -227,3 +232,43 @@ Still open: every other item, one at a time.
   `frontend/e2e/match-many-triggers.spec.ts` (a real game in the browser:
   one target, "Yes to all", the opponent losing a life per copy), with the
   triggers test deck (`protocol/fixtures/triggers-deck`).
+
+**Amendment 2 (2026-10-30, group 2 as built).**
+
+- *Which questions moved into the frame:* every question except four
+  that are their own window already, which keep the bar: the cards you
+  are looking at (scry, surveil -- their own item later), naming a card
+  (its search box), combat (the act button, owner 2026-10-22), and your
+  move with nothing to list (no bar at all, AMENDMENT 12).
+- *W-01:* the bubble sits beside the stack, where the spell being cast
+  or the card being paid for is; it says what to click, shows the game's
+  own words ("still owing {1}"), the few choices the table can't show
+  ("All attack", floating mana) as buttons. *No Cancel in the bubble
+  (owner 2026-10-30):* backing out stays the button under the stack
+  ("Cancel Lightning Bolt") and Esc, one place, as before; only "List
+  choices", which that button steps aside for, has its own Cancel.
+- *W-02:* a bubble for up to six choices of 60 letters or fewer that are
+  not cards; otherwise the tray, the cards as large pictures, the rest in
+  columns, with a search box over twelve choices. Colours are the mana
+  symbols; very short choices ("X = 3") are a row of chips. A question
+  the game doesn't name a card for ("Choose a mode for Fiery
+  Confluence.") shows the card its words name.
+- *Not built: modes counted in one go* ("Choose three, 2 of 3"). The game
+  asks for modes one at a time and does not say how many are left; the
+  page would have to guess. Modes stay one at a time, each in the bubble,
+  until the worker sends the count (a later item).
+- *W-03:* the tray lists every option grouped by its card, the card's
+  picture beside them, dimmed when it can't be paid now ("not enough mana
+  right now"). Copies of one card offering the same choices (five
+  untapped Mountains) are one picture "×5" with one set of buttons, which
+  uses the first copy; any copy is still a click on the table. The card's name is not repeated before each choice; it
+  stays in the text a screen reader (and the scripted games) read.
+  Naming a card keeps its search box even with the list open.
+- *Mana as icons (owner 2026-10-30):* wherever the game's words name
+  mana or the tap symbol ("{T}: Add {R}", "still owing {1}", a cost
+  before an ability) they are drawn as the mana symbols -- in every
+  window, the list, the menu on a card, the messages and the bar that
+  stays. The letters stay in the text for reading aloud.
+- *Evidence:* the full browser suite (every scripted game answers through
+  the new windows: `.gs-win` list buttons, the `data-kind` and
+  `.gs-question-title` hooks kept) and `QuestionWindows.test.ts`.

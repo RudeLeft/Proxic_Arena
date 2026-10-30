@@ -825,6 +825,11 @@
   border-radius: 50%;
   box-shadow: 0 1px 1px rgb(0 0 0 / 55%);
 }
+/* Mana named in game words: the symbols in the line of text. */
+.bf-mana-inline .bf-cost {
+  margin: 0 0.1em;
+  vertical-align: -0.2em;
+}
 .bf-pip-text {
   display: grid;
   place-items: center;

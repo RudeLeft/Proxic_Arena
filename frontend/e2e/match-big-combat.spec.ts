@@ -136,7 +136,7 @@ test("a stack blocks a stack: two clicks and the chooser, and blockers ride", as
           continue;
         }
         // Anything else: its first choice, a board choice, or pass.
-        const listed = panel.locator(".gs-question li button");
+        const listed = panel.locator(".gs-question li button, .gs-win li button");
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
         else if ((await board.count()) > 0) await clickNow(board);

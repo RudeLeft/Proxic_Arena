@@ -13,13 +13,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import {
-  clearEverything,
-  clickNow,
-  matchPanel,
-  sharedDeck,
-  startAMatch,
-} from "./match-helpers";
+import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
 const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
@@ -55,7 +49,8 @@ test("a click with nothing asked selects and does not attack; a cancelled target
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);
-      const priority = (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) > 0;
+      const priority =
+        (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) > 0;
       const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
 
       if (page === host && priority && !selected) {
@@ -71,7 +66,10 @@ test("a click with nothing asked selects and does not attack; a cancelled target
           const card = panel.locator(`.bf-cards button[data-object-id="${id}"]`);
           await expect(card, "the click selects it").toHaveAttribute("data-selected", "true");
           await expect(card, "and it does not attack").not.toContainText(/attacking/i);
-          await expect(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"), "and the question is still open").toHaveCount(1);
+          await expect(
+            panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"),
+            "and the question is still open",
+          ).toHaveCount(1);
           selected = true;
           continue;
         }
@@ -82,7 +80,13 @@ test("a click with nothing asked selects and does not attack; a cancelled target
       // than before (CI run 40893297305). From a main phase, passing on
       // stops at the next main phase or a stop of the guest's, who does
       // not act until this check is done -- never at our draw.
-      if (page === host && priority && selected && !cancelled && /^Main [12]$/.test(await stepOf(page))) {
+      if (
+        page === host &&
+        priority &&
+        selected &&
+        !cancelled &&
+        /^Main [12]$/.test(await stepOf(page))
+      ) {
         // P7-H: a burn spell we can pay for, started and then cancelled.
         const burn = hand
           .filter({ hasText: BURN })
@@ -127,7 +131,9 @@ test("a click with nothing asked selects and does not attack; a cancelled target
 
       if (!priority) {
         // Any other question: the first choice, a board choice, or pass.
-        const listed = panel.locator(".gs-question li button, .gs-combat li button");
+        const listed = panel.locator(
+          ".gs-question li button, .gs-win li button, .gs-combat li button",
+        );
         const board = panel.locator(
           '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
         );

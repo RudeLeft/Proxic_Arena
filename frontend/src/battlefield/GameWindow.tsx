@@ -11,6 +11,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { Box, Geometry } from "./layout";
+import { ManaText } from "./ManaCost";
 
 /** Hold Space to fade the window and see the table (rule 6). */
 export function usePeek(active: boolean): boolean {
@@ -55,6 +56,8 @@ export function Bubble({
   label,
   from,
   title,
+  titleClass,
+  kind,
   picture,
   children,
   actions,
@@ -66,6 +69,10 @@ export function Bubble({
   /** The small gold line: the card asking, and which copy it is. */
   from: string;
   title: string;
+  /** An extra class on the title (the scripted games read it). */
+  titleClass?: string;
+  /** The question's kind, as `data-kind` (the scripted games read it). */
+  kind?: string;
   picture?: ReactNode;
   children?: ReactNode;
   actions: ReactNode;
@@ -78,6 +85,7 @@ export function Bubble({
     <div
       className={`gs-win gs-bubble${peek ? " gs-win-peek" : ""}`}
       role="dialog"
+      data-kind={kind}
       aria-label={label}
       style={{ left, top, width }}
     >
@@ -86,7 +94,9 @@ export function Bubble({
         {picture && <div className="gs-win-picture">{picture}</div>}
         <div className="gs-win-words">
           <span className="gs-win-from">{from}</span>
-          <h2 className="gs-win-title">{title}</h2>
+          <h2 className={`gs-win-title${titleClass ? ` ${titleClass}` : ""}`}>
+            <ManaText text={title} />
+          </h2>
         </div>
       </div>
       {children}
@@ -104,6 +114,8 @@ export function Tray({
   label,
   from,
   title,
+  titleClass,
+  kind,
   prompt,
   children,
   actions,
@@ -112,6 +124,8 @@ export function Tray({
   label: string;
   from: string;
   title: string;
+  titleClass?: string;
+  kind?: string;
   prompt?: string | null;
   children: ReactNode;
   actions: ReactNode;
@@ -125,13 +139,20 @@ export function Tray({
     <div
       className={`gs-win gs-tray${peek ? " gs-win-peek" : ""}`}
       role="dialog"
+      data-kind={kind}
       aria-label={label}
       style={{ left: centre, maxWidth }}
     >
       <div className="gs-win-words gs-tray-body">
         <span className="gs-win-from">{from}</span>
-        <h2 className="gs-win-title">{title}</h2>
-        {prompt && <p className="gs-win-prompt">{prompt}</p>}
+        <h2 className={`gs-win-title${titleClass ? ` ${titleClass}` : ""}`}>
+          <ManaText text={title} />
+        </h2>
+        {prompt && (
+          <p className="gs-win-prompt gs-question-prompt decision-prompt">
+            <ManaText text={prompt} />
+          </p>
+        )}
         {children}
       </div>
       <div className="gs-win-actions gs-tray-actions">

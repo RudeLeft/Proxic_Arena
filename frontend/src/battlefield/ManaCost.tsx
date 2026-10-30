@@ -94,3 +94,28 @@ export function withSymbols(text: string): ReactNode[] {
     .split(/((?:\{[^}]+\})+)/)
     .map((part, i) => (part.startsWith("{") ? <ManaCost key={i} cost={part} /> : part));
 }
+
+/**
+ * Game words with every mana symbol in them ("{T}: Add {R}.", "still
+ * owing {1}") drawn as its picture (owner 2026-10-30: icons wherever mana
+ * is named). The letters stay in the text, out of sight, for reading aloud
+ * and copying.
+ */
+export function ManaText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/((?:\{[^}]+\})+)/).map((part, i) =>
+        part.startsWith("{") ? (
+          <span key={i} className="bf-mana-inline">
+            <span aria-hidden="true">
+              <ManaCost cost={part} />
+            </span>
+            <span className="pa-visually-hidden">{part}</span>
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
