@@ -124,6 +124,13 @@ export interface DecisionAbout {
   kind: string;
   /** For a spell: the zone it is cast from ("hand", "graveyard", …). */
   from: string | null;
+  /**
+   * Phase 9 W-06 — this trigger is copy `copy` of `copies` copies of one
+   * trigger going on the stack together (seven Boggart Shenanigans
+   * triggers), so one answer can serve them all. Null otherwise.
+   */
+  copy: number | null;
+  copies: number | null;
 }
 
 /** What one search matched: the best few, and how many there were. */
@@ -793,7 +800,17 @@ function asDecision(message: Record<string, unknown>): Decision | null {
 function asAbout(value: unknown): DecisionAbout | null {
   const pairs = asReasons(value);
   if (!pairs["name"]) return null;
-  return { name: pairs["name"], kind: pairs["kind"] ?? "spell", from: pairs["from"] ?? null };
+  const count = (key: string) => {
+    const n = Number(pairs[key]);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  };
+  return {
+    name: pairs["name"],
+    kind: pairs["kind"] ?? "spell",
+    from: pairs["from"] ?? null,
+    copy: count("copy"),
+    copies: count("copies"),
+  };
 }
 
 function asReasons(value: unknown): Record<string, string> {

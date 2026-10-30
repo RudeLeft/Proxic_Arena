@@ -104,6 +104,12 @@ still see the board, and what Esc and clicking away do.
 The gear menu (Concede, Abandon match), the game chat drawer and the Report
 window (spec 0039) stay as they are.
 
+## Screens
+
+Every canvas and every check is at 1920×1080 (full screen and in a browser
+window) and above (AGENTS UI-006, owner 2026-10-30); smaller screens and
+phones are best effort.
+
 ## Out of scope
 
 The board's layout (spec 0040), the rail's spacing (0038), the gear menu,
@@ -169,4 +175,36 @@ Still open: every other item, one at a time.
 
 ## Amendments
 
-None.
+**Amendment 1 (2026-10-30, group 1 as built).**
+
+- *Where "copies" is decided.* The worker already skipped the order
+  question for identical triggers (Forge's own rule); copies now also
+  match when only their cause differs ("[Zone Changer: Goblin Token
+  (122)]"), unless the ability reads its cause (TriggeredCard and the
+  like), when order can matter and it still asks. The worker tells each
+  copy's target question which copy it is ("copy 2 of 7") -- also when
+  the copies go on the stack beside a different trigger -- and names the
+  card on a trigger's yes/no question. The page answers the later copies
+  only from what the player chose ("Same target for all", "Yes to all").
+- *Mixed triggers.* When copies go on the stack with a different trigger
+  (Boggart Shenanigans and a Goblin Arsonist), the order is asked, and the
+  tray shows the copies as one card, "×N"; they go on the stack together.
+- *Which questions moved into the frame:* every yes/no question (a bubble
+  beside the stack), the target of a trigger with copies (a bubble), and
+  different triggers to order (the tray). Every other question stays as
+  it was until its own item is decided. "List choices" still lists every
+  option of every question (§7.29).
+- *Same-name cards (owner 2026-10-30, from the screenshots):* the same
+  trigger of other copies of one card -- three Goblin Arsonists dying
+  together -- are copies too: matched by the card's name and the words,
+  without the cause or Forge's card numbers. One card "×3" in the tray,
+  no order among them, "for all 3" on the target and the yes.
+- *The tray (owner 2026-10-30, from the screenshots):* as wide as its
+  cards need, centred on the table; each choice is the card itself, large
+  enough to read (220×307, the sharp close-up picture), or its name, type
+  and words on a plain card when it has no picture.
+- *Evidence:* `scripts/check-many-triggers.py` (Mechanics Lab: no order
+  question, one target and one yes per copy, "1 of 4" to "4 of 4") and
+  `frontend/e2e/match-many-triggers.spec.ts` (a real game in the browser:
+  one target, "Yes to all", the opponent losing a life per copy), with the
+  triggers test deck (`protocol/fixtures/triggers-deck`).

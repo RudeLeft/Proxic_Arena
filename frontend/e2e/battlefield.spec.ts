@@ -148,13 +148,13 @@ function readBoard(page: Page): Promise<Seen> {
 }
 
 const VIEWPORTS = [
-  { width: 1366, height: 768 },
+  { width: 1920, height: 947 }, // 1920x1080 in a browser window (AGENTS UI-006)
   { width: 1920, height: 1080 },
   { width: 3440, height: 1440 },
-  { width: 1280, height: 1024 },
+  { width: 2560, height: 1440 },
 ];
 // [permanents, faces, seed]: empty, light, mid-game, past overflow, and
-// so far past it that cards shrink (on the 1280x1024 window).
+// so far past it that cards shrink.
 const BOARDS: [number, number, number][] = [
   [0, 0, 1],
   [12, 10, 7],

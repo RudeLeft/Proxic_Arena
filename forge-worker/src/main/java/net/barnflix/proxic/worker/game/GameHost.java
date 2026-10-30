@@ -841,6 +841,20 @@ public final class GameHost {
         subject = about;
     }
 
+    /**
+     * Phase 9 W-06 -- the question's subject is copy [number] of [total]
+     * copies of one trigger going on the stack together, so the page can
+     * offer one answer for them all. Set after offerSubject.
+     */
+    void offerCopies(int number, int total) {
+        com.google.gson.JsonObject about = subject;
+        if (about == null) {
+            return;
+        }
+        about.addProperty("copy", String.valueOf(number));
+        about.addProperty("copies", String.valueOf(total));
+    }
+
     public com.google.gson.JsonObject subject() {
         return subject;
     }

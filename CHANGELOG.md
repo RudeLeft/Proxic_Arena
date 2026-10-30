@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
+
+**Many triggers at once** (Phase 9 group 1, owner 2026-10-30)
+- Seven Goblins die with Boggart Shenanigans out: two clicks instead of twenty. Copies of one trigger no longer ask which resolves first; the first copy asks for its target in a window beside the stack, with "Same target for all 7" ticked; the first yes offers "Yes to all 7", "Just this one" or "No".
+- Different triggers at once (a Boggart Shenanigans and a Goblin Arsonist) show their cards in a tray along the bottom, each card large enough to read: click them in the order they should resolve, the first one clicked resolves first. Copies of one trigger are one card, "×7" -- also the same trigger of several copies of a card (three Goblin Arsonists dying together).
+- Every yes-or-no question ("Use Boggart Shenanigans?") is now a window beside the stack, showing the card asking and what it would hit, with one gold answer button.
+- The new windows fade while you hold Space, so you can see the table under them.
+
+**Supported screens** (owner 2026-10-30)
+- Proxic Arena is made for desktop and laptop screens 1920×1080 and bigger, up to 4K and ultrawide. Smaller screens, phones and tablets may work but are not supported or tested.
+
 ## 1.22.0 — 2026-10-30
 
 A tidier battlefield: each kind of card on its own lines, busy boards

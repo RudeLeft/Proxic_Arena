@@ -292,21 +292,13 @@ test("a card opens large, steps through the deck, turns over, and the size is re
   await expect(page.getByRole("button", { name: "Large" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("on a phone View goes to the deck and folds the library; a failed delete says so", async ({
-  page,
-}) => {
-  // Spec 0008 P1 and C1.
+test("a failed delete says so, and the deck stays", async ({ page }) => {
+  // Spec 0008 C1. (Its phone fold, P1, is no longer tested: phones are
+  // best effort, AGENTS UI-006.)
   test.setTimeout(240_000);
   const directory = mkdtempSync(join(tmpdir(), "proxic-e2e-"));
   await page.goto("/decks");
   await importPackage(page, mountainPackage(directory, "phone", "Phone Deck", 60));
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "View Phone Deck" }).click();
-  await expect(page.getByRole("heading", { name: "Phone Deck" })).toBeInViewport();
-  await expect(page.getByRole("region", { name: "My decks" })).toBeHidden();
-  await page.getByRole("button", { name: "Show the deck library" }).click();
-  await expect(page.getByRole("region", { name: "My decks" })).toBeVisible();
 
   // The server refuses the delete: the row says so, and the deck stays.
   await page.route("**/api/decks/*", (route) =>

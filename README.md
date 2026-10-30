@@ -78,6 +78,13 @@ and Two-Headed Giant are out of scope. See
 
 ---
 
+## Supported screens
+
+A desktop or laptop at **1920×1080 or bigger** (owner 2026-10-30): full
+screen or in a browser window, and bigger screens up to 4K and
+ultrawide. Smaller screens, phones and tablets may work but are not
+supported or tested (AGENTS UI-006).
+
 ## Architecture
 
 ```text

@@ -570,7 +570,6 @@ test("the Hall of Champions has its own page, fits one screen, and the season le
   // shows the server's season by name, the lobby shows no trophies, the
   // desktop page never scrolls, and the season leader's gold ring is on
   // their picture in the Players list (or beside your chat line).
-  await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page);
   await openLobby(page);
   await expect(page.getByRole("region", { name: "This season" })).toHaveCount(0);
@@ -627,11 +626,12 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
   // shows, the Belt is wider and the trophies fill their boxes. A loss is
   // red, not pink.
   await signIn(page);
+  // AGENTS UI-006: the supported screen, in a browser window and full
+  // screen, and a bigger one.
   for (const [width, height] of [
     [1920, 1080],
-    [1600, 900],
-    [1366, 768],
-    [1280, 720],
+    [1920, 947],
+    [2560, 1440],
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto("/hall");
@@ -710,5 +710,5 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
       for (const cup of seen.cups) expect(cup, at).toBeGreaterThanOrEqual(seen.place - 24);
     }
   }
-  await page.screenshot({ path: "test-results/seen/hall-1280.png" });
+  await page.screenshot({ path: "test-results/seen/hall-2560.png" });
 });

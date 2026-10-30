@@ -165,7 +165,8 @@ export async function question(page: Page): Promise<{ heading: string; prompt: s
 export async function isAsked(page: Page): Promise<boolean> {
   // On your move the question has no bar (AMENDMENT 12), only its heading;
   // combat is the act button (owner 2026-10-22).
-  return (await page.locator(".gs-question, .gs-your-move, .gs-combat").count()) > 0;
+  // PHASE_09: a yes/no, a trigger's target or an order is a window (.gs-win).
+  return (await page.locator(".gs-question, .gs-your-move, .gs-combat, .gs-win").count()) > 0;
 }
 
 /**

@@ -21,9 +21,8 @@ import { syntheticBoard } from "./fixture";
 import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
 
 const VIEWPORTS: Viewport[] = [
-  { width: 1366, height: 768 }, // the minimum (§1.19)
-  { width: 1536, height: 864 },
-  { width: 1710, height: 960 },
+  // AGENTS UI-006 (owner 2026-10-30): the supported screen is 1920x1080,
+  // full screen and in a browser window; bigger screens work by design.
   { width: 1920, height: 1080 },
   { width: 1920, height: 947 }, // 1080p with browser chrome
   { width: 2560, height: 1440 },
@@ -246,8 +245,8 @@ describe("continuity (§7.42 as amended: PHASE 7 AMENDMENT 2)", () => {
   it("a 1px resize moves no card more than a few px, except where a card changed lines", () => {
     let hops = 0;
     for (const n of [1, 8, 9, 23, 31]) {
-      for (const height of [768, 1080]) {
-        for (let width = 1366; width <= 2600; width += 37) {
+      for (const height of [947, 1080]) {
+        for (let width = 1920; width <= 2600; width += 37) {
           const input = board(n);
           const a = layout(input, { width, height });
           const wider = layout(input, { width: width + 1, height });
@@ -437,9 +436,12 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
   });
 
   it("F-0040-C: the biggest boards shrink in steps, each card still showing half", () => {
-    for (const viewport of [vp, { width: 1366, height: 768 }]) {
+    for (const viewport of [vp, { width: 1920, height: 947 }]) {
       const out = layout(scenarioBoard("commander")!, viewport);
-      expect([0.9, 0.8, 0.75, 0.7]).toContain(out.scales.viewer);
+      // A step, always; below full size at 1920x1080 (a browser window
+      // is wider for its height, and fits it whole).
+      expect([1, 0.9, 0.8, 0.75, 0.7]).toContain(out.scales.viewer);
+      if (viewport === vp) expect(out.scales.viewer).toBeLessThan(1);
       expect(out.overcrowded).toEqual([]);
       for (const slot of out.slots) {
         const side = slot.row.startsWith("viewer") ? "viewer" : "opponent";

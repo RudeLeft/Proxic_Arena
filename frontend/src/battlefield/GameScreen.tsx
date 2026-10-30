@@ -46,6 +46,10 @@ import { Board, CardFace, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
+import { stackSpotBoxes } from "./effects";
+import type { Geometry } from "./layout";
+import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
+import { afterAuto, autoAnswer, endsCopies, isCopyTarget, yesNo, type Copies } from "./triggers";
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
@@ -284,9 +288,30 @@ export function GameScreen({
     setListOpen(false);
   }, [decision?.decisionId]);
 
+  // PHASE_09 W-06 (owner 2026-10-30) -- what the player chose to answer
+  // once for many copies of one trigger: "Same target for all" (ticked to
+  // start) and "Yes to all".
+  const [copies, setCopies] = useState<Copies | null>(null);
+  const [sameTarget, setSameTarget] = useState(true);
+  // The last question answered, by the player or for them: never twice.
+  const answered = useRef<number | null>(null);
+  useEffect(() => {
+    if (decision && isCopyTarget(decision) && decision.about?.copy === 1) setSameTarget(true);
+  }, [decision]);
+
   const answer = useCallback(
     (actionId: string | null) => {
       if (!decision) return;
+      answered.current = decision.decisionId;
+      // The first copy's target, however it was chosen (bubble or board).
+      if (actionId && isCopyTarget(decision) && (decision.about?.copy ?? 1) === 1) {
+        const chosen = decision.options.find((o) => o.actionId === actionId);
+        setCopies({
+          name: decision.about!.name,
+          target: sameTarget ? (chosen?.objectId ?? null) : null,
+          yesLeft: 0,
+        });
+      }
       // §6.132: the question stays on screen until the server says it was
       // taken; a refusal puts the player back where they were.
       setGame((previous) => ({ ...previous, awaiting: decision.decisionId, notice: null }));
@@ -294,8 +319,43 @@ export function GameScreen({
       setOffer(null);
       socketRef.current?.answer(decision.decisionId, actionId);
     },
-    [decision],
+    [decision, sameTarget],
   );
+
+  // PHASE_09 W-05, W-06 -- answers the player already gave: the same
+  // target again, yes again, the rest of an order they clicked. Once per
+  // question; a question of another card ends them.
+  const [orderQueue, setOrderQueue] = useState<string[]>([]);
+  const arrived = useRef<number | null>(null);
+  useEffect(() => {
+    if (!decision) return;
+    // Whether a question ends the player's choice is decided once, as it
+    // arrives -- answering the first copy must not end the choice it made.
+    if (arrived.current !== decision.decisionId) {
+      arrived.current = decision.decisionId;
+      if (endsCopies(decision, copies)) {
+        setCopies(null);
+        return;
+      }
+    }
+    if (answered.current === decision.decisionId) return;
+    if (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) {
+      const next = decision.options.find((o) => o.label === orderQueue[0]);
+      setOrderQueue(next ? orderQueue.slice(1) : []);
+      if (next) answer(next.actionId);
+      return;
+    }
+    if (decision.kind !== "orderSimultaneousAbilities" && orderQueue.length > 0) setOrderQueue([]);
+    const auto = autoAnswer(decision, copies);
+    if (auto !== null && copies) {
+      setCopies(afterAuto(decision, copies));
+      answer(auto);
+    }
+  }, [decision, copies, orderQueue, answer]);
+  const answeredForYou =
+    !!decision &&
+    (autoAnswer(decision, copies) !== null ||
+      (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0));
 
   // Spec 0037 — block many at once: a stack of your creatures clicked as
   // one choice, then a stack of attackers and how many. The page answers
@@ -502,6 +562,78 @@ export function GameScreen({
   );
 
   const busy = game.awaiting !== null;
+
+  // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
+  // trigger's target for many copies, different triggers to order. The
+  // old question bar steps aside for them, and while the page answers for
+  // the player; "List choices" still lists every option (§7.29).
+  const windowed =
+    !!decision &&
+    !listOpen &&
+    (answeredForYou ||
+      yesNo(decision) !== null ||
+      isCopyTarget(decision) ||
+      decision.kind === "orderSimultaneousAbilities");
+  const artUrl = (art: string) => `/api/matches/${match.matchId}/assets/${art}`;
+  const gameWindow = (geometry: Geometry) => {
+    if (!decision || !board || listOpen || answeredForYou) return null;
+    const anchor = stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    if (yesNo(decision)) {
+      return (
+        <ConfirmWindow
+          key={decision.decisionId}
+          decision={decision}
+          board={board}
+          anchor={anchor}
+          geometry={geometry}
+          busy={busy}
+          artUrl={artUrl}
+          onAnswer={answer}
+          onYesToAll={(count, actionId) => {
+            setCopies((previous) => ({
+              name: decision.about?.name ?? "",
+              target: previous?.target ?? null,
+              yesLeft: count - 1,
+            }));
+            answer(actionId);
+          }}
+        />
+      );
+    }
+    if (isCopyTarget(decision)) {
+      return (
+        <CopyTargetWindow
+          key={decision.decisionId}
+          decision={decision}
+          board={board}
+          anchor={anchor}
+          geometry={geometry}
+          busy={busy}
+          same={sameTarget}
+          artUrl={artUrl}
+          onSame={setSameTarget}
+          onAnswer={answer}
+        />
+      );
+    }
+    if (decision.kind === "orderSimultaneousAbilities") {
+      return (
+        <OrderTray
+          key={decision.decisionId}
+          decision={decision}
+          board={board}
+          geometry={geometry}
+          busy={busy}
+          artUrl={artUrl}
+          onDone={(order) => {
+            setOrderQueue(order.slice(1).map((o) => o.label ?? ""));
+            answer(order[0]!.actionId);
+          }}
+        />
+      );
+    }
+    return null;
+  };
   const objectName = (id: string) => nameOf(board, id);
 
   return (
@@ -577,32 +709,35 @@ export function GameScreen({
               outcome={match.outcome}
             />
           }
-          overlay={(at) =>
-            blockChooser ? (
-              <BlockManyChooser
-                box={at(blockChooser.at)}
-                state={blockChooser}
-                busy={busy}
-                onChange={(n) => setBlockChooser({ ...blockChooser, n })}
-                onBlock={blockMany}
-              />
-            ) : why && !offer ? (
-              <WhyNot box={at(why.objectId)} text={why.text} />
-            ) : selected && offer ? (
-              <ActionPopup
-                box={at(selected)}
-                name={objectName(selected)}
-                options={offer}
-                busy={busy}
-                onChoose={answer}
-                onInspect={() => setInspecting(selected)}
-                onClose={() => {
-                  setSelected(null);
-                  setOffer(null);
-                }}
-              />
-            ) : null
-          }
+          overlay={(at, geometry) => (
+            <>
+              {gameWindow(geometry)}
+              {blockChooser ? (
+                <BlockManyChooser
+                  box={at(blockChooser.at)}
+                  state={blockChooser}
+                  busy={busy}
+                  onChange={(n) => setBlockChooser({ ...blockChooser, n })}
+                  onBlock={blockMany}
+                />
+              ) : why && !offer ? (
+                <WhyNot box={at(why.objectId)} text={why.text} />
+              ) : selected && offer ? (
+                <ActionPopup
+                  box={at(selected)}
+                  name={objectName(selected)}
+                  options={offer}
+                  busy={busy}
+                  onChoose={answer}
+                  onInspect={() => setInspecting(selected)}
+                  onClose={() => {
+                    setSelected(null);
+                    setOffer(null);
+                  }}
+                />
+              ) : null}
+            </>
+          )}
         />
       ) : !ringDue ? null : (
         <LoadingRing
@@ -674,7 +809,7 @@ export function GameScreen({
         </div>
       )}
 
-      {decision && question && (
+      {decision && question && !windowed && (
         <QuestionBar
           decision={decision}
           question={question}

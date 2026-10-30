@@ -199,7 +199,9 @@ layout(gameState, viewport) -> positions
   Phase 6 §6.50 applied to presentation.
 - **Resolution-independent.** Driven by the fractional constants in §2, not
   by a lookup of three known screen sizes. Phase 1 §1.19 requires
-  1366×768, which the blueprint has no layout for at all.
+  1366×768, which the blueprint has no layout for at all. *(Since
+  2026-10-30 the supported screens are 1920×1080 and above, AGENTS
+  UI-006; smaller is best effort and untested.)*
 - **Identity-stable.** A card's on-screen box is keyed by its engine object
   id, so it can be animated between positions rather than disappearing and
   reappearing. This is what makes Phase 6 §6.47 usable visually.

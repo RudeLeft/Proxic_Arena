@@ -44,6 +44,9 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+        // AGENTS UI-006 (owner 2026-10-30): the supported screen is a
+        // 1920x1080 desktop or laptop; smaller is best effort, not tested.
+        viewport: { width: 1920, height: 1080 },
         ...(process.env.PROXIC_E2E_CHANNEL === "bundled"
           ? {}
           : { channel: process.env.PROXIC_E2E_CHANNEL ?? "msedge" }),

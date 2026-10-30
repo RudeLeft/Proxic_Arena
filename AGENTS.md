@@ -379,6 +379,14 @@ Release-blocking. Treat every rule here as security, not presentation.
   current values, never printed ones and never a hardcoded list. The old
   client guessed land-ness from basic-land names and put every nonbasic
   land in the wrong row. _REVIEW._
+- **UI-006 — MUST:** Build and test for the supported screens: a desktop
+  or laptop at **1920×1080 and above** (owner 2026-10-30) -- 1920×1080
+  full screen and in a browser window (about 1920×947), and bigger
+  screens (2560×1440, 3440×1440 ultrawide, 3840×2160). Below 1920×1080,
+  and phones and tablets, are best effort: not tested, not designed for,
+  and a problem there is not a defect unless the owner asks for it. This
+  supersedes PHASE_01 §1.19's 1366×768 minimum (frozen; not edited).
+  Browser tests run at 1920×1080 unless they say otherwise. _AUTO._
 
 ---
 

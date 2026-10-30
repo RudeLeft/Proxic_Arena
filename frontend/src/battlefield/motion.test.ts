@@ -10,10 +10,10 @@ import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
  */
 
 const VIEWPORTS = [
-  { width: 1366, height: 768 },
+  { width: 1920, height: 947 }, // in a browser window (AGENTS UI-006)
   { width: 1920, height: 1080 },
   { width: 3440, height: 1440 },
-  { width: 1280, height: 1024 },
+  { width: 2560, height: 1440 },
 ];
 
 /** Where CSS draws the local point (x, y) of a card placed at `box`. */

@@ -110,14 +110,15 @@ describe("responsive canvas (PHASE_01 1.19)", () => {
     h.destroy();
     // A window resize can land between unmount and the next frame,
     // and resizing a destroyed Pixi renderer throws.
-    h.resize(1366, 768);
+    h.resize(1920, 947);
     expect(app.sizes().length).toBe(1);
   });
 
   it("fits 16:9 inside the required viewports", () => {
-    // 1.19 names these three explicitly.
+    // 1.19 named three; AGENTS UI-006 (owner 2026-10-30) makes 1920x1080
+    // the supported screen, in a browser window and full, and bigger.
     for (const [w, h] of [
-      [1366, 768],
+      [1920, 947],
       [1920, 1080],
       [2560, 1440],
     ] as const) {

@@ -799,6 +799,11 @@ public final class MatchController extends GeneratedControllerBase {
             onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
 
             host.offerSubject(ability);
+            // Phase 9 W-06: one of several copies going on the stack
+            // together -- "2 of 7", so one answer can serve them all.
+            if (copiesTotal > 1 && ability.isTrigger()) {
+                host.offerCopies(copyNumber, copiesTotal);
+            }
             try {
                 String choice =
                         host.gate().ask(
@@ -3448,6 +3453,14 @@ public final class MatchController extends GeneratedControllerBase {
      * ordered, or when their descriptions differ. Two identical
      * triggers are not a choice.
      *
+     * Phase 9 (owner 2026-10-30, W-05): copies of one ability that
+     * differ only in what caused them -- seven Boggart Shenanigans
+     * triggers, one per Goblin that died -- are copies too. Forge's
+     * description ends with the cause ("[Zone Changer: Goblin Token
+     * (122)]"), so it is compared without it, but only when the
+     * ability never reads its cause (TriggeredCard and the like):
+     * then any order gives the same result.
+     *
      * Mandatory, because the game cannot continue until they are
      * on the stack.
      */
@@ -3456,7 +3469,10 @@ public final class MatchController extends GeneratedControllerBase {
             return abilities;
         }
         boolean needPrompt = !abilities.get(0).isTrigger();
-        String firstText = String.valueOf(abilities.get(0));
+        boolean causeMatters = abilities.stream().anyMatch(MatchController::readsCause);
+        String firstText = causeMatters
+                ? String.valueOf(abilities.get(0))
+                : copyText(abilities.get(0));
         for (int i = 1; i < abilities.size(); i++) {
             SpellAbility current = abilities.get(i);
             if (current.isTrigger()) {
@@ -3464,7 +3480,8 @@ public final class MatchController extends GeneratedControllerBase {
             } else if (current.usesTargeting()) {
                 needPrompt = true;
             }
-            if (!needPrompt && !String.valueOf(current).equals(firstText)) {
+            String text = causeMatters ? String.valueOf(current) : copyText(current);
+            if (!needPrompt && !text.equals(firstText)) {
                 needPrompt = true;
             }
         }
@@ -3511,6 +3528,43 @@ public final class MatchController extends GeneratedControllerBase {
         return ordered;
     }
 
+    /** An ability's description without the cause Forge ends it with: "[Zone Changer: ...]". */
+    private static String withoutCause(SpellAbility ability) {
+        return String.valueOf(ability).replaceFirst("\\s*\\[[^\\]]*\\]\\s*$", "").trim();
+    }
+
+    /**
+     * Phase 9 (owner 2026-10-30): what makes two triggers copies -- the
+     * card's NAME and the ability's words, without the cause and without
+     * Forge's card numbers ("Goblin Arsonist (65)"), so three Goblin
+     * Arsonists dying together are copies as one card's seven triggers are.
+     */
+    private static String copyText(SpellAbility ability) {
+        String name = ability.getHostCard() == null ? "" : ability.getHostCard().getName();
+        return name + "|" + withoutCause(ability).replaceAll("\\s*\\(\\d+\\)", "");
+    }
+
+    /**
+     * Phase 9 -- whether an ability's effect reads what triggered it
+     * ("TriggeredCard", "TriggeredObject"...), directly or through an
+     * SVar, in itself or any of its sub-abilities. Copies of such an
+     * ability can differ by cause, so their order stays a question.
+     */
+    private static boolean readsCause(SpellAbility ability) {
+        for (SpellAbility part = ability; part != null; part = part.getSubAbility()) {
+            forge.game.card.Card host = part.getHostCard();
+            for (String value : part.getMapParams().values()) {
+                if (value.contains("Triggered")) {
+                    return true;
+                }
+                if (host != null && host.hasSVar(value) && host.getSVar(value).contains("Triggered")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Put the simultaneous abilities on the stack, in order.
      *
@@ -3524,8 +3578,46 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public void orderAndPlaySimultaneousSa(List<SpellAbility> activePlayerSAs) {
         List<SpellAbility> ordered = orderSimultaneous(activePlayerSAs);
+        try {
+            playOrdered(ordered);
+        } finally {
+            copiesTotal = 0;
+            copyNumber = 0;
+        }
+    }
+
+    /**
+     * Phase 9 W-06 -- while triggers go on the stack: which copy of its
+     * trigger this one is, and of how many copies going on together (seven
+     * Boggart Shenanigans triggers, with or without other triggers beside
+     * them). Copies are as orderSimultaneous counts them: one card's
+     * trigger, or the same trigger of other copies of that card, words
+     * compared without their cause, the cause never read.
+     */
+    private int copiesTotal = 0;
+    private int copyNumber = 0;
+
+    private static String copyKey(SpellAbility ability) {
+        if (!ability.isTrigger() || ability.getHostCard() == null || readsCause(ability)) {
+            return null;
+        }
+        return copyText(ability);
+    }
+
+    private void playOrdered(List<SpellAbility> ordered) {
+        java.util.Map<String, Integer> totals = new java.util.HashMap<>();
+        for (SpellAbility ability : ordered) {
+            String key = copyKey(ability);
+            if (key != null) {
+                totals.merge(key, 1, Integer::sum);
+            }
+        }
+        java.util.Map<String, Integer> placed = new java.util.HashMap<>();
         for (int i = ordered.size() - 1; i >= 0; i--) {
             SpellAbility next = ordered.get(i);
+            String key = copyKey(next);
+            copiesTotal = key == null ? 0 : totals.get(key);
+            copyNumber = key == null ? 0 : placed.merge(key, 1, Integer::sum);
             if (next.isTrigger() && !next.isCopied()) {
                 forge.game.player.PlaySpellAbility.playSpellAbility(this, player, next);
                 continue;
@@ -3602,6 +3694,8 @@ public final class MatchController extends GeneratedControllerBase {
             return true;
         }
         String card = ViewerSnapshot.nameFor(wrapper.getTrigger().getHostCard(), player.getView());
+        // Phase 9 W-04: the bubble shows the card asking, by name.
+        host.offerSubject(wrapper, player.getView());
         return askYesNo(
                 "confirmTrigger",
                 "use the triggered ability of " + card + "?",
