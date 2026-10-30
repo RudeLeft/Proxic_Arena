@@ -1671,6 +1671,11 @@
   flex: 1 1 auto;
   width: auto;
 }
+/* Spec 0041 — "Checking both decks…" is the waiting box's size: the whole
+   step, Cancel (when the host still can) on the line under it. */
+.pa-start-row .pa-start-box {
+  flex: 1 1 100%;
+}
 /* Spec 0013 — the joiner's Start: button-shaped, plainly not a button. */
 .pa-start-box {
   min-height: 44px;
@@ -3435,17 +3440,13 @@
   align-items: center;
   gap: 8px;
 }
-/* A name too long for one line takes a second beside the picture rather
-   than being cut: at 1366 "RudeLeft" has 6px to spare in Barlow and is 13px
-   short in the fallback face shown until Barlow loads. Two lines at line
-   height 1 stay within the 56px picture, so the place keeps its height. */
+/* Spec 0041 — one line, whole: a name too wide for the place gets smaller
+   (FitName) instead of a second line split mid-word ("Bartholome / w"). */
 .pa-hp-who b {
   min-width: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--pa-display);
   font-size: var(--pa-size-xl);
   line-height: 1;

@@ -29,6 +29,7 @@ import { Avatar, avatarUrl } from "../avatars";
 import { ChatPanel } from "../LobbyChat";
 import { avatarOf, holdsBelt, rankOf } from "../lobbyView";
 import { BeltMark } from "../BeltMark";
+import { FitName } from "../FitName";
 import {
   EMPTY_MATCH,
   concessionText,
@@ -1112,9 +1113,8 @@ function SeatBlock({
           />
         </span>
         <span className="gs-seat-who">
-          <span className="gs-seat-name" title={player.name}>
-            {player.name}
-          </span>
+          {/* Spec 0041: 12 characters in full, smaller if need be. */}
+          <FitName className="gs-seat-name" name={player.name} />
           {/* Under the name: who may act (the dot) and the Belt, so the
               name keeps the whole row. */}
           {(priority || holdsBelt(lobby, seatedAs)) && (

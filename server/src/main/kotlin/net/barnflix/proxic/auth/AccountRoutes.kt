@@ -20,8 +20,6 @@ import net.barnflix.proxic.ServerConfig
 // complexity threshold. The answer to a route table that has outgrown
 // one function is a second function, not a higher threshold.
 
-private const val MAX_DISPLAY_NAME = 64
-
 /** The owner's set: avatar-01 .. avatar-132 (as the database's CHECK, V028; owner 2026-10-28). */
 private val AVATAR = Regex("^avatar-(0[1-9]|[1-9][0-9]|1[0-2][0-9]|13[0-2])$")
 
@@ -90,12 +88,13 @@ fun Route.accountRoutes(
                     ErrorResponse("INVALID_REQUEST", "Expected a display name.", null),
                 )
         val name = body.displayName.trim()
-        if (name.isEmpty() || name.length > MAX_DISPLAY_NAME) {
+        val refused = DisplayNames.rejectionReason(name)
+        if (refused != null) {
             return@post call.respond(
                 HttpStatusCode.UnprocessableEntity,
                 ErrorResponse(
                     "INVALID_DISPLAY_NAME",
-                    "A display name is 1 to $MAX_DISPLAY_NAME characters.",
+                    refused,
                     null,
                 ),
             )

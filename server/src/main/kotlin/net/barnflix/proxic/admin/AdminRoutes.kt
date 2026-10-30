@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.ServerConfig
 import net.barnflix.proxic.auth.AccountStatus
+import net.barnflix.proxic.auth.DisplayNames
 import net.barnflix.proxic.auth.Principal
 import net.barnflix.proxic.auth.Role
 import net.barnflix.proxic.auth.Sessions
@@ -199,10 +200,10 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
             )
     val role = Role.entries.firstOrNull { it.name == body.role } ?: Role.PLAYER
     val displayName = body.displayName.trim()
-    if (displayName.length > MAX_DISPLAY_NAME) {
+    DisplayNames.rejectionReason(displayName)?.let { refused ->
         return call.respond(
             HttpStatusCode.UnprocessableEntity,
-            ErrorResponse("INVALID_DISPLAY_NAME", "A display name is 1 to $MAX_DISPLAY_NAME characters.", null),
+            ErrorResponse("INVALID_DISPLAY_NAME", refused, null),
         )
     }
     if (admin.adminAccounts.accounts.findByUsername(body.username) != null) {
@@ -285,5 +286,3 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
     val detail = if (closed.matchEnded) "closed; the match ended with no winner" else "closed"
     call.respond(DoneResponse(closed.name, detail))
 }
-
-private const val MAX_DISPLAY_NAME = 64

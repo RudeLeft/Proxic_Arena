@@ -60,6 +60,23 @@ object Usernames {
     }
 }
 
+/**
+ * Spec 0041 (owner 2026-10-30) — what other players see: required, and at
+ * most 12 characters, the longest every place a name shows can show in full.
+ */
+object DisplayNames {
+    const val MAX = 12
+
+    fun rejectionReason(displayName: String): String? {
+        val trimmed = displayName.trim()
+        return when {
+            trimmed.isEmpty() -> "Choose a display name: it is what other players see."
+            trimmed.length > MAX -> "A display name may be at most $MAX characters."
+            else -> null
+        }
+    }
+}
+
 object SessionPolicy {
     /** §3.27 — idle and absolute, both enforced. */
     val IDLE = Duration.ofDays(7)

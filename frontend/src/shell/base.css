@@ -26,6 +26,8 @@
   --pa-button: #222b36;
   --pa-button-line: #5c6472;
   --pa-ok: #8fd6b0;
+  --pa-ok-strong: #2f8f5f;
+  --pa-ok-line: #3d7a5c;
   --pa-bad: #f0b2a8;
   --pa-warn: #e0d2a8;
 }
@@ -433,6 +435,115 @@ main.pa-main {
 }
 .pa-join-ok {
   color: var(--pa-ok);
+}
+
+/* Spec 0041 — every box says whether it's right (fieldChecks.tsx). */
+.pa-check-field {
+  position: relative;
+  display: block;
+}
+.pa-form-inline .pa-check-field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.pa-form-inline .pa-check-field .pa-input {
+  width: 100%;
+}
+.pa-check-field .pa-input {
+  margin-bottom: 6px;
+  padding-right: 46px;
+}
+/* The browser's own show-password eye sits at the right edge of a
+   password box: the check goes just inside it. */
+.pa-check-field .pa-input[type="password"] {
+  padding-right: 80px;
+}
+.pa-check-mark {
+  position: absolute;
+  top: 23px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--pa-ok-strong);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: var(--pa-size-sm);
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.6);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+.pa-check-field .pa-input[type="password"] + .pa-check-mark {
+  right: 44px;
+}
+.pa-check-field-ok .pa-input {
+  border-color: var(--pa-ok-line);
+}
+.pa-check-field-ok .pa-check-mark {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.pa-check-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 0 16px;
+  font-size: var(--pa-size-md);
+  line-height: 1.4;
+  color: var(--pa-muted);
+}
+.pa-form-inline .pa-check-rule {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.pa-check-dot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  box-sizing: border-box;
+  border: 2px solid var(--pa-line-strong);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--pa-size-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+.pa-check-rule-ok {
+  color: var(--pa-ok);
+}
+.pa-check-rule-ok .pa-check-dot {
+  border-color: var(--pa-ok-strong);
+  background: var(--pa-ok-strong);
+  color: #fff;
+}
+.pa-check-rule-wrong {
+  color: var(--pa-bad);
+}
+.pa-still-missing {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--pa-line);
+  border-radius: 4px;
+  background: var(--pa-panel);
+  font-size: var(--pa-size-md);
+  color: var(--pa-sub);
+}
+.pa-still-missing ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pa-check-mark {
+    transition: none;
+  }
 }
 .pa-join-card a.pa-button {
   display: grid;

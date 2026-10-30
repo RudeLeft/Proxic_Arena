@@ -193,6 +193,7 @@ class Invites(
         password: String,
     ): JoinResult {
         Usernames.rejectionReason(username)?.let { return JoinResult.Refused("INVALID_USERNAME", it) }
+        DisplayNames.rejectionReason(displayName)?.let { return JoinResult.Refused("INVALID_DISPLAY_NAME", it) }
         PasswordHasher.rejectionReason(password)?.let { return JoinResult.Refused("WEAK_PASSWORD", it) }
         if (accounts.findByUsername(username) != null) {
             return JoinResult.Refused("USERNAME_TAKEN", "That username is taken. Try another.")
@@ -200,7 +201,7 @@ class Invites(
         val claimed = claim(token) ?: return JoinResult.Invalid
         val user =
             try {
-                accounts.createUser(username, password, claimed.second, displayName.trim().take(MAX_NAME))
+                accounts.createUser(username, password, claimed.second, displayName.trim())
             } catch (e: IllegalArgumentException) {
                 release(claimed.first)
                 return JoinResult.Refused("INVALID_ACCOUNT", e.message ?: "That account cannot be created.")
@@ -257,7 +258,6 @@ class Invites(
         /** G2 — how long a link works. */
         val LIFETIME: Duration = Duration.ofHours(48)
         private const val RECENT = 50
-        private const val MAX_NAME = 40
         private const val MIN_USERNAME = 3
         private const val MAX_USERNAME = 32
 

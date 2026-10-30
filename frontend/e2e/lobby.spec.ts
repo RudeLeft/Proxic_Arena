@@ -671,15 +671,19 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
     expect(seen.cut, at).toEqual([]);
     expect(seen.fits, at).toBe(true);
     if (seen.loss) expect(seen.loss, at).toBe("rgb(229, 89, 78)");
-    // A place's name is never cut whatever this database's names are: a
-    // long one, and a short one in the fallback face shown until Barlow
-    // loads (RudeLeft was cut at 1366 that way, 2026-10-29). Two lines fit
-    // beside the picture, so the place keeps its height.
-    const long = await page.evaluate(() => {
+    // A place's name is never cut whatever this database's names are:
+    // spec 0041 -- the longest a name may be (12), with a space and without,
+    // on ONE line, made smaller if need be (all-W names may still be cut:
+    // owner 2026-10-30); and a short one in the
+    // fallback face shown until Barlow loads (RudeLeft was cut at 1366 that
+    // way, 2026-10-29). The place keeps its height.
+    const long = await page.evaluate(async () => {
+      const frame = () => new Promise((done) => requestAnimationFrame(() => done(null)));
       const place = document.querySelector(".pa-hp-place");
       const before = place?.getBoundingClientRect().height ?? 0;
       const tries: [string, string][] = [
-        ["Maximilian", ""],
+        ["Penelope Mar", ""],
+        ["Bartholomewx", ""],
         ["RudeLeft", "sans-serif"],
       ];
       const cut: string[] = [];
@@ -689,11 +693,8 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
         for (const [text, font] of tries) {
           b.textContent = text;
           b.style.fontFamily = font;
-          // At line height 1 the letters overhang a line by a pixel or two;
-          // a third line hidden by the two-line limit adds a whole line.
-          const line = parseFloat(getComputedStyle(b).lineHeight);
-          if (b.scrollWidth > b.clientWidth || b.scrollHeight > b.clientHeight + line / 2)
-            cut.push(`${text} ${font}`);
+          await frame();
+          if (b.scrollWidth > b.clientWidth + 0.5) cut.push(`${text} ${font}`);
           grew = Math.max(grew, (place?.getBoundingClientRect().height ?? 0) - before);
         }
         b.textContent = name;

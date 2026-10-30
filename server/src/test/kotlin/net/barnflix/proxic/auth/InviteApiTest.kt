@@ -135,6 +135,31 @@ class InviteApiTest {
             assertTrue(again.bodyAsText().contains("INVITE_INVALID"), again.bodyAsText())
         }
 
+    /** Spec 0041 — a display name is required at sign-up, at most 12 characters. */
+    @Test
+    fun `an account needs a display name of at most 12 characters, and the link stays usable`() =
+        testApplication {
+            application { module(config()) }
+            val sent = invite(signIn("RudeLeft"), "kim@example.com")
+            assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
+            val code =
+                Json.parseToJsonElement(sent.bodyAsText()).jsonObject["link"]!!.jsonPrimitive.content
+                    .substringAfter("#")
+
+            suspend fun join(name: String) =
+                anonymous(
+                    "/api/auth/join",
+                    """{"token":"$code","username":"kim","displayName":"$name","password":"$password"}""",
+                )
+
+            val empty = join("")
+            assertEquals(HttpStatusCode.UnprocessableEntity, empty.status, empty.bodyAsText())
+            assertTrue(empty.bodyAsText().contains("INVALID_DISPLAY_NAME"), empty.bodyAsText())
+            assertEquals(HttpStatusCode.UnprocessableEntity, join("Kimberly Anne").status, "13 is too many")
+            // Refused before the link is used: it still works.
+            assertEquals(HttpStatusCode.Created, join("Kimberly Ann").status)
+        }
+
     @Test
     fun `a player cannot invite, and a stranger gets nothing else`() =
         testApplication {

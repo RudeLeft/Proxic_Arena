@@ -10,11 +10,17 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { apiFetch, type AuthUser } from "./auth";
+import {
+  CheckRule,
+  CheckedInput,
+  StillMissing,
+  againOk,
+  passwordMissing,
+  passwordOk,
+  passwordRule,
+} from "./fieldChecks";
 import logo from "./assets/logo-840.webp";
 import "./shell/base.css";
-
-/** The server's own rule (PasswordHasher), shown as the person types. */
-const MIN_PASSWORD = 12;
 
 type Stage = { kind: "checking" } | { kind: "dead" } | { kind: "ready" };
 
@@ -50,12 +56,11 @@ export function ResetPage() {
     );
   }, [token]);
 
-  const longEnough = password.length >= MIN_PASSWORD;
-  const matches = password.length > 0 && password === again;
+  const missing = passwordMissing(password, again);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!longEnough || !matches) return;
+    if (missing.length > 0) return;
     setBusy(true);
     setProblem(null);
     const response = await post("/api/auth/reset", { token, password });
@@ -113,8 +118,8 @@ export function ResetPage() {
               <label className="pa-label" htmlFor="reset-password">
                 New password
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={passwordOk(password)}
                 id="reset-password"
                 type="password"
                 autoComplete="new-password"
@@ -123,18 +128,15 @@ export function ResetPage() {
                 aria-describedby="reset-password-check"
                 required
               />
-              <span
-                id="reset-password-check"
-                className={`pa-join-hint${longEnough ? " pa-join-ok" : ""}`}
-              >
-                {longEnough ? "✓ Long enough" : `At least ${MIN_PASSWORD} characters`}
-              </span>
+              <CheckRule id="reset-password-check" ok={passwordOk(password)}>
+                {passwordRule(password)}
+              </CheckRule>
 
               <label className="pa-label" htmlFor="reset-again">
                 New password again
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={againOk(password, again)}
                 id="reset-again"
                 type="password"
                 autoComplete="new-password"
@@ -143,20 +145,26 @@ export function ResetPage() {
                 aria-describedby="reset-again-check"
                 required
               />
-              <span
+              <CheckRule
                 id="reset-again-check"
-                className={`pa-join-hint${matches ? " pa-join-ok" : ""}`}
+                ok={againOk(password, again)}
+                wrong={again.length > 0}
               >
-                {again.length === 0 ? "" : matches ? "✓ They match" : "They don't match yet"}
-              </span>
+                {again.length === 0
+                  ? "The same password again"
+                  : againOk(password, again)
+                    ? "Matches"
+                    : "Doesn't match yet"}
+              </CheckRule>
 
               <button
                 type="submit"
                 className="pa-button pa-button-wide"
-                disabled={busy || !longEnough || !matches}
+                disabled={busy || missing.length > 0}
               >
                 {busy ? "Saving…" : "Save password and sign in"}
               </button>
+              <StillMissing lead="To save your new password, add:" items={missing} />
               <p className="pa-join-hint">
                 Every other device signed in as you is signed out, and computers linked to the Deck
                 Builder are unlinked.

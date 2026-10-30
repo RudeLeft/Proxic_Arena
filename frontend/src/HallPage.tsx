@@ -16,6 +16,7 @@ import trophySilver from "./assets/trophies/trophy-silver.webp";
 import belt from "./assets/trophies/belt.webp";
 import { useAuth } from "./AuthContext";
 import { Avatar } from "./avatars";
+import { FitName } from "./FitName";
 import { DeckIcon, iconOf } from "./deckIcons";
 import {
   badgeTip,
@@ -204,7 +205,7 @@ function Places({ places, lobby }: { places: HallPlace[]; lobby: LobbyState }) {
                       size={SEAT_AVATAR}
                       rank={slot.rank}
                     />
-                    <b title={nameIn(lobby, holder.userId)}>{nameIn(lobby, holder.userId)}</b>
+                    <FitName as="b" name={nameIn(lobby, holder.userId)} />
                   </span>
                   <span className="pa-hp-stat">
                     {ratingText(holder.rating)} · {wonText(holder.wins, holder.games)}

@@ -9,6 +9,17 @@ import { AccountEmail } from "./AccountEmail";
 import { useAuth } from "./AuthContext";
 import { DeckBuilderLink } from "./DeckBuilderLink";
 import { apiFetch } from "./auth";
+import {
+  CheckRule,
+  CheckedInput,
+  MAX_DISPLAY_NAME,
+  StillMissing,
+  againOk,
+  displayNameOk,
+  passwordMissing,
+  passwordOk,
+  passwordRule,
+} from "./fieldChecks";
 import { AVATARS, Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
@@ -24,6 +35,7 @@ export function AccountPage() {
   const [sessionMessage, setSessionMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newAgain, setNewAgain] = useState("");
 
   if (state.status !== "authenticated") return null;
   const user = state.user;
@@ -54,6 +66,7 @@ export function AccountPage() {
     });
     setCurrentPassword("");
     setNewPassword("");
+    setNewAgain("");
     if (response.ok) {
       // §3.36 — the change revoked every session INCLUDING this
       // one. Being signed out here is the rule working, and saying
@@ -114,15 +127,22 @@ export function AccountPage() {
             className="pa-form pa-form-inline"
             onSubmit={(event) => void saveDisplayName(event)}
           >
-            <input
-              className="pa-input"
+            <CheckedInput
+              ok={displayNameOk(displayName)}
               aria-label="Display name"
+              aria-describedby="display-rule"
               value={displayName}
+              maxLength={MAX_DISPLAY_NAME}
+              required
               onChange={(event) => setDisplayName(event.target.value)}
             />
-            <button type="submit" className="pa-button">
+            <button type="submit" className="pa-button" disabled={!displayNameOk(displayName)}>
               Save
             </button>
+            {/* Spec 0041: required, at most 12, so every place shows it whole. */}
+            <CheckRule id="display-rule" ok={displayNameOk(displayName)}>
+              Required, up to {MAX_DISPLAY_NAME} characters
+            </CheckRule>
             <p className="pa-help">
               This is the name other players see in the lobby and across the table. Your username
               does not change.
@@ -156,15 +176,44 @@ export function AccountPage() {
             <label className="pa-label" htmlFor="new">
               New password
             </label>
-            <input
-              className="pa-input"
+            <CheckedInput
+              ok={passwordOk(newPassword)}
               id="new"
               type="password"
               autoComplete="new-password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
+              aria-describedby="new-check"
               required
             />
+            <CheckRule id="new-check" ok={passwordOk(newPassword)}>
+              {passwordRule(newPassword)}
+            </CheckRule>
+            {/* Spec 0041: typed twice, so a slip can't lock you out. */}
+            <label className="pa-label" htmlFor="new-again">
+              New password again
+            </label>
+            <CheckedInput
+              ok={againOk(newPassword, newAgain)}
+              id="new-again"
+              type="password"
+              autoComplete="new-password"
+              value={newAgain}
+              onChange={(event) => setNewAgain(event.target.value)}
+              aria-describedby="new-again-check"
+              required
+            />
+            <CheckRule
+              id="new-again-check"
+              ok={againOk(newPassword, newAgain)}
+              wrong={newAgain.length > 0}
+            >
+              {newAgain.length === 0
+                ? "The same password again"
+                : againOk(newPassword, newAgain)
+                  ? "Matches"
+                  : "Doesn't match yet"}
+            </CheckRule>
             {/* The consequence stated before the button, not after it. */}
             <div className="pa-notice pa-notice-warn" style={{ marginBottom: 16 }}>
               <span aria-hidden="true" className="pa-notice-mark" />
@@ -174,9 +223,25 @@ export function AccountPage() {
                 will need to sign in again.
               </span>
             </div>
-            <button type="submit" className="pa-button">
+            <button
+              type="submit"
+              className="pa-button"
+              disabled={
+                currentPassword.length === 0 || passwordMissing(newPassword, newAgain).length > 0
+              }
+            >
               Change password
             </button>
+            {/* Said once the change is started, not on every visit. */}
+            {(currentPassword || newPassword || newAgain) && (
+              <StillMissing
+                lead="To change your password, add:"
+                items={[
+                  ...(currentPassword.length === 0 ? ["your current password"] : []),
+                  ...passwordMissing(newPassword, newAgain),
+                ]}
+              />
+            )}
             {passwordMessage && <Message {...passwordMessage} />}
           </form>
         </section>

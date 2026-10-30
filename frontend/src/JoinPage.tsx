@@ -10,11 +10,21 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { apiFetch, type AuthUser } from "./auth";
+import {
+  CheckRule,
+  CheckedInput,
+  MAX_DISPLAY_NAME,
+  StillMissing,
+  againOk,
+  displayNameMissing,
+  displayNameOk,
+  passwordMissing,
+  passwordOk,
+  passwordRule,
+  usernameOk,
+} from "./fieldChecks";
 import logo from "./assets/logo-840.webp";
 import "./shell/base.css";
-
-/** The server's own rule (PasswordHasher), shown as the person types. */
-const MIN_PASSWORD = 12;
 
 interface Peek {
   email: string;
@@ -64,12 +74,16 @@ export function JoinPage() {
     });
   }, [token]);
 
-  const longEnough = password.length >= MIN_PASSWORD;
-  const matches = password.length > 0 && password === again;
+  // Spec 0041: every box says whether it's right, and the button what's missing.
+  const missing = [
+    ...(usernameOk(username) ? [] : ["a username (3 to 32 letters or digits)"]),
+    ...displayNameMissing(displayName),
+    ...passwordMissing(password, again),
+  ];
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!longEnough || !matches) return;
+    if (missing.length > 0) return;
     setBusy(true);
     setProblem(null);
     const response = await post("/api/auth/join", { token, username, displayName, password });
@@ -141,8 +155,8 @@ export function JoinPage() {
               <label className="pa-label" htmlFor="join-username">
                 Username
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={usernameOk(username)}
                 id="join-username"
                 autoComplete="username"
                 value={username}
@@ -151,32 +165,38 @@ export function JoinPage() {
                 aria-describedby="join-username-hint"
                 required
               />
-              <span id="join-username-hint" className="pa-join-hint">
-                What you sign in with: letters, digits, dot, underscore and hyphen.
-              </span>
+              <CheckRule
+                id="join-username-hint"
+                ok={usernameOk(username)}
+                wrong={username.trim().length > 0}
+              >
+                What you sign in with: 3 to 32 letters, digits, dot, underscore or hyphen
+              </CheckRule>
 
               <label className="pa-label" htmlFor="join-name">
                 Display name
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={displayNameOk(displayName)}
                 id="join-name"
                 autoComplete="nickname"
                 value={displayName}
-                maxLength={40}
-                placeholder={username || "What other players see"}
+                maxLength={MAX_DISPLAY_NAME}
+                placeholder="What other players see"
                 onChange={(event) => setDisplayName(event.target.value)}
                 aria-describedby="join-name-hint"
+                required
               />
-              <span id="join-name-hint" className="pa-join-hint">
-                What other players see. You can change it later.
-              </span>
+              <CheckRule id="join-name-hint" ok={displayNameOk(displayName)}>
+                What other players see, up to {MAX_DISPLAY_NAME} characters. You can change it
+                later.
+              </CheckRule>
 
               <label className="pa-label" htmlFor="join-password">
                 Password
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={passwordOk(password)}
                 id="join-password"
                 type="password"
                 autoComplete="new-password"
@@ -185,18 +205,15 @@ export function JoinPage() {
                 aria-describedby="join-password-check"
                 required
               />
-              <span
-                id="join-password-check"
-                className={`pa-join-hint${longEnough ? " pa-join-ok" : ""}`}
-              >
-                {longEnough ? "✓ Long enough" : `At least ${MIN_PASSWORD} characters`}
-              </span>
+              <CheckRule id="join-password-check" ok={passwordOk(password)}>
+                {passwordRule(password)}
+              </CheckRule>
 
               <label className="pa-label" htmlFor="join-again">
                 Password again
               </label>
-              <input
-                className="pa-input"
+              <CheckedInput
+                ok={againOk(password, again)}
                 id="join-again"
                 type="password"
                 autoComplete="new-password"
@@ -205,17 +222,26 @@ export function JoinPage() {
                 aria-describedby="join-again-check"
                 required
               />
-              <span id="join-again-check" className={`pa-join-hint${matches ? " pa-join-ok" : ""}`}>
-                {again.length === 0 ? "" : matches ? "✓ They match" : "They don't match yet"}
-              </span>
+              <CheckRule
+                id="join-again-check"
+                ok={againOk(password, again)}
+                wrong={again.length > 0}
+              >
+                {again.length === 0
+                  ? "The same password again"
+                  : againOk(password, again)
+                    ? "Matches"
+                    : "Doesn't match yet"}
+              </CheckRule>
 
               <button
                 type="submit"
                 className="pa-button pa-button-wide"
-                disabled={busy || !longEnough || !matches || username.trim().length < 3}
+                disabled={busy || missing.length > 0}
               >
                 {busy ? "Creating…" : "Create account"}
               </button>
+              <StillMissing lead="To create your account, add:" items={missing} />
             </form>
           </section>
         )}

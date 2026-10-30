@@ -79,6 +79,7 @@ test("an administrator invites someone, who makes their own account; then sends 
 }) => {
   const admin = await asAdmin(browser);
   const username = `e2e${Date.now() % 1_000_000_000}`;
+  const shown = `T${username.slice(3)}`;
   const first = "a first password for the test";
   const player = await browser.newContext();
   const playerPage = await player.newPage();
@@ -102,7 +103,8 @@ test("an administrator invites someone, who makes their own account; then sends 
     await playerPage.goto(link.replace(/^https?:\/\/[^/]+/, ""));
     await expect(playerPage.getByRole("heading", { name: "Create your account" })).toBeVisible();
     await expect(playerPage.getByLabel("Username")).toHaveValue(username);
-    await playerPage.getByLabel("Display name").fill(`Test ${username}`);
+    // Spec 0041: a display name is at most 12 characters.
+    await playerPage.getByLabel("Display name").fill(shown);
     await playerPage.getByLabel("Password", { exact: true }).fill(first);
     await playerPage.getByLabel("Password again").fill(first);
     await playerPage.getByRole("button", { name: "Create account" }).click();
@@ -127,7 +129,7 @@ test("an administrator invites someone, who makes their own account; then sends 
     await manage(row);
     await expect(row.getByRole("menuitem", { name: /Set a new password/ })).toHaveCount(0);
     await row
-      .getByRole("menuitem", { name: `Send ${`Test ${username}`} a password reset` })
+      .getByRole("menuitem", { name: `Send ${shown} a password reset` })
       .click();
     // No email account on this stack (or, while the Email tab test runs,
     // one nothing listens on): refused in words, and no link shown.

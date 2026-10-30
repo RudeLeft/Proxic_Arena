@@ -299,6 +299,31 @@ class AuthApiTest {
             assertTrue(ok.bodyAsText().contains("Eric"))
         }
 
+    /** Spec 0041 — a display name is required and at most 12 characters. */
+    @Test
+    fun `a display name must be 1 to 12 characters`() =
+        testApplication {
+            seedUser()
+            application { module(config()) }
+            val response = login()
+            val token = response.cookie(SESSION_COOKIE)!!
+            val csrf = response.cookie(CSRF_COOKIE)!!
+
+            suspend fun rename(name: String) =
+                client.post("/api/auth/display-name") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$token; $CSRF_COOKIE=$csrf")
+                    header(CSRF_HEADER, csrf)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"displayName":"$name"}""")
+                }
+
+            assertEquals(HttpStatusCode.OK, rename("Penelope Mar").status, "12 is the longest allowed")
+            val long = rename("Penelope Marc")
+            assertEquals(HttpStatusCode.UnprocessableEntity, long.status)
+            assertTrue(long.bodyAsText().contains("at most 12 characters"), long.bodyAsText())
+            assertEquals(HttpStatusCode.UnprocessableEntity, rename("   ").status, "required")
+        }
+
     /** Spec 0006 — an avatar from the owner's set is saved; anything else is refused. */
     @Test
     fun `an avatar from the set is saved and listed, and anything else is refused`() =

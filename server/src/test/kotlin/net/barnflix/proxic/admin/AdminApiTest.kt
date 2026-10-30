@@ -271,11 +271,17 @@ class AdminApiTest {
             assertTrue(call(admin, "GET", "/api/admin/accounts").bodyAsText().contains("\"username\":\"kwil\""))
             assertEquals(HttpStatusCode.OK, signIn("kwil").status)
 
-            val again =
-                call(admin, "POST", "/api/admin/accounts", """{"username":"KWIL","password":"$password"}""")
+            val accounts = "/api/admin/accounts"
+            val twin = """{"username":"KWIL","displayName":"Kwil 2","password":"$password"}"""
+            val again = call(admin, "POST", accounts, twin)
             assertEquals(HttpStatusCode.Conflict, again.status)
-            val weak = call(admin, "POST", "/api/admin/accounts", """{"username":"oxbow","password":"short"}""")
+            val short = """{"username":"oxbow","displayName":"Oxbow","password":"short"}"""
+            val weak = call(admin, "POST", accounts, short)
             assertEquals(HttpStatusCode.UnprocessableEntity, weak.status)
+            // Spec 0041: a display name is required, at most 12 characters.
+            val unnamed = call(admin, "POST", accounts, """{"username":"nameless","password":"$password"}""")
+            assertEquals(HttpStatusCode.UnprocessableEntity, unnamed.status)
+            assertTrue(unnamed.bodyAsText().contains("INVALID_DISPLAY_NAME"), unnamed.bodyAsText())
             // CSRF, like every other change (§3.52).
             val forged =
                 call(
