@@ -14,6 +14,9 @@ words, newest first. Each release on GitHub carries the same notes.
 - Counters (poison, energy, experience...) show there as chips with their numbers; held markers (Monarch, the initiative, the city's blessing, the Ring) in gold; the command zone (an emblem, the Ring, a dungeon) in purple, listing what is there when clicked.
 - The plates never grow any more: before, a long line of counters could push your plate off the bottom of the screen.
 
+**The Hall** (owner 2026-10-29)
+- A name beside a trophy is never cut off: on a laptop screen, one too long for its space now takes a second line instead of ending in "…". Hover it for the whole name.
+
 ## 1.19.0 — 2026-10-29
 
 Big boards made readable: identical cards stack, blockers sit on the
