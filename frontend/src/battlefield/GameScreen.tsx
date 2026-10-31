@@ -58,8 +58,8 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
-import { CastingCard, CastingFlight, castingBox, stillOwing } from "./CastingCard";
-import { ChoiceWindow, ListTray, TableQuestionWindow } from "./QuestionWindows";
+import { CastingCard, CastingFlight, castingBox, docks, stillOwing } from "./CastingCard";
+import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import { afterAuto, autoAnswer, endsCopies, isCopyTarget, yesNo, type Copies } from "./triggers";
 import { holdActive } from "../activity";
@@ -347,16 +347,68 @@ export function GameScreen({
   // Spec 0042 -- the spell being cast floats in the middle (CastingCard):
   // it rises from where it was clicked, and when it is cast (or cancelled)
   // flies to where it went. `atRef` is the board's latest "where is it".
-  const casting = board?.casting[0] ?? null;
+  //
+  // Spec 0044 -- an optional cost (Bargain, kicker) is asked while the
+  // card is still in the hand: it floats for that question too. A
+  // question that needs the table docks it beside the stack; the
+  // opponent's spell shows its back until it is on the stack.
+  const optionalSource =
+    board && decision?.kind === "chooseOptionalCosts" && !board.casting.length
+      ? sourceOf(board, decision)
+      : null;
+  const optionalFromHand =
+    optionalSource && board?.hand.some((card) => card.id === optionalSource.id)
+      ? optionalSource
+      : null;
+  const casting = board?.casting[0] ?? optionalFromHand;
+  const castingDocked =
+    !!casting && casting.seat === board?.seat && docks(decision, question, casting.id);
+  const castingHiddenBy =
+    casting && board && casting.seat !== board.seat
+      ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
+      : null;
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
   const castFrom = useRef<{ id: string; box: Box } | null>(null);
-  const lastCasting = useRef<SnapshotCard | null>(null);
-  const [flight, setFlight] = useState<{ card: SnapshotCard; key: number } | null>(null);
+  const handCountOf = (seat: number) => board?.players.find((p) => p.seat === seat)?.handCount ?? 0;
+  const lastCasting = useRef<{
+    card: SnapshotCard;
+    docked: boolean;
+    hidden: boolean;
+    handCount: number;
+  } | null>(null);
+  const [flight, setFlight] = useState<{
+    card: SnapshotCard;
+    docked: boolean;
+    /** The opponent's spell: turns face up (committed) or stays down (cancelled). */
+    reveal: boolean;
+    hidden: boolean;
+    key: number;
+  } | null>(null);
   useEffect(() => {
     const before = lastCasting.current;
-    if (before && before.id !== casting?.id) setFlight({ card: before, key: Date.now() });
-    lastCasting.current = casting;
-  }, [casting]);
+    if (before && before.card.id !== casting?.id) {
+      // The opponent's card is a back to this viewer: cancelled, it went
+      // back to their hand (one more card there); otherwise it was cast --
+      // it may be on the stack, or already resolved, before this frame.
+      const cancelled = handCountOf(before.card.seat) > before.handCount;
+      setFlight({
+        card: before.card,
+        docked: before.docked,
+        reveal: before.hidden && !cancelled,
+        hidden: before.hidden && cancelled,
+        key: Date.now(),
+      });
+    }
+    lastCasting.current = casting
+      ? {
+          card: casting,
+          docked: castingDocked,
+          hidden: castingHiddenBy !== null,
+          handCount: handCountOf(casting.seat),
+        }
+      : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handCountOf reads this board
+  }, [casting, castingDocked, castingHiddenBy]);
   const arrived = useRef<number | null>(null);
   useEffect(() => {
     if (!decision) return;
@@ -635,7 +687,7 @@ export function GameScreen({
     if (!decision || !question || !board || answeredForYou) return null;
     // Spec 0042: beside the card being cast, when one is.
     const anchor = casting
-      ? castingBox(geometry)
+      ? castingBox(geometry, castingDocked)
       : stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
     const common = {
       decision,
@@ -826,21 +878,27 @@ export function GameScreen({
                         : null
                     }
                     artUrl={artUrl}
+                    docked={castingDocked}
+                    hiddenBy={castingHiddenBy}
                   />
                 )}
-                {flight && (
-                  <CastingFlight
-                    key={flight.key}
-                    card={flight.card}
-                    geometry={geometry}
-                    to={at(
-                      board?.stack.find((entry) => entry.source === flight.card.id)?.id ??
-                        flight.card.id,
-                    )}
-                    artUrl={artUrl}
-                    onDone={() => setFlight(null)}
-                  />
-                )}
+                {flight &&
+                  (() => {
+                    const onStack = board?.stack.find((entry) => entry.source === flight.card.id);
+                    return (
+                      <CastingFlight
+                        key={flight.key}
+                        card={flight.card}
+                        geometry={geometry}
+                        to={at(onStack?.id ?? flight.card.id)}
+                        artUrl={artUrl}
+                        onDone={() => setFlight(null)}
+                        docked={flight.docked}
+                        reveal={flight.reveal}
+                        hidden={flight.hidden}
+                      />
+                    );
+                  })()}
                 {gameWindow(geometry)}
                 {blockChooser ? (
                   <BlockManyChooser

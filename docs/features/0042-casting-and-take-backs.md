@@ -85,4 +85,8 @@ All taken 2026-10-30 (above).
 
 ## Amendments
 
-None.
+1. **2026-10-31, spec 0044 (owner, from the seven-reports canvas).** A
+   question that needs the table moves the card beside the stack; the
+   opponent sees its back until it is on the stack, then it flips; an
+   optional cost asked in the hand shows the card too. See
+   `0044-casting-dock-and-reveal.md`.

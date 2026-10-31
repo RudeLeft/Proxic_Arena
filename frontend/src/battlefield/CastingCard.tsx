@@ -9,9 +9,17 @@
 // stack, or the battlefield); cancelled, back to the hand. Both players
 // see it: casting is public from its first step (CR 601.2a), and the
 // snapshot names only what this viewer may know.
+//
+// Spec 0044 (owner 2026-10-31) -- a question that needs the table (a
+// target, a sacrifice) moves it beside the stack, so the creatures under
+// the middle can be clicked. The opponent sees its back while it is paid
+// for ("Pat is casting a spell…"); committed, it flips to the face, holds,
+// and flies to the stack.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
-import type { SnapshotCard } from "../match";
+import type { Decision, SnapshotCard } from "../match";
+import type { Question } from "./interaction";
+import { stackSpotBoxes } from "./effects";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
 import type { Box, Geometry } from "./layout";
@@ -19,13 +27,35 @@ import { manaSymbols, symbolUrl } from "./ManaCost";
 
 /** How much bigger than a card on the table. */
 const GROW = 2.5;
+/** Docked beside the stack, this much bigger: still readable. */
+const DOCKED = 1.5;
 /** Rises out of the hand, and flies away, in this long. */
 export const FLY_MS = 560;
+/** The opponent's card: turning over, then held face up, before it flies. */
+export const FLIP_MS = 420;
+export const HOLD_MS = 650;
 
-/** Where the card floats: the middle of the table, as big as fits. */
-export function castingBox(g: Geometry): Box {
-  const h = Math.min(g.cardH * GROW, g.height * 0.5);
+/**
+ * Where the card floats: the middle of the table, as big as fits -- or,
+ * `docked`, just left of the stack, out of the way of the table.
+ */
+export function castingBox(g: Geometry, docked = false): Box {
+  const h = docked
+    ? Math.min(g.cardH * DOCKED, g.height * 0.4)
+    : Math.min(g.cardH * GROW, g.height * 0.5);
   const w = (h * g.cardW) / g.cardH;
+  if (docked) {
+    const stack = stackSpotBoxes(g, 1)[0]!;
+    return {
+      x: stack.x - g.inset * 2 - w,
+      y: Math.max(g.height * 0.1, g.height / 2 - h / 2),
+      w,
+      h,
+      scale: h / g.cardH,
+      rotation: 0,
+      z: 0,
+    };
+  }
   return {
     x: g.play.x + g.play.w * 0.45 - w / 2,
     y: g.play.y + g.play.h * 0.45 - h / 2,
@@ -35,6 +65,20 @@ export function castingBox(g: Geometry): Box {
     rotation: 0,
     z: 0,
   };
+}
+
+/**
+ * Spec 0044 -- the question needs the table: something on it to click
+ * other than the spell itself. Paying does not: the lands are under the
+ * hand, and the card in the middle is what is being paid for.
+ */
+export function docks(
+  decision: Decision | null,
+  question: Question | null,
+  castingId: string,
+): boolean {
+  if (!decision || !question || decision.kind === "applyManaToCost") return false;
+  return [...question.onBoard.keys()].some((id) => id !== castingId);
 }
 
 /** The sparks' colour: the card's one colour, gold for several or none. */
@@ -157,12 +201,23 @@ function Face({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => s
   );
 }
 
+function Back({ caster }: { caster: string | null }) {
+  return (
+    <>
+      <span className="gs-cast-back" aria-hidden="true" />
+      {caster && <span className="gs-cast-caption">{caster} is casting a spell…</span>}
+    </>
+  );
+}
+
 export function CastingCard({
   card,
   geometry,
   from,
   owing,
   artUrl,
+  docked = false,
+  hiddenBy = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
@@ -171,10 +226,15 @@ export function CastingCard({
   /** Forge's "still owing", while it is being paid for. */
   owing: string[] | null;
   artUrl: (art: string) => string;
+  /** Spec 0044: beside the stack, while a question needs the table. */
+  docked?: boolean;
+  /** Spec 0044: the opponent's spell, still being paid for -- its back, and their name. */
+  hiddenBy?: string | null;
 }) {
-  const box = castingBox(geometry);
+  const box = castingBox(geometry, docked);
   const ref = useRef<HTMLDivElement>(null);
-  const colour = emberColour(card.manaCost);
+  const hidden = hiddenBy !== null;
+  const colour = emberColour(hidden ? null : card.manaCost);
   // Rise out of the hand once, when it first appears.
   useLayoutEffect(() => {
     const el = ref.current;
@@ -190,11 +250,12 @@ export function CastingCard({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it arrives
   }, [card.id]);
-  const pips = costPips(card.manaCost, owing);
+  const pips = hidden ? [] : costPips(card.manaCost, owing);
   return (
     <div
       ref={ref}
-      className="gs-cast"
+      className={`gs-cast${docked ? " gs-cast-docked" : ""}`}
+      data-docked={docked ? "true" : undefined}
       data-object-id={card.id}
       style={{
         left: box.x,
@@ -204,11 +265,11 @@ export function CastingCard({
         ["--gs-cast-colour" as string]: colour,
       }}
       role="img"
-      aria-label={`Being cast: ${card.name}`}
+      aria-label={hidden ? `${hiddenBy} is casting a spell` : `Being cast: ${card.name}`}
     >
       <Embers colour={colour} />
       <div className="gs-cast-sway">
-        <Face card={card} artUrl={artUrl} />
+        {hidden ? <Back caster={hiddenBy} /> : <Face card={card} artUrl={artUrl} />}
       </div>
       {pips.length > 0 && (
         <div className="gs-cast-cost" aria-label={owing ? "Paying its cost" : "Its cost"}>
@@ -240,6 +301,10 @@ export function CastingCard({
  * The card leaving the middle: to where it landed (paid) or back to the
  * hand (cancelled). Drawn once, then gone; the real card is already in
  * its place underneath.
+ *
+ * Spec 0044: the opponent's card was face down. Committed (`reveal`), it
+ * turns over with a flash and is held a moment before it flies; cancelled
+ * (`hidden`), it goes back still face down.
  */
 export function CastingFlight({
   card,
@@ -247,20 +312,67 @@ export function CastingFlight({
   to,
   artUrl,
   onDone,
+  docked = false,
+  reveal = false,
+  hidden = false,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   to: Box | null;
   artUrl: (art: string) => string;
   onDone: () => void;
+  docked?: boolean;
+  reveal?: boolean;
+  hidden?: boolean;
 }) {
-  const box = castingBox(geometry);
+  const box = castingBox(geometry, docked);
   const ref = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLDivElement>(null);
+  const faceRef = useRef<HTMLDivElement>(null);
+  const flashRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || !to || typeof el.animate !== "function") {
+    if (!el || (!to && !reveal) || typeof el.animate !== "function") {
       onDone();
       return;
+    }
+    const turns: Animation[] = [];
+    if (reveal && backRef.current && faceRef.current && flashRef.current) {
+      const half = FLIP_MS / 2;
+      turns.push(
+        backRef.current.animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], {
+          duration: half,
+          easing: "ease-in",
+          fill: "forwards",
+        }),
+        faceRef.current.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
+          duration: half,
+          delay: half,
+          easing: "ease-out",
+          fill: "both",
+        }),
+        flashRef.current.animate([{ opacity: 0 }, { opacity: 0.85 }, { opacity: 0 }], {
+          duration: FLIP_MS,
+          delay: half - 60,
+          easing: "ease-out",
+          fill: "both",
+        }),
+      );
+    }
+    const delay = reveal ? FLIP_MS + HOLD_MS : 0;
+    // Already resolved before this viewer saw it on the stack: shown face
+    // up all the same, then gone where it stands.
+    if (!to) {
+      const fade = el.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: FLY_MS,
+        delay,
+        fill: "forwards",
+      });
+      fade.onfinish = onDone;
+      return () => {
+        fade.cancel();
+        turns.forEach((turn) => turn.cancel());
+      };
     }
     const dx = to.x + to.w / 2 - (box.x + box.w / 2);
     const dy = to.y + to.h / 2 - (box.y + box.h / 2);
@@ -277,10 +389,18 @@ export function CastingFlight({
           opacity: 0.35,
         },
       ],
-      { duration: FLY_MS, easing: "cubic-bezier(.5,0,.2,1)", fill: "forwards" },
+      {
+        duration: FLY_MS,
+        delay,
+        easing: "cubic-bezier(.5,0,.2,1)",
+        fill: "forwards",
+      },
     );
     animation.onfinish = onDone;
-    return () => animation.cancel();
+    return () => {
+      animation.cancel();
+      turns.forEach((turn) => turn.cancel());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once
   }, []);
   return (
@@ -296,7 +416,21 @@ export function CastingFlight({
       }}
       aria-hidden="true"
     >
-      <Face card={card} artUrl={artUrl} />
+      {reveal ? (
+        <>
+          <div ref={faceRef} className="gs-cast-turn" style={{ transform: "scaleX(0)" }}>
+            <Face card={card} artUrl={artUrl} />
+          </div>
+          <div ref={backRef} className="gs-cast-turn">
+            <Back caster={null} />
+          </div>
+          <span ref={flashRef} className="gs-cast-flash" />
+        </>
+      ) : hidden ? (
+        <Back caster={null} />
+      ) : (
+        <Face card={card} artUrl={artUrl} />
+      )}
     </div>
   );
 }

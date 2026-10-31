@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import type { Decision } from "../match";
 import { optionalCostTitle } from "../matchText";
 import { clickOn, type Question } from "./interaction";
-import { costPips, emberColour, stillOwing } from "./CastingCard";
+import { castingBox, costPips, docks, emberColour, stillOwing } from "./CastingCard";
+import { geometry } from "./layout";
+import { stackSpotBoxes } from "./effects";
 
 describe("the cost under the card being cast", () => {
   it("reads Forge's own still owing", () => {
@@ -72,5 +74,31 @@ describe("a click on an attacker or blocker", () => {
       canPass: true,
     } as unknown as Question;
     expect(clickOn(question, "card:4")).toEqual({ kind: "answer", actionId: "unblock:card:4" });
+  });
+});
+
+// Spec 0044 -- out of the way while a question needs the table.
+describe("the card being cast, docked", () => {
+  const question = (ids: string[]) =>
+    ({ onBoard: new Map(ids.map((id) => [id, []])), listed: [] }) as unknown as Question;
+  const decision = (kind: string) => ({ kind }) as unknown as Decision;
+
+  it("docks for a target or a sacrifice on the table, not for paying", () => {
+    expect(docks(decision("chooseTargets"), question(["card:7"]), "card:3")).toBe(true);
+    expect(docks(decision("chooseCardsForEffect"), question(["card:7"]), "card:3")).toBe(true);
+    expect(docks(decision("applyManaToCost"), question(["card:12"]), "card:3")).toBe(false);
+    expect(docks(decision("chooseTargets"), question(["card:3"]), "card:3")).toBe(false);
+    expect(docks(decision("chooseTargets"), question([]), "card:3")).toBe(false);
+    expect(docks(null, null, "card:3")).toBe(false);
+  });
+
+  it("sits just left of the stack, smaller, clear of the middle", () => {
+    const g = geometry({ width: 1920, height: 1080 });
+    const middle = castingBox(g);
+    const docked = castingBox(g, true);
+    const stack = stackSpotBoxes(g, 1)[0]!;
+    expect(docked.h).toBeLessThan(middle.h);
+    expect(docked.x + docked.w).toBeLessThan(stack.x);
+    expect(docked.x).toBeGreaterThan(middle.x + middle.w);
   });
 });

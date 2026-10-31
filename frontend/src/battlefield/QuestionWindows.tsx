@@ -141,9 +141,15 @@ export function listGroups(
   return [...merged.values()];
 }
 
-/** Spec 0042: the card being cast is already big in the middle. */
-function beingCast(board: Snapshot, card: SnapshotCard): boolean {
-  return board.casting.some((c) => c.id === card.id);
+/**
+ * Spec 0042: the card being cast is already big in the middle. Spec 0044:
+ * so is the hand card an optional cost is asked about.
+ */
+function beingCast(board: Snapshot, decision: Decision, card: SnapshotCard): boolean {
+  return (
+    board.casting.some((c) => c.id === card.id) ||
+    (decision.kind === "chooseOptionalCosts" && board.hand.some((c) => c.id === card.id))
+  );
 }
 
 function Picture({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => string }) {
@@ -280,7 +286,9 @@ export function TableQuestionWindow(props: Common) {
       titleClass="gs-question-title"
       kind={decision.kind}
       picture={
-        source && !beingCast(board, source) ? <Picture card={source} artUrl={artUrl} /> : null
+        source && !beingCast(board, decision, source) ? (
+          <Picture card={source} artUrl={artUrl} />
+        ) : null
       }
       actions={<PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />}
     >
@@ -359,7 +367,9 @@ export function ChoiceWindow(props: Common) {
         titleClass="gs-question-title"
         kind={decision.kind}
         picture={
-          source && !beingCast(board, source) ? <Picture card={source} artUrl={artUrl} /> : null
+          source && !beingCast(board, decision, source) ? (
+            <Picture card={source} artUrl={artUrl} />
+          ) : null
         }
         actions={pass}
       >

@@ -1463,7 +1463,8 @@ export function Board({
             );
           })}
         </svg>
-        {overlay?.((id) => positions.get(id)?.box ?? null, g)}
+        {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
+        {overlay?.((id) => positions.get(id)?.box ?? spotBox.get(id) ?? null, g)}
         <div className="bf-effects" style={{ zIndex: Z_EFFECTS }} aria-hidden="true">
           {effects.map((effect) =>
             effect.kind === "spark" ? (

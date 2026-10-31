@@ -466,6 +466,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/interaction-deck.zip" protocol/fixtures/interaction-deck
 
+      # And the card being cast (spec 0044): docked for a target, face
+      # down to the opponent, shown for an optional cost.
+      - name: Build the casting deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/casting-deck.zip" protocol/fixtures/casting-deck
+
       # And sacrificing (spec 0001, F-0001-H): Innocent Blood, answered by
       # clicking your own creature on the board.
       - name: Build the sacrifice deck package

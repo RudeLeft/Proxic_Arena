@@ -2167,10 +2167,64 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-cast-leaving {
   animation: none;
 }
+/* Spec 0044 -- glides beside the stack when a question needs the table. */
+.gs-cast {
+  transition:
+    left 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gs-cast-docked .gs-cast-cost {
+  top: calc(100% + 8px);
+  gap: 5px;
+  padding: 5px 9px;
+}
+.gs-cast-docked .gs-cast-pip {
+  width: 22px;
+  height: 22px;
+}
+/* The opponent's spell while it is paid for: its back, and who. */
+.gs-cast-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 4.5% / 3.2%;
+  background: url("../assets/card-back.webp") center / 100% 100% no-repeat;
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--gs-cast-colour) 70%, white),
+    0 0 22px 4px color-mix(in srgb, var(--gs-cast-colour) 55%, transparent),
+    0 14px 28px rgb(0 0 0 / 60%);
+}
+.gs-cast-caption {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 14px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 6px 14px;
+  border: 1px solid #39424f;
+  border-radius: 999px;
+  background: rgb(10 13 17 / 85%);
+  color: #e3e8e4;
+  font-size: var(--pa-size-md);
+}
+.gs-cast-turn {
+  position: absolute;
+  inset: 0;
+}
+.gs-cast-flash {
+  position: absolute;
+  inset: -6%;
+  border-radius: 8%;
+  background: radial-gradient(circle, rgb(255 246 214 / 95%), rgb(255 220 140 / 0) 70%);
+  opacity: 0;
+  pointer-events: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .gs-cast,
   .gs-cast-sway {
     animation: none;
+    transition: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
