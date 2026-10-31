@@ -303,6 +303,10 @@ export function headingFor(kind: string): string {
     case "confirmReplacementEffect":
     case "confirmStaticApplication":
       return "Confirm";
+    case "chooseOptionalCosts":
+      // Spec 0042: it read "Your move", and a player took Archon's
+      // Glory's Bargain for a trigger. optionalCostTitle names the cost.
+      return "Pay an optional cost?";
     default:
       return "Your move";
   }
@@ -441,9 +445,21 @@ export function hintFor(kind: string, options: number): string {
       // An "unless you pay" while something resolves: passing is a real
       // answer -- the line above says what happens then.
       return "Pick the cards to pay with. The line above says what happens if you do not pay.";
+    case "chooseOptionalCosts":
+      return "Pay it as you cast the spell, or choose No to cast it without.";
     default:
       return "These are the actions you can take.";
   }
+}
+
+/**
+ * Spec 0042 -- an optional cost asked as itself: Archon's Glory's one
+ * option "Bargain – Sacrifice an artifact, enchantment or token" is
+ * "Bargain?"; several are "Pay optional costs?".
+ */
+export function optionalCostTitle(decision: Decision): string {
+  const names = decision.options.map((o) => (o.label ?? "").split(/\s[–—-]\s/)[0]!.trim());
+  return names.length === 1 && names[0] ? `${names[0]}?` : "Pay optional costs?";
 }
 
 export function matchUrl(matchId: string): string {

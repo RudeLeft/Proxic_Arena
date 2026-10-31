@@ -134,9 +134,11 @@ test("a click with nothing asked selects and does not attack; a cancelled target
         const listed = panel.locator(
           ".gs-question li button, .gs-win li button, .gs-combat li button",
         );
-        const board = panel.locator(
-          '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
-        );
+        // Not a creature already attacking or blocking: since spec 0042 a
+        // click on it takes it back, and the loop would never end.
+        const board = panel
+          .locator('.bf-cards button[data-choosable="true"], .gs-life.gs-choosable')
+          .filter({ hasNotText: /attacking|blocking/i });
         if ((await listed.count()) > 0) await click(listed);
         else if ((await board.count()) > 0) await click(board);
         else await click(panel.locator("button.gs-pass, button.gs-act"));

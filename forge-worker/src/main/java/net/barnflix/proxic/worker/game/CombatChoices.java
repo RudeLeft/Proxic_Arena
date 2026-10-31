@@ -99,13 +99,14 @@ final class CombatChoices {
                 byId.put(id, creature);
                 labels.put(id, describe(creature));
             }
-            if (byId.isEmpty()) {
-                // Nothing more to add. Done, unless Forge refuses what
-                // was declared -- then only taking back can fix it.
-                if (attacksAccepted(combat) || takeBack.isEmpty()) {
-                    return;
-                }
+            if (byId.isEmpty() && takeBack.isEmpty()) {
+                // Nothing to attack with and nothing declared: no question.
+                return;
             }
+            // Spec 0042 (owner 2026-10-30): nothing more to add is not
+            // "done". The last creature declared can still be taken back,
+            // so the question stays open until the player says so -- with
+            // one possible attacker the first click used to be final.
             // PHASE_07 AMENDMENT 13 — "All attack", as MTG Arena has: every
             // creature still offered, in one answer. Last, and naming no
             // card, so an answer that takes the first option, or picks a
@@ -274,13 +275,10 @@ final class CombatChoices {
                 blockerById.put(id, creature);
                 labels.put(id, describe(creature));
             }
-            if (blockerById.isEmpty()) {
-                // Nothing more to add. Done, unless Forge refuses the
-                // blocks -- then only taking one back can fix them.
-                if (blocksAccepted(combat, defender) || takeBack.isEmpty()) {
-                    return;
-                }
+            if (blockerById.isEmpty() && takeBack.isEmpty()) {
+                return;
             }
+            // Spec 0042: open until the player says so, as for attacks.
 
             java.util.List<String> offered = new ArrayList<>(blockerById.keySet());
             // Last, so the first option is still a blocker.

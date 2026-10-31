@@ -309,6 +309,8 @@ export interface Snapshot {
    * a blank: the page has nothing to hide.
    */
   otherHands: SnapshotCard[];
+  /** Spec 0042 -- the spell being cast: on the stack zone, not yet on the stack. */
+  casting: SnapshotCard[];
   graveyard: SnapshotCard[];
   /**
    * Every player's exile, as this viewer may know it (public; a
@@ -584,6 +586,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     battlefield: asCards(row["battlefield"]),
     hand: asCards(row["hand"]),
     otherHands: asCards(row["otherHands"]),
+    casting: asCards(row["casting"]),
     graveyard: asCards(row["graveyard"]),
     exile: asCards(row["exile"]),
     stack: asStack(row["stack"]),

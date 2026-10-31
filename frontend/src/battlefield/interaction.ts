@@ -76,6 +76,10 @@ export type ClickResult =
 export function clickOn(question: Question | null, objectId: string): ClickResult {
   const options = question?.onBoard.get(objectId) ?? [];
   if (!question || options.length === 0) return { kind: "select", objectId };
+  // Spec 0042 (owner 2026-10-30): a click on a creature that is attacking
+  // or blocking takes it back -- even when it could also block another.
+  const back = options.find((o) => /^un(attack|block):/.test(o.actionId));
+  if (back) return { kind: "answer", actionId: back.actionId };
   // AMENDMENT 12 (on your move) and §7.27 (inside Forge's context): the
   // click IS the choice when there is only one thing it could mean.
   if (options.length === 1) return { kind: "answer", actionId: options[0]!.actionId };

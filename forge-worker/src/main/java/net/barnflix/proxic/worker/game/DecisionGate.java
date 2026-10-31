@@ -290,6 +290,12 @@ public final class DecisionGate {
             // The slot is full: this question already has an answer.
             return Reject.DUPLICATE;
         }
+        if (response.choice() == null) {
+            // Spec 0042: a player's own "no" -- Cancel on a target or a
+            // payment among them. The loop guard reads this to tell a
+            // cast the player backed out of from one that failed.
+            playerPasses.incrementAndGet();
+        }
         // The ledger is written HERE, the moment an answer is taken,
         // not when the waiter wakes. Otherwise there is a gap: the
         // waiter has emptied the slot but not yet written the ledger,
@@ -308,4 +314,11 @@ public final class DecisionGate {
 
     /** What a pass looks like in the slot, since null cannot be queued. */
     public static final String PASS = "pass";
+
+    private final AtomicLong playerPasses = new AtomicLong();
+
+    /** How many questions a player has answered "no" to, so far. */
+    public long playerPasses() {
+        return playerPasses.get();
+    }
 }

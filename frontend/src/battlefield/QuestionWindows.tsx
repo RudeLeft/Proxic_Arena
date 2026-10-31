@@ -81,6 +81,10 @@ function cardOf(board: Snapshot, id: string | null): SnapshotCard | null {
 export function sourceOf(board: Snapshot, decision: Decision): SnapshotCard | null {
   const cards = [...board.hand, ...board.battlefield];
   const name = decision.about?.name ?? null;
+  // Spec 0042: the card being cast first -- a second Sinew Sliver's
+  // payment showed the first one, already on the battlefield.
+  const cast = board.casting.find((c) => !name || c.name === name);
+  if (cast) return cast;
   if (name) {
     const entry = board.stack.find((s) => s.name === name);
     return (
@@ -135,6 +139,11 @@ export function listGroups(
     else merged.set(key, { ...group, count: 1 });
   }
   return [...merged.values()];
+}
+
+/** Spec 0042: the card being cast is already big in the middle. */
+function beingCast(board: Snapshot, card: SnapshotCard): boolean {
+  return board.casting.some((c) => c.id === card.id);
 }
 
 function Picture({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => string }) {
@@ -270,7 +279,9 @@ export function TableQuestionWindow(props: Common) {
       title={title}
       titleClass="gs-question-title"
       kind={decision.kind}
-      picture={source ? <Picture card={source} artUrl={artUrl} /> : null}
+      picture={
+        source && !beingCast(board, source) ? <Picture card={source} artUrl={artUrl} /> : null
+      }
       actions={<PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />}
     >
       {decision.prompt && (
@@ -347,7 +358,9 @@ export function ChoiceWindow(props: Common) {
         title={title}
         titleClass="gs-question-title"
         kind={decision.kind}
-        picture={source ? <Picture card={source} artUrl={artUrl} /> : null}
+        picture={
+          source && !beingCast(board, source) ? <Picture card={source} artUrl={artUrl} /> : null
+        }
         actions={pass}
       >
         {decision.prompt && (

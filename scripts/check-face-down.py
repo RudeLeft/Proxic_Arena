@@ -229,7 +229,9 @@ if (opp.get("power"), opp.get("toughness")) == (1, 2):
 if ctl.get("name") != NAME or not ctl.get("known"):
     problems.append(f"the controller is not shown its own face-down card: {ctl}")
 labels = found["controller_labels"]
-if not labels or any(not label.startswith(f"{NAME} (face down)") for label in labels):
+# Named, wherever the label puts it: "Stop attacking — Willbender (face
+# down) — 2/2" is a take-back, offered since spec 0042.
+if not labels or any(f"{NAME} (face down)" not in label for label in labels):
     problems.append(f"the controller's own questions do not name it: {labels}")
 if problems:
     print("WRONG:", "; ".join(problems[:5]))

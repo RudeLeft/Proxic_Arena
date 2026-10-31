@@ -160,7 +160,9 @@ def combat():
             if not ready or st["attacked"] == "done":
                 return None
             st["attacked"] = True
-            return f["options"][0]["actionId"] if f.get("options") else None
+            # An attacker still to add; once all attack, only take-backs are
+            # left (spec 0042) and passing confirms the attack.
+            return next((o["actionId"] for o in f.get("options", []) if o["actionId"].startswith("attacker:")), None)
         if kind == "declareAttackers":
             return None
         if kind == "declareBlockers" and seat == 2 and st["blocked"] is None:

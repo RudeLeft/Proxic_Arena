@@ -305,6 +305,27 @@ final class ViewerSnapshot {
         });
         snapshot.add("stack", stack);
 
+        // Spec 0042 -- the spell being CAST: Forge puts the card on the
+        // stack zone first (CR 601.2a) and the spell on the stack only
+        // once its targets and costs are chosen. In between it was in
+        // no list at all, so the player paying could not see what they
+        // were paying for. Public from that first step; describe()
+        // still names only what this viewer may identify (a face-down
+        // spell stays "Face-down").
+        java.util.Set<Integer> onStack = new java.util.HashSet<>();
+        game.getStack().forEach(instance -> {
+            if (instance.getSourceCard() != null) {
+                onStack.add(instance.getSourceCard().getId());
+            }
+        });
+        JsonArray casting = new JsonArray();
+        for (Card card : game.getCardsIn(ZoneType.Stack)) {
+            if (!onStack.contains(card.getId())) {
+                casting.add(describe(card, viewing, seatOf));
+            }
+        }
+        snapshot.add("casting", casting);
+
         // §7.61 B4 -- combat: who attacks what, who blocks whom. Public,
         // and Forge's own record of it, not inferred from the cards'
         // attacking/blocking flags.

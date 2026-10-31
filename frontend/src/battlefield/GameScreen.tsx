@@ -43,13 +43,22 @@ import {
   type SnapshotPlayer,
 } from "../match";
 import { abandonMatch, type MatchOutcome, type MatchView } from "../lobby";
-import { NameSearch, cancelWords, headingFor, hintFor, matchUrl, resultText } from "../matchText";
+import {
+  NameSearch,
+  cancelWords,
+  headingFor,
+  hintFor,
+  matchUrl,
+  optionalCostTitle,
+  resultText,
+} from "../matchText";
 import { Board, CardFace, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
-import type { Geometry } from "./layout";
+import type { Box, Geometry } from "./layout";
+import { CastingCard, CastingFlight, castingBox, stillOwing } from "./CastingCard";
 import { ChoiceWindow, ListTray, TableQuestionWindow } from "./QuestionWindows";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import { afterAuto, autoAnswer, endsCopies, isCopyTarget, yesNo, type Copies } from "./triggers";
@@ -329,6 +338,20 @@ export function GameScreen({
   // target again, yes again, the rest of an order they clicked. Once per
   // question; a question of another card ends them.
   const [orderQueue, setOrderQueue] = useState<string[]>([]);
+
+  // Spec 0042 -- the spell being cast floats in the middle (CastingCard):
+  // it rises from where it was clicked, and when it is cast (or cancelled)
+  // flies to where it went. `atRef` is the board's latest "where is it".
+  const casting = board?.casting[0] ?? null;
+  const atRef = useRef<((objectId: string) => Box | null) | null>(null);
+  const castFrom = useRef<{ id: string; box: Box } | null>(null);
+  const lastCasting = useRef<SnapshotCard | null>(null);
+  const [flight, setFlight] = useState<{ card: SnapshotCard; key: number } | null>(null);
+  useEffect(() => {
+    const before = lastCasting.current;
+    if (before && before.id !== casting?.id) setFlight({ card: before, key: Date.now() });
+    lastCasting.current = casting;
+  }, [casting]);
   const arrived = useRef<number | null>(null);
   useEffect(() => {
     if (!decision) return;
@@ -403,6 +426,9 @@ export function GameScreen({
         }
       }
       if (decision?.kind === "chooseBlockTarget") setBlockGroup(null);
+      // Spec 0042: where a card rose from, if this click casts it.
+      const box = atRef.current?.(objectId);
+      if (box) castFrom.current = { id: objectId, box };
       const result = clickOn(question, objectId);
       // Spec 0005: a card you could play pauses the response window.
       if (result.kind !== "select" && decision?.window) setPausedWindow(decision.decisionId);
@@ -589,7 +615,10 @@ export function GameScreen({
   const artUrl = (art: string) => `/api/matches/${match.matchId}/assets/${art}`;
   const gameWindow = (geometry: Geometry) => {
     if (!decision || !question || !board || answeredForYou) return null;
-    const anchor = stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    // Spec 0042: beside the card being cast, when one is.
+    const anchor = casting
+      ? castingBox(geometry)
+      : stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
     const common = {
       decision,
       question,
@@ -599,9 +628,11 @@ export function GameScreen({
       busy,
       notice: game.notice,
       heading:
-        decision.actedForSeat === mine?.seatNumber
-          ? headingFor(decision.kind)
-          : `Playing for seat ${decision.actedForSeat}`,
+        decision.actedForSeat !== mine?.seatNumber
+          ? `Playing for seat ${decision.actedForSeat}`
+          : decision.kind === "chooseOptionalCosts"
+            ? optionalCostTitle(decision)
+            : headingFor(decision.kind),
       passWord: passWordFor(decision, question, listOpen),
       artUrl,
       onAnswer: answer,
@@ -747,35 +778,65 @@ export function GameScreen({
               outcome={match.outcome}
             />
           }
-          overlay={(at, geometry) => (
-            <>
-              {gameWindow(geometry)}
-              {blockChooser ? (
-                <BlockManyChooser
-                  box={at(blockChooser.at)}
-                  state={blockChooser}
-                  busy={busy}
-                  onChange={(n) => setBlockChooser({ ...blockChooser, n })}
-                  onBlock={blockMany}
-                />
-              ) : why && !offer ? (
-                <WhyNot box={at(why.objectId)} text={why.text} />
-              ) : selected && offer ? (
-                <ActionPopup
-                  box={at(selected)}
-                  name={objectName(selected)}
-                  options={offer}
-                  busy={busy}
-                  onChoose={answer}
-                  onInspect={() => setInspecting(selected)}
-                  onClose={() => {
-                    setSelected(null);
-                    setOffer(null);
-                  }}
-                />
-              ) : null}
-            </>
-          )}
+          overlay={(at, geometry) => {
+            atRef.current = at;
+            return (
+              <>
+                {casting && (
+                  <CastingCard
+                    key={casting.id}
+                    card={casting}
+                    geometry={geometry}
+                    from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
+                    owing={
+                      decision?.kind === "applyManaToCost"
+                        ? stillOwing(decision.options.map((o) => o.label))
+                        : null
+                    }
+                    artUrl={artUrl}
+                  />
+                )}
+                {flight && (
+                  <CastingFlight
+                    key={flight.key}
+                    card={flight.card}
+                    geometry={geometry}
+                    to={at(
+                      board?.stack.find((entry) => entry.source === flight.card.id)?.id ??
+                        flight.card.id,
+                    )}
+                    artUrl={artUrl}
+                    onDone={() => setFlight(null)}
+                  />
+                )}
+                {gameWindow(geometry)}
+                {blockChooser ? (
+                  <BlockManyChooser
+                    box={at(blockChooser.at)}
+                    state={blockChooser}
+                    busy={busy}
+                    onChange={(n) => setBlockChooser({ ...blockChooser, n })}
+                    onBlock={blockMany}
+                  />
+                ) : why && !offer ? (
+                  <WhyNot box={at(why.objectId)} text={why.text} />
+                ) : selected && offer ? (
+                  <ActionPopup
+                    box={at(selected)}
+                    name={objectName(selected)}
+                    options={offer}
+                    busy={busy}
+                    onChoose={answer}
+                    onInspect={() => setInspecting(selected)}
+                    onClose={() => {
+                      setSelected(null);
+                      setOffer(null);
+                    }}
+                  />
+                ) : null}
+              </>
+            );
+          }}
         />
       ) : !ringDue ? null : (
         <LoadingRing
@@ -1864,6 +1925,8 @@ function QuestionBar({
  */
 function passWordFor(decision: Decision, question: Question, inList: boolean): string | null {
   if (question.context === "priority" || !question.canPass) return null;
+  // An optional cost's "no" casts the spell without it (spec 0042).
+  if (decision.kind === "chooseOptionalCosts") return "No";
   if (!CANCEL_KINDS.has(decision.kind)) return "Pass";
   return inList ? cancelWords(decision.about).word : null;
 }

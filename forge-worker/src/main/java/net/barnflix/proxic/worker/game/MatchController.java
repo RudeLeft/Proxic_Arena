@@ -48,6 +48,8 @@ public final class MatchController extends GeneratedControllerBase {
 
     private String lastSignature = "";
     private String lastOffered;
+    /** The gate's count of player "no"s when lastOffered was chosen. */
+    private long passesWhenOffered;
 
     /** §6.38 — the Forge player this controller decides for. */
     private final int actedForSeat;
@@ -424,7 +426,11 @@ public final class MatchController extends GeneratedControllerBase {
         if (!signature.equals(lastSignature)) {
             lastSignature = signature;
             declined.clear();
-        } else if (lastOffered != null) {
+        } else if (lastOffered != null && host.gate().playerPasses() == passesWhenOffered) {
+            // Spec 0042: only an action that went nowhere WITHOUT the
+            // player backing out. Cancel on its target or its payment
+            // also leaves the game unchanged, and that card stays on
+            // offer: they may cast it again at once.
             declined.add(lastOffered);
             host.noteDeclinedAction();
         }
@@ -567,6 +573,7 @@ public final class MatchController extends GeneratedControllerBase {
                 return null;
             }
             lastOffered = choice;
+            passesWhenOffered = host.gate().playerPasses();
             SpellAbility chosen = byId.get(choice);
             // The gate already refused a choice that was not on the
             // list, so null here means the list changed underneath

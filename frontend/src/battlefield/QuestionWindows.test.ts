@@ -20,6 +20,7 @@ const board = (ids: string[], names: Record<string, string> = {}): Snapshot =>
     graveyard: [],
     exile: [],
     stack: [],
+    casting: [],
   }) as unknown as Snapshot;
 
 describe("group 2 windows", () => {
@@ -71,5 +72,12 @@ describe("group 2 windows", () => {
     const d = { about: null, prompt: "Choose a mode for Fiery Confluence." } as unknown as Decision;
     expect(sourceOf(b, d)?.id).toBe("card:9");
     expect(sourceOf(b, { ...d, prompt: "Choose a mode." })).toBeNull();
+  });
+
+  it("shows the card being cast, not another copy on the battlefield (spec 0042)", () => {
+    const b = board(["card:1"], { "card:1": "Sinew Sliver" });
+    (b as unknown as { casting: unknown[] }).casting = [{ id: "card:9", name: "Sinew Sliver" }];
+    const d = { about: { name: "Sinew Sliver" }, prompt: null } as unknown as Decision;
+    expect(sourceOf(b, d)?.id).toBe("card:9");
   });
 });
