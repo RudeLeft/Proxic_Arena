@@ -507,6 +507,19 @@
   font-weight: 700;
   font-size: calc(var(--card-h) * 0.1);
 }
+/* Spec 0043 — identical triggers drawn as one card: how many. */
+.bf-stack-many {
+  display: grid;
+  place-items: center;
+  height: calc(var(--card-h) * 0.15);
+  padding: 0 calc(var(--card-h) * 0.04);
+  border-radius: calc(var(--card-h) * 0.03);
+  background: #e0a44a;
+  color: #1a1206;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.1);
+}
 .bf-stack-slot:has(.bf-stack-top) .bf-stack-n {
   background: #e0a44a;
   color: #1a1206;

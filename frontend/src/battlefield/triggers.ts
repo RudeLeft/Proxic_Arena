@@ -19,6 +19,8 @@ export interface Copies {
   target: string | null;
   /** "Yes to all": how many more yes questions to answer for the player. */
   yesLeft: number;
+  /** Spec 0043 "Skip all": how many more "pay?" questions to answer no. */
+  noLeft: number;
 }
 
 /** The yes/no questions (askYesNo in the worker: "Yes — <question>", "No"). */
@@ -68,6 +70,21 @@ const copyWords = (words: string) =>
   words.replace(/\s*\[[^\]]*\]\s*$/, "").replace(/\s*\(\d+\)/g, "");
 
 /**
+ * Spec 0043 -- two stack objects that read the same: triggers of one
+ * player, of the same card, with the same words and the same targets.
+ */
+export function sameTrigger(a: StackEntry, b: StackEntry): boolean {
+  return (
+    a.kind === "trigger" &&
+    b.kind === "trigger" &&
+    a.controller === b.controller &&
+    a.name === b.name &&
+    copyWords(a.description) === copyWords(b.description) &&
+    JSON.stringify(a.targets) === JSON.stringify(b.targets)
+  );
+}
+
+/**
  * How many copies of the trigger now resolving are on the stack, this one
  * included: triggers of the same card (or other copies of it) with the
  * same words and the same targets -- only what caused each is allowed to
@@ -96,12 +113,17 @@ export function autoAnswer(decision: Decision, copies: Copies | null): string | 
   if (decision.kind === "confirmTrigger" && copies.yesLeft > 0) {
     return yesNo(decision)?.yes.actionId ?? null;
   }
+  if (decision.kind === "confirmPayment" && copies.noLeft > 0) {
+    return yesNo(decision)?.no.actionId ?? null;
+  }
   return null;
 }
 
 /** After the page answered for the player: one fewer yes to give. */
 export function afterAuto(decision: Decision, copies: Copies): Copies {
-  return decision.kind === "confirmTrigger" ? { ...copies, yesLeft: copies.yesLeft - 1 } : copies;
+  if (decision.kind === "confirmTrigger") return { ...copies, yesLeft: copies.yesLeft - 1 };
+  if (decision.kind === "confirmPayment") return { ...copies, noLeft: copies.noLeft - 1 };
+  return copies;
 }
 
 /**
@@ -152,6 +174,23 @@ export function orderGroups(options: readonly DecisionOption[]): OrderGroup[] {
     groups.set(key, group);
   }
   return [...groups.values()];
+}
+
+/**
+ * Spec 0043 -- the order the tray opens with, so Done is one click: damage
+ * first, then the rest, "you may pay" last (Forge's order within each).
+ */
+export function sensibleOrder(groups: readonly OrderGroup[]): OrderGroup[] {
+  const rank = (g: OrderGroup) => {
+    const words = (g.options[0]?.label ?? "").toLowerCase();
+    if (/may pay/.test(words)) return 2;
+    if (/damage/.test(words)) return 0;
+    return 1;
+  };
+  return groups
+    .map((g, i) => ({ g, i }))
+    .sort((a, b) => rank(a.g) - rank(b.g) || a.i - b.i)
+    .map(({ g }) => g);
 }
 
 /** The order clicked, every copy of a card together, the rest after. */

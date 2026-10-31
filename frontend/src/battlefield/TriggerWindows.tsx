@@ -9,7 +9,15 @@ import { SharpCard, closeUpOf } from "../closeUp";
 import { Bubble, Tray } from "./GameWindow";
 import type { Box, Geometry } from "./layout";
 import { ManaText } from "./ManaCost";
-import { abilityWords, confirmTitle, copiesOnStack, orderGroups, orderOf, yesNo } from "./triggers";
+import {
+  abilityWords,
+  confirmTitle,
+  copiesOnStack,
+  orderGroups,
+  orderOf,
+  sensibleOrder,
+  yesNo,
+} from "./triggers";
 
 /** A card's picture, small, as the board draws it. */
 function Picture({
@@ -78,6 +86,7 @@ export function ConfirmWindow({
   artUrl,
   onAnswer,
   onYesToAll,
+  onSkipAll,
 }: {
   decision: Decision;
   board: Snapshot;
@@ -87,10 +96,15 @@ export function ConfirmWindow({
   artUrl: (art: string) => string;
   onAnswer: (actionId: string) => void;
   onYesToAll: (count: number, actionId: string) => void;
+  /** Spec 0043: "Skip all N" -- no to this payment and the rest of the batch. */
+  onSkipAll: (count: number, actionId: string) => void;
 }) {
   const pair = yesNo(decision)!;
   const name = decision.about?.name ?? "";
-  const copies = decision.kind === "confirmTrigger" && name ? copiesOnStack(board.stack, name) : 0;
+  // Spec 0043: a trigger's own cost ("you may pay {2}{R}") asked first.
+  const paying = decision.kind === "confirmPayment";
+  const copies =
+    (decision.kind === "confirmTrigger" || paying) && name ? copiesOnStack(board.stack, name) : 0;
   const top = name ? board.stack.find((s) => s.kind === "trigger" && s.name === name) : undefined;
   const source = name ? sourceOf(board, name) : null;
   const title = confirmTitle(pair.yes.label ?? "Yes");
@@ -105,45 +119,76 @@ export function ConfirmWindow({
         source ? <Picture card={source.card} name={name} art={source.art} artUrl={artUrl} /> : null
       }
       actions={
-        <>
-          <button
-            type="button"
-            className="gs-win-btn gs-win-btn-quiet"
-            disabled={busy}
-            onClick={() => onAnswer(pair.no.actionId)}
-          >
-            No
-          </button>
-          {copies > 1 ? (
-            <>
+        paying ? (
+          <>
+            <button
+              type="button"
+              className="gs-win-btn gs-win-btn-quiet"
+              disabled={busy}
+              onClick={() => onAnswer(pair.no.actionId)}
+            >
+              Skip
+            </button>
+            {copies > 1 && (
               <button
                 type="button"
                 className="gs-win-btn"
                 disabled={busy}
-                onClick={() => onAnswer(pair.yes.actionId)}
+                onClick={() => onSkipAll(copies, pair.no.actionId)}
               >
-                Just this one
+                Skip all {copies}
               </button>
-              <button
-                type="button"
-                className="gs-win-btn gs-win-btn-main"
-                disabled={busy}
-                onClick={() => onYesToAll(copies, pair.yes.actionId)}
-              >
-                Yes to all {copies}
-              </button>
-            </>
-          ) : (
+            )}
             <button
               type="button"
               className="gs-win-btn gs-win-btn-main"
               disabled={busy}
               onClick={() => onAnswer(pair.yes.actionId)}
             >
-              Yes
+              Pay
             </button>
-          )}
-        </>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="gs-win-btn gs-win-btn-quiet"
+              disabled={busy}
+              onClick={() => onAnswer(pair.no.actionId)}
+            >
+              No
+            </button>
+            {copies > 1 ? (
+              <>
+                <button
+                  type="button"
+                  className="gs-win-btn"
+                  disabled={busy}
+                  onClick={() => onAnswer(pair.yes.actionId)}
+                >
+                  Just this one
+                </button>
+                <button
+                  type="button"
+                  className="gs-win-btn gs-win-btn-main"
+                  disabled={busy}
+                  onClick={() => onYesToAll(copies, pair.yes.actionId)}
+                >
+                  Yes to all {copies}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="gs-win-btn gs-win-btn-main"
+                disabled={busy}
+                onClick={() => onAnswer(pair.yes.actionId)}
+              >
+                Yes
+              </button>
+            )}
+          </>
+        )
       }
     >
       {top && top.targets.length > 0 && (
@@ -254,23 +299,31 @@ export function OrderTray({
   artUrl: (art: string) => string;
   onDone: (order: DecisionOption[]) => void;
 }) {
-  const [picked, setPicked] = useState<string[]>([]);
+  // Spec 0043: null is the suggested order, numbered from the start, so
+  // Done is one click; the first tile clicked starts the player's own.
+  const [picked, setPicked] = useState<string[] | null>(null);
   const options = decision.options;
   const groups = orderGroups(options);
-  const done = picked.length >= groups.length - 1;
+  const suggested = sensibleOrder(groups).map((g) => g.key);
+  const order = picked ?? suggested;
+  const done = picked === null || picked.length >= groups.length - 1;
   return (
     <Tray
       geometry={geometry}
       label="Choose the order your triggers resolve in"
       from={`${options.length} triggers at once`}
       title="Which resolves first?"
-      prompt="Click them in the order they should resolve: the first one you click resolves first."
+      prompt={
+        picked === null
+          ? "Numbered in a sensible order: damage first, payments last. Done, or click them in your own order (the first you click resolves first)."
+          : "Click them in the order they should resolve: the first one you click resolves first."
+      }
       actions={
         <>
           <button
             type="button"
             className="gs-win-btn gs-win-btn-quiet"
-            disabled={busy || picked.length === 0}
+            disabled={busy || picked === null || picked.length === 0}
             onClick={() => setPicked([])}
           >
             Start over
@@ -279,7 +332,7 @@ export function OrderTray({
             type="button"
             className="gs-win-btn gs-win-btn-main"
             disabled={busy || !done}
-            onClick={() => onDone(orderOf(groups, picked))}
+            onClick={() => onDone(orderOf(groups, order))}
           >
             Done
           </button>
@@ -291,16 +344,16 @@ export function OrderTray({
           const o = group.options[0]!;
           const card = o.objectId ? cardOfAny(board, o.objectId) : null;
           const name = card?.name ?? (o.label ?? "").split(" — ")[0] ?? "";
-          const at = picked.indexOf(group.key);
+          const at = order.indexOf(group.key);
           const many = group.options.length > 1 ? ` ×${group.options.length}` : "";
           return (
             <button
               key={group.key}
               type="button"
               className="gs-win-tile"
-              disabled={busy || at >= 0}
+              disabled={busy || (picked !== null && at >= 0)}
               aria-label={`${name}${many}${at >= 0 ? `, number ${at + 1}` : ""}`}
-              onClick={() => setPicked((list) => [...list, group.key])}
+              onClick={() => setPicked((list) => [...(list ?? []), group.key])}
             >
               {at >= 0 && <span className="gs-win-tile-num">{at + 1}</span>}
               {many && <span className="gs-win-tile-many">{many.trim()}</span>}

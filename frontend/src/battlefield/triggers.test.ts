@@ -11,6 +11,8 @@ import {
   isCopyTarget,
   orderGroups,
   orderOf,
+  sameTrigger,
+  sensibleOrder,
   yesNo,
   type Copies,
 } from "./triggers";
@@ -82,7 +84,7 @@ describe("many copies of one trigger (W-06)", () => {
   });
 
   it("answers the same target for the later copies, and never for the first", () => {
-    const copies: Copies = { name: BOGGART, target: "player:1", yesLeft: 0 };
+    const copies: Copies = { name: BOGGART, target: "player:1", yesLeft: 0, noLeft: 0 };
     expect(autoAnswer(target(1), copies)).toBeNull();
     expect(autoAnswer(target(2), copies)).toBe("target:player:0");
     expect(autoAnswer(target(7), copies)).toBe("target:player:0");
@@ -94,7 +96,7 @@ describe("many copies of one trigger (W-06)", () => {
   });
 
   it("answers yes while the player said yes to all, then asks again", () => {
-    let copies: Copies = { name: BOGGART, target: null, yesLeft: 2 };
+    let copies: Copies = { name: BOGGART, target: null, yesLeft: 2, noLeft: 0 };
     expect(autoAnswer(confirm(), copies)).toBe("confirm:yes");
     copies = afterAuto(confirm(), copies);
     expect(copies.yesLeft).toBe(1);
@@ -102,12 +104,12 @@ describe("many copies of one trigger (W-06)", () => {
     expect(autoAnswer(confirm(), copies)).toBeNull();
     // Another card's trigger is never answered for the player.
     expect(
-      autoAnswer(confirm("Blood Artist"), { name: BOGGART, target: null, yesLeft: 3 }),
+      autoAnswer(confirm("Blood Artist"), { name: BOGGART, target: null, yesLeft: 3, noLeft: 0 }),
     ).toBeNull();
   });
 
   it("ends with a new batch or another card's question", () => {
-    const copies: Copies = { name: BOGGART, target: "player:1", yesLeft: 0 };
+    const copies: Copies = { name: BOGGART, target: "player:1", yesLeft: 0, noLeft: 0 };
     expect(endsCopies(target(1), copies)).toBe(true);
     expect(endsCopies(target(2), copies)).toBe(false);
     expect(endsCopies(confirm("Blood Artist"), copies)).toBe(true);
@@ -211,5 +213,62 @@ describe("the order tray groups copies (W-05)", () => {
       "trigger:0:card:81",
       "trigger:1:card:81",
     ]);
+  });
+});
+
+describe("calmer trigger storms (spec 0043)", () => {
+  const SERGEANT = "Skirk Drill Sergeant";
+  const pay = decision({
+    kind: "confirmPayment",
+    mandatory: true,
+    about: { name: SERGEANT, kind: "trigger", from: null, copy: null, copies: null },
+    options: [
+      option("confirm:yes", "Yes — Pay {2}{R} for Skirk Drill Sergeant?"),
+      option("confirm:no", "No"),
+    ],
+  });
+
+  it("Skip all answers no for the rest of that card's payments", () => {
+    let copies: Copies = { name: SERGEANT, target: null, yesLeft: 0, noLeft: 2 };
+    expect(autoAnswer(pay, copies)).toBe("confirm:no");
+    copies = afterAuto(pay, copies);
+    expect(copies.noLeft).toBe(1);
+    expect(autoAnswer(pay, { ...copies, noLeft: 0 })).toBeNull();
+    expect(autoAnswer(pay, { ...copies, name: BOGGART })).toBeNull();
+  });
+
+  it("opens the order tray with damage first and payments last", () => {
+    const groups = orderGroups([
+      option("t:0", "Skirk Drill Sergeant — {0} — Whenever a Goblin dies, you may pay {2}{R}."),
+      option(
+        "t:1",
+        "Mogg War Marshal — {0} — When it dies, create a 1/1 red Goblin creature token.",
+      ),
+      option("t:2", "Mudbutton Torchrunner — {0} — When it dies, it deals 3 damage to any target."),
+    ]);
+    expect(sensibleOrder(groups).map((g) => g.options[0]!.actionId)).toEqual(["t:2", "t:1", "t:0"]);
+  });
+
+  it("tells identical triggers from different ones", () => {
+    const entry = (over: Partial<StackEntry>): StackEntry => ({
+      id: "stack:1",
+      description:
+        "Skirk Drill Sergeant (12) - you may pay {2}{R}. [Zone Changer: Goblin Token (40)]",
+      source: "card:12",
+      name: SERGEANT,
+      controller: 1,
+      kind: "trigger",
+      targets: [],
+      art: null,
+      manaCost: null,
+      ...over,
+    });
+    const a = entry({});
+    expect(
+      sameTrigger(a, entry({ id: "stack:2", description: a.description.replace("(40)", "(41)") })),
+    ).toBe(true);
+    expect(sameTrigger(a, entry({ id: "stack:3", controller: 2 }))).toBe(false);
+    expect(sameTrigger(a, entry({ id: "stack:4", targets: [{ player: 2 }] }))).toBe(false);
+    expect(sameTrigger(a, entry({ id: "stack:5", kind: "spell" }))).toBe(false);
   });
 });

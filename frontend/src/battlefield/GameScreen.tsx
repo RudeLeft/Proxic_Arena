@@ -322,6 +322,7 @@ export function GameScreen({
           name: decision.about!.name,
           target: sameTarget ? (chosen?.objectId ?? null) : null,
           yesLeft: 0,
+          noLeft: 0,
         });
       }
       // §6.132: the question stays on screen until the server says it was
@@ -338,6 +339,10 @@ export function GameScreen({
   // target again, yes again, the rest of an order they clicked. Once per
   // question; a question of another card ends them.
   const [orderQueue, setOrderQueue] = useState<string[]>([]);
+  // Spec 0043 -- "Let it all resolve": the stack objects there when it was
+  // pressed. The page passes while only those are left; anything new on
+  // the stack, or an empty one, ends it.
+  const [resolveAll, setResolveAll] = useState<Set<string> | null>(null);
 
   // Spec 0042 -- the spell being cast floats in the middle (CastingCard):
   // it rises from where it was clicked, and when it is cast (or cancelled)
@@ -590,6 +595,19 @@ export function GameScreen({
     [decisionId],
   );
 
+  // Spec 0043 -- while "Let it all resolve" holds: pass each time the
+  // player is asked whether to respond, until the stack is empty or holds
+  // something that was not there when it was pressed.
+  useEffect(() => {
+    if (!resolveAll || !board) return;
+    const ids = board.stack.map((entry) => entry.id);
+    if (ids.length === 0 || ids.some((id) => !resolveAll.has(id))) {
+      setResolveAll(null);
+      return;
+    }
+    if (decision?.kind === "chooseSpellAbilityToPlay" && game.awaiting === null) answer(null);
+  }, [resolveAll, board, decision, game.awaiting, answer]);
+
   const busy = game.awaiting !== null;
 
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
@@ -656,6 +674,16 @@ export function GameScreen({
               name: decision.about?.name ?? "",
               target: previous?.target ?? null,
               yesLeft: count - 1,
+              noLeft: 0,
+            }));
+            answer(actionId);
+          }}
+          onSkipAll={(count, actionId) => {
+            setCopies((previous) => ({
+              name: decision.about?.name ?? "",
+              target: previous?.target ?? null,
+              yesLeft: 0,
+              noLeft: count - 1,
             }));
             answer(actionId);
           }}
@@ -773,6 +801,10 @@ export function GameScreen({
               }
               onAnswer={answer}
               countdown={countdown}
+              onResolveAll={() => {
+                setResolveAll(new Set(board.stack.map((entry) => entry.id)));
+                answer(null);
+              }}
               onView={setViewer}
               finished={finished}
               outcome={match.outcome}
@@ -1509,6 +1541,7 @@ function Rail({
   cancel,
   onAnswer,
   countdown,
+  onResolveAll,
   onView,
   finished,
   outcome,
@@ -1528,6 +1561,8 @@ function Rail({
   onAnswer: (actionId: string | null) => void;
   /** Spec 0005 — seconds left in a response window, or null when none is counting. */
   countdown: number | null;
+  /** Spec 0043 — "Let it all resolve": pass until the stack empties or grows. */
+  onResolveAll: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
   /** The game is over: nobody holds priority any more. */
   finished: boolean;
@@ -1645,6 +1680,13 @@ function Rail({
               </span>
             </span>
           </button>
+          {/* Spec 0043: pass until the stack is empty -- asked again if
+              anything new is added to it. */}
+          {board.stack.length > 1 && (
+            <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
+              Let it all resolve
+            </button>
+          )}
         </div>
       ) : myPriority ? (
         <div className="gs-act-group">
@@ -1664,6 +1706,11 @@ function Rail({
               <span className="gs-act-sub">{words.sub}</span>
             </span>
           </button>
+          {board.stack.length > 1 && (
+            <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
+              Let it all resolve
+            </button>
+          )}
         </div>
       ) : !question ? (
         <div className="gs-waiting" role="status">

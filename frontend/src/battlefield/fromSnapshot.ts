@@ -21,6 +21,7 @@ import type {
   StackView,
 } from "./Board";
 import type { AnchorId } from "./motion";
+import { sameTrigger } from "./triggers";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -102,7 +103,17 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // A stack object's line starts at its source only when that source is
   // a permanent on the board (an activated ability); a spell's starts at
   // the stack itself.
-  const stack: StackView[] = snapshot.stack.map((entry) => ({
+  // Spec 0043 (owner 2026-10-31): the same trigger many times over (nine
+  // Skirk Drill Sergeants' "may pay {2}{R}") is one card, "×9" -- the
+  // object that resolves next leads, and the order stays Forge's.
+  const groups: { entry: (typeof snapshot.stack)[number]; ids: string[] }[] = [];
+  for (const entry of snapshot.stack) {
+    const last = groups[groups.length - 1];
+    if (last && sameTrigger(last.entry, entry)) last.ids.push(entry.id);
+    else groups.push({ entry, ids: [entry.id] });
+  }
+  const stack: StackView[] = groups.map(({ entry, ids }) => ({
+    ...(ids.length > 1 ? { count: ids.length } : {}),
     id: entry.id,
     name: entry.name,
     art: entry.art,

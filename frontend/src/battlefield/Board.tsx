@@ -142,6 +142,8 @@ export interface StackView {
   /** Spec 0028 — the card it is (a spell's own card), so a permanent spell
    * that resolves flies onto the table from its place in the stack. */
   card?: string | null;
+  /** Spec 0043 — this many identical triggers, drawn as one ("×9"). */
+  count?: number;
 }
 
 /** An Aura or Equipment whose host is being chosen (the gold chain). */
@@ -1182,6 +1184,8 @@ export function Board({
     if (!from || !to) continue;
     add("block", b.blocker, b.attacker, edge(b.blocker, to, 0.2), edge(b.attacker, from, 0.22));
   }
+  // Spec 0043: every object, a "×9" card counting nine.
+  const stackTotal = (stack ?? []).reduce((n, s) => n + (s.count ?? 1), 0);
   const focus = stackFocus(stack, pointedOnStack ?? pointedStack);
   const shown = (stack ?? []).filter((s) => s.id === focus);
   for (const s of shown) {
@@ -1311,7 +1315,7 @@ export function Board({
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
                 aria-label={[
-                  `${s.name}, on the stack`,
+                  `${s.name}${s.count ? ` ×${s.count}` : ""}, on the stack`,
                   `${ordinal(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
                   ...a.words,
@@ -1343,6 +1347,7 @@ export function Board({
               <span className="bf-stack-tag" aria-hidden="true">
                 <span className="bf-stack-n">{i + 1}</span>
                 {s.caster && <img className="bf-stack-by" src={s.caster} alt="" />}
+                {s.count && <span className="bf-stack-many">×{s.count}</span>}
               </span>
               {i === 0 && clock && (
                 // Spec 0028 — the 2-second auto-pass, counting down round the card.
@@ -1379,9 +1384,9 @@ export function Board({
             <span className="bf-stack-next">
               {stack[0]!.by ? `1 resolves next · ${stack[0]!.by}` : "1 resolves next"}
             </span>
-            {stack.length > 1 && (
+            {stackTotal > 1 && (
               <span className="bf-stack-count">
-                {stack.length} on the stack
+                {stackTotal} on the stack
                 {stack.length > spot.length
                   ? ` · ${stack.length - spot.length} older not shown`
                   : " · point at one to see its target"}

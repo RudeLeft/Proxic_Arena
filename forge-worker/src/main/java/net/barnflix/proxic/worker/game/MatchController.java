@@ -676,8 +676,42 @@ public final class MatchController extends GeneratedControllerBase {
      */
     @Override
     public void playSpellAbilityNoStack(SpellAbility effectSA, boolean canSetupTargets) {
+        if (!payForTrigger(effectSA)) {
+            return;
+        }
         forge.game.player.PlaySpellAbility.playSpellAbilityNoStack(
                 this, player, effectSA, !canSetupTargets);
+    }
+
+    /**
+     * Spec 0043 (owner 2026-10-31) -- a trigger's own cost, "you may pay
+     * {2}{R}" (Skirk Drill Sergeant): asked as a yes/no BEFORE the
+     * payment, and not asked at all when Forge's own check says it cannot
+     * be paid -- not paying is then the only answer, and the trigger does
+     * nothing. Forge's human path went straight to the payment, whose
+     * Cancel was the only "no", once per trigger, affordable or not.
+     * Returns whether to go on and play it.
+     */
+    private boolean payForTrigger(SpellAbility sa) {
+        if (sa == null || !sa.isTrigger() || !sa.hasParam("Cost") || "0".equals(sa.getParam("Cost"))
+                || sa.getPayCosts() == null) {
+            return true;
+        }
+        forge.game.cost.Cost cost = sa.getPayCosts();
+        // Mana only: a life, sacrifice or other cost part is confirmed by
+        // Forge's own payment ("Pay 2 life?" -- Call of the Ring), and
+        // asking here too would ask twice.
+        if (!cost.hasManaCost()) {
+            return true;
+        }
+        String words = cost.getTotalMana().toString();
+        String name = sa.getHostCard() == null ? "This trigger" : sa.getHostCard().getName();
+        if (!payable(sa, player)) {
+            host.note(actedForSeat, name + ": not enough to pay " + words + " — skipped.");
+            return false;
+        }
+        host.offerSubject(sa);
+        return askYesNo("confirmPayment", "Pay " + words + " for " + name + "?", false);
     }
 
     /**
