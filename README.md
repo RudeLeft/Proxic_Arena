@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.23.0 (2026-10-30).** The main build was completed in 1.1.0,
+**Version 1.24.0 (2026-10-31).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -34,7 +34,9 @@ combats; 1.20.0 spaces the right-hand column evenly, with a tray for
 mana, counters and markers; 1.21.0 adds a Report button for problems
 and ideas, with an Admin tab to read them; 1.22.0 keeps each kind of card
 on its own lines and busy boards in order; 1.23.0 answers many copies of
-one trigger in two clicks (Phase 9, group 1).
+one trigger in two clicks (Phase 9, group 1); 1.24.0 asks every question
+beside its card, floats the spell being cast in the middle and calms
+trigger storms.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

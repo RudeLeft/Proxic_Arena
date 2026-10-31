@@ -1,6 +1,6 @@
 # 0042 — Casting in the middle, take-backs, clearer casting questions
 
-**Status:** Approved 2026-10-30
+**Status:** Built in 1.24.0 (approved 2026-10-30)
 **Owner decisions:** 2026-10-30, from the canvases
 https://claude.ai/artifact/PhRjou7UKAwxryW4pu13Yn (casting, look **C ·
 Embers**), https://claude.ai/artifact/Nx62t82teuaZmMN4CW85sv (take-backs,

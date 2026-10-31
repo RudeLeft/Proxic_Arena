@@ -1,6 +1,6 @@
 # 0041 — Short names, clear password checks, the checking box
 
-**Status:** Approved 2026-10-30
+**Status:** Built in 1.24.0 (approved 2026-10-30)
 **Owner decisions:** 2026-10-30, from the canvas
 https://claude.ai/artifact/MPpmTYK2EE5zT8oxdWitrm: the checking box as
 shown; display names at most **12 characters** and **required**, and every

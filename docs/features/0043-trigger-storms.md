@@ -1,6 +1,6 @@
 # 0043 — Calmer trigger storms
 
-**Status:** Approved 2026-10-31
+**Status:** Built in 1.24.0 (approved 2026-10-31)
 **Owner decisions:** 2026-10-31, from the canvas
 https://claude.ai/artifact/4XkzvF18C4GEFPer27zzuN — all four
 recommendations: 1A, 2A, 3A, 4A.

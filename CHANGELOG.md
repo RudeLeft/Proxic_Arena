@@ -3,6 +3,37 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.24.0 — 2026-10-31
+
+Every question in the game now asks beside the card it is about, spells
+float in the middle while you pay for them, and trigger storms are calm.
+
+**For whoever runs the server**
+- Nothing to do: no database updates and no new settings.
+
+**Every question beside its card** (Phase 9 group 2, owner 2026-10-30)
+- Choosing a target, a creature to sacrifice or anything else on the table: a small window beside the card asking, while you click on the table.
+- Choices the table can't show (a mode, a colour, a number, a card type) are buttons in that window, or in a tray along the bottom when there are many, with a search box past a dozen.
+- "List choices" opens a tidy tray grouped by card, with copies of one card shown once as "×N".
+- Mana shows as mana symbols everywhere in the game's words, never letters and numbers.
+
+**Casting in the middle, and take-backs** (spec 0042, owner 2026-10-30)
+- A card you cast floats out of your hand to the middle of the table, large, with sparks in its colour and its cost underneath, each symbol lighting up as you pay. Cast, it flies to the stack or the battlefield; cancelled, back to your hand. Your opponent sees it too.
+- Cancelling a spell and casting it again now works.
+- Clicked the wrong attacker or blocker? Click it again to take it back; the line between attacker and blocker still shows who blocks whom.
+- An optional cost asks as itself ("Bargain?"), with "No" to cast without it.
+
+**Calmer trigger storms** (spec 0043, owner 2026-10-31, after a Goblin mirror)
+- A trigger that asks you to pay mana (Skirk Drill Sergeant) asks first: Pay, Skip, or Skip all of them. If you can't pay, it isn't asked at all.
+- Copies of one trigger on the stack show as one card "×N".
+- Ordering different triggers opens already numbered (damage first, payments last); press Done straight away or reorder.
+- "Let it all resolve" passes until the stack is empty, and stops if anything new is added.
+
+**Names and passwords** (spec 0041, owner 2026-10-30)
+- Display names are required and at most 12 characters, and show in full everywhere: where a place is narrow, the name gets smaller instead of being cut. Names already longer stay as they are until changed.
+- Making an account, choosing a new password and changing it on the Account page show each rule turning green as it is met, with a "password again" box and a short list of what is still missing.
+- The lobby's "Checking both decks…" box now matches the box it replaces.
+
 ## 1.23.0 — 2026-10-30
 
 Many triggers at once in two clicks, a new look for the game's questions,

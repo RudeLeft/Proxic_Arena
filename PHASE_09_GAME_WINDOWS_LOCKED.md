@@ -52,7 +52,7 @@ the tray from the bottom, the seven rules) as used by the yes/no questions
 (W-06): Boggart Shenanigans in 2 clicks. Every other window moves into the
 frame as its own item is decided.
 
-**Group 2 (built, for 1.24.0):** the everyday questions in the same frame
+**Group 2 (built, in 1.24.0):** the everyday questions in the same frame
 -- a click on the table (W-01) and choices the table can't show (W-02) as
 a bubble beside the card or the tray, "List choices" as the tray grouped
 by card (W-03). See Amendment 2.
