@@ -413,6 +413,10 @@ public final class WorkerMain {
                         if (result.concededSeat() > 0) {
                             ended.addProperty("concededSeat", result.concededSeat());
                         }
+                        // Spec 0045 -- why the loser lost, by Forge's name.
+                        if (result.lossReason() != null) {
+                            ended.addProperty("lossReason", result.lossReason());
+                        }
                         send(ended);
                     });
                     GAME.start(seats, request.has("matchId")

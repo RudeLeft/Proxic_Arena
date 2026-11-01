@@ -52,7 +52,7 @@ import {
   optionalCostTitle,
   resultText,
 } from "../matchText";
-import { Board, CardFace, figure, lookOf, shortType } from "./Board";
+import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
@@ -60,8 +60,18 @@ import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
 import { CastingCard, CastingFlight, castingBox, docks, stillOwing } from "./CastingCard";
 import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
+import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
-import { afterAuto, autoAnswer, endsCopies, isCopyTarget, yesNo, type Copies } from "./triggers";
+import {
+  afterAuto,
+  autoAnswer,
+  endsCopies,
+  isCopyTarget,
+  sameTrigger,
+  stackWords,
+  yesNo,
+  type Copies,
+} from "./triggers";
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
@@ -662,6 +672,11 @@ export function GameScreen({
 
   const busy = game.awaiting !== null;
 
+  // Spec 0045 -- the cards Forge last showed this player, until closed
+  // (the worker stops sending them at the next turn).
+  const [closedReveal, setClosedReveal] = useState<string | null>(null);
+  const reveal = board?.reveal && board.reveal.key !== closedReveal ? board.reveal : null;
+
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
   // trigger's target for many copies, different triggers to order. The
   // old question bar steps aside for them, and while the page answers for
@@ -899,6 +914,15 @@ export function GameScreen({
                       />
                     );
                   })()}
+                {reveal && (
+                  <RevealTray
+                    reveal={reveal}
+                    geometry={geometry}
+                    atTop={windowed}
+                    artUrl={artUrl}
+                    onClose={() => setClosedReveal(reveal.key)}
+                  />
+                )}
                 {gameWindow(geometry)}
                 {blockChooser ? (
                   <BlockManyChooser
@@ -1013,7 +1037,18 @@ export function GameScreen({
 
       {board && <Notices board={board} />}
 
-      {inspecting && board && (
+      {inspecting && board && board.stack.some((entry) => entry.id === inspecting) && (
+        <StackInspect
+          board={board}
+          id={inspecting}
+          mySeat={mine?.seatNumber ?? null}
+          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+          onClose={() => setInspecting(null)}
+        />
+      )}
+
+      {/* A stack object that has resolved is gone, and so is its close-up. */}
+      {inspecting && board && !inspecting.startsWith("stack:") && (
         <Inspect
           card={cardOf(board, inspecting)}
           name={objectName(inspecting)}
@@ -1209,6 +1244,20 @@ function manaText(pool: Record<string, number>): string {
     .join(" · ");
 }
 
+/** Spec 0045 -- a library nearly empty ("low", 3 or fewer) or empty. */
+export function libraryWarning(count: number): "low" | "empty" | null {
+  return count === 0 ? "empty" : count <= 3 ? "low" : null;
+}
+
+/** Spec 0045 -- the warning in words; `whose` is null for your own library. */
+export function libraryWords(count: number, whose: string | null): string | null {
+  const next = whose === null ? "your next draw" : `${whose}’s next draw`;
+  if (count === 0) return `Empty: ${next} loses the game`;
+  if (count <= 3)
+    return `${count} ${count === 1 ? "card" : "cards"} left: drawing from an empty library loses the game`;
+  return null;
+}
+
 function SeatBlock({
   player,
   board,
@@ -1300,14 +1349,21 @@ function SeatBlock({
         </p>
       )}
       <div className="gs-zones">
+        {/* Spec 0045 -- gold when nearly empty, red when empty: a draw
+            from an empty library loses the game (CR 704.5b). */}
         <div
-          className="gs-zone"
-          title="Library"
-          aria-label={`${player.name}'s library, ${player.libraryCount} cards`}
+          className={`gs-zone${libraryWarning(player.libraryCount) ? ` gs-zone-${libraryWarning(player.libraryCount)}` : ""}`}
+          title={libraryWords(player.libraryCount, mine ? null : player.name) ?? "Library"}
+          aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine ? null : player.name)}` : ""}`}
+          data-warning={libraryWarning(player.libraryCount) ?? undefined}
         >
           <ZoneIcon zone="library" />
           <span className="gs-zone-n">{player.libraryCount}</span>
-          <span className="gs-zone-key">Library</span>
+          <span className="gs-zone-key">
+            {libraryWarning(player.libraryCount) === "empty"
+              ? libraryWords(0, mine ? null : player.name)
+              : "Library"}
+          </span>
         </div>
         <button
           type="button"
@@ -2363,9 +2419,12 @@ function Inspect({
                 </p>
               )}
               {card.keywords.length > 0 && <p>{withSymbols(card.keywords.join(", "))}</p>}
-              {card.counters.length > 0 && (
-                <p>{card.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`).join(", ")}</p>
-              )}
+              {/* Spec 0045: each kind of counter, and where the last came from. */}
+              {counterWords(card).map((words) => (
+                <p key={words} className="gs-inspect-counter">
+                  {words}
+                </p>
+              ))}
               {card.tapped && <p>Tapped</p>}
               {card.sick && <p>Summoning sick</p>}
               {card.ringBearer && <p>Ring-bearer</p>}
@@ -2381,6 +2440,123 @@ function Inspect({
       </div>
     </div>
   );
+}
+
+/**
+ * Spec 0045 -- a stack object, close up: the card it came from, large,
+ * beside what it does, why it triggered, what it targets, whose it is,
+ * its place in the order and how many copies of it wait together.
+ */
+function StackInspect({
+  board,
+  id,
+  mySeat,
+  artUrl,
+  onClose,
+}: {
+  board: Snapshot;
+  id: string;
+  mySeat: number | null;
+  artUrl: (art: string) => string;
+  onClose: () => void;
+}) {
+  const close = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => close.current?.focus({ preventScroll: true }), []);
+  const at = board.stack.findIndex((entry) => entry.id === id);
+  const entry = board.stack[at]!;
+  const source = entry.source ? cardOf(board, entry.source) : null;
+  const art = source?.art && !(source.faceDown && !source.known) ? source.art : entry.art;
+  let copies = 1;
+  while (board.stack[at + copies] && sameTrigger(entry, board.stack[at + copies]!)) copies++;
+  const whose =
+    entry.controller === mySeat
+      ? "Yours"
+      : (board.players.find((p) => p.seat === entry.controller)?.name ?? "Theirs");
+  const targets = entry.targets.map((t) =>
+    "player" in t
+      ? t.player === mySeat
+        ? "you"
+        : (board.players.find((p) => p.seat === t.player)?.name ?? "a player")
+      : nameOf(board, t.object),
+  );
+  const kind =
+    entry.kind === "trigger" ? "Triggered ability" : entry.kind === "ability" ? "Ability" : "Spell";
+  return (
+    <div className="gs-backdrop" onClick={onClose}>
+      <div
+        className="gs-inspect"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${entry.name}, on the stack, close up`}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onClose();
+        }}
+      >
+        {art ? (
+          <SharpCard
+            className="gs-inspect-art"
+            low={artUrl(art)}
+            high={closeUpOf(artUrl(art))}
+            alt=""
+          />
+        ) : (
+          <div className="gs-inspect-art gs-inspect-noart">{entry.name}</div>
+        )}
+        <div className="gs-inspect-text">
+          <h2 className="gs-inspect-name">
+            {entry.name}
+            {entry.manaCost && <ManaCost cost={entry.manaCost} />}
+          </h2>
+          <p className="gs-inspect-types">{kind}, on the stack</p>
+          <dl className="gs-inspect-facts">
+            {/* A spell's rules text is not in the snapshot: its words are
+                its card's. A trigger's and an ability's are Forge's own. */}
+            {entry.kind !== "spell" && (
+              <>
+                <dt>Does</dt>
+                <dd>
+                  <ManaText text={stackWords(entry.description, entry.name)} />
+                </dd>
+              </>
+            )}
+            {entry.why && (
+              <>
+                <dt>Why</dt>
+                <dd>{entry.why}</dd>
+              </>
+            )}
+            {targets.length > 0 && (
+              <>
+                <dt>{targets.length === 1 ? "Target" : "Targets"}</dt>
+                <dd>{targets.join(", ")}</dd>
+              </>
+            )}
+            <dt>Whose</dt>
+            <dd>{whose}</dd>
+            <dt>Order</dt>
+            <dd>{at === 0 ? "Resolves next" : `Resolves ${ordinalWord(at + 1)}`}</dd>
+            {copies > 1 && (
+              <>
+                <dt>Copies</dt>
+                <dd>{copies} the same, resolving one after another</dd>
+              </>
+            )}
+          </dl>
+          <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** "2nd", "3rd", "11th". */
+function ordinalWord(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
 
 function ZoneViewer({
@@ -2453,7 +2629,12 @@ function Notices({ board }: { board: Snapshot }) {
     const fresh = board.notices.slice(seen.current);
     seen.current = board.notices.length;
     if (fresh.length === 0) return undefined;
-    const added = fresh.map((text, i) => ({ key: `${board.stateRevision}:${i}`, text }));
+    // Spec 0045 -- a reveal's line ("Looking at your library: A, B") is the
+    // reveal tray's cards already.
+    const inTray = board.reveal ? `: ${board.reveal.cards.map((c) => c.name).join(", ")}` : null;
+    const added = fresh
+      .filter((text) => !(inTray && text.endsWith(inTray)))
+      .map((text, i) => ({ key: `${board.stateRevision}:${i}`, text }));
     setShown((list) => [...list, ...added].slice(-4));
     const timer = window.setTimeout(
       () => setShown((list) => list.filter((n) => !added.includes(n))),

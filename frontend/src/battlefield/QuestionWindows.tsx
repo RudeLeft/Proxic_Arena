@@ -170,7 +170,7 @@ function Picture({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) =
 }
 
 /** A card large enough to read: its sharp picture, or its words on a plain card. */
-function BigCard({
+export function BigCard({
   card,
   artUrl,
   small,

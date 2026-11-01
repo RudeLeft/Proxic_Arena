@@ -152,6 +152,23 @@ export function abilityWords(label: string, name: string): string {
   return words;
 }
 
+/**
+ * Spec 0045 -- what a stack object does, as a player reads it: Forge's
+ * description without the card's name in front, its card numbers or the
+ * cause in brackets ("Ajani's Pridemate (65) - Whenever you gain life,
+ * put a +1/+1 counter on Ajani's Pridemate." reads "Whenever you gain
+ * life, put a +1/+1 counter on Ajani's Pridemate.").
+ */
+export function stackWords(description: string, name: string): string {
+  const plain = description.replace(/\s*\(\d+\)/g, "");
+  return (
+    abilityWords(plain, name)
+      // A trigger's words follow its card's name after "->".
+      .replace(/^\s*(?:->|[-–—])\s*/, "")
+      .trim() || plain
+  );
+}
+
 /** W-05 — one card in the order tray: an ability, and its copies. */
 export interface OrderGroup {
   key: string;

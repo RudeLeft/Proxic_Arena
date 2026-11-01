@@ -21,7 +21,7 @@ import type {
   StackView,
 } from "./Board";
 import type { AnchorId } from "./motion";
-import { sameTrigger } from "./triggers";
+import { sameTrigger, stackWords } from "./triggers";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -59,6 +59,7 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ringBearer: card.ringBearer,
     ...(card.sector ? { sector: card.sector } : {}),
     ...(card.sprocket ? { sprocket: card.sprocket } : {}),
+    ...(card.counterFrom ? { counterFrom: card.counterFrom } : {}),
     art: card.art,
   };
 }
@@ -122,6 +123,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     by: snapshot.players.find((p) => p.seat === entry.controller)?.name ?? null,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
     targets: entry.targets,
+    // Spec 0045 — what it does, for the label when pointed at.
+    ...(entry.kind !== "spell" ? { does: stackWords(entry.description, entry.name) } : {}),
     // Spec 0028 — whose it is, and the card it is (a permanent spell
     // flies onto the table from its place in the stack).
     ...(entry.controller ? { seat: entry.controller } : {}),

@@ -32,7 +32,7 @@ import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
-import { ManaCost, costChange } from "./ManaCost";
+import { ManaCost, ManaText, costChange } from "./ManaCost";
 import {
   inCombat,
   HAND_ORIGIN,
@@ -92,6 +92,31 @@ export interface BoardCard extends LayoutCard {
   sector?: string;
   /** Un-sets (public): the sprocket a Contraption is on. */
   sprocket?: number;
+  /** Spec 0045: what put its counters on, from the game. */
+  counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
+}
+
+/** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
+export function counterName(name: string): string {
+  const pt = /^([PM])(\d+)([PM])(\d+)$/.exec(name);
+  if (pt) return `${pt[1] === "P" ? "+" : "-"}${pt[2]}/${pt[3] === "P" ? "+" : "-"}${pt[4]}`;
+  return name.charAt(0) + name.slice(1).toLowerCase();
+}
+
+/**
+ * Spec 0045 -- what pointing at a card's counters says: each kind, and
+ * where the last ones came from ("+1/+1 from Ajani's Pridemate's
+ * trigger: RudeLeft gained 1 life (Soul Warden)").
+ */
+export function counterWords(card: {
+  counters?: readonly { name: string; count: number }[];
+  counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
+}): string[] {
+  return (card.counters ?? []).map((c) => {
+    const from = [...(card.counterFrom ?? [])].reverse().find((o) => o.counter === c.name);
+    const what = `${c.count} ${counterName(c.name)} counter${c.count === 1 ? "" : "s"}`;
+    return from ? `${what}, the last from ${from.from}` : what;
+  });
 }
 
 export interface BoardHandCard {
@@ -144,6 +169,8 @@ export interface StackView {
   card?: string | null;
   /** Spec 0043 — this many identical triggers, drawn as one ("×9"). */
   count?: number;
+  /** Spec 0045 — what it does, in a player's words (the hover label). */
+  does?: string;
 }
 
 /** An Aura or Equipment whose host is being chosen (the gold chain). */
@@ -608,6 +635,7 @@ export function Board({
         lead.attacking ? "attacking" : "",
         slot.rides ? `blocking ${byId.get(slot.rides)?.name ?? "an attacker"}` : "",
         lead.ringBearer ? "Ring-bearer" : "",
+        ...counterWords(lead),
         lead.sector ? `sector ${lead.sector}` : "",
         lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
@@ -661,6 +689,15 @@ export function Board({
                 <span className="bf-state">TAPPED</span>
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
+              {/* Spec 0045 -- its counters; pointing says where from. */}
+              {lead.counters.some((c) => c.name !== "LOYALTY") && (
+                <span className="bf-counters" title={counterWords(lead).join("\n")}>
+                  {lead.counters
+                    .filter((c) => c.name !== "LOYALTY")
+                    .map((c) => `${counterName(c.name)}${c.count > 1 ? ` ×${c.count}` : ""}`)
+                    .join(" · ")}
+                </span>
+              )}
               {lead.ringBearer && <span className="bf-ring">Ring-bearer</span>}
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
@@ -1384,6 +1421,12 @@ export function Board({
             <span className="bf-stack-next">
               {stack[0]!.by ? `1 resolves next · ${stack[0]!.by}` : "1 resolves next"}
             </span>
+            {/* Spec 0045 -- pointing at a stack card says what it does. */}
+            {pointedOnStack && stack.find((s) => s.id === pointedOnStack)?.does && (
+              <span className="bf-stack-does">
+                <ManaText text={stack.find((s) => s.id === pointedOnStack)!.does!} />
+              </span>
+            )}
             {stackTotal > 1 && (
               <span className="bf-stack-count">
                 {stackTotal} on the stack

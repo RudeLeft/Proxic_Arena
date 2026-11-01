@@ -96,17 +96,28 @@ class MatchArt(
     ): JsonObject {
         val allowed = shown.computeIfAbsent(viewerSeat) { ConcurrentHashMap.newKeySet() }
 
-        fun zone(key: String): JsonArray? =
-            (state[key] as? JsonArray)?.let { cards ->
+        fun cards(value: kotlinx.serialization.json.JsonElement?): JsonArray? =
+            (value as? JsonArray)?.let { cards ->
                 JsonArray(cards.map { card(it.jsonObject, allowed) })
             }
+
+        fun zone(key: String): JsonArray? = cards(state[key])
 
         return buildJsonObject {
             state.forEach { (key, value) ->
                 val rewritten =
                     when (key) {
-                        "battlefield", "hand" -> zone(key)
+                        // Spec 0042 / 0045 -- the card being cast wears its
+                        // picture too; it had none (missed in 0042).
+                        "battlefield", "hand", "casting" -> zone(key)
                         "stack" -> (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
+                        // Spec 0045 -- the cards Forge showed this seat.
+                        "reveal" ->
+                            (value as? JsonObject)?.let { reveal ->
+                                buildJsonObject {
+                                    reveal.forEach { (k, v) -> put(k, if (k == "cards") cards(v) ?: v else v) }
+                                }
+                            }
                         else -> null
                     }
                 put(key, rewritten ?: value)

@@ -615,6 +615,17 @@
   color: #b8bec7;
   font-size: 0.88em;
 }
+/* Spec 0045 -- what the pointed stack card does, in a few lines. */
+.bf-stack-does {
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid #39424f;
+  border-radius: 6px;
+  background: rgb(13 17 23 / 92%);
+  color: #e3e8e4;
+  white-space: normal;
+  text-align: left;
+}
 @keyframes bf-stack-in {
   from {
     opacity: 0;
@@ -778,6 +789,27 @@
 }
 
 /* The Ring-bearer (public): a word on the card, not a colour alone. */
+/* Spec 0045 -- a card's counters, low on its picture; pointing at them
+   says where they came from. Takes the pointer (the card's click still
+   works through it: it is inside the card's button). */
+.bf-counters {
+  position: absolute;
+  left: 6%;
+  bottom: 22%;
+  max-width: 88%;
+  overflow: hidden;
+  padding: 1px 5px;
+  border: 1px solid #7fbf6a;
+  border-radius: 999px;
+  background: rgb(10 20 12 / 88%);
+  color: #d8f3cf;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.075);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  cursor: help;
+}
 .bf-ring {
   position: absolute;
   left: 50%;

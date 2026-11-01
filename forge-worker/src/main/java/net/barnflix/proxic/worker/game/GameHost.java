@@ -44,6 +44,8 @@ public final class GameHost {
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private volatile Game game;
+    /** Spec 0045 -- what caused what, for this game. */
+    private volatile Causes causes;
     private volatile Thread gameThread;
 
     /**
@@ -79,11 +81,16 @@ public final class GameHost {
      * and so is its explanation. Null for an ordinary win, where
      * Forge's sentence ("has won because all opponents have lost")
      * tells the players nothing the result does not.
+     *
+     * `lossReason` — spec 0045: why the loser lost, Forge's own
+     * GameLossReason by its name (Milled, LifeReachedZero, Poisoned,
+     * SpellEffect...). Null for an alternate win or a concession, which
+     * say so already.
      */
     public record Result(String kind, int winningSeat, int turn, String detail, String reason,
-                         int concededSeat) {
+                         int concededSeat, String lossReason) {
         public Result(String kind, int winningSeat, int turn, String detail) {
-            this(kind, winningSeat, turn, detail, null, 0);
+            this(kind, winningSeat, turn, detail, null, 0, null);
         }
     }
 
@@ -156,6 +163,10 @@ public final class GameHost {
         // Liberated's ultimate resolves. Nothing here decides a
         // restart happened.
         created.subscribeToEvents(new EpochCounter());
+        // Spec 0045 -- counters' origins, triggers' causes, reveals.
+        Causes found = new Causes(created);
+        this.causes = found;
+        created.subscribeToEvents(found.new Listener());
         // §7.61 B13 -- damage as Forge dealt it, for the board's impact
         // and numbers (PHASE 7 AMENDMENT 4).
         created.subscribeToEvents(new DamageLog());
@@ -329,6 +340,14 @@ public final class GameHost {
             while (queue.size() > NOTICES_KEPT) {
                 queue.removeFirst();
             }
+        }
+    }
+
+    /** Spec 0045 -- Forge showed this seat these cards (MatchController#reveal). */
+    void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords) {
+        Causes now = causes;
+        if (now != null) {
+            now.revealed(seat, cardIds, forgeWords);
         }
     }
 
@@ -655,7 +674,8 @@ public final class GameHost {
                             seatsByPlayer(current),
                             revision,
                             noticesFor(seat),
-                            epoch.get());
+                            epoch.get(),
+                            causes);
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
@@ -995,7 +1015,12 @@ public final class GameHost {
         } else {
             String reason = null;
             int concededSeat = 0;
+            String lossReason = null;
             for (Player each : finishedGame.getRegisteredPlayers()) {
+                // Spec 0045 -- the loser's reason, Forge's own record.
+                if (each.getOutcome() != null && each.getOutcome().lossState != null) {
+                    lossReason = each.getOutcome().lossState.name();
+                }
                 if (each.getOutcome() != null && each.getOutcome().hasWon()
                         && each.getOutcome().altWinSourceName != null) {
                     reason = String.valueOf(each.getOutcome());
@@ -1012,7 +1037,8 @@ public final class GameHost {
                     turn(),
                     null,
                     reason,
-                    concededSeat);
+                    concededSeat,
+                    reason == null && concededSeat == 0 ? lossReason : null);
         }
         if (failure.get() == null) {
             // The board as the game ENDED, before the result. Snapshots

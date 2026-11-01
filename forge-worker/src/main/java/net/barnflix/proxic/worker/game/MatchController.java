@@ -4207,10 +4207,12 @@ public final class MatchController extends GeneratedControllerBase {
             String message,
             boolean addSuffix) {
         java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
         for (forge.game.card.Card card : cards) {
             names.add(card.getName());
+            ids.add(card.getId());
         }
-        tellRevealed(names, zone, to == null ? null : to.getName(), to == player, message, addSuffix);
+        tellRevealed(names, ids, zone, to == null ? null : to.getName(), to == player, message, addSuffix);
     }
 
     @Override
@@ -4221,10 +4223,12 @@ public final class MatchController extends GeneratedControllerBase {
             String message,
             boolean addSuffix) {
         java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
         for (forge.game.card.CardView card : cards) {
             names.add(card.getName());
+            ids.add(card.getId());
         }
-        tellRevealed(names, zone, to == null ? null : to.getName(),
+        tellRevealed(names, ids, zone, to == null ? null : to.getName(),
                 to != null && to.equals(player.getView()), message, addSuffix);
     }
 
@@ -4252,6 +4256,7 @@ public final class MatchController extends GeneratedControllerBase {
     /** Forge's human wording, as a notice to this player only. */
     private void tellRevealed(
             java.util.List<String> names,
+            java.util.List<Integer> ids,
             forge.game.zone.ZoneType zone,
             String ownerName,
             boolean own,
@@ -4267,6 +4272,9 @@ public final class MatchController extends GeneratedControllerBase {
                     ? "Looking at " + where
                     : (addSuffix ? message + " " + where : message);
             text = said + ": " + String.join(", ", names);
+            // Spec 0045 -- the cards themselves, face up in a tray,
+            // for this seat alone (Forge told this controller).
+            host.revealed(actedForSeat, ids, said);
         }
         host.note(actedForSeat, text);
     }

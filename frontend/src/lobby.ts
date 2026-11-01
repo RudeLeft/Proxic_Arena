@@ -201,6 +201,8 @@ export interface MatchOutcome {
   reason: string | null;
   /** PHASE_07 §7.55 — the seat that conceded, as Forge recorded it; null when nobody did. */
   concededSeat: number | null;
+  /** Spec 0045 — why the loser lost, Forge's reason by name ("Milled"); null when not known. */
+  lossReason?: string | null;
 }
 
 export interface MatchView {
@@ -690,6 +692,7 @@ function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
     endedOnTurn: typeof turn === "number" ? turn : 0,
     reason: asString(message["reason"]),
     concededSeat: typeof message["concededSeat"] === "number" ? message["concededSeat"] : null,
+    lossReason: typeof message["lossReason"] === "string" ? message["lossReason"] : null,
   };
 }
 

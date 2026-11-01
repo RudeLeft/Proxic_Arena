@@ -215,6 +215,16 @@ function whatTheyDo(board: Snapshot, mySeat: number, seat: number): string | nul
  * Spec 0034 — the game-over box: who won, and why when the board shows
  * it (a life total at 0, a concession); else the turn it ended on.
  */
+/** Spec 0045 -- Forge's reasons for a loss, in a player's words. */
+const LOSS_WORDS: Record<string, string> = {
+  Milled: "had to draw from an empty library",
+  LifeReachedZero: "life reached 0",
+  Poisoned: "10 poison counters",
+  CommanderDamage: "21 damage from one commander",
+  SpellEffect: "a card's effect",
+  OpponentWon: "an opponent won by a card's effect",
+};
+
 export function gameOverWords(
   board: Snapshot,
   mySeat: number,
@@ -231,16 +241,20 @@ export function gameOverWords(
   const won = outcome.winningSeat === mySeat;
   const winner = board.players.find((p) => p.seat === outcome.winningSeat)?.name ?? "Your opponent";
   const loser = board.players.find((p) => p.seat !== outcome.winningSeat);
+  // Spec 0045 -- why the loser lost, from Forge's own reason.
+  const why = outcome.lossReason ? LOSS_WORDS[outcome.lossReason] : undefined;
   const sub =
-    outcome.concededSeat !== null
-      ? outcome.concededSeat === mySeat
-        ? "You conceded"
-        : `${board.players.find((p) => p.seat === outcome.concededSeat)?.name ?? "Your opponent"} conceded`
-      : loser && loser.life <= 0
-        ? `${nameOf(loser.seat)} life reached 0`
-        : outcome.endedOnTurn > 0
-          ? `On turn ${outcome.endedOnTurn}`
-          : "";
+    why && loser
+      ? `${loser.seat === mySeat ? "You" : loser.name} lost: ${why}`
+      : outcome.concededSeat !== null
+        ? outcome.concededSeat === mySeat
+          ? "You conceded"
+          : `${board.players.find((p) => p.seat === outcome.concededSeat)?.name ?? "Your opponent"} conceded`
+        : loser && loser.life <= 0
+          ? `${nameOf(loser.seat)} life reached 0`
+          : outcome.endedOnTurn > 0
+            ? `On turn ${outcome.endedOnTurn}`
+            : "";
   return { word: won ? "You won" : `${winner} won`, sub };
 }
 

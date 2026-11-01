@@ -430,6 +430,11 @@ class WorkerFramesTest {
 
         assertNull(readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"turn":6}"""))?.concededSeat)
 
+        // Spec 0045 — why the loser lost, Forge's reason by name.
+        val milled = readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"turn":7,"lossReason":"Milled"}"""))
+        assertEquals("Milled", milled?.lossReason)
+        assertNull(readOutcomeFrame(frame("""{"outcome":"WINNER","winningSeat":2,"turn":6}"""))?.lossReason)
+
         val sent = concedeFrame(2)
         assertEquals("\"CONCEDE\"", sent["type"].toString())
         assertEquals("2", sent["seat"].toString())

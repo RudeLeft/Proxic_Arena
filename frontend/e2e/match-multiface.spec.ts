@@ -118,8 +118,9 @@ ${await screens()}`);
       } else if (/Put a card back/.test(heading)) {
         pick = find(/^Island/);
       } else if (live === host && find(/Reveal cards to other players/) >= 0) {
-        // The look reached the player before the question did.
-        await expect(panel.locator(".gs-notices")).toContainText("Looking at your library:");
+        // The look reached the player before the question did: the card,
+        // face up in the reveal tray (spec 0045; it was a fading line).
+        await expect(panel.locator(".gs-reveal")).toContainText("Delver of Secrets");
         if (!sawLook) {
           await host.screenshot({ path: "test-results/seen/delver-look.png", fullPage: true });
           sawLook = true;

@@ -175,6 +175,12 @@ data class GameOutcome(
      * of why that player lost. Null when nobody conceded.
      */
     val concededSeat: Int? = null,
+    /**
+     * Spec 0045 — why the loser lost, Forge's GameLossReason by name
+     * ("Milled", "LifeReachedZero"...). Null for an alternate win, a
+     * concession, a draw or a failure.
+     */
+    val lossReason: String? = null,
 ) {
     companion object {
         const val WINNER = "WINNER"

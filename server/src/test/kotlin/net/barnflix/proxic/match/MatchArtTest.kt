@@ -110,6 +110,31 @@ class MatchArtTest {
     }
 
     /**
+     * Spec 0045 — the cards Forge revealed to this seat carry their pictures
+     * (Goblin Ringleader's four), and so does the card being cast (missed in
+     * spec 0042); only for the seat the snapshot is for.
+     */
+    @Test
+    fun `revealed cards and the card being cast carry their art`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],
+                "casting":[${card("card:3", alice, "Lightning Bolt")}],
+                "reveal":{"key":"reveal:1","title":"Goblin Ringleader revealed:",
+                "cards":[${card("card:9", bob, "Black Lotus")}]}}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, alice)
+        assertEquals(bolt, seen["casting"]!!.jsonArray[0].jsonObject["art"]?.jsonPrimitive?.content)
+        val reveal = seen["reveal"]!!.jsonObject
+        assertEquals("Goblin Ringleader revealed:", reveal["title"]?.jsonPrimitive?.content)
+        assertEquals(secret, reveal["cards"]!!.jsonArray[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertTrue(art.mayFetch(alice, secret), "shown, so fetchable")
+        assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
+    }
+
+    /**
      * P6-Y, §6.124, §6.125 — a card the viewer may not identify
      * carries no reference, so there is nothing to ask for.
      *

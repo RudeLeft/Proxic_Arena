@@ -74,9 +74,11 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
         );
         if ((await act.count()) === 0) {
           // A question that is not a priority pass (attackers, a target):
-          // always asked, answered with its first choice or a pass.
+          // always asked, answered with its first choice or a pass. A
+          // yes-or-no window (madness at cleanup: "Do you want to play Fiery
+          // Temper?") has its own buttons, not a list.
           const question = matchPanel(page).locator(
-            ".gs-question li button, .gs-win li button, .gs-combat li button",
+            ".gs-question li button, .gs-win li button, .gs-combat li button, .gs-win button.gs-win-btn",
           );
           if ((await question.count()) > 0) {
             await question

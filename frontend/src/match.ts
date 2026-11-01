@@ -196,6 +196,14 @@ export interface SnapshotCard {
   blocking: boolean;
   counters: SnapshotCounter[];
   /**
+   * Spec 0045 -- where its counters came from, oldest first, from what
+   * was resolving when Forge put them on ("Ajani's Pridemate's trigger:
+   * RudeLeft gained 1 life (Soul Warden)"). Absent when not known.
+   */
+  counterFrom?: CounterOrigin[] | undefined;
+  /** Spec 0045 -- on a revealed card: where it went ("hand", "bottom"...), once settled. */
+  to?: string | null;
+  /**
    * §6.85 — the keywords it has NOW, as Forge reports them after every
    * continuous effect. Not the printed text: under Humility a Serra
    * Angel has none, and the page must not say it flies.
@@ -240,6 +248,22 @@ export interface SnapshotPlayer {
   manaPool: Record<string, number>;
 }
 
+/** Spec 0045 -- some counters, and what put them on. */
+export interface CounterOrigin {
+  counter: string;
+  added: number;
+  from: string;
+}
+
+/** Spec 0045 -- the cards Forge last showed this viewer, face up. */
+export interface SnapshotReveal {
+  /** Changes with each new reveal, so a closed tray stays closed. */
+  key: string;
+  /** "Goblin Ringleader revealed:" */
+  title: string;
+  cards: SnapshotCard[];
+}
+
 /** One object on the stack — §7.61 B2, B3. */
 export interface StackEntry {
   /** "stack:N", the snapshot's own id, which a counterspell's option names. */
@@ -257,6 +281,8 @@ export interface StackEntry {
   art: string | null;
   /** A spell's printed mana cost ("{1}{R}"), when this viewer may know it. */
   manaCost: string | null;
+  /** Spec 0045 -- why a trigger triggered ("Ajani's Pridemate entered the battlefield"). */
+  why?: string | null;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -324,6 +350,8 @@ export interface Snapshot {
   combat: CombatState | null;
   /** §7.61 B13 — the newest damage wave, or null. */
   damage: DamageState | null;
+  /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
+  reveal?: SnapshotReveal | null;
 }
 
 /** "reconnecting": dropped and being retried on its own; "closed": refused, reload. */
@@ -592,7 +620,31 @@ function asSnapshot(value: unknown): Snapshot | null {
     stack: asStack(row["stack"]),
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),
+    reveal: asReveal(row["reveal"]),
   };
+}
+
+function asReveal(value: unknown): SnapshotReveal | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const key = asString(row["key"]);
+  const cards = asCards(row["cards"]);
+  if (!key || cards.length === 0) return null;
+  return { key, title: asString(row["title"]) ?? "Revealed:", cards };
+}
+
+function asOrigins(value: unknown): CounterOrigin[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const origins: CounterOrigin[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const counter = asString(row["counter"]);
+    const from = asString(row["from"]);
+    if (!counter || !from) continue;
+    origins.push({ counter, added: asNumber(row["added"]) ?? 1, from });
+  }
+  return origins.length ? origins : undefined;
 }
 
 function asPlayers(value: unknown): SnapshotPlayer[] {
@@ -671,6 +723,8 @@ function asCards(value: unknown): SnapshotCard[] {
       art: asHash(row["art"]),
       enteredAt: asNumber(row["enteredAt"]),
       token: row["token"] === true,
+      counterFrom: asOrigins(row["counterFrom"]),
+      to: asString(row["to"]),
     });
   }
   return cards;
@@ -767,6 +821,7 @@ function asStack(value: unknown): StackEntry[] {
       kind: asString(row["kind"]) ?? "spell",
       art: asString(row["art"]),
       manaCost: asString(row["manaCost"]),
+      why: asString(row["why"]),
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],

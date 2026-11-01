@@ -136,6 +136,8 @@ fun matchMessage(
             it.reason?.let { reason -> put("reason", reason) }
             // §7.55 — who conceded, by seat, as Forge recorded it.
             it.concededSeat?.let { seat -> put("concededSeat", seat) }
+            // Spec 0045 — why the loser lost, Forge's reason by name.
+            it.lossReason?.let { why -> put("lossReason", why) }
         }
         putJsonArray("participants") {
             seats.forEach { (userId, seat, deckName) ->

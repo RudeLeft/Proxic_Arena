@@ -305,6 +305,31 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #c2c9d2;
   text-shadow: 0 1px 2px #000;
 }
+/* Spec 0045 -- a library nearly empty glows gold; empty, red, and says so. */
+.gs-zone-low {
+  border-color: #c9a35a;
+  box-shadow: inset 0 0 12px rgb(240 190 90 / 35%);
+}
+.gs-zone-low .gs-zone-n {
+  color: #ffd27a;
+}
+.gs-zone-empty {
+  border-color: #d0453b;
+  background: linear-gradient(#3a1414, #1a0909);
+  box-shadow: inset 0 0 14px rgb(230 70 60 / 45%);
+}
+.gs-zone-empty .gs-zone-n {
+  color: #ff8a80;
+}
+.gs-zone-empty .gs-zone-key {
+  left: 42px;
+  top: 6px;
+  bottom: auto;
+  max-width: calc(100% - 52px);
+  white-space: normal;
+  line-height: 1.2;
+  color: #ffd9d4;
+}
 
 /* Spec 0034 (B2, Seal) — a dark rounded button with a gold edge, a coin
  * at its left saying what pressing does, the words beside it. Combat is
@@ -1104,6 +1129,20 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-inspect-types {
   color: #8a8f98;
 }
+/* Spec 0045 -- a stack object's facts, label beside words. */
+.gs-inspect-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+}
+.gs-inspect-facts dt {
+  color: #c9a35a;
+  font-weight: 600;
+}
+.gs-inspect-facts dd {
+  margin: 0;
+}
 .gs-inspect-pt {
   font-family: var(--pa-display);
   font-weight: 700;
@@ -1867,6 +1906,80 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-win-tile:disabled .gs-win-bigcard {
   opacity: 0.55;
+}
+/* Spec 0045 -- the cards a player was shown (RevealTray.tsx): a tray along
+   the bottom, or the top while a question's window holds the bottom. Not a
+   .gs-win: it asks nothing, and the scripted games find questions by it. */
+.gs-reveal {
+  position: absolute;
+  z-index: 29000;
+  bottom: 12px;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: max-content;
+  padding: 12px 16px 14px;
+  border: 1px solid #3a4a42;
+  border-radius: 12px;
+  background: #121a17;
+  box-shadow:
+    0 16px 44px rgb(0 0 0 / 70%),
+    inset 0 0 0 1px rgb(217 178 106 / 20%);
+  color: #e3e8e4;
+  font-family: var(--pa-text);
+  pointer-events: auto;
+}
+.gs-reveal-top {
+  top: 12%;
+  bottom: auto;
+}
+.gs-reveal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.gs-reveal-title {
+  margin: 0;
+  font-family: var(--pa-card);
+  font-size: var(--pa-size-lg);
+  color: #f0c46a;
+}
+.gs-reveal-cards {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+.gs-reveal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 150px;
+}
+.gs-reveal-card .gs-win-bigcard {
+  width: 150px;
+  height: 209px;
+}
+.gs-reveal-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--pa-size-sm);
+  color: #c2c9d2;
+}
+.gs-reveal-to {
+  padding: 2px 10px;
+  border: 1px solid #c9a35a;
+  border-radius: 999px;
+  background: rgb(10 13 17 / 85%);
+  color: #f0dcb6;
+  font-weight: 700;
+  font-size: var(--pa-size-sm);
 }
 /* No picture: the card's words on a plain card. */
 .gs-win-bigcard-words {

@@ -68,7 +68,8 @@ final class ViewerSnapshot {
             Map<Player, Integer> seatOf,
             long revision,
             java.util.List<String> notices,
-            int gameEpoch) {
+            int gameEpoch,
+            Causes causes) {
         PlayerView viewing = viewer.getView();
 
         JsonObject snapshot = new JsonObject();
@@ -203,7 +204,14 @@ final class ViewerSnapshot {
         JsonArray battlefield = new JsonArray();
         for (Player player : game.getRegisteredPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Battlefield)) {
-                battlefield.add(describe(card, viewing, seatOf));
+                JsonObject described = describe(card, viewing, seatOf);
+                // Spec 0045 -- where its counters came from (public).
+                JsonArray origins = causes == null || !described.has("counters")
+                        ? null : causes.counterOrigins(card);
+                if (origins != null) {
+                    described.add("counterFrom", origins);
+                }
+                battlefield.add(described);
             }
         }
         snapshot.add("battlefield", battlefield);
@@ -301,6 +309,12 @@ final class ViewerSnapshot {
             // §7.61 B3 -- what it targets, every part of it (Electrolyze's
             // second half has targets of its own).
             entry.add("targets", targetsOf(game, instance.getSpellAbility(), seatOf));
+            // Spec 0045 -- why a trigger triggered, from what Forge
+            // stored on it. Public: the trigger's cause is on the table.
+            String why = causes == null || hidden ? null : causes.why(instance.getSpellAbility());
+            if (why != null) {
+                entry.addProperty("why", why);
+            }
             stack.add(entry);
         });
         snapshot.add("stack", stack);
@@ -325,6 +339,17 @@ final class ViewerSnapshot {
             }
         }
         snapshot.add("casting", casting);
+
+        // Spec 0045 -- the cards Forge last showed THIS viewer (Goblin
+        // Ringleader's four), face up because Forge revealed them to
+        // this seat, each with where it went once that is settled.
+        if (causes != null) {
+            JsonObject reveal = causes.revealFor(seatOf.getOrDefault(viewer, 0),
+                    card -> describe(card, viewing, seatOf, true));
+            if (reveal != null) {
+                snapshot.add("reveal", reveal);
+            }
+        }
 
         // §7.61 B4 -- combat: who attacks what, who blocks whom. Public,
         // and Forge's own record of it, not inferred from the cards'
@@ -485,6 +510,14 @@ final class ViewerSnapshot {
     }
 
     private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
+        return describe(card, viewer, seatOf, false);
+    }
+
+    /**
+     * {@code shown}: Forge revealed this card to this viewer (spec 0045),
+     * so it is known to them wherever it now lies.
+     */
+    private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf, boolean shown) {
         CardView view = card.getView();
         JsonObject entry = new JsonObject();
 
@@ -502,7 +535,8 @@ final class ViewerSnapshot {
         entry.addProperty("tapped", view.isTapped());
         entry.addProperty("faceDown", view.isFaceDown());
 
-        boolean maySee = view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer);
+        boolean maySee = (shown && !view.isFaceDown())
+                || (view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer));
         entry.addProperty("known", maySee);
 
         if (!maySee) {

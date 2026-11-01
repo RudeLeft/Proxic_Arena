@@ -151,6 +151,18 @@ describe("gameOverWords (spec 0034)", () => {
     expect(gameOverWords(lives(5, 5), 1, outcome(1)).sub).toBe("On turn 7");
   });
 
+  it("gives Forge's reason for the loss (spec 0045)", () => {
+    expect(gameOverWords(lives(5, 5), 1, outcome(1, { lossReason: "Milled" })).sub).toBe(
+      "Bob lost: had to draw from an empty library",
+    );
+    expect(gameOverWords(lives(5, 5), 1, outcome(2, { lossReason: "Milled" })).sub).toBe(
+      "You lost: had to draw from an empty library",
+    );
+    expect(gameOverWords(lives(5, 0), 1, outcome(1, { lossReason: "Unheard" })).sub).toBe(
+      "Bob’s life reached 0",
+    );
+  });
+
   it("says Game over without a winner", () => {
     expect(gameOverWords(lives(5, 5), 1, null).word).toBe("Game over");
     expect(gameOverWords(lives(5, 5), 1, { ...outcome(null), kind: "DRAW" }).word).toBe("A draw");
