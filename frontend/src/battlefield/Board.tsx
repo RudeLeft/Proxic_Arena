@@ -32,7 +32,7 @@ import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
-import { ManaCost, ManaText, costChange } from "./ManaCost";
+import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import {
   inCombat,
   HAND_ORIGIN,
@@ -92,6 +92,8 @@ export interface BoardCard extends LayoutCard {
   sector?: string;
   /** Un-sets (public): the sprocket a Contraption is on. */
   sprocket?: number;
+  /** Spec 0046: the mana a land makes ("W", "U"), from its abilities now. */
+  makes?: readonly string[] | undefined;
   /** Spec 0045: what put its counters on, from the game. */
   counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
 }
@@ -636,6 +638,7 @@ export function Board({
         slot.rides ? `blocking ${byId.get(slot.rides)?.name ?? "an attacker"}` : "",
         lead.ringBearer ? "Ring-bearer" : "",
         ...counterWords(lead),
+        lead.makes?.length ? `makes ${lead.makes.join(" or ")}` : "",
         lead.sector ? `sector ${lead.sector}` : "",
         lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
@@ -689,6 +692,24 @@ export function Board({
                 <span className="bf-state">TAPPED</span>
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
+              {/* Spec 0046 -- what a land makes, as mana symbols. */}
+              {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
+                <span
+                  className="bf-makes"
+                  title={`Makes ${lead.makes.map((m) => `{${m}}`).join(" or ")}`}
+                >
+                  {lead.makes.map((m) => {
+                    const url = symbolUrl(m);
+                    return url ? (
+                      <img key={m} className="bf-makes-pip" src={url} alt={m} />
+                    ) : (
+                      <span key={m} className="bf-makes-pip">
+                        {m}
+                      </span>
+                    );
+                  })}
+                </span>
+              )}
               {/* Spec 0045 -- its counters; pointing says where from. */}
               {lead.counters.some((c) => c.name !== "LOYALTY") && (
                 <span className="bf-counters" title={counterWords(lead).join("\n")}>

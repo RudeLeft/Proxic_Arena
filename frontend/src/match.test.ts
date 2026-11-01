@@ -452,6 +452,25 @@ describe("board detail", () => {
     expect(card?.sick).toBe(true);
   });
 
+  // Spec 0046 -- what a land makes, symbols only, in the worker's order.
+  it("reads what a land makes, and nothing that is not a mana symbol", () => {
+    const dual = apply([
+      withCreature({
+        id: "card:20",
+        seat: 1,
+        name: "Hallowed Fountain",
+        kind: "land",
+        known: true,
+        makes: ["W", "U", "{X}", 3],
+      }),
+    ]);
+    expect(dual.board?.battlefield[0]?.makes).toEqual(["W", "U"]);
+    const fetch = apply([
+      withCreature({ id: "card:21", seat: 1, name: "Evolving Wilds", kind: "land", known: true }),
+    ]);
+    expect(fetch.board?.battlefield[0]?.makes).toBeUndefined();
+  });
+
   it("reads counters and what a card is attached to", () => {
     const state = apply([
       withCreature({

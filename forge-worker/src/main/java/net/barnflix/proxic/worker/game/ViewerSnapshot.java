@@ -211,6 +211,14 @@ final class ViewerSnapshot {
                 if (origins != null) {
                     described.add("counterFrom", origins);
                 }
+                // Spec 0046 -- what a land makes, from its mana abilities
+                // as they are now (public: the card is on the table).
+                if ("land".equals(described.has("kind") ? described.get("kind").getAsString() : null)) {
+                    JsonArray makes = manaMade(card);
+                    if (makes.size() > 0) {
+                        described.add("makes", makes);
+                    }
+                }
                 battlefield.add(described);
             }
         }
@@ -389,6 +397,41 @@ final class ViewerSnapshot {
         }
         String real = card.getState(forge.card.CardStateName.Original).getName();
         return real == null || real.isEmpty() ? "Face-down" : real + " (face down)";
+    }
+
+    /** The order a land's pill lists its mana in. */
+    private static final java.util.List<String> MANA_ORDER = java.util.List.of("W", "U", "B", "R", "G", "C");
+
+    /**
+     * Spec 0046 -- the mana a card's own mana abilities make, as symbols in
+     * WUBRG order then C: a Plains {W}, Hallowed Fountain {W}{U}, Command
+     * Tower what Forge says it makes. Read from the abilities it has NOW, so
+     * Blood Moon's Fountain makes {R}. Nothing for a land with no mana
+     * ability (a fetch land), and nothing for mana Forge only works out
+     * when it is made ("Special" mana): not a guess.
+     */
+    static JsonArray manaMade(Card card) {
+        java.util.Set<String> made = new java.util.HashSet<>();
+        for (forge.game.spellability.SpellAbility ability : card.getManaAbilities()) {
+            forge.game.spellability.AbilityManaPart part = ability.getManaPart();
+            if (part == null || part.isSpecialMana()) {
+                continue;
+            }
+            try {
+                String produced = part.isAnyMana() ? "W U B R G" : part.mana(ability);
+                for (String symbol : String.valueOf(produced).split("\\s+")) {
+                    if (MANA_ORDER.contains(symbol)) {
+                        made.add(symbol);
+                    }
+                }
+            } catch (RuntimeException e) {
+                // A mana ability Forge can only describe while it is being
+                // activated: say nothing for it.
+            }
+        }
+        JsonArray out = new JsonArray();
+        MANA_ORDER.stream().filter(made::contains).forEach(out::add);
+        return out;
     }
 
     /** A player's floating mana by colour, or null when the pool is empty. */

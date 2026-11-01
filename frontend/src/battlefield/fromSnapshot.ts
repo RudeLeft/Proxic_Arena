@@ -60,6 +60,7 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ...(card.sector ? { sector: card.sector } : {}),
     ...(card.sprocket ? { sprocket: card.sprocket } : {}),
     ...(card.counterFrom ? { counterFrom: card.counterFrom } : {}),
+    ...(card.makes?.length ? { makes: card.makes } : {}),
     art: card.art,
   };
 }

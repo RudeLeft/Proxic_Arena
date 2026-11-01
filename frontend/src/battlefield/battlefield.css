@@ -789,6 +789,35 @@
 }
 
 /* The Ring-bearer (public): a word on the card, not a colour alone. */
+/* Spec 0046 -- what a land makes: its mana symbols in a dark pill, low on
+   the picture, so a dual reads at a glance (owner 2026-10-31). */
+.bf-makes {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: calc(var(--card-h) * 0.02);
+  padding: calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.04);
+  border: 1px solid rgb(201 163 90 / 70%);
+  border-radius: 999px;
+  background: rgb(10 13 17 / 85%);
+  pointer-events: none;
+}
+.bf-makes-pip {
+  display: grid;
+  place-items: center;
+  width: calc(var(--card-h) * 0.13);
+  height: calc(var(--card-h) * 0.13);
+  border-radius: 50%;
+  font-size: calc(var(--card-h) * 0.08);
+  font-weight: 700;
+  color: #1d1d1d;
+  background: #cfc9be;
+}
+img.bf-makes-pip {
+  background: none;
+}
 /* Spec 0045 -- a card's counters, low on its picture; pointing at them
    says where they came from. Takes the pointer (the card's click still
    works through it: it is inside the card's button). */

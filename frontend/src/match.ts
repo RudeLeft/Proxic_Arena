@@ -201,6 +201,8 @@ export interface SnapshotCard {
    * RudeLeft gained 1 life (Soul Warden)"). Absent when not known.
    */
   counterFrom?: CounterOrigin[] | undefined;
+  /** Spec 0046 -- a land's mana, as symbols ("W", "U", "C"), from its abilities now. */
+  makes?: string[] | undefined;
   /** Spec 0045 -- on a revealed card: where it went ("hand", "bottom"...), once settled. */
   to?: string | null;
   /**
@@ -724,6 +726,11 @@ function asCards(value: unknown): SnapshotCard[] {
       enteredAt: asNumber(row["enteredAt"]),
       token: row["token"] === true,
       counterFrom: asOrigins(row["counterFrom"]),
+      makes: Array.isArray(row["makes"])
+        ? (row["makes"] as unknown[]).filter(
+            (s): s is string => typeof s === "string" && /^[WUBRGC]$/.test(s),
+          )
+        : undefined,
       to: asString(row["to"]),
     });
   }
