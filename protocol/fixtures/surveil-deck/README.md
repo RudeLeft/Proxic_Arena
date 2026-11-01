@@ -12,9 +12,10 @@ Surveil Test Deck.txt   25 Island, 15 Swamp
 ```
 
 Each player casts whatever of these they can. Whoever is looking sees
-the cards as pictures in the question, alone: one card is kept or sent
-away with two buttons; with two, the ones to send away are clicked, then
-Done, then the order of the rest on top. No Cancel.
+the cards as pictures, alone, in the tray from the bottom (PHASE_09
+W-08): two rows, top and bottom (surveil: graveyard); a click moves a
+card across, the ones on top are numbered in draw order, then Done. No
+Cancel.
 
 Used by `frontend/e2e/match-surveil.spec.ts`. CI builds the package
 with `scripts/make-ci-deck.mjs`.

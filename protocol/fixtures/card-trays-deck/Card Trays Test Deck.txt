@@ -1,0 +1,11 @@
+14 Island
+10 Swamp
+4 Ponder
+4 Brainstorm
+4 Impulse
+4 Preordain
+4 Demonic Tutor
+4 Fact or Fiction
+4 Thoughtseize
+4 Evolving Wilds
+4 Opt

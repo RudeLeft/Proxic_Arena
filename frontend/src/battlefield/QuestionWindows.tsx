@@ -94,9 +94,17 @@ export function sourceOf(board: Snapshot, decision: Decision): SnapshotCard | nu
     );
   }
   const prompt = decision.prompt ?? "";
+  // Phase 9 group 3 (2026-11-01): a spell on the stack the words name
+  // first -- a search's words list the library, and the first card name
+  // in them ("Sensei's Divining Top") was shown as the card asking.
+  const named = board.stack.find((s) => s.name && prompt.includes(s.name));
+  if (named) {
+    const card = named.source ? cardOf(board, named.source) : null;
+    if (card) return card;
+  }
   return (
     cards
-      .filter((c) => c.name && prompt.includes(c.name))
+      .filter((c) => c.name && prompt.includes(c.name) && (!named || c.name === named.name))
       .sort((a, b) => b.name.length - a.name.length)[0] ?? null
   );
 }

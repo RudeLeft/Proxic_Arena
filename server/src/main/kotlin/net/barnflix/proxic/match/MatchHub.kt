@@ -221,6 +221,8 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.looking.isNotEmpty()) {
             putJsonArray("looking") { request.looking.forEach { add(it) } }
         }
+        // Phase 9 W-07..W-10 -- how the tray lays the question out.
+        request.arrange?.let { put("arrange", it) }
         putJsonArray("options") {
             request.options.forEach { option ->
                 add(

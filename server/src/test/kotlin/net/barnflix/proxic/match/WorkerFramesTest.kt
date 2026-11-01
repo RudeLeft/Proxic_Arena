@@ -188,6 +188,24 @@ class WorkerFramesTest {
         assertTrue(!decisionMessage(request.copy(looking = emptyList())).toString().contains("looking"))
     }
 
+    /** Phase 9 W-07..W-10 -- how the tray lays a question out reaches the browser, as sent. */
+    @Test
+    fun `the tray layout of a question reaches the browser`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"9","actedForSeat":1,"authorisedSeat":1,"kind":"chooseCardsPile",
+                     "stateVersion":"4","options":[],
+                     "arrange":{"piles":[{"cards":["card:3"],"count":1},{"cards":[],"count":4}]}}
+                    """.trimIndent(),
+                ),
+            )!!
+        val sent = decisionMessage(request).toString()
+        assertTrue(sent.contains("\"arrange\":{\"piles\":[{\"cards\":[\"card:3\"],\"count\":1}"), sent)
+        assertTrue(!decisionMessage(request.copy(arrange = null)).toString().contains("arrange"))
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

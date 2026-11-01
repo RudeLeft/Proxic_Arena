@@ -359,6 +359,10 @@ public final class WorkerMain {
                         if (GAME.looking() != null) {
                             ask.add("looking", GAME.looking());
                         }
+                        // Phase 9 W-07..W-10 -- how the tray lays the question out.
+                        if (GAME.arrange() != null) {
+                            ask.add("arrange", GAME.arrange());
+                        }
                         send(ask);
                     });
                     // §6.40 — one snapshot per viewer, and the

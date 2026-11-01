@@ -57,6 +57,10 @@ frame as its own item is decided.
 a bubble beside the card or the tray, "List choices" as the tray grouped
 by card (W-03). See Amendment 2.
 
+**Group 3 (built 2026-11-01, unreleased):** the card trays -- putting
+cards in order (W-07), scry and surveil (W-08), choosing from a hidden
+zone (W-09), Fact or Fiction's piles (W-10). See Amendment 3.
+
 ## The inventory
 
 **W-00 — One look for every window.** First, so every later canvas uses
@@ -195,6 +199,42 @@ https://claude.ai/artifact/4bM7QkuXj1o22V2T5QWc2q) -- group 2:**
   plain words ("Cast · {2}{R}"), the ones that can't be paid now dimmed
   with the reason.
 
+**W-07, W-08, W-09, W-10 decided (2026-11-01, canvas
+https://claude.ai/artifact/YYJjyLHDPYwmv5cRyxCDSR) -- group 3,** all in
+the tray from the bottom, the cards as pictures:
+
+- **W-07, putting cards back in order** (Ponder, Sensei's Divining Top,
+  Brainstorm): **click them in the order you'll draw them** -- each gets a
+  gold number, 1 the top card; clicking a numbered card takes it back
+  (and the ones after it); Done when all are numbered (the last one numbers
+  itself). Ponder offers **Shuffle instead** in the same tray. Cards going
+  to the **bottom** (Impulse's other three) are worded for the bottom and
+  have **Any order**, one click. Brainstorm's two are clicked in the hand
+  the same way.
+- **W-08, scry and surveil** (Opt, Preordain, Consider): **two rows**, "Top
+  of library" and "Bottom of library" (surveil: "Graveyard"); every card
+  starts on top, a click moves it to the other row; two or more on top
+  are numbered in draw order and can be reordered there. Scry and its
+  ordering are one window.
+- **W-09, choosing from a hidden zone** (tutors, Evolving Wilds, Impulse,
+  Thoughtseize, Duress): **one picture per different card, with a count**
+  ("×4"), lands last, a search box and Lands / Spells filters; cards that
+  can't be chosen stay in view, dimmed, with the reason ("a land"). A few
+  cards (the top four, a hand) show one picture each.
+- **W-10, piles** (Fact or Fiction): **the same two piles on both
+  screens** -- the splitting player clicks cards between Pile 1 and Pile
+  2, then Done; the choosing player sees the two piles as pictures with
+  "Take this pile" under each.
+- **Found in today's screenshots, fixed with the group:** the window names
+  the wrong card when the game's question doesn't say which card asks (a
+  search's words list the library: "Sensei's Divining Top" on Evolving
+  Wilds, "Fact or Fiction" on Impulse) -- the card asking is the one
+  resolving; and cards going to the bottom are asked "which do you want
+  to draw first?". (A blank Fact or Fiction seen in the middle of the
+  splitting player's table was the spell's own turn-over on its way to
+  the stack, caught mid-way by the screenshot: gone a moment later, not
+  a fault.)
+
 Still open: every other item, one at a time.
 
 ## Amendments
@@ -272,3 +312,51 @@ Still open: every other item, one at a time.
 - *Evidence:* the full browser suite (every scripted game answers through
   the new windows: `.gs-win` list buttons, the `data-kind` and
   `.gs-question-title` hooks kept) and `QuestionWindows.test.ts`.
+
+**Amendment 3 (2026-11-01, group 3 as built).**
+
+- *The trays* (`frontend/src/battlefield/CardTrays.tsx`): every question
+  that shows cards only its player sees moves into the tray -- putting
+  cards in order, scry and surveil, a search, the top few, another
+  player's hand, Fact or Fiction's split and its piles. The old scry box
+  in the middle is gone. Each card shows its name under its picture.
+- *What the game now tells the page* (the worker's `arrange`, passed
+  through to the asking seat only): where the cards go ("to": top,
+  bottom, graveyard), which end the first pick lands at ("first"),
+  Ponder's "you may shuffle" ("shuffle"), the hidden zone ("zone":
+  library or hand), the split, and the two piles by card. The cards
+  themselves travel as pictures (`looking`), shown to that player only
+  while the question is open, as the game's own client does. Names no
+  longer carry the game's internal numbers ("Island (69)").
+- *One set of clicks, the game's one-at-a-time questions answered from
+  it.* The game still asks an order one card at a time, scry's "which go
+  to the bottom?" then "which goes on top?", and pile 1 one card at a
+  time. The tray asks once; the page answers each of those questions from
+  what the player clicked, only while the game asks exactly what the
+  click was for -- anything else ends it and the player is asked
+  (`cardPlans.ts`). Ponder: Done answers its shuffle question No,
+  Shuffle instead answers Yes; the shuffle bubble no longer follows.
+  Brainstorm: the two hand cards are numbered as clicked (a gold number
+  on the card) and their order question is answered from that.
+- *Impulse's rest:* the game's own rule treated "the rest on the bottom"
+  as the top, so the page was asked "which do you want to draw first?".
+  It is now asked as the bottom ("Which goes at the very bottom of your
+  library?"), the first pick landing at the very bottom, as it always
+  did; the tray has Any order.
+- *The card asking:* when the game does not name it, the spell or
+  ability resolving on top of the stack, never the first card name in
+  the question's words.
+- *W-09:* a library is one picture per card with its count, spells before
+  lands, a search box, and Spells / Lands chips when there are both; the
+  top few and a hand show every card. Another player's hand shows the
+  cards it revealed that can't be chosen, dimmed, with why ("a land").
+  The game's words are kept without the list the pictures already show.
+- *Not built:* a line on the other player's screen saying "Pat is
+  splitting the cards". While one player splits or chooses, the other
+  sees the five cards in the reveal tray and the rail's "Waiting for
+  Pat", as for every question.
+- *Evidence:* `scripts/check-card-trays.py` (Mechanics Lab: nine cards,
+  what each question carries), `frontend/e2e/match-card-trays.spec.ts`
+  (a real game: every tray clicked through, nothing asked twice) with
+  the card trays test deck, `match-surveil.spec.ts` (the two rows), and
+  `cardPlans.test.ts`.

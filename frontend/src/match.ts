@@ -110,11 +110,35 @@ export interface Decision {
    */
   looking: SnapshotCard[];
   /**
+   * Phase 9 W-07..W-10 (owner 2026-11-01) — how the tray lays the question
+   * out, from the game's own facts: where the cards go, which end the
+   * first pick lands at, a shuffle that may follow, the hidden zone the
+   * cards are in, a Fact or Fiction split or its two piles. Absent for
+   * every other question.
+   */
+  arrange?: DecisionArrange | null;
+  /**
    * Spec 0005 — a response window: your OWN spell or trigger is on top of
    * the stack. The page counts down and passes for you if you let it run
    * out (Phase 8 Amendment 4); anything that shows you are acting pauses it.
    */
   window: boolean;
+}
+
+/** Phase 9 W-07..W-10 — how a tray question is laid out (see Decision.arrange). */
+export interface DecisionArrange {
+  /** Where the cards go: "top", "bottom" (of the library), "graveyard", … */
+  to: string | null;
+  /** Which end the FIRST pick lands at: "top", "bottom", or "first" in. */
+  first: string | null;
+  /** Ponder: "you may shuffle" is asked after the order. */
+  shuffle: boolean;
+  /** The hidden zone the cards are in: "library", or another player's "hand". */
+  zone: string | null;
+  /** Fact or Fiction: the cards are being split into two piles. */
+  split: boolean;
+  /** Fact or Fiction: the two piles to choose from -- the cards you may see, and how many. */
+  piles: { cards: string[]; count: number }[] | null;
 }
 
 /** The spell or ability a question is about. */
@@ -873,7 +897,31 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     unavailable: asReasons(message["unavailable"]),
     about: asAbout(message["about"]),
     looking: asCards(message["looking"]),
+    arrange: asArrange(message["arrange"]),
     window: message["window"] === true,
+  };
+}
+
+function asArrange(value: unknown): DecisionArrange | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const piles = Array.isArray(v["piles"])
+    ? v["piles"].flatMap((pile) => {
+        if (typeof pile !== "object" || pile === null) return [];
+        const p = pile as Record<string, unknown>;
+        const cards = Array.isArray(p["cards"])
+          ? p["cards"].filter((id): id is string => typeof id === "string")
+          : [];
+        return [{ cards, count: asNumber(p["count"]) ?? cards.length }];
+      })
+    : null;
+  return {
+    to: asString(v["to"]),
+    first: asString(v["first"]),
+    shuffle: v["shuffle"] === true,
+    zone: asString(v["zone"]),
+    split: typeof v["split"] === "string" || v["split"] === true,
+    piles: piles && piles.length === 2 ? piles : null,
   };
 }
 

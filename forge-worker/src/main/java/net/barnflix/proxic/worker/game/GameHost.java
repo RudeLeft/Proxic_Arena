@@ -953,6 +953,25 @@ public final class GameHost {
         return looking;
     }
 
+    /**
+     * Phase 9 W-07..W-10 -- how a tray question is laid out: where its
+     * cards go ("to": top, bottom, graveyard), where the first pick ends
+     * up ("first"), whether a shuffle may follow ("shuffle"), the hidden
+     * zone the cards are in ("zone"), a split into two piles ("split") or
+     * the two piles to choose from ("piles"). Facts Forge holds that the
+     * question's words do not carry. With the question, to the asking
+     * seat only. Like [#looking], set and cleared by whoever asks.
+     */
+    private volatile com.google.gson.JsonObject arrange = null;
+
+    void arranging(com.google.gson.JsonObject how) {
+        arrange = how;
+    }
+
+    public com.google.gson.JsonObject arrange() {
+        return arrange;
+    }
+
     private static final java.util.regex.Pattern OBJECT =
             java.util.regex.Pattern.compile("(card|stack|player):(\\d+)$");
 

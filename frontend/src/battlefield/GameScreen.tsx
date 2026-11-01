@@ -64,6 +64,8 @@ import { CastingCard, CastingFlight, castingBox, docks, stillOwing } from "./Cas
 import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
+import { HiddenZoneTray, OrderCardsTray, PilesTray, RowsTray, SplitTray } from "./CardTrays";
+import { orderSteps, stepAnswer, trayOf, type PlanStep } from "./cardPlans";
 import {
   afterAuto,
   autoAnswer,
@@ -330,6 +332,16 @@ export function GameScreen({
     (actionId: string | null) => {
       if (!decision) return;
       answered.current = decision.decisionId;
+      // W-07 -- Brainstorm: a card from the hand to the top, numbered in
+      // the order clicked.
+      if (
+        actionId &&
+        decision.kind === "chooseEntitiesForEffect" &&
+        decision.arrange?.to === "top"
+      ) {
+        const card = decision.options.find((o) => o.actionId === actionId)?.objectId;
+        if (card) setHandOrder((list) => [...list, card]);
+      }
       // The first copy's target, however it was chosen (bubble or board).
       if (actionId && isCopyTarget(decision) && (decision.about?.copy ?? 1) === 1) {
         const chosen = decision.options.find((o) => o.actionId === actionId);
@@ -354,6 +366,12 @@ export function GameScreen({
   // target again, yes again, the rest of an order they clicked. Once per
   // question; a question of another card ends them.
   const [orderQueue, setOrderQueue] = useState<string[]>([]);
+  // PHASE_09 group 3 (W-07..W-10) -- the answers a card tray gave for the
+  // game's one-card-at-a-time questions still to come (cardPlans.ts),
+  // and Brainstorm's cards clicked in the hand, in the order they go on
+  // top. A question a step does not fit ends the plan.
+  const [plan, setPlan] = useState<PlanStep[]>([]);
+  const [handOrder, setHandOrder] = useState<string[]>([]);
   // Spec 0043 -- "Let it all resolve": the stack objects there when it was
   // pressed. The page passes while only those are left; anything new on
   // the stack, or an empty one, ends it.
@@ -437,6 +455,30 @@ export function GameScreen({
       }
     }
     if (answered.current === decision.decisionId) return;
+    // W-07..W-10 -- the next answer the player's tray gave, if it fits.
+    if (plan.length > 0) {
+      const reply = stepAnswer(plan[0]!, decision);
+      if (reply !== undefined) {
+        setPlan(plan.slice(1));
+        answer(reply);
+        return;
+      }
+      setPlan([]);
+    }
+    // W-07 -- Brainstorm's order is the order its cards were clicked in.
+    const toTop = decision.kind === "chooseEntitiesForEffect" && decision.arrange?.to === "top";
+    if (!toTop && handOrder.length > 0) {
+      const same =
+        decision.kind === "orderMoveToZoneList" &&
+        decision.arrange?.to === "top" &&
+        decision.looking.length === handOrder.length &&
+        decision.looking.every((card) => handOrder.includes(card.id));
+      setHandOrder([]);
+      if (same) {
+        setPlan(orderSteps(decision.kind, handOrder));
+        return;
+      }
+    }
     if (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) {
       const next = decision.options.find((o) => o.label === orderQueue[0]);
       setOrderQueue(next ? orderQueue.slice(1) : []);
@@ -449,11 +491,15 @@ export function GameScreen({
       setCopies(afterAuto(decision, copies));
       answer(auto);
     }
-  }, [decision, copies, orderQueue, answer]);
+  }, [decision, copies, orderQueue, plan, handOrder, answer]);
   const answeredForYou =
     !!decision &&
     (autoAnswer(decision, copies) !== null ||
-      (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0));
+      (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) ||
+      (plan.length > 0 && stepAnswer(plan[0]!, decision) !== undefined) ||
+      (handOrder.length > 0 &&
+        decision.kind === "orderMoveToZoneList" &&
+        decision.looking.every((card) => handOrder.includes(card.id))));
 
   // Spec 0037 — block many at once: a stack of your creatures clicked as
   // one choice, then a stack of attackers and how many. The page answers
@@ -680,7 +726,15 @@ export function GameScreen({
   // Spec 0045 -- the cards Forge last showed this player, until closed
   // (the worker stops sending them at the next turn).
   const [closedReveal, setClosedReveal] = useState<string | null>(null);
-  const reveal = board?.reveal && board.reveal.key !== closedReveal ? board.reveal : null;
+  // PHASE_09 group 3 -- a tray that shows the revealed cards itself (a
+  // hand to choose from, Fact or Fiction's five) takes the reveal's place.
+  const trayShowsReveal =
+    !!decision &&
+    (trayOf(decision) === "split" ||
+      trayOf(decision) === "piles" ||
+      (trayOf(decision) === "hidden" && decision.arrange?.zone === "hand"));
+  const reveal =
+    board?.reveal && board.reveal.key !== closedReveal && !trayShowsReveal ? board.reveal : null;
 
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
   // trigger's target for many copies, different triggers to order. The
@@ -698,7 +752,7 @@ export function GameScreen({
     !!question &&
     (decision.searchable ||
       (!listOpen &&
-        (decision.looking.length > 0 ||
+        ((decision.looking.length > 0 && !trayOf(decision)) ||
           COMBAT_KINDS.has(decision.kind) ||
           (question.context === "priority" && question.listed.length === 0))));
   const windowed = !!decision && (answeredForYou || !barOnly);
@@ -729,6 +783,24 @@ export function GameScreen({
     };
     if (listOpen && !decision.searchable) {
       return <ListTray key={decision.decisionId} {...common} onClose={() => setListOpen(false)} />;
+    }
+    // PHASE_09 group 3 -- the card trays (W-07..W-10).
+    const tray = trayOf(decision);
+    if (tray) {
+      const trayProps = {
+        decision,
+        board,
+        geometry,
+        busy,
+        artUrl,
+        onAnswer: answer,
+        onPlan: setPlan,
+      };
+      if (tray === "order") return <OrderCardsTray key={decision.decisionId} {...trayProps} />;
+      if (tray === "rows") return <RowsTray key={decision.decisionId} {...trayProps} />;
+      if (tray === "hidden") return <HiddenZoneTray key={decision.decisionId} {...trayProps} />;
+      if (tray === "split") return <SplitTray key={decision.decisionId} {...trayProps} />;
+      return <PilesTray key={decision.decisionId} {...trayProps} />;
     }
     if (yesNo(decision)) {
       return (
@@ -931,6 +1003,19 @@ export function GameScreen({
                     />
                   )}
                   {gameWindow(geometry)}
+                  {handOrder.map((id, i) => {
+                    const box = at(id);
+                    return box ? (
+                      <span
+                        key={id}
+                        className="gs-hand-num"
+                        aria-label={`Number ${i + 1}`}
+                        style={{ left: box.x + box.w / 2, top: box.y }}
+                      >
+                        {i + 1}
+                      </span>
+                    ) : null;
+                  })}
                   {blockChooser ? (
                     <BlockManyChooser
                       box={at(blockChooser.at)}

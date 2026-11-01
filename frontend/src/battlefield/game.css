@@ -2032,6 +2032,138 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   line-height: 28px;
   text-align: center;
 }
+/* PHASE_09 group 3 -- the card trays (CardTrays.tsx: W-07..W-10). */
+.gs-win-tile[aria-pressed="true"] .gs-win-bigcard {
+  outline: 3px solid #d9b26a;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 18px rgb(217 178 106 / 55%),
+    0 6px 18px rgb(0 0 0 / 55%);
+}
+.gs-win-tile-small {
+  width: 150px;
+}
+.gs-win-tile-small .gs-win-bigcard,
+.gs-win-tile-small .gs-win-bigcard-small {
+  width: 150px;
+  height: 209px;
+  border-radius: 8px;
+}
+.gs-win-tile-name {
+  overflow: hidden;
+  font-size: var(--pa-size-sm);
+  font-weight: 600;
+  color: #e3e8e4;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.gs-win-tile-caption {
+  font-size: var(--pa-size-sm);
+  color: #c6cfca;
+  text-align: center;
+}
+.gs-win-tile:disabled .gs-win-tile-caption {
+  color: #f0b4a0;
+}
+/* Brainstorm (W-07): the hand cards clicked, numbered in the order they go on top. */
+.gs-hand-num {
+  position: absolute;
+  z-index: 26000;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -60%);
+  border-radius: 50%;
+  background: #d9b26a;
+  color: #1a1408;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 60%);
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-md);
+  font-weight: 700;
+  line-height: 30px;
+  text-align: center;
+  pointer-events: none;
+}
+/* Scry and surveil (W-08): the top row and the other. */
+.gs-win-rows,
+.gs-win-piles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+}
+.gs-win-row,
+.gs-win-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+  min-height: 260px;
+  padding: 10px 12px 12px;
+  border: 1px dashed #3a4a42;
+  border-radius: 10px;
+}
+.gs-win-pile {
+  border-style: solid;
+  background: #0b100e;
+}
+.gs-win-row-grave {
+  border-color: #6a4a4a;
+}
+.gs-win-row-name {
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-sm);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #95a39b;
+}
+.gs-win-row-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.gs-win-pile-empty {
+  align-self: center;
+  color: #95a39b;
+  font-size: var(--pa-size-sm);
+}
+.gs-win-pile .gs-win-btn-main {
+  margin-top: auto;
+}
+.gs-win-chip-btn {
+  padding: 3px 12px;
+  border: 1px solid #3a4a42;
+  border-radius: 999px;
+  background: #1b2420;
+  color: #c6cfca;
+  font: inherit;
+  font-size: var(--pa-size-sm);
+  cursor: pointer;
+}
+.gs-win-chip-btn[aria-pressed="true"] {
+  border-color: #d9b26a;
+  background: #d9b26a;
+  color: #1a1408;
+}
+.gs-win-chip-btn:hover:not(:disabled),
+.gs-win-chip-btn:focus-visible {
+  border-color: #d9b26a;
+  outline: none;
+}
+/* A search (W-09): search and filters above, the cards scroll. */
+.gs-win-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.gs-win-tiles-scroll {
+  max-height: min(470px, 46vh);
+  overflow-y: auto;
+  padding: 10px 6px 4px;
+}
 /* PHASE_09 group 2 -- the everyday questions (W-01, W-02, W-03). */
 .gs-win-list {
   display: flex;

@@ -1620,7 +1620,27 @@ public final class MatchController extends GeneratedControllerBase {
         // Shown with the first question only. Repeating seven card
         // names above every pick is noise, and the player has
         // already read them.
-        return pickSeveral("chooseEntitiesForEffect", optionList, min, max, title, revealed(delayedReveal));
+        String context = revealed(delayedReveal);
+        // Phase 9 W-10 -- Fact or Fiction's split: the cards are picked
+        // for pile 1 one at a time; the page shows both piles. W-09 -- a
+        // search, the top few, another player's hand: the cards as
+        // pictures in the tray.
+        java.util.List<T> list = new java.util.ArrayList<>();
+        optionList.forEach(list::add);
+        com.google.gson.JsonObject how = null;
+        if (sa != null && sa.getApi() == forge.game.ability.ApiType.TwoPiles) {
+            how = layout("split", "piles");
+        } else {
+            String zone = hiddenZone(list);
+            if (zone != null) {
+                how = layout("zone", zone);
+            }
+        }
+        if (how == null) {
+            return pickSeveral("chooseEntitiesForEffect", optionList, min, max, title, context);
+        }
+        return shownNow(cardsAmong(list), how,
+                () -> pickSeveral("chooseEntitiesForEffect", list, min, max, title, context));
     }
 
     /**
@@ -2199,9 +2219,31 @@ public final class MatchController extends GeneratedControllerBase {
         boolean firstShown = "False".equals(faceUp);
         boolean secondShown = !"True".equals(faceUp);
         String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
-        return askIndex("chooseCardsPile",
-                java.util.List.of(pile("Pile 1", pile1, firstShown), pile("Pile 2", pile2, secondShown)),
-                true, card + ": choose a pile.") == 0;
+        // Phase 9 W-10 -- the two piles as pictures: each pile's cards
+        // this player may see, by id, and its size (a face-down pile is
+        // only counted).
+        java.util.List<forge.game.card.Card> seen = new java.util.ArrayList<>();
+        com.google.gson.JsonArray piles = new com.google.gson.JsonArray();
+        for (int i = 0; i < 2; i++) {
+            forge.game.card.CardCollectionView one = i == 0 ? pile1 : pile2;
+            boolean open = i == 0 ? firstShown : secondShown;
+            com.google.gson.JsonObject entry = new com.google.gson.JsonObject();
+            com.google.gson.JsonArray ids = new com.google.gson.JsonArray();
+            if (open) {
+                one.forEach(c -> {
+                    ids.add("card:" + c.getId());
+                    seen.add(c);
+                });
+            }
+            entry.add("cards", ids);
+            entry.addProperty("count", one.size());
+            piles.add(entry);
+        }
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("piles", piles);
+        java.util.List<String> texts =
+                java.util.List.of(pile("Pile 1", pile1, firstShown), pile("Pile 2", pile2, secondShown));
+        return shownNow(seen, how, () -> askIndex("chooseCardsPile", texts, true, card + ": choose a pile.")) == 0;
     }
 
     /** "Pile 1: Island, Lightning Bolt", or "Pile 1: 2 face-down cards". */
@@ -2634,17 +2676,19 @@ public final class MatchController extends GeneratedControllerBase {
                     ? org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null)
                     : org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN);
         }
-        return arrange("arrangeForScry", topN,
-                "Scry " + topN.size() + ": click any cards to put on the bottom of your library");
+        // Phase 9 W-08 -- the tray's second row is the bottom.
+        return arranged(layout("to", "bottom"), () -> arrange("arrangeForScry", topN,
+                "Scry " + topN.size() + ": click any cards to put on the bottom of your library"));
     }
 
     /** Top or bottom of the library, for one card -- Forge's own question. */
     @Override
     public boolean willPutCardOnTop(forge.game.card.Card card) {
         java.util.List<forge.game.card.Card> one = java.util.List.of(card);
-        return looking(one, () -> askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
+        // Phase 9 W-08 -- the tray's two rows: top, and the bottom.
+        return looking(one, () -> arranged(layout("to", "bottom"), () -> askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
                 "Put " + ViewerSnapshot.nameFor(card, player.getView())
-                        + " on the top or the bottom of your library?")) != 1;
+                        + " on the top or the bottom of your library?"))) != 1;
     }
 
     /**
@@ -2659,18 +2703,20 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public org.apache.commons.lang3.tuple.ImmutablePair<forge.game.card.CardCollection, forge.game.card.CardCollection>
             arrangeForSurveil(forge.game.card.CardCollection topN) {
+        // Phase 9 W-08 -- the tray's second row is the graveyard.
+        com.google.gson.JsonObject how = layout("to", "graveyard");
         if (topN.size() == 1) {
             forge.game.card.Card card = topN.get(0);
-            int picked = looking(topN, () -> askIndex("arrangeForSurveil",
+            int picked = looking(topN, () -> arranged(how, () -> askIndex("arrangeForSurveil",
                     java.util.List.of("Keep it on top", "Put it into your graveyard"), true,
                     "Surveil 1: " + ViewerSnapshot.nameFor(card, player.getView())
-                            + " -- keep it on top of your library, or put it into your graveyard?"));
+                            + " -- keep it on top of your library, or put it into your graveyard?")));
             return picked == 1
                     ? org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN)
                     : org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null);
         }
-        return arrange("arrangeForSurveil", topN,
-                "Surveil " + topN.size() + ": click any cards to put into your graveyard");
+        return arranged(how, () -> arrange("arrangeForSurveil", topN,
+                "Surveil " + topN.size() + ": click any cards to put into your graveyard"));
     }
 
     /**
@@ -2715,6 +2761,101 @@ public final class MatchController extends GeneratedControllerBase {
             host.stopLooking();
             cards.forEach(card -> card.removeMayLookTemp(player));
         }
+    }
+
+    /** A question that may be interrupted, for {@link #shown}. */
+    @FunctionalInterface
+    private interface Asking<R> {
+        R ask() throws InterruptedException;
+    }
+
+    /**
+     * Phase 9 W-07..W-10 -- ask while this player looks at [cards] (as
+     * {@link #looking}: Forge's own human controller shows the cards it
+     * asks about, tempShowCards) and [how] says how the tray lays the
+     * question out. The layout before is put back after, so an outer one
+     * (Brainstorm's "to the top") survives an inner question.
+     */
+    private <R> R shown(java.util.List<forge.game.card.Card> cards,
+            com.google.gson.JsonObject how, Asking<R> asking) throws InterruptedException {
+        cards.forEach(card -> card.addMayLookTemp(player));
+        com.google.gson.JsonObject before = host.arrange();
+        try {
+            host.lookingAt(cards, player.getView());
+            host.arranging(how);
+            return asking.ask();
+        } finally {
+            host.arranging(before);
+            host.stopLooking();
+            cards.forEach(card -> card.removeMayLookTemp(player));
+        }
+    }
+
+    /** The same, for a question that cannot be interrupted (pickSeveral). */
+    private <R> R shownNow(java.util.List<forge.game.card.Card> cards,
+            com.google.gson.JsonObject how, java.util.function.Supplier<R> ask) {
+        try {
+            return shown(cards, how, ask::get);
+        } catch (InterruptedException e) {
+            // Supplier cannot throw it; kept honest all the same.
+            Thread.currentThread().interrupt();
+            return ask.get();
+        }
+    }
+
+    /** Only a layout, no cards to show: Brainstorm's "these go on top". */
+    private <R> R arranged(com.google.gson.JsonObject how, java.util.function.Supplier<R> ask) {
+        com.google.gson.JsonObject before = host.arrange();
+        host.arranging(how);
+        try {
+            return ask.get();
+        } finally {
+            host.arranging(before);
+        }
+    }
+
+    /** A layout of one fact: {"to": "top"}. */
+    private static com.google.gson.JsonObject layout(String key, String value) {
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.addProperty(key, value);
+        return how;
+    }
+
+    /**
+     * Phase 9 W-09 -- the zone this player cannot otherwise see that every
+     * one of [candidates] is in: "library" (a search, Impulse's top four)
+     * or "hand" (another player's, Thoughtseize). Null when any of them
+     * is a player, on the table, in this player's own hand, or when they
+     * are in different zones: those questions keep their windows.
+     */
+    private String hiddenZone(java.util.List<?> candidates) {
+        String zone = null;
+        for (Object candidate : candidates) {
+            if (!(candidate instanceof forge.game.card.Card card) || card.getZone() == null) {
+                return null;
+            }
+            String here = switch (card.getZone().getZoneType()) {
+                case Library -> "library";
+                case Hand -> player.equals(card.getOwner()) ? null : "hand";
+                default -> null;
+            };
+            if (here == null || (zone != null && !zone.equals(here))) {
+                return null;
+            }
+            zone = here;
+        }
+        return zone;
+    }
+
+    /** The cards among [candidates], in their order. */
+    private static java.util.List<forge.game.card.Card> cardsAmong(java.util.List<?> candidates) {
+        java.util.List<forge.game.card.Card> cards = new java.util.ArrayList<>();
+        for (Object candidate : candidates) {
+            if (candidate instanceof forge.game.card.Card card) {
+                cards.add(card);
+            }
+        }
+        return cards;
     }
 
     /** What a player reads for each ability: its own description. */
@@ -2889,6 +3030,15 @@ public final class MatchController extends GeneratedControllerBase {
             forge.game.player.DelayedReveal delayedReveal,
             String selectPrompt,
             Player decider) {
+        // Phase 9 W-07 -- Brainstorm's two from the hand go on top: the
+        // page numbers them as they are clicked, in the order they will
+        // be drawn, and answers the order question that follows from it.
+        if (destination == forge.game.zone.ZoneType.Library && origin != null
+                && origin.contains(forge.game.zone.ZoneType.Hand)
+                && orderedMoveToTopOfLibrary(destination, sa)) {
+            return arranged(layout("to", "top"), () -> chooseEntitiesForEffect(
+                    fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null));
+        }
         return chooseEntitiesForEffect(
                 fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null);
     }
@@ -2942,7 +3092,15 @@ public final class MatchController extends GeneratedControllerBase {
         }
 
         boolean topOfDeck = orderedMoveToTopOfLibrary(destinationZone, source);
-        String end = endDescription(destinationZone, topOfDeck);
+        // Phase 9 W-07 -- Impulse's "the rest on the bottom": Forge's
+        // orderedMoveToTopOfLibrary reads only LibraryPosition, so Dig's
+        // rest (LibraryPosition2, the bottom by default) counts as the
+        // top: the list is reversed, then each card is put on the bottom
+        // -- the first pick ends up at the very bottom. Forge's own
+        // dialog calls that pick "closest to the top"; it is asked here
+        // as what it is.
+        boolean underneath = destinationZone == forge.game.zone.ZoneType.Library && digsToBottom(source);
+        String end = underneath ? "at the very bottom" : endDescription(destinationZone, topOfDeck);
         // "Draw first" only when it is the player's own library.
         boolean ownLibrary = true;
         for (forge.game.card.Card card : cards) {
@@ -2958,6 +3116,20 @@ public final class MatchController extends GeneratedControllerBase {
         cards.forEach(remaining::add);
         forge.game.card.CardCollection ordered = new forge.game.card.CardCollection();
 
+        // Phase 9 W-07 -- the tray: the cards as pictures, where they go,
+        // which end the first pick lands at, and Ponder's shuffle after.
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        boolean library = destinationZone == forge.game.zone.ZoneType.Library;
+        how.addProperty("to", library
+                ? (underneath || !topOfDeck ? "bottom" : "top")
+                : destinationZone.name().toLowerCase(java.util.Locale.ROOT));
+        how.addProperty("first", underneath || destinationZone == forge.game.zone.ZoneType.Graveyard
+                ? "bottom" : library ? "top" : "first");
+        if (source != null && source.getApi() == forge.game.ability.ApiType.RearrangeTopOfLibrary
+                && source.hasParam("MayShuffle")) {
+            how.addProperty("shuffle", true);
+        }
+
         while (remaining.size() > 1) {
             java.util.LinkedHashMap<String, forge.game.card.Card> byId =
                     new java.util.LinkedHashMap<>();
@@ -2971,8 +3143,10 @@ public final class MatchController extends GeneratedControllerBase {
 
             forge.game.card.Card picked;
             try {
+                String prompt = orderPrompt(destinationZone, topOfDeck && ownLibrary && !underneath, end,
+                        ordered.isEmpty(), remaining.size());
                 String choice =
-                        host.gate().ask(
+                        shown(remaining, how, () -> host.gate().ask(
                                 actedForSeat,
                                 authorisedSeat,
                                 "orderMoveToZoneList",
@@ -2981,8 +3155,8 @@ public final class MatchController extends GeneratedControllerBase {
                                 // somewhere, and in SOME order. The
                                 // only question is which.
                                 true,
-                                orderPrompt(destinationZone, topOfDeck && ownLibrary, end, ordered.isEmpty(), remaining.size()),
-                                pending -> host.publishDecision(pending, labels));
+                                prompt,
+                                pending -> host.publishDecision(pending, labels)));
                 picked = byId.get(choice);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -3021,7 +3195,31 @@ public final class MatchController extends GeneratedControllerBase {
             return "Which card do you want to draw " + (firstPick ? "first" : "next")
                     + "? (" + left + " left)";
         }
+        // Phase 9 W-07: Impulse's rest, the first pick at the very bottom.
+        if ("at the very bottom".equals(end)) {
+            return (firstPick ? "Which goes at the very bottom of your library?" : "Which goes next, above it?")
+                    + " (" + left + " left)";
+        }
         return "Which goes " + end + "? (" + left + " left)";
+    }
+
+    /**
+     * Phase 9 W-07 -- a Dig (Impulse, Anticipate) putting the rest on the
+     * BOTTOM: its LibraryPosition2, the bottom (-1) when it has none.
+     */
+    private static boolean digsToBottom(SpellAbility source) {
+        if (source == null || source.getApi() != forge.game.ability.ApiType.Dig) {
+            return false;
+        }
+        String position = source.getParam("LibraryPosition2");
+        if (position == null) {
+            return true;
+        }
+        try {
+            return Integer.parseInt(position.trim()) < 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /**
@@ -3849,19 +4047,29 @@ public final class MatchController extends GeneratedControllerBase {
                     ? "card:" + card.getId()
                     : "player:" + candidate.getId();
             byId.put(id, candidate);
-            labels.put(id, String.valueOf(candidate));
+            // The name as this player sees it. Forge's toString adds its
+            // internal number ("Island (69)"), which a search showed on
+            // every button (Phase 9 W-09, rule 2).
+            labels.put(id, candidate instanceof forge.game.card.Card card
+                    ? ViewerSnapshot.nameFor(card, player.getView())
+                    : String.valueOf(candidate));
         }
 
+        // Phase 9 W-09 -- a search, the top few, another player's hand:
+        // the cards as pictures in the tray.
+        String zone = hiddenZone(candidates);
         try {
-            String choice =
-                    host.gate().ask(
-                            actedForSeat,
-                            authorisedSeat,
-                            "chooseSingleEntityForEffect",
-                            new java.util.ArrayList<>(byId.keySet()),
-                            !isOptional,
-                            prompt,
-                            pending -> host.publishDecision(pending, labels));
+            Asking<String> asking = () -> host.gate().ask(
+                    actedForSeat,
+                    authorisedSeat,
+                    "chooseSingleEntityForEffect",
+                    new java.util.ArrayList<>(byId.keySet()),
+                    !isOptional,
+                    prompt,
+                    pending -> host.publishDecision(pending, labels));
+            String choice = zone == null
+                    ? asking.ask()
+                    : shown(cardsAmong(candidates), layout("zone", zone), asking);
             if (DecisionGate.PASS.equals(choice)) {
                 // Only reachable when the choice was optional;
                 // the gate refuses a pass otherwise.

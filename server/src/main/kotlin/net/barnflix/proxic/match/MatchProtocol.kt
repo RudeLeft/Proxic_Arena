@@ -109,6 +109,14 @@ data class DecisionRequest(
      */
     val looking: List<JsonObject> = emptyList(),
     /**
+     * Phase 9 W-07..W-10 — how the tray lays the question out: where the
+     * cards go ("to"), which end the first pick lands at ("first"), a
+     * shuffle that may follow, the hidden zone the cards are in, a Fact or
+     * Fiction split or its two piles. The worker's facts, passed through
+     * untouched, to the asking seat only, as the whole question goes.
+     */
+    val arrange: JsonObject? = null,
+    /**
      * Spec 0005 — a response window: the asked player's OWN spell, ability
      * or trigger is on top of the stack. Their page counts down and passes
      * if they let it run out (Phase 8 Amendment 4). To that seat only.
