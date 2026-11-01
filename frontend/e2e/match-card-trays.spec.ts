@@ -121,11 +121,20 @@ test("the card trays: order, rows, a hidden zone, the split and the piles, answe
             continue;
           }
           if (kind === "orderMoveToZoneList" || kind.startsWith("arrangeFor")) {
-            if (lastCast.get(page) === "Brainstorm" && seen.has("brainstorm")) {
-              askedAgain.push("Brainstorm's order, after its cards were numbered in the hand");
-            }
             const shuffle = tray.getByRole("button", { name: "Shuffle instead" });
             const anyOrder = tray.getByRole("button", { name: "Any order" });
+            // Brainstorm's is the order with neither (Ponder has Shuffle
+            // instead, Impulse's rest Any order): its cards were numbered
+            // in the hand, so it is never asked. A Ponder cast before it
+            // resolves after it, with lastCast still Brainstorm.
+            if (
+              lastCast.get(page) === "Brainstorm" &&
+              seen.has("brainstorm") &&
+              (await shuffle.count()) === 0 &&
+              (await anyOrder.count()) === 0
+            ) {
+              askedAgain.push("Brainstorm's order, after its cards were numbered in the hand");
+            }
             if ((await shuffle.count()) > 0 && seen.has("order") && !seen.has("shuffle")) {
               seen.add("shuffle");
               await click(shuffle);

@@ -1378,7 +1378,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   position: absolute;
   left: 20px;
   bottom: 16px;
-  z-index: 16000;
+  /* Above the windows (.gs-win, 30000): a wide tray must never cover the
+     gear, Report or "List choices" (PHASE_09 W-00 rule 5). */
+  z-index: 31000;
 }
 .gs-dock {
   display: flex;

@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   boardCards,
+  answerCardTray,
   clearEverything,
   clickNow,
   matchPanel,
@@ -188,6 +189,9 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         } else {
           // Whatever else is asked (discarding down to seven, ...): the
           // first choice offered, as a list, a tile or a card in hand.
+          // PHASE_09 group 3: Goblin Ringleader's other cards go to the
+          // bottom through the order tray.
+          if (await answerCardTray(page)) continue;
           const list = matchPanel(page).locator(
             ".gs-question li button, .gs-win li button, button.gs-win-tile:not(:disabled)",
           );

@@ -194,6 +194,44 @@ export async function choices(page: Page): Promise<Locator> {
 }
 
 /**
+ * PHASE_09 group 3 -- answer a card tray (CardTrays.tsx) the plain way, for
+ * the scripted game loops that meet one in passing: two rows (scry,
+ * surveil) or a split -- Done; the piles -- the first; an order -- each
+ * card not yet numbered, then Done; a hidden zone -- the first card that can
+ * be chosen, or its pass. True if there was one to answer. A numbered card
+ * clicked again is taken back, so a loop clicking "the first card" would
+ * never finish an order; this never clicks a numbered one.
+ */
+export async function answerCardTray(page: Page): Promise<boolean> {
+  const tray = matchPanel(page)
+    .locator(
+      ".gs-win.gs-tray:has(button.gs-win-tile[data-object-id]), .gs-win.gs-tray:has(.gs-win-piles)",
+    )
+    .first();
+  if ((await tray.count()) === 0) return false;
+  const kind = await tray.evaluateAll((els) => els[0]?.getAttribute("data-kind") ?? "");
+  const done = tray.locator("button.gs-win-btn-main:not(:disabled)");
+  if (kind === "chooseCardsPile") {
+    await clickNow(done);
+    return true;
+  }
+  if ((await tray.locator(".gs-win-rows, .gs-win-piles").count()) > 0) {
+    await clickNow(done);
+    return true;
+  }
+  if (kind === "orderMoveToZoneList" || kind.startsWith("arrangeFor")) {
+    const open = tray.locator('button.gs-win-tile:not(:disabled):not([aria-pressed="true"])');
+    if ((await open.count()) > 0) await clickNow(open);
+    else await clickNow(done);
+    return true;
+  }
+  const pick = tray.locator("button.gs-win-tile:not(:disabled)");
+  if ((await pick.count()) > 0) await clickNow(pick);
+  else await clickNow(tray.locator("button.gs-win-btn-quiet"));
+  return true;
+}
+
+/**
  * Click an answer in a scripted game loop, or report that it could not be
  * clicked now -- never wait for it. The loop reads the screen again on its
  * next pass, which is the right thing whenever the click did not land.

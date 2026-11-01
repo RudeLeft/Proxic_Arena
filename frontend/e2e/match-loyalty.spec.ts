@@ -186,9 +186,13 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         check: async (panel: Locator) => {
           // Elspeth's -3. The options are cards out of a hidden
           // zone, named — the most sensitive list in the game, and
-          // safe only because a decision goes to ONE seat.
-          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
+          // safe only because a decision goes to ONE seat. PHASE_09
+          // W-09: as pictures in the tray, each named.
+          const offered = await panel
+            .locator("button.gs-win-tile")
+            .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? ""));
           expect(offered.length).toBeGreaterThan(0);
+          expect(offered.every((label) => label.length > 0 && !/\(\d+\)/.test(label))).toBe(true);
 
           // Forge's own wording for what the dig is FOR, and the
           // count this adds to it. Elspeth's -3 is "you may put a
@@ -199,21 +203,23 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
 
           // "You MAY put" — declining is a real answer.
           await expect(panel.getByRole("button", { name: "Pass" })).toBeVisible();
+          // The tray has no list; "List choices" (choices()) answers it below.
         },
       },
       {
         name: "the library ordering",
-        heading: /Put them in order/,
+        heading: /Put them back in order/,
         shot: "test-results/seen/order-library.png",
         check: async (panel: Locator) => {
           // Sensei's Divining Top: look at the top three, put them
-          // back in any order. A sort asked one card at a time.
-          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
-          expect(offered.length).toBeGreaterThan(1);
+          // back in any order. PHASE_09 W-07: the cards as pictures in
+          // the tray, clicked in the order they will be drawn.
+          const offered = await panel.locator("button.gs-win-tile").count();
+          expect(offered).toBeGreaterThan(1);
 
           // WHICH END. Without it the list reads as "choose one"
           // and the player sorts their library backwards.
-          await expect(panel.getByText(/want to draw first/)).toBeVisible();
+          await expect(panel.getByText(/order you'll draw them: 1 is the top card/)).toBeVisible();
 
           // They are all going back, in SOME order; the only
           // question is which, so there is nothing to decline.

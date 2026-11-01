@@ -730,9 +730,7 @@ export function GameScreen({
   // hand to choose from, Fact or Fiction's five) takes the reveal's place.
   const trayShowsReveal =
     !!decision &&
-    (trayOf(decision) === "split" ||
-      trayOf(decision) === "piles" ||
-      (trayOf(decision) === "hidden" && decision.arrange?.zone === "hand"));
+    (trayOf(decision) === "split" || trayOf(decision) === "piles" || trayOf(decision) === "hidden");
   const reveal =
     board?.reveal && board.reveal.key !== closedReveal && !trayShowsReveal ? board.reveal : null;
 

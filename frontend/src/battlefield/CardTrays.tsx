@@ -403,7 +403,15 @@ export function HiddenZoneTray(props: TrayProps) {
   const mixed =
     groups.some((g) => /\bLand\b/.test(g.card.types)) &&
     groups.some((g) => !/\bLand\b/.test(g.card.types));
-  const passWord = several ? "Done" : zone === "library" && !few ? "Find nothing" : "Choose none";
+  // The game's own word for declining ("up to 1, or pass"); Done once
+  // something is chosen.
+  const chosenAny = cards.some((c) => !open.has(c.id));
+  const passWord =
+    several && chosenAny
+      ? "Done"
+      : zone === "library" && !few && !several
+        ? "Find nothing"
+        : "Pass";
   return (
     <Tray
       geometry={props.geometry}
@@ -456,7 +464,7 @@ export function HiddenZoneTray(props: TrayProps) {
               key={g.ids[0] ?? `${g.card.id}-${g.card.name}`}
               card={g.card}
               artUrl={artUrl}
-              small={!few}
+              small={!few || groups.length > 4}
               many={g.ids.length}
               caption={g.why}
               disabled={busy || !option}

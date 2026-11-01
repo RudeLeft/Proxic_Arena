@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   boardCards,
+  answerCardTray,
   clearEverything,
   clickNow,
   matchPanel,
@@ -167,6 +168,7 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
           if ((await plains.count()) > 0) await clickNow(plains.first());
           else await clickNow(passButton(page));
         } else {
+          if (await answerCardTray(page)) continue;
           const list = matchPanel(page).locator(".gs-question li button, .gs-win li button");
           if ((await list.count()) > 0) await clickNow(list.first());
           else await clickNow(passButton(page));
