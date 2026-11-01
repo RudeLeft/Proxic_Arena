@@ -1000,6 +1000,15 @@
   padding: 12px 15px;
   border-top: 1px solid var(--pa-line-soft);
 }
+/* Spec 0047 -- "Let people watch", beside Open a room. */
+.pa-open-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--pa-muted, #b8bec7);
+  font-size: var(--pa-size-sm);
+  cursor: pointer;
+}
 .pa-open-room .pa-input {
   flex: 1 1 220px;
   width: auto;

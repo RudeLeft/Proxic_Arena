@@ -46,6 +46,27 @@ fun concedeFrame(seat: Int): JsonObject =
         put("seat", seat)
     }
 
+/** Spec 0047 — the seat the worker sends the public view as: nobody's. */
+const val PUBLIC_SEAT = 0
+
+/** Spec 0047 — build the public view (spectators are watching), or stop. */
+fun watchedFrame(on: Boolean): JsonObject =
+    buildJsonObject {
+        put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
+        put("type", "WATCHED")
+        put("messageId", UUID.randomUUID().toString())
+        put("on", on)
+    }
+
+/** Spec 0047 — how many people are watching, for the players. */
+fun watchingMessage(count: Int): JsonObject =
+    buildJsonObject {
+        put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
+        put("type", "WATCHING")
+        put("messageId", UUID.randomUUID().toString())
+        put("count", count)
+    }
+
 /** §7.55 — the concession is on its way to Forge; the game's end follows as MATCH. */
 fun concedeAcceptedMessage(): JsonObject = concedeMessage("CONCEDE_ACCEPTED", null)
 

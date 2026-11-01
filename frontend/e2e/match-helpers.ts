@@ -76,8 +76,10 @@ export const seatOf = (page: Page, name: string) =>
   yourRoom(page).locator(".pa-seat", { hasText: name });
 
 /** Open a room from the Lobby (Amendment 9), optionally named. */
-export async function openRoom(page: Page, name?: string) {
+export async function openRoom(page: Page, name?: string, watchable = true) {
   if (name) await page.getByPlaceholder("Room name (optional)").fill(name);
+  // Spec 0047 -- "Let people watch", on unless a test says no.
+  await page.getByRole("checkbox", { name: "Let people watch" }).setChecked(watchable);
   await page.getByRole("button", { name: "Open a room" }).click();
   await expect(yourRoom(page)).toBeVisible();
 }
@@ -312,11 +314,12 @@ export async function startAMatch(
     settle = true,
     hostName = testUser,
     guestName = secondUser,
-  }: { settle?: boolean; hostName?: string; guestName?: string } = {},
+    watchable = true,
+  }: { settle?: boolean; hostName?: string; guestName?: string; watchable?: boolean } = {},
 ) {
   await host.goto("/play");
   await guest.goto("/play");
-  await openRoom(host);
+  await openRoom(host, undefined, watchable);
   await inviteIn(host, guest, guestName);
 
   const readied: string[] = [];

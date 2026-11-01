@@ -452,6 +452,24 @@ describe("board detail", () => {
     expect(card?.sick).toBe(true);
   });
 
+  // Spec 0047 -- the public view is nobody's seat: drawn from `viewFrom`.
+  it("reads a spectator's public view, drawn from the first seat's side", () => {
+    const state = reduceMatch(EMPTY_MATCH, {
+      type: "MATCH_SNAPSHOT",
+      state: {
+        stateRevision: 3,
+        seat: 0,
+        spectator: true,
+        viewFrom: 1,
+        players: [],
+        battlefield: [],
+      },
+    });
+    expect(state.board?.seat).toBe(1);
+    expect(state.board?.spectator).toBe(true);
+    expect(reduceMatch(state, { type: "WATCHING", count: 2 }).watching).toBe(2);
+  });
+
   // Spec 0046 -- what a land makes, symbols only, in the worker's order.
   it("reads what a land makes, and nothing that is not a mana symbol", () => {
     const dual = apply([

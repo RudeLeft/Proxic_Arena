@@ -64,6 +64,8 @@ data class Room(
     val name: String? = null,
     /** When somebody last did something here; a room clears 24 hours after (D4). */
     val lastActivityAt: java.time.Instant = java.time.Instant.EPOCH,
+    /** Spec 0047 — whether people may watch its game (the host's "Let people watch"). */
+    val watchable: Boolean = true,
 ) {
     /**
      * The name everybody sees: the host's choice, or "<host>'s room".

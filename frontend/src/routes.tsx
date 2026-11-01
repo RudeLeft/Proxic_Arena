@@ -24,6 +24,7 @@ const DecksPage = lazy(() => import("./DecksPage"));
 const LobbyPage = lazy(() => import("./LobbyPage"));
 const HallPage = lazy(() => import("./HallPage"));
 const GamePage = lazy(() => import("./GamePage"));
+const WatchPage = lazy(() => import("./WatchPage"));
 const AccountPage = lazy(() => import("./AccountPage").then((m) => ({ default: m.AccountPage })));
 const Shell = lazy(() => import("./shell/Shell").then((m) => ({ default: m.Shell })));
 
@@ -75,6 +76,7 @@ export function AppRoutes() {
         {/* Spec 0013 — the game on its own page: a refresh draws the game,
             never the lobby first. */}
         <Route path="/game" element={page(<GamePage />)} />
+        <Route path="/watch/:roomId" element={page(<WatchPage />)} />
         <Route path="/decks" element={page(<DecksPage />)} />
         <Route path="/account" element={page(<AccountPage />)} />
         {/* PHASE_07 §7.67 — the page says so to a player; the API

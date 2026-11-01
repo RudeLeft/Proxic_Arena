@@ -197,8 +197,10 @@ fun Route.matchRoutes(
             )
         }
 
+        watchRoute(matches, rooms, assets)
+
         // §6.108 — participants only. Knowing a match id is not
-        // sufficient, and there is no spectator access in Phase 6.
+        // sufficient; spectators come in by room (spec 0047, above).
         get("/{$MATCH_ID}") {
             val matchId =
                 call.parameters[MATCH_ID]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
@@ -216,6 +218,38 @@ fun Route.matchRoutes(
             }
             call.respond(MatchResponse(match.viewFor(callerId())))
         }
+    }
+}
+
+/**
+ * Spec 0047 — watch a room's game: the lobby's Watch button. The match it
+ * is playing, if its room lets people watch and the game is on here; a
+ * player is sent to their own game instead (409).
+ */
+private fun Route.watchRoute(
+    matches: MatchStore,
+    rooms: net.barnflix.proxic.room.RoomService?,
+    assets: MatchAssets,
+) {
+    get("/watch/{roomId}") {
+        val roomId =
+            call.parameters["roomId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?: return@get respondBadRequest("That is not a room id.")
+        val room = rooms?.find(roomId)
+        val match = room?.let { matches.activeMatchOf(it.hostUserId) }?.takeIf { it.roomId == roomId }
+        if (match == null || !mayWatch(match, assets, rooms)) {
+            return@get call.respond(
+                HttpStatusCode.NotFound,
+                ErrorResponse("NOT_WATCHABLE", "That game cannot be watched.", call.callId),
+            )
+        }
+        if (match.participants.any { it.userId == callerId() }) {
+            return@get call.respond(
+                HttpStatusCode.Conflict,
+                ErrorResponse("YOUR_GAME", "This is your own game.", call.callId),
+            )
+        }
+        call.respond(MatchResponse(match.viewFor(callerId())))
     }
 }
 

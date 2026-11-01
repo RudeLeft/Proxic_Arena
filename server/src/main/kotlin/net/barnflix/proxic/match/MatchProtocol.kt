@@ -267,6 +267,15 @@ sealed interface WorkerEvent {
  * should not also know what a WebSocket is.
  */
 interface DecisionAnnouncer {
+    /**
+     * Spec 0047 — to whoever is watching (the public view, a step):
+     * never anything addressed to a player.
+     */
+    suspend fun spectate(
+        matchId: java.util.UUID,
+        message: kotlinx.serialization.json.JsonObject,
+    ) = Unit
+
     /** §6.40 — the viewer's own state, to that viewer alone. */
     suspend fun snapshot(
         matchId: java.util.UUID,

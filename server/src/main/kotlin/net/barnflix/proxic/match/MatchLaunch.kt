@@ -162,6 +162,9 @@ fun interface MatchControl {
  * opponent's deck readable.
  */
 fun interface MatchAssets {
+    /** Spec 0047 — is this match being played on this server now. */
+    fun isLive(matchId: java.util.UUID): Boolean = false
+
     fun mayFetch(
         matchId: java.util.UUID,
         userId: java.util.UUID,

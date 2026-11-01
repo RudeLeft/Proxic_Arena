@@ -2345,3 +2345,25 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     transition: none;
   }
 }
+/* Spec 0047 -- watching: how many are (players), or that you are (a spectator). */
+.gs-watching {
+  /* Just above the ladder, in the rail's gap: the steps keep their places. */
+  position: absolute;
+  right: 0;
+  top: -28px;
+  padding: 1px 8px;
+  border: 1px solid #39424f;
+  border-radius: 999px;
+  color: #c2c9d2;
+  font-size: var(--pa-size-sm);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.gs-stop-watching {
+  white-space: nowrap;
+}
+.gs-seat-hand {
+  display: block;
+  color: #9fb0a7;
+  font-size: var(--pa-size-sm);
+}

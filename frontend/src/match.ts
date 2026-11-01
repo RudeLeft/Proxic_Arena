@@ -354,6 +354,11 @@ export interface Snapshot {
   damage: DamageState | null;
   /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
   reveal?: SnapshotReveal | null;
+  /**
+   * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
+   * face down. `seat` is then the side it is drawn from, not the viewer's.
+   */
+  spectator?: boolean;
 }
 
 /** "reconnecting": dropped and being retried on its own; "closed": refused, reload. */
@@ -397,6 +402,8 @@ export interface MatchState {
    * priority as it used to).
    */
   asking: { seat: number | null } | null;
+  /** Spec 0047 -- how many people are watching (players are told). */
+  watching: number;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -409,6 +416,7 @@ export const EMPTY_MATCH: MatchState = {
   spotlight: null,
   concession: null,
   asking: null,
+  watching: 0,
 };
 
 /**
@@ -426,6 +434,10 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       if (seat === null) return state;
       return { ...state, connection: "open", seat };
     }
+
+    // Spec 0047 -- how many people are watching this game.
+    case "WATCHING":
+      return { ...state, watching: asNumber(message["count"]) ?? 0 };
 
     case "MATCH_SNAPSHOT": {
       const board = asSnapshot(message["state"]);
@@ -599,11 +611,14 @@ function asSnapshot(value: unknown): Snapshot | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
   const revision = asNumber(row["stateRevision"]);
-  const seat = asNumber(row["seat"]);
+  // Spec 0047 -- the public view is seat 0, nobody's; drawn from `viewFrom`.
+  const spectator = row["spectator"] === true;
+  const seat = spectator ? (asNumber(row["viewFrom"]) ?? 1) : asNumber(row["seat"]);
   if (revision === null || seat === null) return null;
   return {
     stateRevision: revision,
     seat,
+    ...(spectator ? { spectator: true } : {}),
     // Absent means the first game: an older worker never restarts.
     gameEpoch: asNumber(row["gameEpoch"]) ?? 1,
     dayTime: asString(row["dayTime"]),

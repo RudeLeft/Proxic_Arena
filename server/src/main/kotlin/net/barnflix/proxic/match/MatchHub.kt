@@ -59,12 +59,36 @@ class MatchWatchers {
         matchId: UUID,
         userId: UUID,
     ): List<Connection> = watchers[matchId]?.get(userId)?.toList().orEmpty()
+
+    /** Spec 0047 — every connection to one match, whoever holds it. */
+    internal fun all(matchId: UUID): List<Connection> = watchers[matchId]?.values?.flatten().orEmpty()
+
+    /** Spec 0047 — how many people (not tabs) are connected to one match. */
+    fun people(matchId: UUID): Int = watchers[matchId]?.size ?: 0
 }
 
 class MatchHub : DecisionAnnouncer {
     private val log = LoggerFactory.getLogger(MatchHub::class.java)
 
     val watchers = MatchWatchers()
+
+    /**
+     * Spec 0047 — the people WATCHING a match, apart from its players.
+     * Kept apart so nothing addressed to a player can reach one: they
+     * are sent the public view and the steps, and nothing else.
+     */
+    val spectators = MatchWatchers()
+
+    override suspend fun spectate(
+        matchId: UUID,
+        message: JsonObject,
+    ) {
+        val text = message.toString()
+        spectators.all(matchId).forEach { connection ->
+            runCatching { connection.outgoing.send(Frame.Text(text)) }
+                .onFailure { log.debug("match $matchId: a spectator connection would not take a frame") }
+        }
+    }
 
     /** Everything leaves the building through here. */
     suspend fun sendTo(
@@ -294,6 +318,8 @@ fun matchHelloMessage(
     envelope("MATCH_HELLO") {
         put("matchId", matchId.toString())
         put("seat", seat)
+        // Spec 0047 — seat 0 is nobody's: a spectator.
+        if (seat == 0) put("spectator", true)
     }
 
 /** The answer went in. Not a game event — a receipt. */

@@ -106,6 +106,8 @@ export interface DirectoryRoom {
   clearsAt: string | null;
   /** Spec 0016 R2 — who the open seat is held for; null when nobody. */
   held: RoomHold | null;
+  /** Spec 0047 — whether people may watch its game (the host's "Let people watch"). */
+  watchable?: boolean;
 }
 
 /** Spec 0016 R2 — an open seat held for somebody: invited, or asking to join. */
@@ -860,6 +862,7 @@ function asDirectory(value: unknown): DirectoryRoom[] {
       seats: seats.sort((a, b) => a.seatNumber - b.seatNumber),
       clearsAt: asString(v["clearsAt"]),
       held: asHold(v["held"]),
+      watchable: v["watchable"] !== false,
     });
   }
   return rooms;
@@ -1204,16 +1207,48 @@ async function roomCall(
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-/** PHASE_07 Amendment 9 — open a room, optionally named; blank is "<you>'s room". */
-export function createRoom(fetchFn: typeof fetch = fetch, name?: string): Promise<RoomResult> {
+/**
+ * PHASE_07 Amendment 9 — open a room, optionally named; blank is "<you>'s
+ * room". Spec 0047 — and whether people may watch its game (on unless
+ * the host says no).
+ */
+export function createRoom(
+  fetchFn: typeof fetch = fetch,
+  name?: string,
+  watchable = true,
+): Promise<RoomResult> {
   const trimmed = name?.trim();
   return roomCall(
     "/api/rooms",
-    trimmed
-      ? { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ name: trimmed }) }
-      : { method: "POST" },
+    {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ ...(trimmed ? { name: trimmed } : {}), watchable }),
+    },
     fetchFn,
   );
+}
+
+/**
+ * Spec 0047 — the game a room is playing, to watch: null when it cannot
+ * be watched (the players said no, it ended, or it is your own game).
+ */
+export async function watchRoom(
+  roomId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MatchView | null> {
+  try {
+    const response = await apiFetch(
+      `/api/matches/watch/${encodeURIComponent(roomId)}`,
+      {},
+      fetchFn,
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as Record<string, unknown>;
+    return asMatch(body["match"]);
+  } catch {
+    return null;
+  }
 }
 
 export function leaveRoom(roomId: string, fetchFn: typeof fetch = fetch): Promise<RoomResult> {

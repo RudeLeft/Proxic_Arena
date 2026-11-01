@@ -1,6 +1,7 @@
 package net.barnflix.proxic.match
 
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.application
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
@@ -42,6 +43,7 @@ fun Route.matchSocket(
     runtime: MatchRuntime,
     hub: MatchHub,
     config: ServerConfig,
+    rooms: net.barnflix.proxic.room.RoomService? = null,
 ) {
     webSocket("/ws/matches/{$MATCH_ID}") {
         // §3.78 — the cookie, and our own page (socketPrincipal).
@@ -57,6 +59,12 @@ fun Route.matchSocket(
         // is no spectator access in Phase 6. A match you are not
         // in and a match that does not exist close the same way:
         // §4.65's lesson, for the sixth phase running.
+        // Spec 0047 — not a player: a spectator, if the game is on here and
+        // its room lets people watch. Sent the public view, never asked.
+        if (match != null && seat == null && mayWatch(match, runtime, rooms)) {
+            spectate(matchId!!, userId, runtime, hub)
+            return@webSocket
+        }
         if (match == null || seat == null) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "not a participant"))
             return@webSocket
@@ -66,6 +74,10 @@ fun Route.matchSocket(
         hub.watchers.open(matchId, userId, connectionId, outgoing)
 
         try {
+            // Spec 0047 — how many are watching, from the start.
+            hub.spectators.people(matchId).takeIf { it > 0 }?.let { count ->
+                send(Frame.Text(watchingMessage(count).toString()))
+            }
             // §6.110 — hello first, and NOT a decision before it.
             send(Frame.Text(matchHelloMessage(matchId, seat).toString()))
 
@@ -100,6 +112,79 @@ fun Route.matchSocket(
             hub.watchers.close(matchId, userId, connectionId)
         }
     }
+}
+
+/**
+ * Spec 0047 — may this (non-player) watch: the match is RUNNING on this
+ * server and its room says people may watch. Asked again at every
+ * connection, so a host who closes the room ends it too.
+ */
+fun mayWatch(
+    match: Match,
+    runtime: MatchAssets,
+    rooms: net.barnflix.proxic.room.RoomService?,
+): Boolean =
+    match.status == MatchStatus.RUNNING &&
+        runtime.isLive(match.matchId) &&
+        rooms?.find(match.roomId)?.watchable == true
+
+/**
+ * Spec 0047 — one spectator connection: the public view (now and as it
+ * changes) and the steps; nothing they send is read. The players are
+ * told how many people are watching as it changes.
+ */
+private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spectate(
+    matchId: UUID,
+    userId: UUID,
+    runtime: MatchRuntime,
+    hub: MatchHub,
+) {
+    val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
+    hub.spectators.open(matchId, userId, connectionId, outgoing)
+    watching(runtime, matchId, userId, on = true, anyoneLeft = true)
+    tellPlayers(matchId, runtime, hub)
+    try {
+        send(Frame.Text(matchHelloMessage(matchId, PUBLIC_SEAT).toString()))
+        runtime.liveMatch(matchId)?.publicSnapshot?.let { state ->
+            send(Frame.Text(snapshotMessage(state).toString()))
+        }
+        askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+        for (frame in incoming) {
+            // A spectator changes nothing: whatever arrives is dropped.
+        }
+    } finally {
+        hub.spectators.close(matchId, userId, connectionId)
+        val stillWatching = hub.spectators.of(matchId, userId).isNotEmpty()
+        watching(runtime, matchId, userId, on = stillWatching, anyoneLeft = hub.spectators.people(matchId) > 0)
+        tellPlayers(matchId, runtime, hub)
+    }
+}
+
+/**
+ * Spec 0047 — somebody started (or the last one stopped) watching: they
+ * may fetch the public view's pictures, and the worker builds the public
+ * view only while it is wanted.
+ */
+private fun watching(
+    runtime: MatchRuntime,
+    matchId: UUID,
+    userId: UUID,
+    on: Boolean,
+    anyoneLeft: Boolean,
+) {
+    val running = runtime.liveMatch(matchId) ?: return
+    if (on) running.spectators.add(userId) else running.spectators.remove(userId)
+    running.worker?.watched(on || anyoneLeft)
+}
+
+private suspend fun tellPlayers(
+    matchId: UUID,
+    runtime: MatchRuntime,
+    hub: MatchHub,
+) {
+    val players = runtime.liveMatch(matchId)?.match?.participants?.map { it.userId }?.distinct().orEmpty()
+    val message = watchingMessage(hub.spectators.people(matchId))
+    players.forEach { player -> hub.sendTo(matchId, player, message) }
 }
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -164,3 +249,17 @@ private fun handle(
 
 private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
     if (this is kotlinx.serialization.json.JsonNull) null else content
+
+/**
+ * §6.162 — a stopping server takes its match workers with it. Each is
+ * ~611 MB; leaving them behind would outlive the thing that knows they
+ * exist.
+ */
+fun stopMatchesWithServer(
+    route: Route,
+    matchRuntime: MatchRuntime,
+) {
+    route.application.environment.monitor.subscribe(io.ktor.server.application.ApplicationStopped) {
+        matchRuntime.stopAll()
+    }
+}

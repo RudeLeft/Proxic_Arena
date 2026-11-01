@@ -551,6 +551,13 @@ public final class WorkerMain {
                 reply.add("options", options);
                 send(reply);
             }
+            case "WATCHED" -> {
+                // Spec 0047 -- the server has spectators for this game (or
+                // no longer has): build the public view, sent as seat 0.
+                if (GAME != null) {
+                    GAME.setWatched(request.has("on") && request.get("on").getAsBoolean());
+                }
+            }
             case "CONCEDE" -> {
                 // PHASE_07 §7.55 — `seat` is the server's, resolved
                 // from the authenticated user. Forge's concession;

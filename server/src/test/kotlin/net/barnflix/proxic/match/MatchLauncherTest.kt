@@ -651,7 +651,7 @@ class MatchLauncherTest {
             val after = rooms.find(room.roomId)!!
             assertEquals(RoomStatus.OPEN, after.status)
             assertTrue(after.members.none { it.ready }, "somebody was left ready")
-            assertEquals(false, runtime.isRunning(matchId), "the runtime still holds the match")
+            assertEquals(false, runtime.isLive(matchId), "the runtime still holds the match")
 
             val stillThere = ProcessHandle.of(pid).map { it.isAlive }.orElse(false)
             assertEquals(false, stillThere, "the worker process $pid outlived its match")

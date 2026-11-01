@@ -66,6 +66,8 @@ class MatchRuntime(
         val running = live[matchId] ?: return false
         val seat =
             running.match.participants.firstOrNull { it.userId == userId }?.seatNumber
+                // Spec 0047 — a spectator, what the public view showed.
+                ?: PUBLIC_SEAT.takeIf { userId in running.spectators }
                 ?: return false
         return running.art.mayFetch(seat, assetId)
     }
@@ -265,7 +267,8 @@ class MatchRuntime(
         endings.abandoned(match)
     }
 
-    fun isRunning(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true
+    /** Its worker is alive: being played on this server now (spec 0047: may be watched). */
+    override fun isLive(matchId: UUID): Boolean = live[matchId]?.worker?.isAlive() == true
 
     /** PHASE_07 §7.67 — how many games this server is playing right now. */
     val runningCount: Int get() = live.values.count { it.worker?.isAlive() == true }

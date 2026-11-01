@@ -104,6 +104,16 @@ class LiveMatch(
         snapshots[seat] = state
     }
 
+    /** Spec 0047 — the latest public view, for a spectator who just arrived. */
+    val publicSnapshot: kotlinx.serialization.json.JsonObject?
+        get() = snapshots[PUBLIC_SEAT] as? kotlinx.serialization.json.JsonObject
+
+    /**
+     * Spec 0047 — who is watching (allowed to fetch the pictures the
+     * public view showed). Added when their connection opens.
+     */
+    val spectators: MutableSet<UUID> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
     fun snapshotFor(userId: UUID): kotlinx.serialization.json.JsonObject? {
         val seat = seatOf(userId) ?: return null
         return snapshots[seat] as? kotlinx.serialization.json.JsonObject

@@ -12,7 +12,9 @@
 
 import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -119,11 +121,14 @@ export function GameScreen({
   match,
   me,
   onLeave,
+  watching = false,
 }: {
   match: MatchView;
   me: string;
   /** Back to the lobby, once the game is over. */
   onLeave: () => void;
+  /** Spec 0047 -- a spectator: the public table, never asked, nothing to send. */
+  watching?: boolean;
 }) {
   const mine = match.participants.find((seat) => seat.userId === me);
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
@@ -374,7 +379,7 @@ export function GameScreen({
   const castingDocked =
     !!casting && casting.seat === board?.seat && docks(decision, question, casting.id);
   const castingHiddenBy =
-    casting && board && casting.seat !== board.seat
+    casting && board && (casting.seat !== board.seat || board.spectator)
       ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
       : null;
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
@@ -801,289 +806,311 @@ export function GameScreen({
   const objectName = (id: string) => nameOf(board, id);
 
   return (
-    <section className="gs-screen" aria-label="Your match">
-      <h1 className="pa-visually-hidden">Your match</h1>
-      {data && board ? (
-        <Board
-          battlefield={data.battlefield}
-          hand={data.hand}
-          opponentHand={data.opponentHand}
-          opponentName={board.players.find((p) => p.seat !== board.seat)?.name}
-          onOpponentHand={
-            data.opponentHand.some((card) => card.shown)
-              ? () => {
-                  const them = board.players.find((p) => p.seat !== board.seat);
-                  if (them) setViewer({ seat: them.seat, zone: "hand" });
+    <SeatsContext.Provider value={match.participants}>
+      <section className="gs-screen" aria-label="Your match">
+        <h1 className="pa-visually-hidden">Your match</h1>
+        {data && board ? (
+          <Board
+            battlefield={data.battlefield}
+            hand={data.hand}
+            opponentHand={data.opponentHand}
+            opponentName={board.players.find((p) => p.seat !== board.seat)?.name}
+            onOpponentHand={
+              data.opponentHand.some((card) => card.shown)
+                ? () => {
+                    const them = board.players.find((p) => p.seat !== board.seat);
+                    if (them) setViewer({ seat: them.seat, zone: "hand" });
+                  }
+                : undefined
+            }
+            viewerSeat={board.seat}
+            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            arrivals={data.arrivals}
+            departures={data.departures}
+            combat={data.combat}
+            stack={stackShown}
+            clock={counting && windowId !== null ? String(windowId) : null}
+            clockMs={RESPONSE_WINDOW_MS}
+            handCosts={handCosts}
+            damage={data.damage}
+            onPick={pick}
+            onInspect={setInspecting}
+            choosable={choosable}
+            unpayable={unpayable}
+            selected={selected}
+            asking={question?.context === "choose"}
+            rail={
+              <Rail
+                board={board}
+                question={question}
+                mySeat={board.seat}
+                asking={game.asking}
+                busy={busy}
+                onPick={pick}
+                onPass={() => answer(null)}
+                combat={
+                  decision && question && COMBAT_KINDS.has(decision.kind) && !listOpen
+                    ? {
+                        kind: decision.kind,
+                        heading:
+                          decision.actedForSeat === mine?.seatNumber
+                            ? headingFor(decision.kind)
+                            : `Playing for seat ${decision.actedForSeat}`,
+                        ...combatWords(decision.kind, board, board.seat),
+                        all: decision.options.find((o) => o.actionId === ALL_ATTACK) ?? null,
+                        canPass: question.canPass,
+                        notice: game.notice,
+                      }
+                    : null
                 }
-              : undefined
-          }
-          viewerSeat={board.seat}
-          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
-          arrivals={data.arrivals}
-          departures={data.departures}
-          combat={data.combat}
-          stack={stackShown}
-          clock={counting && windowId !== null ? String(windowId) : null}
-          clockMs={RESPONSE_WINDOW_MS}
-          handCosts={handCosts}
-          damage={data.damage}
-          onPick={pick}
-          onInspect={setInspecting}
-          choosable={choosable}
-          unpayable={unpayable}
-          selected={selected}
-          asking={question?.context === "choose"}
-          rail={
-            <Rail
-              board={board}
-              question={question}
-              mySeat={board.seat}
-              asking={game.asking}
-              busy={busy}
-              onPick={pick}
-              onPass={() => answer(null)}
-              combat={
-                decision && question && COMBAT_KINDS.has(decision.kind) && !listOpen
-                  ? {
-                      kind: decision.kind,
-                      heading:
-                        decision.actedForSeat === mine?.seatNumber
-                          ? headingFor(decision.kind)
-                          : `Playing for seat ${decision.actedForSeat}`,
-                      ...combatWords(decision.kind, board, board.seat),
-                      all: decision.options.find((o) => o.actionId === ALL_ATTACK) ?? null,
-                      canPass: question.canPass,
-                      notice: game.notice,
-                    }
-                  : null
-              }
-              cancel={
-                decision &&
-                question &&
-                CANCEL_KINDS.has(decision.kind) &&
-                question.canPass &&
-                !listOpen
-                  ? cancelWords(decision.about)
-                  : null
-              }
-              onAnswer={answer}
-              countdown={countdown}
-              onResolveAll={() => {
-                setResolveAll(new Set(board.stack.map((entry) => entry.id)));
-                answer(null);
-              }}
-              onView={setViewer}
-              finished={finished}
-              outcome={match.outcome}
-            />
-          }
-          overlay={(at, geometry) => {
-            atRef.current = at;
-            return (
-              <>
-                {casting && (
-                  <CastingCard
-                    key={casting.id}
-                    card={casting}
-                    geometry={geometry}
-                    from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
-                    owing={
-                      decision?.kind === "applyManaToCost"
-                        ? stillOwing(decision.options.map((o) => o.label))
-                        : null
-                    }
-                    artUrl={artUrl}
-                    docked={castingDocked}
-                    hiddenBy={castingHiddenBy}
-                  />
-                )}
-                {flight &&
-                  (() => {
-                    const onStack = board?.stack.find((entry) => entry.source === flight.card.id);
-                    return (
-                      <CastingFlight
-                        key={flight.key}
-                        card={flight.card}
-                        geometry={geometry}
-                        to={at(onStack?.id ?? flight.card.id)}
-                        artUrl={artUrl}
-                        onDone={() => setFlight(null)}
-                        docked={flight.docked}
-                        reveal={flight.reveal}
-                        hidden={flight.hidden}
-                      />
-                    );
-                  })()}
-                {reveal && (
-                  <RevealTray
-                    reveal={reveal}
-                    geometry={geometry}
-                    atTop={windowed}
-                    artUrl={artUrl}
-                    onClose={() => setClosedReveal(reveal.key)}
-                  />
-                )}
-                {gameWindow(geometry)}
-                {blockChooser ? (
-                  <BlockManyChooser
-                    box={at(blockChooser.at)}
-                    state={blockChooser}
-                    busy={busy}
-                    onChange={(n) => setBlockChooser({ ...blockChooser, n })}
-                    onBlock={blockMany}
-                  />
-                ) : why && !offer ? (
-                  <WhyNot box={at(why.objectId)} text={why.text} />
-                ) : selected && offer ? (
-                  <ActionPopup
-                    box={at(selected)}
-                    name={objectName(selected)}
-                    options={offer}
-                    busy={busy}
-                    onChoose={answer}
-                    onInspect={() => setInspecting(selected)}
-                    onClose={() => {
-                      setSelected(null);
-                      setOffer(null);
-                    }}
-                  />
-                ) : null}
-              </>
-            );
-          }}
-        />
-      ) : !ringDue ? null : (
-        <LoadingRing
-          words={
-            finished
-              ? "The game is over."
-              : reconnecting
-                ? "Reconnecting to the game…"
-                : match.status === "LAUNCHING"
-                  ? "Setting up the table…"
-                  : "Shuffling up and dealing…"
-          }
-        />
-      )}
+                cancel={
+                  decision &&
+                  question &&
+                  CANCEL_KINDS.has(decision.kind) &&
+                  question.canPass &&
+                  !listOpen
+                    ? cancelWords(decision.about)
+                    : null
+                }
+                onAnswer={answer}
+                countdown={countdown}
+                onResolveAll={() => {
+                  setResolveAll(new Set(board.stack.map((entry) => entry.id)));
+                  answer(null);
+                }}
+                onView={setViewer}
+                finished={finished}
+                outcome={match.outcome}
+                watching={game.watching}
+              />
+            }
+            overlay={(at, geometry) => {
+              atRef.current = at;
+              return (
+                <>
+                  {casting && (
+                    <CastingCard
+                      key={casting.id}
+                      card={casting}
+                      geometry={geometry}
+                      from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
+                      owing={
+                        decision?.kind === "applyManaToCost"
+                          ? stillOwing(decision.options.map((o) => o.label))
+                          : null
+                      }
+                      artUrl={artUrl}
+                      docked={castingDocked}
+                      hiddenBy={castingHiddenBy}
+                    />
+                  )}
+                  {flight &&
+                    (() => {
+                      const onStack = board?.stack.find((entry) => entry.source === flight.card.id);
+                      return (
+                        <CastingFlight
+                          key={flight.key}
+                          card={flight.card}
+                          geometry={geometry}
+                          to={at(onStack?.id ?? flight.card.id)}
+                          artUrl={artUrl}
+                          onDone={() => setFlight(null)}
+                          docked={flight.docked}
+                          reveal={flight.reveal}
+                          hidden={flight.hidden}
+                        />
+                      );
+                    })()}
+                  {reveal && (
+                    <RevealTray
+                      reveal={reveal}
+                      geometry={geometry}
+                      atTop={windowed}
+                      artUrl={artUrl}
+                      onClose={() => setClosedReveal(reveal.key)}
+                    />
+                  )}
+                  {gameWindow(geometry)}
+                  {blockChooser ? (
+                    <BlockManyChooser
+                      box={at(blockChooser.at)}
+                      state={blockChooser}
+                      busy={busy}
+                      onChange={(n) => setBlockChooser({ ...blockChooser, n })}
+                      onBlock={blockMany}
+                    />
+                  ) : why && !offer ? (
+                    <WhyNot box={at(why.objectId)} text={why.text} />
+                  ) : selected && offer ? (
+                    <ActionPopup
+                      box={at(selected)}
+                      name={objectName(selected)}
+                      options={offer}
+                      busy={busy}
+                      onChoose={answer}
+                      onInspect={() => setInspecting(selected)}
+                      onClose={() => {
+                        setSelected(null);
+                        setOffer(null);
+                      }}
+                    />
+                  ) : null}
+                </>
+              );
+            }}
+          />
+        ) : !ringDue ? null : (
+          <LoadingRing
+            words={
+              finished
+                ? "The game is over."
+                : reconnecting
+                  ? "Reconnecting to the game…"
+                  : match.status === "LAUNCHING"
+                    ? "Setting up the table…"
+                    : "Shuffling up and dealing…"
+            }
+          />
+        )}
 
-      <div className="gs-corner">
-        {/* Owner 2026-10-24: not over the loading screen, which has the
+        <div className="gs-corner">
+          {/* Owner 2026-10-24: not over the loading screen, which has the
             logo in its ring already. */}
-        {data && board && <img className="gs-logo" src={logo} alt="Proxic Arena" />}
-        {/* Owner 2026-10-22: nothing written under the logo -- the screen
+          {data && board && <img className="gs-logo" src={logo} alt="Proxic Arena" />}
+          {/* Owner 2026-10-22: nothing written under the logo -- the screen
             stays clean. Still said to a screen reader. */}
-        <p className="gs-status pa-visually-hidden" role="status">
-          {finished
-            ? "Game over."
-            : match.status === "LAUNCHING"
-              ? game.decision
-                ? "Setting the game up — and it needs an answer from you."
-                : "Starting the game."
-              : "The game is running."}
-        </p>
-      </div>
+          <p className="gs-status pa-visually-hidden" role="status">
+            {finished
+              ? "Game over."
+              : match.status === "LAUNCHING"
+                ? game.decision
+                  ? "Setting the game up — and it needs an answer from you."
+                  : "Starting the game."
+                : "The game is running."}
+          </p>
+        </div>
 
-      {/* Owner 2026-10-21: the game's controls at the bottom left, where no
+        {/* Owner 2026-10-21: the game's controls at the bottom left, where no
           card is drawn -- a gear (Concede, Abandon; spec 0035 took Stops out). The chat opens
           from its tab on the left edge, which pulses for a new message
           (owner 2026-10-28: no chat icon here). */}
-      <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
-        <GameMenu
-          match={match}
-          report={reportGame}
-          live={live && !finished}
-          choices={decision ? decision.options.length : null}
-          listOpen={listOpen}
-          onList={() => setListOpen((open) => !open)}
-          concession={finished ? null : concessionText(game.concession)}
-          onConcede={() => {
-            setGame((previous) => ({ ...previous, concession: null }));
-            socketRef.current?.concede();
-          }}
-        />
-      </div>
-
-      {live && reconnecting && !finished && (
-        <div className="gs-banner pa-notice pa-notice-warn" role="status">
-          <span aria-hidden="true" className="pa-notice-mark" />
-          <span className="pa-notice-text">
-            Reconnecting to the game… It is still running, and nothing is answered for you while you
-            are away.
-          </span>
+        <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
+          {/* Spec 0047 -- a spectator concedes nothing: they can only leave. */}
+          {watching ? (
+            <button
+              type="button"
+              className="pa-button pa-button-quiet gs-stop-watching"
+              onClick={onLeave}
+            >
+              Stop watching
+            </button>
+          ) : (
+            <GameMenu
+              match={match}
+              report={reportGame}
+              live={live && !finished}
+              choices={decision ? decision.options.length : null}
+              listOpen={listOpen}
+              onList={() => setListOpen((open) => !open)}
+              concession={finished ? null : concessionText(game.concession)}
+              onConcede={() => {
+                setGame((previous) => ({ ...previous, concession: null }));
+                socketRef.current?.concede();
+              }}
+            />
+          )}
         </div>
-      )}
-      {live && game.connection === "closed" && !finished && (
-        <div className="gs-banner pa-notice pa-notice-bad" role="alert">
-          <span aria-hidden="true" className="pa-notice-mark" />
-          <span className="pa-notice-text">
-            You are no longer connected to the game. Reload the page — the game is still running and
-            nothing has been answered for you.
-          </span>
-        </div>
-      )}
 
-      {decision && question && !windowed && (
-        <QuestionBar
-          decision={decision}
-          question={question}
-          mySeat={mine?.seatNumber ?? null}
-          busy={busy}
-          notice={game.notice}
-          onAnswer={answer}
-          onSearch={search}
-          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
-        />
-      )}
+        {live && reconnecting && !finished && (
+          <div className="gs-banner pa-notice pa-notice-warn" role="status">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">
+              Reconnecting to the game… It is still running, and nothing is answered for you while
+              you are away.
+            </span>
+          </div>
+        )}
+        {live && game.connection === "closed" && !finished && (
+          <div className="gs-banner pa-notice pa-notice-bad" role="alert">
+            <span aria-hidden="true" className="pa-notice-mark" />
+            <span className="pa-notice-text">
+              You are no longer connected to the game. Reload the page — the game is still running
+              and nothing has been answered for you.
+            </span>
+          </div>
+        )}
 
-      {board && <Notices board={board} />}
+        {decision && question && !windowed && (
+          <QuestionBar
+            decision={decision}
+            question={question}
+            mySeat={mine?.seatNumber ?? null}
+            busy={busy}
+            notice={game.notice}
+            onAnswer={answer}
+            onSearch={search}
+            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+          />
+        )}
 
-      {inspecting && board && board.stack.some((entry) => entry.id === inspecting) && (
-        <StackInspect
-          board={board}
-          id={inspecting}
-          mySeat={mine?.seatNumber ?? null}
-          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
-          onClose={() => setInspecting(null)}
-        />
-      )}
+        {board && <Notices board={board} />}
 
-      {/* A stack object that has resolved is gone, and so is its close-up. */}
-      {inspecting && board && !inspecting.startsWith("stack:") && (
-        <Inspect
-          card={cardOf(board, inspecting)}
-          name={objectName(inspecting)}
-          costNow={handCosts.get(inspecting) ?? null}
-          artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
-          onClose={() => setInspecting(null)}
-        />
-      )}
+        {inspecting && board && board.stack.some((entry) => entry.id === inspecting) && (
+          <StackInspect
+            board={board}
+            id={inspecting}
+            mySeat={mine?.seatNumber ?? null}
+            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            onClose={() => setInspecting(null)}
+          />
+        )}
 
-      {viewer && board && (
-        <ZoneViewer
-          board={board}
-          seat={viewer.seat}
-          zone={viewer.zone}
-          onInspect={setInspecting}
-          onClose={() => setViewer(null)}
-        />
-      )}
+        {/* A stack object that has resolved is gone, and so is its close-up. */}
+        {inspecting && board && !inspecting.startsWith("stack:") && (
+          <Inspect
+            card={cardOf(board, inspecting)}
+            name={objectName(inspecting)}
+            costNow={handCosts.get(inspecting) ?? null}
+            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            onClose={() => setInspecting(null)}
+          />
+        )}
 
-      {drawn && <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />}
+        {viewer && board && (
+          <ZoneViewer
+            board={board}
+            seat={viewer.seat}
+            zone={viewer.zone}
+            onInspect={setInspecting}
+            onClose={() => setViewer(null)}
+          />
+        )}
 
-      {finished && (
-        <div className="gs-over" role="dialog" aria-modal="false" aria-labelledby="gs-over-title">
-          <h2 id="gs-over-title" className="gs-over-title">
-            {board ? `Game over · it ended on turn ${board.turn}` : "Game over"}
-          </h2>
-          <p className="gs-over-text">{resultText(match, mine?.seatNumber ?? null)}</p>
-          <button type="button" className="pa-button pa-button-brass" onClick={onLeave}>
-            Back to the lobby
-          </button>
-        </div>
-      )}
-    </section>
+        {drawn && !watching && (
+          <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />
+        )}
+
+        {finished && (
+          <div className="gs-over" role="dialog" aria-modal="false" aria-labelledby="gs-over-title">
+            <h2 id="gs-over-title" className="gs-over-title">
+              {board ? `Game over · it ended on turn ${board.turn}` : "Game over"}
+            </h2>
+            <p className="gs-over-text">{resultText(match, mine?.seatNumber ?? null)}</p>
+            <button type="button" className="pa-button pa-button-brass" onClick={onLeave}>
+              Back to the lobby
+            </button>
+          </div>
+        )}
+      </section>
+    </SeatsContext.Provider>
   );
 }
+
+/**
+ * Spec 0047 -- who sits where, for the plates' pictures: the match on the
+ * screen, which a spectator has although the lobby holds no match of theirs.
+ */
+const SeatsContext = createContext<MatchView["participants"] | null>(null);
 
 // --- helpers -----------------------------------------------------------------------
 
@@ -1127,7 +1154,16 @@ const ROW_PX = 22;
  * rail (S1); the glowing gem sweeps to the step the game is in (M2), and
  * at a new turn the steps dim and it starts again from the top (M4).
  */
-function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
+function StepLadder({
+  board,
+  mySeat,
+  watching = 0,
+}: {
+  board: Snapshot;
+  mySeat: number;
+  /** Spec 0047 -- how many people are watching this game. */
+  watching?: number;
+}) {
   const target = STEPS.findIndex((step) => step.phases.includes(board.phase));
   // Owner 2026-10-22: steps nobody stops at went by in one jump, and the
   // game felt fast-forwarded. The gem sweeps over every step passed, the
@@ -1175,8 +1211,13 @@ function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
   }, [board.turn, target]);
   const now = shown.index;
   const mine = board.activeSeat === mySeat;
-  // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name.
-  const whose = mine ? "Your turn" : "Opponent’s turn";
+  // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name --
+  // except to a spectator (spec 0047), whose turn it is nobody's.
+  const whose = board.spectator
+    ? `${board.players.find((p) => p.seat === board.activeSeat)?.name ?? "Their"}’s turn`
+    : mine
+      ? "Your turn"
+      : "Opponent’s turn";
   const part = combatPart(board.phase);
   // The passed gems fill in order as the gem goes over them.
   const delayOf = (i: number) =>
@@ -1202,6 +1243,13 @@ function StepLadder({ board, mySeat }: { board: Snapshot; mySeat: number }) {
         </span>
         <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
       </div>
+      {/* Spec 0047 -- players see how many are watching; a spectator that
+          they are. Its own line, so whose turn it is keeps the head. */}
+      {(board.spectator || watching > 0) && (
+        <span className="gs-watching" role="status">
+          {board.spectator ? "You are watching" : `${watching} watching`}
+        </span>
+      )}
       {/* data-step: the step the game is IN; the highlight may still be
           walking towards it. */}
       <div className={`gs-steps-rail${shown.still ? " gs-steps-still" : ""}`}>
@@ -1279,7 +1327,8 @@ function SeatBlock({
   const active = board.activeSeat === player.seat;
   // Spec 0013 (G1) — the player's own picture, beside their life total.
   const { lobby } = useLobbyConnection();
-  const seatedAs = lobby.match?.participants.find((p) => p.seatNumber === player.seat)?.userId;
+  const seats = useContext(SeatsContext) ?? lobby.match?.participants;
+  const seatedAs = seats?.find((p) => p.seatNumber === player.seat)?.userId;
   const priority = board.prioritySeat === player.seat;
   const choosable = Boolean(question?.onBoard.has(id));
   // The spell resolving next targets this player: their life total glows
@@ -1315,6 +1364,8 @@ function SeatBlock({
         <span className="gs-seat-who">
           {/* Spec 0041: 12 characters in full, smaller if need be. */}
           <FitName className="gs-seat-name" name={player.name} />
+          {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
+          {board.spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
           {/* Under the name: who may act (the dot) and the Belt, so the
               name keeps the whole row. */}
           {(priority || holdsBelt(lobby, seatedAs)) && (
@@ -1659,6 +1710,7 @@ function Rail({
   onView,
   finished,
   outcome,
+  watching = 0,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -1682,6 +1734,8 @@ function Rail({
   finished: boolean;
   /** Spec 0034 — who won, for the game-over box. */
   outcome: MatchOutcome | null;
+  /** Spec 0047 — how many people are watching. */
+  watching?: number;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -1707,7 +1761,7 @@ function Rail({
         />
       )}
 
-      <StepLadder board={board} mySeat={mySeat} />
+      <StepLadder board={board} mySeat={mySeat} watching={watching} />
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone). */}

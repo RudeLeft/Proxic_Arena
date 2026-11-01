@@ -70,7 +70,9 @@ final class ViewerSnapshot {
             java.util.List<String> notices,
             int gameEpoch,
             Causes causes) {
-        PlayerView viewing = viewer.getView();
+        // Spec 0047 -- a null viewer is the PUBLIC view, for spectators:
+        // nobody's hand, no library, nothing face down, no notices.
+        PlayerView viewing = viewer == null ? null : viewer.getView();
 
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("stateRevision", revision);
@@ -97,7 +99,14 @@ final class ViewerSnapshot {
         // ring and dot).
         Player priority = game.getPhaseHandler().getPriorityPlayer();
         snapshot.addProperty("prioritySeat", priority == null ? 0 : seatOf.getOrDefault(priority, 0));
-        snapshot.addProperty("seat", seatOf.getOrDefault(viewer, 0));
+        if (viewer == null) {
+            // Seat 0, nobody's; drawn from the first seat's side of the table.
+            snapshot.addProperty("seat", GameHost.PUBLIC_SEAT);
+            snapshot.addProperty("spectator", true);
+            snapshot.addProperty("viewFrom", seatOf.values().stream().mapToInt(Integer::intValue).min().orElse(1));
+        } else {
+            snapshot.addProperty("seat", seatOf.getOrDefault(viewer, 0));
+        }
 
         JsonArray players = new JsonArray();
         for (Player player : game.getRegisteredPlayers()) {
@@ -227,7 +236,7 @@ final class ViewerSnapshot {
         // The viewer's OWN hand. Not filtered in the browser:
         // nobody else's cards are put on the wire at all.
         JsonArray hand = new JsonArray();
-        for (Card card : viewer.getCardsIn(ZoneType.Hand)) {
+        for (Card card : viewer == null ? java.util.List.<Card>of() : viewer.getCardsIn(ZoneType.Hand)) {
             hand.add(describe(card, viewing, seatOf));
         }
         snapshot.add("hand", hand);
@@ -351,7 +360,7 @@ final class ViewerSnapshot {
         // Spec 0045 -- the cards Forge last showed THIS viewer (Goblin
         // Ringleader's four), face up because Forge revealed them to
         // this seat, each with where it went once that is settled.
-        if (causes != null) {
+        if (causes != null && viewer != null) {
             JsonObject reveal = causes.revealFor(seatOf.getOrDefault(viewer, 0),
                     card -> describe(card, viewing, seatOf, true));
             if (reveal != null) {
@@ -547,6 +556,26 @@ final class ViewerSnapshot {
 
     private static final String DOUBLED_FROM = "Protection from from ";
 
+    /**
+     * Spec 0047 -- may ANYBODY see this card: Forge says EVERY player may
+     * (both questions, HID-002), so it is on the table for all. Forge
+     * answers "no" for a viewer of nobody, so the public view asks it per
+     * player: a hand card (its owner only) and a face-down creature (its
+     * controller only) stay hidden.
+     */
+    private static boolean publicly(CardView view, java.util.Set<Player> players) {
+        if (players.isEmpty()) {
+            return false;
+        }
+        for (Player each : players) {
+            PlayerView who = each.getView();
+            if (!(view.canBeShownTo(who) && view.canFaceDownBeShownTo(who))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** A card as [viewer] may know it -- a question's "looking at" cards (spec 0001 D3). */
     static JsonObject describeFor(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         return describe(card, viewer, seatOf);
@@ -578,8 +607,10 @@ final class ViewerSnapshot {
         entry.addProperty("tapped", view.isTapped());
         entry.addProperty("faceDown", view.isFaceDown());
 
-        boolean maySee = (shown && !view.isFaceDown())
-                || (view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer));
+        boolean maySee = viewer == null
+                ? publicly(view, seatOf.keySet())
+                : (shown && !view.isFaceDown())
+                        || (view.canBeShownTo(viewer) && view.canFaceDownBeShownTo(viewer));
         entry.addProperty("known", maySee);
 
         if (!maySee) {

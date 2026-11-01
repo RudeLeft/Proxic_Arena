@@ -504,22 +504,17 @@ private fun Route.databaseRoutes(
             roomAnnouncer = lobby,
             decisions = matchHub,
         )
-    application.environment.monitor.subscribe(ApplicationStopped) {
-        // §6.162 — a stopping server takes its match workers
-        // with it. Each is ~611 MB; leaving them behind would
-        // outlive the thing that knows they exist.
-        matchRuntime.stopAll()
-    }
+    net.barnflix.proxic.match.stopMatchesWithServer(this, matchRuntime)
 
     userSocket(sessions, config, lobby)
 
-    // §6.108 — participants only, checked per match.
     matchSocket(
         sessions,
         net.barnflix.proxic.match.MatchStore(database.dataSource()),
         matchRuntime,
         matchHub,
         config,
+        roomService,
     )
 
     route("/api") {

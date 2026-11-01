@@ -298,7 +298,7 @@ export default function LobbyPage() {
           library={library}
           busy={busy}
           starting={starting}
-          onOpen={(name) => void run(() => createRoom(fetch, name))}
+          onOpen={(name, watchable) => void run(() => createRoom(fetch, name, watchable))}
           onAccept={(roomId) => send({ type: "INVITE_ACCEPT", roomId })}
           onDecline={() => send({ type: "INVITE_DECLINE" })}
           onAsk={(roomId) => send({ type: "JOIN_ASK", roomId })}
@@ -591,7 +591,7 @@ function RoomsColumn({
   library: DeckLibrary;
   busy: boolean;
   starting: boolean;
-  onOpen: (name: string) => void;
+  onOpen: (name: string, watchable: boolean) => void;
   onAccept: (roomId: string) => void;
   onDecline: () => void;
   onAsk: (roomId: string) => void;
@@ -606,6 +606,8 @@ function RoomsColumn({
   onLeave: () => void;
 }) {
   const [name, setName] = useState("");
+  // Spec 0047 — "Let people watch", on to start.
+  const [watchable, setWatchable] = useState(true);
   const nameId = useId();
   // Re-read the clock each minute so "Closes in" stays honest.
   const now = useMinute();
@@ -623,7 +625,7 @@ function RoomsColumn({
 
   const open = (event: FormEvent) => {
     event.preventDefault();
-    onOpen(name);
+    onOpen(name, watchable);
     setName("");
   };
 
@@ -673,6 +675,15 @@ function RoomsColumn({
             <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
               Open a room
             </button>
+            {/* Spec 0047 — whether people may watch the game, on to start. */}
+            <label className="pa-open-watch">
+              <input
+                type="checkbox"
+                checked={watchable}
+                onChange={(event) => setWatchable(event.target.checked)}
+              />
+              Let people watch
+            </label>
           </form>
         </section>
       )}
@@ -828,6 +839,19 @@ function RoomCard({
         </span>
         {closes && <span className="pa-room-closes">{closes}</span>}
         <span className="pa-room-action">
+          {/* Spec 0047 — a game being played: watch it, if its players allow. */}
+          {room.status === "IN_MATCH" &&
+            !room.seats.some((seat) => seat.userId === me) &&
+            (room.watchable !== false ? (
+              <Link
+                className="pa-button pa-button-quiet pa-room-watch"
+                to={`/watch/${room.roomId}`}
+              >
+                Watch
+              </Link>
+            ) : (
+              <span className="pa-room-note">Players said no watching</span>
+            ))}
           {action.kind === "invited" && (
             <>
               <button

@@ -459,6 +459,9 @@ fun MatchWorker.answer(
     actionId: String?,
 ): Boolean = forward(decisionResponseFrame(decisionId, seat, stateVersion, actionId), "an answer")
 
+/** Spec 0047 — somebody is watching (or nobody now): the public view on or off. */
+fun MatchWorker.watched(on: Boolean): Boolean = forward(watchedFrame(on), "watching")
+
 /** §7.55 — forward a concession the server authorised. Forge ends the game. */
 fun MatchWorker.concede(seat: Int): Boolean = forward(concedeFrame(seat), "a concession")
 

@@ -75,6 +75,8 @@ data class RoomView(
     val revision: Long,
     val everyoneReady: Boolean,
     val members: List<RoomMemberView>,
+    /** Spec 0047 — whether people may watch its game. */
+    val watchable: Boolean = true,
 )
 
 /**
@@ -94,6 +96,7 @@ fun Room.viewFor(viewerId: UUID): RoomView =
         status = status.name,
         revision = revision,
         everyoneReady = everyoneReady(),
+        watchable = watchable,
         members =
             members.map { member ->
                 RoomMemberView(

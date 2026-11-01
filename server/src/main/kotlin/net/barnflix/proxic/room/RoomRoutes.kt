@@ -59,7 +59,11 @@ data class ReadyRequest(
 
 /** PHASE_07 Amendment 9 — the body is optional, and so is the name. */
 @Serializable
-data class CreateRoomRequest(val name: String? = null)
+data class CreateRoomRequest(
+    val name: String? = null,
+    /** Spec 0047 — "Let people watch"; on unless the host says no. */
+    val watchable: Boolean = true,
+)
 
 @Serializable
 data class PlayerCountRequest(
@@ -106,7 +110,8 @@ private fun Route.lifecycleRoutes(
     // §5.14 — create a room and sit down in it. The host is a player
     // (§5.16), so there is no separate "take a seat" step.
     post {
-        val name = RoomNames.typed(runCatching { call.receive<CreateRoomRequest>() }.getOrNull()?.name)
+        val request = runCatching { call.receive<CreateRoomRequest>() }.getOrNull()
+        val name = RoomNames.typed(request?.name)
         if (name != null && !RoomNames.valid(name)) {
             return@post call.respond(
                 HttpStatusCode.UnprocessableEntity,
@@ -117,7 +122,7 @@ private fun Route.lifecycleRoutes(
                 ),
             )
         }
-        when (val result = rooms.create(callerId(), name)) {
+        when (val result = rooms.create(callerId(), name, request?.watchable ?: true)) {
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)

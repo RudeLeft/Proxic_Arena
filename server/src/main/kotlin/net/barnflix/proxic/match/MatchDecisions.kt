@@ -36,20 +36,26 @@ class MatchDecisions(
                     everyone(live) { user -> announcer.asking(live.match.matchId, user, null) }
                 }
 
-            is WorkerEvent.Snapshot -> {
-                // §6.121 — the asset step, and the only place it
-                // happens. Annotating BEFORE storing means a
-                // reconnecting player gets the same references as
-                // the one who never left, and that sending IS what
-                // authorises the fetch (§6.129).
-                val state = live.art.annotate(event.state, event.seat)
-                live.snapshotTaken(event.seat, state)
-                live.match.participants
-                    .firstOrNull { it.seatNumber == event.seat }
-                    ?.let { seat ->
-                        tell { announcer.snapshot(live.match.matchId, seat.userId, state) }
-                    }
-            }
+            // Spec 0047 — seat 0 is the PUBLIC view, built by the worker
+            // with no viewer: stored for spectators who arrive, and sent
+            // to spectators only. No participant sits at seat 0.
+            is WorkerEvent.Snapshot ->
+                if (event.seat == PUBLIC_SEAT) {
+                    publicView(live, event)
+                } else {
+                    // §6.121 — the asset step, and the only place it
+                    // happens. Annotating BEFORE storing means a
+                    // reconnecting player gets the same references as
+                    // the one who never left, and that sending IS what
+                    // authorises the fetch (§6.129).
+                    val state = live.art.annotate(event.state, event.seat)
+                    live.snapshotTaken(event.seat, state)
+                    live.match.participants
+                        .firstOrNull { it.seatNumber == event.seat }
+                        ?.let { seat ->
+                            tell { announcer.snapshot(live.match.matchId, seat.userId, state) }
+                        }
+                }
 
             // Not this class's business: the match LIFECYCLE
             // belongs to the runtime, which owns the database row,
@@ -76,10 +82,12 @@ class MatchDecisions(
             }
 
             // AMENDMENT 13 — public: everybody's step bar moves.
-            is WorkerEvent.Step ->
+            is WorkerEvent.Step -> {
                 live.match.participants.map { it.userId }.distinct().forEach { user ->
                     tell { announcer.step(live.match.matchId, user, event.state) }
                 }
+                tell { announcer.spectate(live.match.matchId, stepMessage(event.state)) }
+            }
 
             // §7.55 — to the player who conceded, and nobody else.
             is WorkerEvent.ConcedeRefused ->
@@ -104,6 +112,15 @@ class MatchDecisions(
                 }
             }
         }
+    }
+
+    private fun publicView(
+        live: LiveMatch,
+        event: WorkerEvent.Snapshot,
+    ) {
+        val state = live.art.annotate(event.state, PUBLIC_SEAT)
+        live.snapshotTaken(PUBLIC_SEAT, state)
+        tell { announcer.spectate(live.match.matchId, snapshotMessage(state)) }
     }
 
     private fun ask(

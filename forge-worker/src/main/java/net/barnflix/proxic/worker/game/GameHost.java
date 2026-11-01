@@ -44,6 +44,23 @@ public final class GameHost {
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private volatile Game game;
+    /**
+     * Spec 0047 -- somebody is watching: the public view is built with
+     * every round. Off until the server says so, so an unwatched game
+     * builds nothing extra.
+     */
+    private volatile boolean watched;
+
+    /** Spec 0047 -- the seat number the public view is sent as. */
+    public static final int PUBLIC_SEAT = 0;
+
+    public void setWatched(boolean on) {
+        watched = on;
+        if (on) {
+            publishSnapshots();
+        }
+    }
+
     /** Spec 0045 -- what caused what, for this game. */
     private volatile Causes causes;
     private volatile Thread gameThread;
@@ -684,6 +701,20 @@ public final class GameHost {
             } catch (RuntimeException e) {
                 // A transport problem must not stop the game.
                 System.err.println("proxic: snapshot not delivered: " + e);
+            }
+        }
+        // Spec 0047 -- the public view, for spectators, as seat 0: built
+        // with no viewer, so it holds only what every player can see.
+        if (watched) {
+            com.google.gson.JsonObject everyone = ViewerSnapshot.of(
+                    current, null, seatsByPlayer(current), revision, java.util.List.of(), epoch.get(), causes);
+            if (damage != null) {
+                everyone.add("damage", damage.deepCopy());
+            }
+            try {
+                snapshotSink.accept(PUBLIC_SEAT, everyone);
+            } catch (RuntimeException e) {
+                System.err.println("proxic: public snapshot not delivered: " + e);
             }
         }
     }
