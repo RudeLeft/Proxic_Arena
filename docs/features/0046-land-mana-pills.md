@@ -1,6 +1,6 @@
 # 0046 — What each land makes
 
-**Status:** Approved 2026-10-31
+**Status:** Built in 1.25.0 (approved 2026-10-31)
 **Owner decisions:** 2026-10-31, from the canvas
 https://claude.ai/artifact/9zAJGg3MBjLo59aG2KjsZ5 (report 5): option A.
 

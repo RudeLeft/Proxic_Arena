@@ -3,6 +3,36 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.25.0 — 2026-11-01
+
+Seven reports from real games, answered: the spell being cast gets out of
+the way, the game says what happened and why, lands show their mana, and
+friends can watch.
+
+**For whoever runs the server**
+- One database update, made by itself on start: rooms remember whether people may watch their game.
+
+**The card being cast, out of the way** (spec 0044, owner 2026-10-31)
+- When a spell asks you to pick something on the table (a target, a creature to sacrifice), the floating card moves beside the stack, so the creatures in the middle can be clicked.
+- Your opponent sees the card face down while you pay for it ("RudeLeft is casting a spell…"); once it is cast it turns over with a flash and flies to the stack.
+- Optional costs asked while the card is still in your hand ("Bargain?") show the card too.
+- The floating card now wears its picture; it never had one before.
+
+**Seeing what happened** (spec 0045, owner 2026-10-31)
+- Counters show on their card. Point at them for where they came from: "+1/+1 from Ajani's Pridemate's trigger: RudeLeft gained 1 life (Soul Warden)".
+- The Library tile turns gold at 3 or fewer cards and red at 0: "Empty: your next draw loses the game". The game-over box says why: "Pat lost: had to draw from an empty library".
+- Cards a spell reveals (Goblin Ringleader) show face up in a tray, to everyone they were shown to, each marked where it went: "→ hand", "→ bottom of library". It replaces the line of text that faded away.
+- Right-click a trigger on the stack: its card large, what it does, why it triggered, its target, whose it is and its place in the order. Point at a stack card to read what it does.
+
+**What each land makes** (spec 0046, owner 2026-10-31)
+- Every land shows its mana as symbols: Plains {W}, Hallowed Fountain {W}{U}, Wastes {C}. Read from the land as it is now, so under Blood Moon a Fountain shows {R}. A land that makes no mana itself (Evolving Wilds) shows none.
+
+**Watching games** (spec 0047, owner 2026-10-31)
+- Rooms have "Let people watch" when opened, on to start. A room playing a game shows **Watch** in the lobby, or "Players said no watching".
+- A spectator sees the table -- both battlefields, graveyards, exile, the stack, life and how many cards each player holds -- never a hand's cards, a library or anything face down, and is never asked anything. "Stop watching" leaves.
+- The players see how many are watching, above the turn.
+- Not yet: spectators do not see the game's chat.
+
 ## 1.24.0 — 2026-10-31
 
 Every question in the game now asks beside the card it is about, spells

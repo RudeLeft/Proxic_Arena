@@ -1,6 +1,6 @@
 # 0045 — Seeing what happened: reveals, triggers, counters, an empty library
 
-**Status:** Approved 2026-10-31
+**Status:** Built in 1.25.0 (approved 2026-10-31)
 **Owner decisions:** 2026-10-31, from the canvas
 https://claude.ai/artifact/9zAJGg3MBjLo59aG2KjsZ5 (reports 1, 2, 3, 6):
 1A, 2A, 3A, 6A.
