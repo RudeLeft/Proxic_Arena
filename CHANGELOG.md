@@ -3,6 +3,23 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.26.0 — 2026-11-01
+
+The cards only you see -- putting them back in order, scry, searching
+your library, Fact or Fiction -- in one tray, as pictures.
+
+**Cards you handle alone** (Phase 9 group 3, owner 2026-11-01)
+- Putting cards back in order (Ponder, Sensei's Divining Top): click them in the order you'll draw them; each gets a gold number. Click a numbered card to take it back.
+- Ponder: Done keeps your order and skips the shuffle question; "Shuffle instead" shuffles, in one click.
+- Impulse's other cards go to the bottom with "Any order", and are no longer asked as "which do you want to draw first?".
+- Brainstorm: the two cards you put back show their number in your hand as you click them, and their order isn't asked again.
+- Scry and surveil: two rows, top and bottom (surveil: top and graveyard). Click a card to move it across; the ones on top are numbered in draw order, "Sooner" moves one up. The old box in the middle of the table is gone.
+- Searching your library: one picture per card with how many ("×4"), lands last, a search box and Spells / Lands. Impulse's four and an opponent's hand (Thoughtseize) show every card; the ones you can't take are dimmed with why ("a land").
+- Fact or Fiction: the opponent clicks cards between Pile 1 and Pile 2; you see both piles as pictures with "Take this pile".
+- Every card in these trays has its name under it, and the game's internal numbers ("Island (69)") are gone.
+- The gear, Report and "List choices" in the bottom-left corner always stay above a tray, however wide it is.
+- Fixed: these windows sometimes named the wrong card -- "Sensei's Divining Top" on an Evolving Wilds, "Fact or Fiction" on an Impulse. They now name the spell that's resolving.
+
 ## 1.25.0 — 2026-11-01
 
 Seven reports from real games, answered: the spell being cast gets out of

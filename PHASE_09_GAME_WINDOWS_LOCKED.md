@@ -57,7 +57,7 @@ frame as its own item is decided.
 a bubble beside the card or the tray, "List choices" as the tray grouped
 by card (W-03). See Amendment 2.
 
-**Group 3 (built 2026-11-01, unreleased):** the card trays -- putting
+**Group 3 (built, in 1.26.0):** the card trays -- putting
 cards in order (W-07), scry and surveil (W-08), choosing from a hidden
 zone (W-09), Fact or Fiction's piles (W-10). See Amendment 3.
 
