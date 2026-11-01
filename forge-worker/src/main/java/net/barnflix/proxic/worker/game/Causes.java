@@ -295,12 +295,18 @@ final class Causes {
         out.addProperty("key", "reveal:" + reveal.key);
         out.addProperty("title", reveal.title);
         JsonArray cards = new JsonArray();
+        int n = 0;
         for (int id : reveal.cards) {
             Card card = game.findById(id);
             if (card == null) {
                 continue;
             }
             JsonObject entry = shown.apply(card);
+            // NOT the card's own id: a revealed card can go back into a hand,
+            // and its id there would let this viewer follow that very card
+            // (the hidden-hand gate caught it, 2026-10-31). The tray needs
+            // only its face and where it went.
+            entry.addProperty("id", "revealed:" + reveal.key + ":" + n++);
             String to = reveal.settled == null ? null : reveal.settled.get(id);
             if (to != null) {
                 entry.addProperty("to", to);

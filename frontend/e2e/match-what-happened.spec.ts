@@ -52,6 +52,8 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
 
   let counter = false;
   let closeUp = false;
+  // Right-clicks tried on the trigger now on the stack: a few, then the game goes on.
+  let tries = 0;
   let revealed = false;
   let sawTray = false;
   const landTurn = new Map<Page, string>();
@@ -67,10 +69,12 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         const trigger = page
           .locator('[data-zone="stack"]', { hasText: "Ajani's Pridemate" })
           .filter({ hasText: "Trigger" });
-        if (!closeUp && (await trigger.count()) > 0) {
+        if ((await trigger.count()) === 0) tries = 0;
+        if (!closeUp && (await trigger.count()) > 0 && tries < 6) {
+          tries += 1;
           await trigger
             .first()
-            .click({ button: "right" })
+            .click({ button: "right", timeout: 3_000 })
             .catch(() => undefined);
           const dialog = page.getByRole("dialog", { name: /Ajani's Pridemate, on the stack/ });
           if (await dialog.isVisible().catch(() => false)) {
@@ -132,10 +136,14 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         }
 
         const k = await kind(page);
-        if (!k) continue;
+        // A window without a kind (the order tray: Ringleader's "the rest on
+        // the bottom in any order") is a question too.
+        const open = (await matchPanel(page).locator(".gs-win").count()) > 0;
+        if (!k && !open) continue;
         if (k === "chooseSpellAbilityToPlay") {
-          // Never pass while the trigger waits to be looked at.
-          if (!closeUp && (await trigger.count()) > 0) continue;
+          // Not passing while the trigger waits to be looked at -- for a
+          // few tries; a missed one is looked at on the next Pridemate.
+          if (!closeUp && tries < 6 && (await trigger.count()) > 0) continue;
           const turn = (await page.locator(".gs-ladder, .gs-turn").first().textContent()) ?? "";
           const land = page.locator('[data-zone="viewer:hand"][data-choosable="true"]', {
             hasText: /^(Plains|Mountain)/,
@@ -162,7 +170,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
             ? "Goblin Ringleader"
             : warden === 0
               ? "Soul Warden"
-              : mates === 0
+              : mates === 0 || (!closeUp && mates < 4)
                 ? "Ajani's Pridemate"
                 : null;
           if (next && (await playable(page, next).count()) > 0) {
@@ -184,8 +192,10 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
             ".gs-question li button, .gs-win li button, button.gs-win-tile:not(:disabled)",
           );
           const card = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
+          const done = matchPanel(page).locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           if ((await list.count()) > 0) await clickNow(list.first());
           else if ((await card.count()) > 0) await clickNow(card.first());
+          else if ((await done.count()) > 0) await clickNow(done.first());
           else await clickNow(passButton(page));
         }
         await page.waitForTimeout(120);
