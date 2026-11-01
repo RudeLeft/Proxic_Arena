@@ -60,7 +60,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
   try {
     await startAMatch(host, guest, deck);
     const end = Date.now() + 720_000;
-    while (Date.now() < end && !(counter && revealed)) {
+    while (Date.now() < end && !(counter && revealed && closeUp)) {
       for (const page of [host, guest]) {
         const other = page === host ? guest : host;
         // F-0045-D: Pridemate's trigger, held while the other player may
