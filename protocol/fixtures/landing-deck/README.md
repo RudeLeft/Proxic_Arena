@@ -7,10 +7,11 @@ out of it (the "blink"). The card now lands straight on the creature's
 place on the battlefield.
 
 ```text
-Landing Test Deck.txt   24 Forest, 36 creatures (2-drops up to Craw Wurm)
+Landing Test Deck.txt   24 Forest, 36 creatures (Birds of Paradise flies; 2-drops up to Craw Wurm)
 ```
 
-Used by `frontend/e2e/match-cast-landing.spec.ts`. CI builds the package
+Used by `frontend/e2e/match-cast-landing.spec.ts`, `match-cast-aside.spec.ts` and
+`match-board-motion.spec.ts` (flying and summoning sickness, item 3). CI builds the package
 with `scripts/make-ci-deck.mjs`:
 
     node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck

@@ -32,7 +32,7 @@ import {
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
 const CREATURES =
-  /^(Grizzly Bears|Runeclaw Bear|Llanowar Elves|Elvish Mystic|Centaur Courser|Giant Spider|Craw Wurm|Kalonian Tusker|Leatherback Baloth)/;
+  /^(Grizzly Bears|Birds of Paradise|Llanowar Elves|Elvish Mystic|Centaur Courser|Giant Spider|Craw Wurm|Kalonian Tusker|Leatherback Baloth)/;
 
 interface Rect {
   x: number;

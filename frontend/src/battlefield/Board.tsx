@@ -26,7 +26,15 @@
 // of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
 // inferred here.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -388,6 +396,34 @@ export function CardFace({
   );
 }
 
+/**
+ * Owner 2026-11-01 (item 3) -- a creature that flies, untapped and face up:
+ * it hovers over the table. A tapped one rests (the board's 5-degree tilt).
+ */
+function flies(card: BoardCard): boolean {
+  return (
+    !card.tapped &&
+    !card.faceDown &&
+    (card.keywords ?? []).some((k) => k.toLowerCase() === "flying")
+  );
+}
+
+/** Came in this turn and cannot attack yet: not with haste. */
+function sick(card: BoardCard): boolean {
+  return (
+    card.sick === true &&
+    !card.faceDown &&
+    !(card.keywords ?? []).some((k) => k.toLowerCase() === "haste")
+  );
+}
+
+/** Each card out of step with the next, so a row does not move in unison. */
+function motionDelay(id: string): CSSProperties {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 5000;
+  return { animationDelay: `-${h}ms` };
+}
+
 /** Enough of a card to draw it on its way out, after it has left. */
 interface Drawn {
   name: string;
@@ -618,6 +654,20 @@ export function Board({
     const sideOf = (seat: number) => (seat === viewerSeat ? "viewer" : "opponent");
     const out: Item[] = [];
 
+    // Owner 2026-11-01 (item 3) -- rows whose cards overlap: a flyer there
+    // only bobs (no sway into the next card).
+    const crowded = new Set<string>();
+    const byRow = new Map<string, number[]>();
+    for (const slot of result.slots) {
+      const xs = byRow.get(slot.row) ?? [];
+      xs.push(slot.box.x);
+      byRow.set(slot.row, xs);
+    }
+    for (const [row, xs] of byRow) {
+      const sorted = [...xs].sort((a, b) => a - b);
+      if (sorted.some((x, i) => i > 0 && x - sorted[i - 1]! < g.cardW * 0.98)) crowded.add(row);
+    }
+
     for (const slot of result.slots) {
       const lead = byId.get(slot.ids[0]!)!;
       const count = slot.ids.length;
@@ -643,6 +693,8 @@ export function Board({
         lead.attacking ? "attacking" : "",
         slot.rides ? `blocking ${byId.get(slot.rides)?.name ?? "an attacker"}` : "",
         lead.ringBearer ? "Ring-bearer" : "",
+        flies(lead) ? "flying" : "",
+        sick(lead) ? "summoning sick: can attack next turn" : "",
         ...counterWords(lead),
         lead.makes?.length ? `makes ${lead.makes.join(" or ")}` : "",
         lead.sector ? `sector ${lead.sector}` : "",
@@ -672,9 +724,17 @@ export function Board({
         drawn,
         content: (
           <>
+            {flies(lead) && (
+              <span
+                className={`bf-fly-shadow${crowded.has(slot.row) ? " bf-fly-bob" : ""}`}
+                aria-hidden="true"
+                style={motionDelay(lead.id)}
+              />
+            )}
             <button
               type="button"
-              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${leadAct.className}`}
+              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${leadAct.className}${flies(lead) ? (crowded.has(slot.row) ? " bf-fly bf-fly-bob" : " bf-fly") : ""}`}
+              style={flies(lead) ? motionDelay(lead.id) : undefined}
               aria-label={label}
               {...leadAct.data}
               {...leadAct.handlers}
@@ -726,6 +786,14 @@ export function Board({
                 </span>
               )}
               {lead.ringBearer && <span className="bf-ring">Ring-bearer</span>}
+              {/* Owner 2026-11-01 (item 3) -- came in this turn: drifting zZz. */}
+              {sick(lead) && (
+                <span className="bf-zz" aria-hidden="true" style={motionDelay(lead.id)}>
+                  <i>z</i>
+                  <i>z</i>
+                  <i>z</i>
+                </span>
+              )}
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>

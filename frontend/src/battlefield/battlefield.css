@@ -927,3 +927,141 @@ img.bf-makes-pip {
 .bf-cost-first .bf-cost {
   margin-left: 0;
 }
+
+/* Owner 2026-11-01 (item 3) -- a creature that flies hovers over the table:
+   lifted, bobbing slowly and tilting a little (5 s); in a crowded row it only
+   bobs, so it never swings into the next card. Tapped, it rests. `translate`
+   and `rotate` compose with the slot's placement. */
+.bf-card.bf-fly {
+  animation: bf-fly 5s ease-in-out infinite;
+}
+.bf-card.bf-fly.bf-fly-bob {
+  animation-name: bf-fly-bob;
+}
+.bf-card.bf-fly.bf-targeted {
+  animation:
+    bf-fly 5s ease-in-out infinite,
+    bf-targeted 1.6s ease-in-out infinite;
+}
+.bf-card.bf-fly.bf-fly-bob.bf-targeted {
+  animation-name: bf-fly-bob, bf-targeted;
+}
+@keyframes bf-fly {
+  0%,
+  100% {
+    translate: 0 calc(var(--card-h) * -0.045);
+    rotate: -1deg;
+  }
+  50% {
+    translate: 0 calc(var(--card-h) * -0.075);
+    rotate: 1deg;
+  }
+}
+@keyframes bf-fly-bob {
+  0%,
+  100% {
+    translate: 0 calc(var(--card-h) * -0.045);
+  }
+  50% {
+    translate: 0 calc(var(--card-h) * -0.075);
+  }
+}
+/* Its shadow on the table, smaller as it rises. */
+.bf-fly-shadow {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: calc(var(--card-h) * -0.05);
+  height: calc(var(--card-h) * 0.08);
+  border-radius: 50%;
+  background: #000;
+  filter: blur(calc(var(--card-h) * 0.035));
+  opacity: 0.45;
+  pointer-events: none;
+  animation: bf-fly-shadow 5s ease-in-out infinite;
+}
+@keyframes bf-fly-shadow {
+  0%,
+  100% {
+    scale: 0.92 1;
+    opacity: 0.45;
+  }
+  50% {
+    scale: 0.78 1;
+    opacity: 0.3;
+  }
+}
+/* Came in this turn, can't attack yet: little z's drifting up from the
+   left (the part a crowded row still shows), outlined to read on any
+   picture. Gone on its controller's next turn; never with haste. */
+.bf-zz {
+  position: absolute;
+  left: calc(var(--card-h) * 0.045);
+  top: calc(var(--card-h) * 0.37);
+  width: calc(var(--card-h) * 0.25);
+  height: calc(var(--card-h) * 0.3);
+  pointer-events: none;
+}
+.bf-zz i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  font-family: var(--pa-display, "Barlow Condensed", sans-serif);
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.13);
+  line-height: 1;
+  color: #eef0ff;
+  -webkit-text-stroke: 1.2px #000;
+  paint-order: stroke fill;
+  text-shadow:
+    1px 1px 0 #000,
+    -1px 1px 0 #000,
+    1px -1px 0 #000,
+    -1px -1px 0 #000,
+    0 0 6px #4a55c8;
+  animation: bf-zz 2.8s ease-out infinite;
+  animation-delay: inherit;
+}
+.bf-zz i:nth-child(2) {
+  font-size: calc(var(--card-h) * 0.1);
+  animation-delay: -0.9s;
+}
+.bf-zz i:nth-child(3) {
+  font-size: calc(var(--card-h) * 0.08);
+  animation-delay: -1.8s;
+}
+@keyframes bf-zz {
+  0% {
+    opacity: 0;
+    translate: 0 calc(var(--card-h) * 0.04);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: calc(var(--card-h) * 0.07) calc(var(--card-h) * -0.16);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Still: a flyer rests lifted, the z's stay put. */
+  .bf-card.bf-fly,
+  .bf-card.bf-fly.bf-fly-bob {
+    animation: none;
+    translate: 0 calc(var(--card-h) * -0.06);
+  }
+  .bf-fly-shadow,
+  .bf-zz i {
+    animation: none;
+  }
+  .bf-zz i {
+    opacity: 1;
+  }
+  .bf-zz i:nth-child(2) {
+    translate: calc(var(--card-h) * 0.035) calc(var(--card-h) * -0.08);
+  }
+  .bf-zz i:nth-child(3) {
+    translate: calc(var(--card-h) * 0.07) calc(var(--card-h) * -0.15);
+  }
+}
