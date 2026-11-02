@@ -252,7 +252,7 @@ describe("the lobby's new messages (§7.64, Amendment 11)", () => {
       other: { userId: pat.userId, displayName: "Pat" },
     });
     expect(withdrawn.invitation).toBeNull();
-    expect(withdrawn.invitationGone).toEqual({ fromDisplayName: "Pat", reason: "WITHDRAWN" });
+    expect(withdrawn.invitationGone).toEqual([{ fromDisplayName: "Pat", reason: "WITHDRAWN" }]);
 
     const declined = reduceLobby(invited, {
       type: "INVITATION_ENDED",
@@ -262,7 +262,7 @@ describe("the lobby's new messages (§7.64, Amendment 11)", () => {
       other: { userId: pat.userId, displayName: "Pat" },
     });
     expect(declined.invitation).toBeNull();
-    expect(declined.invitationGone).toBeNull();
+    expect(declined.invitationGone).toEqual([]);
   });
 
   it("accepting a moment too late reads as the invitation having gone", () => {
@@ -278,7 +278,7 @@ describe("the lobby's new messages (§7.64, Amendment 11)", () => {
       detail: "That invitation is no longer open.",
     });
     expect(late.invitation).toBeNull();
-    expect(late.invitationGone).toEqual({ fromDisplayName: "Pat", reason: "GONE" });
+    expect(late.invitationGone).toEqual([{ fromDisplayName: "Pat", reason: "GONE" }]);
     expect(late.notice).toBeNull();
   });
 });

@@ -7,7 +7,7 @@
 //
 // Credentials come from the environment, so no test file carries one.
 
-import { expect, type APIResponse, type Page } from "@playwright/test";
+import { expect, type APIResponse, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -109,4 +109,15 @@ export async function importPackage(page: Page, file: string, name?: string): Pr
   const response = await uploadPackage(page, file, name);
   expect(response.status(), await response.text()).toBe(201);
   if (page.url().includes("/decks")) await page.reload();
+}
+
+/**
+ * Spec 0050 — a notice card, top right of the page (or of the table in a
+ * game), found by its words.
+ */
+export function noticeCard(page: Page, text: string | RegExp): Locator {
+  return page
+    .getByRole("region", { name: "Notices" })
+    .locator("[data-notice]")
+    .filter({ hasText: text });
 }

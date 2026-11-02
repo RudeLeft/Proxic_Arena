@@ -94,6 +94,9 @@ body {
 }
 .pa-connection {
   flex: none;
+  /* Pushes the pill, Report and Sign out to the right (spec 0050: the
+     notices left the header for their own cards). */
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 7px;

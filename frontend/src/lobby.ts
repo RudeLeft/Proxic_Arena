@@ -266,18 +266,21 @@ export interface LobbyState {
    * until the host invites somebody, rather than flashing past.
    */
   declinedBy: string | null;
-  /** An invitation to you that ended without your say. */
-  invitationGone: InvitationGone | null;
+  /**
+   * Invitations to you that ended without your say, oldest first. Spec
+   * 0050 — queued, never replaced; the page takes them off as it shows them.
+   */
+  invitationGone: InvitationGone[];
   /** Spec 0016 R3 — your request to join a room, until the host answers. */
   asking: JoinAsk | null;
   /** Spec 0016 R3 — a request to join your room, until you answer. */
   askedBy: JoinAsked | null;
   /**
-   * Spec 0016 — one line of news to acknowledge: "Pat declined your
-   * invitation", "RudeLeft declined your request to join". A pop-up in
-   * the Lobby, the top bar on other pages.
+   * Spec 0016 — news: "Pat declined your invitation", "RudeLeft declined
+   * your request to join". Spec 0050 — queued oldest first, never replaced;
+   * the page takes each off as it shows it as a card.
    */
-  news: string | null;
+  news: string[];
   setupProblem: SetupProblem | null;
   /**
    * Owner report 2026-10-21: a ROOM message sent just before you left
@@ -305,10 +308,10 @@ export const EMPTY_LOBBY: LobbyState = {
   players: [],
   outgoing: null,
   declinedBy: null,
-  invitationGone: null,
+  invitationGone: [],
   asking: null,
   askedBy: null,
-  news: null,
+  news: [],
   setupProblem: null,
   left: null,
   notice: null,
@@ -448,7 +451,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       // yes to is a dialog that should not appear.
       if (state.room) return state;
       const roomName = asString(message["roomName"]) ?? `${from.displayName}'s room`;
-      return { ...state, invitation: { roomId, roomName, from }, invitationGone: null };
+      return { ...state, invitation: { roomId, roomName, from } };
     }
 
     case "INVITATION_SENT": {
@@ -485,7 +488,8 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       // Spec 0016 R3 — a request to join, from either side.
       if (message["asked"] === true) {
         if (direction === "FROM_YOU") {
-          return { ...state, asking: null, news: requestEnded(reason, otherName) ?? state.news };
+          const ended = requestEnded(reason, otherName);
+          return { ...state, asking: null, news: ended ? [...state.news, ended] : state.news };
         }
         return { ...state, askedBy: null };
       }
@@ -496,7 +500,9 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
           declinedBy: reason === "DECLINED" ? asString(other?.["userId"]) : state.declinedBy,
           // Spec 0016 (16) — the host hears a decline, not just a note on the row.
           news:
-            reason === "DECLINED" ? `${otherName ?? "They"} declined your invitation` : state.news,
+            reason === "DECLINED"
+              ? [...state.news, `${otherName ?? "They"} declined your invitation`]
+              : state.news,
         };
       }
       // TO_YOU. Your own accept or decline needs no telling.
@@ -506,7 +512,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         invitation: null,
         invitationGone: quiet
           ? state.invitationGone
-          : { fromDisplayName: asString(other?.["displayName"]), reason },
+          : [
+              ...state.invitationGone,
+              { fromDisplayName: asString(other?.["displayName"]), reason },
+            ],
       };
     }
 
@@ -620,7 +629,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       if (!errorCode || !detail) return state;
       // Spec 0016 — answering a request that has just ended.
       if (errorCode === "INVITATION_GONE" && state.askedBy && !state.invitation) {
-        return { ...state, askedBy: null, news: detail };
+        return { ...state, askedBy: null, news: [...state.news, detail] };
       }
       // Accepting a moment too late: said the way a withdrawal is,
       // because to the player it is one (canvas note on WITHDRAWN).
@@ -628,10 +637,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         return {
           ...state,
           invitation: null,
-          invitationGone: {
-            fromDisplayName: state.invitation?.from.displayName ?? null,
-            reason: "GONE",
-          },
+          invitationGone: [
+            ...state.invitationGone,
+            { fromDisplayName: state.invitation?.from.displayName ?? null, reason: "GONE" },
+          ],
         };
       }
       return { ...state, notice: { kind: "error", errorCode, detail } };

@@ -379,3 +379,17 @@ canvas https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81).**
   now also check the fight carried), `frontend/e2e/match-damage-tray.spec.ts`
   (a real double block: the tray filled in, Done, never asked a point at a
   time), `cardPlans.test.ts`.
+
+**Amendment 5 (2026-11-02, W-22 and W-23 decided -- built with spec 0050,
+canvas https://claude.ai/artifact/P5eET6QgnywiZTCZPU1uP4).**
+
+- *W-22, the game's own messages:* the notice card from spec 0050, in
+  grey, top right of the table beside the opponent's column. Clicks go
+  through it to the table, and it turns see-through under the pointer
+  (Phase 7 Amendment 12). It fades after 7 s, as before; four are kept at most, three shown
+  and the rest as "+1 more".
+- *W-23, connection:* "Reconnecting to the game…" is the blue card,
+  going on its own when the connection is back; "You're no longer
+  connected to the game" is red with a Reload button. A new version
+  waits until the game is over. Answers the game refused stay inside
+  their question window.

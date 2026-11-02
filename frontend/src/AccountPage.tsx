@@ -22,6 +22,7 @@ import {
 } from "./fieldChecks";
 import { AVATARS, Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
+import { playChime, setSoundsOn, soundsOn } from "./sounds";
 
 export function AccountPage() {
   const { state, signOut, signOutEverywhere, setUser } = useAuth();
@@ -248,6 +249,8 @@ export function AccountPage() {
 
         <DeckBuilderLink />
 
+        <SoundsSection />
+
         <section className="pa-section" aria-labelledby="sessions">
           <div className="pa-section-head">
             <h2 id="sessions">Sessions</h2>
@@ -281,6 +284,42 @@ export function AccountPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+/** Spec 0050 — the chime for an invitation or a request to join; kept in this browser. */
+function SoundsSection() {
+  const [on, setOn] = useState(soundsOn);
+  return (
+    <section className="pa-section" aria-labelledby="sounds-head">
+      <div className="pa-section-head">
+        <h2 id="sounds-head">Sounds</h2>
+      </div>
+      <div className="pa-row">
+        <span className="pa-row-key" style={{ flexBasis: 240 }}>
+          <span className="pa-row-value" style={{ display: "block", color: "#eee2c4" }}>
+            Chime for invitations
+          </span>
+          <span className="pa-help" style={{ display: "block" }}>
+            A soft chime when someone invites you or asks to join your room. Nothing else makes a
+            sound. Saved in this browser.
+          </span>
+        </span>
+        <label className="pa-sound-switch">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={on}
+            onChange={(event) => {
+              setOn(event.target.checked);
+              setSoundsOn(event.target.checked);
+              if (event.target.checked) playChime();
+            }}
+          />
+          <span>{on ? "On" : "Off"}</span>
+        </label>
+      </div>
+    </section>
   );
 }
 

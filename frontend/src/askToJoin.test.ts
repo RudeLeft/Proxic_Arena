@@ -138,7 +138,7 @@ describe("Ask to join messages", () => {
       other: { userId: host.userId, displayName: "RudeLeft" },
     });
     expect(state.asking).toBeNull();
-    expect(state.news).toBe("RudeLeft declined your request to join");
+    expect(state.news).toEqual(["RudeLeft declined your request to join"]);
   });
 
   it("taking your own request back says nothing", () => {
@@ -157,7 +157,7 @@ describe("Ask to join messages", () => {
       },
     );
     expect(state.asking).toBeNull();
-    expect(state.news).toBeNull();
+    expect(state.news).toEqual([]);
   });
 
   it("gives the host the request, and takes it away when it ends", () => {
@@ -186,8 +186,20 @@ describe("Ask to join messages", () => {
       direction: "FROM_YOU",
       other: { userId: "u-pat", displayName: "Pat" },
     });
-    expect(state.news).toBe("Pat declined your invitation");
+    expect(state.news).toEqual(["Pat declined your invitation"]);
     expect(state.declinedBy).toBe("u-pat");
+  });
+
+  it("spec 0050: news arriving together is queued, never replaced", () => {
+    const ended = (name: string) => ({
+      type: "INVITATION_ENDED",
+      roomId: "r-1",
+      reason: "DECLINED",
+      direction: "FROM_YOU",
+      other: { userId: `u-${name}`, displayName: name },
+    });
+    const state = reduceLobby(reduceLobby(EMPTY_LOBBY, ended("Pat")), ended("Ash"));
+    expect(state.news).toEqual(["Pat declined your invitation", "Ash declined your invitation"]);
   });
 
   it("reads who a seat is held for from the room list", () => {

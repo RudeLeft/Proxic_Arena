@@ -85,6 +85,9 @@ import {
 } from "./triggers";
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
+import { NoticeStack } from "../NoticeStack";
+import { GAME_MESSAGE_MS, asTitle, inArrival, type Notice } from "../notices";
+import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
 import { ManaCost, ManaText, costChange, symbolUrl, withSymbols } from "./ManaCost";
 import {
@@ -120,7 +123,6 @@ const STEPS: { label: string; phases: string[] }[] = [
 ];
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
-const NOTICE_MS = 7000;
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
 const RESPONSE_WINDOW_MS = 5000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
@@ -148,6 +150,32 @@ export function GameScreen({
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
   const reconnecting = useSettled(game.connection === "reconnecting", 1500);
+  // Spec 0050 — the page's notices and the game's own, top right of the table.
+  const pageNotices = usePageNotices();
+  const said = useGameMessages(game.board);
+  const tableOrder = useRef(new Map<string, number>());
+  const connection: Notice[] = [];
+  if (live && reconnecting && !finished) {
+    connection.push({
+      key: "game-reconnecting",
+      tone: "blue",
+      label: "Connection",
+      title: "Reconnecting to the game…",
+      line: "The game is still running, and nothing is answered for you while you're away.",
+      actions: [],
+    });
+  }
+  if (live && game.connection === "closed" && !finished) {
+    connection.push({
+      key: "game-lost",
+      tone: "red",
+      label: "Connection",
+      title: "You're no longer connected to the game",
+      line: "The game is still running and nothing has been answered for you.",
+      actions: [{ label: "Reload", primary: true, run: () => window.location.reload() }],
+    });
+  }
+  const tableNotices = inArrival([...pageNotices, ...connection, ...said], tableOrder.current);
 
   useEffect(() => {
     if (!live) return undefined;
@@ -988,6 +1016,7 @@ export function GameScreen({
             unpayable={unpayable}
             selected={selected}
             asking={question?.context === "choose"}
+            top={<NoticeStack notices={tableNotices} place="table" />}
             rail={
               <Rail
                 board={board}
@@ -1186,25 +1215,6 @@ export function GameScreen({
           )}
         </div>
 
-        {live && reconnecting && !finished && (
-          <div className="gs-banner pa-notice pa-notice-warn" role="status">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">
-              Reconnecting to the game… It is still running, and nothing is answered for you while
-              you are away.
-            </span>
-          </div>
-        )}
-        {live && game.connection === "closed" && !finished && (
-          <div className="gs-banner pa-notice pa-notice-bad" role="alert">
-            <span aria-hidden="true" className="pa-notice-mark" />
-            <span className="pa-notice-text">
-              You are no longer connected to the game. Reload the page — the game is still running
-              and nothing has been answered for you.
-            </span>
-          </div>
-        )}
-
         {decision && question && !windowed && (
           <QuestionBar
             decision={decision}
@@ -1217,8 +1227,6 @@ export function GameScreen({
             artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
           />
         )}
-
-        {board && <Notices board={board} />}
 
         {inspecting && board && board.stack.some((entry) => entry.id === inspecting) && (
           <StackInspect
@@ -2840,37 +2848,38 @@ function ZoneViewer({
   );
 }
 
-/** What Forge told this player, briefly (§7.57). A missed one costs nothing. */
-function Notices({ board }: { board: Snapshot }) {
+/**
+ * What Forge told this player, briefly (§7.57). A missed one costs nothing.
+ * Spec 0050 (Phase 9 W-22): grey cards top right of the table, clicks going
+ * through them; four at most, each gone after 7 s.
+ */
+function useGameMessages(board: Snapshot | null): Notice[] {
   const [shown, setShown] = useState<{ key: string; text: string }[]>([]);
   const seen = useRef(0);
   useEffect(() => {
+    if (!board) return;
     const fresh = board.notices.slice(seen.current);
     seen.current = board.notices.length;
-    if (fresh.length === 0) return undefined;
+    if (fresh.length === 0) return;
     // Spec 0045 -- a reveal's line ("Looking at your library: A, B") is the
     // reveal tray's cards already.
     const inTray = board.reveal ? `: ${board.reveal.cards.map((c) => c.name).join(", ")}` : null;
     const added = fresh
       .filter((text) => !(inTray && text.endsWith(inTray)))
-      .map((text, i) => ({ key: `${board.stateRevision}:${i}`, text }));
+      .map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
     setShown((list) => [...list, ...added].slice(-4));
-    const timer = window.setTimeout(
-      () => setShown((list) => list.filter((n) => !added.includes(n))),
-      NOTICE_MS,
-    );
-    return () => window.clearTimeout(timer);
   }, [board]);
-  if (shown.length === 0) return null;
-  return (
-    <ul className="gs-notices" aria-live="polite">
-      {shown.map((n) => (
-        <li key={n.key} className="gs-notice">
-          <ManaText text={n.text} />
-        </li>
-      ))}
-    </ul>
-  );
+  return shown.map((said) => ({
+    key: said.key,
+    tone: "grey",
+    label: "Game",
+    title: asTitle(said.text),
+    titleNode: <ManaText text={asTitle(said.text)} />,
+    actions: [],
+    quiet: true,
+    fadeMs: GAME_MESSAGE_MS,
+    close: () => setShown((list) => list.filter((n) => n.key !== said.key)),
+  }));
 }
 
 // --- the game menu and the chat drawer ------------------------------------------------------

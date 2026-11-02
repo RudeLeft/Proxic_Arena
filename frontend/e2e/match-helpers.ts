@@ -15,7 +15,7 @@
 
 import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname } from "node:path";
-import { importPackage, secondUser, shareOpenDeckWith, testUser } from "./helpers";
+import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 
 export async function csrfOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -86,14 +86,14 @@ export async function openRoom(page: Page, name?: string, watchable = true) {
 
 /**
  * The host invites [guestName] from the Players list and the guest
- * accepts in the invitation box; both seats are then filled.
+ * accepts on the invitation's card (spec 0050); both seats are then filled.
  */
 export async function inviteIn(host: Page, guest: Page, guestName: string) {
   await host
     .getByRole("region", { name: "Players" })
     .getByRole("button", { name: new RegExp(`^Invite ${guestName}$`, "i") })
     .click();
-  await guest.getByRole("dialog").getByRole("button", { name: "Accept" }).click();
+  await noticeCard(guest, "invited you to").getByRole("button", { name: "Accept" }).click();
   await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
   await expect(yourRoom(guest)).toBeVisible();
 }

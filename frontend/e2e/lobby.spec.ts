@@ -16,7 +16,7 @@
 //   docker compose exec arena-server /app/bin/arena-admin create Pat
 
 import { test, expect, type Page, type WebSocket } from "@playwright/test";
-import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import { noticeCard, secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import { chooseDeck, inviteIn, openRoom, seatOf, yourRoom } from "./match-helpers";
 
 /**
@@ -101,12 +101,14 @@ test("a host invites somebody who is online, and they take the empty seat", asyn
       .click();
     await expect(playerRow(host, secondUser)).toContainText("Invited to Kitchen Table");
 
-    // The guest is asked, and may put it aside: the invitation then
-    // waits on the room's row (canvas note).
-    const dialog = guest.getByRole("dialog");
-    await expect(dialog).toContainText(`${testUser} has invited you to join Kitchen Table`);
-    await dialog.getByRole("button", { name: "Put this aside for now" }).click();
-    await expect(dialog).toHaveCount(0);
+    // The guest is asked on a card (spec 0050), and may put it aside
+    // with ×: the invitation then waits on the room's row.
+    const card = noticeCard(guest, `${testUser} invited you to Kitchen Table`);
+    await expect(card).toContainText("One seat is held for you.");
+    await guest.waitForTimeout(400); // past the slide-in
+    await guest.screenshot({ path: "test-results/seen/lobby-invitation.png" });
+    await card.getByRole("button", { name: /^Close:/ }).click();
+    await expect(card).toHaveCount(0);
     const kitchen = guest.getByRole("article", { name: "Kitchen Table" });
     // Spec 0016 (14) — said in full on the card, with Accept and Decline.
     await expect(kitchen).toContainText(`${testUser} has invited you to join Kitchen Table`);
@@ -305,21 +307,21 @@ test("an invitation can be declined; the host is told and the seat stays open", 
       .getByRole("button", { name: new RegExp(`^Invite ${secondUser}$`, "i") })
       .click();
 
-    const dialog = guest.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Decline" }).click();
+    const card = noticeCard(guest, "invited you to");
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: "Decline" }).click();
 
-    // The prompt goes, and nothing else does: declining is not
+    // The card goes, and nothing else does: declining is not
     // joining, and the host's room is untouched.
-    await expect(dialog).toHaveCount(0);
+    await expect(card).toHaveCount(0);
     await expect(guest.getByRole("button", { name: "Open a room" })).toBeVisible();
     await expect(seatOf(host, "Open seat")).toBeVisible();
     // Amendment 11 — the host hears it, and the note stays on the row.
     await expect(playerRow(host, secondUser)).toContainText("Declined your invitation");
-    // Spec 0016 (16) — and a pop-up says so.
-    const told = host.getByRole("dialog");
-    await expect(told).toContainText(`${secondUser} declined your invitation`);
-    await told.getByRole("button", { name: "OK" }).click();
+    // Spec 0016 (16) — and a card says so (spec 0050), which × closes.
+    const told = noticeCard(host, `${secondUser} declined your invitation`);
+    await expect(told).toContainText("Your room is still open.");
+    await told.getByRole("button", { name: /^Close:/ }).click();
     await expect(told).toHaveCount(0);
   });
 });
@@ -338,30 +340,32 @@ test("Ask to join: the host declines, then accepts, and everybody sees the held 
     await expect(card).toContainText(`Waiting on ${testUser}'s answer`);
     await expect(card.getByRole("button", { name: "Cancel" })).toBeVisible();
 
-    // The host is asked in a pop-up, and the open seat says who it is.
-    const asked = host.getByRole("dialog");
-    await expect(asked).toContainText(`${secondUser} would like to join your room`);
+    // The host is asked on a card, and the open seat says who it is.
+    const asked = noticeCard(host, `${secondUser} would like to join your room`);
+    await expect(asked).toBeVisible();
     await expect(seatOf(host, secondUser)).toContainText("Asked to join");
     await asked.getByRole("button", { name: "Decline" }).click();
 
-    const told = guest.getByRole("dialog");
-    await expect(told).toContainText(`${testUser} declined your request to join`);
-    await told.getByRole("button", { name: "OK" }).click();
+    const told = noticeCard(guest, `${testUser} declined your request to join`);
+    await expect(told).toContainText("You can ask again");
+    await told.getByRole("button", { name: /^Close:/ }).click();
     await expect(card).toContainText("1 seat open");
 
     // Asked again, and accepted: the guest is seated.
     await card.getByRole("button", { name: "Ask to join" }).click();
-    await host.getByRole("dialog").getByRole("button", { name: "Accept" }).click();
+    await noticeCard(host, "would like to join your room")
+      .getByRole("button", { name: "Accept" })
+      .click();
     await expect(yourRoom(guest)).toBeVisible();
     await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
   });
 });
 
-test("an invitation reaches you on another page, and is answered from the top bar", async ({
+test("an invitation reaches you on another page as the same card, and Accept works from there", async ({
   browser,
 }) => {
-  // Spec 0016 (9) — the notice sits in the top bar; Accept seats you
-  // and takes you to the Lobby.
+  // Spec 0050 (F-0050-A) — the same card as in the Lobby; Accept seats
+  // you and takes you to the Lobby.
   await twoPlayers(browser, async (host, guest) => {
     await guest.getByRole("link", { name: "Deck Depot" }).click();
     await expect(guest).toHaveURL(/\/decks$/);
@@ -370,9 +374,10 @@ test("an invitation reaches you on another page, and is answered from the top ba
       .getByRole("button", { name: new RegExp(`^Invite ${secondUser}$`, "i") })
       .click();
 
-    const notice = guest.locator(".pa-top-notice");
-    await expect(notice).toContainText(`${testUser} has invited you to join Top Bar Table`);
-    await guest.screenshot({ path: "test-results/seen/top-bar-invitation.png" });
+    const notice = noticeCard(guest, `${testUser} invited you to Top Bar Table`);
+    await expect(notice).toBeVisible();
+    await guest.waitForTimeout(400); // past the slide-in
+    await guest.screenshot({ path: "test-results/seen/depot-invitation.png" });
     await notice.getByRole("button", { name: "Accept" }).click();
     await expect(guest).toHaveURL(/\/play$/);
     await expect(yourRoom(guest)).toBeVisible();
@@ -387,7 +392,8 @@ test("a host withdraws an invitation, and the player is told", async ({ browser 
       name: new RegExp(`^Invite ${secondUser}$`, "i"),
     });
     await invite.click();
-    await expect(guest.getByRole("dialog")).toBeVisible();
+    const card = noticeCard(guest, "invited you to");
+    await expect(card).toBeVisible();
 
     // Straight after Invite the button is a statement, not an undo;
     // it offers Withdraw once it has settled.
@@ -396,9 +402,12 @@ test("a host withdraws an invitation, and the player is told", async ({ browser 
     });
     await withdraw.click();
 
-    const told = guest.getByRole("dialog");
-    await expect(told).toContainText(`${testUser} withdrew the invitation`);
-    await told.getByRole("button", { name: "OK" }).click();
+    // Spec 0050 (F-0050-E) — the invitation's card goes on its own, and
+    // the news says why.
+    await expect(card).toHaveCount(0);
+    const told = noticeCard(guest, `${testUser} withdrew the invitation`);
+    await expect(told).toContainText("The seat is no longer held for you.");
+    await told.getByRole("button", { name: /^Close:/ }).click();
     await expect(told).toHaveCount(0);
     // The host may ask again.
     await expect(invite).toBeEnabled();

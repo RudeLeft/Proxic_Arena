@@ -14,7 +14,8 @@
 //
 // Spec 0016 (owner 2026-10-26): every room is a card anybody can read (seats, who a seat is
 // held for, where it stands), and a free seat can be asked for — Ask to
-// join — as well as offered. The notices live in the top bar (Shell).
+// join — as well as offered. The notices are cards, top right of every
+// page (spec 0050, the Shell).
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -45,7 +46,6 @@ import {
   closesSoon,
   ICON,
   SEAT_AVATAR,
-  goneTitle,
   holdsBelt,
   presenceOf,
   playerRows,
@@ -91,10 +91,6 @@ export default function LobbyPage() {
   const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(false);
-  // Page-owned prompts: closing the invitation box is "deal with it
-  // later", not an answer, so it is remembered here and nowhere else.
-  const [setAsideFor, setSetAsideFor] = useState<string | null>(null);
-  const [askAsideFor, setAskAsideFor] = useState<string | null>(null);
   const [needRoomFor, setNeedRoomFor] = useState<PlayerRow | null>(null);
   // Owner 2026-10-22: removing a player asks first -- a misclick otherwise
   // throws a friend out of the room.
@@ -271,14 +267,6 @@ export default function LobbyPage() {
 
   if (!me) return null;
 
-  const invitation = lobby.invitation;
-  const inviteBoxOpen = invitation !== null && setAsideFor !== invitation.roomId;
-  const askedBy = lobby.askedBy;
-  const askBoxOpen =
-    !inviteBoxOpen &&
-    askedBy !== null &&
-    askAsideFor !== `${askedBy.roomId}:${askedBy.from.userId}`;
-
   return (
     <main className="pa-main pa-lobby">
       <h1 className="pa-visually-hidden">Lobby</h1>
@@ -345,52 +333,6 @@ export default function LobbyPage() {
           secondary="Keep them"
           onSecondary={() => setRemoving(null)}
           onDismiss={() => setRemoving(null)}
-        />
-      )}
-
-      {inviteBoxOpen && invitation && (
-        <Dialog
-          label="Invitation"
-          title={`${invitation.from.displayName} has invited you to join ${invitation.roomName}`}
-          sub="One seat is open and held for you. To decide later, close this window. You can accept anytime from the room list."
-          primary="Accept"
-          onPrimary={() => send({ type: "INVITE_ACCEPT", roomId: invitation.roomId })}
-          secondary="Decline"
-          onSecondary={() => send({ type: "INVITE_DECLINE" })}
-          onDismiss={() => setSetAsideFor(invitation.roomId)}
-        />
-      )}
-
-      {askBoxOpen && askedBy && (
-        // Spec 0016 R3 — a request to join your room, answered like an invitation.
-        <Dialog
-          label="Request to join"
-          title={`${askedBy.from.displayName} would like to join your room`}
-          sub="Their seat is held until you answer. To decide later, close this window: you can answer from your room."
-          primary="Accept"
-          onPrimary={() => send({ type: "JOIN_ACCEPT" })}
-          secondary="Decline"
-          onSecondary={() => send({ type: "JOIN_DECLINE" })}
-          onDismiss={() => setAskAsideFor(`${askedBy.roomId}:${askedBy.from.userId}`)}
-        />
-      )}
-
-      {!inviteBoxOpen && !askBoxOpen && lobby.invitationGone && (
-        <Dialog
-          label="Invitation ended"
-          title={goneTitle(lobby.invitationGone.reason, lobby.invitationGone.fromDisplayName)}
-          primary="OK"
-          onPrimary={() => setLobby((previous) => ({ ...previous, invitationGone: null }))}
-        />
-      )}
-
-      {!inviteBoxOpen && !askBoxOpen && !lobby.invitationGone && lobby.news && (
-        // Spec 0016 (16) — "Pat declined your invitation", and the like.
-        <Dialog
-          label="News"
-          title={lobby.news}
-          primary="OK"
-          onPrimary={() => setLobby((previous) => ({ ...previous, news: null }))}
         />
       )}
 

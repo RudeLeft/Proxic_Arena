@@ -20,6 +20,7 @@ import { ICON, avatarOf, chatItems, holdsBelt, presenceOf, rankOf, unreadAfter }
 import { BeltMark } from "./BeltMark";
 import { PICKER, REACTIONS } from "./chatEmoji";
 import { Avatar } from "./avatars";
+import { setTitleCount } from "./tabTitle";
 
 /** Within this many pixels of the bottom counts as reading the latest line. */
 const BOTTOM_SLACK = 24;
@@ -89,11 +90,8 @@ export function ChatPanel({
 
   const unread = reading ? 0 : unreadAfter(lines, seenId, me).length;
   useEffect(() => {
-    const base = "Proxic Arena";
-    document.title = unread > 0 ? `(${unread}) ${base}` : base;
-    return () => {
-      document.title = base;
-    };
+    setTitleCount("chat", unread);
+    return () => setTitleCount("chat", 0);
   }, [unread]);
 
   // The log scrolls itself, not the page, and only when you were at the

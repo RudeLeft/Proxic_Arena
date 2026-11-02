@@ -1197,46 +1197,6 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 
 /* --- what Forge said, the chat, the end -------------------------------------------- */
 
-.gs-notices {
-  position: absolute;
-  left: 42%;
-  bottom: 24%;
-  z-index: 16000;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-.gs-notice {
-  max-width: 520px;
-  padding: 8px 14px;
-  border: 1px solid #39424f;
-  border-radius: 6px;
-  background: rgb(17 22 29 / 94%);
-  font-size: var(--pa-size-md);
-  color: #dfe4ea;
-  animation: gs-fade 7s ease forwards;
-}
-@keyframes gs-fade {
-  0%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .gs-notice {
-    animation: none;
-  }
-}
-
 /* Spec 0013 — the game's own chat: the lobby chat's panel in a drawer
    that slides in from the left, with a tab on its edge to open and close
    it (a dot when something new came in) and Close beside Send. */
