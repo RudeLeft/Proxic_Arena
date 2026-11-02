@@ -1348,9 +1348,10 @@ export function Board({
               ...placement(item.box, g.cardW, g.cardH, item.origin),
               zIndex: item.box.z,
               ...(item.id === flyingOnto && item.ids.length === 1
-                ? // Hidden, it goes straight to its place (no glide), so it is
-                  // there when the card lands on it.
-                  { visibility: "hidden" as const, transition: "none" }
+                ? // Not drawn, but still there to click (a target chosen while
+                  // it lands); it goes straight to its place (no glide), so
+                  // it is there when the card lands on it.
+                  { opacity: 0, transition: "none" }
                 : {}),
             }}
           >

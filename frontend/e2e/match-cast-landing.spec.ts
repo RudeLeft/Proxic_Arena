@@ -62,7 +62,7 @@ async function watch(page: Page, ms: number): Promise<Frame[]> {
         const tick = () => {
           const leaving = document.querySelector(".gs-cast-leaving");
           const hidden = [...document.querySelectorAll<HTMLElement>(".bf-slot")]
-            .filter((slot) => slot.style.visibility === "hidden")
+            .filter((slot) => slot.style.opacity === "0")
             .map((slot) => slot.querySelector("button")?.getAttribute("data-object-id") ?? "")
             .filter(Boolean);
           hidden.forEach((id) => watched.add(id));
@@ -70,8 +70,7 @@ async function watch(page: Page, ms: number): Promise<Frame[]> {
           for (const id of watched) {
             const button = document.querySelector(`.bf-cards button[data-object-id="${id}"]`);
             const slot = button?.closest<HTMLElement>(".bf-slot");
-            if (button && slot)
-              at[id] = { ...centre(button), shown: slot.style.visibility !== "hidden" };
+            if (button && slot) at[id] = { ...centre(button), shown: slot.style.opacity !== "0" };
           }
           frames.push({
             flight: leaving
