@@ -258,16 +258,22 @@ test("three matches at once stay separate, and one crashing leaves the others pl
         `/api/matches/${otherMatch}/assets/${assetId}`,
       );
       expect(viaOther.status(), "another match's route does not serve this match's art").toBe(404);
-      const direct = await all[1]!.host.request.get(src);
+      // This match's own route (kept for open pages) still refuses a
+      // non-participant; the picture's own address (spec 0052, owner D1)
+      // serves any signed-in player.
+      const ownRoute = `/api/matches/${ids[0]!.matchId}/assets/${assetId}`;
+      const direct = await all[1]!.host.request.get(ownRoute);
       expect(direct.status(), "a non-participant cannot use this match's route").toBe(404);
+      expect(src).toBe(`/api/pictures/${assetId}`);
+      expect((await all[1]!.host.request.get(src)).status(), "the picture's own address").toBe(200);
       // The close-up's full scan (AMENDMENT 8): exactly the same rule.
       const fullViaOther = await all[1]!.host.request.get(
         `/api/matches/${otherMatch}/assets/${assetId}?size=full`,
       );
       expect(fullViaOther.status(), "nor its full-size picture").toBe(404);
-      const fullDirect = await all[1]!.host.request.get(`${src}?size=full`);
+      const fullDirect = await all[1]!.host.request.get(`${ownRoute}?size=full`);
       expect(fullDirect.status(), "nor the full size by this match's route").toBe(404);
-      const fullOwn = await all[0]!.host.request.get(`${src}?size=full`);
+      const fullOwn = await all[0]!.host.request.get(`${ownRoute}?size=full`);
       expect(fullOwn.status(), "a participant gets the full scan").toBe(200);
       leakChecked = true;
     }

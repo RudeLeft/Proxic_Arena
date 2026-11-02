@@ -433,8 +433,10 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     await expect(art.first()).toBeVisible({ timeout: 60_000 });
 
     const src = await art.first().getAttribute("src");
-    expect(src, "the reference is match-scoped and opaque (§6.122, §6.123)").toMatch(
-      /^\/api\/matches\/[0-9a-f-]{36}\/assets\/[0-9a-f]{64}$/,
+    // Spec 0052: a picture's one address, its content hash -- opaque
+    // still (§6.123), no longer match-scoped (owner D1).
+    expect(src, "the reference is the picture's own opaque address").toMatch(
+      /^\/api\/pictures\/[0-9a-f]{64}$/,
     );
 
     const fetched = await host.request.get(src!);
@@ -443,14 +445,18 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
 
     // --- P6-Z: and cannot walk the rest of the deck -----------
     //
-    // A well-formed reference this viewer was never shown. Same
-    // match, same session, and §4.65's rule says it answers the
-    // same way a nonexistent one does.
+    // A well-formed reference this viewer was never shown. Through the
+    // match's own route (kept for open pages), §4.65's rule says it
+    // answers the same way a nonexistent one does. Since spec 0052 the
+    // deck's other pictures stay unknown because their addresses are
+    // never named to this viewer, not because the route refuses them.
     const unseen = "b".repeat(64);
-    // The match id out of the reference that just worked, so the
-    // two requests differ in exactly one thing: the asset.
-    const scope = src!.slice(0, src!.lastIndexOf("/"));
-    const refused = await host.request.get(`${scope}/${unseen}`);
+    const current = (await (await host.request.get("/api/matches/current")).json()) as {
+      match: { matchId: string };
+    };
+    const refused = await host.request.get(
+      `/api/matches/${current.match.matchId}/assets/${unseen}`,
+    );
     expect(refused.status(), "§6.129 — one visible card is not the package").toBe(404);
   } finally {
     await clearEverything(host).catch(() => undefined);

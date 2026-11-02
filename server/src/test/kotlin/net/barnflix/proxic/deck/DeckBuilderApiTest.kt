@@ -398,11 +398,8 @@ class DeckBuilderApiTest {
             val sam = signIn("Sam")
             val sent = send(linkedToken(pat), packageBytes)
             val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
-            val detail =
-                json.decodeFromString(
-                    DeckDetail.serializer(),
-                    client.get("/api/decks/${accepted.deckId}") { header(HttpHeaders.Cookie, pat.cookies) }.bodyAsText(),
-                )
+            val page = client.get("/api/decks/${accepted.deckId}") { header(HttpHeaders.Cookie, pat.cookies) }
+            val detail = json.decodeFromString(DeckDetail.serializer(), page.bodyAsText())
             val address = assertNotNull(detail.entries.first { it.artUrl != null }.artUrl)
             val sha = images.values.map(::sha256).single { address.endsWith(it) }
             assertEquals("/api/pictures/$sha", address)
