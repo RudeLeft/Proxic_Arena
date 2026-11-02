@@ -3,6 +3,23 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.31.0 — 2026-11-02
+
+The end of a game, and whose move it is (Phase 9 W-24 and W-25).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Game over**
+- A banner across the table says who won, in large letters (gold when it's you), with why and the turn underneath, said once.
+- Back to the room takes you to your room, where you are both still seated with your decks chosen.
+- Look at the board puts the banner away so you can see how the game ended; the button in the right-hand column then takes you back to the room, and Show the result brings the banner back.
+- Someone watching sees "Pat won", never "You won".
+
+**Waiting for the other player**
+- The right-hand column says "Pat's move" in plain letters, never broken over two lines, with what Pat is doing underneath: choosing blockers, deciding on your spell, or the step of the turn.
+- Pat's corner at the top of the column glows softly while you wait for Pat.
+
 ## 1.30.0 — 2026-11-02
 
 Card pictures are kept between games, and pictures nothing uses are
