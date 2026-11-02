@@ -83,6 +83,14 @@ cannot leak a difference that does not exist.
 
 ## Artwork
 
+> **Amendment, spec 0052 (owner D1 and D6, 2026-11-01/02).** The pages
+> now load every picture at its own address, `/api/pictures/{sha}`, for
+> any signed-in player; the per-deck address below keeps the checks it
+> describes. So after a share is revoked (§4.35) the deck, its detail and
+> its per-deck picture addresses stop, but a picture's own address,
+> already shown, keeps loading: card pictures are Scryfall's public card
+> images, not deck data.
+
 PHASE 4 AMENDMENT 2. Two conditions, both required:
 
 ```text

@@ -255,6 +255,13 @@ class MatchArt(
     }
 
     /**
+     * Spec 0052 — every picture this match's decks brought (cards, faces,
+     * tokens, art crops), so the weekly clean-up never deletes one a game
+     * in progress may still show.
+     */
+    fun pictures(): Set<String> = bySeat.values.flatMapTo(mutableSetOf()) { it.values }
+
+    /**
      * §6.122, §6.129 — may this seat fetch this asset?
      *
      * Only what they have been shown. Not "is it in a deck in this

@@ -384,4 +384,40 @@ class DeckBuilderApiTest {
             assertEquals(HttpStatusCode.UnprocessableEntity, tooMany.status, tooMany.bodyAsText())
             assertTrue(tooMany.bodyAsText().contains("at most 100"), tooMany.bodyAsText())
         }
+
+    /**
+     * Spec 0052, F-0052-A: a deck page hands out each picture's one address,
+     * which any signed-in player may load and a stranger may not; the
+     * browser may keep it a year, and nothing in between may keep it.
+     */
+    @Test
+    fun `a picture has one address, for signed-in players only`() =
+        testApplication {
+            application { module(config()) }
+            val pat = signIn("Pat")
+            val sam = signIn("Sam")
+            val sent = send(linkedToken(pat), packageBytes)
+            val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
+            val detail =
+                json.decodeFromString(
+                    DeckDetail.serializer(),
+                    client.get("/api/decks/${accepted.deckId}") { header(HttpHeaders.Cookie, pat.cookies) }.bodyAsText(),
+                )
+            val address = assertNotNull(detail.entries.first { it.artUrl != null }.artUrl)
+            val sha = images.values.map(::sha256).single { address.endsWith(it) }
+            assertEquals("/api/pictures/$sha", address)
+
+            // Sam was never shown Pat's deck, and may still load the picture by its address (D1).
+            val loaded = client.get(address) { header(HttpHeaders.Cookie, sam.cookies) }
+            assertEquals(HttpStatusCode.OK, loaded.status)
+            assertEquals("private, max-age=31536000, immutable", loaded.headers[HttpHeaders.CacheControl])
+            val closeUp = client.get("$address?size=full") { header(HttpHeaders.Cookie, sam.cookies) }
+            assertEquals(HttpStatusCode.OK, closeUp.status)
+
+            assertEquals(HttpStatusCode.Unauthorized, client.get(address).status, "nobody signed in (D2)")
+            val unknown = client.get("/api/pictures/${"0".repeat(64)}") { header(HttpHeaders.Cookie, sam.cookies) }
+            assertEquals(HttpStatusCode.NotFound, unknown.status)
+            val bad = client.get("/api/pictures/..%2F..%2Fsecret") { header(HttpHeaders.Cookie, sam.cookies) }
+            assertEquals(HttpStatusCode.NotFound, bad.status)
+        }
 }

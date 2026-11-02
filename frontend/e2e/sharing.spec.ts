@@ -144,9 +144,16 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await guest.reload();
   await expect(guest.getByText("Nobody has shared a deck with you.")).toBeVisible();
 
-  // §4.35 — detail and artwork stop together, not just the listing.
+  // §4.35 — the deck stops, not just the listing: its detail, and its
+  // pictures through the deck.
   expect((await guest.request.get(`/api/decks/${deckId}`)).status()).toBe(404);
-  expect((await guest.request.get(artUrl)).status()).toBe(404);
+  const sha = artUrl.split("/").pop()!;
+  expect((await guest.request.get(`/api/decks/${deckId}/assets/${sha}`)).status()).toBe(404);
+  // Spec 0052, owner D6 (2026-11-02): a picture's own address, already
+  // shown to Sam, keeps loading for any signed-in player -- Scryfall's
+  // public card image, not the deck.
+  expect(artUrl).toBe(`/api/pictures/${sha}`);
+  expect((await guest.request.get(artUrl)).status()).toBe(200);
 
   // §4.145 — the owner is untouched throughout.
   await owner.goto("/decks");

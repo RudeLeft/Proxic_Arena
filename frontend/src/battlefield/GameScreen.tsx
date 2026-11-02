@@ -88,7 +88,7 @@ import { useSettled } from "../useSettled";
 import { NoticeStack } from "../NoticeStack";
 import { GAME_MESSAGE_MS, inArrival, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
-import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
+import { SharpCard, closeUpOf, fetchAhead, pictureUrl } from "../closeUp";
 import { ManaCost, ManaText, costChange, symbolUrl, withSymbols } from "./ManaCost";
 import {
   combatPart,
@@ -195,16 +195,13 @@ export function GameScreen({
   // the question's board anyway).
   const latest = game.board;
   // Spec 0015 — the close-ups of the cards in view, fetched ahead so a
-  // zoom is sharp at once. Each picture is fetched once per tab.
+  // zoom is sharp at once. Each picture is fetched once per tab -- and,
+  // at its one address (spec 0052), once per browser across games.
   useEffect(() => {
     if (!latest) return;
     const cards = [...latest.hand, ...latest.battlefield, ...latest.otherHands, ...latest.stack];
-    fetchAhead(
-      cards.flatMap((card) =>
-        card.art ? [closeUpOf(`/api/matches/${match.matchId}/assets/${card.art}`)] : [],
-      ),
-    );
-  }, [latest, match.matchId]);
+    fetchAhead(cards.flatMap((card) => (card.art ? [closeUpOf(pictureUrl(card.art))] : [])));
+  }, [latest]);
   const [held, setHeld] = useState<Snapshot | null>(null);
   const askedNow = !finished && game.decision !== null;
   // Spec 0009 — a player the game is asking is not away.
@@ -860,7 +857,7 @@ export function GameScreen({
           COMBAT_KINDS.has(decision.kind) ||
           (question.context === "priority" && question.listed.length === 0))));
   const windowed = !!decision && (answeredForYou || !barOnly);
-  const artUrl = (art: string) => `/api/matches/${match.matchId}/assets/${art}`;
+  const artUrl = pictureUrl;
   const gameWindow = (geometry: Geometry) => {
     if (!decision || !question || !board || answeredForYou) return null;
     // Spec 0042: beside the card being cast, when one is.
@@ -1000,7 +997,7 @@ export function GameScreen({
                 : undefined
             }
             viewerSeat={board.seat}
-            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            artUrl={pictureUrl}
             arrivals={data.arrivals}
             departures={data.departures}
             flyingOnto={flyingOnto}
@@ -1224,7 +1221,7 @@ export function GameScreen({
             notice={game.notice}
             onAnswer={answer}
             onSearch={search}
-            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            artUrl={pictureUrl}
           />
         )}
 
@@ -1233,7 +1230,7 @@ export function GameScreen({
             board={board}
             id={inspecting}
             mySeat={mine?.seatNumber ?? null}
-            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            artUrl={pictureUrl}
             onClose={() => setInspecting(null)}
           />
         )}
@@ -1244,7 +1241,7 @@ export function GameScreen({
             card={cardOf(board, inspecting)}
             name={objectName(inspecting)}
             costNow={handCosts.get(inspecting) ?? null}
-            artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
+            artUrl={pictureUrl}
             onClose={() => setInspecting(null)}
           />
         )}

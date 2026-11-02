@@ -29,6 +29,7 @@ import net.barnflix.proxic.deck.DeckAuthorization
 import net.barnflix.proxic.deck.deckBuilderRoutes
 import net.barnflix.proxic.deck.deckRoutes
 import net.barnflix.proxic.deck.deckRulesRoutes
+import net.barnflix.proxic.deck.startPictureCleanup
 import net.barnflix.proxic.hall.HallGameSource
 import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
@@ -596,6 +597,7 @@ private fun Route.databaseRoutes(
         application.environment.monitor.subscribe(ApplicationStopped) {
             roomMaintenance.stop()
         }
+        startPictureCleanup(database.dataSource(), File(config.dataRoot)) { matchRuntime.picturesInPlay } // spec 0052
 
         // PHASE_05 §5.14, §5.76-§5.81, §5.138, §5.139. The
         // lobby is the announcer: an HTTP response reaches

@@ -459,7 +459,9 @@ class DeckDepotApiTest {
             application { module(config()) }
 
             val detail = getAs(signIn("Pat"), "/api/decks/$deck").bodyAsText()
-            assertTrue(detail.contains("\"backArtUrl\":\"/api/decks/$deck/assets/$back\""), detail)
+            // Spec 0052: the page hands out the picture's one address; the old
+            // per-deck address below keeps its own checks for an open page.
+            assertTrue(detail.contains("\"backArtUrl\":\"/api/pictures/$back\""), detail)
             assertTrue(detail.contains("\"backFaceName\":\"Insectile Aberration\""), detail)
 
             assertEquals(HttpStatusCode.OK, getAs(signIn("Pat"), "/api/decks/$deck/assets/$back").status)

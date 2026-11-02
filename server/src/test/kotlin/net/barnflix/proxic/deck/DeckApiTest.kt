@@ -175,7 +175,8 @@ class DeckApiTest {
             val withArt = detail.entries.filter { it.artUrl != null }
             assertEquals(11, withArt.size)
             assertTrue(
-                withArt.all { it.artUrl!!.startsWith("/api/decks/") },
+                // Spec 0052: each picture's one address.
+                withArt.all { it.artUrl!!.startsWith("/api/pictures/") },
                 "art must be an Arena URL, not a filesystem path",
             )
 

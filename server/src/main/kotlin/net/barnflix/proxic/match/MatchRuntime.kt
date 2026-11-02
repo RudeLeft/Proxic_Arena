@@ -50,6 +50,10 @@ class MatchRuntime(
     /** Every match this process is running. §6.159 bounds the size. */
     private val live = ConcurrentHashMap<UUID, LiveMatch>()
 
+    /** Spec 0052 — the pictures the games this process is running may show. */
+    val picturesInPlay: Set<String>
+        get() = live.values.flatMapTo(mutableSetOf()) { it.art.pictures() }
+
     /**
      * §6.122, §6.129 — only what this viewer has been shown.
      *

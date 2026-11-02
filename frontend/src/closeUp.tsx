@@ -62,6 +62,12 @@ export function fetchAhead(urls: Iterable<string>): void {
 export const closeUpOf = (url: string) => `${url}?size=full`;
 
 /**
+ * Spec 0052 -- a picture's one address, by its content hash: the same in
+ * every game and on every deck page, so the browser keeps it between games.
+ */
+export const pictureUrl = (sha: string) => `/api/pictures/${sha}`;
+
+/**
  * A card picture that starts as the table copy ([low]) and becomes the
  * sharp one ([high]) only once that is whole: never a half-painted card.
  */

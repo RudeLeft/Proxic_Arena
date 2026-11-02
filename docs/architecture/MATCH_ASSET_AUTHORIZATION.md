@@ -8,6 +8,18 @@ and how it is served. Written from `MatchArt.kt`, `MatchRecords.kt`,
 > retrieval. Phase 7 owns final graphical composition and battlefield
 > presentation.**
 
+> **Amendment, spec 0052 (owner, 2026-11-01).** Retrieval is no longer
+> match-scoped. The pages fetch every picture at its one address,
+> `GET /api/pictures/{sha}` (`?size=full` for the close-up), which any
+> signed-in player may load (owner D1), with `private` caching so
+> Cloudflare keeps nothing (D2). What still holds: a snapshot names a
+> picture (`art`, `crop`) only for a card this viewer may identify, so a
+> player learns an address only by being shown the card; a hidden card's
+> picture is never named. What changed: an address, once known, keeps
+> working for any signed-in player, beyond the match. The match route
+> below still answers with its per-viewer check, for a page opened before
+> the update. Card pictures are Scryfall's public card images.
+
 ---
 
 ## The chain

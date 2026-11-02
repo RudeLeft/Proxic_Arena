@@ -122,6 +122,9 @@ class ArtStore(dataRoot: File) {
         val sha = sha256(source)
         val target = File(File(originals, sha.substring(0, 2)), "$sha.$kind")
         if (target.isFile && !needsCopies(target)) {
+            // Spec 0052: stored again, so not "unused for 30 days" -- the
+            // weekly clean-up leaves a picture with a fresh time alone.
+            target.setLastModified(System.currentTimeMillis())
             return ArtResult.Ok(StoredArt(sha, target.length(), claimed.first, claimed.second))
         }
 

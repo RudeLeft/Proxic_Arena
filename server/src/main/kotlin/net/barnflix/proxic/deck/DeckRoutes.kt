@@ -185,6 +185,10 @@ fun Route.deckRoutes(
     val authorization = DeckAuthorization(dataSource)
     val sharing = DeckSharing(dataSource, authorization)
 
+    // Spec 0052 -- the one address each picture has, which the deck pages
+    // below hand out (artUrl) and the game pages use too.
+    pictureRoutes(artStore)
+
     route("/decks") {
         // §4.52, §4.6 -- the owner comes from the SESSION the Phase 3
         // intercept already resolved and stashed, never from the multipart
@@ -448,10 +452,10 @@ private fun deckDetail(
                                     setCode = rows.getString(4),
                                     collectorNumber = rows.getString(5),
                                     resolutionStatus = rows.getString(6),
-                                    artUrl = art?.let { "/api/decks/$deckId/assets/$it" },
+                                    artUrl = art?.let { "/api/pictures/$it" },
                                     category = rows.getString(8),
                                     backFaceName = backArt?.let { rows.getString(9) },
-                                    backArtUrl = backArt?.let { "/api/decks/$deckId/assets/$it" },
+                                    backArtUrl = backArt?.let { "/api/pictures/$it" },
                                 ),
                             )
                         }
@@ -495,7 +499,7 @@ private fun deckTokens(
                             name = rows.getString(2),
                             setCode = rows.getString(3),
                             collectorNumber = rows.getString(4),
-                            artUrl = rows.getString(5)?.let { "/api/decks/$deckId/assets/$it" },
+                            artUrl = rows.getString(5)?.let { "/api/pictures/$it" },
                         ),
                     )
                 }
