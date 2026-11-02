@@ -3,6 +3,27 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.29.0 — 2026-11-02
+
+One look for every notice, on every page and in a game.
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Notices** (spec 0050, owner item 6)
+- Every notice is the same card, top right of every page: invitations, requests to join, room news, problems, the connection and new versions. The Lobby's pop-ups and the strip in the top bar are gone.
+- An invitation or a request to join stays until you answer it. Close it with × to answer later from the Lobby.
+- News ("Pat declined your invitation", "The host closed the room") fades after 8 seconds, and waits while you point at it.
+- Problems ("Your deck needs attention") stay until you close them, and now say in full what's wrong.
+- Several at once no longer hide each other: the newest three show, and the rest wait as "+N more".
+- "Signed out" has a Sign in again button.
+- When Proxic Arena is updated during a game, the Reload notice waits until the game is over.
+- An invitation or a request to join plays a soft chime and shows "(1)" in the browser tab. A Sounds switch on the Account page turns the chime off.
+
+**In a game** (Phase 9, the game's messages and warnings)
+- The game's own messages (a coin flip, a card revealed, a choice the opponent made) are small cards top right of the table instead of over your creatures. Clicks go straight through them.
+- "Reconnecting to the game" is the same kind of card, and goes by itself once the connection is back.
+
 ## 1.28.0 — 2026-11-01
 
 Decks of up to 100 cards, sent as light pictures, and each card's own art

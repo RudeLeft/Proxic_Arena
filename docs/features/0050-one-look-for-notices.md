@@ -1,6 +1,6 @@
 # 0050 — One look for every notice
 
-**Status:** Built 2026-11-02, not yet released
+**Status:** Done in 1.29.0 (approved 2026-11-02)
 **Owner decisions:** item 6 of the owner's six items, option A, 2026-11-01
 (canvas https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81). The details are
 from the canvas https://claude.ai/artifact/P5eET6QgnywiZTCZPU1uP4 and the
