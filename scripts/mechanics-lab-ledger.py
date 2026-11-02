@@ -132,7 +132,7 @@ def build() -> str:
     w("- **Every one of the 275 images** passes the importer's validation, every entry finds its")
     w("  image, and every card finds its art at MATCH time too. `MechanicsLabArtTest` (local only:")
     w("  the images are never committed, AGENTS GIT-001).")
-    w("- **The upload route refuses it**, correctly: 390 cards is not Open Format (60-65, §2.45)")
+    w("- **The upload route refuses it**, correctly: 390 cards is not Open Format (60-100 since spec 0051; 60-65 when this was written, §2.45)")
     w("  and its 289 MB of art exceeds the 150 MB package limit. Each import stage is run on its")
     w("  own instead; the refusal itself is asserted.")
     w("- **The TXT and CSV are unchanged** (§6.4): their SHA-256s are pinned in")
