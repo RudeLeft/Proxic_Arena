@@ -125,7 +125,14 @@ function readBoard(page: Page): Promise<Seen> {
     const drawn = [
       ...board.querySelectorAll<HTMLElement>('button[data-object-id]:not([data-zone="stack"])'),
     ].map((el) => {
+      // A flyer's hover-sway (owner item 3) is decoration on top of its
+      // place: measure the place, with the sway held still for the read.
+      const still = el.classList.contains("bf-fly");
+      if (still) el.style.setProperty("animation", "none");
+      if (still) el.style.setProperty("translate", "none");
       const r = el.getBoundingClientRect();
+      if (still) el.style.removeProperty("animation");
+      if (still) el.style.removeProperty("translate");
       return {
         id: el.dataset.objectId!,
         zone: el.dataset.zone!,
@@ -141,7 +148,12 @@ function readBoard(page: Page): Promise<Seen> {
       nameFont: name ? parseFloat(getComputedStyle(name).fontSize) : null,
       cardH: slot ? parseFloat(getComputedStyle(slot).height) : null,
       ghosts: board.querySelectorAll("[data-ghost-of]").length,
-      moving: document.getAnimations().filter((a) => a.playState === "running").length,
+      // Not what plays forever on a settled card (a flyer's sway, the z's;
+      // owner item 3): only motion that ends counts as moving.
+      moving: document
+        .getAnimations()
+        .filter((a) => a.playState === "running" && a.effect?.getTiming().iterations !== Infinity)
+        .length,
       drawn,
     };
   });
