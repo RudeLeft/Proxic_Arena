@@ -401,6 +401,9 @@ export function GameScreen({
       ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
       : null;
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
+  // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
+  // onto the battlefield (nothing answered it): the flight lands on its
+  // place there, and the board shows the card only once it has.
   const castFrom = useRef<{ id: string; box: Box } | null>(null);
   const handCountOf = (seat: number) => board?.players.find((p) => p.seat === seat)?.handCount ?? 0;
   const lastCasting = useRef<{
@@ -408,6 +411,8 @@ export function GameScreen({
     docked: boolean;
     hidden: boolean;
     handCount: number;
+    /** The battlefield while it was being cast: what is new after is it. */
+    battlefield: Set<string>;
   } | null>(null);
   const [flight, setFlight] = useState<{
     card: SnapshotCard;
@@ -416,7 +421,43 @@ export function GameScreen({
     reveal: boolean;
     hidden: boolean;
     key: number;
+    battlefield: Set<string>;
   } | null>(null);
+  // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
+  // onto the battlefield (nothing answered it): the flight lands on its
+  // place there, and the board shows the card only once it has.
+  // The battlefield as it is while a spell is being cast, read on every
+  // board: the last one before it is paid is what "new" is measured from.
+  const fieldWhileCasting = useRef<Set<string>>(new Set());
+  if (casting && board)
+    fieldWhileCasting.current = new Set(board.battlefield.map((card) => card.id));
+  // Chosen once per flight, then kept: the newest card of that name, that
+  // player's, not there while it was being cast.
+  const landingChoice = useRef<{ key: number; id: string } | null>(null);
+  let flyingOnto: string | null = null;
+  if (
+    flight &&
+    !flight.hidden &&
+    board &&
+    !board.stack.some((entry) => entry.source === flight.card.id)
+  ) {
+    if (landingChoice.current?.key === flight.key) {
+      flyingOnto = landingChoice.current.id;
+    } else {
+      const fresh = board.battlefield
+        .filter(
+          (card) =>
+            !flight.battlefield.has(card.id) &&
+            card.name === flight.card.name &&
+            card.seat === flight.card.seat,
+        )
+        .sort((a, b) => Number(b.id.replace(/\D/g, "")) - Number(a.id.replace(/\D/g, "")));
+      if (fresh[0]) {
+        flyingOnto = fresh[0].id;
+        landingChoice.current = { key: flight.key, id: fresh[0].id };
+      }
+    }
+  }
   useEffect(() => {
     const before = lastCasting.current;
     if (before && before.card.id !== casting?.id) {
@@ -430,6 +471,7 @@ export function GameScreen({
         reveal: before.hidden && !cancelled,
         hidden: before.hidden && cancelled,
         key: Date.now(),
+        battlefield: before.battlefield,
       });
     }
     lastCasting.current = casting
@@ -438,6 +480,7 @@ export function GameScreen({
           docked: castingDocked,
           hidden: castingHiddenBy !== null,
           handCount: handCountOf(casting.seat),
+          battlefield: fieldWhileCasting.current,
         }
       : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handCountOf reads this board
@@ -897,6 +940,7 @@ export function GameScreen({
             artUrl={(art) => `/api/matches/${match.matchId}/assets/${art}`}
             arrivals={data.arrivals}
             departures={data.departures}
+            flyingOnto={flyingOnto}
             combat={data.combat}
             stack={stackShown}
             clock={counting && windowId !== null ? String(windowId) : null}
@@ -982,12 +1026,13 @@ export function GameScreen({
                           key={flight.key}
                           card={flight.card}
                           geometry={geometry}
-                          to={at(onStack?.id ?? flight.card.id)}
+                          to={at(onStack?.id ?? flyingOnto ?? flight.card.id)}
                           artUrl={artUrl}
                           onDone={() => setFlight(null)}
                           docked={flight.docked}
                           reveal={flight.reveal}
                           hidden={flight.hidden}
+                          landing={flyingOnto !== null && !onStack}
                         />
                       );
                     })()}

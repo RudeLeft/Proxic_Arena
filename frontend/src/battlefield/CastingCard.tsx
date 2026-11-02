@@ -31,6 +31,15 @@ const GROW = 2.5;
 const DOCKED = 1.5;
 /** Rises out of the hand, and flies away, in this long. */
 export const FLY_MS = 560;
+/**
+ * Owner 2026-11-01 (item 2) -- how long the cast card waits before it sets
+ * off: long enough to hear that nobody answered and the permanent is
+ * already on the battlefield (a few hundredths of a second in practice),
+ * too short to notice.
+ */
+export const DECIDE_MS = 150;
+/** The short glide after landing when its place moved during the flight. */
+const SETTLE_MS = 140;
 /** The opponent's card: turning over, then held face up, before it flies. */
 export const FLIP_MS = 420;
 export const HOLD_MS = 650;
@@ -305,6 +314,15 @@ export function CastingCard({
  * Spec 0044: the opponent's card was face down. Committed (`reveal`), it
  * turns over with a flash and is held a moment before it flies; cancelled
  * (`hidden`), it goes back still face down.
+ *
+ * Owner 2026-11-01 (item 2): when nobody can answer it (the opponent is
+ * tapped out), the game resolves the spell a few hundredths of a second
+ * after it is cast. The card waits DECIDE_MS before it sets off, long
+ * enough for that news to arrive: a permanent already on the battlefield
+ * (`landing`) is flown straight onto its place there, landing at full size
+ * and opacity (the board shows the real card only once it has); otherwise
+ * it goes to the stack as before. One flight, to the right place, instead
+ * of a flight to an empty stack while the creature slides out of it.
  */
 export function CastingFlight({
   card,
@@ -315,6 +333,7 @@ export function CastingFlight({
   docked = false,
   reveal = false,
   hidden = false,
+  landing = false,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
@@ -324,8 +343,15 @@ export function CastingFlight({
   docked?: boolean;
   reveal?: boolean;
   hidden?: boolean;
+  /** `to` is the card's place on the battlefield: land there, solid. */
+  landing?: boolean;
 }) {
   const box = castingBox(geometry, docked);
+  // Where it goes is read when it sets off, not when it is drawn.
+  const toRef = useRef(to);
+  toRef.current = to;
+  const landingRef = useRef(landing);
+  landingRef.current = landing;
   const ref = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const faceRef = useRef<HTMLDivElement>(null);
@@ -336,6 +362,7 @@ export function CastingFlight({
       onDone();
       return;
     }
+    let animation: Animation | null = null;
     const turns: Animation[] = [];
     if (reveal && backRef.current && faceRef.current && flashRef.current) {
       const half = FLIP_MS / 2;
@@ -359,46 +386,71 @@ export function CastingFlight({
         }),
       );
     }
-    const delay = reveal ? FLIP_MS + HOLD_MS : 0;
-    // Already resolved before this viewer saw it on the stack: shown face
-    // up all the same, then gone where it stands.
-    if (!to) {
-      const fade = el.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: FLY_MS,
-        delay,
-        fill: "forwards",
-      });
-      fade.onfinish = onDone;
-      return () => {
-        fade.cancel();
-        turns.forEach((turn) => turn.cancel());
+    const wait = reveal ? FLIP_MS + HOLD_MS : DECIDE_MS;
+    const timer = window.setTimeout(() => {
+      const there = toRef.current;
+      // Already resolved before this viewer saw it on the stack (and
+      // not on the battlefield): shown face up all the same, then gone
+      // where it stands.
+      if (!there) {
+        animation = el.animate([{ opacity: 1 }, { opacity: 0 }], {
+          duration: FLY_MS,
+          fill: "forwards",
+        });
+        animation.onfinish = onDone;
+        return;
+      }
+      const dx = there.x + there.w / 2 - (box.x + box.w / 2);
+      const dy = there.y + there.h / 2 - (box.y + box.h / 2);
+      animation = el.animate(
+        [
+          { transform: "translate(0, 0) scale(1) rotate(0deg)", opacity: 1 },
+          {
+            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
+            opacity: 1,
+            offset: 0.5,
+          },
+          {
+            transform: `translate(${dx}px, ${dy}px) scale(${there.h / box.h}) rotate(${there.rotation}deg)`,
+            // On the stack it fades into the small card there; on the
+            // battlefield it IS the card, which appears as it lands.
+            opacity: landingRef.current ? 1 : 0.35,
+          },
+        ],
+        { duration: FLY_MS, easing: "cubic-bezier(.5,0,.2,1)", fill: "forwards" },
+      );
+      // The row can shift while it flies (a tapped card splits from its
+      // pile): a short glide to where its place is now, then done.
+      animation.onfinish = () => {
+        const now = toRef.current;
+        if (
+          !now ||
+          !animation ||
+          (Math.abs(now.x - there.x) < 3 && Math.abs(now.y - there.y) < 3)
+        ) {
+          onDone();
+          return;
+        }
+        animation.commitStyles();
+        animation.cancel();
+        const nx = now.x + now.w / 2 - (box.x + box.w / 2);
+        const ny = now.y + now.h / 2 - (box.y + box.h / 2);
+        animation = el.animate(
+          [
+            { transform: el.style.transform, opacity: Number(el.style.opacity || 1) },
+            {
+              transform: `translate(${nx}px, ${ny}px) scale(${now.h / box.h}) rotate(${now.rotation}deg)`,
+              opacity: landingRef.current ? 1 : 0.35,
+            },
+          ],
+          { duration: SETTLE_MS, easing: "ease-out", fill: "forwards" },
+        );
+        animation.onfinish = onDone;
       };
-    }
-    const dx = to.x + to.w / 2 - (box.x + box.w / 2);
-    const dy = to.y + to.h / 2 - (box.y + box.h / 2);
-    const animation = el.animate(
-      [
-        { transform: "translate(0, 0) scale(1) rotate(0deg)", opacity: 1 },
-        {
-          transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
-          opacity: 1,
-          offset: 0.5,
-        },
-        {
-          transform: `translate(${dx}px, ${dy}px) scale(${to.h / box.h}) rotate(${to.rotation}deg)`,
-          opacity: 0.35,
-        },
-      ],
-      {
-        duration: FLY_MS,
-        delay,
-        easing: "cubic-bezier(.5,0,.2,1)",
-        fill: "forwards",
-      },
-    );
-    animation.onfinish = onDone;
+    }, wait);
     return () => {
-      animation.cancel();
+      window.clearTimeout(timer);
+      animation?.cancel();
       turns.forEach((turn) => turn.cancel());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once
@@ -407,6 +459,8 @@ export function CastingFlight({
     <div
       ref={ref}
       className="gs-cast gs-cast-leaving"
+      data-card={card.id}
+      data-landing={landing ? "true" : undefined}
       style={{
         left: box.x,
         top: box.y,

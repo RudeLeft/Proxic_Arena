@@ -205,6 +205,11 @@ export interface BoardProps {
   /** Where a card that was not on the board came from (default: the
    * stack, which is where most permanents come from). */
   arrivals?: ReadonlyMap<string, AnchorId>;
+  /**
+   * Owner 2026-11-01 (item 2) -- a card the cast card is flying onto: not
+   * drawn until the flight has landed, and it does not slide in itself.
+   */
+  flyingOnto?: string | null;
   /** Where a card that left the board went (default: its controller's
    * graveyard). A card that moved to the hand needs nothing: it is still
    * drawn, and simply moves. */
@@ -476,6 +481,7 @@ export function Board({
   artUrl,
   arrivals,
   departures,
+  flyingOnto = null,
   combat,
   stack,
   pointedStack,
@@ -1053,6 +1059,8 @@ export function Board({
     if (before && !resized && !still) {
       for (const item of items) {
         if (before.mounted.has(item.id)) continue; // the same element: CSS glides it
+        // The cast card is flying onto it: it appears where that lands.
+        if (item.id === flyingOnto && item.ids.length === 1) continue;
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
         // A new element: from wherever the object was drawn before (a
@@ -1179,7 +1187,7 @@ export function Board({
       mounted: new Set(items.map((item) => item.id)),
       stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
-  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl]);
+  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl, flyingOnto]);
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
@@ -1339,6 +1347,11 @@ export function Board({
               height: g.cardH,
               ...placement(item.box, g.cardW, g.cardH, item.origin),
               zIndex: item.box.z,
+              ...(item.id === flyingOnto && item.ids.length === 1
+                ? // Hidden, it goes straight to its place (no glide), so it is
+                  // there when the card lands on it.
+                  { visibility: "hidden" as const, transition: "none" }
+                : {}),
             }}
           >
             {item.content}

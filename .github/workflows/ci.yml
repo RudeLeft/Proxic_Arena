@@ -496,6 +496,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/card-trays-deck.zip" protocol/fixtures/card-trays-deck
 
+      # And a creature nobody can answer (owner 2026-11-01, item 2): the
+      # cast card lands straight on its place on the battlefield.
+      - name: Build the landing deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck
+
       - run: npm ci
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
