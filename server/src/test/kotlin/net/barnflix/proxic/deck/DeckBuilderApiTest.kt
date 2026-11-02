@@ -314,7 +314,7 @@ class DeckBuilderApiTest {
             val sent = send(token, zip(withApe))
             assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
             val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
-            assertEquals(60, accepted.totalCards, "the token is outside the 60 to 65")
+            assertEquals(60, accepted.totalCards, "the token is outside the 60 to 100")
             assertEquals(1, accepted.tokenPictures)
 
             val detail =
@@ -330,5 +330,58 @@ class DeckBuilderApiTest {
             assertTrue(detail.entries.none { it.cardName == "Ape" })
             val picture = client.get(assertNotNull(ape.artUrl)) { header(HttpHeaders.Cookie, pat.cookies) }
             assertEquals(HttpStatusCode.OK, picture.status, "a deck's token picture is its picture too")
+        }
+
+    /** A solid-colour JPEG, as the Deck Builder sends since spec 0051. */
+    private fun jpegPicture(rgb: Int): ByteArray {
+        val image = BufferedImage(60, 84, BufferedImage.TYPE_INT_RGB)
+        for (x in 0 until 60) for (y in 0 until 84) image.setRGB(x, y, rgb)
+        return ByteArrayOutputStream().also { ImageIO.write(image, "jpg", it) }.toByteArray()
+    }
+
+    /**
+     * Spec 0051, F-0051-A and F-0051-C: a 100-card deck of JPEG pictures and
+     * art crops is accepted; its crops count as pictures the sender holds, so
+     * a re-send may name them instead; 101 cards are refused.
+     */
+    @Test
+    fun `a 100-card deck of JPEG pictures and art crops is accepted, and 101 cards are not`() =
+        testApplication {
+            application { module(config()) }
+            val token = linkedToken(signIn("Pat"))
+            val crop = jpegPicture(0x335577)
+            val entries =
+                mapOf(
+                    "Hundred.txt" to "96 Mountain\n4 Lightning Bolt\n".toByteArray(),
+                    "real_cards/Mountain [CI].jpg" to jpegPicture(0x8a3b2a),
+                    "real_cards/Lightning Bolt [CI].jpg" to jpegPicture(0xd9a441),
+                    "art_crops/Lightning Bolt [CI].jpg" to crop,
+                )
+
+            val sent = send(token, zip(entries))
+            assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
+            val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
+            assertEquals(100, accepted.totalCards)
+            assertEquals(0, accepted.entriesWithoutArt)
+
+            val asked = known(token, listOf(sha256(crop))).bodyAsText()
+            val knows = json.decodeFromString(PicturesKnownResponse.serializer(), asked)
+            assertEquals(listOf(sha256(crop)), knows.known, "an art crop is a picture the sender holds")
+            val light =
+                zip(
+                    mapOf(
+                        "Hundred.txt" to "96 Mountain\n4 Lightning Bolt\n\n".toByteArray(),
+                        "real_cards/Mountain [CI].jpg" to entries.getValue("real_cards/Mountain [CI].jpg"),
+                        "real_cards/Lightning Bolt [CI].jpg" to entries.getValue("real_cards/Lightning Bolt [CI].jpg"),
+                        "pictures.json" to """{"art_crops/Lightning Bolt [CI].jpg":"${sha256(crop)}"}""".toByteArray(),
+                    ),
+                )
+            val again = send(token, light, name = "Hundred again")
+            assertEquals(HttpStatusCode.Created, again.status, again.bodyAsText())
+
+            val oneMore = entries + ("Hundred.txt" to "97 Mountain\n4 Lightning Bolt\n".toByteArray())
+            val tooMany = send(token, zip(oneMore), "Too many")
+            assertEquals(HttpStatusCode.UnprocessableEntity, tooMany.status, tooMany.bodyAsText())
+            assertTrue(tooMany.bodyAsText().contains("at most 100"), tooMany.bodyAsText())
         }
 }

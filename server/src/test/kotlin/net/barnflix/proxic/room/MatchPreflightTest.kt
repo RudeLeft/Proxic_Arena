@@ -84,7 +84,8 @@ class MatchPreflightTest {
      */
     @Test
     fun `an oversized deck is invalid for the preset`() {
-        val deckId = deckOf(70)
+        // Spec 0051: more than 100 (it was 70 when the limit was 65).
+        val deckId = deckOf(101)
         val check = preflight().validate(deckId)
 
         assertEquals(DeckVerdict.INVALID_FOR_PRESET, check.verdict, check.detail)

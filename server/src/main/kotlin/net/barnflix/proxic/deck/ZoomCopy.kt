@@ -2,6 +2,7 @@ package net.barnflix.proxic.deck
 
 import org.slf4j.Logger
 import java.awt.Color
+import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.IIOImage
@@ -9,7 +10,8 @@ import javax.imageio.ImageIO
 import javax.imageio.ImageWriteParam
 import kotlin.concurrent.thread
 
-// The close-up copy of a card picture — spec 0015 (owner 2026-10-26).
+// The close-up copy of a card picture — spec 0015 (owner 2026-10-26) —
+// and, scaled, its table copy (spec 0051).
 //
 // The zoom views showed the original scan, a ~1.5 MB PNG that arrives in
 // pieces, so the browser painted it top to bottom. This is the same picture
@@ -24,17 +26,24 @@ object ZoomCopy {
     /** How far in from the left edge, as a share of the width, the border colour is read. */
     private const val BORDER_AT = 0.02
 
+    /**
+     * [image] as a JPEG at [target], [width] pixels wide (its own width by
+     * default; spec 0051's table copy asks for 384), corners filled.
+     */
     fun write(
         image: BufferedImage,
         target: File,
+        width: Int = image.width,
     ) {
+        val height = (image.height.toDouble() * width / image.width).toInt().coerceAtLeast(1)
         val border = Color(image.getRGB((image.width * BORDER_AT).toInt(), image.height / 2), true)
-        val opaque = BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_RGB)
+        val opaque = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         val graphics = opaque.createGraphics()
         try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
             graphics.color = Color(border.red, border.green, border.blue)
-            graphics.fillRect(0, 0, image.width, image.height)
-            graphics.drawImage(image, 0, 0, null)
+            graphics.fillRect(0, 0, width, height)
+            graphics.drawImage(image, 0, 0, width, height, null)
         } finally {
             graphics.dispose()
         }
@@ -59,22 +68,26 @@ object ZoomCopy {
         }
     }
 
-    /** Makes the missing close-up copies, once, in the background; returns at once. */
+    /**
+     * Makes the missing copies, once, in the background; returns at once:
+     * the close-up copies (spec 0015) and the JPEG table copies (spec
+     * 0051, replacing the PNG ones) for pictures imported before them.
+     * Each picture is decoded once, and only when it lacks one.
+     */
     fun fillInBackground(
         store: ArtStore,
         log: Logger,
     ) {
-        thread(name = "zoom-copy-fill", isDaemon = true) {
+        thread(name = "picture-copy-fill", isDaemon = true) {
             var made = 0
             store.originalFiles.forEach { original ->
+                if (!store.needsCopies(original)) return@forEach
                 val sha = original.nameWithoutExtension
-                val target = store.zoomPath(sha)
-                if (target.isFile) return@forEach
-                runCatching { ImageIO.read(original)?.let { write(it, target) } }
-                    .onSuccess { if (target.isFile) made++ }
-                    .onFailure { log.warn("zoom copy for {} not made: {}", sha, it.javaClass.simpleName) }
+                runCatching { ImageIO.read(original)?.let { store.makeCopies(sha, it, original) } }
+                    .onSuccess { if (!store.needsCopies(original)) made++ }
+                    .onFailure { log.warn("picture copies for {} not made: {}", sha, it.javaClass.simpleName) }
             }
-            if (made > 0) log.info("zoom copies: {} made for pictures imported earlier", made)
+            if (made > 0) log.info("picture copies: made for {} pictures imported earlier", made)
         }
     }
 }

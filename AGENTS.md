@@ -55,7 +55,7 @@ security fix, a dependency refresh, a failing test — needs no spec, but
 is still reported and verified as any change is. *(amended 2026-10-22 —
 this section was "Current phase".)*
 
-**Approved feature specs:** none in progress. Done in 1.1.0: 0001, 0002, 0003, 0005 (0004 dropped); in 1.2.0: 0006, 0007, 0008; in 1.3.0: 0009, 0010, 0011, 0012; in 1.4.0: 0013; in 1.5.0: 0014; in 1.6.0: 0015; in 1.7.0: 0016; in 1.8.0: 0017, 0018; in 1.9.0: 0019, 0020; in 1.10.0: 0021; in 1.11.0: 0022; in 1.12.0: 0025; in 1.13.0: 0023, 0024; in 1.15.0: 0026, 0027; in 1.16.0: 0028, 0029, 0030, 0031, 0032; in 1.17.0: 0033 (and 0031 Amendment 1); in 1.18.0: 0034, 0035; in 1.19.0: 0036, 0037; in 1.20.0: 0038; in 1.21.0: 0039; in 1.22.0: 0040; in 1.24.0: 0041, 0042, 0043; in 1.25.0: 0044, 0045, 0046, 0047; in 1.27.0: 0048, 0049.
+**Approved feature specs:** 0051 (60-100 card decks, JPEG pictures and art crops from the Deck Builder, a light board copy) in progress. Done in 1.1.0: 0001, 0002, 0003, 0005 (0004 dropped); in 1.2.0: 0006, 0007, 0008; in 1.3.0: 0009, 0010, 0011, 0012; in 1.4.0: 0013; in 1.5.0: 0014; in 1.6.0: 0015; in 1.7.0: 0016; in 1.8.0: 0017, 0018; in 1.9.0: 0019, 0020; in 1.10.0: 0021; in 1.11.0: 0022; in 1.12.0: 0025; in 1.13.0: 0023, 0024; in 1.15.0: 0026, 0027; in 1.16.0: 0028, 0029, 0030, 0031, 0032; in 1.17.0: 0033 (and 0031 Amendment 1); in 1.18.0: 0034, 0035; in 1.19.0: 0036, 0037; in 1.20.0: 0038; in 1.21.0: 0039; in 1.22.0: 0040; in 1.24.0: 0041, 0042, 0043; in 1.25.0: 0044, 0045, 0046, 0047; in 1.27.0: 0048, 0049.
 Update this line when one is approved or done.
 
 **Phases:** large work may still be a phase, locked and closed at an exit
@@ -111,7 +111,8 @@ you were asked to do, stop and say so.
 ## FORMAT — the only supported play mode
 
 - **FMT-001 — MUST NOT:** Implement or offer any play mode other than
-  **Open Format**: 65-card deck maximum, no more than 4 copies of a
+  **Open Format**: 100-card deck maximum (65 until spec 0051, owner
+  2026-11-01), no more than 4 copies of a
   specific card, unrestricted card pool, 2 players. Commander and
   Two-Headed Giant were removed from SCOPE by owner decision on
   2026-10-15.
@@ -143,19 +144,22 @@ you were asked to do, stop and say so.
   decks' own rule, not a singleton rule for the deck.
 - **FMT-002 — MUST:** Enforce deck legality in Proxic, not Forge.
   `DeckFormat.Constructed` is min 60 with **no maximum**; Open Format
-  is **max 65**. They are different rules, so the check cannot be
+  is **max 100**. They are different rules, so the check cannot be
   delegated. Deck-construction legality is format policy; everything
-  after the game starts is still Forge's. Open Format: max 65 cards,
-  60-65 cards inclusive, max 4 copies of a card, **basic lands
+  after the game starts is still Forge's. Open Format: max 100 cards,
+  60-100 cards inclusive, max 4 copies of a card, **basic lands
   unlimited**, **no sideboard**. Neither size bound matches Forge's
   Constructed (min 60, no maximum). _REVIEW._
   **AMENDED 2026-10-23 (owner decision, Phase 8 Amendment 3).**
   Contraptions and Attractions (the Un-sets) go to their own small
   decks, sorted by card type as Forge reads the card, and are not in
-  the 60-65 or the copy count; each such deck follows Forge's
+  the 60-100 or the copy count; each such deck follows Forge's
   Constructed rule: at least 15 Contraptions or 10 Attractions, one
   copy of each. The card pool includes the silver-bordered sets (Forge
   is started with its non-legal cards loaded).
+  **AMENDED 2026-11-01 (owner decision, spec 0051).** The deck size is
+  60 to 100 cards (was 60-65); the copy limit and everything else are
+  unchanged.
 - **FMT-004 — MUST NOT:** Use `DeckFormat.canHaveAnyNumberOf()` as the
   copy-limit exemption test. It exempts basic lands *and* cards
   keyworded "A deck can have any number of cards named CARDNAME"

@@ -140,7 +140,11 @@ class DeviceLinkApiTest {
             val served = rules(token)
             assertEquals(HttpStatusCode.OK, served.status, served.bodyAsText())
             val document = Json.parseToJsonElement(served.bodyAsText()).jsonObject
-            assertEquals("65", document["format"]!!.jsonObject["maxCards"]!!.jsonPrimitive.content)
+            assertEquals("100", document["format"]!!.jsonObject["maxCards"]!!.jsonPrimitive.content)
+            // F-0051-B: what pictures a package may carry.
+            val pictures = document["format"]!!.jsonObject["pictures"]!!.jsonObject
+            assertEquals(listOf("png", "jpeg"), pictures["formats"]!!.jsonArray.map { it.jsonPrimitive.content })
+            assertEquals("true", pictures["artCrops"]!!.jsonPrimitive.content)
             assertEquals(1, document["cards"]!!.jsonArray.size)
             val etag = served.headers[HttpHeaders.ETag]!!
             assertEquals("\"${document["rulesVersion"]!!.jsonPrimitive.content}\"", etag)

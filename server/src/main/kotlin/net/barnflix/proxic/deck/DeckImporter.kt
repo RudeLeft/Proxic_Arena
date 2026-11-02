@@ -60,6 +60,8 @@ private data class PreparedImport(
     val deck: ParsedDeck,
     val resolutions: Map<String, CardResolution>,
     val art: Map<String, StoredArt>,
+    /** Spec 0051 -- each picture's art crop, by the same name. */
+    val crops: Map<String, StoredArt> = emptyMap(),
 )
 
 class DeckImporter(
@@ -172,7 +174,7 @@ class DeckImporter(
             }
 
         // §2.44, §2.45 — Open Format legality, the part that needs no
-        // Forge: resolving 65 cards costs a worker; refusing a 40-card
+        // Forge: resolving 100 cards costs a worker; refusing a 40-card
         // deck costs nothing.
         val certain = OpenFormat.certainViolations(deck)
         if (certain.isNotEmpty()) {
@@ -190,7 +192,7 @@ class DeckImporter(
 
         // 7. Forge resolution (§2.46–§2.49). Asked BEFORE the rest of
         // legality since Phase 8 Amendment 3: which cards are Contraptions
-        // or Attractions -- and so outside the 60–65 -- is Forge's reading
+        // or Attractions -- and so outside the 60–100 -- is Forge's reading
         // of the card.
         val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
         // Spec 0024: a card Forge knows in another printing is kept in the
@@ -219,7 +221,8 @@ class DeckImporter(
 
         // 8. Artwork.
         val artByFrontName = mutableMapOf<String, StoredArt>()
-        artwork(upload, inspected, staging, ownerUserId, artByFrontName)?.let { return it }
+        val cropsByName = mutableMapOf<String, StoredArt>()
+        artwork(upload, inspected, staging, ownerUserId, Artwork(artByFrontName, cropsByName))?.let { return it }
 
         // 9-10. One transaction. Either the whole deck exists or
         // none of it does (§2.18).
@@ -234,6 +237,7 @@ class DeckImporter(
                 deck = deck,
                 resolutions = resolutions,
                 art = artByFrontName,
+                crops = cropsByName,
             ),
         )
     }
@@ -285,12 +289,12 @@ class DeckImporter(
         upload: File,
         inspected: InspectedPackage,
         staging: File,
-        into: MutableMap<String, StoredArt>,
+        into: Artwork,
     ): List<String> {
         val problems = mutableListOf<String>()
         ZipFile(upload).use { zip ->
-            for (member in inspected.imageEntries) {
-                val extracted = File(staging, "art-${into.size}.png")
+            for (member in inspected.imageEntries + inspected.cropEntries) {
+                val extracted = File(staging, "art-${into.pictures.size + into.crops.size}")
                 // At most one byte past the limit, so ArtStore refuses an
                 // entry that inflates past the size its zip header claimed
                 // rather than this filling the disk first.
@@ -301,7 +305,7 @@ class DeckImporter(
                 }
                 when (val stored = artStore.store(extracted, member)) {
                     is ArtResult.Rejected -> problems += "${stored.code}: ${stored.detail}"
-                    is ArtResult.Ok -> into[frontNameOf(member)] = stored.art
+                    is ArtResult.Ok -> into.mapFor(member)[frontNameOf(member)] = stored.art
                 }
                 extracted.delete()
             }
@@ -318,7 +322,7 @@ class DeckImporter(
         inspected: InspectedPackage,
         staging: File,
         ownerUserId: UUID,
-        into: MutableMap<String, StoredArt>,
+        into: Artwork,
     ): ImportResult.Rejected? {
         val artProblems = storeArtwork(upload, inspected, staging, into)
         if (artProblems.isNotEmpty()) {
@@ -353,7 +357,7 @@ class DeckImporter(
         upload: File,
         inspected: InspectedPackage,
         ownerUserId: UUID,
-        into: MutableMap<String, StoredArt>,
+        into: Artwork,
     ): List<String> {
         val entry = inspected.picturesEntry ?: return emptyList()
         val text =
@@ -363,7 +367,7 @@ class DeckImporter(
                 }
             }
         val named = picturesNamed(text) ?: return listOf("$entry is not a list of pictures.")
-        val total = named.size + inspected.imageEntries.size
+        val total = named.size + inspected.imageEntries.size + inspected.cropEntries.size
         if (total > PackageLimits.MAX_IMAGE_COUNT) {
             return listOf("The package names $total pictures; the limit is ${PackageLimits.MAX_IMAGE_COUNT}.")
         }
@@ -371,14 +375,15 @@ class DeckImporter(
         val problems = mutableListOf<String>()
         for ((member, sha) in named) {
             val face = frontNameOf(member)
+            val map = into.mapFor(member)
             // A picture sent in full wins over one named.
-            if (face in into) continue
+            if (face in map) continue
             val size = held[sha]
             if (size == null || !artStore.originalPath(sha).isFile) {
                 problems += member
                 continue
             }
-            into[face] = StoredArt(sha, size, 0, 0)
+            map[face] = StoredArt(sha, size, 0, 0)
         }
         return problems
     }
@@ -424,7 +429,7 @@ class DeckImporter(
                     statement.executeUpdate()
                 }
 
-                for (stored in art.values.distinctBy { it.sha256 }) {
+                for (stored in (art.values + prepared.crops.values).distinctBy { it.sha256 }) {
                     // Another deck may already have this art, which
                     // is the point of content addressing.
                     connection.prepareStatement(
@@ -486,6 +491,7 @@ class DeckImporter(
                 }
 
                 insertTokens(connection, deckId, deck.tokens, art)
+                insertCrops(connection, deckId, prepared.crops)
 
                 connection.commit()
             } catch (e: Exception) {
@@ -590,6 +596,9 @@ private fun insertTokens(
 
 private val SHA256 = Regex("^[0-9a-f]{64}$")
 
+/** A picture's extension, as frontNameOf drops it. */
+private val PICTURE_EXTENSION = Regex("\\.(png|jpe?g)$", RegexOption.IGNORE_CASE)
+
 /**
  * Spec 0022 -- `{"real_cards/Pongify [PLC].png": "<sha-256>", ...}`, or null
  * when the text is anything else: a name that is not a picture's, or a
@@ -603,10 +612,10 @@ internal fun picturesNamed(text: ByteArray): Map<String, String>? {
     val named = mutableMapOf<String, String>()
     for ((member, value) in parsed) {
         val sha = (value as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
-        val picture = member.removePrefix("real_cards/")
+        // A card picture, or (spec 0051) an art crop, as the package files them.
         val isPicture =
-            member.startsWith("real_cards/") && picture.isNotEmpty() && !picture.contains('/') &&
-                picture.lowercase(Locale.ROOT).endsWith(".png")
+            PackageInspector.isPictureIn("real_cards/", member, PackageInspector.IMAGE_EXTENSIONS) ||
+                PackageInspector.isPictureIn(PackageInspector.CROP_DIRECTORY, member, PackageInspector.CROP_EXTENSIONS)
         if (!SHA256.matches(sha) || !isPicture) return null
         named[member] = sha
     }
@@ -638,7 +647,9 @@ internal fun ownedPictures(
                           OR EXISTS (SELECT 1 FROM deck_face_art f
                                       WHERE f.deck_id = d.deck_id AND f.art_sha256 = a.content_sha256)
                           OR EXISTS (SELECT 1 FROM deck_token t
-                                      WHERE t.deck_id = d.deck_id AND t.art_sha256 = a.content_sha256)))
+                                      WHERE t.deck_id = d.deck_id AND t.art_sha256 = a.content_sha256)
+                          OR EXISTS (SELECT 1 FROM deck_crop_art c
+                                      WHERE c.deck_id = d.deck_id AND c.art_sha256 = a.content_sha256)))
             """.trimIndent(),
         ).use { statement ->
             statement.setArray(1, connection.createArrayOf("text", hashes.toTypedArray()))
@@ -664,11 +675,44 @@ internal fun ownedPictures(
  * drift.
  */
 internal fun frontNameOf(member: String): String =
-    member.removePrefix("real_cards/")
-        .removeSuffix(".png")
+    member.substringAfterLast('/')
+        // Spec 0051: a JPEG, and an art crop (art_crops/), are named alike.
+        .replace(PICTURE_EXTENSION, "")
         .substringBeforeLast(" [")
         .trim()
         .lowercase(Locale.ROOT)
+
+/**
+ * Spec 0051 -- the pictures a package brings, by name: card pictures
+ * (`real_cards/`) and their art crops (`art_crops/`).
+ */
+private class Artwork(
+    val pictures: MutableMap<String, StoredArt>,
+    val crops: MutableMap<String, StoredArt>,
+) {
+    fun mapFor(member: String): MutableMap<String, StoredArt> {
+        val crop = member.startsWith(PackageInspector.CROP_DIRECTORY)
+        return if (crop) crops else pictures
+    }
+}
+
+/** Spec 0051 -- each picture's art crop, for the table, by the picture's name. */
+private fun insertCrops(
+    connection: java.sql.Connection,
+    deckId: UUID,
+    crops: Map<String, StoredArt>,
+) {
+    for ((face, stored) in crops) {
+        connection.prepareStatement(
+            "INSERT INTO deck_crop_art (deck_id, face_name, art_sha256) VALUES (?, ?, ?)",
+        ).use { statement ->
+            statement.setObject(1, deckId)
+            statement.setString(2, face)
+            statement.setString(3, stored.sha256)
+            statement.executeUpdate()
+        }
+    }
+}
 
 /** Copy until the stream ends or [limit] bytes have been written. */
 private fun java.io.InputStream.copyAtMost(

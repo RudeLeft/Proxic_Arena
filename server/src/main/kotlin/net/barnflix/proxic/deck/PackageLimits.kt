@@ -24,7 +24,9 @@ object PackageLimits {
      * Largest accepted upload.
      *
      * A 65-card deck of entirely distinct cards is ~65 images at
-     * ~1.1 MB, so ~70 MB is a plausible honest maximum. 150 MB is
+     * ~1.1 MB, so ~70 MB is a plausible honest maximum. (Spec 0051: a
+     * 100-card deck sends light JPEGs, about 22 MB; the limit stays for
+     * PNG packages from older Deck Builders.) 150 MB is
      * roughly double that: generous enough that a legitimate deck is
      * never refused, small enough that filling a disk takes
      * deliberate effort rather than one request.
@@ -48,20 +50,36 @@ object PackageLimits {
      */
     const val MAX_COMPRESSION_RATIO: Double = 10.0
 
-    /** One deck list, up to ~65 distinct images, plus margin. */
-    const val MAX_ENTRIES: Int = 300
+    /**
+     * One deck list and its pictures, plus margin. Spec 0051: 100 cards,
+     * their back faces, tokens, and an art crop for each -- up to
+     * [MAX_IMAGE_COUNT] pictures.
+     */
+    const val MAX_ENTRIES: Int = 600
 
     /** Largest single member. The biggest PNG observed was 1.77 MB. */
     const val MAX_ENTRY_BYTES: Long = 16L * 1024 * 1024
 
     /**
-     * The decklist is text: 365 bytes for 65 cards.
+     * The decklist is text: 365 bytes for 65 cards, ~600 for 100.
      *
      * 1 MB is three orders of magnitude of headroom and still
      * refuses a "deck list" that is actually a payload.
      */
     const val MAX_DECK_TEXT_BYTES: Long = 1L * 1024 * 1024
 
-    /** 65 distinct cards is the format maximum; margin for art variants. */
-    const val MAX_IMAGE_COUNT: Int = 200
+    /**
+     * Spec 0051: 100 distinct cards is the format maximum. Each may bring
+     * a picture, a back face's and an art crop of each, and tokens bring
+     * theirs: about 450 at the very most. (200 when decks were 65 cards
+     * and art crops did not exist.)
+     */
+    const val MAX_IMAGE_COUNT: Int = 500
+
+    /**
+     * Spec 0051 -- the picture formats a package may carry, as
+     * `/api/deck-rules` tells the Deck Builder. JPEG: the Deck Builder's
+     * light card pictures and Scryfall's art crops.
+     */
+    val PICTURE_FORMATS = listOf("png", "jpeg")
 }

@@ -541,4 +541,93 @@ class MatchArtTest {
         assertTrue(art.mayFetch(alice, secret) && art.mayFetch(alice, bolt) && art.mayFetch(alice, plains))
         assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
     }
+
+    private val boltCrop = "1".repeat(64)
+    private val delverCrop = "2".repeat(64)
+    private val apeCrop = "3".repeat(64)
+    private val lotusCrop = "4".repeat(64)
+
+    private fun cropped() =
+        MatchArt(
+            mapOf(
+                alice to
+                    mapOf(
+                        "Lightning Bolt" to bolt,
+                        "${MatchArt.CROP}lightning bolt" to boltCrop,
+                        "Delver of Secrets // Insectile Aberration" to plains,
+                        "${MatchArt.CROP}delver of secrets" to delverCrop,
+                        "${MatchArt.TOKEN}ape" to secret,
+                        "${MatchArt.CROP}ape" to apeCrop,
+                    ),
+                bob to mapOf("${MatchArt.CROP}black lotus" to lotusCrop),
+            ),
+        )
+
+    private fun cropOf(
+        state: JsonObject,
+        index: Int = 0,
+    ): String? = state["battlefield"]!!.jsonArray[index].jsonObject["crop"]?.jsonPrimitive?.content
+
+    /** Spec 0051, F-0051-E — a card wears its art crop beside its picture, and may fetch both. */
+    @Test
+    fun `a card wears its art crop beside its picture`() {
+        val art = cropped()
+
+        val seen = art.annotate(snapshot(card("card:1", alice, "Lightning Bolt")), bob)
+
+        assertEquals(bolt, artOf(seen))
+        assertEquals(boltCrop, cropOf(seen))
+        assertTrue(art.mayFetch(bob, boltCrop), "shown, so fetchable")
+        assertFalse(art.mayFetch(alice, boltCrop), "only the seat it was shown to")
+    }
+
+    /**
+     * Spec 0051 — a crop goes only where its picture goes: Bob's deck
+     * brought a Black Lotus crop and no picture, so a Lotus wears neither,
+     * and a hidden card never names one.
+     */
+    @Test
+    fun `a crop without its picture, or on a hidden card, is not shown`() {
+        val art = cropped()
+
+        val seen =
+            art.annotate(
+                snapshot(card("card:2", bob, "Black Lotus"), card("card:3", alice, "Lightning Bolt", known = false)),
+                alice,
+            )
+
+        assertNull(cropOf(seen, 0))
+        assertNull(cropOf(seen, 1))
+        assertFalse(art.mayFetch(alice, lotusCrop))
+        assertFalse(art.mayFetch(alice, boltCrop))
+    }
+
+    /** Spec 0051 — a card turned over does not borrow its front's crop. */
+    @Test
+    fun `a card turned over does not wear its front's crop`() {
+        val art = cropped()
+
+        val front = art.annotate(snapshot(card("card:4", alice, "Delver of Secrets")), alice)
+        assertEquals(delverCrop, cropOf(front))
+        val back = art.annotate(snapshot(card("card:4", alice, "Insectile Aberration")), alice)
+        assertNull(cropOf(back))
+    }
+
+    /** Spec 0051 — a token wears the crop its deck brought for that token picture; a spell on the stack its own. */
+    @Test
+    fun `a token and a spell on the stack wear their crops`() {
+        val art = cropped()
+
+        val seen = art.annotate(snapshot(token("card:5", bob, "Ape Token")), bob)
+        assertEquals(secret, artOf(seen))
+        assertEquals(apeCrop, cropOf(seen))
+
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":2,"battlefield":[],"hand":[],"players":[],"stack":[
+                {"id":"stack:1","name":"Lightning Bolt","controller":1,"owner":1,"kind":"spell"}]}""",
+            ).jsonObject
+        val stack = art.annotate(state, bob)["stack"]!!.jsonArray
+        assertEquals(boltCrop, stack[0].jsonObject["crop"]?.jsonPrimitive?.content)
+    }
 }

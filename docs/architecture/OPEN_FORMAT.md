@@ -11,7 +11,7 @@
 Proxic Arena supports **one play mode**: Open Format.
 
 ```text
-deck size        60-65 cards (inclusive)
+deck size        60-100 cards (inclusive; 60-65 until 2026-11-01)
 copy limit       no more than 4 copies of a specific card
                  EXCEPT basic lands, which are unlimited
 card pool        unrestricted -- any real Magic card is allowed
@@ -20,6 +20,11 @@ players          2
 ```
 
 No Commander. No Two-Headed Giant. No other preset.
+
+**Amendment, 2026-11-01 (owner, spec 0051).** Decks are 60 to 100
+cards. Up to 4 copies of a card at any size, basic lands unlimited, no
+sideboard; the Contraption and Attraction decks are unchanged. Where
+this document says 65 below, read 100.
 
 **Amendment, 2026-10-23 (owner, Phase 8 Amendment 3).** The pool
 includes the silver-bordered sets: Forge is started with its non-legal

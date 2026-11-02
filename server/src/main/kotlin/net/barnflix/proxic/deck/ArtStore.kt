@@ -65,16 +65,26 @@ class ArtStore(dataRoot: File) {
      *
      * The ORIGINAL is kept for the zoom view, which is the one place
      * the extra pixels are actually seen.
+     *
+     * Spec 0051: the copy is a JPEG now (ZoomCopy's writer, scaled), not
+     * a PNG: 384 wide either way, a fraction of the bytes.
      */
     private val displayWidth = 384
 
     /**
-     * Validate a PNG and store it, returning its content hash.
+     * Validate a PNG or a JPEG and store it, returning its content hash.
      *
      * §2.53: the extension is not trusted. The bytes are decoded,
      * and a file that does not decode is rejected — which also means
      * a "PNG" that is really a script or a payload never reaches
      * disk under a name the browser might serve.
+     *
+     * Spec 0051: a JPEG is accepted as well (the Deck Builder's light
+     * card pictures and Scryfall's art crops). A JPEG original IS its own
+     * close-up: it is served as it came, with no second encode. And a
+     * picture already stored with its copies is recognised by its hash
+     * before anything is decoded: identical bytes were decoded and
+     * checked when they first came.
      */
     fun store(
         source: File,
@@ -91,18 +101,28 @@ class ArtStore(dataRoot: File) {
         // before handing anything to an image decoder.
         val header = ByteArray(PNG_HEADER_BYTES)
         val headerRead = source.inputStream().use { it.readNBytes(header, 0, header.size) }
-        if (headerRead < PNG_MAGIC.size || !header.copyOf(PNG_MAGIC.size).contentEquals(PNG_MAGIC)) {
-            return ArtResult.Rejected("NOT_A_PNG", "\"$member\" is not a PNG.")
-        }
+        val kind =
+            when {
+                headerRead >= PNG_MAGIC.size && header.copyOf(PNG_MAGIC.size).contentEquals(PNG_MAGIC) -> PNG
+                headerRead >= JPEG_MAGIC.size && header.copyOf(JPEG_MAGIC.size).contentEquals(JPEG_MAGIC) -> JPEG
+                else -> return ArtResult.Rejected("NOT_A_PICTURE", "\"$member\" is not a PNG or a JPEG.")
+            }
 
         // The size, from the header, BEFORE decoding (2026-10-22 review).
-        // A PNG of one colour compresses about a thousand to one, so a
+        // A picture of one colour compresses about a thousand to one, so a
         // file well under the byte limit can claim 40,000 x 40,000 and
-        // decode to gigabytes -- the server's memory, for everyone.
-        val claimed = dimensionsOf(header, headerRead)
+        // decode to gigabytes -- the server's memory, for everyone. A
+        // JPEG's size is read by the decoder's reader without decoding.
+        val claimed = if (kind == PNG) dimensionsOf(header, headerRead) else jpegDimensionsOf(source)
         if (claimed == null || !reasonable(claimed.first, claimed.second)) {
             val size = claimed?.let { "${it.first}x${it.second}" } ?: "of no readable size"
             return ArtResult.Rejected("UNREASONABLE_DIMENSIONS", "\"$member\" is $size.")
+        }
+
+        val sha = sha256(source)
+        val target = File(File(originals, sha.substring(0, 2)), "$sha.$kind")
+        if (target.isFile && !needsCopies(target)) {
+            return ArtResult.Ok(StoredArt(sha, target.length(), claimed.first, claimed.second))
         }
 
         val image: BufferedImage =
@@ -116,20 +136,38 @@ class ArtStore(dataRoot: File) {
             )
         }
 
-        val sha = sha256(source)
-        val target = pathFor(originals, sha)
-
         // Already stored by another deck, or by this one: content
         // addressing makes the write idempotent, which is what lets
-        // a failed import leave art behind harmlessly.
+        // a failed import leave art behind harmlessly. Through a
+        // partial file, so a half-written original is never served.
         if (!target.isFile) {
             target.parentFile.mkdirs()
-            source.copyTo(target, overwrite = true)
+            val partial = File(target.parentFile, "${target.name}.part")
+            source.copyTo(partial, overwrite = true)
+            partial.renameTo(target)
         }
 
-        val derivative = pathFor(display, sha)
-        if (!derivative.isFile) {
-            runCatching { writeDisplayDerivative(image, derivative) }
+        makeCopies(sha, image, target)
+
+        return ArtResult.Ok(StoredArt(sha, target.length(), image.width, image.height))
+    }
+
+    /**
+     * The table's copy and, for a PNG, the close-up copy, each only when
+     * missing. Shared with the background fill for pictures stored before
+     * a copy existed.
+     */
+    internal fun makeCopies(
+        sha: String,
+        image: BufferedImage,
+        original: File,
+    ) {
+        // Spec 0051: the table's copy is a JPEG, 384 wide. It was a PNG
+        // of 340-555 KB -- heavier than the full-size close-up -- whose
+        // see-through corners the table never shows.
+        val derivative = jpegDisplayPath(sha)
+        if (!derivative.isFile && image.width > displayWidth) {
+            runCatching { ZoomCopy.write(image, derivative, displayWidth) }
                 .onFailure {
                     // A missing derivative is a performance problem,
                     // not a failed import: the original can still be
@@ -137,92 +175,75 @@ class ArtStore(dataRoot: File) {
                     derivative.delete()
                 }
             // If the derivative is no smaller, it is pure cost on
-            // disk — the decode saving still applies, but there is
-            // no reason to keep a file BIGGER than the thing it
-            // replaces. Measured: this happens for sources that are
-            // already small.
-            if (derivative.isFile && derivative.length() >= target.length()) {
+            // disk: the original is served instead.
+            if (derivative.isFile && derivative.length() >= original.length()) {
                 derivative.delete()
             }
+            // The PNG copy it replaces, from before spec 0051.
+            if (derivative.isFile) pathFor(display, sha).delete()
         }
 
-        // Spec 0015 — the close-up copy, so a zoom does not wait on the scan.
+        // Spec 0015 — the close-up copy, so a zoom does not wait on the
+        // scan. A JPEG original is already that copy.
         val closeUp = zoomPath(sha)
-        if (!closeUp.isFile) runCatching { ZoomCopy.write(image, closeUp) }.onFailure { closeUp.delete() }
-
-        return ArtResult.Ok(StoredArt(sha, target.length(), image.width, image.height))
+        if (original.extension == PNG && !closeUp.isFile) {
+            runCatching { ZoomCopy.write(image, closeUp) }.onFailure { closeUp.delete() }
+        }
     }
 
-    /** Where a hash lives, fanned out so no directory holds 100,000 files. */
+    /**
+     * Whether a stored original still lacks a copy it should have: a PNG
+     * without its JPEG table copy (spec 0051) or its close-up (spec 0015).
+     * A JPEG original gets its copy when it is stored, and one that came
+     * out no smaller than the original is not made again.
+     */
+    internal fun needsCopies(original: File): Boolean {
+        if (original.extension != PNG) return !original.isFile
+        val sha = original.nameWithoutExtension
+        return !jpegDisplayPath(sha).isFile && pathFor(display, sha).isFile || !zoomPath(sha).isFile
+    }
+
+    /** Where a hash's PNG lives, fanned out so no directory holds 100,000 files. */
     fun pathFor(
         root: File,
         sha256: String,
     ): File = File(File(root, sha256.substring(0, 2)), "$sha256.png")
 
-    fun originalPath(sha256: String): File = pathFor(originals, sha256)
+    /** The stored original, a PNG or (spec 0051) a JPEG; the PNG's path when neither exists. */
+    fun originalPath(sha256: String): File {
+        val png = pathFor(originals, sha256)
+        val jpeg = File(png.parentFile, "$sha256.$JPEG")
+        return if (!png.isFile && jpeg.isFile) jpeg else png
+    }
 
-    fun displayPath(sha256: String): File = pathFor(display, sha256)
+    /** The table's copy: a JPEG since spec 0051, a PNG before; the JPEG's path when neither exists. */
+    fun displayPath(sha256: String): File {
+        val jpeg = jpegDisplayPath(sha256)
+        val png = pathFor(display, sha256)
+        return if (!jpeg.isFile && png.isFile) png else jpeg
+    }
+
+    private fun jpegDisplayPath(sha256: String): File = File(File(display, sha256.substring(0, 2)), "$sha256.$JPEG")
 
     fun zoomPath(sha256: String): File = File(File(zoom, sha256.substring(0, 2)), "$sha256.jpg")
 
     /**
      * The file to serve: for the table, the display copy; for a close-up
-     * (spec 0015), the light JPEG copy. Either falls back to the original
-     * scan, which is what exists when a copy was not made.
+     * (spec 0015), the light JPEG copy. Either falls back to the original,
+     * which is what exists when a copy was not made -- and, for a JPEG
+     * original (spec 0051), is the close-up itself.
      */
     fun fileFor(
         sha256: String,
         closeUp: Boolean,
     ): File? {
-        val copy = if (closeUp) zoomPath(sha256) else displayPath(sha256)
-        return copy.takeIf { it.isFile } ?: originalPath(sha256).takeIf { it.isFile }
+        val copy = if (closeUp) zoomPath(sha256).takeIf { it.isFile } else displayPath(sha256).takeIf { it.isFile }
+        return copy ?: originalPath(sha256).takeIf { it.isFile }
     }
 
-    /** Every original scan, for filling in close-up copies made after it. */
+    /** Every original, PNG or JPEG, for filling in copies made after it. */
     val originalFiles: Sequence<File>
-        get() = originals.walkTopDown().filter { it.isFile && it.extension == "png" }
-
-    private fun writeDisplayDerivative(
-        image: BufferedImage,
-        target: File,
-    ) {
-        if (image.width <= displayWidth) {
-            // Already small enough; a derivative would be larger than
-            // the original for no gain.
-            return
-        }
-        val height = (image.height.toDouble() * displayWidth / image.width).toInt().coerceAtLeast(1)
-        val scaled = BufferedImage(displayWidth, height, BufferedImage.TYPE_INT_ARGB)
-        val graphics = scaled.createGraphics()
-        try {
-            graphics.setRenderingHint(
-                java.awt.RenderingHints.KEY_INTERPOLATION,
-                java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR,
-            )
-            graphics.drawImage(image, 0, 0, displayWidth, height, null)
-        } finally {
-            graphics.dispose()
-        }
-        target.parentFile.mkdirs()
-        ImageIO.write(scaled, "png", target)
-    }
-
-    private fun reasonable(
-        width: Int,
-        height: Int,
-    ) = width in MIN_DIMENSION..MAX_DIMENSION && height in MIN_DIMENSION..MAX_DIMENSION
-
-    /** Width and height from the IHDR chunk, which a PNG must begin with; null if it does not. */
-    private fun dimensionsOf(
-        header: ByteArray,
-        length: Int,
-    ): Pair<Int, Int>? {
-        if (length < PNG_HEADER_BYTES) return null
-        val chunk = String(header, IHDR_TYPE_AT, IHDR.length, Charsets.US_ASCII)
-        if (chunk != IHDR) return null
-        val buffer = java.nio.ByteBuffer.wrap(header)
-        return buffer.getInt(IHDR_WIDTH_AT) to buffer.getInt(IHDR_WIDTH_AT + Int.SIZE_BYTES)
-    }
+        get() = originals.walkTopDown().filter { it.isFile && (it.extension == PNG || it.extension == JPEG) }
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -241,6 +262,12 @@ class ArtStore(dataRoot: File) {
         private val PNG_MAGIC =
             byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)
 
+        /** Spec 0051 -- a JPEG begins with its start-of-image marker and a segment marker. */
+        private val JPEG_MAGIC = byteArrayOf(-1, -40, -1)
+
+        private const val PNG = "png"
+        private const val JPEG = "jpg"
+
         /** Signature, IHDR length and type, width, height. */
         private const val PNG_HEADER_BYTES = 24
         private const val IHDR = "IHDR"
@@ -252,6 +279,37 @@ class ArtStore(dataRoot: File) {
 
         /** 745x1040 is the observed source; this leaves generous room. */
         private const val MAX_DIMENSION = 4000
+
+        private fun reasonable(
+            width: Int,
+            height: Int,
+        ) = width in MIN_DIMENSION..MAX_DIMENSION && height in MIN_DIMENSION..MAX_DIMENSION
+
+        /** Width and height from the IHDR chunk, which a PNG must begin with; null if it does not. */
+        private fun dimensionsOf(
+            header: ByteArray,
+            length: Int,
+        ): Pair<Int, Int>? {
+            if (length < PNG_HEADER_BYTES) return null
+            val chunk = String(header, IHDR_TYPE_AT, IHDR.length, Charsets.US_ASCII)
+            if (chunk != IHDR) return null
+            val buffer = java.nio.ByteBuffer.wrap(header)
+            return buffer.getInt(IHDR_WIDTH_AT) to buffer.getInt(IHDR_WIDTH_AT + Int.SIZE_BYTES)
+        }
+
+        /** A JPEG's width and height as its header says, read without decoding the picture; null if unreadable. */
+        private fun jpegDimensionsOf(source: File): Pair<Int, Int>? =
+            runCatching {
+                ImageIO.createImageInputStream(source).use { input ->
+                    val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: return null
+                    try {
+                        reader.input = input
+                        reader.getWidth(0) to reader.getHeight(0)
+                    } finally {
+                        reader.dispose()
+                    }
+                }
+            }.getOrNull()
 
         /** SHA-256 of a byte stream, for the package checksum (§2.72). */
         fun sha256Of(file: File): String = ArtStore(File(".")).sha256(file)

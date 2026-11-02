@@ -429,6 +429,24 @@ describe("board detail", () => {
     },
   });
 
+  it("reads a card's art crop beside its picture, and drops one that is not a hash (spec 0051)", () => {
+    const hash = "c".repeat(64);
+    const read = (crop: unknown) =>
+      apply([
+        withCreature({
+          id: "card:9",
+          seat: 1,
+          name: "Bolt",
+          known: true,
+          art: "a".repeat(64),
+          crop,
+        }),
+      ]).board?.battlefield[0];
+    expect(read(hash)?.crop).toBe(hash);
+    expect(read("../etc/passwd")?.crop).toBeNull();
+    expect(read(undefined)?.crop).toBeNull();
+  });
+
   it("reads a creature's power, toughness and state", () => {
     const state = apply([
       withCreature({

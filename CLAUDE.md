@@ -20,7 +20,7 @@ Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
 production code — it carries the architectural facts Phase 0A
 established.
 
-**One play mode only: Open Format** — 60-65 card deck, max 4
+**One play mode only: Open Format** — 60-100 card deck, max 4
 copies of a specific card, unrestricted card pool, 2 players.
 
 Commander and Two-Headed Giant are **not built and not offered**,

@@ -49,10 +49,10 @@ class ArtStoreTest {
     }
 
     @Test
-    fun `a file that is not a PNG is refused as one`() {
+    fun `a file that is not a PNG or a JPEG is refused as one`() {
         val result = store.store(file("script.png").apply { writeText("<script>alert(1)</script>") }, "x.png")
         assertIs<ArtResult.Rejected>(result)
-        assertEquals("NOT_A_PNG", result.code)
+        assertEquals("NOT_A_PICTURE", result.code)
     }
 
     @Test

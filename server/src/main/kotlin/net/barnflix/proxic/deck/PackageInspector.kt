@@ -24,6 +24,8 @@ data class InspectedPackage(
     val picturesEntry: String? = null,
     val compressedBytes: Long,
     val uncompressedBytes: Long,
+    /** Spec 0051 -- `art_crops/<Name> [SET].jpg`: Scryfall's crop of a card's art, for the table. */
+    val cropEntries: List<String> = emptyList(),
 )
 
 sealed interface PackageResult {
@@ -35,6 +37,9 @@ sealed interface PackageResult {
 object PackageInspector {
     /** Where the exporter files artwork. */
     private const val ART_DIRECTORY = "real_cards/"
+
+    /** Spec 0051 -- where it files each picture's art crop. */
+    const val CROP_DIRECTORY = "art_crops/"
 
     /** Spec 0022 -- names the pictures a package leaves out because Arena holds them. */
     const val PICTURES_ENTRY = "pictures.json"
@@ -168,7 +173,8 @@ object PackageInspector {
                 PackageResult.Ok(
                     InspectedPackage(
                         deckTextEntry = deckTexts.single(),
-                        imageEntries = images,
+                        imageEntries = images.filterNot { it.startsWith(CROP_DIRECTORY) },
+                        cropEntries = images.filter { it.startsWith(CROP_DIRECTORY) },
                         picturesEntry = pictures,
                         compressedBytes = compressed,
                         uncompressedBytes = uncompressed,
@@ -281,12 +287,29 @@ object PackageInspector {
     /** The decklist: a `.txt` at the archive ROOT, not nested. */
     private fun isDeckText(name: String): Boolean = !name.contains('/') && name.lowercase(Locale.ROOT).endsWith(".txt")
 
-    /** Artwork: `real_cards/<something>.png`, one level deep. */
-    private fun isImage(name: String): Boolean {
-        if (!name.startsWith(ART_DIRECTORY)) return false
-        val remainder = name.removePrefix(ART_DIRECTORY)
+    /**
+     * Artwork: `real_cards/<something>.png`, one level deep -- or `.jpg`, or
+     * an art crop, `art_crops/<something>.jpg` (spec 0051).
+     */
+    private fun isImage(name: String): Boolean =
+        isPictureIn(ART_DIRECTORY, name, IMAGE_EXTENSIONS) || isPictureIn(CROP_DIRECTORY, name, CROP_EXTENSIONS)
+
+    /** A file directly inside [directory] ending in one of [extensions]. */
+    internal fun isPictureIn(
+        directory: String,
+        name: String,
+        extensions: List<String>,
+    ): Boolean {
+        if (!name.startsWith(directory)) return false
+        val remainder = name.removePrefix(directory)
         return remainder.isNotEmpty() &&
             !remainder.contains('/') &&
-            remainder.lowercase(Locale.ROOT).endsWith(".png")
+            extensions.any { remainder.lowercase(Locale.ROOT).endsWith(it) }
     }
+
+    /** A card picture: a PNG, or (spec 0051) a JPEG. */
+    internal val IMAGE_EXTENSIONS = listOf(".png", ".jpg", ".jpeg")
+
+    /** An art crop: Scryfall serves them as JPEGs only. */
+    internal val CROP_EXTENSIONS = listOf(".jpg", ".jpeg")
 }

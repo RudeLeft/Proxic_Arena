@@ -426,6 +426,11 @@ jobs:
           node scripts/make-ci-deck.mjs "Test Deck/treason-deck.zip" protocol/fixtures/treason-deck
           node scripts/make-ci-deck.mjs "Test Deck/goblin-deck.zip" protocol/fixtures/goblin-deck
 
+      # And art crops (spec 0051): the art window shows a card's crop.
+      - name: Build the art-crop deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/crop-deck.zip" protocol/fixtures/crop-deck --crops
+
       # And player state (P6-AO): poison, energy, the monarch.
       - name: Build the player-state deck package
         run: |

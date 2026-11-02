@@ -294,10 +294,10 @@ describe("problems", () => {
         type: "SETUP_PROBLEM",
         roomId: "r-1",
         errorCode: "INVALID_FOR_PRESET",
-        detail: "A deck must be 60 to 65 cards.",
+        detail: "A deck must be 60 to 100 cards.",
       },
     ]);
-    expect(state.setupProblem?.detail).toContain("60 to 65");
+    expect(state.setupProblem?.detail).toContain("60 to 100");
   });
 
   it("surfaces a refusal as a notice", () => {

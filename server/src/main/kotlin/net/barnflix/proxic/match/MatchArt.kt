@@ -170,15 +170,38 @@ class MatchArt(
         // §7.59 — a face that is not a front (a card turned over) has its
         // own picture when the deck carried one, by that face's name;
         // otherwise none -- never the front's.
+        val art = bySeat[owner] ?: return entry
         val asset =
-            bySeat[owner]?.let { art ->
-                printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
-            } ?: return entry
+            printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()] ?: return entry
+        return wearing(entry, asset, cropIn(art, name), allowed)
+    }
 
+    /**
+     * Spec 0051 -- the art crop filed under [name] (the face that is up, so
+     * a card turned over never borrows its front's), or its front face's.
+     */
+    private fun cropIn(
+        art: Map<String, String>,
+        name: String,
+    ): String? = art[CROP + name.lowercase()] ?: art[CROP + frontFaceOf(name).lowercase()]
+
+    /**
+     * [entry] with its picture and, when its deck brought one, its art crop
+     * (spec 0051): both authorised, because both are now in front of the
+     * viewer. A crop goes only where its picture goes.
+     */
+    private fun wearing(
+        entry: JsonObject,
+        asset: String,
+        crop: String?,
+        allowed: MutableSet<String>,
+    ): JsonObject {
         allowed.add(asset)
+        crop?.let(allowed::add)
         return buildJsonObject {
             entry.forEach { (key, value) -> put(key, value) }
             put("art", JsonPrimitive(asset))
+            crop?.let { put("crop", JsonPrimitive(it)) }
         }
     }
 
@@ -203,15 +226,12 @@ class MatchArt(
                 .map { TOKEN + it.substringBefore(" // ").trim().lowercase() }
                 .distinct()
         val seats = listOf(controller) + bySeat.keys.filter { it != controller }.sorted()
-        val asset =
+        val (art, key) =
             seats.firstNotNullOfOrNull { seat ->
-                bySeat[seat]?.let { art -> keys.firstNotNullOfOrNull { art[it] } }
+                bySeat[seat]?.let { art -> keys.firstOrNull { it in art }?.let { art to it } }
             } ?: return entry
-        allowed.add(asset)
-        return buildJsonObject {
-            entry.forEach { (key, value) -> put(key, value) }
-            put("art", JsonPrimitive(asset))
-        }
+        // Spec 0051 -- the crop the same deck brought for that token picture.
+        return wearing(entry, art.getValue(key), art[CROP + key.removePrefix(TOKEN)], allowed)
     }
 
     /**
@@ -229,12 +249,9 @@ class MatchArt(
     ): JsonObject {
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
         val owner = seatOf(entry, "owner") ?: seatOf(entry, "controller") ?: return entry
-        val asset = bySeat[owner]?.let { it[name] ?: it[FACE + name.lowercase()] } ?: return entry
-        allowed.add(asset)
-        return buildJsonObject {
-            entry.forEach { (key, value) -> put(key, value) }
-            put("art", JsonPrimitive(asset))
-        }
+        val art = bySeat[owner] ?: return entry
+        val asset = art[name] ?: art[FACE + name.lowercase()] ?: return entry
+        return wearing(entry, asset, cropIn(art, name), allowed)
     }
 
     /**
@@ -260,6 +277,9 @@ class MatchArt(
 
         /** A token picture, by the token's lowercase name (spec 0022). */
         const val TOKEN = "token:"
+
+        /** A picture's art crop, by the picture's lowercase name (spec 0051). */
+        const val CROP = "crop:"
 
         /** How Forge ends most token names: "Ape Token". */
         private const val TOKEN_SUFFIX = " Token"

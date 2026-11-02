@@ -62,6 +62,7 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ...(card.counterFrom ? { counterFrom: card.counterFrom } : {}),
     ...(card.makes?.length ? { makes: card.makes } : {}),
     art: card.art,
+    crop: card.crop ?? null,
   };
 }
 
@@ -74,6 +75,7 @@ function toHandCard(card: SnapshotCard): BoardHandCard {
     power: card.power,
     toughness: card.toughness,
     art: card.art,
+    crop: card.crop ?? null,
     manaCost: card.manaCost,
   };
 }
@@ -119,6 +121,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     id: entry.id,
     name: entry.name,
     art: entry.art,
+    crop: entry.crop ?? null,
     manaCost: entry.manaCost,
     kind: entry.kind,
     by: snapshot.players.find((p) => p.seat === entry.controller)?.name ?? null,

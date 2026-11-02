@@ -161,6 +161,14 @@ class DeckRules(
                 // the Deck Builder need not swap one -- except a card marked
                 // `printingMatters`, which must be a printing listed for it.
                 put("anyPrinting", true)
+                // Spec 0051: the pictures a package may carry. A Deck Builder
+                // that finds no `pictures` here sends PNGs and no art crops,
+                // as every Arena before 1.28.0 took. Here, inside the format,
+                // so its version (the ETag) changes with it.
+                putJsonObject("pictures") {
+                    put("formats", buildJsonArray { PackageLimits.PICTURE_FORMATS.forEach { add(it) } })
+                    put("artCrops", true)
+                }
                 putJsonObject("sideDecks") {
                     OpenFormat.SIDE_DECKS.toSortedMap().forEach { (section, least) ->
                         putJsonObject(section) {

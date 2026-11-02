@@ -94,6 +94,8 @@ export interface BoardCard extends LayoutCard {
   /** An imported picture's reference, or null (tokens, hidden cards,
    * back faces without a picture). */
   art: string | null;
+  /** Spec 0051 -- its art crop, for the art window; null to zoom into `art`. */
+  crop?: string | null;
   /** The Ring-bearer (public): marked on the card, in words too. */
   ringBearer?: boolean;
   /** Un-sets (public): the creature's sector, marked like the Ring-bearer. */
@@ -137,6 +139,8 @@ export interface BoardHandCard {
   power: number | null;
   toughness: number | null;
   art: string | null;
+  /** Spec 0051 -- its art crop, for the art window. */
+  crop?: string | null;
   /** The printed mana cost ("{1}{R}"); null for a land. */
   manaCost?: string | null;
 }
@@ -160,6 +164,8 @@ export interface StackView {
   name: string;
   /** Its picture (the caster's deck's), when this viewer may see it. */
   art?: string | null;
+  /** Spec 0051 -- its art crop, for the art window. */
+  crop?: string | null;
   /** A spell's printed mana cost, when this viewer may know it. */
   manaCost?: string | null;
   /** "spell" | "ability" | "trigger" */
@@ -333,6 +339,7 @@ export function CardFace({
   type,
   pt,
   art,
+  crop,
   faceDown,
   known,
   cost,
@@ -344,6 +351,7 @@ export function CardFace({
   type: string;
   pt: string;
   art: string | null;
+  crop?: string | null;
   faceDown: boolean;
   /** Whether this viewer may know what a face-down card is (§7.18). */
   known?: boolean;
@@ -378,7 +386,12 @@ export function CardFace({
         {cost && !costFirst && <ManaCost cost={cost} change={costChange ?? null} />}
       </span>
       <span className="bf-window" aria-hidden="true">
-        {art ? (
+        {crop ? (
+          // Spec 0051 -- the card's own art, as Scryfall cut it: filling
+          // the window, with no frame or text box of any layout caught in
+          // it, as the fixed zoom below catches on old frames and sagas.
+          <img className="bf-crop" src={crop} alt="" decoding="async" draggable={false} />
+        ) : art ? (
           // The scan's art box, cropped (owner decision 2026-10-20): the
           // whole card is for inspect, not for the table.
           <img className="bf-art" src={art} alt="" decoding="async" draggable={false} />
@@ -431,6 +444,8 @@ interface Drawn {
   type: string;
   pt: string;
   art: string | null;
+  /** Spec 0051 -- the art crop's URL, drawn in the art window instead of zooming into `art`. */
+  crop?: string | null;
   faceDown: boolean;
   known?: boolean;
   /** Its mana cost, drawn as symbols (hand and stack cards only). */
@@ -712,6 +727,7 @@ export function Board({
         type: shortType(lead.types),
         pt,
         art: lead.art ? artUrl(lead.art) : null,
+        crop: lead.crop ? artUrl(lead.crop) : null,
         faceDown: lead.faceDown,
         known: lead.known,
         side,
@@ -852,6 +868,7 @@ export function Board({
         type: shortType(card.types),
         pt,
         art: card.art ? artUrl(card.art) : null,
+        crop: card.crop ? artUrl(card.crop) : null,
         faceDown: false,
         side: "viewer",
         cost: now ?? card.manaCost ?? null,
@@ -907,6 +924,7 @@ export function Board({
             type: shortType(shown.types),
             pt: figure(shown),
             art: shown.art ? artUrl(shown.art) : null,
+            crop: shown.crop ? artUrl(shown.crop) : null,
             faceDown: false,
             side: "opponent",
             cost: shown.manaCost ?? null,
@@ -1222,6 +1240,7 @@ export function Board({
           type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
           pt: "",
           art: s.art ? artUrl(s.art) : null,
+          crop: s.crop ? artUrl(s.crop) : null,
           faceDown: s.name === "Face-down",
           known: false,
           cost: s.manaCost ?? null,
@@ -1478,6 +1497,7 @@ export function Board({
                   type={STACK_KIND[s.kind ?? "spell"] ?? "Spell"}
                   pt=""
                   art={s.art ? artUrl(s.art) : null}
+                  crop={s.crop ? artUrl(s.crop) : null}
                   faceDown={s.name === "Face-down"}
                   known={false}
                   cost={s.manaCost ?? null}

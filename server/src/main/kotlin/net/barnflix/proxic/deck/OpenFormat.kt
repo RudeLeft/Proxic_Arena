@@ -7,7 +7,7 @@ package net.barnflix.proxic.deck
  * `docs/architecture/OPEN_FORMAT.md`):
  *
  * ```text
- * 60–65 cards
+ * 60–100 cards (60–65 until spec 0051, owner 2026-11-01)
  * at most 4 copies of any one card
  * basic lands unlimited
  * no sideboard
@@ -16,7 +16,7 @@ package net.barnflix.proxic.deck
  *
  * Phase 8 Amendment 3 (owner, 2026-10-23): Contraptions and Attractions
  * (the Un-sets) go to their own small decks, sorted by card type -- as
- * Forge reads the card -- and are not in the 60–65 or the copy count.
+ * Forge reads the card -- and are not in the 60–100 or the copy count.
  * Each such deck follows its own Constructed rule, as Forge has it: at
  * least 15 Contraptions or 10 Attractions, one copy of each.
  *
@@ -39,7 +39,7 @@ data class DeckViolation(
 
 object OpenFormat {
     const val MIN_CARDS = 60
-    const val MAX_CARDS = 65
+    const val MAX_CARDS = 100
     const val MAX_COPIES = 4
 
     /** Phase 8 Amendment 3 — the side decks, and the least each may hold. */

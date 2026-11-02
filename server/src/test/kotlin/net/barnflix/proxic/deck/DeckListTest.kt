@@ -160,9 +160,11 @@ class OpenFormatTest {
         )
 
     @Test
-    fun `a 60 to 65 card deck is legal`() {
+    fun `a 60 to 100 card deck is legal`() {
         assertEquals(60, legalDeck().totalCards)
         assertEquals(emptyList(), OpenFormat.validate(legalDeck()))
+        // Spec 0051 (owner 2026-11-01): up to 100, and four of a card still.
+        assertEquals(emptyList(), OpenFormat.validate(deckOf("96 Mountain [FRA:287]", "4 Fiery Temper [INR:154]")))
     }
 
     @Test
@@ -199,7 +201,7 @@ class OpenFormatTest {
             OpenFormat.validate(deckOf("59 Mountain [FRA:287]")).any { it.code == "DECK_TOO_SMALL" },
         )
         assertTrue(
-            OpenFormat.validate(deckOf("66 Mountain [FRA:287]")).any { it.code == "DECK_TOO_LARGE" },
+            OpenFormat.validate(deckOf("101 Mountain [FRA:287]")).any { it.code == "DECK_TOO_LARGE" },
         )
     }
 
@@ -222,16 +224,16 @@ class OpenFormatTest {
     }
 
     // Phase 8 Amendment 3 — Contraptions and Attractions go to their own
-    // decks, as Forge reads the card (the sections map), outside the 60–65.
+    // decks, as Forge reads the card (the sections map), outside the 60–100.
 
     /** Fifteen distinct Contraption names, one copy each. */
     private val contraptions = (1..15).map { "Contraption $it" }
 
     @Test
-    fun `contraptions are not in the 60 to 65 and a fifteen-card contraption deck is legal`() {
-        val deck = deckOf(*(listOf("60 Mountain [FRA:287]") + contraptions.map { "1 $it" }).toTypedArray())
+    fun `contraptions are not in the 60 to 100 and a fifteen-card contraption deck is legal`() {
+        val deck = deckOf(*(listOf("90 Mountain [FRA:287]") + contraptions.map { "1 $it" }).toTypedArray())
         assertEquals(emptyList(), OpenFormat.validate(deck, contraptions.associateWith { "CONTRAPTIONS" }))
-        // Without Forge's reading they would be counted, and the deck is 75.
+        // Without Forge's reading they would be counted, and the deck is 105.
         assertTrue(OpenFormat.validate(deck).any { it.code == "DECK_TOO_LARGE" })
     }
 

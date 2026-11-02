@@ -288,7 +288,25 @@ private fun artOf(
                 }
             }
         }
-    } + faceArtOf(connection, deckId) + tokenArtOf(connection, deckId)
+    } + faceArtOf(connection, deckId) + tokenArtOf(connection, deckId) + cropArtOf(connection, deckId)
+
+/**
+ * Spec 0051 — each picture's art crop, by the picture's name (a front
+ * face, a back face, a token), lowercase, under a prefix of its own: the
+ * table shows it in a card's art window when the card wears that picture.
+ */
+private fun cropArtOf(
+    connection: Connection,
+    deckId: UUID,
+): Map<String, String> =
+    connection.prepareStatement("SELECT face_name, art_sha256 FROM deck_crop_art WHERE deck_id = ?").use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildMap {
+                while (rows.next()) put(MatchArt.CROP + rows.getString(1), rows.getString(2))
+            }
+        }
+    }
 
 /**
  * §7.59 — the other faces' pictures (a back face, by its own name,

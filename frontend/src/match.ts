@@ -212,6 +212,8 @@ export interface SnapshotCard {
    * and cannot guess another one.
    */
   art: string | null;
+  /** Spec 0051 -- its art crop (Scryfall's cut of the art), for the art window; only beside `art`. */
+  crop?: string | null;
   seat: number;
   name: string;
   tapped: boolean;
@@ -323,6 +325,8 @@ export interface StackEntry {
   targets: TargetRef[];
   /** Its picture, from the caster's deck, when this viewer may see it. */
   art: string | null;
+  /** Spec 0051 -- its art crop, beside `art`. */
+  crop?: string | null;
   /** A spell's printed mana cost ("{1}{R}"), when this viewer may know it. */
   manaCost: string | null;
   /** Spec 0045 -- why a trigger triggered ("Ajani's Pridemate entered the battlefield"). */
@@ -780,6 +784,7 @@ function asCards(value: unknown): SnapshotCard[] {
       // also why artwork did not appear the first time: the
       // server was sending `art` and this dropped it.
       art: asHash(row["art"]),
+      crop: asHash(row["crop"]),
       enteredAt: asNumber(row["enteredAt"]),
       token: row["token"] === true,
       counterFrom: asOrigins(row["counterFrom"]),
@@ -884,6 +889,7 @@ function asStack(value: unknown): StackEntry[] {
       controller: asNumber(row["controller"]),
       kind: asString(row["kind"]) ?? "spell",
       art: asString(row["art"]),
+      crop: asHash(row["crop"]),
       manaCost: asString(row["manaCost"]),
       why: asString(row["why"]),
       targets: Array.isArray(row["targets"])

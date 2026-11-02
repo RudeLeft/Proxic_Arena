@@ -18,6 +18,8 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.util.pipeline.PipelineContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.PRINCIPAL_KEY
@@ -652,7 +654,14 @@ private suspend fun ImportContext.importAndRespond(
         return
     }
 
-    when (val result = importer.import(request.upload, request.originalName, request.owner, requestedName)) {
+    // Spec 0051 -- off the request threads: an import unzips, decodes and
+    // re-encodes pictures, asks Forge and writes the database, seconds of
+    // blocking work that held a call thread.
+    val outcome =
+        withContext(Dispatchers.IO) {
+            importer.import(request.upload, request.originalName, request.owner, requestedName)
+        }
+    when (val result = outcome) {
         is ImportResult.Imported ->
             call.respond(
                 HttpStatusCode.Created,

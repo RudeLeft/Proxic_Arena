@@ -23,7 +23,7 @@ may change to suit the other without this document changing first.
 
 | | |
 | --- | --- |
-| Type | ZIP, DEFLATE compressed |
+| Type | ZIP; DEFLATE or STORED (pictures are stored since spec 0051: they are already compressed) |
 | Directory entries | none — paths are implied |
 | Encryption | none |
 | Nested archives | none |
@@ -36,8 +36,19 @@ The archive filename is **not** meaningful. It is a label.
 ```text
 <DeckName>.txt                            exactly one, at the root
 real_cards/<front face name> [SET].png    zero or more (cards and token cards)
+                                  or .jpg  (spec 0051)
+art_crops/<front face name> [SET].jpg     zero or more (spec 0051)
 pictures.json                             optional (spec 0022)
 ```
+
+**Spec 0051 (1.28.0).** A card picture may be a JPEG (the Deck Builder
+sends the full-size 88% JPEG Arena's close-up copy always was, about a
+seventh of the PNG), and each picture may bring Scryfall's **art crop**
+under `art_crops/`, named exactly as its picture is. The table's art
+window shows the crop; without one it zooms into the picture as before.
+`/api/deck-rules` says what Arena takes (`format.pictures`: formats
+`png`, `jpeg`; `artCrops`), and a Deck Builder finding no such field
+sends PNGs and no crops. `pictures.json` may name art crops too.
 
 Nothing else is permitted. A package containing any other member is
 rejected, including a nested archive, a stray `notes.txt`, or a file
@@ -236,11 +247,11 @@ Structural, in order, before anything is extracted:
 | --- | --- |
 | Really a ZIP | `NOT_A_ZIP` |
 | ≤ 150 MB | `ARCHIVE_TOO_LARGE` |
-| ≤ 300 entries | `TOO_MANY_ENTRIES` |
+| ≤ 600 entries (300 before spec 0051) | `TOO_MANY_ENTRIES` |
 | No path escapes the staging directory | `UNSAFE_PATH` |
 | No two entries normalise to one path, case-insensitively | `DUPLICATE_PATH` |
 | Expansion ratio ≤ 10 | `COMPRESSION_RATIO` |
-| Only the permitted members: the decklist, `real_cards/` PNGs, `pictures.json` | `UNEXPECTED_ENTRY` |
+| Only the permitted members: the decklist, `real_cards/` PNGs or JPEGs, `art_crops/` JPEGs, `pictures.json` | `UNEXPECTED_ENTRY` |
 | Exactly one decklist | `NO_DECK_LIST`, `MULTIPLE_DECK_LISTS` |
 
 A legitimate package expands at a ratio of **1.0001** — PNGs are
@@ -254,11 +265,11 @@ Then content:
 | Every line parses | `INVALID_DECK_LIST` |
 | Open Format legality | `DECK_NOT_LEGAL` |
 | Every card resolves in Forge | `CARDS_NOT_RESOLVED` |
-| Every image decodes as a PNG | `INVALID_ARTWORK` |
+| Every image decodes as a PNG or a JPEG, of a reasonable size | `INVALID_ARTWORK` |
 | Every picture `pictures.json` names is in one of the sender's decks | `PICTURE_NOT_HELD` |
 | Package not already imported | `DUPLICATE_PACKAGE` |
 
-Open Format: **60–65 cards, at most 4 copies of any card, basic
+Open Format: **60–100 cards (60–65 before spec 0051), at most 4 copies of any card, basic
 lands unlimited, no sideboard.** "Any number" cards — Relentless
 Rats and similar — are **not** exempt (owner decision 2026-10-15).
 

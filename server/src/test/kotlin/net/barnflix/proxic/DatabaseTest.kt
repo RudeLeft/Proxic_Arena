@@ -159,6 +159,7 @@ class DatabaseTest {
                                 "art_asset",
                                 "belt_reset",
                                 "bug_report",
+                                "deck_crop_art",
                                 "deck_entry",
                                 "deck_face_art",
                                 "deck_share",

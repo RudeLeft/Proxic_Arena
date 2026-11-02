@@ -179,11 +179,12 @@ class DeckApiTest {
                 "art must be an Arena URL, not a filesystem path",
             )
 
-            // §2.61 — the asset serves as a PNG, cacheable.
+            // §2.61 — the asset serves as a picture, cacheable: the table's
+            // copy is a JPEG since spec 0051.
             val asset = client.get(withArt.first().artUrl!!) { authed() }
             assertEquals(HttpStatusCode.OK, asset.status)
             assertEquals(
-                ContentType.Image.PNG.toString(),
+                ContentType.Image.JPEG.toString(),
                 asset.headers[HttpHeaders.ContentType],
             )
             assertTrue(

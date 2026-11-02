@@ -17,7 +17,7 @@ import javax.sql.DataSource
 // §5.95 forbids Arena from implementing Magic deck-format rules and
 // §5.96 requires a Forge preflight. The amended §2.45 settles which
 // is which: Forge's `DeckFormat.Constructed` has no maximum deck
-// size and permits a sideboard, so Open Format's 60–65-and-no-
+// size and permits a sideboard, so Open Format's 60–100-and-no-
 // sideboard bounds CANNOT be delegated — they are Proxic's policy,
 // not Magic's rules. Everything from the first untap step onward
 // stays Forge's, exclusively.
@@ -100,7 +100,7 @@ class MatchPreflight(
         }
 
         // Then Forge's, since Phase 8 Amendment 3: which cards are
-        // Contraptions or Attractions -- outside the 60–65 -- is Forge's
+        // Contraptions or Attractions -- outside the 60–100 -- is Forge's
         // reading of the card. §5.99 — the message that reaches a
         // browser is ours; Forge's own diagnostics, paths and traces are
         // not forwarded.
