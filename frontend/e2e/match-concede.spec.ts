@@ -9,7 +9,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
+import { noticeCard, secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch, whoseTurn } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -117,11 +117,11 @@ test("abandoning still ends the match with no winner, after asking", async ({ br
     await menu.getByRole("button", { name: "Yes, abandon the match" }).click();
 
     for (const page of [host, guest]) {
-      await expect(
-        page.getByText("The match was abandoned. Nobody won it, and the room is open again."),
-      ).toBeVisible({
-        timeout: 60_000,
-      });
+      // Spec 0050 — a card: the title, and what it means.
+      await expect(noticeCard(page, "The match was abandoned")).toContainText(
+        "Nobody won it, and the room is open again.",
+        { timeout: 60_000 },
+      );
     }
   } finally {
     await close(host, guest);

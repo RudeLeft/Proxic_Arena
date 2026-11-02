@@ -14,7 +14,7 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
+import { noticeCard, secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import {
   clearEverything,
   csrfOf,
@@ -380,7 +380,7 @@ test("force close asks first, and the player in the room is told", async ({ brow
       admin.getByRole("status").filter({ hasText: "an administrator closed it" }),
     ).toBeVisible();
 
-    await expect(player.getByText("An administrator closed this room.")).toBeVisible();
+    await expect(noticeCard(player, "An administrator closed this room")).toBeVisible();
     await expect(player.getByRole("button", { name: "Open a room" })).toBeVisible();
   } finally {
     await clearEverything(player);
@@ -433,7 +433,7 @@ test("force closing a room mid-game ends the match with no winner, for both play
     ).toBeVisible();
 
     for (const page of [host, guest]) {
-      await expect(page.getByText("An administrator closed this room.")).toBeVisible();
+      await expect(noticeCard(page, "An administrator closed this room")).toBeVisible();
       await expect(matchPanel(page)).toHaveCount(0);
       const current = (await (await page.request.get("/api/matches/current")).json()) as {
         match: unknown;

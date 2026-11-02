@@ -86,7 +86,7 @@ import {
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { NoticeStack } from "../NoticeStack";
-import { GAME_MESSAGE_MS, asTitle, inArrival, type Notice } from "../notices";
+import { GAME_MESSAGE_MS, inArrival, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead } from "../closeUp";
 import { ManaCost, ManaText, costChange, symbolUrl, withSymbols } from "./ManaCost";
@@ -2873,8 +2873,9 @@ function useGameMessages(board: Snapshot | null): Notice[] {
     key: said.key,
     tone: "grey",
     label: "Game",
-    title: asTitle(said.text),
-    titleNode: <ManaText text={asTitle(said.text)} />,
+    // The game's own words, exactly as it says them.
+    title: said.text,
+    titleNode: <ManaText text={said.text} />,
     actions: [],
     quiet: true,
     fadeMs: GAME_MESSAGE_MS,
