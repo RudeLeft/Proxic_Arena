@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.27.0 (2026-11-01).** The main build was completed in 1.1.0,
+**Version 1.28.0 (2026-11-01).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -40,7 +40,9 @@ trigger storms; 1.25.0 says what happened and why, shows each land's
 mana, and lets friends watch a game; 1.26.0 puts the cards only you
 see -- ordering, scry, searches, Fact or Fiction -- in one tray; 1.27.0
 lets flyers hover, sorts out damage among blockers, adds the belt's
-7-day rule and the Admin purge, and keeps every card's own picture.
+7-day rule and the Admin purge, and keeps every card's own picture;
+1.28.0 takes decks of up to 100 cards, sent as light pictures, and shows
+each card's own art on the table.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and
@@ -78,7 +80,7 @@ never which one.
 An administrator has no privileged access. See
 `docs/architecture/DECK_DEPOT.md` and `DECK_AUTHORIZATION.md`.
 
-**One play mode: Open Format** — 60–65 cards, at most 4 copies of any
+**One play mode: Open Format** — 60–100 cards, at most 4 copies of any
 one card (basic lands unlimited), no sideboard, 2 players. Commander
 and Two-Headed Giant are out of scope. See
 `docs/architecture/OPEN_FORMAT.md`.

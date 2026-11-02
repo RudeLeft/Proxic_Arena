@@ -3,6 +3,28 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.28.0 — 2026-11-01
+
+Decks of up to 100 cards, sent as light pictures, and each card's own art
+on the table.
+
+**For whoever runs the server**
+- One database update, made by itself on start: each deck can keep its cards' art crops.
+- Once, in the background after the update, the pictures already stored get a lighter table copy. Nothing stored is deleted except the old heavy table copies it replaces.
+
+**Bigger decks** (spec 0051)
+- Decks may have 60 to 100 cards (it was 60 to 65). Up to 4 copies of a card and unlimited basic lands, as before.
+
+**Lighter pictures** (spec 0051)
+- Arena now takes the light card pictures the Proxic Deck Builder 1.4.0 sends: a 100-card deck is about 30 MB instead of up to 150 MB, well under the upload limit.
+- The small picture each card wears on the table is about 60 KB instead of 340–555 KB, so the board loads faster.
+- Decks sent by older Deck Builders keep working as they are.
+
+**Each card's own art on the table** (spec 0051)
+- The art window on a card shows the card's own art, cut by Scryfall, instead of a zoom into the whole card. Old-frame, borderless, showcase, saga and planeswalker cards no longer show slivers of their frame or text box.
+- Decks sent before this keep the zoom until they are sent again from the Deck Builder.
+- Looking at a card up close still shows the whole card.
+
 ## 1.27.0 — 2026-11-01
 
 Smoother casting and combat, hovering flyers, the belt's 7-day rule and

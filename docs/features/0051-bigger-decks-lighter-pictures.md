@@ -1,6 +1,6 @@
 # 0051 — Bigger decks and lighter pictures
 
-**Status:** Approved 2026-11-01
+**Status:** Built in 1.28.0 (approved 2026-11-01)
 **Owner decisions** (all 2026-11-01, from the Deck Builder chat's review
 of how deck pictures are sent and used; part 1 of that review was spec
 0049, released in 1.27.0):
