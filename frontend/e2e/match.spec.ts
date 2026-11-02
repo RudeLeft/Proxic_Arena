@@ -114,11 +114,12 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // one of them for a question that no longer existed. Only one
     // player holds priority in Magic.
     await expect(matchPanel(waiting).getByRole("heading", { name: /Your move/ })).toHaveCount(0);
-    // PHASE_07: the rail says whose move it is, by name (spec 0034: or
-    // what they are doing, when the screen shows it).
-    await expect(matchPanel(waiting).locator(".gs-waiting")).toContainText(
-      /Waiting for|is choosing|may respond/,
-    );
+    // PHASE_07: the rail says whose move it is, by name (Phase 9 W-25:
+    // "Pat’s move", with what they are doing under it), and the other
+    // player's plate glows.
+    await expect(matchPanel(waiting).locator(".gs-waiting")).toContainText(/’s move/);
+    await expect(matchPanel(waiting).locator(".gs-seat-opponent.gs-seat-deciding")).toHaveCount(1);
+    await expect(matchPanel(asked).locator(".gs-seat-deciding")).toHaveCount(0);
 
     // §6.50 — the actions are FORGE's, and there may be NONE.
     //

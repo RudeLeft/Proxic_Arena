@@ -147,6 +147,30 @@
 .gs-seat-active {
   border-top-color: #e0a44a;
 }
+/* Phase 9 W-25 -- you are waiting for this player: their plate glows,
+   softly, so it shows from anywhere on the screen. */
+.gs-seat-deciding {
+  animation: gs-deciding 2.4s ease-in-out infinite;
+}
+@keyframes gs-deciding {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgb(217 178 106 / 85%),
+      0 0 22px rgb(217 178 106 / 45%);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgb(217 178 106 / 40%),
+      0 0 8px rgb(217 178 106 / 15%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-seat-deciding {
+    animation: none;
+    box-shadow: 0 0 0 2px rgb(217 178 106 / 70%);
+  }
+}
 .gs-seat-head {
   display: flex;
   align-items: center;
@@ -566,6 +590,22 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-waiting-sub {
   font-size: var(--pa-size-xs);
   color: #7a828d;
+}
+/* Phase 9 W-25 -- whose move, in plain letters (never capitals), one line
+   (a long name ends in "…"); what they are doing under it. */
+.gs-waiting-name {
+  font-weight: 600;
+  font-size: var(--pa-size-base);
+  line-height: 1.2;
+  color: #c9d0d8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gs-waiting .gs-waiting-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gs-waiting-question {
   border-color: #6b5b36;
@@ -1292,31 +1332,100 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   }
 }
 
+/* Phase 9 W-24 (owner 2026-11-02, option B) -- the result in a banner
+   across the table (drawn in Board's top slot), which dims behind it;
+   the column is left clear. Gold
+   for a win, silver otherwise. */
 .gs-over {
   position: absolute;
-  left: 42%;
-  top: 50%;
-  z-index: 38000;
-  width: min(440px, 90vw);
+  left: 0;
+  top: 0;
+  width: 100%;
+  /* Board's top slot is the table's width; this, its height. */
+  height: calc(900px * var(--rail-scale, 1));
   box-sizing: border-box;
-  padding: 22px 24px 24px;
-  border: 1px solid #5c6472;
-  border-radius: 8px;
-  background: #161c25;
-  box-shadow: 0 26px 64px rgb(0 0 0 / 72%);
-  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 24px;
+  background:
+    linear-gradient(
+        90deg,
+        transparent,
+        rgb(14 18 24 / 94%) 18%,
+        rgb(14 18 24 / 94%) 82%,
+        transparent
+      )
+      center / 100% 300px no-repeat,
+    rgb(5 8 7 / 55%);
+  animation: gs-over-in 0.45s ease-out;
+}
+.gs-over::before,
+.gs-over::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 150px);
+  border-top: 2px solid rgb(150 165 180 / 45%);
+}
+.gs-over::after {
+  top: calc(50% + 150px);
+}
+.gs-over-alone {
+  height: 100%;
+}
+.gs-over-won {
+  background:
+    linear-gradient(90deg, transparent, rgb(20 16 8 / 92%) 18%, rgb(20 16 8 / 92%) 82%, transparent)
+      center / 100% 300px no-repeat,
+    rgb(5 8 7 / 55%);
+}
+.gs-over-won::before,
+.gs-over-won::after {
+  border-top-color: rgb(217 178 106 / 55%);
 }
 .gs-over-title {
   margin: 0;
   font-family: var(--pa-card);
-  font-weight: 600;
-  font-size: var(--pa-size-xl);
+  font-weight: 700;
+  font-size: var(--pa-size-result);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #d9e0e6;
 }
-.gs-over-text {
-  margin: 10px 0 18px;
-  font-size: var(--pa-size-base);
-  line-height: 1.5;
-  color: #c2c9d2;
+.gs-over-won .gs-over-title {
+  color: #e6bd6c;
+  text-shadow: 0 0 30px rgb(217 178 106 / 35%);
+}
+.gs-over-why {
+  margin: 0;
+  max-width: 60ch;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xl);
+  line-height: 1.35;
+  text-align: center;
+  color: #d6dde3;
+}
+.gs-over-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+@keyframes gs-over-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-over {
+    animation: none;
+  }
 }
 
 /* A few choices the board cannot show, inline in the slim line. */

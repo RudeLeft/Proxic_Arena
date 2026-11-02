@@ -35,6 +35,7 @@
   --pa-size-lg: 1.125rem; /* 18px: card titles, room names, buttons */
   --pa-size-xl: 1.5rem; /* 24px: page and room titles, big names */
   --pa-size-2xl: 2rem; /* 32px: the largest headings */
+  --pa-size-result: 5rem; /* 80px: the game's result banner only (Phase 9 W-24) */
   --pa-track-caps: 0.12em; /* spaced capitals */
   --pa-track-button: 0.08em; /* buttons */
   --pa-leading: 1.45; /* reading text */

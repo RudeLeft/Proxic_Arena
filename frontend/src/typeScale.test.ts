@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const SHEETS = ["styles.css", "shell/base.css", "shell/app.css", "battlefield/game.css"];
-const STEPS = ["xs", "sm", "md", "base", "lg", "xl", "2xl"];
+const STEPS = ["xs", "sm", "md", "base", "lg", "xl", "2xl", "result"];
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 

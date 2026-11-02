@@ -41,6 +41,7 @@ text size, 16px by default), so T2 holds:
 | `--pa-size-lg` | 1.125rem (18px) | 16-19px | card titles, room names, buttons |
 | `--pa-size-xl` | 1.5rem (24px) | 20-26px | page and room titles, big names |
 | `--pa-size-2xl` | 2rem (32px) | 30-34px | the largest headings |
+| `--pa-size-result` | 5rem (80px) | -- | the game's result banner only (added 2026-11-02, Phase 9 W-24) |
 
 Weights 400, 600, 700. Letter spacing: `--pa-track-caps` (0.12em) for
 spaced capitals, `--pa-track-button` (0.08em) for buttons. Line

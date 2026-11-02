@@ -141,14 +141,17 @@ describe("gameOverWords (spec 0034)", () => {
     expect(gameOverWords(lives(5, 0), 1, outcome(1))).toEqual({
       word: "You won",
       sub: "Bob’s life reached 0",
+      turn: "Turn 7",
     });
     expect(gameOverWords(lives(0, 5), 1, outcome(2))).toEqual({
       word: "Bob won",
       sub: "Your life reached 0",
+      turn: "Turn 7",
     });
     expect(gameOverWords(lives(5, 5), 1, outcome(1, { concededSeat: 2 })).sub).toBe("Bob conceded");
     expect(gameOverWords(lives(5, 5), 1, outcome(2, { concededSeat: 1 })).sub).toBe("You conceded");
-    expect(gameOverWords(lives(5, 5), 1, outcome(1)).sub).toBe("On turn 7");
+    // Nothing to say why: the turn alone, never said twice (W-24).
+    expect(gameOverWords(lives(5, 5), 1, outcome(1)).sub).toBe("");
   });
 
   it("gives Forge's reason for the loss (spec 0045)", () => {
@@ -166,32 +169,67 @@ describe("gameOverWords (spec 0034)", () => {
   it("says Game over without a winner", () => {
     expect(gameOverWords(lives(5, 5), 1, null).word).toBe("Game over");
     expect(gameOverWords(lives(5, 5), 1, { ...outcome(null), kind: "DRAW" }).word).toBe("A draw");
+    expect(gameOverWords(lives(5, 5), 1, null, true).sub).toBe(
+      "The game stopped before it finished. Nobody won it.",
+    );
+  });
+
+  it("gives Forge's own sentence for an alternate win, word for word (P6-AP)", () => {
+    const maniac = outcome(1, { reason: "has won due to effect of 'Laboratory Maniac'" });
+    expect(gameOverWords(lives(20, 20), 2, maniac)).toEqual({
+      word: "Alice won",
+      sub: "The winner has won due to effect of 'Laboratory Maniac'",
+      turn: "Turn 7",
+    });
+  });
+
+  it("a spectator is nobody's you (W-24)", () => {
+    expect(gameOverWords(lives(5, 0), -1, outcome(1))).toEqual({
+      word: "Alice won",
+      sub: "Bob’s life reached 0",
+      turn: "Turn 7",
+    });
   });
 });
 
 // Spec 0002 -- owner report 2026-10-23: while Krenko made Goblins, each
-// screen said it was waiting for the other player.
+// screen said it was waiting for the other player. Phase 9 W-25: whose
+// move, in plain words, what the screen shows them doing, and the seat.
 describe("waitingLine", () => {
   const krenko = { name: "Krenko, Mob Boss", controller: 1 };
   const table = (prioritySeat: number, stack: object[] = []) =>
     ({ ...board("MAIN1", 1, stack as { name: string }[]), prioritySeat }) as Snapshot;
+  const moment = { word: "One moment", sub: "", seat: null };
 
   it("while nobody is asked, both players read Resolving, naming the top of the stack", () => {
     const busy = table(2, [krenko]);
-    expect(waitingLine(busy, 1, { seat: null }, 2, true)).toBe("Resolving Krenko, Mob Boss…");
-    expect(waitingLine(busy, 2, { seat: null }, 2, true)).toBe("Resolving Krenko, Mob Boss…");
-    expect(waitingLine(table(2), 1, { seat: null }, 2, true)).toBe("Resolving…");
+    const resolving = { word: "Resolving…", sub: "Krenko, Mob Boss", seat: null };
+    expect(waitingLine(busy, 1, { seat: null }, 2, true)).toEqual(resolving);
+    expect(waitingLine(busy, 2, { seat: null }, 2, true)).toEqual(resolving);
+    expect(waitingLine(table(2), 1, { seat: null }, 2, true)).toEqual({
+      word: "Resolving…",
+      sub: "",
+      seat: null,
+    });
   });
 
   it("names the seat the server says is asked, not the one with priority", () => {
     // Priority says seat 2; the server says seat 1 is deciding.
-    expect(waitingLine(table(2), 2, { seat: 1 }, 1, false)).toBe("Waiting for Alice");
-    expect(waitingLine(table(2), 1, { seat: 1 }, 1, false)).toBe("One moment");
+    expect(waitingLine(table(2), 2, { seat: 1 }, 1, false)).toEqual({
+      word: "Alice’s move",
+      sub: "Main 1 · their turn",
+      seat: 1,
+    });
+    expect(waitingLine(table(2), 1, { seat: 1 }, 1, false)).toEqual(moment);
   });
 
   it("between two questions, stays on whoever was last asked rather than flicker", () => {
-    expect(waitingLine(table(2), 1, { seat: null }, 2, false)).toBe("Waiting for Bob");
-    expect(waitingLine(table(2), 1, { seat: null }, null, false)).toBe("One moment");
+    expect(waitingLine(table(2), 1, { seat: null }, 2, false)).toEqual({
+      word: "Bob’s move",
+      sub: "Main 1 · your turn",
+      seat: 2,
+    });
+    expect(waitingLine(table(2), 1, { seat: null }, null, false)).toEqual(moment);
   });
 
   it("says what the other player is doing when the screen shows it (spec 0034)", () => {
@@ -200,25 +238,32 @@ describe("waitingLine", () => {
         ...board(phase, active, stack as { name: string }[], field as never[]),
         prioritySeat: 2,
       }) as Snapshot;
-    expect(waitingLine(at("COMBAT_DECLARE_ATTACKERS", 2), 1, { seat: 2 }, 2, false)).toBe(
-      "Bob is choosing attackers",
-    );
-    expect(waitingLine(at("COMBAT_DECLARE_BLOCKERS", 1), 1, { seat: 2 }, 2, false)).toBe(
-      "Bob is choosing blockers",
-    );
+    const sub = (b: Snapshot) => waitingLine(b, 1, { seat: 2 }, 2, false).sub;
+    expect(sub(at("COMBAT_DECLARE_ATTACKERS", 2))).toBe("Choosing attackers");
+    expect(sub(at("COMBAT_DECLARE_BLOCKERS", 1))).toBe("Choosing blockers");
     // Once they have declared, the step's priority follows: not choosing.
-    const declared = at("COMBAT_DECLARE_BLOCKERS", 1, [{ seat: 2, blocking: true }]);
-    expect(waitingLine(declared, 1, { seat: 2 }, 2, false)).toBe("Waiting for Bob");
-    const mine = at("MAIN1", 1, [], [{ name: "Shock", controller: 1 }]);
-    expect(waitingLine(mine, 1, { seat: 2 }, 2, false)).toBe("Bob may respond to Shock");
+    expect(sub(at("COMBAT_DECLARE_BLOCKERS", 1, [{ seat: 2, blocking: true }]))).toBe(
+      "Combat · your turn",
+    );
+    expect(sub(at("MAIN1", 1, [], [{ name: "Shock", controller: 1 }]))).toBe(
+      "May respond to your Shock",
+    );
   });
 
   it("guesses from priority as before when the server has never said", () => {
-    expect(waitingLine(table(2), 1, null, null, false)).toBe("Waiting for Bob");
-    expect(waitingLine(table(1), 1, null, null, false)).toBe("One moment");
+    expect(waitingLine(table(2), 1, null, null, false).word).toBe("Bob’s move");
+    expect(waitingLine(table(1), 1, null, null, false)).toEqual(moment);
     // Their spell on the stack: it is theirs that is going on.
     const theirs = table(1, [{ name: "Shock", controller: 2 }]);
-    expect(waitingLine(theirs, 1, null, null, false)).toBe("Waiting for Bob");
+    expect(waitingLine(theirs, 1, null, null, false)).toEqual({
+      word: "Bob’s move",
+      sub: "Main 1 · your turn",
+      seat: 2,
+    });
+  });
+
+  it("a spectator waits for whoever is asked, never for a moment of their own", () => {
+    expect(waitingLine(table(1), -1, { seat: 1 }, 1, false).word).toBe("Alice’s move");
   });
 });
 

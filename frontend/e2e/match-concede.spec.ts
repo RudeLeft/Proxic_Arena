@@ -9,7 +9,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { noticeCard, secondPassword, secondUser, signIn, signInAs } from "./helpers";
+import { noticeCard, secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch, whoseTurn } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -97,6 +97,25 @@ test("conceding is a real loss: Forge names the other player the winner, and bot
     });
     await host.screenshot({ path: "test-results/seen/conceded-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/conceded-guest.png", fullPage: true });
+
+    // Phase 9 W-24: the banner says it once, and can be put away to look
+    // at the board; the column's button then goes back to the room.
+    const banner = guest.locator(".gs-over");
+    await expect(banner.getByRole("heading", { name: "You won" })).toBeVisible();
+    await expect(banner.locator(".gs-over-why")).toHaveText(
+      new RegExp(`^${testUser} conceded · Turn \\d+$`),
+    );
+    await expect(
+      host.locator(".gs-over").getByRole("heading", { name: `${secondUser} won` }),
+    ).toBeVisible();
+    await banner.getByRole("button", { name: "Look at the board" }).click();
+    await expect(banner).toHaveCount(0);
+    await guest.screenshot({ path: "test-results/seen/game-over-aside.png" });
+    await guest.getByRole("button", { name: "Show the result" }).click();
+    await expect(banner).toBeVisible();
+    await banner.getByRole("button", { name: "Look at the board" }).click();
+    await guest.getByRole("button", { name: /^Back to the room/ }).click();
+    await expect(guest).toHaveURL(/\/play$/);
   } finally {
     await close(host, guest);
   }

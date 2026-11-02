@@ -178,13 +178,17 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
       matchPanel(host).getByText(/You won on turn \d+\./),
       `after ${answered} decisions; the page said: ${await said()}`,
     ).toBeVisible({ timeout: 120_000 });
-    await expect(matchPanel(host).getByText(why)).toBeVisible();
-    // The turn line says the game is over, not whose turn it is.
-    await expect(matchPanel(host).getByText(/Game over · it ended on turn \d+/)).toBeVisible();
+    // Phase 9 W-24: the banner says it once -- who won, Forge's sentence
+    // word for word, and the turn.
+    const banner = host.locator(".gs-over");
+    await expect(banner.getByRole("heading", { name: "You won" })).toBeVisible();
+    await expect(banner.locator(".gs-over-why")).toHaveText(
+      /^The winner has won due to effect of 'Laboratory Maniac' · Turn \d+$/,
+    );
     await expect(matchPanel(guest).getByText(/Your opponent won on turn \d+\./)).toBeVisible({
       timeout: 30_000,
     });
-    await expect(matchPanel(guest).getByText(why)).toBeVisible();
+    await expect(guest.locator(".gs-over .gs-over-why")).toContainText(why.slice(0, -1));
     // Life never moved, so it could not have decided anything; the
     // host's library is empty, which is the Maniac's condition.
     for (const page of [host, guest]) {

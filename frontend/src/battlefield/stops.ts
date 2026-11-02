@@ -148,14 +148,39 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
   }
 }
 
+/** The canvas's eight steps; Forge's phase names fold into them. */
+export const STEPS: { label: string; phases: string[] }[] = [
+  { label: "Untap", phases: ["UNTAP"] },
+  { label: "Upkeep", phases: ["UPKEEP"] },
+  { label: "Draw", phases: ["DRAW"] },
+  { label: "Main 1", phases: ["MAIN1"] },
+  {
+    label: "Combat",
+    phases: [
+      "COMBAT_BEGIN",
+      "COMBAT_DECLARE_ATTACKERS",
+      "COMBAT_DECLARE_BLOCKERS",
+      "COMBAT_FIRST_STRIKE_DAMAGE",
+      "COMBAT_DAMAGE",
+      "COMBAT_END",
+    ],
+  },
+  { label: "Main 2", phases: ["MAIN2"] },
+  { label: "End", phases: ["END_OF_TURN"] },
+  { label: "Cleanup", phases: ["CLEANUP"] },
+];
+
 /**
- * Spec 0002 — the rail's line when nothing is asked of you.
+ * Spec 0002, Phase 9 W-25 — the rail's line when nothing is asked of you:
+ * whose move it is ("Pat’s move", never in capitals), what the screen
+ * shows them doing under it, and the seat, so their corner can glow.
  *
  * `asking` is who the server says is being asked (`seat: null`: nobody,
  * the rules engine is working), or null when it has not said; `lastAsked`
  * the last seat it named; `resolving` true once nobody has been asked for
  * long enough to say so. Owner report 2026-10-23: while Krenko made
  * Goblins, each player's screen said it was waiting for the other.
+ * A spectator passes a seat nobody has (-1): every seat is "theirs".
  */
 export function waitingLine(
   board: Snapshot,
@@ -163,23 +188,44 @@ export function waitingLine(
   asking: { seat: number | null } | null,
   lastAsked: number | null,
   resolving: boolean,
-): string {
-  const nameOf = (seat: number | null) =>
-    board.players.find((p) => p.seat === seat)?.name ?? "the other player";
+): { word: string; sub: string; seat: number | null } {
   const top = board.stack[0];
+  const moment = { word: "One moment", sub: "", seat: null };
   if (asking === null) {
     // Never told (an older server): guessed from priority, as before. Their
     // spell on the stack and you not asked: it is theirs that is going on.
     const theirSpell = top && top.controller !== null && top.controller !== mySeat ? top : null;
-    if (board.prioritySeat === mySeat && !theirSpell) return "One moment";
-    return `Waiting for ${nameOf(theirSpell ? theirSpell.controller : board.prioritySeat)}`;
+    if (board.prioritySeat === mySeat && !theirSpell) return moment;
+    return movesLine(board, mySeat, theirSpell ? theirSpell.controller! : board.prioritySeat);
   }
-  if (asking.seat === null && resolving) return top ? `Resolving ${top.name}…` : "Resolving…";
+  if (asking.seat === null && resolving) {
+    return { word: "Resolving…", sub: top ? top.name : "", seat: null };
+  }
   // Nobody, but only for a moment: questions follow each other in
   // milliseconds, so the line stays on whoever was last asked.
   const seat = asking.seat ?? lastAsked;
-  if (seat === null || seat === mySeat) return "One moment";
-  return whatTheyDo(board, mySeat, seat) ?? `Waiting for ${nameOf(seat)}`;
+  if (seat === null || seat === mySeat) return moment;
+  return movesLine(board, mySeat, seat);
+}
+
+function movesLine(
+  board: Snapshot,
+  mySeat: number,
+  seat: number | null,
+): { word: string; sub: string; seat: number | null } {
+  const name = board.players.find((p) => p.seat === seat)?.name;
+  return {
+    word: name ? `${name}’s move` : "The other player’s move",
+    sub: seat === null ? "" : (whatTheyDo(board, mySeat, seat) ?? stepLine(board, mySeat)),
+    seat,
+  };
+}
+
+/** W-25 — the step, and whose turn it is: "Main 1 · their turn". */
+function stepLine(board: Snapshot, mySeat: number): string {
+  const step = STEPS.find((s) => s.phases.includes(board.phase))?.label;
+  if (!step) return "";
+  return `${step} · ${board.activeSeat === mySeat ? "your" : "their"} turn`;
 }
 
 /**
@@ -188,9 +234,8 @@ export function waitingLine(
  * the screen cannot tell.
  */
 function whatTheyDo(board: Snapshot, mySeat: number, seat: number): string | null {
-  const name = board.players.find((p) => p.seat === seat)?.name ?? "The other player";
   const top = board.stack[0];
-  if (top && top.controller === mySeat) return `${name} may respond to ${top.name}`;
+  if (top && top.controller === mySeat) return `May respond to your ${top.name}`;
   if (top) return null;
   // Once some are declared, the step's priority follows: not choosing.
   const theirs = board.battlefield.filter((c) => c.seat === seat);
@@ -199,22 +244,18 @@ function whatTheyDo(board: Snapshot, mySeat: number, seat: number): string | nul
     seat === board.activeSeat &&
     !theirs.some((c) => c.attacking)
   ) {
-    return `${name} is choosing attackers`;
+    return "Choosing attackers";
   }
   if (
     board.phase === "COMBAT_DECLARE_BLOCKERS" &&
     seat !== board.activeSeat &&
     !theirs.some((c) => c.blocking)
   ) {
-    return `${name} is choosing blockers`;
+    return "Choosing blockers";
   }
   return null;
 }
 
-/**
- * Spec 0034 — the game-over box: who won, and why when the board shows
- * it (a life total at 0, a concession); else the turn it ended on.
- */
 /** Spec 0045 -- Forge's reasons for a loss, in a player's words. */
 const LOSS_WORDS: Record<string, string> = {
   Milled: "had to draw from an empty library",
@@ -225,18 +266,29 @@ const LOSS_WORDS: Record<string, string> = {
   OpponentWon: "an opponent won by a card's effect",
 };
 
+/**
+ * Spec 0034, Phase 9 W-24 — game over, said once: who won (`word`), why
+ * (`sub`: Forge's reason for the loss, a concession, a life total at 0
+ * on the board, or Forge's own sentence for an alternate win, word for
+ * word, P6-AP), and the turn it ended on. `stopped`: the game failed
+ * before it finished. A spectator passes a seat nobody has (-1).
+ */
 export function gameOverWords(
   board: Snapshot,
   mySeat: number,
   outcome: MatchOutcome | null,
-): { word: string; sub: string } {
+  stopped = false,
+): { word: string; sub: string; turn: string } {
+  const turn = outcome && outcome.endedOnTurn > 0 ? `Turn ${outcome.endedOnTurn}` : "";
   const nameOf = (seat: number) =>
     seat === mySeat ? "Your" : `${board.players.find((p) => p.seat === seat)?.name ?? "Their"}’s`;
+  if (stopped || outcome?.kind === "FAILED") {
+    return { word: "Game over", sub: "The game stopped before it finished. Nobody won it.", turn };
+  }
   if (!outcome || outcome.kind !== "WINNER" || outcome.winningSeat === null) {
-    return {
-      word: outcome?.kind === "DRAW" ? "A draw" : "Game over",
-      sub: "Nobody holds priority now",
-    };
+    return outcome?.kind === "DRAW"
+      ? { word: "A draw", sub: "", turn }
+      : { word: "Game over", sub: "Nobody won it", turn };
   }
   const won = outcome.winningSeat === mySeat;
   const winner = board.players.find((p) => p.seat === outcome.winningSeat)?.name ?? "Your opponent";
@@ -250,12 +302,12 @@ export function gameOverWords(
         ? outcome.concededSeat === mySeat
           ? "You conceded"
           : `${board.players.find((p) => p.seat === outcome.concededSeat)?.name ?? "Your opponent"} conceded`
-        : loser && loser.life <= 0
-          ? `${nameOf(loser.seat)} life reached 0`
-          : outcome.endedOnTurn > 0
-            ? `On turn ${outcome.endedOnTurn}`
+        : outcome.reason
+          ? `The winner ${outcome.reason}`
+          : loser && loser.life <= 0
+            ? `${nameOf(loser.seat)} life reached 0`
             : "";
-  return { word: won ? "You won" : `${winner} won`, sub };
+  return { word: won ? "You won" : `${winner} won`, sub, turn };
 }
 
 /** Spec 0030 — which part of combat a phase is, for the turn ladder; null outside those parts. */

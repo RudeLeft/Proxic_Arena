@@ -44,7 +44,7 @@ import {
   type SnapshotCard,
   type SnapshotPlayer,
 } from "../match";
-import { abandonMatch, type MatchOutcome, type MatchView } from "../lobby";
+import { abandonMatch, type MatchView } from "../lobby";
 import {
   NameSearch,
   cancelWords,
@@ -94,33 +94,12 @@ import {
   combatPart,
   gameOverWords,
   passWords,
+  STEPS,
   totalPower,
   unblockedPower,
   waitingLine,
 } from "./stops";
 import "./game.css";
-
-/** The canvas's eight steps; Forge's phase names fold into them. */
-const STEPS: { label: string; phases: string[] }[] = [
-  { label: "Untap", phases: ["UNTAP"] },
-  { label: "Upkeep", phases: ["UPKEEP"] },
-  { label: "Draw", phases: ["DRAW"] },
-  { label: "Main 1", phases: ["MAIN1"] },
-  {
-    label: "Combat",
-    phases: [
-      "COMBAT_BEGIN",
-      "COMBAT_DECLARE_ATTACKERS",
-      "COMBAT_DECLARE_BLOCKERS",
-      "COMBAT_FIRST_STRIKE_DAMAGE",
-      "COMBAT_DAMAGE",
-      "COMBAT_END",
-    ],
-  },
-  { label: "Main 2", phases: ["MAIN2"] },
-  { label: "End", phases: ["END_OF_TURN"] },
-  { label: "Cleanup", phases: ["CLEANUP"] },
-];
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
@@ -148,6 +127,8 @@ export function GameScreen({
   // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
   const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
+  // W-24 — the result banner put away, to look at how the game ended.
+  const [resultAside, setResultAside] = useState(false);
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
   const reconnecting = useSettled(game.connection === "reconnecting", 1500);
   // Spec 0050 — the page's notices and the game's own, top right of the table.
@@ -262,6 +243,25 @@ export function GameScreen({
   // must still be abandonable, so after a long wait the gear comes back.
   const longLoad = useSettled(!(data && board), 20_000);
   const drawn = Boolean(data && board);
+  // W-24 — said once: the banner, and the column's button under it. A
+  // spectator is nobody's "you"; a spectator goes back to the lobby, a
+  // player to their room, which is open again with both still seated.
+  const over: GameOver | null = finished
+    ? {
+        ...(board
+          ? gameOverWords(
+              board,
+              board.spectator ? -1 : board.seat,
+              match.outcome,
+              match.status === "FAILED_RUNTIME",
+            )
+          : { word: "Game over", sub: resultText(match, mine?.seatNumber ?? null), turn: "" }),
+        won: Boolean(board && !board.spectator && match.outcome?.winningSeat === board.seat),
+        aside: resultAside,
+        leaveWord: watching ? "Back to the lobby" : "Back to the room",
+        onShow: () => setResultAside(false),
+      }
+    : null;
 
   // Everything the board draws that an option may name.
   const visible = useMemo(() => {
@@ -1013,7 +1013,19 @@ export function GameScreen({
             unpayable={unpayable}
             selected={selected}
             asking={question?.context === "choose"}
-            top={<NoticeStack notices={tableNotices} place="table" />}
+            top={
+              <>
+                {over && !over.aside && (
+                  <ResultBanner
+                    over={over}
+                    sentence={resultText(match, mine?.seatNumber ?? null)}
+                    onLeave={onLeave}
+                    onAside={() => setResultAside(true)}
+                  />
+                )}
+                <NoticeStack notices={tableNotices} place="table" />
+              </>
+            }
             rail={
               <Rail
                 board={board}
@@ -1054,8 +1066,8 @@ export function GameScreen({
                   answer(null);
                 }}
                 onView={setViewer}
-                finished={finished}
-                outcome={match.outcome}
+                over={over}
+                onLeave={onLeave}
                 watching={game.watching}
               />
             }
@@ -1256,20 +1268,18 @@ export function GameScreen({
           />
         )}
 
-        {drawn && !watching && (
-          <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />
+        {/* A game that ended before the table was drawn: the result alone. */}
+        {over && !over.aside && !drawn && (
+          <ResultBanner
+            over={over}
+            sentence={resultText(match, mine?.seatNumber ?? null)}
+            onLeave={onLeave}
+            onAside={null}
+          />
         )}
 
-        {finished && (
-          <div className="gs-over" role="dialog" aria-modal="false" aria-labelledby="gs-over-title">
-            <h2 id="gs-over-title" className="gs-over-title">
-              {board ? `Game over · it ended on turn ${board.turn}` : "Game over"}
-            </h2>
-            <p className="gs-over-text">{resultText(match, mine?.seatNumber ?? null)}</p>
-            <button type="button" className="pa-button pa-button-brass" onClick={onLeave}>
-              Back to the lobby
-            </button>
-          </div>
+        {drawn && !watching && (
+          <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />
         )}
       </section>
     </SeatsContext.Provider>
@@ -1480,6 +1490,7 @@ function SeatBlock({
   player,
   board,
   mine,
+  deciding = false,
   question,
   busy,
   onPick,
@@ -1488,6 +1499,8 @@ function SeatBlock({
   player: SnapshotPlayer;
   board: Snapshot;
   mine: boolean;
+  /** W-25 — it is this player's move and you are waiting: the plate glows. */
+  deciding?: boolean;
   question: Question | null;
   busy: boolean;
   onPick: (id: string) => void;
@@ -1515,7 +1528,7 @@ function SeatBlock({
     // Spec 0029 — a raised plate: picture, name and Belt, life in a banner,
     // and a grid of tiles for the zones. Whose turn: the plate's top edge.
     <div
-      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}`}
+      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}`}
       data-seat={player.seat}
     >
       <span className="pa-visually-hidden">
@@ -1792,6 +1805,7 @@ const EMBLEM = {
   wait: "M7 4h10M7 20h10M8 4c0 5 8 5 8 8s-8 3-8 8M16 4c0 5-8 5-8 8s8 3 8 8",
   flag: "M6 21V4M6 4h11l-2.5 4L17 12H6",
   ask: "M12 19V6M6 11l6-6 6 6",
+  leave: "M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3",
 } as const;
 
 function passEmblem(word: string): keyof typeof EMBLEM {
@@ -1878,8 +1892,8 @@ function Rail({
   countdown,
   onResolveAll,
   onView,
-  finished,
-  outcome,
+  over,
+  onLeave,
   watching = 0,
 }: {
   board: Snapshot;
@@ -1900,10 +1914,12 @@ function Rail({
   /** Spec 0043 — "Let it all resolve": pass until the stack empties or grows. */
   onResolveAll: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
-  /** The game is over: nobody holds priority any more. */
-  finished: boolean;
-  /** Spec 0034 — who won, for the game-over box. */
-  outcome: MatchOutcome | null;
+  /**
+   * The game is over (W-24): who won and why, for the column; `aside`
+   * once the banner is put away, when the button here leaves instead.
+   */
+  over: GameOver | null;
+  onLeave: () => void;
   /** Spec 0047 — how many people are watching. */
   watching?: number;
 }) {
@@ -1914,7 +1930,11 @@ function Rail({
   const lastAsked = useLastAsked(asking);
   const myPriority = question?.context === "priority";
   const words = passWords(board, mySeat);
-  const over = gameOverWords(board, mySeat, outcome);
+  // W-25 — whose move it is, when nothing is asked of you; their corner glows.
+  const waiting =
+    !over && !combat && !cancel && !myPriority && !question
+      ? waitingLine(board, board.spectator ? -1 : mySeat, asking, lastAsked, resolving)
+      : null;
   return (
     <div className="gs-rail">
       {them && <StatusTray player={them} side="opponent" />}
@@ -1924,6 +1944,7 @@ function Rail({
           player={them}
           board={board}
           mine={false}
+          deciding={waiting?.seat === them.seat}
           question={question}
           busy={busy}
           onPick={onPick}
@@ -1935,12 +1956,33 @@ function Rail({
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone). */}
-      {finished ? (
+      {over?.aside ? (
+        // W-24 — the banner put away to look at the board: this leaves.
+        <div className="gs-act-group">
+          <button type="button" className="gs-act gs-act-leave" onClick={onLeave}>
+            <Coin emblem="leave" />
+            <span className="gs-act-text">
+              <span className="gs-act-word">{over.leaveWord}</span>
+              <span className="gs-act-sub">{over.word}</span>
+            </span>
+          </button>
+          {/* In "All attack"'s place, above the button. */}
+          <ul className="gs-combat-options">
+            <li>
+              <button type="button" className="gs-act-all" onClick={over.onShow}>
+                Show the result
+              </button>
+            </li>
+          </ul>
+        </div>
+      ) : over ? (
         <div className="gs-waiting" role="status">
           <Coin emblem="flag" />
           <span className="gs-act-text">
             <span className="gs-waiting-word">{over.word}</span>
-            {over.sub && <span className="gs-waiting-sub">{over.sub}</span>}
+            {(over.sub || over.turn) && (
+              <span className="gs-waiting-sub">{over.sub || over.turn}</span>
+            )}
           </span>
         </div>
       ) : combat ? (
@@ -2050,14 +2092,13 @@ function Rail({
             </button>
           )}
         </div>
-      ) : !question ? (
+      ) : waiting ? (
         <div className="gs-waiting" role="status">
-          {/* Owner 2026-10-22: one plain line. */}
+          {/* W-25: whose move, in plain letters, and what they are doing. */}
           <Coin emblem="wait" />
           <span className="gs-act-text">
-            <span className="gs-waiting-word">
-              {waitingLine(board, mySeat, asking, lastAsked, resolving)}
-            </span>
+            <span className="gs-waiting-name">{waiting.word}</span>
+            {waiting.sub && <span className="gs-waiting-sub">{waiting.sub}</span>}
           </span>
         </div>
       ) : (
@@ -2348,6 +2389,67 @@ const CANCEL_KINDS = new Set([
 const COMBAT_KINDS = new Set(["declareAttackers", "declareBlockers"]);
 /** Forge's "every creature still offered" (CombatChoices.ALL_ATTACK). */
 const ALL_ATTACK = "attackers:all";
+
+/**
+ * Phase 9 W-24 (owner 2026-11-02, option B) — the result across the
+ * table, said once; Look at the board puts it away and the column's
+ * button leaves instead. The full sentence is what a screen reader hears.
+ * `onAside` null: no table to look at.
+ */
+function ResultBanner({
+  over,
+  sentence,
+  onLeave,
+  onAside,
+}: {
+  over: GameOver;
+  sentence: string;
+  onLeave: () => void;
+  onAside: (() => void) | null;
+}) {
+  return (
+    <div
+      className={`gs-over${over.won ? " gs-over-won" : ""}${onAside ? "" : " gs-over-alone"}`}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="gs-over-title"
+      aria-describedby="gs-over-text"
+    >
+      <h2 id="gs-over-title" className="gs-over-title">
+        {over.word}
+      </h2>
+      <p className="gs-over-why" aria-hidden="true">
+        {[over.sub, over.turn].filter(Boolean).join(" · ")}
+      </p>
+      <p id="gs-over-text" className="pa-visually-hidden">
+        {sentence}
+      </p>
+      <div className="gs-over-buttons">
+        <button type="button" className="pa-button pa-button-brass" onClick={onLeave}>
+          {over.leaveWord}
+        </button>
+        {onAside && (
+          <button type="button" className="pa-button pa-button-quiet" onClick={onAside}>
+            Look at the board
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** W-24 — the end of the game, as the banner and the column say it. */
+interface GameOver {
+  word: string;
+  sub: string;
+  turn: string;
+  /** You won: the banner is gold. */
+  won: boolean;
+  /** The banner is put away; the column's button leaves. */
+  aside: boolean;
+  leaveWord: string;
+  onShow: () => void;
+}
 
 interface CombatButton {
   kind: string;

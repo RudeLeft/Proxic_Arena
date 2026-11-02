@@ -393,3 +393,34 @@ canvas https://claude.ai/artifact/P5eET6QgnywiZTCZPU1uP4).**
   connected to the game" is red with a Reload button. A new version
   waits until the game is over. Answers the game refused stay inside
   their question window.
+
+**Amendment 6 (2026-11-02, W-24 and W-25 decided and built -- canvas
+https://claude.ai/artifact/V6QHFDjArMC2HjfPThQV9L).**
+
+- *Today (found from screenshots of a real game):* game over said the
+  result three times (the box's title, its sentence and the column) and
+  the turn twice; "You won" was the smallest thing on the screen; the box
+  hid the middle of the table and could not be put aside; the waiting
+  line was in capitals and broke a name over two lines.
+- *W-24, game over (owner: option B, the banner; no Play again):* a
+  banner across the table, which dims behind it -- "YOU WON" in gold, or
+  "PAT WON" (or "A DRAW", "GAME OVER") in silver; under it why, said once
+  (the loss reason, a concession, a life total at 0, or Forge's own
+  sentence for an alternate win, word for word, P6-AP), and the turn.
+  Buttons: **Back to the room** (a spectator: Back to the lobby) and
+  **Look at the board**, which puts the banner away; the column's button
+  then goes back to the room, with "Show the result" above it. The full
+  sentence stays what a screen reader hears. A spectator is nobody's
+  "you". The type scale gains one step for the banner alone
+  (`--pa-size-result`, spec 0017).
+- *W-25, the waiting line (owner: option B):* "Pat’s move" in plain
+  letters on one line, and under it what the screen shows Pat doing
+  ("Choosing blockers", "May respond to your Lightning Bolt"), or else
+  the step ("Main 1 · their turn"); "Resolving…" names the spell under
+  it. Pat's plate glows softly while you wait for Pat. Only what both
+  players can see is used, never Pat's question.
+- *Evidence:* `stops.test.ts` (the words, a spectator, an alternate
+  win), `match-concede.spec.ts` (the banner both sides, Look at the
+  board, Show the result, Back to the room), `match.spec.ts` (the
+  waiting line and the glow on the waiting player's screen only),
+  `match-alternate-win.spec.ts` (Forge's sentence in the banner).
