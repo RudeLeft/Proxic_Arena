@@ -7,12 +7,15 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
   double-block    a Hill Giant blocked by two Grizzly Bears: its player
                   assigns the damage one point at a time
                   (assignCombatDamage) and puts every point on the LAST
-                  Bears offered -- that one dies, the other is untouched
+                  Bears offered -- that one dies, the other is untouched.
+                  Each question carries the whole fight for the page's one
+                  window (owner item 5): 3 damage, both Bears needing 2
   trample         a Colossal Dreadmaw (6/6 trample) blocked by one Grizzly
                   Bears: the defending player is offered only once the
                   Bears has lethal damage (CR 702.19c) -- points 1 and 2
                   go to the Bears, then every point the player is offered
-                  is taken: the Bears dies, the player loses 4
+                  is taken: the Bears dies, the player loses 4; the fight
+                  says 6 damage, trample, the Bears needing 2
   wolf-yes        Lone Wolf, blocked: "assign its damage as though it
                   weren't blocked?" (confirmStaticApplication) -- Yes: the
                   defending player loses 2, the blocker takes nothing
@@ -120,6 +123,7 @@ def double_block():
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "assignCombatDamage":
+            st.setdefault("fights", []).append((f.get("arrange") or {}).get("damage"))
             st["asked"].append((seat, sorted(card_of(o["actionId"]) for o in f["options"] if card_of(o["actionId"]))))
             st["picked"] = st["picked"] or card_of(f["options"][-1]["actionId"])
             return next(o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["picked"])
@@ -150,6 +154,11 @@ def double_block():
         problems.append(f"offered {st['asked'][0][1]}, not exactly the blockers {st['blockers']}")
     if len(st["asked"]) != 3:
         problems.append(f"a 3-power attacker should be asked 3 times, one point each: {len(st['asked'])}")
+    fight = (st.get("fights") or [None])[0] or {}
+    want = sorted(st["blockers"])
+    got = sorted(b.get("card") for b in fight.get("blockers", []))
+    if fight.get("damage") != 3 or got != want or any(b.get("lethal") != 2 for b in fight.get("blockers", []))             or fight.get("trample") or any(f != fight for f in st.get("fights", [])):
+        problems.append(f"every question carries the fight: 3 damage, the two Bears needing 2 each: {st.get('fights')}")
     spared = [b for b in st["blockers"] if b != st["picked"]]
     after = st["after"] or {}
     if st["picked"] not in after.get("grave", []):
@@ -167,6 +176,7 @@ def trample():
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "assignCombatDamage":
+            st.setdefault("fights", []).append((f.get("arrange") or {}).get("damage"))
             ids = [o["actionId"] for o in f["options"]]
             st["asked"].append((seat, "damage:defender" in ids))
             return "damage:defender" if "damage:defender" in ids else ids[0]
@@ -201,6 +211,9 @@ def trample():
         problems.append(f"the Bears had lethal damage, but it is not in the graveyard: {st['after']}")
     if st["life"] is not None and st["after"]["life"] != st["life"] - 4:
         problems.append(f"6 trample over a 2/2: the player loses 4, {st['life']} -> {st['after']['life']}")
+    fight = (st.get("fights") or [None])[0] or {}
+    if fight.get("damage") != 6 or fight.get("trample") is not True             or [b.get("lethal") for b in fight.get("blockers", [])] != [2]:
+        problems.append(f"the fight says 6 damage, trample, the Bears needing 2: {fight}")
     return outcome(problems, "Colossal Dreadmaw: 2 to the Bears first (lethal), then 4 trampled over to the "
                              "player", found)
 

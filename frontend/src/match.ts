@@ -125,6 +125,17 @@ export interface Decision {
   window: boolean;
 }
 
+/** Item 5 -- one attacker's combat damage, to split among its blockers. */
+export interface DamageFight {
+  damage: number;
+  attacker: string | null;
+  blockers: { card: string; lethal: number }[];
+  /** The defending player may take damage once every blocker has lethal (trample). */
+  trample: boolean;
+  /** The defending player may take any of it (it divides as it chooses). */
+  divides: boolean;
+}
+
 /** Phase 9 W-07..W-10 — how a tray question is laid out (see Decision.arrange). */
 export interface DecisionArrange {
   /** Where the cards go: "top", "bottom" (of the library), "graveyard", … */
@@ -139,6 +150,13 @@ export interface DecisionArrange {
   split: boolean;
   /** Fact or Fiction: the two piles to choose from -- the cards you may see, and how many. */
   piles: { cards: string[]; count: number }[] | null;
+  /**
+   * Owner 2026-11-01 (item 5) -- combat damage to assign: how much, each
+   * blocker in the game's order with what it still needs to die, and
+   * whether the player can take some (trample, or a creature that divides
+   * its damage as it chooses).
+   */
+  damage?: DamageFight | null;
 }
 
 /** The spell or ability a question is about. */
@@ -902,6 +920,26 @@ function asDecision(message: Record<string, unknown>): Decision | null {
   };
 }
 
+function asFight(value: unknown): DamageFight | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const damage = asNumber(v["damage"]);
+  if (!damage || !Array.isArray(v["blockers"])) return null;
+  const blockers = v["blockers"].flatMap((b) => {
+    if (typeof b !== "object" || b === null) return [];
+    const one = b as Record<string, unknown>;
+    const card = asString(one["card"]);
+    return card ? [{ card, lethal: asNumber(one["lethal"]) ?? 0 }] : [];
+  });
+  return {
+    damage,
+    attacker: asString(v["attacker"]),
+    blockers,
+    trample: v["trample"] === true,
+    divides: v["divides"] === true,
+  };
+}
+
 function asArrange(value: unknown): DecisionArrange | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
@@ -922,6 +960,7 @@ function asArrange(value: unknown): DecisionArrange | null {
     zone: asString(v["zone"]),
     split: typeof v["split"] === "string" || v["split"] === true,
     piles: piles && piles.length === 2 ? piles : null,
+    damage: asFight(v["damage"]),
   };
 }
 

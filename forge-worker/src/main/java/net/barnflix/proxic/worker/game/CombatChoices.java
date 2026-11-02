@@ -389,6 +389,60 @@ final class CombatChoices {
             return assigned;
         }
 
+        // Owner 2026-11-01 (item 5) -- the whole fight, for the page's one
+        // window: how much there is, each blocker in Forge's order with
+        // what it still needs to die (Forge's own reading, allLethal), and
+        // whether the player can take some (trample, or a creature that
+        // divides as it chooses). The questions stay one point at a time;
+        // the page answers them from the split the player made.
+        com.google.gson.JsonObject fight = new com.google.gson.JsonObject();
+        fight.addProperty("damage", damage);
+        fight.addProperty("attacker", "card:" + attacker.getId());
+        com.google.gson.JsonArray order = new com.google.gson.JsonArray();
+        for (Card blocker : blockers) {
+            com.google.gson.JsonObject one = new com.google.gson.JsonObject();
+            one.addProperty("card", "card:" + blocker.getId());
+            one.addProperty("lethal", lethal(attacker, blocker));
+            order.add(one);
+        }
+        fight.add("blockers", order);
+        if (trampleOver) {
+            fight.addProperty("trample", true);
+        } else if (divides && defender != null) {
+            fight.addProperty("divides", true);
+        }
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("damage", fight);
+        com.google.gson.JsonObject before = host.arrange();
+        host.arranging(how);
+        try {
+            return assignByPoint(attacker, blockers, damage, defender, assigned, trampleOver, divides);
+        } finally {
+            host.arranging(before);
+        }
+    }
+
+    /** What [blocker] still needs to die from [attacker] -- as allLethal reads it. */
+    static int lethal(Card attacker, Card blocker) {
+        int need = Math.max(0, blocker.getLethalDamage());
+        if (blocker.isPlaneswalker()) {
+            return blocker.getCurrentLoyalty();
+        }
+        if (attacker.hasKeyword(forge.game.keyword.Keyword.DEATHTOUCH)) {
+            return Math.min(need, 1);
+        }
+        return need;
+    }
+
+    /** The questions themselves, one point at a time. */
+    private java.util.Map<Card, Integer> assignByPoint(
+            Card attacker,
+            forge.game.card.CardCollectionView blockers,
+            int damage,
+            GameEntity defender,
+            java.util.Map<Card, Integer> assigned,
+            boolean trampleOver,
+            boolean divides) throws InterruptedException {
         for (int point = 0; point < damage; point++) {
             LinkedHashMap<String, Card> byId = new LinkedHashMap<>();
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();

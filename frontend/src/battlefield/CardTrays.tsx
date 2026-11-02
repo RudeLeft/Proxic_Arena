@@ -27,8 +27,11 @@ import { Tray } from "./GameWindow";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
 import {
+  DAMAGE_TO_PLAYER,
   askingName,
   cardGroups,
+  damageSteps,
+  usualSplit,
   notOffered,
   orderSteps,
   placeWords,
@@ -592,6 +595,157 @@ export function PilesTray(props: TrayProps) {
             </div>
           );
         })}
+      </div>
+    </Tray>
+  );
+}
+
+/** "Grizzly Bears — 2/2 — 1 so far": the points a blocker already has. */
+function soFar(label: string | null): number {
+  const m = /(\d+) so far/.exec(label ?? "");
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * Item 5 (owner 2026-11-01) -- combat damage among two or more blockers,
+ * in one tray: the attacker and its blockers as pictures, each with what it
+ * needs to die; filled in the usual way (lethal to each in order, the rest
+ * to the last, or to the player with trample); + and - move points; Done
+ * when none is left. Trample reaches the player only once every blocker
+ * has lethal (CR 702.19c). The game's one-point questions are answered
+ * from the split.
+ */
+export function DamageTray(props: TrayProps) {
+  const { decision, board, busy, artUrl } = props;
+  const fight = decision.arrange!.damage!;
+  // Asked again part way (a plan stopped): only what is left to give.
+  const given = fight.blockers.map((b) =>
+    soFar(decision.options.find((o) => o.objectId === b.card)?.label ?? null),
+  );
+  const givenPlayer = soFar(
+    decision.options.find((o) => o.actionId === DAMAGE_TO_PLAYER)?.label ?? null,
+  );
+  const total = fight.damage - given.reduce((a, b) => a + b, 0) - givenPlayer;
+  const needs = fight.blockers.map((b, i) => Math.max(0, b.lethal - given[i]!));
+  const toPlayer = fight.trample || fight.divides;
+  const [split, setSplit] = useState(() =>
+    usualSplit({
+      ...fight,
+      damage: total,
+      blockers: fight.blockers.map((b, i) => ({ ...b, lethal: needs[i]! })),
+    }),
+  );
+  const left = total - split.blockers.reduce((a, b) => a + b, 0) - split.player;
+  const allLethal = split.blockers.every((n, i) => n >= needs[i]!);
+  const valid = left === 0 && (split.player === 0 || fight.divides || allLethal);
+  const cardOf = (id: string | null) => board.battlefield.find((c) => c.id === id) ?? null;
+  const attacker = cardOf(fight.attacker);
+  const defender = board.players.find((p) => p.seat !== board.seat);
+  const move = (i: number | "player", by: number) =>
+    setSplit((now) => {
+      const next = { blockers: [...now.blockers], player: now.player };
+      if (i === "player") next.player = Math.max(0, next.player + by);
+      else next.blockers[i] = Math.max(0, next.blockers[i]! + by);
+      return next;
+    });
+  const stepper = (i: number | "player", value: number, canAdd: boolean) => (
+    <span className="gs-win-stepper">
+      <button
+        type="button"
+        className="gs-win-chip-btn"
+        aria-label="One less"
+        disabled={busy || value === 0}
+        onClick={() => move(i, -1)}
+      >
+        −
+      </button>
+      <b aria-live="polite">{value}</b>
+      <button
+        type="button"
+        className="gs-win-chip-btn"
+        aria-label="One more"
+        disabled={busy || left <= 0 || !canAdd}
+        onClick={() => move(i, 1)}
+      >
+        +
+      </button>
+    </span>
+  );
+  const name = attacker?.name ?? askingName(board, decision) ?? "Your attacker";
+  return (
+    <Tray
+      geometry={props.geometry}
+      label="Assign combat damage"
+      from={`${name} · ${total} damage`}
+      title="Assign combat damage"
+      kind={decision.kind}
+      prompt={
+        fight.trample
+          ? "Filled in: lethal to each blocker, the rest to the player (trample). + and − to change it."
+          : "Filled in: lethal to each blocker in order, the rest to the last. + and − to change it."
+      }
+      actions={
+        <>
+          <span className={`gs-win-left${left === 0 ? " gs-win-left-done" : ""}`}>
+            Damage left: {left}
+          </span>
+          <MainButton
+            busy={busy}
+            disabled={!valid}
+            onClick={() =>
+              props.onPlan(
+                damageSteps(
+                  decision.kind,
+                  fight.blockers.map((b) => b.card),
+                  split,
+                ),
+              )
+            }
+          >
+            Done
+          </MainButton>
+        </>
+      }
+    >
+      <div className="gs-win-tiles gs-win-damage">
+        {fight.blockers.map((b, i) => {
+          const card = cardOf(b.card);
+          const n = split.blockers[i]!;
+          return (
+            <div key={b.card} className="gs-win-damage-one" data-object-id={b.card}>
+              {card ? (
+                <div
+                  className="gs-win-tile gs-win-tile-small"
+                  aria-label={`${card.name}, needs ${needs[i]}`}
+                >
+                  <BigCard card={card} artUrl={artUrl} small />
+                  <span className="gs-win-tile-name">{card.name}</span>
+                </div>
+              ) : null}
+              <span className={`gs-win-tile-caption${n >= needs[i]! ? " gs-win-lethal" : ""}`}>
+                needs {needs[i]}
+                {n >= needs[i]! ? " ✓" : ""}
+              </span>
+              {stepper(i, n, true)}
+            </div>
+          );
+        })}
+        {toPlayer && (
+          <div className="gs-win-damage-one" data-object-id="player">
+            <div className="gs-win-damage-player">
+              <b>{defender?.name ?? "Defending player"}</b>
+              <span>{defender ? `${defender.life} life` : ""}</span>
+            </div>
+            <span className="gs-win-tile-caption">
+              {fight.divides || allLethal
+                ? fight.trample
+                  ? "trample: the rest"
+                  : "any of it"
+                : "after lethal to each blocker"}
+            </span>
+            {stepper("player", split.player, fight.divides || allLethal)}
+          </div>
+        )}
       </div>
     </Tray>
   );

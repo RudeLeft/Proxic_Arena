@@ -18,7 +18,9 @@ export type PlanStep =
   /** No more ("Done"): a pass, where the game allows one. */
   | { kind: string; pass: true }
   /** A yes or a no -- Ponder's "Do you want to shuffle the library?". */
-  | { kind: string; yes: boolean };
+  | { kind: string; yes: boolean }
+  /** An option by its id -- the defending player, for trample (item 5). */
+  | { kind: string; action: string };
 
 /**
  * The answer `step` gives `decision`: an action id, null for a pass, or
@@ -31,6 +33,9 @@ export function stepAnswer(step: PlanStep, decision: Decision): string | null | 
     return decision.options.find((o) => o.objectId === step.card)?.actionId ?? undefined;
   }
   if ("pass" in step) return decision.mandatory ? undefined : null;
+  if ("action" in step) {
+    return decision.options.some((o) => o.actionId === step.action) ? step.action : undefined;
+  }
   const word = step.yes ? /^yes\b/i : /^no\b/i;
   return decision.options.find((o) => word.test(o.label ?? ""))?.actionId ?? undefined;
 }
@@ -81,8 +86,12 @@ export const ROW_KINDS = new Set(["arrangeForScry", "arrangeForSurveil", "willPu
  * Which tray, if any, a question is: W-07 order, W-08 rows, W-09 a hidden
  * zone, W-10 the split or the piles. Null: it keeps its own window.
  */
-export function trayOf(decision: Decision): "order" | "rows" | "hidden" | "split" | "piles" | null {
+export function trayOf(
+  decision: Decision,
+): "order" | "rows" | "hidden" | "split" | "piles" | "damage" | null {
   const arrange = decision.arrange;
+  // Item 5: combat damage among blockers, the whole fight in one tray.
+  if (decision.kind === "assignCombatDamage" && arrange?.damage) return "damage";
   if (decision.kind === "chooseCardsPile" && arrange?.piles) return "piles";
   if (arrange?.split) return "split";
   if (decision.looking.length === 0) return null;
@@ -179,4 +188,47 @@ export function placeWords(index: number, to: string | null, first: string | nul
     return index === 0 ? "Very bottom" : `${nth(index + 1)} from the bottom`;
   if (to === "bottom") return index === 0 ? "Highest of them" : `${nth(index + 1)} down`;
   return `${nth(index + 1)} in`;
+}
+
+/** The defending player, among the damage question's options. */
+export const DAMAGE_TO_PLAYER = "damage:defender";
+
+/**
+ * Item 5 -- the usual split, to start from: lethal damage to each blocker
+ * in the game's order; what is left to the player when it can take it,
+ * else to the last blocker.
+ */
+export function usualSplit(fight: {
+  damage: number;
+  blockers: readonly { card: string; lethal: number }[];
+  trample: boolean;
+  divides: boolean;
+}): { blockers: number[]; player: number } {
+  let left = fight.damage;
+  const blockers = fight.blockers.map((b) => {
+    const give = Math.min(b.lethal, left);
+    left -= give;
+    return give;
+  });
+  if (left > 0 && (fight.trample || fight.divides)) return { blockers, player: left };
+  if (left > 0 && blockers.length > 0) blockers[blockers.length - 1]! += left;
+  return { blockers, player: 0 };
+}
+
+/**
+ * Item 5 -- the damage questions, one point each, from the split: every
+ * blocker's points first (trample reaches the player only once each has
+ * lethal, CR 702.19c), then the player's.
+ */
+export function damageSteps(
+  kind: string,
+  blockers: readonly string[],
+  split: { blockers: readonly number[]; player: number },
+): PlanStep[] {
+  const steps: PlanStep[] = [];
+  blockers.forEach((card, i) => {
+    for (let n = 0; n < (split.blockers[i] ?? 0); n++) steps.push({ kind, card });
+  });
+  for (let n = 0; n < split.player; n++) steps.push({ kind, action: DAMAGE_TO_PLAYER });
+  return steps;
 }

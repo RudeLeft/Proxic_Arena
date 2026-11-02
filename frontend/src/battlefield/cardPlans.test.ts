@@ -4,16 +4,19 @@
 import { describe, expect, it } from "vitest";
 import type { Decision, DecisionArrange, Snapshot, SnapshotCard } from "../match";
 import {
+  DAMAGE_TO_PLAYER,
   askingName,
   cardGroups,
   notOffered,
   orderSteps,
+  damageSteps,
   placeWords,
   plainPrompt,
   rowSteps,
   splitSteps,
   stepAnswer,
   trayOf,
+  usualSplit,
 } from "./cardPlans";
 
 const card = (id: string, name: string, types = "Instant"): SnapshotCard =>
@@ -237,5 +240,65 @@ describe("a search as one picture per card", () => {
     expect(placeWords(1, "top", "top")).toBe("2nd from the top");
     expect(placeWords(0, "bottom", "bottom")).toBe("Very bottom");
     expect(placeWords(2, "bottom", "bottom")).toBe("3rd from the bottom");
+  });
+});
+
+describe("combat damage among blockers (owner 2026-11-01, item 5)", () => {
+  const two = [
+    { card: "card:1", lethal: 2 },
+    { card: "card:2", lethal: 4 },
+  ];
+
+  it("starts from lethal to each in order, the rest to the last", () => {
+    expect(usualSplit({ damage: 6, blockers: two, trample: false, divides: false })).toEqual({
+      blockers: [2, 4],
+      player: 0,
+    });
+    expect(usualSplit({ damage: 8, blockers: two, trample: false, divides: false })).toEqual({
+      blockers: [2, 6],
+      player: 0,
+    });
+    expect(usualSplit({ damage: 3, blockers: two, trample: false, divides: false })).toEqual({
+      blockers: [2, 1],
+      player: 0,
+    });
+  });
+
+  it("with trample, the rest goes to the player", () => {
+    expect(usualSplit({ damage: 8, blockers: two, trample: true, divides: false })).toEqual({
+      blockers: [2, 4],
+      player: 2,
+    });
+  });
+
+  it("answers the one-point questions: each blocker's points, then the player's", () => {
+    const kind = "assignCombatDamage";
+    expect(damageSteps(kind, ["card:1", "card:2"], { blockers: [2, 1], player: 2 })).toEqual([
+      { kind, card: "card:1" },
+      { kind, card: "card:1" },
+      { kind, card: "card:2" },
+      { kind, action: DAMAGE_TO_PLAYER },
+      { kind, action: DAMAGE_TO_PLAYER },
+    ]);
+  });
+
+  it("a step for the player answers only where the player is offered", () => {
+    const step = { kind: "assignCombatDamage", action: DAMAGE_TO_PLAYER };
+    const asked = decision({
+      kind: "assignCombatDamage",
+      options: [option("damage:card:1", "card:1"), option(DAMAGE_TO_PLAYER, null)],
+    });
+    expect(stepAnswer(step, asked)).toBe(DAMAGE_TO_PLAYER);
+    expect(
+      stepAnswer(step, { ...asked, options: [option("damage:card:1", "card:1")] }),
+    ).toBeUndefined();
+  });
+
+  it("is the damage tray when the question carries the fight", () => {
+    const fight = { damage: 6, attacker: "card:9", blockers: two, trample: false, divides: false };
+    expect(
+      trayOf(decision({ kind: "assignCombatDamage", arrange: { ...arrange({}), damage: fight } })),
+    ).toBe("damage");
+    expect(trayOf(decision({ kind: "assignCombatDamage" }))).toBeNull();
   });
 });

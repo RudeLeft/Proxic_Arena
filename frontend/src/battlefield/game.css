@@ -2154,6 +2154,61 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   border-color: #d9b26a;
   outline: none;
 }
+/* Combat damage (item 5): each blocker, what it needs, + and -. */
+.gs-win-damage {
+  align-items: flex-start;
+}
+.gs-win-damage-one {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+/* Shown, not chosen: a picture, not a button. */
+.gs-win-damage-one .gs-win-tile {
+  cursor: default;
+}
+.gs-win-damage-player {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 150px;
+  height: 209px;
+  border: 1px solid #4a5a52;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2a2420, #161210);
+  font-size: var(--pa-size-md);
+}
+.gs-win-damage-player b {
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-lg);
+}
+.gs-win-lethal {
+  color: #7fc29b;
+}
+.gs-win-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.gs-win-stepper b {
+  min-width: 26px;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-xl);
+  color: #d9b26a;
+  text-align: center;
+}
+.gs-win-left {
+  margin-right: auto;
+  font-size: var(--pa-size-md);
+  color: #d9b26a;
+}
+.gs-win-left-done {
+  color: #7fc29b;
+}
 /* A search (W-09): search and filters above, the cards scroll. */
 .gs-win-filters {
   display: flex;

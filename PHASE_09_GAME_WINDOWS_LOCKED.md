@@ -360,3 +360,22 @@ Still open: every other item, one at a time.
   (a real game: every tray clicked through, nothing asked twice) with
   the card trays test deck, `match-surveil.spec.ts` (the two rows), and
   `cardPlans.test.ts`.
+
+**Amendment 4 (2026-11-01, W-13 decided and built -- owner's item 5,
+canvas https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81).**
+
+- *Assign combat damage, two or more blockers:* one tray, the blockers as
+  pictures in the game's damage order, each with what it still needs to
+  die ("needs 2 ✓" once it has it), filled in the usual way -- lethal to
+  each in order, the rest to the last, or to the player with trample;
+  + and − move points; "Damage left" and Done. Trample reaches the
+  player only once every blocker has lethal (CR 702.19c); a creature
+  that divides its damage as it chooses may give the player any of it.
+- *How:* the worker's damage question carries the fight (`arrange.damage`:
+  how much, each blocker with Forge's lethal reading, trample or divides);
+  the game still asks one point at a time and the page answers each from
+  the split (`cardPlans.ts` damageSteps), only while it asks exactly that.
+- *Evidence:* `scripts/check-combat-choices.py` (double-block and trample
+  now also check the fight carried), `frontend/e2e/match-damage-tray.spec.ts`
+  (a real double block: the tray filled in, Done, never asked a point at a
+  time), `cardPlans.test.ts`.

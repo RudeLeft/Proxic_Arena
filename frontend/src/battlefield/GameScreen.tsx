@@ -64,7 +64,14 @@ import { CastingCard, CastingFlight, castingSpot, docks, stillOwing } from "./Ca
 import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
-import { HiddenZoneTray, OrderCardsTray, PilesTray, RowsTray, SplitTray } from "./CardTrays";
+import {
+  DamageTray,
+  HiddenZoneTray,
+  OrderCardsTray,
+  PilesTray,
+  RowsTray,
+  SplitTray,
+} from "./CardTrays";
 import { orderSteps, stepAnswer, trayOf, type PlanStep } from "./cardPlans";
 import {
   afterAuto,
@@ -868,6 +875,7 @@ export function GameScreen({
       if (tray === "rows") return <RowsTray key={decision.decisionId} {...trayProps} />;
       if (tray === "hidden") return <HiddenZoneTray key={decision.decisionId} {...trayProps} />;
       if (tray === "split") return <SplitTray key={decision.decisionId} {...trayProps} />;
+      if (tray === "damage") return <DamageTray key={decision.decisionId} {...trayProps} />;
       return <PilesTray key={decision.decisionId} {...trayProps} />;
     }
     if (yesNo(decision)) {
