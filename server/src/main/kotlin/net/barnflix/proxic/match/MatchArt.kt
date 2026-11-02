@@ -109,7 +109,12 @@ class MatchArt(
                     when (key) {
                         // Spec 0042 / 0045 -- the card being cast wears its
                         // picture too; it had none (missed in 0042).
-                        "battlefield", "hand", "casting" -> zone(key)
+                        // Spec 0049 -- and every other place a card is
+                        // named to this viewer: an opponent's hand Forge
+                        // lets them see, the graveyards, exile. They had
+                        // no pictures, so a revealed hand, a graveyard
+                        // card looked at, a Reanimate target were bare.
+                        "battlefield", "hand", "casting", "otherHands", "graveyard", "exile" -> zone(key)
                         "stack" -> (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
                         // Spec 0045 -- the cards Forge showed this seat.
                         "reveal" ->
@@ -155,7 +160,10 @@ class MatchArt(
         // The art belongs to the deck of whoever OWNS the card,
         // not the viewer: that is the whole reason §6.122 exists
         // as a match-scoped route rather than a Deck Depot one.
-        val owner = entry["seat"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
+        // Spec 0049 -- the owner, not `seat`: `seat` is the CONTROLLER,
+        // and a creature taken with Control Magic was looked for in the
+        // thief's deck. `seat` only for a snapshot from before `owner`.
+        val owner = seatOf(entry, "owner") ?: seatOf(entry, "seat") ?: return entry
         // The exact printing first, when the deck carried art for
         // it; the name otherwise, as before.
         val printing = entry["printing"]?.jsonPrimitive?.content
@@ -208,7 +216,9 @@ class MatchArt(
 
     /**
      * PHASE_07 (owner 2026-10-21) — a spell on the stack is drawn as its
-     * card, so it wears its picture: from the deck of whoever controls it.
+     * card, so it wears its picture: from the deck of whoever owns the
+     * card (spec 0049; it was the controller, and a spell cast from an
+     * opponent's library is the caster's spell but the opponent's card).
      * The stack names an object only as this viewer may know it (a
      * face-down spell is "Face-down" to the opponent), so what is not
      * theirs to know matches nothing here.
@@ -218,8 +228,8 @@ class MatchArt(
         allowed: MutableSet<String>,
     ): JsonObject {
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
-        val controller = entry["controller"]?.jsonPrimitive?.content?.toIntOrNull() ?: return entry
-        val asset = bySeat[controller]?.let { it[name] ?: it[FACE + name.lowercase()] } ?: return entry
+        val owner = seatOf(entry, "owner") ?: seatOf(entry, "controller") ?: return entry
+        val asset = bySeat[owner]?.let { it[name] ?: it[FACE + name.lowercase()] } ?: return entry
         allowed.add(asset)
         return buildJsonObject {
             entry.forEach { (key, value) -> put(key, value) }
@@ -255,5 +265,11 @@ class MatchArt(
         private const val TOKEN_SUFFIX = " Token"
 
         private fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
+
+        /** A seat number the worker put on [entry] under [key]; 0 (nobody's) counts as none. */
+        private fun seatOf(
+            entry: JsonObject,
+            key: String,
+        ): Int? = entry[key]?.jsonPrimitive?.content?.toIntOrNull()?.takeIf { it > 0 }
     }
 }

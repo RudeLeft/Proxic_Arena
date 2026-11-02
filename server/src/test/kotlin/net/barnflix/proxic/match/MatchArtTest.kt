@@ -448,4 +448,97 @@ class MatchArtTest {
 
         assertEquals(avacyn, artOf(art.annotate(snapshot(token("card:7", alice, "Avacyn")), alice)))
     }
+
+    private fun owned(
+        id: String,
+        controller: Int,
+        owner: Int,
+        name: String,
+        known: Boolean = true,
+    ) = """{"id":"$id","seat":$controller,"owner":$owner,"name":"$name",""" +
+        """"known":$known,"tapped":false,"faceDown":false}"""
+
+    /**
+     * Spec 0049 — a creature Alice took from Bob (Control Magic) sits on
+     * Alice's side, `seat` 1, and is still Bob's card: its picture is in
+     * Bob's deck. It was looked for in Alice's and came out bare.
+     */
+    @Test
+    fun `a stolen card wears its owner's picture, not its controller's`() {
+        val art = art()
+
+        val seen = art.annotate(snapshot(owned("card:9", alice, bob, "Black Lotus")), alice)
+
+        assertEquals(secret, artOf(seen), "Bob's card, from Bob's deck")
+        assertTrue(art.mayFetch(alice, secret))
+    }
+
+    /**
+     * Spec 0049 — the same card name in both decks: the stolen copy wears
+     * the OWNER's printing, not the thief's.
+     */
+    @Test
+    fun `a stolen card does not borrow the thief's copy of the same card`() {
+        val alicesGuide = "d".repeat(64)
+        val bobsGuide = "e".repeat(64)
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to mapOf("Goblin Guide" to alicesGuide),
+                    bob to mapOf("Goblin Guide" to bobsGuide),
+                ),
+            )
+
+        val seen = art.annotate(snapshot(owned("card:9", alice, bob, "Goblin Guide")), alice)
+
+        assertEquals(bobsGuide, artOf(seen))
+        assertFalse(art.mayFetch(alice, alicesGuide), "the thief's own copy was never shown")
+    }
+
+    /** Spec 0049 — a spell Alice cast from Bob's library is Bob's card on the stack. */
+    @Test
+    fun `a spell cast from an opponent's library wears its owner's picture`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],"stack":[
+                {"id":"stack:1","name":"Black Lotus","controller":1,"owner":2,"kind":"spell"}]}""",
+            ).jsonObject
+
+        val stack = art.annotate(state, alice)["stack"]!!.jsonArray
+        assertEquals(secret, stack[0].jsonObject["art"]?.jsonPrimitive?.content)
+    }
+
+    /**
+     * Spec 0049 — an opponent's hand Forge lets this viewer see
+     * (Telepathy, Mindslaver), the graveyards and exile carry pictures,
+     * and being shown them is what authorises them. A face-down exiled
+     * card (foretell) still carries none.
+     */
+    @Test
+    fun `a revealed hand, the graveyards and exile carry their pictures`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],
+                "otherHands":[${owned("card:1", bob, bob, "Black Lotus")}],
+                "graveyard":[${owned("card:2", alice, alice, "Lightning Bolt")}],
+                "exile":[${owned("card:3", bob, bob, "Plains")},
+                         ${owned("card:4", bob, bob, "Black Lotus", known = false)}]}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, alice)
+
+        fun artIn(
+            zone: String,
+            index: Int = 0,
+        ) = seen[zone]!!.jsonArray[index].jsonObject["art"]?.jsonPrimitive?.content
+
+        assertEquals(secret, artIn("otherHands"))
+        assertEquals(bolt, artIn("graveyard"))
+        assertEquals(plains, artIn("exile"))
+        assertNull(artIn("exile", 1), "a face-down exiled card names nothing")
+        assertTrue(art.mayFetch(alice, secret) && art.mayFetch(alice, bolt) && art.mayFetch(alice, plains))
+        assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
+    }
 }

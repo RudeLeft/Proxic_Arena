@@ -353,7 +353,16 @@ export async function startAMatch(
     hostName = testUser,
     guestName = secondUser,
     watchable = true,
-  }: { settle?: boolean; hostName?: string; guestName?: string; watchable?: boolean } = {},
+    // A different deck for the guest (also shared by the host), for the
+    // tests that need the two seats to bring different cards.
+    guestDeck = deckName,
+  }: {
+    settle?: boolean;
+    hostName?: string;
+    guestName?: string;
+    watchable?: boolean;
+    guestDeck?: string;
+  } = {},
 ) {
   await host.goto("/play");
   await guest.goto("/play");
@@ -366,7 +375,8 @@ export async function startAMatch(
     [guest, guestName],
   ] as const) {
     // The host's OWN copy, and the guest's copy shared by THIS host.
-    await chooseDeck(page, deckName, page === host ? undefined : hostName);
+    if (page === host) await chooseDeck(page, deckName);
+    else await chooseDeck(page, guestDeck, hostName);
     // Click Ready only once THIS page has seen the seats already
     // ready. Its Ready carries the room revision it holds, and one
     // sent before the other seat's update arrived is refused as

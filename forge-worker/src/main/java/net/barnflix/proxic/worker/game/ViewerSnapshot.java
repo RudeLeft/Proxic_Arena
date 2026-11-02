@@ -260,11 +260,9 @@ final class ViewerSnapshot {
             for (Card card : player.getCardsIn(ZoneType.Hand)) {
                 CardView view = card.getView();
                 if (view.canBeShownTo(viewing) && view.canFaceDownBeShownTo(viewing)) {
-                    JsonObject entry = describe(card, viewing, seatOf);
-                    // `seat` above is the CONTROLLER; for a hand card
-                    // say whose hand it is.
-                    entry.addProperty("owner", seatOf.getOrDefault(player, 0));
-                    otherHands.add(entry);
+                    // describe() says whose hand it is: a hand card's
+                    // `owner`, which `seat` (the controller) need not be.
+                    otherHands.add(describe(card, viewing, seatOf));
                 }
             }
         }
@@ -312,6 +310,10 @@ final class ViewerSnapshot {
             if (source != null) {
                 entry.addProperty("source", "card:" + source.getId());
                 entry.addProperty("name", nameFor(source, viewing));
+                // The card's owner, whose deck its picture is in: a spell
+                // cast from an opponent's library is the caster's spell
+                // (`controller`) and still the opponent's card.
+                entry.addProperty("owner", seatOf.getOrDefault(source.getOwner(), 0));
                 // A spell's printed cost, when this viewer may know the card.
                 if (instance.isSpell() && !hidden) {
                     forge.card.mana.ManaCost printed = source.getManaCost();
@@ -597,6 +599,11 @@ final class ViewerSnapshot {
         // the browser never has to match things up by name.
         entry.addProperty("id", "card:" + card.getId());
         entry.addProperty("seat", seatOf.getOrDefault(card.getController(), 0));
+        // Whose card it IS, which `seat` is not once control changes: a
+        // creature taken with Control Magic sits on the thief's side but
+        // came out of its owner's deck, and its picture is in that deck.
+        // Public, as ownership of a card on the table always is.
+        entry.addProperty("owner", seatOf.getOrDefault(card.getOwner(), 0));
         // §7.61 B11 -- when it arrived where it is, Forge's own game
         // timestamp: a row keeps arrival order (§7.52a L6).
         entry.addProperty("enteredAt", card.getGameTimestamp());

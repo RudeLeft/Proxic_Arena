@@ -420,6 +420,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/mindslaver-deck.zip" protocol/fixtures/mindslaver-deck
 
+      # And a stolen creature (spec 0049): its picture from its owner's deck.
+      - name: Build the stolen-creature deck packages
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/treason-deck.zip" protocol/fixtures/treason-deck
+          node scripts/make-ci-deck.mjs "Test Deck/goblin-deck.zip" protocol/fixtures/goblin-deck
+
       # And player state (P6-AO): poison, energy, the monarch.
       - name: Build the player-state deck package
         run: |
