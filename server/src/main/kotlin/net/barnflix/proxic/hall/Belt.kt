@@ -10,10 +10,12 @@ import java.util.UUID
 // plays can still hold something. From BELT_START it belongs to spec
 // 0011's champion (the most wins before then). Whoever beats the holder
 // in a finished game takes it; a win by the holder is a defence. A
-// holder who plays no finished game for 14 days hands it to the season
-// leader at that moment, so it never sits with somebody who has gone.
+// holder who plays no finished game for 7 days (spec 0048, owner
+// 2026-11-01; it was 14) hands it to the season leader at that moment, so
+// it never sits with somebody who has gone. An admin reset (spec 0048)
+// leaves it with nobody; the next game's winner takes it.
 
-enum class BeltChange { TAKEN, VACATED }
+enum class BeltChange { TAKEN, VACATED, RESET }
 
 data class BeltEvent(
     val at: Instant,
@@ -27,12 +29,16 @@ data class BeltState(
     val since: Instant?,
     val defences: Int,
     val events: List<BeltEvent>,
+    /** Spec 0048 -- when the holder must have finished a game by; null with no holder. */
+    val defendBy: Instant? = null,
 )
 
 class Belt(
     private val games: List<HallGame>,
     private val seasons: Seasons,
     private val counted: (UUID) -> Boolean,
+    /** Spec 0048 -- when an admin reset it, oldest first. */
+    private val resets: List<Instant> = emptyList(),
 ) {
     private var holder: UUID? = null
     private var since: Instant? = null
@@ -43,12 +49,32 @@ class Belt(
     fun at(now: Instant): BeltState {
         holder = firstHolder()
         since = holder?.let { START }
+        val pending = ArrayDeque(resets.filter { !it.isAfter(now) }.sorted())
         for (game in games.filter { !it.endedAt.isBefore(START) && !it.endedAt.isAfter(now) }) {
+            resetUpTo(game.endedAt, pending)
             vacateIfIdle(game.endedAt)
             play(game)
         }
+        resetUpTo(now, pending)
         vacateIfIdle(now)
-        return BeltState(holder, since, defences, events.toList())
+        val current = holder
+        val defendBy = current?.let { listOfNotNull(since, lastPlayed[it]).maxOrNull()?.plus(IDLE) }
+        return BeltState(current, since, defences, events.toList(), defendBy)
+    }
+
+    /** Every reset before [at]: the Belt goes to nobody (the idle rule first, as it fell due). */
+    private fun resetUpTo(
+        at: Instant,
+        pending: ArrayDeque<Instant>,
+    ) {
+        while (pending.isNotEmpty() && pending.first().isBefore(at)) {
+            val reset = pending.removeFirst()
+            vacateIfIdle(reset)
+            events += BeltEvent(reset, BeltChange.RESET, holder, null)
+            holder = null
+            since = reset
+            defences = 0
+        }
     }
 
     /** Spec 0011's champion before the Belt began: most wins, then fewer games, then first there. */
@@ -116,7 +142,7 @@ class Belt(
         /** When the Belt began (spec 0018's release). */
         val START: Instant = Instant.parse("2026-10-27T00:00:00Z")
 
-        /** A holder who plays nothing for this long hands it on (owner H7). */
-        val IDLE: Duration = Duration.ofDays(14)
+        /** A holder who plays nothing for this long hands it on (owner H7; 7 days, spec 0048). */
+        val IDLE: Duration = Duration.ofDays(7)
     }
 }

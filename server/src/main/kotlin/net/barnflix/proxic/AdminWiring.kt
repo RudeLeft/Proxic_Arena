@@ -88,6 +88,18 @@ internal fun adminServices(
         computers = net.barnflix.proxic.admin.AdminComputers(database.dataSource()),
         // Spec 0039 — the Reports tab.
         reports = net.barnflix.proxic.report.Reports(database.dataSource(), config.dataRoot, config.gameRecords()),
+        // Spec 0048 — the Belt and records tab.
+        recordsDesk =
+            net.barnflix.proxic.admin.AdminRecordsDesk(
+                database.dataSource(),
+                net.barnflix.proxic.admin.AdminPurge(
+                    database.dataSource(),
+                    config.gameRecords(),
+                    config.dataRoot,
+                    parts.runtime::isLive,
+                ) { parts.runtime.runningCount },
+                net.barnflix.proxic.admin.BeltReset(database.dataSource()),
+            ),
         serverState = {
             val status = health.systemStatus()
             net.barnflix.proxic.admin.ServerStateView(

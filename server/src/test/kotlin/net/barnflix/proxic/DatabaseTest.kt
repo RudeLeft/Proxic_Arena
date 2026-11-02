@@ -157,6 +157,7 @@ class DatabaseTest {
                                 "admin_action",
                                 "app_user",
                                 "art_asset",
+                                "belt_reset",
                                 "bug_report",
                                 "deck_entry",
                                 "deck_face_art",

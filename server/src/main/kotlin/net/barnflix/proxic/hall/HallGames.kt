@@ -73,8 +73,18 @@ class HallGameSource(private val dataSource: DataSource) {
     /** The Hall as it stands, for this server's clock. */
     fun hall(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Hall {
         val active = activeUsers()
-        return Hall(games(), zone) { it in active }
+        return Hall(games(), zone, resets()) { it in active }
     }
+
+    /** Spec 0048 -- the admin's belt resets, oldest first. */
+    fun resets(): List<java.time.Instant> =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("SELECT reset_at FROM belt_reset ORDER BY reset_at").use { statement ->
+                statement.executeQuery().use { rows ->
+                    buildList { while (rows.next()) add(rows.getTimestamp(1).toInstant()) }
+                }
+            }
+        }
 
     fun games(): List<HallGame> =
         dataSource.connection.use { connection ->

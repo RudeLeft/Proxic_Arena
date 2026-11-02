@@ -16,6 +16,8 @@ import java.util.UUID
 class Hall(
     games: List<HallGame>,
     zone: ZoneId,
+    /** Spec 0048 -- the admin's belt resets, oldest first. */
+    private val resets: List<Instant> = emptyList(),
     private val counted: (UUID) -> Boolean,
 ) {
     private val games = games.sortedWith(compareBy<HallGame> { it.endedAt }.thenBy { it.matchId })
@@ -28,9 +30,12 @@ class Hall(
     }
 
     /** Spec 0019 F1 — who holds the Belt now, for the mark beside their name. */
-    fun beltHolder(now: Instant): UUID? {
+    fun beltHolder(now: Instant): UUID? = belt(now).holder
+
+    /** Spec 0048 -- the Belt as it stands: holder, since, defend-by. */
+    fun belt(now: Instant): BeltState {
         val played = games.filter { !it.endedAt.isAfter(now) }
-        return Belt(played, seasons, counted).at(now).holder
+        return Belt(played, seasons, counted, resets).at(now)
     }
 
     fun view(
@@ -40,14 +45,21 @@ class Hall(
         val month = seasons.monthOf(now)
         val seasonGames = seasons.gamesIn(month, now)
         val upToNow = games.filter { !it.endedAt.isAfter(now) }
-        val belt = Belt(upToNow, seasons, counted).at(now)
+        val belt = Belt(upToNow, seasons, counted, resets).at(now)
         val highlights = Highlights(upToNow, seasonGames)
         val table = RatingTable.of(seasonGames)
         val dayAgo = seasons.table(month, now.minus(DAY))
         val rivalries = highlights.rivalries(counted)
         return HallView(
             season = seasonView(month, table),
-            belt = BeltView(belt.holder?.toString(), belt.since?.toString(), belt.defences),
+            belt =
+                BeltView(
+                    belt.holder?.toString(),
+                    belt.since?.toString(),
+                    belt.defences,
+                    belt.defendBy?.toString(),
+                    Belt.IDLE.toDays().toInt(),
+                ),
             board =
                 rows(
                     table.ranked(Seasons.RANKED, counted),

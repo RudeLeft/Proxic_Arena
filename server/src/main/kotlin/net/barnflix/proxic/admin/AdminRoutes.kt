@@ -93,6 +93,8 @@ class AdminServices(
     val computers: AdminComputers? = null,
     /** Spec 0039 — players' reports of problems and ideas; none without a database. */
     val reports: net.barnflix.proxic.report.Reports? = null,
+    /** Spec 0048 — the Belt and records tab; none without a database. */
+    val recordsDesk: AdminRecordsDesk? = null,
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -120,6 +122,8 @@ fun Route.adminRoutes(admin: AdminServices) {
         adminEmailRoutes(admin)
         // Spec 0039 — the Reports tab.
         adminReportRoutes(admin)
+        // Spec 0048 — the Belt and records tab.
+        adminPurgeRoutes(admin)
 
         get("/server") {
             call.asAdmin(admin) ?: return@get

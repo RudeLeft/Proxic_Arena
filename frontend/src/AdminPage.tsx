@@ -47,6 +47,7 @@ import {
 } from "./admin";
 import { ComputersPanel } from "./AdminComputers";
 import { EmailPanel } from "./AdminEmail";
+import { BeltRecordsPanel } from "./AdminRecords";
 import { Invitations } from "./AdminInvites";
 import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
@@ -68,6 +69,8 @@ const TABS = [
   { id: "computers", label: "Computers" },
   // Spec 0014 amendment 1 — the account invitations are emailed from.
   { id: "email", label: "Email account" },
+  // Spec 0048 — the Belt, Reset the Belt, and the purge.
+  { id: "records", label: "Belt and records" },
   { id: "server", label: "Server" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -191,6 +194,7 @@ export default function AdminPage() {
     "sign-ins": String(signInsByPerson(signIns).length),
     computers: String(computers.length),
     email: "",
+    records: "",
     server: "",
   };
   const choose = (next: TabId) =>
@@ -283,6 +287,9 @@ export default function AdminPage() {
             />
           )}
           {tab === "email" && <EmailPanel />}
+          {tab === "records" && (
+            <BeltRecordsPanel accounts={accounts ?? []} onChanged={() => void refresh()} />
+          )}
           {tab === "server" && <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />}
         </div>
       </div>

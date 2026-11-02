@@ -169,6 +169,11 @@ class AdminApiTest {
             "DELETE" to "/api/admin/reports/1",
             "GET" to "/api/admin/reports/1/files/screen.png",
             "GET" to "/api/admin/reports/1/zip",
+            // Spec 0048 — the Belt and records tab.
+            "GET" to "/api/admin/belt",
+            "POST" to "/api/admin/belt/reset",
+            "POST" to "/api/admin/purge/preview",
+            "POST" to "/api/admin/purge",
         )
 
     @Test
@@ -396,6 +401,48 @@ class AdminApiTest {
             assertEquals(HttpStatusCode.OK, done.status)
             assertTrue(done.bodyAsText().contains("sessions=1"), done.bodyAsText())
             assertEquals(HttpStatusCode.Unauthorized, call(pat, "GET", "/api/rooms/current").status)
+        }
+
+    @Test
+    fun `the purge and the Belt reset do nothing without the typed word, and are recorded when done (spec 0048)`() =
+        testApplication {
+            application { module(config()) }
+            val admin = session("RudeLeft")
+            // F-0048-D: preview first, then only with PURGE.
+            val before = """{"scope":"before","before":"2026-10-01"}"""
+            val preview = call(admin, "POST", "/api/admin/purge/preview", before)
+            assertEquals(HttpStatusCode.OK, preview.status, preview.bodyAsText())
+            assertTrue(preview.bodyAsText().contains("\"games\":0"), preview.bodyAsText())
+            val unconfirmed = call(admin, "POST", "/api/admin/purge", before)
+            assertEquals(HttpStatusCode.BadRequest, unconfirmed.status)
+            assertTrue(unconfirmed.bodyAsText().contains("TYPE_TO_CONFIRM"))
+            assertEquals(
+                HttpStatusCode.BadRequest,
+                call(admin, "POST", "/api/admin/purge/preview", """{"scope":"player","userId":"nobody"}""").status,
+                "a scope it cannot read",
+            )
+            val confirmed = """{"scope":"before","before":"2026-10-01","confirm":"PURGE"}"""
+            val done = call(admin, "POST", "/api/admin/purge", confirmed)
+            assertEquals(HttpStatusCode.OK, done.status, done.bodyAsText())
+
+            // Reset the Belt: RESET typed, a dated row, recorded.
+            val bare = call(admin, "POST", "/api/admin/belt/reset", """{"scope":"belt"}""")
+            assertEquals(HttpStatusCode.BadRequest, bare.status)
+            val reset = call(admin, "POST", "/api/admin/belt/reset", """{"scope":"belt","confirm":"RESET"}""")
+            assertEquals(HttpStatusCode.OK, reset.status, reset.bodyAsText())
+            assertEquals(
+                1,
+                sql("SELECT count(*) FROM belt_reset") {
+                    it.next()
+                    it.getInt(1)
+                },
+            )
+            assertEquals(
+                listOf("BELT_RESET", "PURGE"),
+                sql("SELECT action FROM admin_action WHERE action IN ('PURGE', 'BELT_RESET') ORDER BY action") {
+                    buildList { while (it.next()) add(it.getString(1)) }
+                },
+            )
         }
 
     @Test

@@ -114,17 +114,39 @@ class HallTest {
     }
 
     @Test
-    fun `an idle holder hands the Belt to the season leader after fourteen days`() {
+    fun `an idle holder hands the Belt to the season leader after seven days`() {
+        // F-0048-A: 7 days (spec 0048; it was 14).
         val start = Instant.parse("2026-10-20T10:00:00Z")
         val games =
             listOf(game("Pat", "Ash", "Pat", at = start)) +
-                (1..3).map { game("Bree", "Ash", "Bree", at = Instant.parse("2026-11-0${it}T10:00:00Z")) }
-        val due = Belt.START.plus(Duration.ofDays(14))
+                // November's leader, before it falls due on 3 November.
+                (1..2).map { game("Bree", "Ash", "Bree", at = Instant.parse("2026-11-0${it}T10:00:00Z")) }
+        val due = Belt.START.plus(Duration.ofDays(7))
+        assertEquals(due.toString(), hall(games).view(due.minusSeconds(60), id("Pat")).belt.defendBy)
         val stillPat = hall(games).view(due.minusSeconds(60), id("Pat"))
         assertEquals("Pat", name(stillPat.belt.holder))
         val handed = hall(games).view(due.plusSeconds(60), id("Pat"))
         assertEquals("Bree", name(handed.belt.holder))
         assertEquals("belt", handed.latest.first().kind)
+    }
+
+    @Test
+    fun `a reset leaves the Belt with nobody, and the next game's winner takes it`() {
+        // F-0048-B: earlier games still count for the ratings.
+        val before = listOf(game("Pat", "Ash", "Pat", at = Instant.parse("2026-10-20T10:00:00Z")))
+        val after = listOf(game("Pat", "Ash", "Pat", at = Instant.parse("2026-10-28T10:00:00Z")))
+        val reset = Instant.parse("2026-10-29T10:00:00Z")
+        val next = game("Bree", "Ash", "Ash", at = Instant.parse("2026-10-30T10:00:00Z"))
+
+        fun hallWith(games: List<HallGame>) = Hall(games, ZoneOffset.UTC, listOf(reset)) { true }
+        val empty = hallWith(before + after).view(Instant.parse("2026-10-29T12:00:00Z"), id("Pat"))
+        assertNull(empty.belt.holder, "nobody holds it after the reset")
+        assertNull(empty.belt.defendBy)
+        val taken = hallWith(before + after + next).view(Instant.parse("2026-10-30T12:00:00Z"), id("Pat"))
+        assertEquals("Ash", name(taken.belt.holder), "the next game's winner (not a game the holder played)")
+        assertEquals(0, taken.belt.defences)
+        assertTrue(taken.qualifying.any { name(it.userId) == "Pat" && it.games == 2 }, "Pat's games still rate")
+        assertEquals(7, taken.belt.idleDays)
     }
 
     @Test

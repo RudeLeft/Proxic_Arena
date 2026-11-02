@@ -574,3 +574,129 @@ export async function testMail(
     return { sent: false, detail: "The server could not be reached." };
   }
 }
+
+// --- the Belt and the purge (spec 0048) -----------------------------------------
+
+/** The Belt as it stands, for the Belt and records tab. */
+export interface AdminBelt {
+  holder: string | null;
+  since: string | null;
+  defences: number;
+  defendBy: string | null;
+}
+
+/** What a purge deletes: shown before, returned after. */
+export interface PurgeCounts {
+  games: number;
+  /** A player purge: their games against each opponent, by name. */
+  against: Record<string, number>;
+  decks: number;
+  rooms: number;
+  reports: number;
+  signIns: number;
+  accountsKept: number;
+  /** Why it cannot be done now; null when it can. */
+  refused: string | null;
+}
+
+export type PurgeScope =
+  | { scope: "player"; userId: string }
+  | { scope: "before"; before: string }
+  | { scope: "everything" };
+
+export type RecordsOutcome<T> = { ok: true; value: T } | { ok: false; message: string };
+
+export const fetchAdminBelt = (fetchFn: typeof fetch = fetch) =>
+  read("/api/admin/belt", (b) => b as unknown as AdminBelt, fetchFn);
+
+async function recordsCall<T>(
+  path: string,
+  body: unknown,
+  fetchFn: typeof fetch,
+): Promise<RecordsOutcome<T>> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "The server could not be reached." };
+  }
+  const answer = (await response.json().catch(() => null)) as (T & { detail?: string }) | null;
+  if (response.ok && answer) return { ok: true, value: answer };
+  return { ok: false, message: answer?.detail ?? "That did not work." };
+}
+
+/** Reset the Belt: nobody holds it; the next game's winner takes it. */
+export const resetBelt = (confirm: string, fetchFn: typeof fetch = fetch) =>
+  recordsCall<AdminBelt>("/api/admin/belt/reset", { scope: "belt", confirm }, fetchFn);
+
+/** The server leaves out what is zero or empty: fill it in. */
+function countsOf(outcome: RecordsOutcome<Partial<PurgeCounts>>): RecordsOutcome<PurgeCounts> {
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return {
+    ok: true,
+    value: {
+      games: v.games ?? 0,
+      against: v.against ?? {},
+      decks: v.decks ?? 0,
+      rooms: v.rooms ?? 0,
+      reports: v.reports ?? 0,
+      signIns: v.signIns ?? 0,
+      accountsKept: v.accountsKept ?? 0,
+      refused: v.refused ?? null,
+    },
+  };
+}
+
+export const previewPurge = async (scope: PurgeScope, fetchFn: typeof fetch = fetch) =>
+  countsOf(await recordsCall<Partial<PurgeCounts>>("/api/admin/purge/preview", scope, fetchFn));
+
+export const purge = async (scope: PurgeScope, confirm: string, fetchFn: typeof fetch = fetch) =>
+  countsOf(
+    await recordsCall<Partial<PurgeCounts>>("/api/admin/purge", { ...scope, confirm }, fetchFn),
+  );
+
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count.toLocaleString("en")} ${count === 1 ? one : many}`;
+
+/** "1 Nov" from "2026-11-01". */
+export const dayText = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+
+/** Spec 0048 — what a purge will delete, in one sentence. */
+export function purgeText(scope: PurgeScope, counts: PurgeCounts, who = "They"): string {
+  switch (scope.scope) {
+    case "player": {
+      if (counts.games === 0) return `${who} has no finished games to delete.`;
+      const against = Object.entries(counts.against)
+        .map(
+          ([name, games], i) =>
+            `${games} ${i === 0 ? (games === 1 ? "was" : "were") + " " : ""}against ${name}`,
+        )
+        .join(", ");
+      return `Delete ${plural(counts.games, "game")} (${who} played them all${against ? `; ${against}` : ""}) and their recordings.`;
+    }
+    case "before":
+      return counts.games === 0
+        ? `No finished games ended before ${dayText(scope.before)}.`
+        : `Delete ${plural(counts.games, "game")} that ended before ${dayText(scope.before)} and their recordings.`;
+    default:
+      return (
+        `Delete ${plural(counts.games, "game")} and their recordings, ${plural(counts.decks, "deck")} and their ` +
+        `pictures, ${plural(counts.rooms, "room")}, ${plural(counts.reports, "report")}, ` +
+        `${plural(counts.signIns, "sign-in")}, and every chat message. ${plural(counts.accountsKept, "account")} ${counts.accountsKept === 1 ? "stays" : "stay"}.`
+      );
+  }
+}

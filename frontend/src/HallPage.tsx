@@ -21,6 +21,9 @@ import { DeckIcon, iconOf } from "./deckIcons";
 import {
   badgeTip,
   fetchHall,
+  BELT_DAYS,
+  defendShare,
+  defendText,
   heldFor,
   latestText,
   monthName,
@@ -47,6 +50,9 @@ const TABS = ["Records", "Rivalries", "Latest", "Past seasons"] as const;
 type Tab = (typeof TABS)[number];
 
 /** A player's name from the lobby's list; "A player" for one who has gone. */
+/** Spec 0048 — the Belt rule's days, as the server says. */
+const beltDays = (hall: Hall) => hall.belt.idleDays || BELT_DAYS;
+
 function nameIn(lobby: LobbyState, userId: string | null | undefined): string {
   return lobby.players.find((p) => p.userId === userId)?.displayName ?? "A player";
 }
@@ -118,12 +124,32 @@ export default function HallPage() {
                       {hall.belt.defences > 0 &&
                         ` · defended ${hall.belt.defences} ${hall.belt.defences === 1 ? "time" : "times"}`}
                     </small>
+                    {/* Spec 0048 — the date, and a bar that empties toward it. */}
+                    {hall.belt.defendBy && (
+                      <>
+                        <small className="pa-hp-defend" data-testid="belt-defend">
+                          {defendText(hall.belt.defendBy, now)}
+                        </small>
+                        <span className="pa-hp-defend-bar" aria-hidden="true">
+                          <i
+                            style={{
+                              width: `${defendShare(hall.belt.defendBy, now, beltDays(hall)) * 100}%`,
+                            }}
+                          />
+                        </span>
+                      </>
+                    )}
                   </span>
                 </span>
               ) : (
                 <b className="pa-hp-holder-none">Nobody holds it yet</b>
               )}
-              <p>Beat the holder in any game and the Belt is yours.</p>
+              {/* Spec 0048 — the rule, in one plain line. */}
+              <p>
+                {hall.belt.holder
+                  ? `Finish a game every ${beltDays(hall)} days or the belt passes to the top-rated active player.`
+                  : "Nobody holds the belt — the next game's winner takes it."}
+              </p>
             </div>
           </section>
 
@@ -474,7 +500,7 @@ function Side({
             {hall.latest.map((item) => (
               <li key={`${item.at}-${item.kind}`}>
                 <span className="pa-hp-what">
-                  {latestText(item, name)}
+                  {latestText(item, name, beltDays(hall))}
                   <small>
                     {new Date(item.at).toLocaleString("en", {
                       dateStyle: "medium",

@@ -1,7 +1,16 @@
 // Spec 0018 — the Hall of Champions page's words.
 
 import { describe, expect, it } from "vitest";
-import { heldFor, latestText, monthName, timeLeft, winPercent } from "./hall";
+import {
+  defendShare,
+  defendText,
+  heldFor,
+  latestText,
+  monthName,
+  remindHolder,
+  timeLeft,
+  winPercent,
+} from "./hall";
 
 const names: Record<string, string> = { p: "Pat", a: "Ash" };
 const name = (id: string) => names[id] ?? "A player";
@@ -34,7 +43,18 @@ describe("the Hall's words", () => {
       "Pat and Ash drew on turn 9",
     );
     expect(latestText({ ...base, kind: "belt", players: ["a", "p"], turn: null }, name)).toBe(
-      "Ash took over the Belt: Pat hadn't played for 14 days",
+      "Ash took over the Belt: Pat hadn't played for 7 days",
     );
+  });
+
+  it("says when the holder must defend the Belt, and reminds them two days before (spec 0048)", () => {
+    const now = Date.parse("2026-11-04T12:00:00Z");
+    expect(defendText("2026-11-08T13:00:00Z", now)).toBe("Defend by Sun 8 Nov · 4 days left");
+    expect(defendText("2026-11-04T10:00:00Z", now)).toBe("Defend by Wed 4 Nov · due now");
+    expect(defendShare("2026-11-08T12:00:00Z", now)).toBeCloseTo(4 / 7);
+    expect(defendShare("2026-11-01T12:00:00Z", now)).toBe(0);
+    expect(remindHolder("2026-11-08T12:00:00Z", now)).toBe(false);
+    expect(remindHolder("2026-11-06T12:00:00Z", now)).toBe(true);
+    expect(remindHolder(null, now)).toBe(false);
   });
 });

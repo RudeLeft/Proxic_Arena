@@ -66,7 +66,15 @@ export interface HallLatest {
 
 export interface Hall {
   season: HallSeason;
-  belt: { holder: string | null; since: string | null; defences: number };
+  belt: {
+    holder: string | null;
+    since: string | null;
+    defences: number;
+    /** Spec 0048 — when the holder must finish a game by; null with no holder. */
+    defendBy?: string | null;
+    /** Spec 0048 — the rule's days (7). */
+    idleDays?: number;
+  };
   board: HallRow[];
   allTime: HallRow[];
   qualifying: { userId: string; games: number; wins: number }[];
@@ -114,6 +122,39 @@ export function heldFor(since: string | null, now: number): string {
   return `Held ${days} ${days === 1 ? "day" : "days"}`;
 }
 
+/** Spec 0048 — the rule's days when the server does not say (it always does). */
+export const BELT_DAYS = 7;
+
+/** Spec 0048 — the holder is reminded in the lobby this close to the date. */
+export const REMIND_MS = 2 * 86_400_000;
+
+/** "Sat 8 Nov" */
+export function shortDate(at: string): string {
+  return new Date(at).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** Spec 0048 — "Defend by Sat 8 Nov · 4 days left". */
+export function defendText(defendBy: string, now: number): string {
+  const ms = Date.parse(defendBy) - now;
+  const left = ms <= 0 ? "due now" : `${timeLeft(defendBy, now)} left`;
+  return `Defend by ${shortDate(defendBy)} · ${left}`;
+}
+
+/** Spec 0048 — how much of the holder's time is left, 0..1, for the bar. */
+export function defendShare(defendBy: string, now: number, days: number = BELT_DAYS): number {
+  const ms = Date.parse(defendBy) - now;
+  return Math.min(1, Math.max(0, ms / (days * 86_400_000)));
+}
+
+/** Spec 0048 — whether the holder should be reminded now (2 days or less to go). */
+export function remindHolder(defendBy: string | null | undefined, now: number): boolean {
+  return !!defendBy && Date.parse(defendBy) - now <= REMIND_MS;
+}
+
 /** Spec 0019 — what a badge means, for its tooltip. */
 export function badgeTip(badge: { key: string; label: string }): string {
   switch (badge.key) {
@@ -149,14 +190,18 @@ export function winPercent(row: Pick<HallRow, "wins" | "losses" | "draws">): num
 }
 
 /** One Latest line in words. */
-export function latestText(item: HallLatest, name: (userId: string) => string): string {
+export function latestText(
+  item: HallLatest,
+  name: (userId: string) => string,
+  idleDays: number = BELT_DAYS,
+): string {
   const [first = "", second = ""] = item.players;
   const turn = item.turn ? ` on turn ${item.turn}` : "";
   switch (item.kind) {
     case "draw":
       return `${name(first)} and ${name(second)} drew${turn}`;
     case "belt":
-      return `${name(first)} took over the Belt: ${name(second)} hadn't played for 14 days`;
+      return `${name(first)} took over the Belt: ${name(second)} hadn't played for ${idleDays} days`;
     default:
       return (
         `${name(first)} beat ${name(second)}${turn}` +

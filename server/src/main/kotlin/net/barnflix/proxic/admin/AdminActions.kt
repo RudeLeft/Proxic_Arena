@@ -37,6 +37,10 @@ enum class AdminAction {
 
     // Spec 0027 — a linked computer removed from the Computers tab.
     COMPUTER_REMOVED,
+
+    // Spec 0048 — the Belt and records tab.
+    BELT_RESET,
+    PURGE,
 }
 
 class AdminActions(private val dataSource: DataSource) {

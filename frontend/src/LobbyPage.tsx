@@ -60,6 +60,7 @@ import { Avatar } from "./avatars";
 import { DeckIcon, iconOf } from "./deckIcons";
 import { ChatPanel } from "./LobbyChat";
 import { BeltMark } from "./BeltMark";
+import { remindHolder, shortDate } from "./hall";
 
 /** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
 function useMinute(): number {
@@ -629,8 +630,18 @@ function RoomsColumn({
     setName("");
   };
 
+  // Spec 0048 — the holder, two days or less before the Belt is due.
+  const defendBy = lobby.standings?.beltDefendBy ?? null;
+  const remind = holdsBelt(lobby, me) && remindHolder(defendBy, now);
+
   return (
     <div className="pa-lobby-main">
+      {remind && defendBy && (
+        <p className="pa-belt-remind" role="status" data-testid="belt-remind">
+          <BeltMark />
+          Defend your belt by {shortDate(defendBy)}: finish a game, or it passes on.
+        </p>
+      )}
       {mine && listedMine ? (
         <YourRoom
           room={mine}

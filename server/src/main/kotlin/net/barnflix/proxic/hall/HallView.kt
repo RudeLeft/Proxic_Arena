@@ -37,6 +37,10 @@ data class BeltView(
     val holder: String? = null,
     val since: String? = null,
     val defences: Int = 0,
+    /** Spec 0048 -- when the holder must finish a game by. */
+    val defendBy: String? = null,
+    /** Spec 0048 -- the rule's days, for the Hall's one plain line. */
+    val idleDays: Int = 0,
 )
 
 @Serializable

@@ -242,6 +242,8 @@ export interface Standings {
   last: Standing | null;
   /** Spec 0019 F1 — who holds the Champion's Belt; null when nobody. */
   belt: string | null;
+  /** Spec 0048 — when the holder must finish a game by; null when nobody holds it. */
+  beltDefendBy?: string | null;
 }
 
 export interface LobbyState {
@@ -524,6 +526,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
             .slice(0, 3),
           last: asStanding(message["last"]),
           belt: asString(message["belt"]),
+          beltDefendBy: asString(message["beltDefendBy"]),
         },
       };
 

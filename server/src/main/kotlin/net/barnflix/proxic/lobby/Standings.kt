@@ -39,6 +39,8 @@ data class Standings(
     val last: PlayerRecord?,
     /** Spec 0019 F1 — who holds the Champion's Belt; null when nobody. */
     val belt: UUID? = null,
+    /** Spec 0048 — when the holder must finish a game by, for their reminder. */
+    val beltDefendBy: Instant? = null,
 )
 
 /** Every active account's record, from the matches table. */
@@ -82,7 +84,8 @@ class StandingsSource(private val dataSource: DataSource) {
         val places = hall.places(now)
 
         fun record(line: RatingLine) = PlayerRecord(line.userId, line.wins, line.games, null)
-        return Standings(places.podium.map(::record), places.last?.let(::record), hall.beltHolder(now))
+        val belt = hall.belt(now)
+        return Standings(places.podium.map(::record), places.last?.let(::record), belt.holder, belt.defendBy)
     }
 }
 
@@ -102,6 +105,8 @@ fun standingsMessage(standings: Standings): JsonObject =
         standings.last?.let { record -> putJsonObject("last") { putRecord(record) } }
         // Spec 0019 F1 — absent when nobody holds the Belt.
         standings.belt?.let { put("belt", it.toString()) }
+        // Spec 0048 — the holder's defend-by date, for the lobby's reminder.
+        standings.beltDefendBy?.let { put("beltDefendBy", it.toString()) }
     }
 
 private fun JsonObjectBuilder.putRecord(record: PlayerRecord) {
