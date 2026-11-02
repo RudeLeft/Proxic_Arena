@@ -1,6 +1,6 @@
 # 0052 — Pictures kept between games, and cleaned up when unused
 
-**Status:** Approved 2026-11-02 (to be built once spec 0050's game-screen work is committed)
+**Status:** Built in 1.30.0 (approved 2026-11-02)
 **Owner decisions** (2026-11-01, from the Deck Builder chat's review of how
 deck pictures are sent and used; parts 1 and 2 were specs 0049 and 0051):
 
@@ -134,7 +134,7 @@ Nothing: it does not load pictures from Arena.
 
 ## Release
 
-Arena only (1.29.0, or the next number free). Plain-English notes.
+Arena only (1.30.0). Plain-English notes.
 
 ## Amendments
 

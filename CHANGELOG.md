@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.30.0 — 2026-11-02
+
+Card pictures are kept between games, and pictures nothing uses are
+cleaned up.
+
+**For whoever runs the server**
+- One database update, made by itself on start: each picture can remember when it stopped being used.
+- Once a week, starting 10 minutes after the server starts, Arena deletes pictures that no deck and no game in progress has used for 30 days, and files left behind by failed sends. Nothing a deck still uses is touched. Each run says in the server log what it deleted and how much space it freed.
+
+**Pictures kept between games** (spec 0052)
+- Each card picture now has one address, the same in every game and on every deck page, so your browser keeps it. Your second game against the same deck shows its pictures at once, without downloading them again, close-ups included.
+- Only signed-in players can load a picture, and Cloudflare keeps no copies.
+- When you stop sharing a deck, the other player loses the deck as before. A card picture they had already seen keeps loading, since it's just the public card image.
+
 ## 1.29.0 — 2026-11-02
 
 One look for every notice, on every page and in a game.
