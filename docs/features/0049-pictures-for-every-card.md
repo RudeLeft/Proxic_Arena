@@ -1,6 +1,6 @@
 # 0049 — Every card wears its own picture
 
-**Status:** Approved 2026-11-01
+**Status:** Built in 1.27.0 (approved 2026-11-01)
 **Owner decisions:** 2026-11-01, from the Deck Builder chat's review of
 how deck pictures are sent and used. It is Part 1 of a larger plan: the
 two faults players can see, shipped on their own and first (owner's

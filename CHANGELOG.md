@@ -3,6 +3,31 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.27.0 — 2026-11-01
+
+Smoother casting and combat, hovering flyers, the belt's 7-day rule and
+an Admin clean-up, and every card keeps its own picture.
+
+**For whoever runs the server**
+- One database update, made by itself on start: the Belt's resets are kept with their dates.
+
+**Casting and combat** (owner items 2, 4 and 5)
+- A creature nobody can answer now flies straight from the big cast card to its place on the battlefield, with no blink.
+- The big card for a spell being cast slides aside toward the stack when it would cover something you can click, like your lands.
+- Combat damage among several blockers is assigned in one tray with + and − on each blocker, lethal marked, and trample to the player when allowed.
+
+**Motion on the board** (owner item 3)
+- Flying creatures hover and sway gently; a creature that just came in shows a small "zZz" until it can attack. Tapped cards still tilt 5°.
+
+**The Belt and the Admin page** (spec 0048)
+- The Champion's Belt holder must finish a game every 7 days (was 14). The Hall shows "Defend by …" with a bar, and the holder gets a lobby reminder 2 days before.
+- Admin has a new "Belt and records" tab: Reset the Belt (type RESET), and delete one player's games, games before a date, or a fresh start that keeps accounts. Each shows exactly what it will delete and needs PURGE typed.
+
+**Every card wears its own picture** (spec 0049)
+- A creature you take with Control Magic, Threaten or Act of Treason keeps the picture from its owner's deck. It used to show no picture, or the thief's own copy of the same card.
+- A spell cast from an opponent's library shows its owner's picture on the stack.
+- Pictures now show in an opponent's hand when the game lets you see it, and when you look at a card in a graveyard or in exile.
+
 ## 1.26.0 — 2026-11-01
 
 The cards only you see -- putting them back in order, scry, searching

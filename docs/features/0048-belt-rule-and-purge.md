@@ -1,6 +1,6 @@
 # 0048 — The belt's 7-day rule, Reset the Belt, and the Admin purge
 
-**Status:** Approved 2026-11-01
+**Status:** Built in 1.27.0 (approved 2026-11-01)
 **Owner decisions:** 2026-11-01, from the canvas
 https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81 (item 1) and the questions
 that followed:
