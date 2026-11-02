@@ -1,7 +1,7 @@
 # The art-crop test deck
 
 Sixty Mountains, with a picture AND an art crop (spec 0051): the package
-the Proxic Deck Builder sends since 1.4.0, in miniature.
+the Proxic Deck Builder sends since 1.4.1, in miniature.
 
 ```text
 Crop Test Deck.txt   60 Mountain

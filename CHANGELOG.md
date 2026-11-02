@@ -16,7 +16,7 @@ on the table.
 - Decks may have 60 to 100 cards (it was 60 to 65). Up to 4 copies of a card and unlimited basic lands, as before.
 
 **Lighter pictures** (spec 0051)
-- Arena now takes the light card pictures the Proxic Deck Builder 1.4.0 sends: a 100-card deck is about 30 MB instead of up to 150 MB, well under the upload limit.
+- Arena now takes the light card pictures the Proxic Deck Builder 1.4.1 sends: a 100-card deck is about 30 MB instead of up to 150 MB, well under the upload limit.
 - The small picture each card wears on the table is about 60 KB instead of 340–555 KB, so the board loads faster.
 - Decks sent by older Deck Builders keep working as they are.
 

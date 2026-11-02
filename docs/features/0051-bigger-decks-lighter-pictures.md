@@ -152,7 +152,7 @@ Sheoldred shows her art without the borderless frame's name bar.
   `crop` by MatchArt (fetchable once shown); the board's art window shows
   `crop` (cover, centred) and zooms into `art` otherwise; imports run on
   `Dispatchers.IO`.
-- **Deck Builder (1.4.0):** follows `format.pictures` (ARN-017, new
+- **Deck Builder (1.4.1; its 1.4.0 build failed on a test's path and was never released):** follows `format.pictures` (ARN-017, new
   `arena/pictures.py`): the print PNG goes as its 88% JPEG with filled
   corners, made once; each picture brings Scryfall's art crop; pictures
   are stored in the zip with one fixed time (the same deck is the same
@@ -189,7 +189,7 @@ Sheoldred shows her art without the borderless frame's name bar.
 ## Release
 
 Arena first (1.28.0: takes JPEGs and art crops, 100 cards), then the
-Deck Builder (1.4.0: sends them). Plain-English notes for both.
+Deck Builder (1.4.1: sends them). Plain-English notes for both.
 
 ## Amendments
 
