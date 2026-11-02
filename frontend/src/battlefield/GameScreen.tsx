@@ -60,7 +60,7 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
-import { CastingCard, CastingFlight, castingBox, docks, stillOwing } from "./CastingCard";
+import { CastingCard, CastingFlight, castingSpot, docks, stillOwing } from "./CastingCard";
 import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
@@ -396,6 +396,32 @@ export function GameScreen({
   const casting = board?.casting[0] ?? optionalFromHand;
   const castingDocked =
     !!casting && casting.seat === board?.seat && docks(decision, question, casting.id);
+  // Owner 2026-11-01 (item 4) -- out of the way of anything to click under
+  // it while it is cast; once moved aside for a spell it stays there (no
+  // jumping back as each elf is tapped).
+  const aside = useRef<{ id: string; box: Box } | null>(null);
+  /** Where the card being cast was last drawn: its flight starts there. */
+  const floating = useRef<{ id: string; box: Box } | null>(null);
+  const castingAt = (geometry: Geometry): Box | null => {
+    if (!casting) return null;
+    const at = atRef.current;
+    const clickable =
+      question && at && casting.seat === board?.seat
+        ? [...question.onBoard.keys()]
+            .filter((id) => id !== casting.id && !board?.hand.some((c) => c.id === id))
+            .map((id) => at(id))
+            .filter((b): b is Box => b !== null)
+        : [];
+    const spot = castingSpot(geometry, castingDocked, clickable);
+    floating.current = { id: casting.id, box: spot };
+    if (castingDocked) return spot;
+    const middle = castingSpot(geometry, false, []);
+    const moved = spot.x !== middle.x || spot.y !== middle.y;
+    if (moved) aside.current = { id: casting.id, box: spot };
+    const now = aside.current?.id === casting.id ? aside.current.box : spot;
+    floating.current = { id: casting.id, box: now };
+    return now;
+  };
   const castingHiddenBy =
     casting && board && (casting.seat !== board.seat || board.spectator)
       ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
@@ -422,6 +448,7 @@ export function GameScreen({
     hidden: boolean;
     key: number;
     battlefield: Set<string>;
+    from: Box | null;
   } | null>(null);
   // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
   // onto the battlefield (nothing answered it): the flight lands on its
@@ -472,6 +499,7 @@ export function GameScreen({
         hidden: before.hidden && cancelled,
         key: Date.now(),
         battlefield: before.battlefield,
+        from: floating.current?.id === before.card.id ? floating.current.box : null,
       });
     }
     lastCasting.current = casting
@@ -801,9 +829,8 @@ export function GameScreen({
   const gameWindow = (geometry: Geometry) => {
     if (!decision || !question || !board || answeredForYou) return null;
     // Spec 0042: beside the card being cast, when one is.
-    const anchor = casting
-      ? castingBox(geometry, castingDocked)
-      : stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    const anchor =
+      castingAt(geometry) ?? stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
     const common = {
       decision,
       question,
@@ -1016,6 +1043,7 @@ export function GameScreen({
                       artUrl={artUrl}
                       docked={castingDocked}
                       hiddenBy={castingHiddenBy}
+                      at={castingAt(geometry)}
                     />
                   )}
                   {flight &&
@@ -1033,6 +1061,7 @@ export function GameScreen({
                           reveal={flight.reveal}
                           hidden={flight.hidden}
                           landing={flyingOnto !== null && !onStack}
+                          from={flight.from}
                         />
                       );
                     })()}

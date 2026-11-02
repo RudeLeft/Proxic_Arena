@@ -76,6 +76,44 @@ export function castingBox(g: Geometry, docked = false): Box {
   };
 }
 
+/** Two boxes overlap, with a little room to spare. */
+function overlaps(a: Box, b: Box, room = 8): boolean {
+  return (
+    a.x < b.x + b.w + room &&
+    b.x < a.x + a.w + room &&
+    a.y < b.y + b.h + room &&
+    b.y < a.y + a.h + room
+  );
+}
+
+/**
+ * Owner 2026-11-01 (item 4) -- where the card floats while it is cast: in
+ * the middle, big, unless something to click is under it (a mana elf to
+ * tap, a land turned creature, a target). Then it slides up and toward the
+ * stack, step by step, to the first place that covers none of them; if
+ * none does, beside the stack at the smaller size (`docked`).
+ */
+export function castingSpot(g: Geometry, docked: boolean, clickable: readonly Box[]): Box {
+  const middle = castingBox(g, docked);
+  if (docked || !clickable.some((b) => overlaps(middle, b))) return middle;
+  const stack = stackSpotBoxes(g, 1)[0]!;
+  const right = stack.x - g.inset * 2 - middle.w;
+  const top = g.play.y + g.inset;
+  for (let step = 1; step <= ASIDE_STEPS; step++) {
+    const t = step / ASIDE_STEPS;
+    const spot = {
+      ...middle,
+      x: middle.x + (right - middle.x) * t,
+      y: middle.y + (top - middle.y) * t,
+    };
+    if (!clickable.some((b) => overlaps(spot, b))) return spot;
+  }
+  return castingBox(g, true);
+}
+
+/** How many places between the middle and the corner by the stack are tried. */
+const ASIDE_STEPS = 8;
+
 /**
  * Spec 0044 -- the question needs the table: something on it to click
  * other than the spell itself. Paying does not: the lands are under the
@@ -227,11 +265,14 @@ export function CastingCard({
   artUrl,
   docked = false,
   hiddenBy = null,
+  at = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   /** Where it rose from (the card clicked in hand), when known. */
   from: Box | null;
+  /** Item 4 -- where it floats (castingSpot); the middle when not given. */
+  at?: Box | null;
   /** Forge's "still owing", while it is being paid for. */
   owing: string[] | null;
   artUrl: (art: string) => string;
@@ -240,7 +281,7 @@ export function CastingCard({
   /** Spec 0044: the opponent's spell, still being paid for -- its back, and their name. */
   hiddenBy?: string | null;
 }) {
-  const box = castingBox(geometry, docked);
+  const box = at ?? castingBox(geometry, docked);
   const ref = useRef<HTMLDivElement>(null);
   const hidden = hiddenBy !== null;
   const colour = emberColour(hidden ? null : card.manaCost);
@@ -334,6 +375,7 @@ export function CastingFlight({
   reveal = false,
   hidden = false,
   landing = false,
+  from = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
@@ -345,8 +387,10 @@ export function CastingFlight({
   hidden?: boolean;
   /** `to` is the card's place on the battlefield: land there, solid. */
   landing?: boolean;
+  /** Item 4 -- where the card was floating when it set off. */
+  from?: Box | null;
 }) {
-  const box = castingBox(geometry, docked);
+  const box = from ?? castingBox(geometry, docked);
   // Where it goes is read when it sets off, not when it is drawn.
   const toRef = useRef(to);
   toRef.current = to;
