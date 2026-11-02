@@ -27,6 +27,11 @@ POST /api/matches/{id}/abandon     any participant; TERMINATED, no winner
 GET  /api/matches/{id}/assets/{sha256}   card artwork (MATCH_ASSET_AUTHORIZATION.md)
 ```
 
+Since 1.30.0 (spec 0052) the game page loads every picture from
+`GET /api/pictures/{sha256}` (`?size=full` for the close-up), one address
+per picture for any signed-in player, so the browser keeps it between
+games. The per-match route still answers, for older pages.
+
 `/api/matches/current` is what a page asks on load, so a refresh lands
 back in the match (§6.114).
 

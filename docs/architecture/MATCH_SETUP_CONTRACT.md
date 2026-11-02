@@ -108,7 +108,7 @@ window is revoked.
 ### Where the two halves of deck validation live
 
 ```text
-Open Format bounds   →  PROXIC          60-65, max 4, no sideboard
+Open Format bounds   →  PROXIC          60-100, max 4, no sideboard
 deck construction    →  FORGE           BUILD_DECK, no game started
 everything in play   →  FORGE           exclusively
 ```

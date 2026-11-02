@@ -204,6 +204,9 @@ Two-Headed Giant      REMOVED, and UNSUPPORTED by Forge at this pin
                       shared turns, no shared life).
 ```
 
+**Amended 2026-11-01 (owner decision, spec 0051):** decks are 60-100
+cards. Everything else above is unchanged.
+
 Deck legality is **Proxic's**, not Forge's: `DeckFormat.Constructed`
 is min 60 with no maximum. Do **not** use
 `DeckFormat.canHaveAnyNumberOf()` as the copy-limit exemption — it also

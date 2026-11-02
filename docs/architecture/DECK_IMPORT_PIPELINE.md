@@ -30,7 +30,7 @@ parse ────────────────────────�
     │  the single root .txt, UTF-8, LF or CRLF
     ▼
 legality ──────────────────────── OpenFormat.validate
-    │  60-65 cards, max 4 copies, basics unlimited
+    │  60-100 cards, max 4 copies, basics unlimited
     │  BEFORE Forge: refusing is free, resolving costs ~3 s
     ▼
 resolve ───────────────────────── CardResolver -> forge-worker
@@ -164,6 +164,11 @@ nobody watches.
 ```text
 GET /api/decks/{deckId}/assets/{assetId}
 ```
+
+Since 1.30.0 (spec 0052) the pages load pictures from
+`GET /api/pictures/{sha}` instead, and pictures no deck or running game
+has used for 30 days are deleted weekly (`PictureCleanup`). The
+per-deck route still answers.
 
 `assetId` **is** the content hash. Its shape is validated — 64 hex
 characters — so traversal is impossible whatever is sent, rather

@@ -22,7 +22,7 @@ Proxic has actually done with it (from `mechanics-lab-status.json`).
 - **Every one of the 275 images** passes the importer's validation, every entry finds its
   image, and every card finds its art at MATCH time too. `MechanicsLabArtTest` (local only:
   the images are never committed, AGENTS GIT-001).
-- **The upload route refuses it**, correctly: 390 cards is not Open Format (60-65, §2.45)
+- **The upload route refuses it**, correctly: 390 cards is not Open Format (60-100 since spec 0051; 60-65 when this was written, §2.45)
   and its 289 MB of art exceeds the 150 MB package limit. Each import stage is run on its
   own instead; the refusal itself is asserted.
 - **The TXT and CSV are unchanged** (§6.4): their SHA-256s are pinned in

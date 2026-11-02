@@ -3,7 +3,7 @@
 What is built, what is next, and how new work happens. Read `AGENTS.md`
 first.
 
-**One play mode today: Open Format** — 60–65 cards, max 4 copies of a
+**One play mode today: Open Format** — 60–100 cards, max 4 copies of a
 specific card (basic lands unlimited), no sideboard, 2 players. See
 `docs/architecture/OPEN_FORMAT.md`.
 

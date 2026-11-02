@@ -56,7 +56,7 @@ Open Format requires at least 60 cards; this deck has 54.
 Open Format allows at most 4 copies of "Fiery Temper"; this deck has 5.
 ```
 
-Open Format is 60–65 cards, at most 4 of any card, basic lands
+Open Format is 60–100 cards, at most 4 of any card, basic lands
 unlimited, no sideboard.
 
 **"Any number" cards are not exempt.** Relentless Rats, Dragon's

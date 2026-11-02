@@ -132,7 +132,7 @@ for its picture only:
 1 Ape [TOTC:15]
 ```
 
-Token lines are never resolved by Forge, never counted toward 60-65
+Token lines are never resolved by Forge, never counted toward 60-100
 and never in the copy limit. Their pictures are stored with the deck
 (`deck_token`), and in a game a token wears the picture of the same
 name, from its controller's deck first, then the other player's

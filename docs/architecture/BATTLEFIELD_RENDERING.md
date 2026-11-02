@@ -68,7 +68,7 @@ and is internal renderer state on a canvas.
 
 **The texture argument was sized for a format this project does not
 play.** `INFERENCE` — §7.16 assumes 150+ distinct faces. Open Format is
-two decks of 60–65 cards at four-of; a representative deck has ~23
+two decks of 60–100 cards at four-of (60–65 when this was written); a representative deck has ~23
 distinct cards (`docs/architecture/OPEN_FORMAT.md`; the Phase 2 import
 fixtures). Two decks plus tokens is roughly **50–60 distinct faces**, a
 third of what §7.16 planned for. This figure is to be confirmed by the

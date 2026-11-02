@@ -248,7 +248,7 @@ Per-player reasons:
 | `NOT_READY` | they have not ticked |
 | `NOT_CONNECTED` | their socket is gone — they should reload |
 | `ACCESS_REVOKED` | their deck is no longer theirs to use |
-| `INVALID_FOR_PRESET` | Open Format: 60–65 cards, max 4 copies, no sideboard |
+| `INVALID_FOR_PRESET` | Open Format: 60–100 cards, max 4 copies, no sideboard |
 | `FORGE_RESOLUTION_ERROR` | Forge could not build the deck |
 
 ---

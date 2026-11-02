@@ -29,7 +29,7 @@ this document says 65 below, read 100.
 **Amendment, 2026-10-23 (owner, Phase 8 Amendment 3).** The pool
 includes the silver-bordered sets: Forge is started with its non-legal
 cards loaded. Contraptions and Attractions (Unstable, Unfinity) are
-sorted by card type into their own small decks, outside the 60-65 and
+sorted by card type into their own small decks, outside the 60-100 and
 the copy limit; each follows Forge's Constructed rule -- at least 15
 Contraptions or 10 Attractions, one copy of each.
 
@@ -68,11 +68,11 @@ Deck legality is where Proxic and Forge differ:
 [SOURCE] DeckFormat.Constructed = Range.of(60, Integer.MAX_VALUE)
                                   sideboard 0-15, 4 copies max
 
-         Open Format             = max 65, 4 copies max
+         Open Format             = 60-100, 4 copies max
 ```
 
 Forge's Constructed has a **minimum of 60 and no maximum**; Open Format
-has a **maximum of 65**. These are not the same rule, so Proxic cannot
+has a **maximum of 100** (65 until 2026-11-01). These are not the same rule, so Proxic cannot
 simply delegate deck validation to `DeckFormat.Constructed`.
 
 **Deck legality is a Proxic concern, enforced at import (Phase 2) and
@@ -160,6 +160,9 @@ A narrow band, and **neither end matches Forge**:
 `DeckFormat.Constructed` is min 60 with no maximum. The floor happens
 to agree; the ceiling is Proxic's alone. Both ends are enforced by
 Proxic at import and match setup (§3).
+
+**Amended 2026-11-01 (owner decision, spec 0051):** the ceiling is now
+100. The floor stays 60, and the ceiling is still Proxic's alone.
 
 ---
 

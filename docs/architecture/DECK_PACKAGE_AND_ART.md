@@ -131,6 +131,12 @@ worst case, all distinct  65 distinct names       ~68 MB
 The worst case is reachable: Open Format permits a 65-card deck with
 no repeats.
 
+**Since 1.28.0 (spec 0051)** decks are 60-100 cards and the Deck Builder
+sends light JPEGs and art crops, not PNGs. Measured: a 100-card deck of
+all-distinct cards is a ~30 MB package (the same pictures as PNGs were
+159 MB), under Cloudflare's 100 MB upload limit. The figures above are
+the PNG-era measurement, kept as history.
+
 ---
 
 ## 4. The finding Phase 7 needs
