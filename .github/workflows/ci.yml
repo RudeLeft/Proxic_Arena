@@ -47,19 +47,19 @@ env:
 jobs:
   build:
     name: Build the candidate image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: docker/setup-buildx-action@v3.7.1
-      - uses: docker/login-action@v3.3.0
+      - uses: actions/checkout@v5.1.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push candidate
-        uses: docker/build-push-action@v6.9.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           push: true
@@ -72,16 +72,16 @@ jobs:
 
   checks:
     name: Static analysis and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-java@v4.5.0
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-java@v5.7.0
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - uses: actions/setup-node@v4.1.0
+      - uses: actions/setup-node@v5.0.0
         with:
           node-version: "24.22.1"
           cache: npm
@@ -114,7 +114,7 @@ jobs:
 
   server-tests:
     name: Server tests (${{ matrix.shard }}/3)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: build
     timeout-minutes: 45
     strategy:
@@ -122,13 +122,13 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-java@v4.5.0
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-java@v5.7.0
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - uses: docker/login-action@v3.3.0
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -170,7 +170,7 @@ jobs:
 
   mechanics-lab:
     name: Mechanics Lab (${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: build
     # Its own job since 2026-10-20: fifteen scenario games after the
     # server suite ran the Server tests job into its 45-minute limit.
@@ -181,12 +181,12 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-java@v4.5.0
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-java@v5.7.0
         with:
           distribution: temurin
           java-version: "17"
-      - uses: docker/login-action@v3.3.0
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -276,14 +276,14 @@ jobs:
           # which reads both halves of the Lab together.
           python3 -I scripts/check-questions-asked.py --summarise "$traces"/*.jsonl             > "$RUNNER_TEMP/questions-asked-$shard.txt"
 
-      - uses: actions/upload-artifact@v4.4.3
-        if: failure()
+      - uses: actions/upload-artifact@v6.0.0
+        if: failure() || cancelled()
         with:
           name: mechanics-lab-traces-${{ matrix.shard }}
           path: ${{ runner.temp }}/lab-traces/
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4.4.3
+      - uses: actions/upload-artifact@v6.0.0
         with:
           name: questions-asked-${{ matrix.shard }}
           path: ${{ runner.temp }}/questions-asked-${{ matrix.shard }}.txt
@@ -295,12 +295,12 @@ jobs:
   # passing for a check that no longer checks anything.
   questions-asked:
     name: Every answered question was asked
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: mechanics-lab
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/download-artifact@v7.0.0
         with:
           pattern: questions-asked-*
           merge-multiple: true
@@ -309,7 +309,7 @@ jobs:
 
   browser-tests:
     name: Browser tests (${{ matrix.shard }}/4)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: build
     timeout-minutes: 45
     # Four machines, each with its own server and database, so the
@@ -319,13 +319,13 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-node@v4.1.0
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-node@v5.0.0
         with:
           node-version: "24.22.1"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - uses: docker/login-action@v3.3.0
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -527,11 +527,13 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}/4
 
       - name: Server log, if anything failed
-        if: failure()
+        # cancelled(): a shard stopped at its time limit leaves its evidence
+        # too (2026-11-02: a cancelled shard left nothing to read).
+        if: failure() || cancelled()
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail 200 arena-server
 
-      - uses: actions/upload-artifact@v4.4.3
-        if: failure()
+      - uses: actions/upload-artifact@v6.0.0
+        if: failure() || cancelled()
         with:
           name: playwright-report-${{ matrix.shard }}
           # test-results/ holds what a failure leaves -- screenshots, the
@@ -545,14 +547,14 @@ jobs:
 
   publish:
     name: Promote to latest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [build, checks, server-tests, mechanics-lab, questions-asked, browser-tests]
     # Only main publishes. A pull request gets the full gate and
     # changes nothing anyone can deploy.
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     timeout-minutes: 15
     steps:
-      - uses: docker/login-action@v3.3.0
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
