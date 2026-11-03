@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.36.0 — 2026-11-03
+
+Attacking and blocking (Phase 9 W-14).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Attacking and blocking**
+- Click your creatures to select them, then click what they attack (the other player, a planeswalker or a battle) or what they block. Every selected creature goes there, and a line shows where each one is going.
+- This works the same for every attack and every block, even when there is only one thing to attack.
+- On a pile of identical tokens, each click selects one more (the pile shows "✓ 2"). Pointing them at a pile of attackers puts one blocker on each.
+- "All attack" now selects every creature that can attack; you then click the target.
+- While creatures are selected but not pointed at anything, the Attack or Block button says "2 selected · click what they attack" and can't be pressed, so you never skip combat by mistake. Click them again, or press Esc, to unselect.
+- The "Block how many of these?" box is gone.
+- Ten Goblins attacking someone with a planeswalker out is now "All attack", a click on the target and Attack, instead of ten questions.
+
 ## 1.35.0 — 2026-11-03
 
 The start of the game, and what a card can do (Phase 9 W-15 and W-16).
