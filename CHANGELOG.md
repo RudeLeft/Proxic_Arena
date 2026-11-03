@@ -14,7 +14,7 @@ Each printing of a card keeps its own picture (spec 0053).
 - A deck with four different Mountain pictures (like the Duel Decks: Elves vs. Goblins decks) now shows all four: on the deck page, on the table and in the close-up. Before, every Mountain showed the first one.
 - The same for any card you hold in more than one printing, such as two different Lightning Bolts.
 - Send the deck again from the Proxic Deck Builder 1.4.3 to get its pictures; a deck sent before keeps the pictures it has.
-- How cards play is unchanged: each card was already played from its own printing; now each also looks like it.
+- No rule changes: a card plays exactly as before. What changed is that a deck holding several printings of one card keeps each printing in the game, so each card looks like the one you chose.
 
 ## 1.31.0 — 2026-11-02
 
