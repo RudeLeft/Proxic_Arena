@@ -3,6 +3,27 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.37.0 — 2026-11-03
+
+Idle rooms close, and nobody waits forever for a missing player (spec 0054).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+- Four optional settings, in minutes: `PROXIC_ROOM_ALONE_MINUTES` (30), `PROXIC_ROOM_TOGETHER_MINUTES` (120), `PROXIC_AWAY_MINUTES` (10) and `PROXIC_ROOM_WARNING_MINUTES` (5). Leave them out to keep these.
+
+**Rooms in the lobby**
+- A room closes after 30 minutes with nothing happening while the host is on their own (an invite may be waiting), or after 2 hours once a second player has joined.
+- Chatting, picking decks, readying up, joining or changing settings all count as something happening.
+- 5 minutes before it closes, the room says "This room closes in 5 minutes" with a Keep it open button.
+- If the host goes offline for 10 minutes, the room closes and the other player is told why. A refresh or a short Wi-Fi drop doesn't lose it.
+- If the guest goes offline for 10 minutes, they're taken out of the room and the host keeps it.
+- The old rule that kept an idle room for a whole day is gone.
+- The admin page shows when each room closes.
+
+**In a game**
+- A game is never ended by a timer.
+- If the other player has been offline for 10 minutes, the player still at the table sees "Pat has been gone 10 minutes" with Keep waiting or End the game. Ending it counts as Pat conceding, so the player who stayed wins.
+
 ## 1.36.0 — 2026-11-03
 
 Attacking and blocking (Phase 9 W-14).
