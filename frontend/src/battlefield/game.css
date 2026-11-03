@@ -1170,6 +1170,33 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .bf-card.bf-unpayable {
   filter: saturate(0.5) brightness(0.8);
 }
+/* Phase 9 W-14 -- selected to attack or block, not yet pointed: lifted,
+   a solid bright ring (not the dashed "can choose" one), and a check in
+   the CHOOSE label's place, with how many on a pile ("✓ 2"). */
+.bf-card.bf-choosable.bf-marked,
+.bf-card.bf-marked {
+  outline: 3px solid #ffe7a8;
+  outline-offset: 2px;
+  box-shadow: 0 0 calc(var(--card-h) * 0.12) rgb(255 214 120 / 55%);
+  translate: 0 calc(var(--card-h) * -0.06);
+}
+.bf-asking .bf-card.bf-marked::after {
+  content: none;
+}
+.bf-marked-n {
+  position: absolute;
+  right: 3%;
+  top: 22%;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: #ffe7a8;
+  color: #17110a;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.09);
+  letter-spacing: var(--pa-track-button);
+  pointer-events: none;
+}
 .bf-card {
   cursor: pointer;
 }

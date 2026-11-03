@@ -4,8 +4,10 @@
 // one ability it does not offer now, for a card you control, as the
 // worker sends Elspeth's -7 ("Needs 7 loyalty"; seen in a real game, and
 // in scripts/check-*): the card's panel shows it greyed, cost first, with
-// why. (2) On the other player's turn, a card in hand it can't play clicked says why
-// not, in the same panel, and stays until closed.
+// why. (2) A card in hand that can't be played now, clicked, says why not
+// in the same panel, and stays until closed: on your own turn a second
+// land ("You've already played a land this turn." -- every game reaches
+// it), or any such card on the other player's turn.
 
 import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { existsSync } from "node:fs";
@@ -95,10 +97,9 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
           await page.keyboard.press("Escape");
           greyed = true;
         }
-        if (priority && !myTurn && !whyNot) {
-          const land = page
-            .locator('[data-zone="viewer:hand"]:not([data-choosable="true"])')
-            .first();
+        if (priority && !whyNot) {
+          const notNow = page.locator('[data-zone="viewer:hand"]:not([data-choosable="true"])');
+          const land = (myTurn ? notNow.filter({ hasText: /^Plains/ }) : notNow).first();
           if ((await land.count()) > 0) {
             await land.evaluate((e) => (e as HTMLElement).click());
             const why = page.locator(".gs-popup .gs-popup-why");

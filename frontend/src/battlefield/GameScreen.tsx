@@ -103,6 +103,15 @@ import {
 import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
 import { OpeningHand, OPENING_KINDS, optionFor } from "./OpeningHand";
 import { abilityParts } from "./abilities";
+import {
+  DECLARE_KINDS,
+  combatTargets,
+  joinable,
+  planAnswer,
+  planFor,
+  toggleSelected,
+  type CombatPlan,
+} from "./combatPlan";
 import "./game.css";
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
@@ -614,6 +623,8 @@ export function GameScreen({
       answer(auto);
     }
   }, [decision, copies, orderQueue, openingQueue, plan, handOrder, answer]);
+  // W-14 -- the plan the page is answering combat from (below).
+  const planRef = useRef<CombatPlan | null>(null);
   const answeredForYou =
     !!decision &&
     (autoAnswer(decision, copies) !== null ||
@@ -622,51 +633,78 @@ export function GameScreen({
       (plan.length > 0 && stepAnswer(plan[0]!, decision) !== undefined) ||
       (handOrder.length > 0 &&
         decision.kind === "orderMoveToZoneList" &&
-        decision.looking.every((card) => handOrder.includes(card.id))));
+        decision.looking.every((card) => handOrder.includes(card.id))) ||
+      // W-14: the game's "What does X attack?" while a plan answers it.
+      (planRef.current !== null && !DECLARE_KINDS.has(decision.kind)));
 
-  // Spec 0037 — block many at once: a stack of your creatures clicked as
-  // one choice, then a stack of attackers and how many. The page answers
-  // Forge's own questions one block at a time, each checked by Forge; it
-  // stops at the first one Forge does not offer.
-  const [blockGroup, setBlockGroup] = useState<string[] | null>(null);
-  const [blockChooser, setBlockChooser] = useState<BlockChooserState | null>(null);
-  const blockQueue = useRef<{ blocker: string; attacker: string; sent: boolean }[]>([]);
-  const blockHandled = useRef<number | null>(null);
-  const oneAnswer = useCallback(
-    (id: string) => {
-      const options = question?.onBoard.get(id) ?? [];
-      return options.length === 1 ? options[0]!.actionId : null;
-    },
-    [question],
+  // Phase 9 W-14 (owner 2026-11-03, Amendment 11) -- select several, then
+  // point. A click on your creature selects it (a pile, one more each
+  // click); a click on what to attack or block sends every selected one
+  // there. The page then answers the game's own questions one creature at
+  // a time from the plan, each checked by the game, and stops at the first
+  // one it does not offer: the rest stay selected, with why.
+  const [marked, setMarked] = useState<string[]>([]);
+  const [combatNote, setCombatNote] = useState<string | null>(null);
+  const planHandled = useRef<number | null>(null);
+  const declaring = decision && DECLARE_KINDS.has(decision.kind) ? decision.kind : null;
+  const aimAt = useMemo(
+    () => (declaring && board && marked.length > 0 ? combatTargets(declaring, board) : null),
+    [declaring, board, marked.length],
+  );
+  const boardChoosable = useMemo(
+    () => (aimAt ? new Set([...choosable, ...aimAt]) : choosable),
+    [aimAt, choosable],
   );
   // Between two questions there is a moment with none: only a question of
-  // another kind ends the group.
+  // another kind (and no plan running) ends the selection.
   useEffect(() => {
-    if (decision && decision.kind !== "declareBlockers" && decision.kind !== "chooseBlockTarget") {
-      setBlockGroup(null);
-      setBlockChooser(null);
+    if (decision && !planRef.current && !DECLARE_KINDS.has(decision.kind)) {
+      setMarked([]);
+      setCombatNote(null);
     }
   }, [decision]);
+  // What is still selected and still on the board (a creature can leave).
+  useEffect(() => {
+    if (!board || marked.length === 0) return;
+    const here = marked.filter((id) => board.battlefield.some((c) => c.id === id));
+    if (here.length !== marked.length) setMarked(here);
+  }, [board, marked]);
 
   const pick = useCallback(
     (objectId: string, members?: readonly string[]) => {
-      if (decision?.kind === "declareBlockers" && members && members.length > 1) {
-        const group = members.filter((id) => oneAnswer(id)?.startsWith("blocker:"));
-        if (group.length > 1) {
-          setBlockGroup(group);
-          answer(oneAnswer(group[0]!));
+      if (decision && DECLARE_KINDS.has(decision.kind) && !planRef.current) {
+        const ids = members && members.length > 0 ? members : [objectId];
+        // Pointed at a target: the selection goes there.
+        if (aimAt && ids.some((id) => aimAt.has(id))) {
+          const targets = ids.filter((id) => aimAt.has(id));
+          planRef.current = planFor(decision, marked, targets);
+          planHandled.current = null;
+          setMarked([]);
+          setCombatNote(null);
+          setSelected(null);
+          setOffer(null);
+          const move = planAnswer(decision, planRef.current);
+          planRef.current = move.plan;
+          if (move.plan) planHandled.current = decision.decisionId;
+          if (move.left.length > 0) {
+            setMarked(move.left);
+            setCombatNote(
+              move.why ?? `${nameOf(board, move.left[0]!)} can't go there. Still selected.`,
+            );
+          }
+          if (move.answer) answer(move.answer);
+          return;
+        }
+        const next = toggleSelected(decision, ids, marked);
+        if (next) {
+          setMarked(next);
+          setCombatNote(null);
+          setSelected(null);
+          setOffer(null);
+          setWhy(null);
           return;
         }
       }
-      if (decision?.kind === "chooseBlockTarget" && blockGroup && members && members.length > 1) {
-        const targets = members.filter((id) => oneAnswer(id) !== null);
-        if (targets.length > 1) {
-          const max = Math.min(blockGroup.length, targets.length);
-          setBlockChooser({ at: objectId, attackers: targets, max, n: max });
-          return;
-        }
-      }
-      if (decision?.kind === "chooseBlockTarget") setBlockGroup(null);
       // Spec 0042: where a card rose from, if this click casts it.
       const box = atRef.current?.(objectId);
       if (box) castFrom.current = { id: objectId, box };
@@ -689,62 +727,43 @@ export function GameScreen({
       setSelected(objectId);
       setOffer(result.kind === "offer" ? result.options : null);
     },
-    [question, answer, decision, blockGroup, oneAnswer],
+    [question, answer, decision, marked, aimAt, board],
   );
 
-  // Spec 0037 — "Block N": the first attacker answers this question; the
-  // rest go one pair at a time as Forge asks again.
-  const blockMany = useCallback(
-    (n: number) => {
-      if (!blockChooser || !blockGroup) return;
-      const attackers = blockChooser.attackers.slice(0, n);
-      blockQueue.current = attackers.slice(1).map((attacker, i) => ({
-        blocker: blockGroup[i + 1]!,
-        attacker,
-        sent: false,
-      }));
-      setBlockChooser(null);
-      setBlockGroup(null);
-      const first = oneAnswer(attackers[0]!);
-      if (first) answer(first);
-    },
-    [blockChooser, blockGroup, oneAnswer, answer],
-  );
+  // "All attack" selects every creature that can attack; you then point.
+  const selectAll = useCallback(() => {
+    if (decision) setMarked(joinable(decision));
+  }, [decision]);
+
+  // The plan answers each question the game asks next.
   useEffect(() => {
-    const queue = blockQueue.current;
-    if (queue.length === 0 || !decision || game.awaiting !== null) return;
-    // The same question back means Forge refused the last answer: stop.
-    if (blockHandled.current === decision.decisionId) {
-      queue.length = 0;
-      return;
+    const plan = planRef.current;
+    if (!plan || !decision || game.awaiting !== null) return;
+    // The same question back means the game refused the last answer: stop.
+    if (planHandled.current === decision.decisionId) return;
+    planHandled.current = decision.decisionId;
+    const move = planAnswer(decision, plan);
+    planRef.current = move.plan;
+    if (!move.plan && move.left.length > 0) {
+      setMarked(move.left);
+      setCombatNote(
+        move.why ?? `${nameOf(board, move.left[0]!)} can't go there. The rest are still selected.`,
+      );
     }
-    blockHandled.current = decision.decisionId;
-    const optionFor = (id: string, prefix: string) =>
-      decision.options.find((o) => o.objectId === id && o.actionId.startsWith(prefix));
-    if (decision.kind === "declareBlockers") {
-      // Asked for a blocker again after sending one: Forge chose its only
-      // attacker itself, and that pair is done.
-      if (queue[0]!.sent) queue.shift();
-      const next = queue[0];
-      const option = next ? optionFor(next.blocker, "blocker:") : undefined;
-      if (!next || !option) {
-        queue.length = 0;
-        return;
-      }
-      next.sent = true;
-      answer(option.actionId);
-    } else if (decision.kind === "chooseBlockTarget") {
-      const option = optionFor(queue[0]!.attacker, "blocked:");
-      queue.shift();
-      if (!option) {
-        queue.length = 0;
-        return;
-      }
-      answer(option.actionId);
-    } else {
-      queue.length = 0;
-    }
-  }, [decision, game.awaiting, answer]);
+    if (move.answer) answer(move.answer);
+  }, [decision, game.awaiting, answer, board]);
+
+  // Esc unselects everything.
+  useEffect(() => {
+    if (marked.length === 0) return undefined;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setMarked([]);
+      setCombatNote(null);
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [marked.length]);
 
   // Esc backs out of a target, a payment or an ability choice (owner
   // 2026-10-22), unless a window of its own is open and takes Esc first.
@@ -1061,7 +1080,8 @@ export function GameScreen({
             damage={data.damage}
             onPick={pick}
             onInspect={setInspecting}
-            choosable={choosable}
+            choosable={boardChoosable}
+            marked={marked}
             unpayable={unpayable}
             selected={selected}
             asking={question?.context === "choose"}
@@ -1082,6 +1102,7 @@ export function GameScreen({
               <Rail
                 board={board}
                 question={question}
+                aim={aimAt}
                 mySeat={board.seat}
                 asking={game.asking}
                 busy={busy}
@@ -1096,9 +1117,15 @@ export function GameScreen({
                             ? headingFor(decision.kind)
                             : `Playing for seat ${decision.actedForSeat}`,
                         ...combatWords(decision.kind, board, board.seat),
-                        all: decision.options.find((o) => o.actionId === ALL_ATTACK) ?? null,
+                        // W-14: "All attack" selects; you then point.
+                        onAll:
+                          decision.options.some((o) => o.actionId === ALL_ATTACK) &&
+                          joinable(decision).some((id) => !marked.includes(id))
+                            ? selectAll
+                            : null,
+                        marked: marked.length,
                         canPass: question.canPass,
-                        notice: game.notice,
+                        notice: game.notice ?? combatNote,
                       }
                     : null
                 }
@@ -1186,16 +1213,7 @@ export function GameScreen({
                       </span>
                     ) : null;
                   })}
-                  {blockChooser ? (
-                    <BlockManyChooser
-                      box={at(blockChooser.at)}
-                      state={blockChooser}
-                      busy={busy}
-                      onChange={(n) => setBlockChooser({ ...blockChooser, n })}
-                      onBlock={blockMany}
-                    />
-                  ) : selected &&
-                    (offer || why || (decision?.notNow?.[selected]?.length ?? 0) > 0) ? (
+                  {selected && (offer || why || (decision?.notNow?.[selected]?.length ?? 0) > 0) ? (
                     // Phase 9 W-16: one panel -- what it can do, cost first;
                     // what it can't do now, greyed with why; or, for a card
                     // that can't be played, the reason, until clicked away.
@@ -1566,6 +1584,7 @@ function SeatBlock({
   mine,
   deciding = false,
   question,
+  aim = null,
   busy,
   onPick,
   onView,
@@ -1576,6 +1595,8 @@ function SeatBlock({
   /** W-25 — it is this player's move and you are waiting: the plate glows. */
   deciding?: boolean;
   question: Question | null;
+  /** W-14 -- a selection can be pointed at this player. */
+  aim?: ReadonlySet<string> | null;
   busy: boolean;
   onPick: (id: string) => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
@@ -1587,7 +1608,7 @@ function SeatBlock({
   const seats = useContext(SeatsContext) ?? lobby.match?.participants;
   const seatedAs = seats?.find((p) => p.seatNumber === player.seat)?.userId;
   const priority = board.prioritySeat === player.seat;
-  const choosable = Boolean(question?.onBoard.has(id));
+  const choosable = Boolean(question?.onBoard.has(id) || aim?.has(id));
   // The spell resolving next targets this player: their life total glows
   // (owner 2026-10-21), as a targeted card does on the board.
   const targeted = (board.stack[0]?.targets ?? []).some(
@@ -1955,6 +1976,7 @@ function useLastAsked(asking: { seat: number | null } | null): number | null {
 function Rail({
   board,
   question,
+  aim = null,
   mySeat,
   asking,
   busy,
@@ -1972,6 +1994,8 @@ function Rail({
 }: {
   board: Snapshot;
   question: Question | null;
+  /** W-14 -- what the selected creatures can be pointed at. */
+  aim?: ReadonlySet<string> | null;
   mySeat: number;
   /** Spec 0002 — who the server says is being asked; null before it says. */
   asking: { seat: number | null } | null;
@@ -2020,6 +2044,7 @@ function Rail({
           mine={false}
           deciding={waiting?.seat === them.seat}
           question={question}
+          aim={aim}
           busy={busy}
           onPick={onPick}
           onView={onView}
@@ -2069,33 +2094,48 @@ function Rail({
               {combat.notice}
             </p>
           )}
-          {combat.all && (
+          {combat.onAll && (
             <ul className="gs-combat-options">
               <li>
-                <button
-                  type="button"
-                  className="gs-act-all"
-                  disabled={busy}
-                  onClick={() => onAnswer(combat.all!.actionId)}
-                >
-                  <ManaText text={combat.all.label ?? "All attack"} />
+                <button type="button" className="gs-act-all" disabled={busy} onClick={combat.onAll}>
+                  All attack
                 </button>
               </li>
             </ul>
           )}
-          <button
-            type="button"
-            className="gs-act gs-act-combat"
-            disabled={busy || !combat.canPass}
-            onClick={() => onAnswer(null)}
-            aria-label={`Pass: ${combat.word}. ${combat.sub}`}
-          >
-            <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
-            <span className="gs-act-text">
-              <span className="gs-act-word">{combat.word}</span>
-              <span className="gs-act-sub">{combat.sub}</span>
-            </span>
-          </button>
+          {combat.marked > 0 ? (
+            // W-14 (owner: the button locked) -- selected but not pointed:
+            // nothing moves on until they are pointed or unselected.
+            <button
+              type="button"
+              className="gs-act gs-act-combat gs-act-waiting"
+              disabled
+              aria-label={`${combat.marked} selected. Click what they ${combat.kind === "declareAttackers" ? "attack" : "block"}, or press Escape to unselect them.`}
+            >
+              <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
+              <span className="gs-act-text">
+                <span className="gs-act-word">{combat.marked} selected</span>
+                <span className="gs-act-sub">
+                  Click what they {combat.kind === "declareAttackers" ? "attack" : "block"} · Esc
+                  unselects
+                </span>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="gs-act gs-act-combat"
+              disabled={busy || !combat.canPass}
+              onClick={() => onAnswer(null)}
+              aria-label={`Pass: ${combat.word}. ${combat.sub}`}
+            >
+              <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
+              <span className="gs-act-text">
+                <span className="gs-act-word">{combat.word}</span>
+                <span className="gs-act-sub">{combat.sub}</span>
+              </span>
+            </button>
+          )}
         </div>
       ) : cancel ? (
         // Owner 2026-10-22: a misclick must be undoable where every other
@@ -2530,7 +2570,10 @@ interface CombatButton {
   heading: string;
   word: string;
   sub: string;
-  all: DecisionOption | null;
+  /** "All attack": select every creature that can attack. */
+  onAll: (() => void) | null;
+  /** W-14 -- how many are selected and not yet pointed: the button waits. */
+  marked: number;
   canPass: boolean;
   notice: string | null;
 }
@@ -2547,9 +2590,9 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
     return attacking.length > 0
       ? {
           word: `Attack with ${attacking.length}`,
-          sub: `${totalPower(attacking)} power · click creatures to change`,
+          sub: `${totalPower(attacking)} power · select more, or click one to take it back`,
         }
-      : { word: "No attacks", sub: "Click creatures to attack with them" };
+      : { word: "No attacks", sub: "Select creatures, then click what they attack" };
   }
   const n = board.battlefield.filter((c) => c.blocking && c.seat === mySeat).length;
   const through = unblockedPower(board);
@@ -2558,95 +2601,10 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
         word: `Block with ${n}`,
         sub:
           through === null
-            ? "Click a creature to add a block or take it back"
+            ? "Select more, or click a blocker to take it back"
             : `${through} power still gets through`,
       }
-    : { word: "No blocks", sub: "Click your creatures to block with them" };
-}
-
-interface BlockChooserState {
-  /** The attacker stack's lead, where the chooser opens. */
-  at: string;
-  /** That stack's attackers that can be blocked, oldest first. */
-  attackers: string[];
-  /** The smaller of the two stacks: one blocker on each attacker. */
-  max: number;
-  n: number;
-}
-
-/**
- * Spec 0037 — "Block how many of these?": one of your creatures on each,
- * starting at as many as you can. Escape blocks just the one: Forge's
- * question needs an answer.
- */
-function BlockManyChooser({
-  box,
-  state,
-  busy,
-  onChange,
-  onBlock,
-}: {
-  box: { x: number; y: number; w: number; h: number } | null;
-  state: BlockChooserState;
-  busy: boolean;
-  onChange: (n: number) => void;
-  onBlock: (n: number) => void;
-}) {
-  const go = useRef<HTMLButtonElement | null>(null);
-  useEffect(() => go.current?.focus({ preventScroll: true }), []);
-  const style = box
-    ? {
-        left: box.x + box.w / 2,
-        top: box.y > 300 ? box.y - 12 : box.y + box.h + 12,
-        transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-      }
-    : { left: "40%", top: "40%" };
-  return (
-    <div
-      className="gs-popup gs-block-many"
-      role="dialog"
-      aria-label="Block how many"
-      style={style}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onBlock(1);
-      }}
-    >
-      <span className="gs-block-many-ask">Block how many of these {state.attackers.length}?</span>
-      <div className="gs-block-many-row">
-        <button
-          type="button"
-          className="gs-block-many-step"
-          aria-label="One fewer"
-          disabled={busy || state.n <= 1}
-          onClick={() => onChange(state.n - 1)}
-        >
-          −
-        </button>
-        <span className="gs-block-many-n" aria-live="polite">
-          {state.n}
-        </span>
-        <button
-          type="button"
-          className="gs-block-many-step"
-          aria-label="One more"
-          disabled={busy || state.n >= state.max}
-          onClick={() => onChange(state.n + 1)}
-        >
-          +
-        </button>
-        <button
-          ref={go}
-          type="button"
-          className="gs-block-many-go"
-          disabled={busy}
-          onClick={() => onBlock(state.n)}
-        >
-          Block {state.n}
-        </button>
-      </div>
-      <span className="gs-block-many-note">One of your creatures on each, at most {state.max}</span>
-    </div>
-  );
+    : { word: "No blocks", sub: "Select creatures, then click what they block" };
 }
 
 /**

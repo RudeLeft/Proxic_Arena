@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
+  attackWithAll,
   clearEverything,
   clickNow,
   matchPanel,
@@ -88,14 +89,7 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
           const mine = await page
             .locator('.bf-cards button[data-controller="viewer"][data-zone*="creature"]')
             .count();
-          if (
-            page === host &&
-            mine >= 3 &&
-            (await panel.locator("button.gs-act-all").count()) > 0
-          ) {
-            await clickNow(panel.locator("button.gs-act-all"));
-            await page.waitForTimeout(400);
-          }
+          if (page === host && mine >= 3) await attackWithAll(page);
           await clickNow(panel.locator("button.gs-act-combat"));
           continue;
         }
@@ -114,12 +108,9 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
             if ((await mine.count()) === 0) break;
             await clickNow(mine.first());
             await page.waitForTimeout(300);
+            // W-14: selected, then pointed at the attacker.
             await clickNow(attacker);
-            await page.waitForTimeout(500);
-            const chooser = page.getByRole("dialog", { name: "Block how many" });
-            if ((await chooser.count()) > 0)
-              await clickNow(chooser.getByRole("button", { name: /Block/ }));
-            await page.waitForTimeout(400);
+            await page.waitForTimeout(900);
           }
           await clickNow(panel.locator("button.gs-act-combat"));
           continue;

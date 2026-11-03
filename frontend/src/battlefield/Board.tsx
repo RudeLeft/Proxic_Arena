@@ -261,6 +261,9 @@ export interface BoardProps {
   unpayable?: ReadonlySet<string>;
   /** The object the player picked (§7.25: selected, not acted on). */
   selected?: string | null;
+  /** Phase 9 W-14 -- creatures selected to attack or block, not yet
+   * pointed: a check mark, and on a pile how many of it ("✓ 2"). */
+  marked?: readonly string[];
   /** Forge is asking for a CHOICE (a target, an attacker...), not just
    * what to do with priority: choosable objects then say "choose". */
   asking?: boolean;
@@ -549,6 +552,7 @@ export function Board({
   choosable,
   unpayable,
   selected,
+  marked,
   asking,
   rail,
   top,
@@ -642,17 +646,22 @@ export function Board({
       const dim = !canChoose && ids.some((one) => unpayable?.has(one));
       const isSelected = ids.some((one) => one === selected);
       const isTargeted = ids.some((one) => targeted.has(one));
+      // W-14: how many of these are selected for the attack or block.
+      const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       return {
-        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}`,
+        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${marks ? " bf-marked" : ""}`,
         words: [
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
           isSelected ? "selected" : "",
+          marks ? (ids.length > 1 ? `${marks} selected` : "selected") : "",
           isTargeted ? "targeted" : "",
         ],
+        marks,
         data: {
           "data-choosable": canChoose ? "true" : undefined,
           "data-selected": isSelected ? "true" : undefined,
+          "data-marked": marks ? String(marks) : undefined,
           "data-unpayable": dim ? "true" : undefined,
         },
         handlers: {
@@ -667,7 +676,7 @@ export function Board({
         },
       };
     };
-  }, [choosable, unpayable, selected, targeted, onPick, onInspect]);
+  }, [choosable, unpayable, selected, marked, targeted, onPick, onInspect]);
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -780,6 +789,11 @@ export function Board({
                 <span className="bf-state">TAPPED</span>
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
+              {leadAct.marks > 0 && (
+                <span className="bf-marked-n" aria-hidden="true">
+                  ✓{count > 1 ? ` ${leadAct.marks}` : ""}
+                </span>
+              )}
               {/* Spec 0046 -- what a land makes, as mana symbols. */}
               {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
                 <span

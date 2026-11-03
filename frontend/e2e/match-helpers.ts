@@ -278,6 +278,26 @@ export async function clickNow(target: Locator): Promise<void> {
     .catch(() => undefined);
 }
 
+/**
+ * Phase 9 W-14 -- attack with everything at the other player: "All attack"
+ * selects every creature, a click on their life total points them all
+ * there, and the page answers the game for each. Waits until the attack
+ * is made (the combat button is pressable again).
+ */
+export async function attackWithAll(page: Page): Promise<boolean> {
+  const panel = matchPanel(page);
+  const all = panel.locator("button.gs-act-all");
+  if ((await all.count()) === 0) return false;
+  await clickNow(all);
+  const life = page.locator('.gs-seat-opponent .gs-life[data-choosable="true"]');
+  await expect(life, "the other player can be pointed at").toBeVisible({ timeout: 5_000 });
+  await clickNow(life);
+  await expect(panel.locator("button.gs-act-combat:not([disabled])")).toContainText("Attack with", {
+    timeout: 30_000,
+  });
+  return true;
+}
+
 /** "No": the act button under the stack on your move, else the question's Pass. */
 export const passButton = (page: Page) => page.locator("button.gs-act, button.gs-pass");
 

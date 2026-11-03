@@ -1,16 +1,25 @@
-// Big combats, in the browser — specs 0036 and 0037 (owner 2026-10-29).
+// Big combats, in the browser — specs 0036 and 0037 (owner 2026-10-29),
+// and Phase 9 W-14 (Amendment 11, owner 2026-11-03).
 //
 // Both players flood the board with identical 1/1 Goblin tokens (the swarm
-// deck). They stack (0036). The host attacks with everything; the guest
-// clicks its own Goblin stack, then the attacking stack, and blocks many
-// at once from the "Block how many?" chooser (0037, F-0037-F). Each
-// blocker then rides on the attacker it blocks: no block lines.
+// deck). They stack (0036). The host selects everything ("All attack") and
+// points it at the guest. The guest clicks its own Goblin stack once per
+// Goblin to select ("✓ 2"), then the attacking stack: one blocker on each
+// (W-14, replacing 0037's "Block how many?" box). Each blocker then rides
+// on the attacker it blocks: no block lines.
 
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  attackWithAll,
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "swarm-deck.zip");
 const SPELLS =
@@ -27,7 +36,7 @@ async function goblinStack(page: Page, side: "viewer" | "opponent"): Promise<num
   return Math.max(0, ...piles);
 }
 
-test("a stack blocks a stack: two clicks and the chooser, and blockers ride", async ({
+test("a stack blocks a stack: select from the pile, point at theirs, and blockers ride", async ({
   browser,
 }) => {
   test.skip(!existsSync(pkg), "no swarm deck package (CI builds it)");
@@ -62,9 +71,8 @@ test("a stack blocks a stack: two clicks and the chooser, and blockers ride", as
             !attacked &&
             (await goblinStack(host, "viewer")) >= 4 &&
             (await goblinStack(host, "opponent")) >= 3;
-          if (ready && (await panel.locator("button.gs-act-all").count()) > 0) {
-            await clickNow(panel.locator("button.gs-act-all"));
-            await page.waitForTimeout(400);
+          if (ready && (await attackWithAll(page))) {
+            await page.screenshot({ path: "test-results/seen/attack-pointed.png" });
             attacked = true;
           }
           await clickNow(panel.locator("button.gs-act-combat"));
@@ -72,12 +80,34 @@ test("a stack blocks a stack: two clicks and the chooser, and blockers ride", as
         }
 
         if (kind === "declareBlockers" && page === guest && attacked) {
-          // F-0037-F: click our Goblin stack, then theirs.
+          // W-14: our Goblin stack, once per Goblin, then theirs.
           const mine = page
             .locator('.bf-cards button[data-controller="viewer"][data-pile][data-choosable="true"]')
-            .filter({ hasText: "Goblin" });
-          await expect(mine.first()).toBeVisible();
-          await clickNow(mine);
+            .filter({ hasText: "Goblin" })
+            .first();
+          await expect(mine).toBeVisible();
+          const theirsCount = Math.max(
+            0,
+            ...(await page
+              .locator(
+                '.bf-cards button[data-controller="opponent"][data-attacking="true"][data-pile]',
+              )
+              .filter({ hasText: "Goblin" })
+              .evaluateAll((els) =>
+                els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)),
+              )),
+          );
+          const n = Math.min(theirsCount, Number(await mine.getAttribute("data-pile")));
+          expect(n, "a pile of attackers and a pile to block with").toBeGreaterThanOrEqual(2);
+          for (let i = 1; i <= n; i++) {
+            await clickNow(mine);
+            await expect(mine).toHaveAttribute("data-marked", String(i));
+          }
+          await expect(mine.locator(".bf-marked-n")).toHaveText(`✓ ${n}`);
+          // Selected and not pointed: the button waits (owner: locked).
+          await expect(panel.locator("button.gs-act-combat")).toBeDisabled();
+          await expect(panel.locator("button.gs-act-combat")).toContainText(`${n} selected`);
+          await page.screenshot({ path: "test-results/seen/block-selected.png" });
           const theirs = page
             .locator(
               '.bf-cards button[data-controller="opponent"][data-attacking="true"][data-pile][data-choosable="true"]',
@@ -87,12 +117,7 @@ test("a stack blocks a stack: two clicks and the chooser, and blockers ride", as
             timeout: 15_000,
           });
           await clickNow(theirs);
-          const chooser = page.getByRole("dialog", { name: "Block how many" });
-          await expect(chooser).toBeVisible();
-          const n = Number(await chooser.locator(".gs-block-many-n").textContent());
-          expect(n, "the chooser starts at as many as possible").toBeGreaterThanOrEqual(2);
-          await page.screenshot({ path: "test-results/seen/block-many-chooser.png" });
-          await clickNow(chooser.getByRole("button", { name: /^Block \d+$/ }));
+          await expect(page.getByRole("dialog", { name: "Block how many" })).toHaveCount(0);
           // Every block lands, each blocker riding on its attacker.
           await expect
             .poll(

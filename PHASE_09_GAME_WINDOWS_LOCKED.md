@@ -553,3 +553,56 @@ https://claude.ai/artifact/8aNguFgyNh2uSGeE4kUKkg).**
   with why; a card in hand says why not, until closed), screenshots of
   Elspeth's real -7 ("Needs 7 loyalty (it has 5).").
 
+
+**Amendment 11 (2026-11-03, W-14 decided and built -- canvases
+https://claude.ai/artifact/Tf7Kbcab4xVxDg4fWoKRY9 (today and first options),
+https://claude.ai/artifact/BVZPPwrXny7AzmXWQhcikg (point, then follow),
+https://claude.ai/artifact/CWpWdsm4GHvXwESVPPi6Xn (the safety)).**
+
+- *Today (found from screenshots of a real game, with a Goblin and Elspeth
+  added to a real game's board for the attack picture):* the game asks
+  what each attacker attacks one creature at a time ("What does Goblin
+  Token attack?"), so ten Goblins are ten questions, and nothing shows
+  where each is going until the attack is made. Blocking with a pile
+  opens two boxes at once ("Block how many of these 2?" over "Choose
+  what to block"), worded "One of your creatures on each, at most 2".
+- *W-14 (owner: select several, then point -- for every attack and every
+  block):* clicking your creature SELECTS it (the word on screen is
+  "selected", never "ticked"); clicking it again unselects it. Clicking
+  what to attack (the player's picture or life, a planeswalker, a battle)
+  or what to block (an attacker) sends every selected creature there, and
+  a line shows each one's target. This is the same with one thing to
+  attack as with several (owner: more control, and it feels better), so
+  a plain attack is two clicks: your creature, then the player.
+- *Piles:* each click on a pile of yours selects one more of it (the pile
+  shows "✓ 2"); clicking a pile of attackers spreads your selected
+  blockers one on each; clicking a single attacker puts them all on it.
+  The "Block how many of these?" box goes.
+- *"All attack" selects* every creature that can attack; you then click
+  the target.
+- *The safety (owner: option B, the button locked):* while anything is
+  selected but not pointed at anything, the Attack / Block button reads
+  "N selected · click a target" and cannot be pressed. To go on without
+  them, unselect them (click each again, or Esc for all). Selected
+  creatures never attack or block unless pointed; nothing is quietly
+  dropped and no turn moves on by mistake. Nothing selected and nothing
+  declared: the button is "No attack" / "No blocks", as today.
+- *The game still decides:* the page answers the game's own questions
+  one creature at a time from what you pointed (as the Boggart "same for
+  all" plan does), each checked by the game; if one is refused, the page
+  stops there, says why, and the rest stay selected. Whole-attack and
+  whole-block rules (can't attack alone, menace) are checked when the
+  button is pressed, as today.
+- *Combat damage (W-13's window) is unchanged:* it already handles any
+  number of blockers; it will appear more often now that several
+  blockers on one attacker is easy.
+- *Evidence:* `combatPlan.test.ts` (selecting, piles, what can be pointed
+  at, and the answers to the game's questions: one by one, "All attack"
+  in one go, a refused creature stopping the rest, one blocker on each of
+  a pile); `match-big-combat.spec.ts` (a real game: "All attack" pointed
+  at the player; a pile selected "✓ N", the button locked, then pointed
+  at the attacking pile, blockers riding one on each);
+  `match-damage-tray.spec.ts` (two blockers pointed at one attacker, the
+  damage window unchanged); screenshots of a real game, with an Elspeth
+  added for the picture, showing the selection, the locked button, and
+  the attack line after pointing.
