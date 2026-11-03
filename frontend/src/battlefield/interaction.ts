@@ -73,7 +73,13 @@ export type ClickResult =
   /** Just select it: inspect, no answer (§7.25). */
   | { kind: "select"; objectId: string };
 
-export function clickOn(question: Question | null, objectId: string): ClickResult {
+export function clickOn(
+  question: Question | null,
+  objectId: string,
+  // Phase 9 W-16: how many of its abilities it can't use now. Then one
+  // usable ability is not taken on a click: the menu shows them all.
+  withheld = 0,
+): ClickResult {
   const options = question?.onBoard.get(objectId) ?? [];
   if (!question || options.length === 0) return { kind: "select", objectId };
   // Spec 0042 (owner 2026-10-30): a click on a creature that is attacking
@@ -82,6 +88,8 @@ export function clickOn(question: Question | null, objectId: string): ClickResul
   if (back) return { kind: "answer", actionId: back.actionId };
   // AMENDMENT 12 (on your move) and §7.27 (inside Forge's context): the
   // click IS the choice when there is only one thing it could mean.
-  if (options.length === 1) return { kind: "answer", actionId: options[0]!.actionId };
+  if (options.length === 1 && withheld === 0) {
+    return { kind: "answer", actionId: options[0]!.actionId };
+  }
   return { kind: "offer", objectId, options };
 }

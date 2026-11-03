@@ -42,6 +42,48 @@ final class WhyNot {
         return "It can't block any of the attackers.";
     }
 
+    /**
+     * Phase 9 W-16 -- an activated ability of a permanent the player
+     * controls that Forge does not offer now: why, from Forge's facts
+     * (loyalty, once a turn, timing, tapped).
+     */
+    static String ability(forge.game.spellability.SpellAbility sa, Card card, Player player) {
+        if (sa.isPwAbility()) {
+            if (card.getPlaneswalkerAbilityActivated() > 0) {
+                return "Once each turn — already used this turn.";
+            }
+            if (!player.canCastSorcery()) {
+                return "Only in your main phase, with nothing on the stack.";
+            }
+            if (sa.getPayCosts() != null) {
+                for (forge.game.cost.CostPart part : sa.getPayCosts().getCostParts()) {
+                    if (part instanceof forge.game.cost.CostRemoveCounter remove
+                            && remove.counter != null
+                            && remove.counter.is(forge.game.card.CounterEnumType.LOYALTY)) {
+                        Integer needed = remove.convertAmount();
+                        int has = card.getCurrentLoyalty();
+                        if (needed != null && needed > has) {
+                            return "Needs " + needed + " loyalty (it has " + has + ").";
+                        }
+                    }
+                }
+            }
+        }
+        if (sa.getPayCosts() != null && sa.getPayCosts().hasTapCost()) {
+            if (card.isTapped()) {
+                return "It's tapped.";
+            }
+            if (card.isCreature() && card.hasSickness()) {
+                return "Came in this turn — it can't tap yet.";
+            }
+        }
+        if (sa.getRestrictions() != null && sa.getRestrictions().isSorcerySpeed()
+                && !player.canCastSorcery()) {
+            return "Only in your main phase, with nothing on the stack.";
+        }
+        return "It can't be used right now.";
+    }
+
     /** A card in hand with nothing offered for it. */
     static String play(Card card, Player player) {
         if (card.isLand()) {

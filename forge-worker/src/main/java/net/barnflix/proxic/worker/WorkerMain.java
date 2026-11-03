@@ -346,6 +346,22 @@ public final class WorkerMain {
                             why.forEach(reasons::addProperty);
                             ask.add("unavailable", reasons);
                         }
+                        // Phase 9 W-16 -- abilities not offered now, and why.
+                        java.util.Map<String, java.util.List<String[]>> notNow = GAME.notNow();
+                        if (!notNow.isEmpty()) {
+                            JsonObject byObject = new JsonObject();
+                            notNow.forEach((objectId, list) -> {
+                                JsonArray rows = new JsonArray();
+                                for (String[] row : list) {
+                                    JsonObject one = new JsonObject();
+                                    one.addProperty("label", row[0]);
+                                    one.addProperty("why", row[1]);
+                                    rows.add(one);
+                                }
+                                byObject.add(objectId, rows);
+                            });
+                            ask.add("notNow", byObject);
+                        }
                         // What backing out of this question undoes (owner 2026-10-22).
                         if (GAME.subject() != null) {
                             ask.add("about", GAME.subject());

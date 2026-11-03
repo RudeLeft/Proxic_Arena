@@ -181,6 +181,10 @@ player.dungeonsCompleted  one dungeon name per completion
 player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
+decision.notNow           on a priority question: each of the asked player's
+                          permanents' abilities NOT offered now, as
+                          {objectId: [{label, why}]} ("Needs 7 loyalty");
+                          words only, to the asked seat only (Phase 9 W-16)
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer

@@ -97,6 +97,8 @@ export interface Decision {
    * — it can't attack yet." Shown when such a card is clicked.
    */
   unavailable: Record<string, string>;
+  /** Phase 9 W-16 -- each permanent's abilities not offered now, and why, by object id. */
+  notNow?: Record<string, { label: string; why: string }[]> | undefined;
   /**
    * Owner 2026-10-22 — what a question you can back out of is about (the
    * spell being cast, the ability being paid for), so Cancel says what it
@@ -752,6 +754,23 @@ function asHash(value: unknown): string | null {
   return text && /^[0-9a-f]{64}$/.test(text) ? text : null;
 }
 
+/** Phase 9 W-16 -- {objectId: [{label, why}]}, keeping only well-formed rows. */
+function asNotNow(value: unknown): Record<string, { label: string; why: string }[]> {
+  const out: Record<string, { label: string; why: string }[]> = {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return out;
+  for (const [id, rows] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(rows)) continue;
+    const kept = rows.flatMap((row) => {
+      const r = row as Record<string, unknown>;
+      return typeof r?.["label"] === "string" && typeof r?.["why"] === "string"
+        ? [{ label: r["label"], why: r["why"] }]
+        : [];
+    });
+    if (kept.length > 0) out[id] = kept;
+  }
+  return out;
+}
+
 function asCards(value: unknown): SnapshotCard[] {
   if (!Array.isArray(value)) return [];
   const cards: SnapshotCard[] = [];
@@ -933,6 +952,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     optionCount: asNumber(message["optionCount"]) ?? 0,
     results: null,
     unavailable: asReasons(message["unavailable"]),
+    notNow: asNotNow(message["notNow"]),
     about: asAbout(message["about"]),
     looking: asCards(message["looking"]),
     arrange: asArrange(message["arrange"]),

@@ -1018,40 +1018,12 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 
 /* --- beside a card ----------------------------------------------------------------- */
 
-/* B7: why a clicked card cannot act now -- beside it, briefly. */
-.gs-why {
-  position: absolute;
-  z-index: 30000;
-  pointer-events: none;
-  max-width: 260px;
-  padding: 8px 12px;
-  border: 1px solid rgba(233, 179, 74, 0.55);
-  border-radius: 8px;
-  background: #11161d;
-  box-shadow: 0 12px 30px rgb(0 0 0 / 70%);
-  font-family: var(--pa-text);
-  font-size: var(--pa-size-base);
-  line-height: 1.35;
-  color: #e6e9ee;
-  text-align: center;
-  animation: gs-why-in 160ms ease-out;
-}
-@keyframes gs-why-in {
-  from {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .gs-why {
-    animation: none;
-  }
-}
-
 .gs-popup {
   position: absolute;
   z-index: 30000;
   pointer-events: auto;
-  width: 238px;
+  /* Phase 9 W-16: wide enough for an ability's words beside its cost. */
+  width: 380px;
   box-sizing: border-box;
   border: 1px solid #5c6472;
   border-radius: 8px;
@@ -1060,13 +1032,88 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-family: var(--pa-text);
 }
 .gs-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 11px 13px;
   border-bottom: 1px solid #262d36;
 }
+.gs-popup-pic {
+  flex: none;
+  width: 46px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+}
 .gs-popup-name {
   display: block;
+  font-family: var(--pa-card);
+  font-size: var(--pa-size-lg);
+  font-weight: 700;
+}
+/* Phase 9 W-16 -- a card that can't be played: why, in the panel. */
+.gs-popup-why {
+  margin: 10px 13px 4px;
   font-size: var(--pa-size-md);
-  font-weight: 600;
+  line-height: 1.4;
+  color: #e3e8e4;
+}
+.gs-popup-why b {
+  color: #e8a87c;
+}
+/* Each ability: its cost first, large, then its words. */
+.gs-option.gs-ab,
+.gs-ab-no {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.gs-ab-no {
+  padding: 8px 10px;
+  border: 1px solid #262d36;
+  border-radius: 6px;
+  opacity: 0.55;
+  list-style: none;
+}
+.gs-ab-cost {
+  justify-self: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: var(--pa-size-lg);
+  color: #fff;
+}
+/* A loyalty cost on the planeswalker's shield: green up, red down. */
+.gs-ab-up,
+.gs-ab-down,
+.gs-ab-loyalty {
+  clip-path: polygon(50% 0, 100% 20%, 100% 76%, 50% 100%, 0 76%, 0 20%);
+  background: #2b343c;
+}
+.gs-ab-up {
+  background: #2d6a3c;
+}
+.gs-ab-down {
+  background: #7a2a2a;
+}
+.gs-ab-words {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--pa-size-md);
+  line-height: 1.35;
+}
+.gs-ab-why {
+  font-style: normal;
+  font-size: var(--pa-size-sm);
+  color: #e8a87c;
 }
 .gs-popup-count {
   display: block;

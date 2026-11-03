@@ -102,6 +102,7 @@ import {
 } from "./stops";
 import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
 import { OpeningHand, OPENING_KINDS, optionFor } from "./OpeningHand";
+import { abilityParts } from "./abilities";
 import "./game.css";
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
@@ -306,12 +307,8 @@ export function GameScreen({
   const [offer, setOffer] = useState<DecisionOption[] | null>(null);
   // B7 (owner 2026-10-21): a card clicked that cannot act now says why,
   // briefly, beside it -- not a window.
+  // Phase 9 W-16: in the ability panel, until clicked away (it faded).
   const [why, setWhy] = useState<{ objectId: string; text: string } | null>(null);
-  useEffect(() => {
-    if (!why) return undefined;
-    const timer = window.setTimeout(() => setWhy(null), WHY_MS);
-    return () => window.clearTimeout(timer);
-  }, [why]);
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{
     seat: number;
@@ -673,7 +670,7 @@ export function GameScreen({
       // Spec 0042: where a card rose from, if this click casts it.
       const box = atRef.current?.(objectId);
       if (box) castFrom.current = { id: objectId, box };
-      const result = clickOn(question, objectId);
+      const result = clickOn(question, objectId, decision?.notNow?.[objectId]?.length ?? 0);
       // Spec 0005: a card you could play pauses the response window.
       if (result.kind !== "select" && decision?.window) setPausedWindow(decision.decisionId);
       const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
@@ -1197,19 +1194,26 @@ export function GameScreen({
                       onChange={(n) => setBlockChooser({ ...blockChooser, n })}
                       onBlock={blockMany}
                     />
-                  ) : why && !offer ? (
-                    <WhyNot box={at(why.objectId)} text={why.text} />
-                  ) : selected && offer ? (
+                  ) : selected &&
+                    (offer || why || (decision?.notNow?.[selected]?.length ?? 0) > 0) ? (
+                    // Phase 9 W-16: one panel -- what it can do, cost first;
+                    // what it can't do now, greyed with why; or, for a card
+                    // that can't be played, the reason, until clicked away.
                     <ActionPopup
                       box={at(selected)}
                       name={objectName(selected)}
-                      options={offer}
+                      card={board ? cardOf(board, selected) : null}
+                      artUrl={pictureUrl}
+                      options={offer ?? []}
+                      notNow={decision?.notNow?.[selected] ?? []}
+                      why={why && why.objectId === selected ? why.text : null}
                       busy={busy}
                       onChoose={answer}
                       onInspect={() => setInspecting(selected)}
                       onClose={() => {
                         setSelected(null);
                         setOffer(null);
+                        setWhy(null);
                       }}
                     />
                   ) : null}
@@ -2645,35 +2649,21 @@ function BlockManyChooser({
   );
 }
 
-/** How long a "why not" stays beside the card. */
-const WHY_MS = 3500;
-
-/** Why the card just clicked cannot act now (B7). Says it; asks nothing. */
-function WhyNot({
-  box,
-  text,
-}: {
-  box: { x: number; y: number; w: number; h: number } | null;
-  text: string;
-}) {
-  const style = box
-    ? {
-        left: box.x + box.w / 2,
-        top: box.y > 300 ? box.y - 10 : box.y + box.h + 10,
-        transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-      }
-    : { left: "50%", top: "45%", transform: "translate(-50%, 0)" };
-  return (
-    <div className="gs-why" role="status" style={style}>
-      <ManaText text={text} />
-    </div>
-  );
-}
-
+/**
+ * Phase 9 W-16 (owner 2026-11-03, option A) -- what a card can do: its
+ * picture and name once; each ability with its cost first and large (a
+ * green +1, a red -3, mana), then its words; the abilities it can't use
+ * now greyed with why; and for a card that can't be played, the reason.
+ * Each choice keeps the game's whole line for a screen reader.
+ */
 function ActionPopup({
   box,
   name,
+  card,
+  artUrl,
   options,
+  notNow,
+  why,
   busy,
   onChoose,
   onInspect,
@@ -2681,7 +2671,11 @@ function ActionPopup({
 }: {
   box: { x: number; y: number; w: number; h: number } | null;
   name: string;
+  card: SnapshotCard | null;
+  artUrl: (art: string) => string;
   options: DecisionOption[];
+  notNow: { label: string; why: string }[];
+  why: string | null;
   busy: boolean;
   onChoose: (actionId: string) => void;
   onInspect: () => void;
@@ -2696,6 +2690,14 @@ function ActionPopup({
         transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
       }
     : { left: "40%", top: "40%" };
+  const cost = (c: string | null, kind: string | null) =>
+    c ? (
+      <span className={`gs-ab-cost gs-ab-${kind ?? "mana"}`} aria-hidden="true">
+        {kind === "mana" ? <ManaText text={c} /> : c.replace("-", "−")}
+      </span>
+    ) : (
+      <span className="gs-ab-cost gs-ab-none" aria-hidden="true" />
+    );
   return (
     <div
       className="gs-popup"
@@ -2707,31 +2709,60 @@ function ActionPopup({
       }}
     >
       <div className="gs-popup-head">
-        <span className="gs-popup-name">{name}</span>
-        <span className="gs-popup-count">
-          {options.length === 0
-            ? "Nothing to do with it right now"
-            : options.length === 1
-              ? "1 action offered"
-              : `${options.length} actions offered`}
+        {card?.art && !(card.faceDown && !card.known) && (
+          <img className="gs-popup-pic" src={artUrl(card.art)} alt="" draggable={false} />
+        )}
+        <span>
+          <span className="gs-popup-name">{name}</span>
+          {card?.types && <span className="gs-popup-count">{card.types}</span>}
         </span>
       </div>
-      <ul className="gs-popup-actions">
-        {options.map((o, i) => (
-          <li key={o.actionId}>
-            <button
-              ref={i === 0 ? first : undefined}
-              type="button"
-              className={`gs-option${o.payable ? "" : " gs-option-unpayable"}`}
-              disabled={busy}
-              onClick={() => onChoose(o.actionId)}
-            >
-              <ManaText text={o.label ?? o.actionId} />
-              {!o.payable && <span className="gs-option-note"> — not enough mana right now</span>}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {why && (
+        <p className="gs-popup-why" role="status">
+          <b>Not now.</b> <ManaText text={why} />
+        </p>
+      )}
+      {(options.length > 0 || notNow.length > 0) && (
+        <ul className="gs-popup-actions">
+          {options.map((o, i) => {
+            const parts = abilityParts(o.label ?? o.actionId, name);
+            return (
+              <li key={o.actionId}>
+                <button
+                  ref={i === 0 ? first : undefined}
+                  type="button"
+                  className={`gs-option gs-ab${o.payable ? "" : " gs-option-unpayable"}`}
+                  aria-label={`${o.label ?? o.actionId}${o.payable ? "" : ", not enough mana right now"}`}
+                  disabled={busy}
+                  onClick={() => onChoose(o.actionId)}
+                >
+                  {cost(parts.cost, parts.kind)}
+                  <span className="gs-ab-words">
+                    <ManaText text={parts.text} />
+                    {!o.payable && <em className="gs-ab-why">Not enough mana right now</em>}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+          {notNow.map((row) => {
+            const parts = abilityParts(row.label, name);
+            return (
+              <li
+                key={row.label}
+                className="gs-ab gs-ab-no"
+                aria-label={`${row.label}: ${row.why}`}
+              >
+                {cost(parts.cost, parts.kind)}
+                <span className="gs-ab-words">
+                  <ManaText text={parts.text} />
+                  <em className="gs-ab-why">{row.why}</em>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <div className="gs-popup-foot">
         <button
           ref={options.length === 0 ? first : undefined}

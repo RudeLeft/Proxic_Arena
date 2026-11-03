@@ -94,6 +94,13 @@ data class DecisionRequest(
      */
     val unavailable: Map<String, String> = emptyMap(),
     /**
+     * Phase 9 W-16 — each of the asked player's permanents' abilities that
+     * are NOT offered now, and why ("Needs 7 loyalty"), by object id: rows
+     * of {label, why}. Words only; passed through untouched, to the same
+     * seat the question goes to and nobody else.
+     */
+    val notNow: JsonObject? = null,
+    /**
      * Owner 2026-10-22 — what a question that can be backed out of is
      * about ("name", "kind": spell/ability/trigger/card, and a spell's
      * "from"), so Cancel can say what it undoes. The asking player's own

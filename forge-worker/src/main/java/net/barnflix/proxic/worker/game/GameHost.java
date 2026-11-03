@@ -846,6 +846,18 @@ public final class GameHost {
         return unavailable;
     }
 
+    /** Phase 9 W-16 -- each permanent's abilities NOT offered now, by
+     *  object id: [label, why] pairs. Same lifetime as unavailable. */
+    private volatile java.util.Map<String, java.util.List<String[]>> notNow = java.util.Map.of();
+
+    void offerNotNow(java.util.Map<String, java.util.List<String[]>> byObject) {
+        notNow = byObject;
+    }
+
+    public java.util.Map<String, java.util.List<String[]>> notNow() {
+        return notNow;
+    }
+
     /**
      * Owner 2026-10-22 -- what a question that can be backed out of is
      * ABOUT: the spell or ability being cast, paid for or targeted, so the
@@ -1024,6 +1036,7 @@ public final class GameHost {
         unpayable = java.util.Set.of(); // only for the question it was set for
         costs = java.util.Map.of();
         unavailable = java.util.Map.of();
+        notNow = java.util.Map.of();
         subject = null;
         responseWindow = false;
     }

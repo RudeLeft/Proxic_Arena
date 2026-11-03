@@ -212,6 +212,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         if (request.unavailable.isNotEmpty()) {
             putJsonObject("unavailable") { request.unavailable.forEach { (id, why) -> put(id, why) } }
         }
+        request.notNow?.let { put("notNow", it) }
         if (request.about.isNotEmpty()) {
             putJsonObject("about") { request.about.forEach { (key, value) -> put(key, value) } }
         }

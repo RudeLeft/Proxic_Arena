@@ -91,6 +91,9 @@ describe("clickOn", () => {
   it("on your move, one action is the click; several are offered (AMENDMENT 12)", () => {
     const one = questionOf(decision(PRIORITY_KIND, [option("cast", "card:1")]), visible);
     expect(clickOn(one, "card:1")).toEqual({ kind: "answer", actionId: "cast" });
+    // Phase 9 W-16: with abilities it can't use now, the one it can is
+    // offered, not taken -- the menu shows them all (a planeswalker's +1).
+    expect(clickOn(one, "card:1", 2).kind).toBe("offer");
     const two = questionOf(
       decision(PRIORITY_KIND, [option("cast", "card:1"), option("cycle", "card:1")]),
       visible,

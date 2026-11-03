@@ -538,6 +538,32 @@ public final class MatchController extends GeneratedControllerBase {
         }
         host.offerUnavailable(why);
 
+        // Phase 9 W-16 -- the abilities of the player's permanents that are
+        // NOT offered now, each with why ("Needs 7 loyalty"), so the menu
+        // can show them greyed. Words only: nothing here offers anything.
+        java.util.Set<Integer> offeredAbilities = new java.util.HashSet<>();
+        java.util.Set<String> offeredLabels = new java.util.HashSet<>();
+        for (SpellAbility sa : byId.values()) {
+            offeredAbilities.add(sa.getId());
+            offeredLabels.add(describe(sa));
+        }
+        java.util.Map<String, java.util.List<String[]>> notNow = new java.util.LinkedHashMap<>();
+        for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Battlefield)) {
+            for (SpellAbility sa : card.getSpellAbilities()) {
+                if (!sa.isActivatedAbility() || sa.isManaAbility()
+                        || offeredAbilities.contains(sa.getId())) {
+                    continue;
+                }
+                String label = describe(sa);
+                if (offeredLabels.contains(label)) {
+                    continue;
+                }
+                notNow.computeIfAbsent("card:" + card.getId(), k -> new java.util.ArrayList<>())
+                        .add(new String[] {label, WhyNot.ability(sa, card, player)});
+            }
+        }
+        host.offerNotNow(notNow);
+
         // PHASE_07 §7.53, AMENDMENT 13 -- a step this player does not stop
         // at, with nothing on the stack they could answer: passed for, as
         // MTG Arena does. Only ever a priority pass, and only with the
@@ -546,6 +572,7 @@ public final class MatchController extends GeneratedControllerBase {
                 actedForSeat != authorisedSeat, byId, unpayable)) {
             // Not asked: nothing set for this question may ride on the next.
             host.offerUnavailable(java.util.Map.of());
+            host.offerNotNow(java.util.Map.of());
             showTheirStack();
             return null;
         }

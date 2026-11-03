@@ -524,3 +524,32 @@ https://claude.ai/artifact/YYU4WXrboPPCa6EnKz1dFp).**
   the battlefield), `OpeningHand.test.ts`, `stops.test.ts` (the
   pregame waiting line), screenshots of real games.
 
+**Amendment 10 (2026-11-03, W-16 decided and built -- canvas
+https://claude.ai/artifact/8aNguFgyNh2uSGeE4kUKkg).**
+
+- *Today (found from screenshots of a real game, the Loyalty deck):* a
+  card with several abilities opened a menu that said "2 actions
+  offered" and began every line with the card's name again; the cost
+  sat in the middle of each line; abilities that could not be used now
+  were left out (Elspeth's -7 at 5 loyalty); the "why not" beside a card
+  faded after a few seconds and did not name it.
+- *W-16 (owner: option A, a tidy menu, cost first):* the card's picture,
+  name and type once at the top; each ability a row with its cost first
+  and large -- a loyalty cost on the planeswalker's shield, green for +,
+  red for -, or mana symbols -- then its words; an unpayable one says
+  "Not enough mana right now". The abilities the card can't use now are
+  greyed, with why: "Needs 7 loyalty (it has 5).", "Once each turn --
+  already used this turn.", "It's tapped.", "Came in this turn -- it
+  can't tap yet.", or timing. A card that can't be played opens the same
+  panel with "Not now." and the reason, which stays until closed.
+- *One click no longer uses a card's only usable ability when it has
+  others it can't use now:* the menu opens, so a planeswalker's +1 is
+  never taken by a click that meant to look.
+- *What the game now tells the page:* `decision.notNow` (protocol
+  README), from the worker (`WhyNot.ability`) through the server.
+- *Evidence:* `abilities.test.ts` (the cost split), `interaction.test.ts`
+  (a click with abilities held back opens the menu),
+  `match-ability-menu.spec.ts` (a real game: a held-back ability greyed
+  with why; a card in hand says why not, until closed), screenshots of
+  Elspeth's real -7 ("Needs 7 loyalty (it has 5).").
+
