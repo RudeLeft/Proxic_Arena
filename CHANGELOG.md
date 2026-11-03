@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.34.0 — 2026-11-03
+
+Graveyard, exile and the close-up (Phase 9 W-18 and W-19).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Graveyard and exile**
+- Clicking a graveyard or exile pile opens the cards as pictures, newest first, with copies shown once ("Mountain ×4").
+- Tabs switch between your graveyard and exile and the other player's, each with how many cards it holds.
+- In exile, each card says why it's there: "You may play it", "Exiled by Light Up the Stage", or a suspended card's time counters.
+
+**The close-up**
+- A creature changed by counters or equipment shows its printed power and toughness crossed out next to what it is now (2/3 → 4/5).
+- It also says whose card it is, what's attached to it (or what it's attached to), and its state: tapped, new this turn, attacking, blocking.
+
+**Fixed**
+- Opening a card's close-up from the graveyard or exile list showed it behind the list. It now opens on top.
+
 ## 1.33.0 — 2026-11-03
 
 The stack, readable (Phase 9 W-20).
