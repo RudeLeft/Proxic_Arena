@@ -181,6 +181,8 @@ player.dungeonsCompleted  one dungeon name per completion
 player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
+player.mulligans          how many times the player has mulliganed, for every
+                          viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer
 card.basePower,           a creature's power and toughness before counters
 card.baseToughness        and effects (Phase 9 W-19: "printed 2/3, now 4/5")

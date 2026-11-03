@@ -284,6 +284,8 @@ export interface SnapshotPlayer {
   handCount: number;
   libraryCount: number;
   graveyardCount: number;
+  /** Phase 9 W-15 -- how many times this player has mulliganed (public). */
+  mulligans?: number | undefined;
   /**
    * §6.96 — Forge's state on the player, carried generically: every
    * counter (poison, energy, experience...), every designation
@@ -732,6 +734,7 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       handCount: asNumber(row["handCount"]) ?? 0,
       libraryCount: asNumber(row["libraryCount"]) ?? 0,
       graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
+      mulligans: asNumber(row["mulligans"]) ?? 0,
       counters: asCounters(row["counters"]),
       designations: asNotices(row["designations"]),
       command: asNotices(row["command"]),

@@ -262,6 +262,23 @@ describe("waitingLine", () => {
     });
   });
 
+  it("before the first turn, says they are choosing their hand, and how many mulligans (W-15)", () => {
+    const pregame = (mulligans: number) =>
+      ({
+        ...table(2),
+        turn: 0,
+        players: [
+          { seat: 1, name: "Alice", mulligans: 0 },
+          { seat: 2, name: "Bob", mulligans },
+        ],
+      }) as unknown as Snapshot;
+    expect(waitingLine(pregame(0), 1, { seat: 2 }, 2, false).sub).toBe(
+      "Choosing their opening hand",
+    );
+    expect(waitingLine(pregame(1), 1, { seat: 2 }, 2, false).sub).toBe("Mulliganed once");
+    expect(waitingLine(pregame(3), 1, { seat: 2 }, 2, false).sub).toBe("Mulliganed 3 times");
+  });
+
   it("a spectator waits for whoever is asked, never for a moment of their own", () => {
     expect(waitingLine(table(1), -1, { seat: 1 }, 1, false).word).toBe("Alice’s move");
   });

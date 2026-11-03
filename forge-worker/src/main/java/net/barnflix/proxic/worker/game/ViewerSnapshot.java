@@ -127,6 +127,9 @@ final class ViewerSnapshot {
             entry.addProperty("handCount", player.getCardsIn(ZoneType.Hand).size());
             entry.addProperty("libraryCount", player.getCardsIn(ZoneType.Library).size());
             entry.addProperty("graveyardCount", player.getCardsIn(ZoneType.Graveyard).size());
+            // Phase 9 W-15 -- how many times this player has mulliganed:
+            // public, as in paper Magic (owner 2026-11-03).
+            entry.addProperty("mulligans", player.getStats().getMulliganCount());
 
             // §6.96, P6-AO — Forge's PLAYER state beyond the zones,
             // carried generically rather than one field per rule:

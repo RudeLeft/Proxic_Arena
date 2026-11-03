@@ -2787,3 +2787,161 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #9fb0a7;
   font-size: var(--pa-size-sm);
 }
+
+/* Phase 9 W-15 (owner 2026-11-03, option A) -- the start of the game: the
+   opening hand laid out across the table, readable, the question above it
+   and its two answers under it. Over the table only, not the column. */
+.gs-opening {
+  position: absolute;
+  top: 0;
+  z-index: 17000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background: rgb(4 6 8 / 66%);
+  /* The board's overlay lets clicks through to the table; this takes them. */
+  pointer-events: auto;
+}
+.gs-opening-head {
+  text-align: center;
+}
+.gs-opening-title {
+  margin: 0;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: var(--pa-size-2xl);
+  color: #f0e9dc;
+}
+.gs-opening-line {
+  margin: 8px 0 0;
+  color: #c9d2d8;
+  font-size: var(--pa-size-lg);
+}
+.gs-opening-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-opening-card {
+  position: relative;
+  width: 180px;
+  height: 251px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #1b2129;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 65%);
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+.gs-opening-card:disabled {
+  /* Only to read (keeping, or a card not to put back): not greyed. */
+  opacity: 1;
+  filter: none;
+  cursor: default;
+}
+.gs-opening-card:not(:disabled) {
+  cursor: pointer;
+}
+.gs-opening-card:not(:disabled):hover {
+  transform: translateY(-8px);
+}
+.gs-opening-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.gs-opening-plain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  color: #e3e8e4;
+  text-align: left;
+}
+.gs-opening-plain span {
+  color: #9aa7b2;
+  font-size: var(--pa-size-sm);
+}
+/* Put back: the card drops and greys; begun in play: a gold edge. */
+.gs-opening-back {
+  transform: translateY(36px) scale(0.94);
+  filter: grayscale(0.6) brightness(0.55);
+}
+.gs-opening-on:not(.gs-opening-back) {
+  box-shadow:
+    0 0 0 3px #e0a44a,
+    0 8px 22px rgb(0 0 0 / 65%);
+}
+.gs-opening-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: #e0a44a;
+  color: #1a1206;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.gs-opening-tag-quiet {
+  background: #2a333c;
+  color: #e3e8e4;
+}
+.gs-opening-buttons {
+  display: flex;
+  gap: 14px;
+}
+.gs-opening-button {
+  min-width: 170px;
+  padding: 14px 24px;
+  border: 1px solid #f2d58f;
+  border-radius: 7px;
+  background: linear-gradient(#e7bf6d, #c9973f);
+  color: #1a1206;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-lg);
+  letter-spacing: var(--pa-track-button);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.gs-opening-button small {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--pa-text);
+  font-weight: 500;
+  font-size: var(--pa-size-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.gs-opening-quiet {
+  border-color: #5a6672;
+  background: rgb(10 14 18 / 70%);
+  color: #d9e0e6;
+}
+.gs-opening-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-opening-card {
+    transition: none;
+  }
+}

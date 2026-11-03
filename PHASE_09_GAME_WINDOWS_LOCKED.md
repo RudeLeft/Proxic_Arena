@@ -490,3 +490,37 @@ https://claude.ai/artifact/79rgBXtDRtKjod4GwdFZej).**
   close-up is on top of the tray, nothing over it), screenshots of real
   games.
 
+**Amendment 9 (2026-11-03, W-15 decided and built -- canvas
+https://claude.ai/artifact/YYU4WXrboPPCa6EnKz1dFp).**
+
+- *Today (found from screenshots of a real game):* each start-of-game
+  question was the small bubble at the side; the hand to keep or
+  mulligan was the fanned, overlapping hand at the bottom, names cut
+  off; putting cards back showed nothing picked until it went; the
+  other player saw "Pat's move" and no more; the turn track read
+  "Turn 0 · Opponent's turn"; the Leyline question was a tray of long
+  sentences, one card at a time.
+- *W-15 (owner: option A, the hand laid out):* one window over the table
+  (`OpeningHand.tsx`): the opening hand in a row, large enough to read,
+  the question above it and its answers under it. Play or draw: two
+  buttons ("You're a turn ahead", "You're a card ahead"). Keep or
+  mulligan: "Keep 7" / "Mulligan -- draw seven again, put 1 back", the
+  count of cards and lands. Putting back: click the cards (they drop and
+  grey), then "Keep these 5"; the game asks one card at a time and the
+  page answers each from the clicks. A Leyline: a "Start in play?" tick
+  on its card, then "Begin with 1 in play"; the page answers the game's
+  one-at-a-time question from the ticks, then "no more".
+- *Mulligans are public (owner):* the waiting line says "Mulliganed
+  once" (else "Choosing their opening hand"), and your own window adds
+  "Pat mulliganed once". The worker sends `player.mulligans`, Forge's
+  own count, which it takes once the cards are back.
+- *Before the first turn* the turn track says "Before the game" and no
+  one's turn.
+- *Kept:* the game's own name for each question stays as a hidden
+  heading ("Keep or mulligan"...), so a screen reader and the scripted
+  games read it as before; "List choices" still lists every option.
+- *Evidence:* `match-opening-hand.spec.ts` (a real game: a mulligan put
+  back by clicking, the other player told, a Leyline ticked and begun on
+  the battlefield), `OpeningHand.test.ts`, `stops.test.ts` (the
+  pregame waiting line), screenshots of real games.
+

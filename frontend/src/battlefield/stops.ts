@@ -213,10 +213,21 @@ function movesLine(
   mySeat: number,
   seat: number | null,
 ): { word: string; sub: string; seat: number | null } {
-  const name = board.players.find((p) => p.seat === seat)?.name;
+  const player = board.players.find((p) => p.seat === seat);
+  const name = player?.name;
+  // Phase 9 W-15: before the first turn, they are choosing their hand;
+  // how many times they mulliganed is public (owner 2026-11-03).
+  const mulligans = player?.mulligans ?? 0;
+  const pregame =
+    board.turn === 0
+      ? mulligans > 0
+        ? `Mulliganed ${mulligans === 1 ? "once" : mulligans === 2 ? "twice" : `${mulligans} times`}`
+        : "Choosing their opening hand"
+      : null;
   return {
     word: name ? `${name}’s move` : "The other player’s move",
-    sub: seat === null ? "" : (whatTheyDo(board, mySeat, seat) ?? stepLine(board, mySeat)),
+    sub:
+      seat === null ? "" : (pregame ?? whatTheyDo(board, mySeat, seat) ?? stepLine(board, mySeat)),
     seat,
   };
 }

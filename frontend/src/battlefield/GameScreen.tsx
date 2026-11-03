@@ -101,6 +101,7 @@ import {
   waitingLine,
 } from "./stops";
 import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
+import { OpeningHand, OPENING_KINDS, optionFor } from "./OpeningHand";
 import "./game.css";
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
@@ -400,6 +401,12 @@ export function GameScreen({
   // target again, yes again, the rest of an order they clicked. Once per
   // question; a question of another card ends them.
   const [orderQueue, setOrderQueue] = useState<string[]>([]);
+  // Phase 9 W-15 -- the cards still to put back, or to begin in play
+  // (then no more), clicked at once and asked one at a time.
+  const [openingQueue, setOpeningQueue] = useState<{
+    kind: "tuckCardsViaMulligan" | "chooseSaToActivateFromOpeningHand";
+    cards: string[];
+  } | null>(null);
   // PHASE_09 group 3 (W-07..W-10) -- the answers a card tray gave for the
   // game's one-card-at-a-time questions still to come (cardPlans.ts),
   // and Brainstorm's cards clicked in the hand, in the order they go on
@@ -584,6 +591,19 @@ export function GameScreen({
         return;
       }
     }
+    if (openingQueue) {
+      if (decision.kind !== openingQueue.kind) {
+        setOpeningQueue(null);
+      } else {
+        const [first, ...rest] = openingQueue.cards;
+        const next = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
+        setOpeningQueue(rest.length > 0 ? { ...openingQueue, cards: rest } : null);
+        // Beginning in play: once the ticked ones are in, no more.
+        if (next) answer(next.actionId);
+        else if (!first && openingQueue.kind === "chooseSaToActivateFromOpeningHand") answer(null);
+        return;
+      }
+    }
     if (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) {
       const next = decision.options.find((o) => o.label === orderQueue[0]);
       setOrderQueue(next ? orderQueue.slice(1) : []);
@@ -596,11 +616,12 @@ export function GameScreen({
       setCopies(afterAuto(decision, copies));
       answer(auto);
     }
-  }, [decision, copies, orderQueue, plan, handOrder, answer]);
+  }, [decision, copies, orderQueue, openingQueue, plan, handOrder, answer]);
   const answeredForYou =
     !!decision &&
     (autoAnswer(decision, copies) !== null ||
       (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) ||
+      (!!openingQueue && decision.kind === openingQueue.kind) ||
       (plan.length > 0 && stepAnswer(plan[0]!, decision) !== undefined) ||
       (handOrder.length > 0 &&
         decision.kind === "orderMoveToZoneList" &&
@@ -885,6 +906,38 @@ export function GameScreen({
     };
     if (listOpen && !decision.searchable) {
       return <ListTray key={decision.decisionId} {...common} onClose={() => setListOpen(false)} />;
+    }
+    // Phase 9 W-15 -- the start of the game, the opening hand laid out.
+    if (OPENING_KINDS.has(decision.kind)) {
+      return (
+        <OpeningHand
+          key={decision.decisionId}
+          area={{ x: geometry.play.x, w: geometry.play.w, h: geometry.height }}
+          decision={decision}
+          board={board}
+          busy={busy}
+          artUrl={artUrl}
+          onAnswer={answer}
+          onPutBack={(cards) => {
+            const [first, ...rest] = cards;
+            const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
+            if (!now) return;
+            if (rest.length > 0) setOpeningQueue({ kind: "tuckCardsViaMulligan", cards: rest });
+            answer(now.actionId);
+          }}
+          onBegin={(cards) => {
+            const [first, ...rest] = cards;
+            const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
+            if (!now) {
+              answer(null);
+              return;
+            }
+            // The rest as asked, then "no more" (an empty queue).
+            setOpeningQueue({ kind: "chooseSaToActivateFromOpeningHand", cards: rest });
+            answer(now.actionId);
+          }}
+        />
+      );
     }
     // PHASE_09 group 3 -- the card trays (W-07..W-10).
     const tray = trayOf(decision);
@@ -1416,21 +1469,29 @@ function StepLadder({
   return (
     <div className={`gs-ladder${shown.dim ? " gs-ladder-dim" : ""}`}>
       <div className="gs-ladder-head">
-        <span className="gs-turn" aria-label={`Turn ${board.turn}`}>
-          Turn <span className="gs-turn-value">{board.turn}</span>
-          {board.dayTime && (
-            <span className="gs-day"> · {board.dayTime === "night" ? "Night" : "Day"}</span>
-          )}
-          {/* §6.70 — after a restart, say which game this is, or "turn 1"
+        {/* Phase 9 W-15: before the first turn there is no turn 0, and it
+            is nobody's turn yet. */}
+        {board.turn === 0 ? (
+          <span className="gs-turn">Before the game</span>
+        ) : (
+          <span className="gs-turn" aria-label={`Turn ${board.turn}`}>
+            Turn <span className="gs-turn-value">{board.turn}</span>
+            {board.dayTime && (
+              <span className="gs-day"> · {board.dayTime === "night" ? "Night" : "Day"}</span>
+            )}
+            {/* §6.70 — after a restart, say which game this is, or "turn 1"
               reads as the game having gone backwards. */}
-          {board.gameEpoch > 1 && (
-            <span className="gs-day gs-game" title="The game was restarted">
-              {" "}
-              · Game {board.gameEpoch}
-            </span>
-          )}
-        </span>
-        <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
+            {board.gameEpoch > 1 && (
+              <span className="gs-day gs-game" title="The game was restarted">
+                {" "}
+                · Game {board.gameEpoch}
+              </span>
+            )}
+          </span>
+        )}
+        {board.turn > 0 && (
+          <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
+        )}
       </div>
       {/* Spec 0047 -- players see how many are watching; a spectator that
           they are. Its own line, so whose turn it is keeps the head. */}
