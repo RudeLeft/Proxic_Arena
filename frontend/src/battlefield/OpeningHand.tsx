@@ -171,6 +171,7 @@ export function OpeningHand({
   return (
     <div
       className="gs-opening"
+      data-kind={kind}
       role="dialog"
       aria-modal="false"
       aria-labelledby="gs-opening-title"
