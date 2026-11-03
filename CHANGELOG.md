@@ -3,6 +3,23 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.33.0 — 2026-11-03
+
+The stack, readable (Phase 9 W-20).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Spells and abilities waiting to resolve**
+- Each one on the stack is its whole card, big enough to read without pointing at it, at the right edge of the table.
+- A trigger or ability shows its own words on the card ("Trigger: At the beginning of combat on your turn, create a 1/1 red Goblin..."), so you can tell which of a card's abilities it is.
+- Older ones fan out above it, each showing its name and some art. Point at one to bring it to the front.
+- While you're choosing something on the table (a target, mana to pay, attackers), the stack steps back to its old smaller size so it never covers what you need to click.
+- A card being cast still shows large in the middle while you pay for it, then moves to the stack.
+
+**Fixed**
+- "Let it all resolve" sat on top of the opponent's corner at the top of the right-hand column. It now sits just above the main button.
+
 ## 1.32.0 — 2026-11-03
 
 Each printing of a card keeps its own picture (spec 0053).
