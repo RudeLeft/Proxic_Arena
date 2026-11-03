@@ -58,8 +58,12 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
 
     // Spec 0038: counters and markers are in the status trays.
     const totals = (page: Page) => matchPanel(page).locator(".gs-seat, .gs-status");
+    // Creatures on the table, not the stack: a trigger there shows its own
+    // words (Phase 9 W-20), which may say "Ring-bearer" too.
     const bearers = (page: Page) =>
-      matchPanel(page).locator(".bf-cards button.bf-card").filter({ hasText: "Ring-bearer" });
+      matchPanel(page)
+        .locator('.bf-cards button.bf-card:not([data-zone="stack"])')
+        .filter({ hasText: "Ring-bearer" });
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;
