@@ -3,7 +3,10 @@
 // F-0045-A: Soul Warden out, then Ajani's Pridemate: pointing at
 //   Pridemate's +1/+1 counter names the lifegain that caused it.
 // F-0045-C: Goblin Ringleader's revealed cards show face up to BOTH
-//   players, each marked where it went (hand or bottom).
+//   players, each marked where it went (hand or bottom); once it has
+//   resolved, each reads who did it in their own words (PHASE_09
+//   Amendment 12: "You revealed the top 4 cards of your library" /
+//   "<name> revealed the top 4 cards of their library").
 // F-0045-D: right-clicking Pridemate's trigger on the stack opens it close
 //   up: what it does, why it triggered, whose it is.
 // (F-0045-B, the empty library, is unit-tested and played in the Lab:
@@ -140,13 +143,36 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
               .catch(() => [] as (string | null)[]);
           const both = [await marked(page), await marked(other)];
           if (!sawTray) {
-            await expect(page.locator(".gs-reveal")).toContainText("Goblin Ringleader revealed:");
-            await expect(other.locator(".gs-reveal")).toContainText("Goblin Ringleader revealed:");
+            await expect(page.locator(".gs-reveal")).toContainText("Goblin Ringleader");
+            await expect(other.locator(".gs-reveal")).toContainText("Goblin Ringleader");
             sawTray = true;
           }
           if (
             both.every((to) => to.length > 0 && to.every((t) => t === "hand" || t === "bottom"))
           ) {
+            // Amendment 12 -- settled: who did it, in each reader's words.
+            // Whichever page cast it reads "You", the other the caster's name.
+            const said = async () =>
+              Promise.all(
+                [page, other].map((seat) =>
+                  seat
+                    .locator(".gs-reveal")
+                    .innerText()
+                    .catch(() => ""),
+                ),
+              );
+            await expect
+              .poll(
+                async () => {
+                  const texts = await said();
+                  return (
+                    texts.some((t) => t.includes("You revealed the top 4 cards of your library")) &&
+                    texts.some((t) => /\S+ revealed the top 4 cards of their library/.test(t))
+                  );
+                },
+                { timeout: 15_000, message: "each player reads who revealed, in their own words" },
+              )
+              .toBe(true);
             await page.screenshot({ path: "test-results/seen/0045-reveal.png" });
             await other.screenshot({ path: "test-results/seen/0045-reveal-opponent.png" });
             revealed = true;
