@@ -3,6 +3,27 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.35.0 — 2026-11-03
+
+The start of the game, and what a card can do (Phase 9 W-15 and W-16).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**The start of the game**
+- Play or draw is two big buttons: "Play first: you're a turn ahead" and "Draw first: you're a card ahead".
+- Your opening hand is laid out across the table, every card big enough to read, with how many lands it has, and Keep 7 / Mulligan under it.
+- To put cards back after a mulligan, click them (they drop and grey out), then Keep.
+- A Leyline in your opening hand has a "Start in play?" tick on the card.
+- Mulligans are public: the other player sees "Mulliganed once" while you choose.
+- The turn track says "Before the game" instead of "Turn 0".
+
+**What a card can do**
+- Clicking a card with several abilities shows its name and picture once, then each ability with its cost first and large: a planeswalker's +1 in green, −3 in red, or the mana.
+- Abilities it can't use yet are shown greyed with why, such as "Needs 7 loyalty (it has 5)", "already used this turn" or "It's tapped".
+- A card you can't play right now says why in the same panel, until you close it.
+- A planeswalker with only one usable ability no longer uses it on a single click when others are greyed: the menu opens instead.
+
 ## 1.34.0 — 2026-11-03
 
 Graveyard, exile and the close-up (Phase 9 W-18 and W-19).
