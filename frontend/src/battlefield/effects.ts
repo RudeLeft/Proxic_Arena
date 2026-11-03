@@ -168,6 +168,13 @@ export function swoopBox(
 
 /** How much bigger than a battlefield card a spell on the stack is drawn. */
 export const STACK_SCALE = 1.5;
+/**
+ * Phase 9 W-20 (owner 2026-11-02, option A) -- the stack drawn readable:
+ * the whole card, the close-up's size. Only while nothing is to be chosen
+ * on the table; then the stack steps back to STACK_SCALE, off what might
+ * be clicked under it.
+ */
+export const STACK_READ_SCALE = 3;
 /** How much of each card behind the front one shows: its name bar and a little art. */
 export const STACK_PEEK = 0.2;
 /** The least of it that may show when a tall stack has to tighten: the name bar. */
@@ -183,10 +190,10 @@ export const STACK_PEEK_MIN = 0.12;
  * out (the caption counts them). Centred on the board's middle line when
  * there is room. The boxes come top-of-stack first, as the stack does.
  */
-export function stackSpotBoxes(g: Geometry, count: number): Box[] {
+export function stackSpotBoxes(g: Geometry, count: number, scale = STACK_SCALE): Box[] {
   if (count <= 0) return [];
-  const w = g.cardW * STACK_SCALE;
-  const h = g.cardH * STACK_SCALE;
+  const w = g.cardW * scale;
+  const h = g.cardH * scale;
   const right = g.play.x + g.play.w - g.inset * 2;
   // Between the turn track (the top tenth) and the hand.
   const top = g.height * 0.1;
@@ -205,7 +212,7 @@ export function stackSpotBoxes(g: Geometry, count: number): Box[] {
     y: y0 + (shown - 1 - i) * peek,
     w,
     h,
-    scale: STACK_SCALE,
+    scale,
     rotation: 0,
     z: 0,
   }));

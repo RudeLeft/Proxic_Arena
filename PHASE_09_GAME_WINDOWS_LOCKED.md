@@ -424,3 +424,38 @@ https://claude.ai/artifact/V6QHFDjArMC2HjfPThQV9L).**
   board, Show the result, Back to the room), `match.spec.ts` (the
   waiting line and the glow on the waiting player's screen only),
   `match-alternate-win.spec.ts` (Forge's sentence in the banner).
+
+**Amendment 7 (2026-11-02, W-20 decided and built -- canvas
+https://claude.ai/artifact/36FFjtgAJYkNMHVaAvAgZr).**
+
+- *Today (found from screenshots of real games):* a spell on the stack
+  showed its art (a real deck's picture) but not what it does; a trigger
+  was its card's art with the word "Trigger"; what anything does showed
+  only on pointing or a right-click; older items showed a sliver of their
+  name; a name shared its bar with the mana cost and was cut off. And
+  "Let it all resolve" sat over the opponent's plate at the top of the
+  right-hand column, unplaced.
+- *W-20, the stack (owner: option A; the card being cast keeps its large
+  place in the middle):* the stack is drawn readable -- each object as
+  its card's whole picture at the close-up's size (twice the old stack
+  card), at the right edge of the table, the next to resolve in front and
+  lowest; older ones fan upward showing their name bar and some art.
+  A trigger or ability has its own words on a plate over the card's text
+  box ("Trigger -- Whenever you gain life, ..."). Pointing at an older
+  one brings it to the front. While something is to be chosen on the
+  table (a target, a payment, attackers), the stack steps back to the
+  old size, off what might be clicked under it. A card with no picture
+  this viewer may see (face down, or no picture) keeps the drawn card.
+- *Fixed with it:* "Let it all resolve" sits in "All attack"'s place,
+  above the act button.
+- *The card being cast (owner, 2026-11-02, from the screenshots):* large
+  in the middle only while it is being cast and paid for. Once it is on
+  the stack it flies there (turning over first, for the other player)
+  in about a second; nothing keeps it in the middle, so it is never shown
+  twice for longer than that flight. The response window's ring keeps
+  close to the card and thin at the readable size.
+- *Evidence:* `effects.test.ts` (the readable size stays on the play
+  area, between the turn track and the hand, at any depth),
+  `battlefield.spec.ts` (a spell's line starts on its readable card),
+  `match-what-happened.spec.ts` (a real Pridemate trigger shows its own
+  words on the stack), screenshots of real games with real pictures.

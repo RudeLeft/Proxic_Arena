@@ -33,7 +33,7 @@ import {
   type RowId,
 } from "../src/battlefield/layout";
 import { LIFE_R, MOVE_MS, anchors, handZoomBox, placement } from "../src/battlefield/motion";
-import { stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
+import { STACK_READ_SCALE, stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -559,8 +559,9 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       const end = { x: line.end[0], y: line.end[1] };
       if (line.from.startsWith("stack:")) {
         // Owner 2026-10-21: from the spell's own card on the stack, drawn
-        // at the right edge of the play area -- on that card's edge.
-        const spot = stackSpotBoxes(expected.geometry, scene.stack.length);
+        // at the right edge of the play area -- on that card's edge. Nothing
+        // is asked on the dev board, so the stack is readable (Phase 9 W-20).
+        const spot = stackSpotBoxes(expected.geometry, scene.stack.length, STACK_READ_SCALE);
         const index = scene.stack.findIndex((s) => s.id === line.from);
         const box = spot[index] ?? spot[spot.length - 1]!;
         const onEdge =
@@ -583,7 +584,7 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       }
       if (line.to.startsWith("stack:")) {
         // An ability's line ends on its own card in the cascade.
-        const spot = stackSpotBoxes(expected.geometry, scene.stack.length);
+        const spot = stackSpotBoxes(expected.geometry, scene.stack.length, STACK_READ_SCALE);
         const box = spot[scene.stack.findIndex((s) => s.id === line.to)]!;
         expect(
           end.x >= box.x - 1 &&

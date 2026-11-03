@@ -41,6 +41,7 @@ import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
+import { SharpCard, closeUpOf } from "../closeUp";
 import {
   inCombat,
   HAND_ORIGIN,
@@ -75,6 +76,8 @@ import {
   playerPoint,
   rectEdge,
   ringEdge,
+  STACK_READ_SCALE,
+  STACK_SCALE,
   stackSpotBoxes,
   SWOOP_ARRIVE,
   SWOOP_LEAVE,
@@ -558,6 +561,9 @@ export function Board({
   // Spec 0028 — the stack card the player points at: its line shows
   // instead of the front card's, and the rest of the stack fades.
   const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
+  // Phase 9 W-20 -- the stack readable (the whole card, close-up size),
+  // except while something is to be chosen on the table under it.
+  const stackScale = asking ? STACK_SCALE : STACK_READ_SCALE;
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
@@ -1266,7 +1272,7 @@ export function Board({
       }
     }
 
-    const spots = stackSpotBoxes(g, (stack ?? []).length);
+    const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     previous.current = {
       viewport: { width: g.width, height: g.height },
       at: now,
@@ -1274,7 +1280,7 @@ export function Board({
       mounted: new Set(items.map((item) => item.id)),
       stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
-  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl, flyingOnto]);
+  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl, flyingOnto, stackScale]);
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
@@ -1303,7 +1309,7 @@ export function Board({
   // A line into a player meets their life circle's edge, never covers it.
   const lifeR = LIFE_R * g.height;
   // The stack, drawn as cards at the right edge of the play area.
-  const spot = stackSpotBoxes(g, (stack ?? []).length);
+  const spot = stackSpotBoxes(g, (stack ?? []).length, stackScale);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
   // One line per DRAWN thing, not per object: a pile of 300 Goblin tokens
   // attacking is one card on the table, so it is one fire line (owner
@@ -1458,6 +1464,10 @@ export function Board({
                 ? " bf-stack-mine"
                 : " bf-stack-theirs";
           const faded = pointedOnStack !== null && pointedOnStack !== s.id;
+          // W-20: the whole card, readable, when it has a picture this
+          // viewer may see; a trigger or ability with its own words on it.
+          const whole = box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+          const kind = STACK_KIND[s.kind ?? "spell"] ?? "Spell";
           return (
             <div
               key={`stack-spot:${s.id}`}
@@ -1467,7 +1477,9 @@ export function Board({
                 height: g.cardH,
                 transformOrigin: "0 0",
                 transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(${box.scale})`,
-                zIndex: Z_LINES - 100 - i,
+                // Pointed at, a card lower in the stack comes to the front.
+                zIndex: pointedOnStack === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
+                ["--stack-scale" as string]: String(box.scale),
               }}
             >
               <button
@@ -1491,17 +1503,38 @@ export function Board({
                 onFocus={() => setPointedOnStack(s.id)}
                 onBlur={() => setPointedOnStack((now) => (now === s.id ? null : now))}
               >
-                <CardFace
-                  name={s.name}
-                  look="artifact"
-                  type={STACK_KIND[s.kind ?? "spell"] ?? "Spell"}
-                  pt=""
-                  art={s.art ? artUrl(s.art) : null}
-                  crop={s.crop ? artUrl(s.crop) : null}
-                  faceDown={s.name === "Face-down"}
-                  known={false}
-                  cost={s.manaCost ?? null}
-                />
+                {whole ? (
+                  <>
+                    {/* The words the drawn card used to carry, for anything reading them. */}
+                    <span className="pa-visually-hidden">
+                      {s.name} {kind}
+                    </span>
+                    <SharpCard
+                      low={artUrl(s.art!)}
+                      high={closeUpOf(artUrl(s.art!))}
+                      alt=""
+                      className="bf-stack-whole"
+                    />
+                    {kind !== "Spell" && s.does && (
+                      <span className="bf-stack-words">
+                        <b>{kind}</b>
+                        <ManaText text={s.does} />
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <CardFace
+                    name={s.name}
+                    look="artifact"
+                    type={kind}
+                    pt=""
+                    art={s.art ? artUrl(s.art) : null}
+                    crop={s.crop ? artUrl(s.crop) : null}
+                    faceDown={s.name === "Face-down"}
+                    known={false}
+                    cost={s.manaCost ?? null}
+                  />
+                )}
               </button>
               {/* Beside the card's name bar, so neither covers the name. */}
               <span className="bf-stack-tag" aria-hidden="true">

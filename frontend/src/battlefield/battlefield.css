@@ -473,6 +473,50 @@
     0 0 0 1px rgb(244 194 94 / 55%),
     0 0 22px rgb(240 168 48 / 25%);
 }
+/* Phase 9 W-20 (owner 2026-11-02, option A) -- the stack readable: the
+   card's whole picture, as the close-up shows it. A trigger or ability
+   has its own words over the card's text box (the card has several). */
+.bf-stack-whole {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.bf-stack-words {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 9%;
+  min-height: 30%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2%;
+  padding: 4% 5%;
+  border-radius: 3px;
+  background: rgb(248 240 226 / 97%);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+  color: #1d1a16;
+  font-family: var(--pa-text, "Segoe UI", system-ui, sans-serif);
+  font-size: calc(var(--card-h) * 0.046);
+  line-height: 1.25;
+  text-align: left;
+}
+.bf-stack-words b {
+  font-family: var(--pa-display, "Barlow Condensed", sans-serif);
+  font-size: calc(var(--card-h) * 0.04);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7a3d14;
+}
+/* The number and caster stay their usual size beside a readable card. */
+.bf-stack-tag {
+  transform: scale(calc(1.5 / var(--stack-scale, 1.5)));
+  transform-origin: right top;
+}
 /* Spec 0028 — the cascade. Whose it is: a gold edge for yours, red for
    theirs. Its place: a numbered badge (1 resolves next). Its caster: a
    small picture on the other corner. Pointing at one fades the rest. */
@@ -544,17 +588,19 @@
 }
 /* The response window's 2 seconds, running down round the front card. */
 .bf-stack-clock {
+  /* As close to the card, and as thin, at the readable size (W-20). */
+  --clock-gap: calc(4% * 1.5 / var(--stack-scale, 1.5));
   position: absolute;
-  inset: -4%;
-  width: 108%;
-  height: 108%;
+  inset: calc(0% - var(--clock-gap));
+  width: calc(100% + 2 * var(--clock-gap));
+  height: calc(100% + 2 * var(--clock-gap));
   overflow: visible;
   pointer-events: none;
 }
 .bf-stack-clock rect {
   fill: none;
   stroke: #f4c25e;
-  stroke-width: 3;
+  stroke-width: calc(3 * 1.5 / var(--stack-scale, 1.5));
   stroke-dasharray: 100;
   stroke-dashoffset: 0;
   filter: drop-shadow(0 0 4px rgb(240 168 48 / 80%));

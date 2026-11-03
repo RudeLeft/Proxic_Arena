@@ -52,6 +52,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
   const deck = await sharedDeck(host, guest, pkg);
 
   let counter = false;
+  let sawWords = false;
   let closeUp = false;
   // Right-clicks tried on the trigger now on the stack: a few, then the game goes on.
   let tries = 0;
@@ -95,6 +96,24 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
               closeUp = true;
             }
             await page.keyboard.press("Escape");
+          }
+        }
+        // Phase 9 W-20: on a readable stack (nothing to choose on the table),
+        // the trigger shows its own words on its card.
+        if (
+          !sawWords &&
+          (await trigger.count()) > 0 &&
+          (await page.locator(".bf-asking").count()) === 0
+        ) {
+          const said = await trigger
+            .first()
+            .locator(".bf-stack-words")
+            .allTextContents()
+            .catch(() => [] as string[]);
+          if (said.length > 0) {
+            expect(said[0]).toMatch(/^Trigger\s*Whenever you gain life/);
+            await page.screenshot({ path: "test-results/seen/w20-trigger-words.png" });
+            sawWords = true;
           }
         }
         // F-0045-A: the counter, and where it came from.
@@ -208,6 +227,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
     expect(counter, "Pridemate got its counter with Soul Warden out").toBe(true);
     expect(revealed, "Goblin Ringleader revealed").toBe(true);
     expect(closeUp, "Pridemate's trigger was looked at close up on the stack").toBe(true);
+    expect(sawWords, "Pridemate's trigger showed its own words on the stack").toBe(true);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);

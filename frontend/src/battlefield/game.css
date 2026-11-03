@@ -505,6 +505,15 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   letter-spacing: var(--pa-track-caps);
   text-transform: uppercase;
 }
+/* Spec 0043's "Let it all resolve", beside the act button: in "All
+   attack"'s place above it. Unplaced, it sat at the top of the column over
+   the opponent's plate (found 2026-11-02, Phase 9 W-20). */
+.gs-act-group > .gs-act-all {
+  position: absolute;
+  left: 7.4px;
+  top: 506px;
+  width: 216px;
+}
 .gs-act-all:hover:not(:disabled) {
   background: #2a2214;
 }

@@ -7,6 +7,7 @@ import {
   pointOn,
   rectEdge,
   ringEdge,
+  STACK_READ_SCALE,
   stackSpotBoxes,
   STACK_PEEK,
   STACK_PEEK_MIN,
@@ -177,6 +178,22 @@ describe("the stack, as cards (owner 2026-10-21)", () => {
     // Ten fit at 1080 high; thirty do not, and the oldest are left out.
     expect(stackSpotBoxes(g, 10)).toHaveLength(10);
     expect(stackSpotBoxes(g, 30).length).toBeLessThan(30);
+  });
+
+  it("readable (Phase 9 W-20): twice as big, still on the play area and between the turn track and the hand", () => {
+    const [small] = stackSpotBoxes(g, 1);
+    const [big] = stackSpotBoxes(g, 1, STACK_READ_SCALE);
+    expect(big!.w).toBeCloseTo(small!.w * 2, 5);
+    expect(big!.x + big!.w).toBe(small!.x + small!.w);
+    expect(big!.x).toBeGreaterThan(g.play.x + g.play.w / 2);
+    for (const n of [1, 3, 6, 10, 30]) {
+      const boxes = stackSpotBoxes(g, n, STACK_READ_SCALE);
+      const top = Math.min(...boxes.map((b) => b.y));
+      const bottom = Math.max(...boxes.map((b) => b.y + b.h));
+      expect(top, `${n}: below the turn track`).toBeGreaterThanOrEqual(g.height * 0.1 - 0.5);
+      expect(bottom, `${n}: above the hand`).toBeLessThanOrEqual(g.handTop + 0.5);
+      expect(boxes.every((b) => b.scale === STACK_READ_SCALE)).toBe(true);
+    }
   });
 
   it("a line leaves a card at its edge and meets a life circle at its rim", () => {
