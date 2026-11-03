@@ -11,8 +11,14 @@ release watch opens (.github/workflows/forge-watch.yml):
   - new player questions: methods added to Forge's PlayerController, each
     one a question Arena would have to ask (forge-questions.tsv and
     ForgeQuestionRecordTest enforce that once the pin moves);
-  - whether each of our forge_patches/*.patch still applies;
-  - card scripts added and changed, and edition files added;
+  - new kinds of cost: Forge's ICostVisitor, the record's "C" rows, each a
+    payment Arena would have to ask for;
+  - whether each of our forge_patches/*.patch still applies, in order, each
+    on top of the ones before, as the Dockerfile applies them;
+  - cards added (by name: a card leaving Forge's upcoming/ folder is not
+    new) and card scripts changed; sets added and sets gone;
+  - cards gone: names in the release we play that the new one no longer
+    has (removed or renamed), which a deck holding them would lose;
   - cards whose printing changes what they do: scripts with Variant: lines
     that change more than the name shown (FlavorName). A text count, close
     to what the worker asks Forge (spec 0024); the exact count comes with
@@ -32,6 +38,9 @@ CARDS = os.path.join("forge-gui", "res", "cardsfolder")
 EDITIONS = os.path.join("forge-gui", "res", "editions")
 CONTROLLER = os.path.join(
     "forge-game", "src", "main", "java", "forge", "game", "player", "PlayerController.java"
+)
+COST_VISITOR = os.path.join(
+    "forge-game", "src", "main", "java", "forge", "game", "cost", "ICostVisitor.java"
 )
 LIST_AT_MOST = 40
 
@@ -69,13 +78,20 @@ def changes_by_printing(script):
     return any(key != b"FlavorName" for key in keys)
 
 
-def questions(tree):
-    """Each public PlayerController method, as name(parameter types)."""
-    path = os.path.join(tree, CONTROLLER)
+def java_source(tree, rel):
+    """The file without its comments, or None when Forge has moved it."""
+    path = os.path.join(tree, rel)
     if not os.path.exists(path):
-        return set()
+        return None
     with open(path, encoding="utf-8", errors="replace") as f:
-        source = re.sub(r"//[^\n]*|/\*.*?\*/", "", f.read(), flags=re.DOTALL)
+        return re.sub(r"//[^\n]*|/\*.*?\*/", "", f.read(), flags=re.DOTALL)
+
+
+def questions(tree):
+    """Each public PlayerController method, as name(parameter types); None if not found."""
+    source = java_source(tree, CONTROLLER)
+    if source is None:
+        return None
     found = set()
     for name, params in METHOD.findall(source):
         types = []
@@ -85,14 +101,58 @@ def questions(tree):
     return found
 
 
-def patch_applies(tree, patch):
+def cost_kinds(tree):
+    """Each kind of cost Forge's ICostVisitor visits (the record's C rows); None if not found."""
+    source = java_source(tree, COST_VISITOR)
+    if source is None:
+        return None
+    return set(re.findall(r"\bvisit\s*\(\s*(\w+)", source))
+
+
+def git_apply(tree, patch, *flags):
     result = subprocess.run(
-        ["git", "apply", "--check", "-p1", os.path.abspath(patch)],
+        ["git", "apply", "--whitespace=nowarn", *flags, os.path.abspath(patch)],
         cwd=tree,
         capture_output=True,
         text=True,
     )
     return result.returncode == 0
+
+
+def patches_apply(tree, paths):
+    """Each patch in order on top of those before it, as the Dockerfile does.
+
+    Name -> True when it applies. The tree is left as it was: what was
+    applied is taken back off, last first.
+    """
+    applied, result = [], {}
+    for path in paths:
+        result[os.path.basename(path)] = git_apply(tree, path)
+        if result[os.path.basename(path)]:
+            applied.append(path)
+    for path in reversed(applied):
+        git_apply(tree, path, "-R")
+    return result
+
+
+def compare(what, before, now, new_words, gone_words, lines):
+    """Lines for a set of things Forge has (questions, kinds of cost)."""
+    if before is None or now is None:
+        lines.append(
+            f"- **{what}:** not checked -- Forge's file for them was not found "
+            f"in {'the release we play' if before is None else 'the new release'}. "
+            "Check by hand before moving."
+        )
+        return
+    added, gone = now - before, before - now
+    if added:
+        lines.append(f"- **{what}: {len(added)} new.** {new_words}")
+        lines += bullet_list(added)
+    else:
+        lines.append(f"- **{what}:** none new.")
+    if gone:
+        lines.append(f"- **{what} gone (or changed): {len(gone)}.** {gone_words}")
+        lines += bullet_list(gone)
 
 
 def bullet_list(items):
@@ -105,42 +165,72 @@ def bullet_list(items):
 
 def report(old, new, old_tag, new_tag, patches_dir):
     old_cards, new_cards = files_under(old, CARDS), files_under(new, CARDS)
-    added = [p for p in new_cards if p not in old_cards]
     changed = [p for p in new_cards if p in old_cards and new_cards[p] != old_cards[p]]
     old_editions, new_editions = files_under(old, EDITIONS), files_under(new, EDITIONS)
-    new_sets = sorted(set_code(new_editions[p], p) for p in new_editions if p not in old_editions)
+    old_codes = {set_code(old_editions[p], p) for p in old_editions}
+    new_codes = {set_code(new_editions[p], p) for p in new_editions}
+    new_sets, gone_sets = sorted(new_codes - old_codes), sorted(old_codes - new_codes)
+
+    # By name, not by file: a script moved to another file (as cards leave
+    # Forge's upcoming/ folder at release) is neither new nor gone.
+    # A script with no Name: line (a split card built from its faces' own
+    # scripts) is named "?" and left out.
+    old_names = {card_name(s) for s in old_cards.values()} - {"?"}
+    new_names = {card_name(s) for s in new_cards.values()} - {"?"}
+    added_cards, gone_cards = new_names - old_names, old_names - new_names
 
     old_variants = {card_name(s) for s in old_cards.values() if changes_by_printing(s)}
     new_variants = {card_name(s) for s in new_cards.values() if changes_by_printing(s)}
 
-    asked_before, asked_now = questions(old), questions(new)
-    new_questions = asked_now - asked_before
-    gone_questions = asked_before - asked_now
-
-    patches = sorted(p for p in os.listdir(patches_dir) if p.endswith(".patch"))
+    patches = sorted(
+        os.path.join(patches_dir, p) for p in os.listdir(patches_dir) if p.endswith(".patch")
+    )
 
     lines = [f"Forge **{new_tag}** is out. We play **{old_tag}**.", ""]
     lines.append("**What moving to it would mean for us**")
     lines.append("")
-    if new_questions:
-        lines.append(
-            f"- **New questions for players: {len(new_questions)}.** Each needs a page "
-            "(and a Mechanics Lab game) before we can move:"
-        )
-        lines += bullet_list(new_questions)
-    else:
-        lines.append("- **New questions for players:** none.")
-    if gone_questions:
-        lines.append(f"- **Questions Forge no longer asks (or asks differently): {len(gone_questions)}:**")
-        lines += bullet_list(gone_questions)
+    compare(
+        "New questions for players",
+        questions(old),
+        questions(new),
+        "Each needs a page (and a Mechanics Lab game) before we can move:",
+        "Forge no longer asks these, or asks them differently:",
+        lines,
+    )
+    compare(
+        "Kinds of cost to pay",
+        cost_kinds(old),
+        cost_kinds(new),
+        "Each is a payment players would have to be asked for before we can move:",
+        "Forge no longer has these, or calls them differently:",
+        lines,
+    )
     if patches:
-        words = [f"{p.split('-')[0]} {'applies cleanly' if patch_applies(new, os.path.join(patches_dir, p)) else '**no longer applies**'}" for p in patches]
-        lines.append(f"- **Our Forge patches:** {'; '.join(words)}.")
+        applies = patches_apply(new, patches)
+        words = [
+            f"{name.split('-')[0]} {'applies cleanly' if ok else '**no longer applies**'}"
+            for name, ok in applies.items()
+        ]
+        lines.append(f"- **Our Forge patches**, in order: {'; '.join(words)}.")
     lines.append(
-        f"- **New cards:** {len(added)}, in {len(new_sets)} new set{'' if len(new_sets) == 1 else 's'}"
+        f"- **New cards:** {len(added_cards)}, in {len(new_sets)} new set{'' if len(new_sets) == 1 else 's'}"
         + (f" ({', '.join(f'`{code}`' for code in new_sets[:LIST_AT_MOST])})" if new_sets else "")
         + f". {len(changed)} existing card scripts changed."
     )
+    if gone_sets:
+        lines.append(
+            f"- **Sets Forge removed or renamed: {len(gone_sets)}** "
+            f"({', '.join(f'`{code}`' for code in gone_sets[:LIST_AT_MOST])}). "
+            "A printing from one would need another set once we move."
+        )
+    if gone_cards:
+        lines.append(
+            f"- **Cards Forge removed or renamed: {len(gone_cards)}.** A deck holding one "
+            "would lose it when we move:"
+        )
+        lines += bullet_list(gone_cards)
+    else:
+        lines.append("- **Cards Forge removed or renamed:** none.")
     became = new_variants - old_variants
     stopped = old_variants - new_variants
     lines.append(
@@ -199,10 +289,19 @@ public abstract class PlayerController {
             write(tree, f"{CARDS}/g/godzilla.txt", "Name:Monster\nVariant:A:FlavorName:Godzilla\n")
             write(tree, f"{CARDS}/s/sly_spy.txt", "Name:Sly Spy\nVariant:B:PT:2/2\n")
             write(tree, f"{EDITIONS}/Alpha.txt", "[metadata]\nCode=LEA\n")
+        visitor = "public interface ICostVisitor<T> {\n    T visit(CostSacrifice cost);\n    T visit(CostDiscard cost);\n}\n"
+        write(old, COST_VISITOR, visitor)
+        write(new, COST_VISITOR, visitor.replace("}\n", "    T visit(CostSticker cost);\n}\n"))
+        write(old, f"{EDITIONS}/Beta.txt", "[metadata]\nCode=LEB\n")
         write(new, f"{CARDS}/n/new_card.txt", "Name:New Card\nManaCost:G\n")
         write(new, f"{CARDS}/r/ride.txt", "Name:Bumper Cars\nVariant:A:Lights:2 3\n")
         write(new, f"{CARDS}/b/bolt.txt", "Name:Lightning Bolt\nManaCost:R\nOracle:changed\n")
         write(new, f"{EDITIONS}/Spider.txt", "[metadata]\nCode=SPM\n")
+        # One card renamed, and one only moved to another file (not gone).
+        write(old, f"{CARDS}/o/old_name.txt", "Name:Old Name\nManaCost:U\n")
+        write(new, f"{CARDS}/n/new_name.txt", "Name:New Name\nManaCost:U\n")
+        write(old, f"{CARDS}/m/moved.txt", "Name:Moved Card\nManaCost:B\n")
+        write(new, f"{CARDS}/m/moved_card.txt", "Name:Moved Card\nManaCost:B\n")
         write(patches, "0001-still-fine.patch", """diff --git a/forge-game/GameAction.java b/forge-game/GameAction.java
 --- a/forge-game/GameAction.java
 +++ b/forge-game/GameAction.java
@@ -221,14 +320,35 @@ public abstract class PlayerController {
 +line TWO
  line three
 """)
+        # Applies only on top of 0001, as the Dockerfile applies them.
+        write(patches, "0003-needs-0001.patch", """diff --git a/forge-game/GameAction.java b/forge-game/GameAction.java
+--- a/forge-game/GameAction.java
++++ b/forge-game/GameAction.java
+@@ -1,3 +1,3 @@
+-line ONE
++line Uno
+ line 2
+ line three
+""")
         text = report(old, new, "forge-2.0.15", "forge-2.0.16", patches)
+        with open(os.path.join(new, "forge-game/GameAction.java"), encoding="utf-8") as f:
+            restored = f.read() == "line one\nline 2\nline three\n"
+        os.remove(os.path.join(new, CONTROLLER))
+        moved = report(old, new, "forge-2.0.15", "forge-2.0.16", patches)
 
     checks = [
-        ("finds the new question", "New questions for players: 1" in text and "chooseSticker(Player, List<String>)" in text),
+        ("finds the new question", "New questions for players: 1 new." in text and "chooseSticker(Player, List<String>)" in text),
+        ("finds the new kind of cost", "Kinds of cost to pay: 1 new." in text and "  - CostSticker" in text),
+        ("a moved Forge file is said, not read as every question gone", "New questions for players:** not checked" in moved and "confirmAction" not in moved),
         ("ignores a commented-out method", "commentedOut" not in text),
         ("a patch that still applies", "0001 applies cleanly" in text),
         ("a patch that no longer applies", "0002 **no longer applies**" in text),
-        ("the new cards and set", "New cards:** 2, in 1 new set (`SPM`)" in text),
+        ("a patch on top of the one before it", "0003 applies cleanly" in text),
+        ("the patches are taken back off", restored),
+        ("a set gone", "Sets Forge removed or renamed: 1** (`LEB`)" in text),
+        ("the new cards (by name) and set", "New cards:** 3, in 1 new set (`SPM`)" in text),
+        ("a renamed card is gone", "removed or renamed: 1.**" in text and "  - Old Name" in text),
+        ("a card only moved to another file is not", "  - Moved Card" not in text),
         ("the changed card", "1 existing card scripts changed" in text),
         ("the new printing-dependent card", "1 → 2" in text and "  - Bumper Cars" in text),
         ("a name-only variant is not one", "Monster" not in text),

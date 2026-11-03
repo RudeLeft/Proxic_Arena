@@ -50,6 +50,25 @@ In:
     applies to the new tag (`git apply --check`).
   - **Cards and sets:** card scripts added and changed under
     `res/cardsfolder`, edition files added under `res/editions`.
+  - **Added 2026-11-02, after running the report on the real
+    forge-2.0.14 → forge-2.0.15 move:**
+    - *Kinds of cost:* Forge's `ICostVisitor`, the record's "C" rows
+      (40 at 2.0.15), new and gone, as for questions.
+    - *Cards gone:* card names in the release we play that the new one
+      no longer has, removed or renamed (2.0.15 renamed "Cybernetics
+      Specialist"). A deck holding one would lose it when the pin moves.
+    - *Cards and sets by name and code, not by file:* cards leaving
+      Forge's `upcoming/` folder at release are not new (692 by file,
+      394 by name); sets removed or renamed are listed (2.0.15 renamed
+      Conflux `CON` to `CFX`).
+    - *Patches in order,* each on top of the ones before it, as the
+      Dockerfile applies them, and taken back off afterwards.
+    - *A Forge file moved:* when `PlayerController` or `ICostVisitor` is
+      not where the report reads it, the report says "not checked --
+      check by hand" instead of listing every question as gone.
+  - **The result in one line** (added 2026-11-02) at the top of the
+    run's page: "No new Forge release. We play forge-2.0.15.", already
+    reported, or the issue opened.
   - **Cards whose printing changes what they do:** card scripts with
     `Variant:` lines that change more than the card's shown name, at
     each tag, and which ones are new. This is a text count, close to
