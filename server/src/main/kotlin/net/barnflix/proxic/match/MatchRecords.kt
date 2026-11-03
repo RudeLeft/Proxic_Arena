@@ -1,6 +1,7 @@
 package net.barnflix.proxic.match
 
 import net.barnflix.proxic.deck.DeckEntry
+import net.barnflix.proxic.deck.printingKey
 import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
@@ -288,7 +289,10 @@ private fun artOf(
                 }
             }
         }
-    } + faceArtOf(connection, deckId) + tokenArtOf(connection, deckId) + cropArtOf(connection, deckId)
+    } + faceArtOf(connection, deckId) + tokenArtOf(connection, deckId) +
+        cropArtOf(connection, deckId).let {
+            it + printingCropsOf(connection, deckId, it)
+        }
 
 /**
  * Spec 0051 — each picture's art crop, by the picture's name (a front
@@ -304,6 +308,41 @@ private fun cropArtOf(
         statement.executeQuery().use { rows ->
             buildMap {
                 while (rows.next()) put(MatchArt.CROP + rows.getString(1), rows.getString(2))
+            }
+        }
+    }
+
+/**
+ * Spec 0053 — a printing's own art crop, filed by the printing Forge built,
+ * as [artOf] files its picture, so each Mountain's art window matches its
+ * picture. The importer keeps it by the line's own printing
+ * (`mountain [dd1-59]`); this finds the line and files it under
+ * `crop:printing:DD1/59|mountain`.
+ */
+private fun printingCropsOf(
+    connection: Connection,
+    deckId: UUID,
+    crops: Map<String, String>,
+): Map<String, String> =
+    connection.prepareStatement(
+        """
+        SELECT card_name, set_code, collector_number, resolved_set, resolved_number
+          FROM deck_entry
+         WHERE deck_id = ? AND set_code IS NOT NULL AND collector_number IS NOT NULL
+           AND resolved_set IS NOT NULL AND resolved_number IS NOT NULL
+        """.trimIndent(),
+    ).use { statement ->
+        statement.setObject(1, deckId)
+        statement.executeQuery().use { rows ->
+            buildMap {
+                while (rows.next()) {
+                    val front = rows.getString(1).substringBefore(" // ").trim()
+                    val crop = crops[MatchArt.CROP + printingKey(front, rows.getString(2), rows.getString(3))]
+                    if (crop != null) {
+                        val printing = "${rows.getString(4)}/${rows.getString(5)}"
+                        put(MatchArt.cropOfPrinting(printing, front), crop)
+                    }
+                }
             }
         }
     }

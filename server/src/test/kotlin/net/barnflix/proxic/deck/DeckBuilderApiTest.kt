@@ -417,4 +417,71 @@ class DeckBuilderApiTest {
             val bad = client.get("/api/pictures/..%2F..%2Fsecret") { header(HttpHeaders.Cookie, sam.cookies) }
             assertEquals(HttpStatusCode.NotFound, bad.status)
         }
+
+    /**
+     * Spec 0053, F-0053-A and F-0053-C: a package may bring a picture of one
+     * printing (`Mountain [DD1-60]`); each deck line wears its own printing's
+     * picture, or the name's when it brought none, and no printing picture is
+     * mistaken for a back face. Its art crop is kept by the printing too.
+     */
+    @Test
+    fun `each printing of a card wears its own picture`() =
+        testApplication {
+            application { module(config()) }
+            val token = linkedToken(signIn("Pat"))
+            val name = jpegPicture(0x8a3b2a)
+            val sixty = jpegPicture(0x2a8a3b)
+            val sixtyTwo = jpegPicture(0x3b2a8a)
+            val text =
+                "15 Mountain [DD1:59]\n15 Mountain [DD1:60]\n15 Mountain [DD1:61]\n15 Mountain [DD1:62]\n"
+            val entries =
+                mapOf(
+                    "Printings.txt" to text.toByteArray(),
+                    "real_cards/Mountain [DD1].jpg" to name,
+                    "real_cards/Mountain [DD1-60].jpg" to sixty,
+                    "real_cards/Mountain [DD1-62].jpg" to sixtyTwo,
+                    "art_crops/Mountain [DD1].jpg" to jpegPicture(0x335577),
+                    "art_crops/Mountain [DD1-60].jpg" to jpegPicture(0x553377),
+                )
+
+            val sent = send(token, zip(entries))
+            assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
+            val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
+            assertEquals(0, accepted.entriesWithoutArt)
+            val page = client.get("/api/decks/${accepted.deckId}") { header(HttpHeaders.Cookie, signIn("Pat").cookies) }
+            val detail = json.decodeFromString(DeckDetail.serializer(), page.bodyAsText())
+            val worn = detail.entries.associate { it.collectorNumber to it.artUrl?.substringAfterLast('/') }
+            assertEquals(
+                mapOf<String?, String?>(
+                    "59" to sha256(name),
+                    "60" to sha256(sixty),
+                    "61" to sha256(name),
+                    "62" to sha256(sixtyTwo),
+                ),
+                worn,
+                "its own printing's picture, else the name's",
+            )
+
+            Database.connect(config())!!.use { database ->
+                database.dataSource().connection.use { connection ->
+                    val faces =
+                        connection.createStatement().executeQuery("SELECT face_name FROM deck_face_art").use {
+                            buildList { while (it.next()) add(it.getString(1)) }
+                        }
+                    assertEquals(emptyList<String>(), faces, "a printing picture is not a back face")
+                    val crops =
+                        connection.createStatement().executeQuery("SELECT face_name FROM deck_crop_art").use {
+                            buildSet { while (it.next()) add(it.getString(1)) }
+                        }
+                    assertEquals(setOf("mountain", "mountain [dd1-60]"), crops)
+                    // Each line keeps the printing it asked for, so in a game
+                    // each Mountain is built from its own printing.
+                    val played =
+                        connection.createStatement()
+                            .executeQuery("SELECT collector_number, resolved_number FROM deck_entry")
+                            .use { buildMap { while (it.next()) put(it.getString(1), it.getString(2)) } }
+                    assertEquals(mapOf("59" to "59", "60" to "60", "61" to "61", "62" to "62"), played)
+                }
+            }
+        }
 }

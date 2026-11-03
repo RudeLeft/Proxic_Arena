@@ -143,7 +143,8 @@ if (members.length !== 1) {
 // sees different cards rather than identical grey rectangles.
 const extra = process.argv.slice(4);
 const withCrops = extra.includes("--crops");
-const faces = extra.filter((arg) => arg !== "--crops");
+const withPrintings = extra.includes("--printings");
+const faces = extra.filter((arg) => arg !== "--crops" && arg !== "--printings");
 const CROP_JPEG =
   "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";
 
@@ -177,6 +178,28 @@ const artwork = cardNames.map((name) => {
 });
 
 members.push(...artwork);
+
+// Spec 0053 -- with --printings, a picture of its own for every printing of a
+// name after the deck's first, as the Deck Builder sends them:
+// real_cards/<Name> [SET-NUM].png ("4 Mountain [DD1:60]" -> "Mountain
+// [DD1-60].png"). The first printing keeps the name's picture above. Each
+// gets a colour of its own, so a hand of several printings shows several.
+if (withPrintings) {
+  const seen = new Set();
+  for (const line of String(members[0].data).split(/\r?\n/)) {
+    const match = line.trim().match(/^\d+\s+(.+?)\s+\[([^:\]]+):([^\]]+)\]$/);
+    if (!match) continue;
+    const [, name, set, number] = match;
+    if (!seen.has(name)) {
+      seen.add(name);
+      continue;
+    }
+    let hash = 7;
+    for (const ch of `${name}|${set}|${number}`) hash = (hash * 131 + ch.codePointAt(0)) >>> 0;
+    const rgb = [40 + (hash % 200), 40 + ((hash >>> 8) % 200), 40 + ((hash >>> 16) % 200)];
+    members.push({ name: `real_cards/${name} [${set}-${number}].png`, data: png(60, 84, rgb) });
+  }
+}
 
 // Spec 0051 -- with --crops, an art crop for every picture, as the Deck
 // Builder sends them: art_crops/<Name> [CI].jpg. One small checkered JPEG

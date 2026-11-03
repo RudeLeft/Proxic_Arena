@@ -14,6 +14,7 @@ import kotlinx.serialization.json.put
 import net.barnflix.proxic.ServerConfig
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -49,7 +50,17 @@ data class CardResolution(
      * lights), as Forge reads it; such a card must come in a printing Forge has.
      */
     val printingMatters: Boolean = false,
+    /**
+     * Spec 0053 — the printing this answer was asked for: a deck line's own
+     * set and collector number. Two lines of one card in two printings are
+     * two questions, and each line keeps its own answer.
+     */
+    val requestedSet: String? = null,
+    val requestedNumber: String? = null,
 ) {
+    /** Spec 0053 — the key the asking deck line finds this answer by. */
+    val key: String get() = resolutionKey(name, requestedSet, requestedNumber)
+
     /**
      * Spec 0024 — a deck may hold this card as the entry asks. Forge knows the
      * printing, or knows the card and the printing does not change it: the
@@ -62,6 +73,33 @@ data class CardResolution(
 
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
 }
+
+/**
+ * Spec 0053 — one card in one printing: the name and the line's own set and
+ * collector number, lowercase. Four Mountain printings are four keys.
+ */
+internal fun resolutionKey(
+    name: String,
+    set: String?,
+    number: String?,
+): String = listOf(name, set.orEmpty(), number.orEmpty()).joinToString("|").lowercase(Locale.ROOT)
+
+/** Spec 0053 — the key this line's answer is filed under. */
+internal val DeckEntry.resolutionKey: String get() = resolutionKey(name, setCode, collectorNumber)
+
+/**
+ * Spec 0053 — each answer labelled with the printing it was asked for. The
+ * worker answers the cards in the order they were asked, one each.
+ */
+private fun List<CardResolution>.asked(entries: List<DeckEntry>): List<CardResolution> =
+    mapIndexed { index, answer ->
+        val entry = entries.getOrNull(index)
+        if (entry == null || !entry.name.equals(answer.name, ignoreCase = true)) {
+            answer
+        } else {
+            answer.copy(requestedSet = entry.setCode, requestedNumber = entry.collectorNumber)
+        }
+    }
 
 /** What Forge's own deck contains (PHASE_02 §2.92–§2.94). */
 data class ForgeDeckBuild(
@@ -77,7 +115,9 @@ class CardResolver(private val config: ServerConfig) {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Resolve every distinct entry in a deck.
+     * Resolve every distinct entry in a deck: each card in each printing the
+     * deck holds it in (spec 0053), so a line keeps the printing it asked
+     * for. Find a line's answer by [DeckEntry.resolutionKey].
      *
      * One worker per call. Loading Forge costs ~2.8 s and ~611 MB,
      * so the whole deck is asked in ONE request rather than one
@@ -91,19 +131,19 @@ class CardResolver(private val config: ServerConfig) {
         entries: List<DeckEntry>,
         timeoutSeconds: Long = 120,
     ): List<CardResolution> {
-        val distinct = entries.distinctBy { it.name.lowercase() }
+        val distinct = entries.distinctBy { it.resolutionKey }
         if (distinct.isEmpty()) return emptyList()
 
         val jar = config.forgeWorkerJar
         if (jar.isNullOrBlank() || !File(jar).isFile) {
-            return unavailable(distinct, "the card checker is not configured")
+            return unavailable(distinct, "the card checker is not configured").asked(distinct)
         }
 
         return runCatching { ask(distinct, File(jar), timeoutSeconds) }
             .getOrElse { failure ->
                 log.warn("card resolution failed: {}", failure.javaClass.simpleName)
                 unavailable(distinct, "the card checker could not be reached")
-            }
+            }.asked(distinct)
     }
 
     private fun unavailable(

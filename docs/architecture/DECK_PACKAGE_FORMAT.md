@@ -190,7 +190,8 @@ real_cards/<front face name> [<SET>].png
 ```
 
 - **One image per distinct card NAME**, not per printing and not per
-  copy. 11 images for a 65-card deck.
+  copy. 11 images for a 65-card deck. Since spec 0053 a package may
+  also bring a picture of one PRINTING (§5.3).
 - **Front faces only** in packages exported before 2026-10-20. A
   transforming card's back face is being added (§5.0).
 - The set code appears in the filename without the collector number,
@@ -238,6 +239,27 @@ deck line:  4 Reckless Stormseeker // Storm-Charged Slasher [MID:157]
 image:      real_cards/Reckless Stormseeker [MID].png
 key:        front face name, lower-cased
 ```
+
+### 5.3 A picture of one printing (spec 0053, Arena 1.32.0)
+
+```text
+real_cards/<front face name> [<SET>-<COLLECTOR>].png|.jpg
+art_crops/<front face name> [<SET>-<COLLECTOR>].jpg
+e.g. real_cards/Mountain [DD1-60].jpg  for  6 Mountain [DD1:60]
+```
+
+- For a card the deck holds in more than one printing. The set code is
+  everything before the first `-` (set codes never hold one), the
+  collector number the rest.
+- A deck line wears its own printing's picture (and crop) when the
+  package brought one, else the name's (§5.2). Deck Builder sends the
+  deck's first printing of a name as the name's picture and each other
+  printing this way, only to an Arena whose deck rules say
+  `format.pictures.printings: true`.
+- Arena also asks Forge about each printing separately, so each line
+  keeps the printing Forge plays for it (`resolved_set`,
+  `resolved_number`), and a game shows each card's own picture.
+- Back faces and tokens stay one picture per name.
 
 ## 6. Validation Arena applies
 

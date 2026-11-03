@@ -168,6 +168,10 @@ class DeckRules(
                 putJsonObject("pictures") {
                     put("formats", buildJsonArray { PackageLimits.PICTURE_FORMATS.forEach { add(it) } })
                     put("artCrops", true)
+                    // Spec 0053: a picture (and crop) of one printing,
+                    // `<Name> [SET-NUM]`, for a card the deck holds in more
+                    // than one printing.
+                    put("printings", true)
                 }
                 putJsonObject("sideDecks") {
                     OpenFormat.SIDE_DECKS.toSortedMap().forEach { (section, least) ->

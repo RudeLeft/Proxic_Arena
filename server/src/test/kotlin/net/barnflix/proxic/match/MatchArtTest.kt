@@ -630,4 +630,45 @@ class MatchArtTest {
         val stack = art.annotate(state, bob)["stack"]!!.jsonArray
         assertEquals(boltCrop, stack[0].jsonObject["crop"]?.jsonPrimitive?.content)
     }
+
+    /**
+     * Spec 0053, F-0053-B (unit half) -- each printing wears its own picture
+     * and its own art crop; a printing the deck brought no crop for wears the
+     * name's crop, and a card on the stack (no printing) the name's.
+     */
+    @Test
+    fun `each printing wears its own picture and art crop`() {
+        val m59 = "1".repeat(64)
+        val m60 = "2".repeat(64)
+        val nameCrop = "3".repeat(64)
+        val crop60 = "4".repeat(64)
+        val art =
+            MatchArt(
+                mapOf(
+                    alice to
+                        mapOf(
+                            "Mountain" to m59,
+                            "${MatchArt.PRINTING}EVG/59|Mountain" to m59,
+                            "${MatchArt.PRINTING}EVG/60|Mountain" to m60,
+                            "${MatchArt.CROP}mountain" to nameCrop,
+                            MatchArt.cropOfPrinting("EVG/60", "Mountain") to crop60,
+                        ),
+                ),
+            )
+
+        val seen =
+            art.annotate(
+                snapshot(
+                    printed("card:1", alice, "Mountain", "EVG/59"),
+                    printed("card:2", alice, "Mountain", "EVG/60"),
+                ),
+                alice,
+            )
+
+        assertEquals(m59, artOf(seen, 0))
+        assertEquals(nameCrop, cropOf(seen, 0), "no crop of its own: the name's")
+        assertEquals(m60, artOf(seen, 1))
+        assertEquals(crop60, cropOf(seen, 1), "its own printing's crop")
+        assertTrue(art.mayFetch(alice, crop60))
+    }
 }

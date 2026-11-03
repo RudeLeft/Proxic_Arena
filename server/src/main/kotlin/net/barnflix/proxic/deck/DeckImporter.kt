@@ -194,12 +194,14 @@ class DeckImporter(
         // legality since Phase 8 Amendment 3: which cards are Contraptions
         // or Attractions -- and so outside the 60–100 -- is Forge's reading
         // of the card.
-        val resolutions = resolver.resolve(deck.entries).associateBy { it.name.lowercase() }
+        // Spec 0053 — by card AND printing: four Mountain printings are four
+        // answers, so each line keeps the printing Forge plays for it.
+        val resolutions = resolver.resolve(deck.entries).associateBy { it.key }
         // Spec 0024: a card Forge knows in another printing is kept in the
         // player's, unless its printing changes what it does.
         val unresolved =
             deck.entries.filter {
-                resolutions[it.name.lowercase()]?.playable != true
+                resolutions[it.resolutionKey]?.playable != true
             }
         val violations = legalityByForge(deck, resolutions.values)
         if (violations.isNotEmpty()) {
@@ -215,7 +217,7 @@ class DeckImporter(
             return ImportResult.Rejected(
                 "CARDS_NOT_RESOLVED",
                 "Some cards in this deck are not supported yet.",
-                unresolved.map { entry -> notPlayable(entry, resolutions[entry.name.lowercase()]) },
+                unresolved.map { entry -> notPlayable(entry, resolutions[entry.resolutionKey]) },
             )
         }
 
@@ -305,7 +307,7 @@ class DeckImporter(
                 }
                 when (val stored = artStore.store(extracted, member)) {
                     is ArtResult.Rejected -> problems += "${stored.code}: ${stored.detail}"
-                    is ArtResult.Ok -> into.mapFor(member)[frontNameOf(member)] = stored.art
+                    is ArtResult.Ok -> into.mapFor(member)[pictureKeyOf(member)] = stored.art
                 }
                 extracted.delete()
             }
@@ -374,7 +376,7 @@ class DeckImporter(
         val held = ownedPictures(dataSource, ownerUserId, named.values.toSet())
         val problems = mutableListOf<String>()
         for ((member, sha) in named) {
-            val face = frontNameOf(member)
+            val face = pictureKeyOf(member)
             val map = into.mapFor(member)
             // A picture sent in full wins over one named.
             if (face in map) continue
@@ -445,7 +447,7 @@ class DeckImporter(
                 }
 
                 for (entry in deck.entries) {
-                    val resolution = resolutions[entry.name.lowercase()]
+                    val resolution = resolutions[entry.resolutionKey]
                     connection.prepareStatement(
                         """
                         INSERT INTO deck_entry
@@ -466,7 +468,7 @@ class DeckImporter(
                         statement.setString(8, resolution?.status?.name ?: "UNAVAILABLE")
                         statement.setString(9, resolution?.actualSet)
                         statement.setString(10, resolution?.actualNumber)
-                        statement.setString(11, art[entry.frontFaceName.lowercase()]?.sha256)
+                        statement.setString(11, pictureFor(art, entry)?.sha256)
                         statement.setString(12, resolution?.category)
                         statement.setString(13, resolution?.backFace)
                         statement.executeUpdate()
@@ -474,9 +476,10 @@ class DeckImporter(
                 }
 
                 // §7.59 — a picture that is no entry's front face: the back
-                // of a card that turns over, kept by that face's name.
+                // of a card that turns over, kept by that face's name. Not
+                // a printing's own picture (spec 0053): its line has it.
                 val fronts = (deck.entries + deck.tokens).map { it.frontFaceName.lowercase() }.toSet()
-                for ((face, stored) in art.filterKeys { it !in fronts }) {
+                for ((face, stored) in art.filterKeys { it !in fronts && !isPrintingKey(it) }) {
                     connection.prepareStatement(
                         """
                         INSERT INTO deck_face_art (deck_id, face_name, art_sha256)
@@ -522,7 +525,7 @@ class DeckImporter(
             totalCards = deck.totalCards,
             distinctCards = deck.entries.size,
             artStored = art.size,
-            entriesWithoutArt = deck.entries.count { art[it.frontFaceName.lowercase()] == null },
+            entriesWithoutArt = deck.entries.count { pictureFor(art, it) == null },
             tokenPictures = deck.tokens.count { art[it.frontFaceName.lowercase()] != null },
         )
     }
@@ -597,7 +600,7 @@ private fun insertTokens(
 private val SHA256 = Regex("^[0-9a-f]{64}$")
 
 /** A picture's extension, as frontNameOf drops it. */
-private val PICTURE_EXTENSION = Regex("\\.(png|jpe?g)$", RegexOption.IGNORE_CASE)
+internal val PICTURE_EXTENSION = Regex("\\.(png|jpe?g)$", RegexOption.IGNORE_CASE)
 
 /**
  * Spec 0022 -- `{"real_cards/Pongify [PLC].png": "<sha-256>", ...}`, or null

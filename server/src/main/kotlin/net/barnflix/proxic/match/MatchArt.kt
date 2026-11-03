@@ -173,17 +173,22 @@ class MatchArt(
         val art = bySeat[owner] ?: return entry
         val asset =
             printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()] ?: return entry
-        return wearing(entry, asset, cropIn(art, name), allowed)
+        return wearing(entry, asset, cropIn(art, name, printing), allowed)
     }
 
     /**
      * Spec 0051 -- the art crop filed under [name] (the face that is up, so
      * a card turned over never borrows its front's), or its front face's.
+     * Spec 0053 -- first its own [printing]'s, as the picture is.
      */
     private fun cropIn(
         art: Map<String, String>,
         name: String,
-    ): String? = art[CROP + name.lowercase()] ?: art[CROP + frontFaceOf(name).lowercase()]
+        printing: String?,
+    ): String? =
+        printing?.let { art[cropOfPrinting(it, frontFaceOf(name))] }
+            ?: art[CROP + name.lowercase()]
+            ?: art[CROP + frontFaceOf(name).lowercase()]
 
     /**
      * [entry] with its picture and, when its deck brought one, its art crop
@@ -251,7 +256,7 @@ class MatchArt(
         val owner = seatOf(entry, "owner") ?: seatOf(entry, "controller") ?: return entry
         val art = bySeat[owner] ?: return entry
         val asset = art[name] ?: art[FACE + name.lowercase()] ?: return entry
-        return wearing(entry, asset, cropIn(art, name), allowed)
+        return wearing(entry, asset, cropIn(art, name, null), allowed)
     }
 
     /**
@@ -292,6 +297,15 @@ class MatchArt(
         private const val TOKEN_SUFFIX = " Token"
 
         private fun frontFaceOf(name: String): String = name.substringBefore(" // ").trim()
+
+        /**
+         * Spec 0053 -- the key a printing's own art crop is filed under:
+         * the printing as a snapshot names it ("DD1/59") and the front face.
+         */
+        fun cropOfPrinting(
+            printing: String,
+            front: String,
+        ): String = CROP + PRINTING + printing + "|" + front.lowercase()
 
         /** A seat number the worker put on [entry] under [key]; 0 (nobody's) counts as none. */
         private fun seatOf(

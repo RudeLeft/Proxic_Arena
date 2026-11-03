@@ -431,6 +431,11 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/crop-deck.zip" protocol/fixtures/crop-deck --crops
 
+      # And printings (spec 0053): each printing wears its own picture.
+      - name: Build the printings deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/printings-deck.zip" protocol/fixtures/printings-deck --printings
+
       # And player state (P6-AO): poison, energy, the monarch.
       - name: Build the player-state deck package
         run: |
