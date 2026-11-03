@@ -184,6 +184,8 @@ public final class GameHost {
         Causes found = new Causes(created);
         this.causes = found;
         created.subscribeToEvents(found.new Listener());
+        // Phase 9 Amendment 12 -- who did it, and what they did.
+        created.subscribeToEvents(found.actions().new Listener());
         // §7.61 B13 -- damage as Forge dealt it, for the board's impact
         // and numbers (PHASE 7 AMENDMENT 4).
         created.subscribeToEvents(new DamageLog());

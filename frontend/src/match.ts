@@ -319,6 +319,14 @@ export interface SnapshotReveal {
   /** "Goblin Ringleader revealed:" */
   title: string;
   cards: SnapshotCard[];
+  /** Phase 9 Amendment 12 -- which of a reveal and a report came last. */
+  stamp?: number;
+  /** Amendment 12 -- a report: the seat that acted. */
+  by?: number;
+  /** Amendment 12 -- the card that did it ("Demonic Tutor"). */
+  source?: string;
+  /** Amendment 12 -- the whole action in this reader's words. */
+  said?: string;
 }
 
 /** One object on the stack — §7.61 B2, B3. */
@@ -411,6 +419,8 @@ export interface Snapshot {
   damage: DamageState | null;
   /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
   reveal?: SnapshotReveal | null;
+  /** Phase 9 Amendment 12 -- who did what, in this reader's words. */
+  action?: SnapshotReveal | null;
   /**
    * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
    * face down. `seat` is then the side it is drawn from, not the viewer's.
@@ -723,6 +733,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),
     reveal: asReveal(row["reveal"]),
+    action: asAction(row["action"]),
   };
 }
 
@@ -732,7 +743,30 @@ function asReveal(value: unknown): SnapshotReveal | null {
   const key = asString(row["key"]);
   const cards = asCards(row["cards"]);
   if (!key || cards.length === 0) return null;
-  return { key, title: asString(row["title"]) ?? "Revealed:", cards };
+  return {
+    key,
+    title: asString(row["title"]) ?? "Revealed:",
+    cards,
+    stamp: asNumber(row["stamp"]) ?? 0,
+  };
+}
+
+/** Phase 9 Amendment 12 -- a report: who acted, the sentence, the cards (a look may have none). */
+function asAction(value: unknown): SnapshotReveal | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const key = asString(row["key"]);
+  const said = asString(row["said"]);
+  if (!key || !said) return null;
+  return {
+    key,
+    title: said,
+    said,
+    cards: asCards(row["cards"]),
+    stamp: asNumber(row["stamp"]) ?? 0,
+    by: asNumber(row["by"]) ?? 0,
+    source: asString(row["source"]) ?? "",
+  };
 }
 
 function asOrigins(value: unknown): CounterOrigin[] | undefined {

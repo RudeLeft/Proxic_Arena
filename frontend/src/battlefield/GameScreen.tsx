@@ -913,8 +913,33 @@ export function GameScreen({
   const trayShowsReveal =
     !!decision &&
     (trayOf(decision) === "split" || trayOf(decision) === "piles" || trayOf(decision) === "hidden");
+  // Phase 9 Amendment 12 -- a report of who did what, or a plain reveal:
+  // whichever came last.
+  const latestTray =
+    board?.action && (!board.reveal || (board.action.stamp ?? 0) >= (board.reveal.stamp ?? 0))
+      ? board.action
+      : (board?.reveal ?? null);
   const reveal =
-    board?.reveal && board.reveal.key !== closedReveal && !trayShowsReveal ? board.reveal : null;
+    latestTray && latestTray.key !== closedReveal && !trayShowsReveal ? latestTray : null;
+  const actingSeat = reveal?.by ?? null;
+  const actingUser = match.participants.find((p) => p.seatNumber === actingSeat)?.userId ?? null;
+  const acting = actingSeat
+    ? {
+        name:
+          actingSeat === board?.seat
+            ? "You"
+            : (board?.players.find((p) => p.seat === actingSeat)?.name ?? "A player"),
+        face: (
+          <span className="gs-reveal-face">
+            <Avatar
+              avatar={actingUser ? avatarOf(lobby, actingUser) : null}
+              size={44}
+              rank={actingUser ? rankOf(lobby, actingUser) : undefined}
+            />
+          </span>
+        ),
+      }
+    : null;
 
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
   // trigger's target for many copies, different triggers to order. The
@@ -1174,6 +1199,7 @@ export function GameScreen({
                 board={board}
                 question={question}
                 aim={aimAt}
+                actingSeat={actingSeat}
                 mySeat={board.seat}
                 asking={game.asking}
                 busy={busy}
@@ -1264,6 +1290,7 @@ export function GameScreen({
                   {reveal && (
                     <RevealTray
                       reveal={reveal}
+                      who={acting}
                       geometry={geometry}
                       atTop={windowed}
                       artUrl={artUrl}
@@ -2048,6 +2075,7 @@ function Rail({
   board,
   question,
   aim = null,
+  actingSeat = null,
   mySeat,
   asking,
   busy,
@@ -2067,6 +2095,8 @@ function Rail({
   question: Question | null;
   /** W-14 -- what the selected creatures can be pointed at. */
   aim?: ReadonlySet<string> | null;
+  /** Amendment 12 -- the seat whose action the open tray reports: it glows. */
+  actingSeat?: number | null;
   mySeat: number;
   /** Spec 0002 — who the server says is being asked; null before it says. */
   asking: { seat: number | null } | null;
@@ -2113,7 +2143,7 @@ function Rail({
           player={them}
           board={board}
           mine={false}
-          deciding={waiting?.seat === them.seat}
+          deciding={waiting?.seat === them.seat || actingSeat === them.seat}
           question={question}
           aim={aim}
           busy={busy}
@@ -2301,6 +2331,7 @@ function Rail({
           player={me}
           board={board}
           mine
+          deciding={actingSeat === me.seat}
           question={question}
           busy={busy}
           onPick={onPick}
@@ -3232,8 +3263,12 @@ function useGameMessages(board: Snapshot | null): Notice[] {
     // Spec 0045 -- a reveal's line ("Looking at your library: A, B") is the
     // reveal tray's cards already.
     const inTray = board.reveal ? `: ${board.reveal.cards.map((c) => c.name).join(", ")}` : null;
+    // Phase 9 Amendment 12 -- a report says who did what; Forge's own
+    // "Looking at ..." line beside it said it worse (and sometimes wrong).
+    const reported = !!board.action;
     const added = fresh
       .filter((text) => !(inTray && text.endsWith(inTray)))
+      .filter((text) => !(reported && text.startsWith("Looking at ")))
       .map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
     setShown((list) => [...list, ...added].slice(-4));
   }, [board]);

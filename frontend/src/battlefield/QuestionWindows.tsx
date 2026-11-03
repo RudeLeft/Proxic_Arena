@@ -188,6 +188,10 @@ export function BigCard({
   small?: boolean;
 }) {
   const cls = `gs-win-bigcard${small ? " gs-win-bigcard-small" : ""}`;
+  // Amendment 12 -- a card this player may not know: its back, nothing more.
+  if (card.faceDown && !card.known) {
+    return <span className={`${cls} gs-win-bigcard-back`} aria-label="Face-down card" />;
+  }
   if (card.art) {
     return (
       <SharpCard className={cls} low={artUrl(card.art)} high={closeUpOf(artUrl(card.art))} alt="" />

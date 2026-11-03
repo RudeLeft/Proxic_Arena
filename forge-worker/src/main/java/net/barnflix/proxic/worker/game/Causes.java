@@ -62,8 +62,22 @@ final class Causes {
 
     private final Game game;
 
+    /** Phase 9 Amendment 12 -- who did what, with this reveal's numbering. */
+    private final ActionReports actions;
+
     Causes(Game game) {
         this.game = game;
+        this.actions = new ActionReports(game, revealKeys);
+    }
+
+    ActionReports actions() {
+        return actions;
+    }
+
+    /** Forge showed this seat this card in its latest reveal. */
+    boolean revealedTo(int seat, int cardId) {
+        Reveal reveal = reveals.get(seat);
+        return reveal != null && reveal.cards.contains(cardId);
     }
 
     /** Forge's events, as it fires them (on the game thread). */
@@ -293,6 +307,8 @@ final class Causes {
         }
         JsonObject out = new JsonObject();
         out.addProperty("key", "reveal:" + reveal.key);
+        // Amendment 12 -- the newer of a reveal and a report is the one shown.
+        out.addProperty("stamp", reveal.key);
         out.addProperty("title", reveal.title);
         JsonArray cards = new JsonArray();
         int n = 0;

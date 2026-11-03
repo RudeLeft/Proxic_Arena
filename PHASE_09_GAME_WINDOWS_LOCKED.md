@@ -606,3 +606,46 @@ https://claude.ai/artifact/CWpWdsm4GHvXwESVPPi6Xn (the safety)).**
   damage window unchanged); screenshots of a real game, with an Elspeth
   added for the picture, showing the selection, the locked button, and
   the attack line after pointing.
+
+**Amendment 12 (2026-11-03, W-22 follow-up decided and built -- who did it; canvas
+https://claude.ai/artifact/G4xmYLxuUdTsUviDaSAUCe).**
+
+- *Today (16 cards played in real games by the test harness, recording
+  every message each seat was sent):* nothing names the player who acted.
+  Tray titles name only the card ("Goblin Matron revealed:"); most private
+  actions tell the other player nothing (Ponder, Brainstorm, Impulse, Opt,
+  Consider, Demonic Tutor, Rampant Growth, Gitaxian Probe, Mind Rot,
+  Thought Scour); some say the wrong thing (Goblin Matron: "Looking at
+  Pat's hand: Goblin Matron"; Thoughtseize to the target: "Looking at your
+  hand: Savannah Lions").
+- *Decided (owner: option A, the tray says it; wording approved; both
+  players see it):* when a spell or ability searches a library, looks at
+  or reveals its top cards, reorders it, scries, surveils, puts cards from
+  a hand on top, looks at a hand, makes a player discard, or mills, BOTH
+  players get the tray: headed by the acting player's picture and name and
+  the card ("Pat · Demonic Tutor"), the whole action in one sentence in the
+  reader's words ("Pat searched their library and put a card into their
+  hand." / "You searched your library and put Goblin Matron into your
+  hand."), the acting player's seat glowing, and the cards: face up only
+  where Magic makes them public to that reader (revealed to them, or in a
+  public zone, or their own), otherwise face-down backs, each marked where
+  it went. It stays until closed or the next turn, as the reveal tray does.
+  The 16 sentences are the canvas's table.
+- *Hidden information is unchanged:* a card nobody revealed is a back with
+  no name and no id the reader could follow.
+- *As built:* the worker (`ActionReports`) reads Forge's own events while
+  the effect resolves (each card moved, a shuffle, a scry's and a
+  surveil's counts) and the resolving ability's kind; the snapshot's
+  `action` (MATCH_STATE_VISIBILITY.md); the reveal tray headed by the
+  player's picture, name and card, the sentence, and card backs.
+  Forge's old "Looking at ..." line is dropped beside a report.
+- *Evidence:* `scripts/check-who-did-it.py` (a real game for each of
+  Demonic Tutor, Goblin Matron, Ponder, Brainstorm, Thoughtseize,
+  Gitaxian Probe, Thought Scour: both seats' sentences, backs where the
+  reader may not know the card, no real card id), added to the Mechanics
+  Lab in CI; over its games, `check-hidden-hands.py` (1,652 hand-card
+  sightings, nothing unshown) and `check-snapshot-first.py`;
+  `check-hidden-information.py` (green and burn), `check-surveil.py`,
+  `check-library-order.py`, `check-what-happened.py` still pass;
+  screenshots of the real page with the reports Bob was sent.
+

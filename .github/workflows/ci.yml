@@ -242,10 +242,10 @@ jobs:
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
               library-order mana-pool sacrifice surveil mulligan you-choose combat-choices unreachable cost-kinds dice unset \
-              many-triggers take-backs trigger-costs what-happened land-mana spectator card-trays \
+              many-triggers take-backs trigger-costs what-happened land-mana spectator card-trays who-did-it \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds) limit=600;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=600;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then

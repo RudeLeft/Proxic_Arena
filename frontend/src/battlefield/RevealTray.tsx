@@ -8,6 +8,7 @@
 // stops sending it then). Only what Forge revealed, to whom it revealed
 // it: the worker fills this from the reveal Forge makes to each player.
 
+import type { ReactNode } from "react";
 import type { SnapshotReveal } from "../match";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
@@ -42,7 +43,10 @@ export function RevealTray({
   atTop,
   artUrl,
   onClose,
+  who,
 }: {
+  /** Phase 9 Amendment 12 -- a report's acting player: their picture and name. */
+  who?: { name: string; face: ReactNode } | null;
   reveal: SnapshotReveal;
   geometry: Geometry;
   /** A question's window holds the bottom: the tray waits at the top. */
@@ -54,11 +58,25 @@ export function RevealTray({
     <div
       className={`gs-reveal${atTop ? " gs-reveal-top" : ""}`}
       role="region"
-      aria-label={reveal.title.replace(/:$/, "")}
+      aria-label={reveal.said ?? reveal.title.replace(/:$/, "")}
+      data-by={reveal.by || undefined}
       style={{ left: geometry.play.x + geometry.play.w * 0.45, maxWidth: geometry.play.w * 0.82 }}
     >
       <div className="gs-reveal-head">
-        <h2 className="gs-reveal-title">{reveal.title}</h2>
+        {reveal.said ? (
+          // Amendment 12 -- who did it, with which card, and the whole action.
+          <div className="gs-reveal-who">
+            {who?.face}
+            <div>
+              <span className="gs-reveal-by">
+                {who?.name ?? "A player"} · {reveal.source}
+              </span>
+              <h2 className="gs-reveal-title gs-reveal-said">{reveal.said}</h2>
+            </div>
+          </div>
+        ) : (
+          <h2 className="gs-reveal-title">{reveal.title}</h2>
+        )}
         <button
           type="button"
           className="pa-button pa-button-quiet gs-reveal-close"
@@ -76,7 +94,9 @@ export function RevealTray({
             data-to={card.to ?? undefined}
           >
             <BigCard card={card} artUrl={artUrl} small />
-            <span className="gs-reveal-name">{card.name}</span>
+            <span className="gs-reveal-name">
+              {card.faceDown && !card.known ? "Face-down card" : card.name}
+            </span>
             {wentWords(card.to) && <span className="gs-reveal-to">{wentWords(card.to)}</span>}
           </li>
         ))}

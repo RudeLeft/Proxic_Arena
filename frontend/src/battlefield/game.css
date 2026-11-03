@@ -2292,6 +2292,37 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-lg);
   color: #f0c46a;
 }
+/* Phase 9 Amendment 12 -- who did it: their picture, name and card, then the sentence. */
+.gs-reveal-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.gs-reveal-face {
+  flex: none;
+  display: inline-flex;
+}
+.gs-reveal-by {
+  display: block;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-sm);
+  letter-spacing: var(--pa-track-button);
+  text-transform: uppercase;
+  color: #8fb0ff;
+}
+.gs-reveal-said {
+  font-size: var(--pa-size-lg);
+  color: #f0e9dc;
+  max-width: 60ch;
+}
+.gs-win-bigcard-back {
+  display: block;
+  border-radius: 8px;
+  background: url("../assets/card-back.webp") center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 0 1px rgb(201 163 90 / 50%);
+}
 .gs-reveal-cards {
   display: flex;
   gap: 12px;

@@ -62,6 +62,20 @@ wording ("Looking at your library: ...", "Looking at RudeLeft's hand:
 Plains"). Delver of Secrets' look reaches its controller before the
 "Reveal?" question (P6-J). How a reveal is drawn is Phase 7's.
 
+**Who did it (PHASE_09 Amendment 12).** When a spell or ability
+searches a library, looks at or reveals its top cards, reorders it,
+scries, surveils, puts cards from a hand on top, looks at a hand, makes
+a player discard or mills, every seat's snapshot carries an `action`:
+`by` (the seat that acted), `source` (the card), `said` (the whole action
+in THAT reader's words: "Pat searched their library and put a card into
+their hand." / "You searched your library and put Demonic Tutor into your
+hand.") and `cards`. A card is described face up only when the reader may
+know it -- their own card, a card now in a public zone, or one Forge
+revealed to them -- and otherwise `faceDown: true, known: false` with no
+name; ids are `action:<n>:<i>`, never a card's own (`ActionReports`,
+`scripts/check-who-did-it.py`). `stamp` orders it against `reveal`: the
+newer is shown.
+
 ## Face-down objects
 
 A morph cast face down (Willbender), across 60 frames (P6-I,

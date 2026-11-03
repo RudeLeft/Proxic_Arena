@@ -384,6 +384,16 @@ final class ViewerSnapshot {
             if (reveal != null) {
                 snapshot.add("reveal", reveal);
             }
+            // Phase 9 Amendment 12 -- who did it and what they did, in this
+            // reader's words, with only the cards this reader may know.
+            int readerSeat = seatOf.getOrDefault(viewer, 0);
+            JsonObject action = causes.actions().reportFor(viewer,
+                    id -> causes.revealedTo(readerSeat, id),
+                    card -> describe(card, viewing, seatOf, true),
+                    who -> seatOf.getOrDefault(who, 0));
+            if (action != null) {
+                snapshot.add("action", action);
+            }
         }
 
         // §7.61 B4 -- combat: who attacks what, who blocks whom. Public,

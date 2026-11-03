@@ -116,8 +116,9 @@ class MatchArt(
                         // card looked at, a Reanimate target were bare.
                         "battlefield", "hand", "casting", "otherHands", "graveyard", "exile" -> zone(key)
                         "stack" -> (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
-                        // Spec 0045 -- the cards Forge showed this seat.
-                        "reveal" ->
+                        // Spec 0045 -- the cards Forge showed this seat; Phase 9
+                        // Amendment 12 -- and a report's cards this seat may know.
+                        "reveal", "action" ->
                             (value as? JsonObject)?.let { reveal ->
                                 buildJsonObject {
                                     reveal.forEach { (k, v) -> put(k, if (k == "cards") cards(v) ?: v else v) }
