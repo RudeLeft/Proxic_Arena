@@ -13,6 +13,7 @@
 import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useEffect,
@@ -99,6 +100,7 @@ import {
   unblockedPower,
   waitingLine,
 } from "./stops";
+import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
 import "./game.css";
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
@@ -1247,24 +1249,31 @@ export function GameScreen({
           />
         )}
 
-        {/* A stack object that has resolved is gone, and so is its close-up. */}
+        {viewer && board && (
+          <ZoneViewer
+            board={board}
+            seat={viewer.seat}
+            zone={viewer.zone}
+            mySeat={board.spectator ? -1 : board.seat}
+            artUrl={pictureUrl}
+            onZone={setViewer}
+            onInspect={setInspecting}
+            onClose={() => setViewer(null)}
+          />
+        )}
+
+        {/* A stack object that has resolved is gone, and so is its close-up.
+            After the zone viewer, so a card opened from it is on top
+            (Phase 9 W-19: it opened behind the list). */}
         {inspecting && board && !inspecting.startsWith("stack:") && (
           <Inspect
             card={cardOf(board, inspecting)}
             name={objectName(inspecting)}
             costNow={handCosts.get(inspecting) ?? null}
             artUrl={pictureUrl}
-            onClose={() => setInspecting(null)}
-          />
-        )}
-
-        {viewer && board && (
-          <ZoneViewer
             board={board}
-            seat={viewer.seat}
-            zone={viewer.zone}
-            onInspect={setInspecting}
-            onClose={() => setViewer(null)}
+            mySeat={board.spectator ? -1 : board.seat}
+            onClose={() => setInspecting(null)}
           />
         )}
 
@@ -2686,6 +2695,8 @@ function Inspect({
   name,
   costNow,
   artUrl,
+  board,
+  mySeat,
   onClose,
 }: {
   card: SnapshotCard | null;
@@ -2693,6 +2704,9 @@ function Inspect({
   /** What its cast costs right now, when Forge has said. */
   costNow: string | null;
   artUrl: (art: string) => string;
+  board: Snapshot;
+  /** -1 for a spectator: nobody's "yours". */
+  mySeat: number;
   onClose: () => void;
 }) {
   const close = useRef<HTMLButtonElement | null>(null);
@@ -2740,23 +2754,25 @@ function Inspect({
               <p className="gs-inspect-types">{card.types}</p>
               {card.power !== null && card.toughness !== null && (
                 <p className="gs-inspect-pt">
+                  {/* Phase 9 W-19: as printed, then as it is now. */}
+                  {printedPt(card) && (
+                    <s className="gs-inspect-printed" title="As printed">
+                      {printedPt(card)}
+                    </s>
+                  )}
                   {card.power}/{card.toughness}
                   {card.damage > 0 && ` · ${card.damage} damage`}
                 </p>
               )}
               {card.keywords.length > 0 && <p>{withSymbols(card.keywords.join(", "))}</p>}
+              <InspectFacts card={card} board={board} mySeat={mySeat} />
               {/* Spec 0045: each kind of counter, and where the last came from. */}
               {counterWords(card).map((words) => (
                 <p key={words} className="gs-inspect-counter">
                   {words}
                 </p>
               ))}
-              {card.tapped && <p>Tapped</p>}
-              {card.sick && <p>Summoning sick</p>}
-              {card.ringBearer && <p>Ring-bearer</p>}
-              {card.sector && <p>Sector {card.sector}</p>}
-              {card.sprocket && <p>On sprocket {card.sprocket}</p>}
-              {card.token && <p>Token</p>}
+              <InspectChips card={card} />
             </>
           )}
           <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
@@ -2765,6 +2781,65 @@ function Inspect({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Phase 9 W-19 -- what has changed about it, and whose it is: what is
+ * attached to it (and to what it is attached), and in exile, why it is
+ * there and whether you may play it.
+ */
+function InspectFacts({
+  card,
+  board,
+  mySeat,
+}: {
+  card: SnapshotCard;
+  board: Snapshot;
+  mySeat: number;
+}) {
+  const nameOf = (seat: number) => board.players.find((p) => p.seat === seat)?.name ?? "Their";
+  const onTable = board.battlefield.some((c) => c.id === card.id);
+  const attached = board.battlefield.filter((c) => c.attachedTo === card.id);
+  const host = card.attachedTo ? cardOf(board, card.attachedTo) : null;
+  const rows: [string, string][] = [];
+  if (onTable) rows.push(["Whose", card.seat === mySeat ? "Yours" : `${nameOf(card.seat)}'s`]);
+  if (attached.length > 0) rows.push(["Attached", attached.map((c) => c.name).join(", ")]);
+  if (host) rows.push(["On", host.name]);
+  if (card.exiledBy) rows.push(["Exiled by", card.exiledBy]);
+  if (card.playable) rows.push(["You may", "play it from exile"]);
+  if (rows.length === 0) return null;
+  return (
+    <dl className="gs-inspect-facts">
+      {rows.map(([k, v]) => (
+        <Fragment key={k}>
+          <dt>{k}</dt>
+          <dd>{v}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+/** Phase 9 W-19 -- its state now, as chips. */
+function InspectChips({ card }: { card: SnapshotCard }) {
+  const chips = [
+    card.tapped && "Tapped",
+    card.sick && "New this turn: can't attack yet",
+    card.attacking && "Attacking",
+    card.blocking && "Blocking",
+    card.ringBearer && "Ring-bearer",
+    card.sector && `Sector ${card.sector}`,
+    card.sprocket && `On sprocket ${card.sprocket}`,
+    card.token && "Token",
+  ].filter((c): c is string => typeof c === "string");
+  if (chips.length === 0) return null;
+  return (
+    <ul className="gs-inspect-chips">
+      {chips.map((chip) => (
+        <li key={chip}>{chip}</li>
+      ))}
+    </ul>
   );
 }
 
@@ -2885,28 +2960,62 @@ function ordinalWord(n: number): string {
   return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
 
+/**
+ * Phase 9 W-18 (owner 2026-11-02, option A) -- a graveyard or exile as the
+ * card tray: the cards as pictures, newest first, copies as one "×N";
+ * tabs for each player's graveyard and exile. In exile a card says why it
+ * is there (what exiled it, a suspend's time counters) and whether you may
+ * play it from there. A card opens its close-up, on top.
+ */
 function ZoneViewer({
   board,
   seat,
   zone,
+  mySeat,
+  artUrl,
+  onZone,
   onInspect,
   onClose,
 }: {
   board: Snapshot;
   seat: number;
-  zone: "graveyard" | "exile" | "hand";
+  zone: ZoneName;
+  /** -1 for a spectator: every pile is somebody else's. */
+  mySeat: number;
+  artUrl: (art: string) => string;
+  onZone: (view: { seat: number; zone: ZoneName }) => void;
   onInspect: (id: string) => void;
   onClose: () => void;
 }) {
-  const player = board.players.find((p) => p.seat === seat);
-  const cards = (
-    zone === "graveyard" ? board.graveyard : zone === "exile" ? board.exile : board.otherHands
-  ).filter((c) => c.seat === seat);
-  const title = `${player?.name ?? "Their"}'s ${zone === "hand" ? "hand, as far as you may see it" : zone}`;
+  const close = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => close.current?.focus({ preventScroll: true }), []);
+  const whose = (s: number) =>
+    s === mySeat ? "Your" : `${board.players.find((p) => p.seat === s)?.name ?? "Their"}'s`;
+  const pile = (s: number, z: ZoneName) =>
+    (z === "graveyard" ? board.graveyard : z === "exile" ? board.exile : board.otherHands).filter(
+      (c) => c.seat === s,
+    );
+  const cards = groupCopies(
+    pile(seat, zone)
+      .slice()
+      // Newest first: Forge's timestamp is when it arrived where it is.
+      .sort((a, b) => (b.enteredAt ?? 0) - (a.enteredAt ?? 0)),
+  );
+  const count = pile(seat, zone).length;
+  const title =
+    zone === "hand" ? `${whose(seat)} hand, as far as you may see it` : `${whose(seat)} ${zone}`;
+  // Your piles first, then theirs; a hand only when it is the one open.
+  const seats = [...board.players]
+    .sort((a, b) => Number(b.seat === mySeat) - Number(a.seat === mySeat))
+    .map((p) => p.seat);
+  const tabs = seats.flatMap((s) =>
+    (["graveyard", "exile"] as ZoneName[]).map((z) => ({ seat: s, zone: z })),
+  );
+  if (zone === "hand") tabs.push({ seat, zone });
   return (
     <div className="gs-backdrop" onClick={onClose}>
       <div
-        className="gs-viewer"
+        className="gs-viewer gs-ztray"
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -2915,33 +3024,72 @@ function ZoneViewer({
           if (event.key === "Escape") onClose();
         }}
       >
-        <h2 className="gs-viewer-title">{title}</h2>
-        {cards.length === 0 && <p className="gs-viewer-empty">Nothing here.</p>}
-        <ul className={`gs-viewer-list${zone === "hand" ? " board-other-hand" : ""}`}>
-          {cards.map((card) => (
-            <li key={card.id}>
-              <button type="button" className="gs-viewer-card" onClick={() => onInspect(card.id)}>
-                {card.name}
-                <span className="gs-viewer-types"> {card.types}</span>
-                {/* A suspended card's time counters say when it comes back. */}
-                {card.counters.length > 0 && (
-                  <span className="gs-viewer-types">
-                    {" · "}
-                    {card.counters
-                      .map(
-                        (c) =>
-                          `${c.count} ${c.name.toLowerCase()} counter${c.count === 1 ? "" : "s"}`,
-                      )
-                      .join(", ")}
-                  </span>
-                )}
+        <div className="gs-ztray-head">
+          <h2 className="gs-viewer-title">{title}</h2>
+          <span className="gs-ztray-count">
+            {count === 0 ? "empty" : `${count} card${count === 1 ? "" : "s"} · newest first`}
+          </span>
+          <button
+            ref={close}
+            type="button"
+            className="gs-ztray-close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <div className="gs-ztray-tabs" role="tablist">
+          {tabs.map((t) => {
+            const on = t.seat === seat && t.zone === zone;
+            const n = pile(t.seat, t.zone).length;
+            return (
+              <button
+                key={`${t.seat}:${t.zone}`}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                className={`gs-ztray-tab${on ? " gs-ztray-tab-on" : ""}`}
+                onClick={() => onZone(t)}
+              >
+                {t.zone === "hand" ? "Hand" : `${whose(t.seat)} ${t.zone}`} · {n}
               </button>
-            </li>
-          ))}
+            );
+          })}
+        </div>
+        {cards.length === 0 && <p className="gs-viewer-empty">Nothing here.</p>}
+        <ul className={`gs-ztray-cards${zone === "hand" ? " board-other-hand" : ""}`}>
+          {cards.map(({ card, copies }) => {
+            const notes = zoneNotes(card, zone);
+            return (
+              <li key={card.id}>
+                <button
+                  type="button"
+                  className="gs-viewer-card gs-ztray-card"
+                  aria-label={[
+                    `${card.name}${copies > 1 ? ` ×${copies}` : ""}`,
+                    card.types,
+                    ...notes,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                  onClick={() => onInspect(card.id)}
+                >
+                  {card.art && !(card.faceDown && !card.known) ? (
+                    <img src={artUrl(card.art)} alt="" draggable={false} />
+                  ) : (
+                    <span className="gs-ztray-plain">
+                      <b>{card.faceDown && !card.known ? "Face down" : card.name}</b>
+                      <span>{card.types}</span>
+                    </span>
+                  )}
+                  {copies > 1 && <span className="gs-ztray-many">×{copies}</span>}
+                </button>
+                {notes.length > 0 && <span className="gs-ztray-note">{notes.join(" · ")}</span>}
+              </li>
+            );
+          })}
         </ul>
-        <button type="button" className="pa-button pa-button-quiet" onClick={onClose}>
-          Close
-        </button>
       </div>
     </div>
   );

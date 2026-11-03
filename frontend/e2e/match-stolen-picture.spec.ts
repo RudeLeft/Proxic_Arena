@@ -170,16 +170,23 @@ test("a stolen creature wears its owner's picture, and the graveyard shows pictu
     await matchPanel(host)
       .getByRole("button", { name: new RegExp(`^${testUser}'s graveyard`) })
       .click();
-    const viewer = host.getByRole("dialog", { name: `${testUser}'s graveyard` });
+    // Phase 9 W-18: your own pile is "Your graveyard".
+    const viewer = host.getByRole("dialog", { name: "Your graveyard" });
     await viewer.locator("button.gs-viewer-card").first().click();
     await expect(
       host.locator("img.gs-inspect-art"),
       "a graveyard card looked at shows its picture",
     ).toBeVisible({ timeout: 30_000 });
     await expect(host.locator(".gs-inspect-noart")).toHaveCount(0);
-    // The list stays open over the close-up; close it to see the picture.
-    await viewer.getByRole("button", { name: "Close" }).click();
-    await expect(host.locator("img.gs-inspect-art")).toBeVisible({ timeout: 10_000 });
+    // Phase 9 W-19: the close-up opens on top of the tray, nothing over it.
+    const art = (await host.locator("img.gs-inspect-art").boundingBox())!;
+    expect(
+      await host.evaluate(
+        ([x, y]) => document.elementFromPoint(x!, y!)?.classList.contains("gs-inspect-art"),
+        [art.x + art.width / 2, art.y + art.height / 2],
+      ),
+      "nothing covers the close-up",
+    ).toBe(true);
     await host.screenshot({ path: "test-results/seen/stolen-graveyard.png", fullPage: true });
     console.log(`stolen: ${name}; picture ${src}`);
   } finally {

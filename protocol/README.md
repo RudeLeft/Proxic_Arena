@@ -182,6 +182,12 @@ player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
 card.ringBearer           true on the Ring-bearer, for every viewer
+card.basePower,           a creature's power and toughness before counters
+card.baseToughness        and effects (Phase 9 W-19: "printed 2/3, now 4/5")
+card.exiledBy             in exile: the name of the card that exiled it, for
+                          every viewer who may identify the card (W-18)
+card.playable             in exile: true when THIS viewer may play it from
+                          there (Light Up the Stage); only in their snapshot
 card.sector               Un-sets: a creature's sector (Alpha, Beta, Gamma), for
                           every viewer -- set while a "space sculptor" is out
 card.sprocket             Un-sets: the sprocket (1-3) a Contraption is on, for

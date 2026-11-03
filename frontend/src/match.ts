@@ -267,6 +267,13 @@ export interface SnapshotCard {
   enteredAt: number | null;
   /** §7.61 B12 — a token (they pile when identical). */
   token: boolean;
+  /** Phase 9 W-19 -- a creature's power and toughness before counters and effects. */
+  basePower?: number | undefined;
+  baseToughness?: number | undefined;
+  /** Phase 9 W-18 -- in exile: the card that exiled it (public). */
+  exiledBy?: string | undefined;
+  /** Phase 9 W-18 -- in exile: this viewer may play it from there. */
+  playable?: boolean | undefined;
 }
 
 export interface SnapshotPlayer {
@@ -794,6 +801,10 @@ function asCards(value: unknown): SnapshotCard[] {
           )
         : undefined,
       to: asString(row["to"]),
+      basePower: asNumber(row["basePower"]) ?? undefined,
+      baseToughness: asNumber(row["baseToughness"]) ?? undefined,
+      exiledBy: asString(row["exiledBy"]) ?? undefined,
+      playable: row["playable"] === true ? true : undefined,
     });
   }
   return cards;

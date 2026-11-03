@@ -459,3 +459,34 @@ https://claude.ai/artifact/36FFjtgAJYkNMHVaAvAgZr).**
   `battlefield.spec.ts` (a spell's line starts on its readable card),
   `match-what-happened.spec.ts` (a real Pridemate trigger shows its own
   words on the stack), screenshots of real games with real pictures.
+
+**Amendment 8 (2026-11-03, W-18 and W-19 decided and built -- canvas
+https://claude.ai/artifact/79rgBXtDRtKjod4GwdFZej).**
+
+- *Today (found from screenshots of real games):* a graveyard or exile
+  opened as a list of names, no pictures, in no stated order; a card
+  clicked in the list opened its close-up behind the list; exile did
+  not say why a card was there; the close-up showed the card and a few
+  facts but not what had changed.
+- *W-18, graveyard and exile (owner: option A, the card tray):* the cards
+  as pictures, newest first (Forge's timestamp of arrival), identical
+  cards with nothing on them as one "×N"; tabs for each player's
+  graveyard and exile with their counts (your piles first). In exile a
+  card says why it is there: "Exiled by Light Up the Stage", "You may
+  play it", a suspend's time counters. A card opens its close-up on top.
+  No library window: a library is hidden; what a player may see of it
+  comes through the game's own questions (W-09).
+- *W-19, the close-up (owner: option A):* as before, plus power and
+  toughness as printed struck through before the current ones when they
+  differ, whose it is, what is attached to it and what it is attached to,
+  why it is in exile and whether you may play it, and its state as chips
+  (tapped, new this turn, attacking, blocking, token, Ring-bearer).
+- *What the game now tells the page* (the worker's snapshot):
+  `basePower`/`baseToughness` on a creature; `exiledBy` and `playable`
+  (this viewer only) on an exiled card (protocol README).
+- *Evidence:* `zoneTray.test.ts` (copies grouped only when nothing
+  tells them apart, exile's reasons, printed power and toughness only
+  when changed), `match-stolen-picture.spec.ts` (a graveyard card's
+  close-up is on top of the tray, nothing over it), screenshots of real
+  games.
+

@@ -285,7 +285,20 @@ final class ViewerSnapshot {
         JsonArray exile = new JsonArray();
         for (Player player : game.getRegisteredPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Exile)) {
-                exile.add(describe(card, viewing, seatOf));
+                JsonObject entry = describe(card, viewing, seatOf);
+                // Phase 9 W-18 -- why it is here: the card that exiled it
+                // (public, as that card was), and whether THIS viewer may
+                // play it from exile (Light Up the Stage, an Adventure),
+                // told only in this viewer's own snapshot.
+                Card by = card.getExiledWith();
+                if (entry.get("known").getAsBoolean() && by != null && !by.isFaceDown()
+                        && by.getName() != null && !by.getName().isEmpty()) {
+                    entry.addProperty("exiledBy", by.getName());
+                }
+                if (viewer != null && !card.mayPlay(viewer).isEmpty()) {
+                    entry.addProperty("playable", true);
+                }
+                exile.add(entry);
             }
         }
         snapshot.add("exile", exile);
@@ -733,6 +746,10 @@ final class ViewerSnapshot {
         if (state.isCreature()) {
             entry.addProperty("power", state.getPower());
             entry.addProperty("toughness", state.getToughness());
+            // Phase 9 W-19 -- before counters and effects, for the
+            // close-up's "printed 2/3, now 4/5".
+            entry.addProperty("basePower", card.getBasePower());
+            entry.addProperty("baseToughness", card.getBaseToughness());
             entry.addProperty("damage", view.getDamage());
             // A creature that cannot attack yet looks identical
             // to one that can, and the difference decides turns.
