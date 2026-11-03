@@ -8,7 +8,7 @@
 // in a player being passed for.
 
 import { describe, expect, it } from "vitest";
-import { EMPTY_MATCH, concessionText, reduceMatch, type MatchState } from "./match";
+import { EMPTY_MATCH, awayEndText, concessionText, reduceMatch, type MatchState } from "./match";
 import { cancelWords } from "./matchText";
 
 function apply(messages: Record<string, unknown>[], from: MatchState = EMPTY_MATCH): MatchState {
@@ -996,5 +996,19 @@ describe("who is being asked", () => {
     const asked = reduceMatch(EMPTY_MATCH, { type: "MATCH_ASKING", seat: 2 });
     expect(reduceMatch(asked, { type: "MATCH_ASKING" }).asking).toEqual({ seat: 2 });
     expect(reduceMatch(asked, { type: "MATCH_ASKING", seat: "x" }).asking).toEqual({ seat: 2 });
+  });
+});
+
+// Spec 0054 — "End the game" for an away player is never "You conceded".
+describe("ending the game for an away player", () => {
+  it("is its own answer, said from the waiting player's side", () => {
+    const sent = reduceMatch(EMPTY_MATCH, { type: "AWAY_END_ACCEPTED" });
+    expect(sent.concession).toBeNull();
+    expect(awayEndText(sent.awayEnd, "Pat")).toBe("Ending the game: Pat concedes.");
+    const refused = reduceMatch(EMPTY_MATCH, { type: "AWAY_END_REFUSED", reason: "NOT_AWAY" });
+    expect(awayEndText(refused.awayEnd, "Pat")).toBe(
+      "Pat is back, or hasn't been gone 10 minutes yet.",
+    );
+    expect(awayEndText(null, "Pat")).toBeNull();
   });
 });

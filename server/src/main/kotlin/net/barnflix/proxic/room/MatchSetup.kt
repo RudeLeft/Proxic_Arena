@@ -96,6 +96,13 @@ sealed interface PrepareResult {
  */
 fun interface Presence {
     fun isOnline(userId: UUID): Boolean
+
+    /**
+     * Spec 0054 -- since when this player has had no connection at all;
+     * null while they have one. "Away" (an idle tab, spec 0009) is not
+     * offline. Null by default: wiring with no lobby never goes offline.
+     */
+    fun offlineSince(userId: UUID): java.time.Instant? = null
 }
 
 /** For wiring with no lobby: tests, and a server with no socket. */

@@ -1553,6 +1553,21 @@
   background: #2a2318;
   color: var(--pa-brass);
 }
+/* Spec 0054 — the room closes soon: said in the room, with Keep it open. */
+.pa-room-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 10px 0 4px;
+  padding: 10px 14px;
+  border: 1px solid #e8a87c;
+  border-radius: 8px;
+  background: rgb(232 168 124 / 12%);
+  color: var(--pa-text, #f0e9dc);
+  font-weight: 600;
+}
 .pa-room-closes {
   font-size: var(--pa-size-md);
   color: var(--pa-warn);

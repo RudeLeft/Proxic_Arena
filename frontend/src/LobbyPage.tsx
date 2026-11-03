@@ -25,6 +25,7 @@ import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
 import {
   cancelPreparation,
   closeRoom,
+  keepRoomOpen,
   createRoom,
   fetchCurrentMatch,
   fetchCurrentRoom,
@@ -62,11 +63,12 @@ import { ChatPanel } from "./LobbyChat";
 import { BeltMark } from "./BeltMark";
 import { remindHolder, shortDate } from "./hall";
 
-/** Spec 0009 — the clock, ticking once a minute, for "Away 7 min" and "last seen". */
+/** Spec 0009 — the clock for "Away 7 min" and "last seen"; every 15 s so
+ * spec 0054's "closes in 5 minutes" warning is on time. */
 function useMinute(): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
   return now;
@@ -310,6 +312,9 @@ export default function LobbyPage() {
           onLeave={() => {
             if (room) void runLeaving(() => leaveRoom(room.roomId));
           }}
+          onKeepOpen={() => {
+            if (room) void run(() => keepRoomOpen(room.roomId));
+          }}
         />
         <ChatPanel
           lobby={lobby}
@@ -528,6 +533,7 @@ function RoomsColumn({
   onRemove,
   onClose,
   onLeave,
+  onKeepOpen,
 }: {
   lobby: LobbyState;
   me: string;
@@ -547,6 +553,8 @@ function RoomsColumn({
   onRemove: (userId: string) => void;
   onClose: () => void;
   onLeave: () => void;
+  /** Spec 0054 — Keep it open, from the warning. */
+  onKeepOpen: () => void;
 }) {
   const [name, setName] = useState("");
   // Spec 0047 — "Let people watch", on to start.
@@ -602,6 +610,7 @@ function RoomsColumn({
           onRemove={onRemove}
           onClose={onClose}
           onLeave={onLeave}
+          onKeepOpen={onKeepOpen}
         />
       ) : (
         // Amendment 9 — rooms are opened on demand, and may be named.
@@ -860,6 +869,7 @@ function YourRoom({
   onRemove,
   onClose,
   onLeave,
+  onKeepOpen,
 }: {
   room: RoomView;
   listed: DirectoryRoom;
@@ -877,6 +887,8 @@ function YourRoom({
   onRemove: (userId: string) => void;
   onClose: () => void;
   onLeave: () => void;
+  /** Spec 0054 — Keep it open, from the warning. */
+  onKeepOpen: () => void;
 }) {
   const headingId = useId();
   const deckId = useId();
@@ -897,6 +909,11 @@ function YourRoom({
   const invited = lobby.outgoing?.roomId === room.roomId ? lobby.outgoing.to : null;
   const askedBy = iHost && lobby.askedBy?.roomId === room.roomId ? lobby.askedBy.from : null;
   const closes = closesSoon(listed.clearsAt, now);
+  // Spec 0054 — minutes left once the warning time has come; null before.
+  const warning =
+    !playing && listed.warnsAt && listed.clearsAt && now >= Date.parse(listed.warnsAt)
+      ? Math.max(1, Math.ceil((Date.parse(listed.clearsAt) - now) / 60_000))
+      : null;
   const full = room.members.length >= room.desiredPlayerCount;
   const deckDone = !!myMember?.selectedDeckId;
   const readyDone = !!myMember?.ready;
@@ -929,6 +946,24 @@ function YourRoom({
           {room.members.length}/{room.desiredPlayerCount}
         </span>
       </div>
+      {warning !== null && (
+        // Spec 0054 — 5 minutes before an idle room closes, everybody in
+        // it is told, and one click starts its clock again.
+        <div className="pa-room-warning" role="alert">
+          <span>
+            This room closes in {warning === 1 ? "1 minute" : `${warning} minutes`} because nothing
+            has happened.
+          </span>
+          <button
+            type="button"
+            className="pa-button pa-button-brass"
+            disabled={busy}
+            onClick={onKeepOpen}
+          >
+            Keep it open
+          </button>
+        </div>
+      )}
 
       <div className="pa-seats">
         {room.members.map((member) => (

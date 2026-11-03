@@ -375,6 +375,33 @@ class LiveMatchTest {
         assertEquals("UNREACHABLE", match.concede(alice) { false })
     }
 
+    /**
+     * Spec 0054 — the player left waiting ends the game once the other
+     * has been offline 10 minutes: the OTHER seat concedes, so the game
+     * names the one who stayed. Not before, not if they are back, and
+     * never for somebody who is not playing.
+     */
+    @Test
+    fun `the player left waiting ends the game as the away player's concession`() {
+        val conceded = mutableListOf<Int>()
+        val match = live()
+        val now = java.time.Instant.parse("2026-11-03T20:00:00Z")
+        val away = java.time.Duration.ofMinutes(10)
+        val send = { seat: Int ->
+            conceded += seat
+            true
+        }
+        val bobGone = { minutes: Long -> { id: UUID -> if (id == bob) now.minusSeconds(minutes * 60) else null } }
+
+        assertEquals("NOT_AWAY", match.endForAway(alice, { null }, away, now, send), "Bob is here")
+        assertEquals("NOT_AWAY", match.endForAway(alice, bobGone(9), away, now, send), "9 minutes is not 10")
+        assertEquals("NOT_A_PLAYER", match.endForAway(stranger, bobGone(30), away, now, send))
+        assertEquals(emptyList(), conceded)
+
+        assertNull(match.endForAway(alice, bobGone(10), away, now, send))
+        assertEquals(listOf(2), conceded, "Bob's seat concedes, so Alice wins")
+    }
+
     private companion object {
         /**
          * Never started, never spoken to.

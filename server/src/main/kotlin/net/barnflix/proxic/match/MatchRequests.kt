@@ -73,6 +73,16 @@ fun concedeAcceptedMessage(): JsonObject = concedeMessage("CONCEDE_ACCEPTED", nu
 /** §7.55 — not taken, and why (NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER). */
 fun concedeRefusedMessage(reason: String): JsonObject = concedeMessage("CONCEDE_REFUSED", reason)
 
+/**
+ * Spec 0054 -- "End the game" for an away player: taken (null) or not, and
+ * why (NOT_AWAY, NOT_A_PLAYER, UNREACHABLE). Its own type, so the page
+ * never says "You conceded" to the player who stayed.
+ */
+fun awayEndMessage(refusal: String?): JsonObject {
+    val type = if (refusal == null) "AWAY_END_ACCEPTED" else "AWAY_END_REFUSED"
+    return concedeMessage(type, refusal)
+}
+
 private fun concedeMessage(
     type: String,
     reason: String?,

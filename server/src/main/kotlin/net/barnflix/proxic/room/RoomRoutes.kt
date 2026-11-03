@@ -74,11 +74,30 @@ data class PlayerCountRequest(
 fun Route.roomRoutes(
     rooms: RoomService,
     announcer: RoomAnnouncer = SilentAnnouncer,
+    /** Spec 0054 — Keep it open; none without a database. */
+    idle: RoomIdle? = null,
 ) {
     route("/rooms") {
         readRoutes(rooms)
         lifecycleRoutes(rooms, announcer)
         memberRoutes(rooms, announcer)
+        idle?.let { keepOpenRoute(it, announcer) }
+    }
+}
+
+// --- spec 0054: Keep it open ---------------------------------------------
+
+private fun Route.keepOpenRoute(
+    idle: RoomIdle,
+    announcer: RoomAnnouncer,
+) {
+    // A member presses Keep it open: something happened, and the room's
+    // clock starts again for everybody in it.
+    post("/{$ROOM_ID}/keep-open") {
+        val roomId = roomIdOrNull() ?: return@post respondBadRoomId()
+        val room = idle.keepOpen(roomId, callerId()) ?: return@post respondNoSuchRoom()
+        announcer.roomChanged(room)
+        call.respond(RoomResponse(room.viewFor(callerId())))
     }
 }
 

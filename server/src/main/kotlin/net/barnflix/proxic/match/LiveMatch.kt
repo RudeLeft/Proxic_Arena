@@ -290,3 +290,26 @@ fun LiveMatch.concede(
     val seat = seatOf(userId) ?: return "NOT_A_PLAYER"
     return if (send(seat)) null else "UNREACHABLE"
 }
+
+/**
+ * Spec 0054 (owner 2026-11-03) -- [userId] ends the game because the
+ * other player has been offline at least [away]: the other player's
+ * concession, so the winner is still the game's to name. The one
+ * exception to "a disconnect never concedes" (§6.111), and only the
+ * player left waiting can make it. Null when it went to the game, or why
+ * not: "NOT_A_PLAYER", "NOT_AWAY" (they are back, or not gone long
+ * enough), "UNREACHABLE".
+ */
+fun LiveMatch.endForAway(
+    userId: UUID,
+    offlineSince: (UUID) -> java.time.Instant?,
+    away: java.time.Duration,
+    now: java.time.Instant,
+    send: (Int) -> Boolean = worker::concede,
+): String? {
+    seatOf(userId) ?: return "NOT_A_PLAYER"
+    val other = match.participants.firstOrNull { it.userId != userId } ?: return "NOT_A_PLAYER"
+    val since = offlineSince(other.userId) ?: return "NOT_AWAY"
+    if (since.plus(away).isAfter(now)) return "NOT_AWAY"
+    return if (send(other.seatNumber)) null else "UNREACHABLE"
+}

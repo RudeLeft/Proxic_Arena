@@ -77,6 +77,11 @@ class LobbyService(
     private val standings: () -> Standings? = { null },
     /** Spec 0013 — the players of a player's game, for the game chat; null with none. */
     private val gameSeats: (UUID) -> List<UUID>? = { null },
+    /**
+     * Spec 0054 — a chat line from somebody in a room waiting in the
+     * lobby keeps it open. True when its clock moved.
+     */
+    private val chatted: (UUID) -> Boolean = { false },
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
 
@@ -400,7 +405,12 @@ class LobbyService(
             asked: JsonObject,
             relayed: JsonObject,
         ) {
-            if (asked.text("scope") != "game") return hub.broadcast(relayed)
+            if (asked.text("scope") != "game") {
+                hub.broadcast(relayed)
+                // Spec 0054: and their room's "closes at" moves on the list.
+                if (runCatching { chatted(me) }.getOrDefault(false)) publishRooms()
+                return
+            }
             val seats = gameSeats(me) ?: return reply(errorMessage("NOT_IN_GAME", "You are not in a game."))
             hub.sendToAll(seats, relayed.inGame())
         }

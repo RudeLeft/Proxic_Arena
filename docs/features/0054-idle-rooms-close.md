@@ -1,6 +1,6 @@
 # 0054 — Idle rooms close; a player left waiting can end the game
 
-**Status:** Approved 2026-11-03, not built
+**Status:** Built 2026-11-03 (approved the same day), not yet released
 **Owner note** (2026-11-03): "I don't want people creating a bunch of rooms
 then sitting on them." Players open a room in the lobby and keep it open
 without inviting anyone, or invite someone and never start the game. The
@@ -82,3 +82,18 @@ What the people in a closed room are told:
   keeping it; a host going offline closing the room for the guest; a
   guest going offline being removed; a player left waiting ending the game
   and the win being recorded.
+
+## As built
+
+- The page's wording says "10 minutes" for being away; the server goes by
+  its setting (`PROXIC_AWAY_MINUTES`), so a changed setting changes when
+  things happen, not the words.
+- Seen on the real local game with short settings (6 minutes, warning 5,
+  away 1): the warning and Keep it open; a host closing the browser and
+  the guest told "The host went offline, so the room closed"; in a game,
+  the panel offered, End the game refused while Pat was really there, and
+  taken once Pat was really gone: "You won · Pat conceded".
+- The real-browser checks were run by hand (they need the short settings
+  and real waiting); the committed proof is the server tests with a clock
+  (`RoomMaintenanceTest`, `LiveMatchTest`) and the page's unit tests.
+

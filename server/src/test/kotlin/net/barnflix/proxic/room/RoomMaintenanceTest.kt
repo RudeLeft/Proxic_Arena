@@ -11,21 +11,26 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.slf4j.LoggerFactory
 import org.testcontainers.DockerClientFactory
 import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Abandoned rooms expire — PHASE_05 §5.124–§5.126, owner D4.
+ * Idle rooms close — PHASE_05 §5.124–§5.126, and spec 0054 (owner
+ * 2026-11-03), which replaced D4's 24 hours: 30 minutes with the host
+ * alone, 2 hours with two players, a host offline 10 minutes closes the
+ * room, a guest offline 10 minutes leaves it.
  *
- * A 24-hour rule cannot be tested by waiting, so these drive the
- * sweep directly with a short lifetime. What is actually being
- * proved is the policy either way: WHICH rooms it takes, WHICH it
- * leaves, and what it does to the people who were in them.
+ * These drive the sweep directly, backdating a room's activity and
+ * giving it a presence that says who is offline since when. What is
+ * proved is the policy: WHICH rooms it takes, WHICH it leaves, and what
+ * it does to the people who were in them.
  */
 class RoomMaintenanceTest {
     private var container: FreshDatabase? = null
@@ -73,6 +78,7 @@ class RoomMaintenanceTest {
     /** Records what the sweep announced, so the test can read it. */
     private class Recorder : RoomAnnouncer {
         val closed = mutableListOf<Triple<UUID, Collection<UUID>, String>>()
+        val removed = mutableListOf<Pair<UUID, String>>()
 
         override suspend fun roomChanged(room: Room) = Unit
 
@@ -95,14 +101,35 @@ class RoomMaintenanceTest {
             roomId: UUID,
             userId: UUID,
             reason: String,
-        ) = Unit
+        ) {
+            removed += userId to reason
+        }
     }
+
+    /** Everything that exists is idle: the harshest the sweep can be. */
+    private val noTime = RoomTimeouts(alone = Duration.ZERO, together = Duration.ZERO)
 
     private fun maintenance(
         recorder: RoomAnnouncer,
-        lifetime: Duration,
-        retention: Duration = Duration.ofDays(7),
-    ) = RoomMaintenance(database!!.dataSource(), recorder, log, lifetime, retention)
+        timeouts: RoomTimeouts = RoomTimeouts(),
+        offline: Map<UUID, Duration> = emptyMap(),
+    ): RoomMaintenance {
+        val now = Instant.now()
+        val presence =
+            object : Presence {
+                override fun isOnline(userId: UUID) = userId !in offline
+
+                override fun offlineSince(userId: UUID) = offline[userId]?.let { now.minus(it) }
+            }
+        return RoomMaintenance(
+            database!!.dataSource(),
+            recorder,
+            log,
+            presence = presence,
+            timeouts = { timeouts },
+            clock = { now },
+        )
+    }
 
     private fun statusOf(roomId: UUID): String? =
         database!!.dataSource().connection.use { connection ->
@@ -126,21 +153,10 @@ class RoomMaintenanceTest {
         }
 
     /**
-     * A room with a match in it does NOT expire.
-     *
-     * Phase 5's gate carried this as unresolved: "a live match's
-     * effect on room expiry is undecided. Today a room in a match
-     * would still be swept after 24 idle hours. Phase 6's."
-     *
-     * Phase 6 settled it by adding IN_MATCH, and the sweep's
-     * filter excludes it — but nothing PROVED that, and a filter
-     * nobody tests is a filter somebody widens. A match running
-     * past the idle window would otherwise have its room closed
-     * and its players' memberships ended underneath them.
-     *
-     * "Idle" is also the wrong word for a match: the room is not
-     * touched while Forge plays, so a long game looks exactly
-     * like an abandoned room to this query.
+     * A room with a match in it is never closed, however idle it looks
+     * and whoever is offline: these are lobby rules, not game rules
+     * (spec 0054). A long game looks exactly like an abandoned room to
+     * the clock, because nothing touches the room while it is played.
      */
     @Test
     fun `a room that is in a match is not swept, however idle it looks`() {
@@ -159,9 +175,7 @@ class RoomMaintenanceTest {
         }
 
         val recorder = Recorder()
-        // A lifetime of zero: everything that exists is idle,
-        // which is the harshest the sweep can possibly be.
-        val expired = maintenance(recorder, Duration.ZERO).sweep()
+        val expired = maintenance(recorder, noTime, offline = mapOf(host to Duration.ofHours(5))).sweep()
 
         assertEquals(0, expired, "a live match's room was swept")
         assertEquals("IN_MATCH", statusOf(room.roomId), "a live match's room changed status")
@@ -169,41 +183,130 @@ class RoomMaintenanceTest {
         assertTrue(recorder.closed.isEmpty(), "players were told their room closed mid-match")
     }
 
-    /** §5.125 — status, membership and the people who were in it. */
+    /** Two players: 2 hours. Status, membership, and who is told. */
     @Test
-    fun `an idle room expires, ends its memberships and tells its members`() {
+    fun `two players, 2 hours with nothing happening - closed, and both told`() {
         val rooms = rooms()
         val host = userId("RudeLeft")
         val guest = userId("Pat")
         val room = (rooms.create(host) as RoomResult.Ok).room
         check(rooms.join(room.roomId, guest) is RoomResult.Ok)
 
-        val recorder = Recorder()
-        // A lifetime of zero: everything that exists is idle.
-        val expired = maintenance(recorder, Duration.ZERO).sweep()
+        ageRoom(room.roomId, Duration.ofMinutes(119))
+        assertEquals(0, maintenance(Recorder()).sweep(), "two players get 2 hours, not 30 minutes")
 
-        assertEquals(1, expired)
-        assertEquals("EXPIRED", statusOf(room.roomId))
+        ageRoom(room.roomId, Duration.ofMinutes(121))
+        val recorder = Recorder()
+        assertEquals(1, maintenance(recorder).sweep())
+        assertEquals("CLOSED", statusOf(room.roomId))
         assertEquals(0, memberCount(room.roomId), "membership should have ended")
 
-        assertEquals(1, recorder.closed.size)
         val (closedId, members, reason) = recorder.closed.single()
         assertEquals(room.roomId, closedId)
-        assertEquals("EXPIRED", reason)
+        assertEquals("IDLE_120", reason)
         assertEquals(setOf(host, guest), members.toSet(), "both members should be told")
     }
 
+    /** The host alone (an invitation may be waiting): 30 minutes. */
+    @Test
+    fun `the host alone, 30 minutes with nothing happening - closed`() {
+        val room = (rooms().create(userId("RudeLeft")) as RoomResult.Ok).room
+
+        ageRoom(room.roomId, Duration.ofMinutes(29))
+        assertEquals(0, maintenance(Recorder()).sweep())
+        assertEquals("OPEN", statusOf(room.roomId))
+
+        ageRoom(room.roomId, Duration.ofMinutes(31))
+        val recorder = Recorder()
+        assertEquals(1, maintenance(recorder).sweep())
+        assertEquals("IDLE_30", recorder.closed.single().third)
+    }
+
+    /** The host offline 10 minutes closes it, with the guest still in it. */
+    @Test
+    fun `the host offline 10 minutes closes the room, and the guest is told`() {
+        val rooms = rooms()
+        val host = userId("RudeLeft")
+        val guest = userId("Pat")
+        val room = (rooms.create(host) as RoomResult.Ok).room
+        check(rooms.join(room.roomId, guest) is RoomResult.Ok)
+
+        assertEquals(0, maintenance(Recorder(), offline = mapOf(host to Duration.ofMinutes(9))).sweep())
+        assertEquals("OPEN", statusOf(room.roomId), "a refresh or a short drop does not lose the room")
+
+        val recorder = Recorder()
+        assertEquals(1, maintenance(recorder, offline = mapOf(host to Duration.ofMinutes(10))).sweep())
+        assertEquals("CLOSED", statusOf(room.roomId))
+        val (_, members, reason) = recorder.closed.single()
+        assertEquals("HOST_AWAY", reason)
+        assertEquals(setOf(host, guest), members.toSet())
+    }
+
+    /** A guest offline 10 minutes leaves; the host keeps the room. */
+    @Test
+    fun `a guest offline 10 minutes is taken out, and the host keeps the room`() {
+        val rooms = rooms()
+        val host = userId("RudeLeft")
+        val guest = userId("Pat")
+        val room = (rooms.create(host) as RoomResult.Ok).room
+        check(rooms.join(room.roomId, guest) is RoomResult.Ok)
+        ageRoom(room.roomId, Duration.ofMinutes(50))
+
+        val recorder = Recorder()
+        assertEquals(0, maintenance(recorder, offline = mapOf(guest to Duration.ofMinutes(11))).sweep())
+        assertEquals("OPEN", statusOf(room.roomId))
+        assertEquals(1, memberCount(room.roomId), "the guest should be out")
+        assertEquals(listOf(guest to "AWAY"), recorder.removed)
+        assertTrue(recorder.closed.isEmpty())
+
+        // Taking the guest out is something happening: a fresh 30 minutes.
+        assertEquals(0, maintenance(Recorder()).sweep(), "the host-alone clock starts again")
+    }
+
+    /** Keep it open starts the clock again; only a member can press it. */
+    @Test
+    fun `keep it open starts the clock again`() {
+        val host = userId("RudeLeft")
+        val room = (rooms().create(host) as RoomResult.Ok).room
+        ageRoom(room.roomId, Duration.ofMinutes(31))
+
+        val idle = RoomIdle(database!!.dataSource())
+        assertNull(idle.keepOpen(room.roomId, userId("Pat")), "only a member keeps it open")
+        assertNotNull(idle.keepOpen(room.roomId, host))
+
+        assertEquals(0, maintenance(Recorder()).sweep())
+        assertEquals("OPEN", statusOf(room.roomId))
+    }
+
+    /** Chatting counts, at most once a minute, without staling anybody's revision. */
+    @Test
+    fun `a chat line from a member keeps the room open`() {
+        val host = userId("RudeLeft")
+        val room = (rooms().create(host) as RoomResult.Ok).room
+        val revision = rooms().find(room.roomId)!!.revision
+        ageRoom(room.roomId, Duration.ofMinutes(31))
+
+        val idle = RoomIdle(database!!.dataSource())
+        assertTrue(idle.chatted(host))
+        assertEquals(false, idle.chatted(host), "once a minute is enough")
+        assertEquals(false, idle.chatted(userId("Pat")), "somebody in no room keeps nothing open")
+        assertEquals(revision, rooms().find(room.roomId)!!.revision, "a chat line must not make actions stale")
+
+        assertEquals(0, maintenance(Recorder()).sweep())
+        assertEquals("OPEN", statusOf(room.roomId))
+    }
+
     /**
-     * D4 — the half that matters more.
+     * The half that matters more.
      *
-     * A sweep that expires everything would pass the test above and
+     * A sweep that closes everything would pass the tests above and
      * delete every live lobby on the server.
      */
     @Test
     fun `a room that was just used is left alone`() {
         val room = (rooms().create(userId("RudeLeft")) as RoomResult.Ok).room
 
-        val expired = maintenance(Recorder(), Duration.ofHours(24)).sweep()
+        val expired = maintenance(Recorder()).sweep()
 
         assertEquals(0, expired)
         assertEquals("OPEN", statusOf(room.roomId))
@@ -211,7 +314,7 @@ class RoomMaintenanceTest {
     }
 
     /**
-     * D4 again — activity is an ACTION, not a held socket.
+     * Activity is an ACTION, not a held socket.
      *
      * The room is idle by the clock until somebody does something;
      * doing something must move the deadline.
@@ -221,12 +324,12 @@ class RoomMaintenanceTest {
         val rooms = rooms()
         val host = userId("RudeLeft")
         val room = (rooms.create(host) as RoomResult.Ok).room
-        ageRoom(room.roomId, Duration.ofHours(30))
+        ageRoom(room.roomId, Duration.ofHours(3))
 
         // Somebody joins: that is activity, and `touch` records it.
         check(rooms.join(room.roomId, userId("Pat")) is RoomResult.Ok)
 
-        val expired = maintenance(Recorder(), Duration.ofHours(24)).sweep()
+        val expired = maintenance(Recorder()).sweep()
         assertEquals(0, expired, "a room used a moment ago is not abandoned")
         assertEquals("OPEN", statusOf(room.roomId))
     }
@@ -241,40 +344,40 @@ class RoomMaintenanceTest {
 
         // Inside the window: kept, because §5.126 wants it for
         // diagnostics.
-        maintenance(Recorder(), Duration.ofHours(24), Duration.ofDays(7)).sweep()
+        maintenance(Recorder()).sweep()
         assertEquals("CLOSED", statusOf(room.roomId))
 
         ageRoom(room.roomId, Duration.ofDays(8))
-        maintenance(Recorder(), Duration.ofHours(24), Duration.ofDays(7)).sweep()
+        maintenance(Recorder()).sweep()
         assertNull(statusOf(room.roomId), "an old closed room should be gone")
     }
 
-    /** A sweep must be safe to run twice. It runs hourly forever. */
+    /** A sweep must be safe to run twice. It runs every minute forever. */
     @Test
-    fun `sweeping twice expires nothing the second time`() {
+    fun `sweeping twice closes nothing the second time`() {
         rooms().create(userId("RudeLeft"))
 
         val recorder = Recorder()
-        val sweep = maintenance(recorder, Duration.ZERO)
+        val sweep = maintenance(recorder, noTime)
         assertEquals(1, sweep.sweep())
-        assertEquals(0, sweep.sweep(), "an expired room must not expire again")
+        assertEquals(0, sweep.sweep(), "a closed room must not close again")
         assertEquals(1, recorder.closed.size, "and must not be announced twice")
     }
 
-    /** §5.5 — an expired room must not keep its members hostage. */
+    /** §5.5 — a closed room must not keep its members hostage. */
     @Test
-    fun `after expiry a member can host again`() {
+    fun `after closing a member can host again`() {
         val rooms = rooms()
         val host = userId("RudeLeft")
         rooms.create(host)
 
-        maintenance(Recorder(), Duration.ZERO).sweep()
+        maintenance(Recorder(), noTime).sweep()
 
-        assertTrue(rooms.create(host) is RoomResult.Ok, "expiry should free the member")
+        assertTrue(rooms.create(host) is RoomResult.Ok, "closing should free the member")
     }
 
-    /** Backdate a room's activity, which is the only way to make
-     *  a 24-hour rule testable without a 24-hour test. */
+    /** Backdate a room's activity, which is the only way to test
+     *  a time limit without waiting for it. */
     private fun ageRoom(
         roomId: UUID,
         by: Duration,

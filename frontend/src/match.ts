@@ -453,6 +453,11 @@ export interface MatchState {
    */
   concession: string | null;
   /**
+   * Spec 0054 — "End the game" for an away player: "SENT" once the server
+   * took it (the game's end follows), or why it was not.
+   */
+  awayEnd?: string | null;
+  /**
    * Spec 0002 — who the server says is being asked: `{ seat: null }`
    * when nobody is and the rules engine is working; null before it has
    * said (an older server never does, and the screen then guesses from
@@ -597,6 +602,12 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
     case "CONCEDE_REFUSED":
       return { ...state, concession: asString(message["reason"]) ?? "REFUSED" };
 
+    case "AWAY_END_ACCEPTED":
+      return { ...state, awayEnd: "SENT" };
+
+    case "AWAY_END_REFUSED":
+      return { ...state, awayEnd: asString(message["reason"]) ?? "REFUSED" };
+
     case "DECISION_REFUSED": {
       const decisionId = asNumber(message["decisionId"]);
       if (decisionId === null) return state;
@@ -632,6 +643,23 @@ export function concessionText(concession: string | null): string | null {
       return "The game did not receive that. It may have stopped.";
     default:
       return "That concession was not accepted.";
+  }
+}
+
+/** Spec 0054 — where "End the game" stands, in words; null when there is none. */
+export function awayEndText(awayEnd: string | null | undefined, name: string): string | null {
+  switch (awayEnd) {
+    case null:
+    case undefined:
+      return null;
+    case "SENT":
+      return `Ending the game: ${name} concedes.`;
+    case "NOT_AWAY":
+      return `${name} is back, or hasn't been gone 10 minutes yet.`;
+    case "UNREACHABLE":
+      return "The game did not receive that. It may have stopped.";
+    default:
+      return "The game could not be ended that way.";
   }
 }
 
@@ -1076,6 +1104,8 @@ export interface MatchSocket {
   search(decisionId: number, query: string): void;
   /** §7.55 — concede. Nothing else is sent: who concedes is the session's. */
   concede(): void;
+  /** Spec 0054 — end the game because the other player is away; the server checks. */
+  endForAway(): void;
   close(): void;
 }
 
@@ -1168,6 +1198,10 @@ export function connectMatch(
     concede() {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({ type: "CONCEDE" }));
+    },
+    endForAway() {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "END_FOR_AWAY" }));
     },
     close() {
       closedByUs = true;

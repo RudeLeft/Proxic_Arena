@@ -102,8 +102,10 @@ export interface DirectoryRoom {
   status: string;
   desiredPlayerCount: number;
   seats: DirectorySeat[];
-  /** When it clears if nobody does anything; null during a match. */
+  /** When it closes if nothing happens (spec 0054); null during a match. */
   clearsAt: string | null;
+  /** Spec 0054 — from when its members are warned "This room closes in 5 minutes". */
+  warnsAt?: string | null;
   /** Spec 0016 R2 — who the open seat is held for; null when nobody. */
   held: RoomHold | null;
   /** Spec 0047 — whether people may watch its game (the host's "Let people watch"). */
@@ -737,9 +739,18 @@ function closedBecause(reason: string | null): string {
       return "The host closed the room.";
     case "EXPIRED":
       return "That room expired after a day of inactivity.";
+    // Spec 0054.
+    case "HOST_AWAY":
+      return "The host went offline, so the room closed.";
+    case "AWAY":
+      return "You were away for 10 minutes, so you left the room.";
     case "REMOVED_BY_HOST":
       return "The host removed you from the room.";
     default:
+      // Spec 0054 — "IDLE_30": closed after that many minutes of nothing.
+      if (reason?.startsWith("IDLE_")) {
+        return `This room closed after ${idleWords(Number(reason.slice(5)))} with nothing happening.`;
+      }
       // A reason this client has never heard of is still a real
       // departure. Saying something true and vague beats saying
       // the code.
@@ -873,6 +884,7 @@ function asDirectory(value: unknown): DirectoryRoom[] {
       desiredPlayerCount: typeof v["desiredPlayerCount"] === "number" ? v["desiredPlayerCount"] : 2,
       seats: seats.sort((a, b) => a.seatNumber - b.seatNumber),
       clearsAt: asString(v["clearsAt"]),
+      warnsAt: asString(v["warnsAt"]),
       held: asHold(v["held"]),
       watchable: v["watchable"] !== false,
     });
@@ -1269,6 +1281,18 @@ export function leaveRoom(roomId: string, fetchFn: typeof fetch = fetch): Promis
 
 export function closeRoom(roomId: string, fetchFn: typeof fetch = fetch): Promise<RoomResult> {
   return roomCall(`/api/rooms/${roomId}/close`, { method: "POST" }, fetchFn);
+}
+
+/** Spec 0054 — Keep it open: the room's clock starts again for everybody in it. */
+export function keepRoomOpen(roomId: string, fetchFn: typeof fetch = fetch): Promise<RoomResult> {
+  return roomCall(`/api/rooms/${roomId}/keep-open`, { method: "POST" }, fetchFn);
+}
+
+/** Spec 0054 — "30 minutes", "2 hours", "90 minutes". */
+export function idleWords(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "a while";
+  if (minutes % 60 === 0) return minutes === 60 ? "1 hour" : `${minutes / 60} hours`;
+  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
 }
 
 export function removeMember(

@@ -301,8 +301,7 @@ class RoomRecoveryTest {
         // Still abandoned: a server bounced every night must not
         // keep dead rooms alive forever.
         val expired =
-            RoomMaintenance(source(), SilentAnnouncer, log, java.time.Duration.ofHours(24))
-                .sweep()
+            RoomMaintenance(source(), SilentAnnouncer, log).sweep()
         assertEquals(1, expired)
     }
 

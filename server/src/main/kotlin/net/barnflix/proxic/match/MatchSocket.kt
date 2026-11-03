@@ -44,6 +44,8 @@ fun Route.matchSocket(
     hub: MatchHub,
     config: ServerConfig,
     rooms: net.barnflix.proxic.room.RoomService? = null,
+    /** Spec 0054 — who is offline, for "End the game" when the other player is away. */
+    presence: net.barnflix.proxic.room.Presence = net.barnflix.proxic.room.EveryoneOnline,
 ) {
     webSocket("/ws/matches/{$MATCH_ID}") {
         // §3.78 — the cookie, and our own page (socketPrincipal).
@@ -104,7 +106,7 @@ fun Route.matchSocket(
 
             for (frame in incoming) {
                 val text = (frame as? Frame.Text)?.readText() ?: continue
-                handle(text, matchId, userId, runtime)?.let { reply ->
+                handle(text, matchId, userId, runtime, presence)?.let { reply ->
                     send(Frame.Text(reply.toString()))
                 }
             }
@@ -203,6 +205,7 @@ private fun handle(
     matchId: UUID,
     userId: UUID,
     runtime: MatchRuntime,
+    presence: net.barnflix.proxic.room.Presence,
 ): JsonObject? {
     val message =
         runCatching { json.parseToJsonElement(text) as JsonObject }.getOrNull() ?: return null
@@ -240,6 +243,22 @@ private fun handle(
                 null -> concedeAcceptedMessage()
                 else -> concedeRefusedMessage(refusal)
             }
+
+        // Spec 0054 — the other player has been offline long enough:
+        // the player still here ends the game, as the other's
+        // concession, so the game names the winner. Nothing but the
+        // type is read: who is away, and for how long, is the server's.
+        "END_FOR_AWAY" -> {
+            val live = runtime.liveMatch(matchId) ?: return awayEndMessage("UNREACHABLE")
+            awayEndMessage(
+                live.endForAway(
+                    userId,
+                    presence::offlineSince,
+                    net.barnflix.proxic.room.RoomTimeouts.active.away,
+                    java.time.Instant.now(),
+                ),
+            )
+        }
 
         // A newer client saying something this server has not
         // heard of is ignored rather than disconnected.

@@ -59,8 +59,13 @@ class LobbyConnection(
  * Thread-safe by construction: every connection is its own coroutine
  * and all of them touch this.
  */
-class LobbyHub : Presence {
+class LobbyHub(
+    clock: () -> java.time.Instant = java.time.Instant::now,
+) : Presence {
     private val connections = ConcurrentHashMap<UUID, MutableSet<LobbyConnection>>()
+
+    /** Spec 0054 -- since when each player has been offline: idle rooms, "End the game". */
+    val offline = OfflineClock(clock, ::isOnline)
 
     // --- connections --------------------------------------------------
 
@@ -87,6 +92,7 @@ class LobbyHub : Presence {
             set.add(connection)
             set
         }
+        offline.back(connection.user.userId)
         return wasEmpty
     }
 
@@ -101,6 +107,7 @@ class LobbyHub : Presence {
                 set
             }
         }
+        if (last) offline.left(connection.user.userId)
         return last
     }
 
@@ -222,4 +229,32 @@ class PresenceTurns {
 private fun List<LobbyConnection>.awaySince(): Instant? {
     val idle = map { it.awaySince ?: return null }
     return idle.maxOrNull()
+}
+
+/**
+ * Spec 0054 -- since when each player has had no lobby connection at all.
+ * Somebody not seen since the server started counts from the start, so a
+ * room whose host never came back after a restart still closes.
+ */
+class OfflineClock(
+    private val clock: () -> java.time.Instant,
+    private val online: (UUID) -> Boolean,
+) : Presence {
+    private val leftAt = ConcurrentHashMap<UUID, java.time.Instant>()
+    private val startedAt = clock()
+
+    fun left(userId: UUID) {
+        leftAt[userId] = clock()
+    }
+
+    fun back(userId: UUID) {
+        leftAt.remove(userId)
+    }
+
+    override fun isOnline(userId: UUID): Boolean = online(userId)
+
+    override fun offlineSince(userId: UUID): java.time.Instant? {
+        if (online(userId)) return null
+        return leftAt[userId] ?: startedAt
+    }
 }

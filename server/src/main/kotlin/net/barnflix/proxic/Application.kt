@@ -516,6 +516,7 @@ private fun Route.databaseRoutes(
         matchHub,
         config,
         roomService,
+        presence = lobbyHub.offline,
     )
 
     route("/api") {
@@ -574,36 +575,14 @@ private fun Route.databaseRoutes(
 
         startCategoryFill(config, database)
 
-        // PHASE_05 §5.124-§5.126, owner D4 — abandoned
-        // rooms expire. Unlike the session sweep this is
-        // not housekeeping: nothing else expires a room, so
-        // if it stopped running they would stay joinable
-        // forever.
-        val roomMaintenance =
-            net.barnflix.proxic.room.RoomMaintenance(
-                database.dataSource(),
-                lobby,
-                application.log,
-                // The lobby's chat limiter rides this tick rather
-                // than owning a second scheduled executor.
-                alsoSweep = {
-                    lobby.sweep()
-                    // §7.56 — game records are kept for a bounded time.
-                    val gone = config.gameRecords().sweep()
-                    if (gone > 0) application.log.info("deleted $gone game record(s) past their keep date")
-                },
-            )
-        roomMaintenance.start()
-        application.environment.monitor.subscribe(ApplicationStopped) {
-            roomMaintenance.stop()
-        }
+        startRoomMaintenance(config, database, lobby, lobbyHub.offline)
         startPictureCleanup(database.dataSource(), File(config.dataRoot)) { matchRuntime.picturesInPlay } // spec 0052
 
         // PHASE_05 §5.14, §5.76-§5.81, §5.138, §5.139. The
         // lobby is the announcer: an HTTP response reaches
         // the caller, and the other members learn through
         // the socket they already hold.
-        roomRoutes(roomService, lobby)
+        roomRoutes(roomService, lobby, net.barnflix.proxic.room.RoomIdle(database.dataSource()))
 
         // PHASE_05 §5.91-§5.117 — prepare and cancel a
         // match setup. Preparation starts nothing; it
@@ -699,6 +678,7 @@ private fun lobbyService(
     accountChanges = accountChanges,
     standings = net.barnflix.proxic.lobby.StandingsSource(database.dataSource())::standings,
     gameSeats = net.barnflix.proxic.lobby.GameSeats(database.dataSource())::of,
+    chatted = net.barnflix.proxic.room.RoomIdle(database.dataSource())::chatted,
 )
 
 /**

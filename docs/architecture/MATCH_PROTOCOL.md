@@ -84,6 +84,9 @@ DECISION_OPTIONS        decisionId, query, total, options   (search results)
 DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
 CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER
+AWAY_END_ACCEPTED       spec 0054: the other player's concession went to Forge
+AWAY_END_REFUSED        reason: NOT_AWAY (back, or not gone long enough),
+                        NOT_A_PLAYER, UNREACHABLE
 ```
 
 A `DECISION_REQUEST` reaches only the player Forge is waiting on.
@@ -105,7 +108,17 @@ travels with it.
 DECISION_RESPONSE   decisionId, actionId     actionId null = pass
 DECISION_SEARCH     decisionId, query        searchable questions only
 CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
+END_FOR_AWAY        (nothing)                spec 0054: the OTHER seat concedes, only
+                                             once its player has been offline 10 min
 ```
+
+**Spec 0054 — the player left waiting.** The one exception to "a
+disconnect never concedes" (§6.111): when the other player has had no
+lobby connection for 10 minutes (a server setting), the player still at
+the table may send `END_FOR_AWAY`, and the server sends the worker
+`CONCEDE` for the other seat, so the winner is still Forge's. The server
+checks the time itself; the page only says when to offer it. A game is
+never ended by a timer.
 
 **Stops (spec 0035; was PHASE_07 §7.53, AMENDMENT 13).** One rule for
 every player, nothing to save (`STOPS`, `PASS_TURN` and

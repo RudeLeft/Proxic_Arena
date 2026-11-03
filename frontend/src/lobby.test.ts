@@ -209,6 +209,20 @@ describe("the room", () => {
     expect(state.notice?.detail).toContain("host left");
   });
 
+  // Spec 0054 — an idle room, and a host who went offline, said plainly.
+  it.each([
+    ["IDLE_30", "This room closed after 30 minutes with nothing happening."],
+    ["IDLE_120", "This room closed after 2 hours with nothing happening."],
+    ["HOST_AWAY", "The host went offline, so the room closed."],
+  ])("says why an idle room closed (%s)", (reason, words) => {
+    const state = apply([
+      { type: "ROOM", room: room() },
+      { type: "ROOM_CLOSED", roomId: "r-1", reason },
+    ]);
+    expect(state.room).toBeNull();
+    expect(state.notice?.detail).toBe(words);
+  });
+
   it("explains a reason it has never heard of without showing the code", () => {
     const state = apply([
       { type: "ROOM", room: room() },

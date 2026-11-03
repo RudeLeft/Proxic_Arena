@@ -72,6 +72,8 @@ data class ServerConfig(
     val databaseUserValue: String? = null,
     /** PHASE_07 §7.56 — how many days a match's game record is kept. */
     val matchRecordDays: Long = net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,
+    /** Spec 0054 — how long a room in the lobby may sit, in minutes. */
+    val roomTimeouts: net.barnflix.proxic.room.RoomTimeouts = net.barnflix.proxic.room.RoomTimeouts(),
 ) {
     /** Where match game records live (§7.56). */
     fun gameRecords(): net.barnflix.proxic.match.GameRecords =
@@ -150,7 +152,24 @@ data class ServerConfig(
                 matchRecordDays =
                     getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }
                         ?: net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,
+                roomTimeouts = roomTimeouts(getenv),
             )
+
+        /** Spec 0054 — each limit, in whole minutes; unset or not a number keeps the default. */
+        private fun roomTimeouts(getenv: (String) -> String?): net.barnflix.proxic.room.RoomTimeouts {
+            val defaults = net.barnflix.proxic.room.RoomTimeouts()
+
+            fun minutes(
+                name: String,
+                otherwise: java.time.Duration,
+            ) = getenv(name)?.toLongOrNull()?.takeIf { it > 0 }?.let(java.time.Duration::ofMinutes) ?: otherwise
+            return net.barnflix.proxic.room.RoomTimeouts(
+                alone = minutes("PROXIC_ROOM_ALONE_MINUTES", defaults.alone),
+                together = minutes("PROXIC_ROOM_TOGETHER_MINUTES", defaults.together),
+                away = minutes("PROXIC_AWAY_MINUTES", defaults.away),
+                warning = minutes("PROXIC_ROOM_WARNING_MINUTES", defaults.warning),
+            )
+        }
 
         private fun mask(value: String?): String = if (value.isNullOrBlank()) "<unset>" else "<set>"
 

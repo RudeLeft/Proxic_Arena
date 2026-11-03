@@ -1,7 +1,6 @@
 package net.barnflix.proxic.room
 
 import kotlinx.serialization.Serializable
-import java.time.Duration
 
 // The room list everybody sees — PHASE_07 §7.64 and Amendment 9.
 //
@@ -54,11 +53,13 @@ data class DirectoryRoom(
     val desiredPlayerCount: Int,
     val seats: List<DirectorySeat>,
     /**
-     * When the room clears if nobody does anything (owner decision
-     * D4: 24 hours of inactivity). Null while a match is on: a room
-     * in a match is not swept.
+     * When the room closes if nothing happens (spec 0054: 30 minutes
+     * with the host alone, 2 hours with two players). Null while a
+     * match is on: a room in a match is not swept.
      */
     val clearsAt: String? = null,
+    /** Spec 0054 -- from when the page warns "This room closes in 5 minutes". */
+    val warnsAt: String? = null,
     /**
      * Spec 0016 R2 — the open seat, held for somebody: invited by the
      * host, or asking to join ([DirectoryHold.asked]). Null when no one.
@@ -114,9 +115,6 @@ class RoomAdmin internal constructor(private val store: RoomStore) {
         }
 }
 
-/** The lifetime the maintenance sweep applies, said once for the list too. */
-val ROOM_LIFETIME: Duration = Duration.ofHours(24)
-
 fun Room.directoryEntry(): DirectoryRoom =
     DirectoryRoom(
         roomId = roomId.toString(),
@@ -134,6 +132,15 @@ fun Room.directoryEntry(): DirectoryRoom =
                     isHost = it.isHost,
                 )
             },
-        clearsAt = lastActivityAt.plus(ROOM_LIFETIME).toString().takeIf { status != RoomStatus.IN_MATCH },
+        // Spec 0054 -- when it closes with nothing happening (30 minutes
+        // alone, 2 hours with two), and when the page starts warning.
+        clearsAt = closesAt()?.toString(),
+        warnsAt = closesAt()?.minus(RoomTimeouts.active.warning)?.toString(),
         watchable = watchable,
     )
+
+/** Spec 0054 -- when this room closes if nothing happens; null in a game. */
+fun Room.closesAt(timeouts: RoomTimeouts = RoomTimeouts.active): java.time.Instant? =
+    lastActivityAt.plus(timeouts.idleLimit(members.size)).takeIf {
+        status == RoomStatus.OPEN || status == RoomStatus.READY_FOR_MATCH
+    }

@@ -753,7 +753,12 @@ function RoomsPanel({ rooms, now, run }: { rooms: AdminRoom[]; now: number; run:
                 {room.seats.map((seat) => seat.displayName).join(" vs ") || "Nobody seated"}
               </span>
               <span className="pa-room-state">{roomStatus(room)}</span>
-              <span className="pa-admin-account-meta">{idleText(lastActivityAt, now)}</span>
+              <span className="pa-admin-account-meta">
+                {idleText(lastActivityAt, now)}
+                {/* Spec 0054 — when an idle room closes on its own. */}
+                {room.clearsAt &&
+                  ` · closes in ${idleText(new Date(now).toISOString(), Date.parse(room.clearsAt))}`}
+              </span>
               {confirming === room.roomId ? (
                 <span className="pa-admin-confirm" role="alert">
                   <span>

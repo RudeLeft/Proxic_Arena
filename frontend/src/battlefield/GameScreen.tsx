@@ -36,6 +36,7 @@ import { FitName } from "../FitName";
 import {
   EMPTY_MATCH,
   concessionText,
+  awayEndText,
   connectMatch,
   type Decision,
   type DecisionOption,
@@ -117,6 +118,8 @@ import "./game.css";
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
 const RESPONSE_WINDOW_MS = 5000;
+/** Spec 0054 — how long the other player is offline before "End the game" is offered. */
+const AWAY_MS = 10 * 60_000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
 const HOLD_MS = 1500;
 
@@ -328,6 +331,43 @@ export function GameScreen({
   // chat is closed (owner 2026-10-21). By the line's id, not a count: the
   // log keeps only the latest lines, so its length stops growing.
   const { lobby } = useLobbyConnection();
+  // Spec 0054 (owner 2026-11-03) — the other player has been offline 10
+  // minutes: the one still here may keep waiting, or end the game as the
+  // other's concession. The server checks the time again; this only says
+  // when to offer it. Offline is the lobby's word for it, and only trusted
+  // while the lobby can see YOU (a dropped lobby shows everybody gone).
+  const theirId = match.participants.find((seat) => seat.userId !== me)?.userId ?? null;
+  const lobbySeesMe = lobby.presence.some((p) => p.userId === me);
+  const theyAreGone =
+    theirId !== null && lobbySeesMe && !lobby.presence.some((p) => p.userId === theirId);
+  const theirLastSeen = lobby.players.find((p) => p.userId === theirId)?.lastSeenAt ?? null;
+  const theirName =
+    lobby.players.find((p) => p.userId === theirId)?.displayName ?? "The other player";
+  const [goneSince, setGoneSince] = useState<number | null>(null);
+  useEffect(() => {
+    if (!theyAreGone) setGoneSince(null);
+    else {
+      // The earliest we know of: "last seen" may arrive after "gone".
+      const seen = theirLastSeen ? Date.parse(theirLastSeen) : NaN;
+      setGoneSince((was) =>
+        Number.isNaN(seen) ? (was ?? Date.now()) : was === null ? seen : Math.min(was, seen),
+      );
+    }
+  }, [theyAreGone, theirLastSeen]);
+  const [awayNow, setAwayNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (goneSince === null) return undefined;
+    setAwayNow(Date.now());
+    const timer = window.setInterval(() => setAwayNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [goneSince]);
+  const [keptWaiting, setKeptWaiting] = useState<number | null>(null);
+  const awayLong =
+    !watching &&
+    live &&
+    goneSince !== null &&
+    awayNow - goneSince >= AWAY_MS &&
+    keptWaiting !== goneSince;
   // Spec 0028 — each stack object with its caster's picture.
   const stackShown = useMemo(
     () =>
@@ -1096,6 +1136,37 @@ export function GameScreen({
                   />
                 )}
                 <NoticeStack notices={tableNotices} place="table" />
+                {awayLong && !finished && (
+                  <div className="gs-away" role="alert">
+                    <p className="gs-away-title">{theirName} has been gone 10 minutes.</p>
+                    <p className="gs-away-sub">
+                      Ending the game counts as {theirName} conceding: you win.
+                    </p>
+                    {awayEndText(game.awayEnd, theirName) && (
+                      <p className="gs-away-note">{awayEndText(game.awayEnd, theirName)}</p>
+                    )}
+                    <div className="gs-away-buttons">
+                      <button
+                        type="button"
+                        className="pa-button pa-button-quiet"
+                        onClick={() => setKeptWaiting(goneSince)}
+                      >
+                        Keep waiting
+                      </button>
+                      <button
+                        type="button"
+                        className="pa-button pa-button-brass"
+                        disabled={game.awayEnd === "SENT"}
+                        onClick={() => {
+                          setGame((previous) => ({ ...previous, awayEnd: null }));
+                          socketRef.current?.endForAway();
+                        }}
+                      >
+                        End the game
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             }
             rail={

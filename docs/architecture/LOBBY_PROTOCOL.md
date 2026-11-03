@@ -217,6 +217,18 @@ per tab: §5.6 makes several sessions one player.
 `EXPIRED`. A client that meets an unfamiliar reason should say
 something true and vague rather than show the code.
 
+**Spec 0054 (idle rooms close), additive only.** A room in the lobby
+closes after 30 minutes with nothing happening while the host is alone,
+2 hours with two players (server settings): `ROOM_CLOSED` reason
+`IDLE_<minutes>` (`IDLE_30`, `IDLE_120`). A host offline 10 minutes
+closes it: reason `HOST_AWAY`. A guest offline 10 minutes is taken out:
+`ROOM_REMOVED` reason `AWAY`. `ROOMS` entries add `warnsAt`, from
+when the room's members are warned; `clearsAt` is now the idle close.
+`POST /api/rooms/{roomId}/keep-open` (a member) starts the clock again
+and answers the room. A lobby chat line from a member of a room in the
+lobby also counts, at most once a minute, without moving the room's
+revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
+
 **PHASE_07 additions (§7.64, Amendments 9 and 11), additive only:**
 
 - `ROOMS` is every room that is open, starting or in a match:
