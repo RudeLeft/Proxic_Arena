@@ -843,3 +843,8 @@ canvas for approval.
 **As built (2026-11-04, a documentation check -- Amendment 14's energy
 words).** The dial says "You have 3." after the card's sentence, not
 "You have 3 energy." (the question already says "Pay how much energy?").
+
+**As built (2026-11-04, a documentation check -- W-04/05/06).** The
+yes/no bubble does not say "2 of 7": its header is the card and how many
+are on the stack ("Skirk Drill Sergeant · 7 on the stack"). Only the
+copy-target bubble numbers the trigger ("<card> · trigger 2 of 7").

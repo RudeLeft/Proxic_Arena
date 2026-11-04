@@ -242,7 +242,7 @@ Unlock the generated pixel coordinates, which are an output, not an input.
 
 ## 7. Open questions for the owner — ANSWERED 2026-10-15 (Phase 7 §7.51)
 
-Sliver 33% of card width; floor 75%; one noncreature row for
+Sliver 33% of card width; floor 75% (as built: 70%, `SIZE_STEPS` in `layout.ts`); one noncreature row for
 enchantments, planeswalkers and battles with a visible fallback; a
 permanent that changes type moves rows at once; per-viewer layout for
 face-down permanents; front/rear automatic by overflow. Basic lands pile

@@ -53,7 +53,8 @@
       <artifactId>forge-core</artifactId>
       <version>${forge.maven.version}</version>
     </dependency>
-    <!-- For ONE check: Forge's "can this be paid now?" (ComputerUtilMana,
+    <!-- For two checks: Forge's "can this be paid now?" and each spell's
+         current cost (ComputerUtilMana canPayManaCost, calculateManaCost,
          in test mode), so the board can dim what cannot be afforded
          (PHASE_07 §7.61 B8). No computer player is created or used.
          Owner decision 2026-10-21; Strategy A's line was forge-gui

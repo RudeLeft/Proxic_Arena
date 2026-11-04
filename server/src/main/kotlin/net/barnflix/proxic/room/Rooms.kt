@@ -62,7 +62,7 @@ data class Room(
     val members: List<RoomMember>,
     /** PHASE_07 Amendment 9 — what the host called it, or null. */
     val name: String? = null,
-    /** When somebody last did something here; a room clears 24 hours after (D4). */
+    /** When somebody last did something here; spec 0054's idle limits count from it. */
     val lastActivityAt: java.time.Instant = java.time.Instant.EPOCH,
     /** Spec 0047 — whether people may watch its game (the host's "Let people watch"). */
     val watchable: Boolean = true,

@@ -159,8 +159,8 @@ you the link to send yourself.
 ```
 
 It prompts for the password — twice, not echoed, never on a command
-line, never in shell history. **Minimum 12 characters**, no other
-rules.
+line, never in shell history. **Minimum 12 characters** (at most 1024, and not only spaces), no
+other rules.
 
 A password passed as `--password=...` is **refused outright**
 (§3.58). Then:

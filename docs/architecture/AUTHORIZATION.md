@@ -94,8 +94,10 @@ anyone else is told it does not exist (404). One place answers it,
 
 ## Admin-only operations
 
-Account administration — create, list, disable, enable, revoke
-sessions, and (PHASE_07) change a role — is in two places. Setting a
+Account administration — create, list, disable, enable and revoke
+sessions — is in two places, the Admin page and `arena-admin`; changing
+a role (PHASE_07) is on the Admin page only (`arena-admin` has no role
+command). Setting a
 password directly is `arena-admin set-password` only; the Admin page
 sends a reset link instead (spec 0026). `POST /api/admin/accounts`
 creates an account with a password, but no page calls it: the Admin

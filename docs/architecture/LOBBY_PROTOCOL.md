@@ -304,11 +304,12 @@ every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client.
 
 Not every refusal is that `404`, though. A host action (remove, close,
 player count, prepare) checks the host before membership, so a
-non-member gets `403 ROOM_HOST_REQUIRED`; and a route that checks the
-revision first (remove, ready) answers a non-member who sends a stale
-`expectedRoomRevision` with `409 ROOM_REVISION_STALE`. Either says the
-room exists. That reveals nothing new: since spec 0016 every room is on
-the lobby's room list for every signed-in player.
+non-member gets `403 ROOM_HOST_REQUIRED`; and the routes that check the
+revision first (remove, player count, deck choice, ready and prepare)
+answer a non-member who sends a stale `expectedRoomRevision` with
+`409 ROOM_REVISION_STALE` before either. Either says the room exists.
+That reveals nothing new: since PHASE_07 §7.64 every room is on the
+lobby's room list for every signed-in player (spec 0016 kept it).
 
 ---
 

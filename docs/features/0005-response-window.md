@@ -90,3 +90,7 @@ Out: any change to the opponent's stops; per-card or remembered choices
    the player passes. Only the tab in front counts down: a hidden tab
    never passes for the player, and back in front it starts again from 5.
    See `PHASE_09_GAME_WINDOWS_LOCKED.md`.
+
+**Note (2026-11-04, a documentation check).** Amendment 1's
+`check-stops.py window-skipped` no longer exists: "Skip to end of turn"
+was removed by spec 0035, and the scenario with it.

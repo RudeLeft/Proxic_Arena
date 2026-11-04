@@ -199,7 +199,8 @@ rather than teleports.
    name tags on the host instead (AMENDMENT 4), so every line is above. Several layers at different z-indices are free
    on DOM and impossible on a single canvas.
 
-   As built (step 5, PHASE 7 AMENDMENT 7): the four lines are one SVG layer
+   As built (step 5, PHASE 7 AMENDMENT 7): the game's lines (attack, block,
+   target, and spec 0028's faint source line) are one SVG layer
    above the battlefield and below the hand (stacking: battlefield cards
    under 2000, a riding blocker from 2000 up to about 4000 (spec 0037), a
    card selected to attack or block 4400 (W-14), a swooping attacker 4500, lines 5000, bursts and numbers 6000,
@@ -308,7 +309,7 @@ tree and the one-line assertions. That trade is to be made with numbers.
 | 2 | static DOM board from a seeded fixture, data attributes from the first commit | something an agent can read and the owner can see |
 | 3 | the tier-2 Playwright bridge | proves step 2 obeys step 1 |
 | 4 | transforms, enter/exit transitions (PHASE 7 AMENDMENT 6: 250 ms; cards travel from and to their rail zones; the hand card zooms) | now it moves |
-| 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`) | now it points and glows |
+| 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`; as built the game draws attack, block, target and spec 0028's source line, and the chain -- attach -- line only on `/dev/board`) | now it points and glows |
 | 6 | density route, benchmarks against §6 | the PixiJS decision, with data |
 | 7 | this document's acceptance rows green; Phase 7 gate updated | make it official |
 

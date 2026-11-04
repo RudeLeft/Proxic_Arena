@@ -46,7 +46,7 @@ If the host cannot see your name, see the next entry.
 
 ## Somebody is signed in but shows as offline in "Players"
 
-**Players** lists every account; offline ones are folded away under
+**Players** lists every active account (a disabled one is not listed); offline ones are folded away under
 "Offline · N". Online is **connection state** (§5.120), not account
 state: a player is online while they have an open `/ws/user` socket.
 

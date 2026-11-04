@@ -203,3 +203,9 @@ crossover printings.
   dropped** (no skipping crossover sets; F-0023-G dropped). Arena's part
   stays as written: Forge sees each set's real type, and the deck rules
   list printings in Forge's order.
+
+**As built (2026-11-04).** The empty folder is removed as soon as Forge
+has read it, not on exit: the server ends a worker with
+`destroyForcibly()`, so `deleteOnExit` never ran and one folder a game
+piled up in `/tmp` (`CardPoolTest`; `deleteOnExit` stays only as a
+fallback).

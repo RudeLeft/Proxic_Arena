@@ -90,7 +90,7 @@
       "required": "Required",
       "tests": "P6-AN, §6.92",
       "scenario": "Choose two modes, then targets for each.",
-      "notes": "Mode choice is MET on Alley Evasion and Abrade; not yet run on this card.",
+      "notes": "Mode choice is MET on Alley Evasion and Abrade; run on this card by check-modes.py cryptic (evidence).",
       "result": "PASSED",
       "evidence": "scripts/check-modes.py cryptic (worker, in CI), 2026-10-20. Choose two: the creature returns to its owner's hand and a card is drawn."
     },
@@ -115,7 +115,7 @@
       "required": "Required",
       "tests": "P6-AN, §6.92",
       "scenario": "Pawprint modes within a budget.",
-      "notes": "The Pawprint budget is ported from Forge's own human path; not yet run on this card.",
+      "notes": "The Pawprint budget is ported from Forge's own human path; run on this card by check-modes.py pawprint (evidence).",
       "result": "PASSED",
       "evidence": "scripts/check-modes.py pawprint (worker, in CI), 2026-10-20. Five one-pawprint modes fit the budget, none offered past it; five drawn."
     },
@@ -214,14 +214,14 @@
       "scenario": "Transform: the same object, the other face.",
       "result": "PASSED",
       "evidence": "scripts/check-multiface.py (worker, in CI) and frontend/e2e/match-multiface.spec.ts (browser, in CI), 2026-10-20. One object id throughout; face Original -> Backside with both face names (Forge's); 1/1 Human Wizard -> 3/2 Human Insect from Forge, not printed text. The top card is shown to its controller before 'Reveal?'; the opponent is told of every reveal and of nothing declined. In the browser: front with its imported picture; back as Insectile Aberration 3/2 with no picture borrowed from the front. Screenshots seen/delver-*.png.",
-      "notes": "Found: Forge's 'look at' and 'reveal' (PlayerController.reveal) were no-ops in the adapter, so the reveal question was answered blind and opponents never saw reveals; now a private notice to each entitled player. Packages carry front images only, so a transformed card shows no picture rather than the wrong one."
+      "notes": "Found: Forge's 'look at' and 'reveal' (PlayerController.reveal) were no-ops in the adapter, so the reveal question was answered blind and opponents never saw reveals; now a private notice to each entitled player. On 2026-10-20 packages carried front images only, so a transformed card showed no picture rather than the wrong one; since spec 0008 a package may carry the back face's own picture (deck_face_art)."
     },
     "Reckless Stormseeker // Storm-Charged Slasher": {
       "owner": "P6_REQUIRED",
       "required": "Required",
       "tests": "P6-AJ, P6-BF, P6-AO, §6.82, §6.97",
       "scenario": "Daybound/nightbound: day/night is global state, and the card transforms with it.",
-      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. Day/night: entering makes it day, carried as the snapshot's dayTime (check-player-state.py); the night transform itself is not yet run.",
+      "notes": "Its artwork in a match was missing until 2026-10-20 (two-faced lookup); MechanicsLabArtTest now covers every two-faced card. Day/night: entering makes it day, carried as the snapshot's dayTime (check-player-state.py); the night transform is run by check-shapes.py daybound (evidence).",
       "result": "PASSED",
       "evidence": "scripts/check-shapes.py daybound (worker, in CI), 2026-10-20. Day becomes night and the card shows Storm-Charged Slasher; day returns and it turns back. Found: the board showed day at night and night by day -- Forge's day/night flag is TRUE FOR NIGHT and was read the other way; check-player-state.py now requires 'day' after a daybound card enters."
     },

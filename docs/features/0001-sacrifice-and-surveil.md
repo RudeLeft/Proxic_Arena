@@ -124,3 +124,8 @@ who sacrifices what — Forge's rules, untouched (ARCH-002).
    recorded where Phase 8 keeps every question's: its record, each
    question tied to the game that proves it. Owner, 2026-10-22: "Phase 8
    record".
+
+**As built (2026-11-04, a documentation check).** "Pat is surveilling 2"
+was never built: while the question is open the other player sees the
+game's "Pat's move" line (Phase 9 W-25), and afterwards the report of
+what happened (Phase 9 Amendment 12).

@@ -116,7 +116,7 @@ DELETE /api/decks/{deckId}/shares/{userId}
 ```
 
 Immediate and server-side (§4.35). It ends deck detail, the library
-listing and the deck's own artwork route (`/api/decks/{id}/art/…`)
+listing and the deck's own artwork route (`/api/decks/{deckId}/assets/{assetId}`)
 together — a test asserts all three, because stopping two of three
 would look like success. Since spec 0052 the pages load pictures from
 `/api/pictures/{sha}`, which any signed-in player may load: an address

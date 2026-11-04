@@ -222,7 +222,7 @@ card pool there is no subset of zones that can be assumed irrelevant.
 | P0A-I Commander | blocking acceptance test | **removed** |
 | 0A.9 Formats | Commander + 2HG | **removed**; no format capability gate remains |
 | 0B.7 Commander runtime | deferred with trigger | **removed** |
-| Acceptance tests | 10 | **9** |
+| Acceptance tests | 10 | **9**, then 10 again with P0A-K below (all passed) |
 
 Phase 0A's remaining open work is unchanged: §0A.8A (protocol lessons
 review), §0A.9A (Scryfall/Forge identity boundary) and §0A.10 (process
@@ -252,4 +252,6 @@ P0A-K  Zone coverage: enumerate playable actions from every zone Forge
 - **Phase 7** — the battlefield no longer needs a command-zone row.
   Note that §7.10's zone-membership question is **unchanged**:
   enchantments and planeswalkers still have nowhere to go, and Open
-  Format's unrestricted pool guarantees they will appear.
+  Format's unrestricted pool guarantees they will appear. (Since
+  answered: they have a noncreature line of their own --
+  `BATTLEFIELD_LAYOUT_CONTRACT.md` §7, `Kind` in `layout.ts`.)

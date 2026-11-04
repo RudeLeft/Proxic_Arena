@@ -38,7 +38,7 @@ yet implement:
 
 ```text
 UnsupportedOperationException: Forge asked for <method>, which this
-adapter does not implement [asked: {...}] [declined: N]
+adapter does not implement -- turn N, <player>'s <step>, ... [asked: {...}] [declined: N]
 ```
 
 That is deliberate (AGENTS STUB-002): an unbuilt question fails loudly

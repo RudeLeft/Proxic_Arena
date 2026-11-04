@@ -107,3 +107,8 @@ All taken 2026-10-30 (above).
 4. **As built (2026-11-04, a documentation check).** The round button
    reads "Attack with 2" (with "5 power · …" under it) and "Block with 2",
    not "Attack with 2 power" and "Block".
+
+5. **As built (2026-11-04, a documentation check).** While blockers are
+   declared the button's second line reads "N power still gets through";
+   "Select more, or click a blocker to take it back" shows only when the
+   board carries no combat, which in a real block it always does.

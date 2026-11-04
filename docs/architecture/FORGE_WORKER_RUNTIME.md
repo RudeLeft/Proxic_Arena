@@ -65,10 +65,11 @@ socket** -- verified in its code and inside the production container
 Newline-delimited JSON over stdin/stdout. Every frame carries
 `protocolVersion` (1) and `type`; a successful reply (PONG,
 DECISION_ACCEPTED, DECISION_OPTIONS, CONCEDE_ACCEPTED, ...) carries the
-`messageId` of the frame it answers. An `ERROR` never does (the request's
-`decisionId`, where there is one, says what it answers), and a frame the
-worker sends on its own (WORKER_READY, DECISION_REQUEST, SNAPSHOT, ...)
-has none. Never exposed to a browser.
+`messageId` of the frame it answers -- except `WORKER_READY`, which has
+none whether it answers `VERSION` or is sent unprompted at start. An
+`ERROR` never does (the request's `decisionId`, where there is one, says
+what it answers), and a frame the worker sends on its own
+(WORKER_READY, DECISION_REQUEST, MATCH_SNAPSHOT, ...) has none. Never exposed to a browser.
 
 ```text
 server → worker                 worker → server

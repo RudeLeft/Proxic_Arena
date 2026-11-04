@@ -87,9 +87,9 @@ RUN set -eu; cd /forge; \
     done; \
     git diff --stat
 
-# forge-core and forge-game (Strategy A), and forge-ai for one check
-# alone: Forge's "can this be paid now?" (PHASE_07 §7.61 B8, owner
-# decision 2026-10-21). forge-gui is Swing-coupled and a browser cannot
+# forge-core and forge-game (Strategy A), and forge-ai for two checks:
+# Forge's "can this be paid now?" and each spell's current cost
+# (ComputerUtilMana; PHASE_07 §7.61 B8, owner decision 2026-10-21). forge-gui is Swing-coupled and a browser cannot
 # speak it; forge-ai is not.
 RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game,forge-ai -am
 

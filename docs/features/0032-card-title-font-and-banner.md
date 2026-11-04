@@ -60,7 +60,7 @@ All taken 2026-10-28 (see the top).
 
 ## Amendments
 
-1. **As built (2026-11-04, a documentation check).** Spec 0039 (1.11.0's
+1. **As built (2026-11-04, a documentation check).** Spec 0039 (1.21.0's
    Report window, 2026-10-29) also uses the card-title face outside the
    game screen: the Report dialog's tabs and its "sent" title (opened
    from every page) and the Admin report view's title (`report.css`).

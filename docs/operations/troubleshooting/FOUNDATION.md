@@ -124,7 +124,6 @@ action differs for each:
 | `resources-missing` | Runs, but Forge's data files are not usable | Set `PROXIC_FORGE_RES`. Run the worker by hand (below) to see which directory. |
 
 Readiness, `/status` and the log carry only the state's word, never a
-detail. Readiness, `/status` and the log carry only the state's word, never a
 detail. Run the worker directly — it is a normal program and will tell you
 what it thinks:
 
