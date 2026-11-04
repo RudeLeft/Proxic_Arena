@@ -3,6 +3,19 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.41.0 — 2026-11-04
+
+Naming a card (Phase 9).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Naming a card** (Pithing Needle, Phyrexian Revoker, Meddling Mage)
+- The question now sits beside the card asking, titled "Name a card" (or "Name a nonland card"), with the card's own words.
+- The cards you can see that it may name glow on the table, and in an open graveyard: one click names one.
+- A card it can't name says so when clicked: "Phyrexian Revoker can't name a land."
+- The search is still there for any other card, and each result shows what it costs and what it is: "Goblin Guide {R} · Creature — Goblin Scout".
+
 ## 1.40.0 — 2026-11-04
 
 Choosing a number, and the countdown in a second tab (Phase 9).
