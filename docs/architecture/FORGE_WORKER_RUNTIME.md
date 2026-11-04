@@ -158,9 +158,13 @@ declined -- never a silent default (AGENTS STUB-002).
 
 ## Temporary directories
 
-None per match. The worker writes nothing but its stderr log; the
-server's only other per-match file is the game record above (§6.30,
-P6-BA).
+One, briefly: each worker makes an empty `proxic-custom-editions*`
+folder in `/tmp` for Forge's custom editions (spec 0023) and removes it
+as soon as Forge has read it (owner 2026-11-04: it was left for
+`deleteOnExit`, which never runs for a worker the server ends with
+`destroyForcibly()`, so one piled up per game; `CardPoolTest`). Otherwise
+the worker writes nothing but its stderr log; the server's only other
+per-match file is the game record above (§6.30, P6-BA).
 
 ## Shutdown
 

@@ -60,6 +60,18 @@ class CardPoolTest {
         return found;
     }
 
+    /**
+     * Spec 0023's empty custom-editions folder is gone once Forge has read
+     * it (owner 2026-11-04): a worker is ended with destroyForcibly(), so
+     * deleteOnExit never ran and every game left one in /tmp.
+     */
+    @Test
+    void theCustomEditionsFolderIsNotLeftBehind() {
+        File folder = runtime.customEditionsFolder();
+        assertNotNull(folder, "Forge was not loaded");
+        assertFalse(folder.exists(), "left behind: " + folder);
+    }
+
     /** F-0021-A: a sample of every listed printing, asked back by set and number, resolves. */
     @Test
     void everyListedPrintingResolves() {

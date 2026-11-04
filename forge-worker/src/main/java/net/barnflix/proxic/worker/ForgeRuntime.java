@@ -34,6 +34,8 @@ public final class ForgeRuntime {
 
     private final File res;
     private boolean loaded;
+    /** Spec 0023's empty custom-editions folder; gone once Forge has read it. */
+    private File customEditions;
 
     public ForgeRuntime(File res) {
         this.res = res;
@@ -79,21 +81,32 @@ public final class ForgeRuntime {
         // reprint" preference had nothing to sort on. Not a missing path:
         // Forge creates a missing folder, and the resource tree is
         // read-only in production.
+        customEditions = noCustomEditions();
         new StaticData(
                 cards, tokens, null, null,
-                root + "/editions", noCustomEditions(),
+                root + "/editions", customEditions.getAbsolutePath(),
                 root + "/blockdata", root + "/setlookup",
                 "Latest", false, true, false, false);
+        // Read once, above, and empty: removed now rather than at exit,
+        // because the server ends a worker with destroyForcibly() and
+        // deleteOnExit never runs -- one folder a game piled up in /tmp
+        // (owner 2026-11-04).
+        if (!customEditions.delete()) {
+            customEditions.deleteOnExit();
+        }
 
         loaded = true;
     }
 
-    /** A new empty folder for Forge's custom editions; it holds none, and goes when the worker does. */
-    private static String noCustomEditions() {
+    /** The custom-editions folder Forge was given (tests: it must be gone). */
+    File customEditionsFolder() {
+        return customEditions;
+    }
+
+    /** A new empty folder for Forge's custom editions; it holds none. */
+    private static File noCustomEditions() {
         try {
-            File folder = java.nio.file.Files.createTempDirectory("proxic-custom-editions").toFile();
-            folder.deleteOnExit();
-            return folder.getAbsolutePath();
+            return java.nio.file.Files.createTempDirectory("proxic-custom-editions").toFile();
         } catch (java.io.IOException e) {
             throw new IllegalStateException("no temporary folder for Forge's custom editions", e);
         }
