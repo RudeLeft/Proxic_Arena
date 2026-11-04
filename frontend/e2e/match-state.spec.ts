@@ -40,6 +40,14 @@ const COSTS: Record<string, { G: number; W: number; total: number }> = {
   "Palace Sentinels": { G: 0, W: 1, total: 4 },
 };
 const INFECT = ["Glistener Elf", "Blight Mamba"];
+const MONARCH = ["Palace Jailer", "Palace Sentinels"];
+
+// A cast is "Name · {cost} · Creature ..."; an ability on the same card
+// is "Name · {1}{G}: Regenerate ..." or "Name · {T}, Pay ...". Matching
+// only "Name · {" also activated Blight Mamba's regeneration every main
+// phase until the lands ran out, so neither player ever cast the Palace
+// card in hand and nobody became the monarch (CI 41905836041, 18 min).
+const cast = (name: string) => new RegExp(`^${name} · (\\{[^}]*\\})+ · `);
 
 test("poison, energy and the monarch show on the board as Forge's state", async ({ browser }) => {
   test.skip(!existsSync(statePackage), "no state deck package built");
@@ -66,8 +74,17 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
+    // A game that has ended shows nothing more: stop and say how it ended,
+    // instead of watching a finished table until the deadline.
+    const ended = async () =>
+      [
+        ...(await host.locator("#gs-over-text").allTextContents()),
+        ...(await guest.locator("#gs-over-text").allTextContents()),
+      ].join(" ");
+
     const deadline = Date.now() + 1_000_000;
     while (Date.now() < deadline && !(await everything())) {
+      if (await ended()) break;
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);
@@ -79,6 +96,7 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
       const poisoned = await seen(/\d+ poison/);
+      const monarch = await seen(/· monarch/);
 
       let pick = -1;
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
@@ -103,11 +121,18 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         const hubs = await cardCount(lands.filter({ hasText: "Aether Hub" }));
         pick = find(/^Aether Hub · no cost · Play land/);
         if (pick < 0) pick = find(/Play land/);
-        for (const [name, cost] of Object.entries(COSTS)) {
+        // What is still missing is cast first: a Palace card while there
+        // is no monarch, infect while nobody is poisoned.
+        const wanted = (name: string) =>
+          (MONARCH.includes(name) && !monarch) || (INFECT.includes(name) && !poisoned);
+        const spells = Object.entries(COSTS).sort(
+          ([a], [b]) => Number(wanted(b)) - Number(wanted(a)),
+        );
+        for (const [name, cost] of spells) {
           if (pick >= 0) break;
           const affordable =
             forests >= cost.G && plains >= cost.W && forests + plains + hubs >= cost.total;
-          if (affordable) pick = find(new RegExp(`^${name} · \\{`));
+          if (affordable) pick = find(cast(name));
         }
       } else {
         // Mana, targets, confirmations: Forge's first. Mandatory
@@ -127,9 +152,10 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       await live.waitForTimeout(40);
     }
 
-    expect(await seen(/\d+ poison/), "nobody was ever poisoned").toBe(true);
-    expect(await seen(/\d+ energy/), "nobody ever had energy").toBe(true);
-    expect(await seen(/· monarch/), "nobody ever became the monarch").toBe(true);
+    const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
+    expect(await seen(/\d+ poison/), `nobody was ever poisoned${why}`).toBe(true);
+    expect(await seen(/\d+ energy/), `nobody ever had energy${why}`).toBe(true);
+    expect(await seen(/· monarch/), `nobody ever became the monarch${why}`).toBe(true);
     // Forge's internal effect pieces are not "the command zone": a
     // regeneration shield and the monarch's own bookkeeping object
     // once showed there.
