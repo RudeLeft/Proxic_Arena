@@ -91,6 +91,18 @@ test("a report from a real game reaches the administrator, with everything in it
     host.getByRole("status").filter({ hasText: "Thanks. Your report was sent." }),
   ).toBeVisible();
   await host.getByRole("button", { name: "Close" }).click();
+  // F-0039-C (owner 2026-11-04): an idea keeps its words, picture, page
+  // and version; no browser, screen or server log rides along.
+  const listed = (await (await host.request.get("/api/admin/reports")).json()) as {
+    reports: { number: number; summary: string }[];
+  };
+  const ideaNumber = listed.reports.find((r) => r.summary === `Idea ${stamp}`)!.number;
+  const idea = (await (await host.request.get(`/api/admin/reports/${ideaNumber}`)).json()) as {
+    context: Record<string, string>;
+    files: { name: string }[];
+  };
+  expect(Object.keys(idea.context).sort()).toEqual(["page", "version"]);
+  expect(idea.files.map((f) => f.name)).toEqual(["screen.png"]);
 
   // The administrator's Reports tab: counted, listed, opened.
   await host.goto("/admin?tab=reports");

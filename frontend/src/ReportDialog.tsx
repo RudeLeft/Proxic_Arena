@@ -316,9 +316,12 @@ export function ReportDialog({
             ...(helps ? { helps } : {}),
             ...(matters ? { matters } : {}),
           };
+    // Spec 0039 (F-0039-C): an idea sends its words, picture, page and
+    // version only; the game, browser and screen go with a problem.
+    const problem = kind === "PROBLEM";
     const context = {
       page: pageOf(pathname, Boolean(game)),
-      ...(game
+      ...(problem && game
         ? {
             game: `with ${game.opponent}`,
             turn: String(game.turn),
@@ -327,8 +330,7 @@ export function ReportDialog({
           }
         : {}),
       version,
-      browser,
-      screen,
+      ...(problem ? { browser, screen } : {}),
     };
     const picture = added ?? (withShot ? taken : null);
     logLine("report", `Report sent (${kind.toLowerCase()})`);
@@ -340,9 +342,9 @@ export function ReportDialog({
           kind,
           answers,
           context,
-          ...(game ? { matchId: game.matchId, includeRecord: withRecord } : {}),
+          ...(problem && game ? { matchId: game.matchId, includeRecord: withRecord } : {}),
           ...(picture ? { picture } : {}),
-          ...(kind === "PROBLEM" ? { browserLog: recentLog() } : {}),
+          ...(problem ? { browserLog: recentLog() } : {}),
         }),
       });
       const body = (await response.json().catch(() => ({}))) as {

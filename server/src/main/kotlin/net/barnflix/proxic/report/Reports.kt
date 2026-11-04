@@ -132,10 +132,18 @@ class Reports(
         now: Long = System.currentTimeMillis(),
     ): Int {
         val valid = validated(submission)
-        val matchId = submission.matchId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        // Spec 0039 (F-0039-C): an idea carries its words, picture, page
+        // and version, and nothing else -- whatever the page sent with it.
+        val idea = valid.kind == "IDEA"
+        val context =
+            if (idea) JsonObject(submission.context.filterKeys { it in IDEA_CONTEXT }) else submission.context
+        val matchId =
+            submission.matchId
+                ?.takeUnless { idea }
+                ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
         // Only a game the reporter played in: anything else is not theirs to point at.
         val game = matchId?.takeIf { rows.playedIn(userId, it) }
-        val number = rows.insert(NewReport(userId, valid.kind, valid.summary, valid.answers, submission.context, game))
+        val number = rows.insert(NewReport(userId, valid.kind, valid.summary, valid.answers, context, game))
         try {
             val dir = folderOf(number).apply { mkdirs() }
             val attached = mutableListOf<String>()
@@ -143,12 +151,17 @@ class Reports(
                 File(dir, PICTURE).writeBytes(it)
                 attached += "picture"
             }
-            valid.log?.let {
+            valid.log?.takeUnless { idea }?.let {
                 File(dir, BROWSER_LOG).writeText(it)
                 attached += "log"
             }
-            if (game != null && valid.kind == "PROBLEM") attached += copyGame(dir, game, submission.includeRecord)
-            val lines = RecentLogLines.about(game?.toString(), userId.toString(), now - SERVER_WINDOW_MS)
+            if (game != null) attached += copyGame(dir, game, submission.includeRecord)
+            val lines =
+                if (idea) {
+                    emptyList()
+                } else {
+                    RecentLogLines.about(game?.toString(), userId.toString(), now - SERVER_WINDOW_MS)
+                }
             if (lines.isNotEmpty()) File(dir, SERVER_LOG).writeText(lines.joinToString("\n", postfix = "\n"))
             rows.setAttached(number, attached)
             return number
@@ -306,6 +319,9 @@ class Reports(
         const val SERVER_LOG = "server-log.txt"
         const val ENGINE_ERRORS = "engine-errors.txt"
         val FILES = listOf(PICTURE, BROWSER_LOG, GAME_RECORD, SERVER_LOG, ENGINE_ERRORS)
+
+        /** What an idea keeps of the page's context (spec 0039, F-0039-C). */
+        private val IDEA_CONTEXT = setOf("page", "version")
 
         private const val MAX_ANSWER = 4_000
         private const val MAX_ANSWERS = 30

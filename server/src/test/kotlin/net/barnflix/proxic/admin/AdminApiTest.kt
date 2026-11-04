@@ -59,6 +59,10 @@ class AdminApiTest {
             runCatching { DockerClientFactory.instance().isDockerAvailable }.getOrDefault(false),
             "SKIPPED: Docker is not available (ADR 0001)",
         )
+        // The database is fresh each run, so the report folders must be
+        // too: report 3 of an earlier run otherwise lends its files to
+        // this run's report 3.
+        java.io.File("build/test-admin/bug-reports").deleteRecursively()
         container =
             TestPostgres.fresh()
         database().use { db ->
@@ -571,13 +575,35 @@ class AdminApiTest {
             val idea =
                 call(pat, "POST", "/api/reports", """{"kind":"IDEA","answers":{"title":"A sound on my turn"}}""")
             assertEquals(HttpStatusCode.Created, idea.status)
+            // F-0039-C (owner 2026-11-04): an idea keeps its words, picture,
+            // page and version, whatever else the page sends with it.
+            val fullIdea =
+                call(
+                    pat,
+                    "POST",
+                    "/api/reports",
+                    """
+                    {"kind":"IDEA","answers":{"title":"Card sleeves"},
+                     "context":{"page":"Lobby","version":"1.41.0","browser":"Chrome","screen":"1920×1080",
+                                "game":"with Sam","turn":"3"},
+                     "matchId":"${UUID.randomUUID()}",
+                     "browserLog":"{\"t\":1,\"kind\":\"click\"}\n"}
+                    """.trimIndent(),
+                )
+            assertEquals(HttpStatusCode.Created, fullIdea.status, fullIdea.bodyAsText())
+            val ideaNumber = Regex("\"number\":(\\d+)").find(fullIdea.bodyAsText())!!.groupValues[1]
 
             // A player cannot read them, even their own.
             assertEquals(HttpStatusCode.Forbidden, call(pat, "GET", "/api/admin/reports").status)
 
             val list = call(admin, "GET", "/api/admin/reports").bodyAsText()
             assertTrue(list.contains("The rooms list did not update."), list)
-            assertTrue(list.contains("\"newCount\":2"), list)
+            assertTrue(list.contains("\"newCount\":3"), list)
+            val ideaDetail = call(admin, "GET", "/api/admin/reports/$ideaNumber").bodyAsText()
+            assertTrue(ideaDetail.contains("\"version\":\"1.41.0\""), ideaDetail)
+            for (left in listOf("Chrome", "1920×1080", "with Sam", "browser-log", "server-log")) {
+                assertFalse(ideaDetail.contains(left), "an idea kept $left: $ideaDetail")
+            }
             assertTrue(list.contains("\"where\":\"Lobby\""), list)
             val detail = call(admin, "GET", "/api/admin/reports/$number").bodyAsText()
             assertTrue(detail.contains("screen.png") && detail.contains("browser-log.jsonl"), detail)

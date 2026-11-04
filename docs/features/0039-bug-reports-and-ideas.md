@@ -137,3 +137,9 @@ was sent." (was "Thanks — report sent").
 **As built (2026-11-04, a documentation check).** The log viewer has four
 tabs, not three: Their screen · The game record · The server · Engine
 errors (built with the spec, 2026-10-29).
+
+**Fixed (2026-11-04, owner, from a documentation check): F-0039-C.** An
+idea sent the same details as a problem -- browser, screen, the game and
+its moment, the game's id -- and the server kept a copy of its log. It
+now keeps only its words, picture, page and version, whatever the page
+sends (`AdminApiTest`, `match-report.spec.ts`).
