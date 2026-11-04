@@ -70,9 +70,11 @@ now (presence) -- nothing about a deck.
 
 `room_member`, keyed `(room_id, user_id)`.
 
-- **One room at a time** (§5.5), enforced by the database rather than
-  a check-then-insert, because two tabs racing would both pass a
-  check.
+- **One room at a time** (§5.5), enforced by the database: a unique
+  index on `room_member (user_id)` (V036), because two tabs racing both
+  pass the service's check. The second gets `ALREADY_IN_A_ROOM`. Until
+  V036 (2026-11-04) only the check stood, and V006's comment wrongly
+  credited the primary key, which allows one seat in each of two rooms.
 - **Several sessions are one player** (§5.6). Opening a second tab is
   not a second member and does not announce an arrival.
 - **A seat is a position, not an identity** (§5.26). Seat 1 today and

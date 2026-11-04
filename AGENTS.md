@@ -104,7 +104,7 @@ you were asked to do, stop and say so.
 | `docs/architecture/MATCH_ASSET_AUTHORIZATION.md` | Card pictures during a match: identity, authorization, retrieval. |
 | `docs/testing/MECHANICS_LAB_COVERAGE.md` | The card-by-card regression ledger (generated; edit `mechanics-lab-status.json`). |
 | `Test Deck/` | Mechanics Lab corpus. Read-only test input. |
-| `Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
+| `../Proxic_Arena_OLD/` | Reference implementation, bug-history archive, executable evidence. |
 
 ---
 
@@ -165,7 +165,10 @@ you were asked to do, stop and say so.
   keyworded "A deck can have any number of cards named CARDNAME"
   (Relentless Rats, Shadowborn Apostle, …). The owner exempted basic
   lands only, so that helper would silently permit a deck nobody
-  authorised. Test `getType().isBasicLand()`. _REVIEW._
+  authorised. Test the card's name against the basic land names
+  (`OpenFormat.BASIC_LAND_NAMES`: the five, Wastes and their
+  Snow-Covered forms); wording corrected 2026-11-04 (owner), the rule
+  unchanged. _REVIEW._
 - **FMT-003 — MUST:** Enumerate playable actions from **every zone
   Forge can offer them from**, not just hand and battlefield. A
   Commander in the command zone was never offered because the
@@ -348,7 +351,7 @@ Release-blocking. Treat every rule here as security, not presentation.
   _AUTO._
 - **PROTO-002 — MUST:** Send sufficient viewer state **before** an
   interaction that references a newly relevant object. _AUTO._
-- **PROTO-003 — MUST:** Keep `object_id` and `action_id` distinct. One
+- **PROTO-003 — MUST:** Keep `objectId` and `actionId` distinct. One
   object may expose several actions; keying options by object id silently
   dropped a card's second ability for months, then became the normal case
   the moment alternative costs landed. _AUTO._

@@ -101,28 +101,30 @@ class RoomService(
         name: String? = null,
         watchable: Boolean = true,
     ): RoomResult =
-        store.inTransaction { connection ->
-            if (store.activeRoomOf(connection, hostUserId, includeInMatch = true) != null) {
-                return@inTransaction RoomResult.Refused(RoomError.AlreadyInARoom)
-            }
+        oneRoom {
+            store.inTransaction { connection ->
+                if (store.activeRoomOf(connection, hostUserId, includeInMatch = true) != null) {
+                    return@inTransaction RoomResult.Refused(RoomError.AlreadyInARoom)
+                }
 
-            val roomId = UUID.randomUUID()
-            connection.prepareStatement(
-                """
-                INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status, name, watchable)
-                VALUES (?, ?, ?, ?, 'OPEN', ?, ?)
-                """.trimIndent(),
-            ).use {
-                it.setObject(1, roomId)
-                it.setObject(2, hostUserId)
-                it.setString(3, PRESET_OPEN_FORMAT)
-                it.setInt(4, OPEN_FORMAT_PLAYERS)
-                it.setString(5, name)
-                it.setBoolean(6, watchable)
-                it.executeUpdate()
+                val roomId = UUID.randomUUID()
+                connection.prepareStatement(
+                    """
+                    INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status, name, watchable)
+                    VALUES (?, ?, ?, ?, 'OPEN', ?, ?)
+                    """.trimIndent(),
+                ).use {
+                    it.setObject(1, roomId)
+                    it.setObject(2, hostUserId)
+                    it.setString(3, PRESET_OPEN_FORMAT)
+                    it.setInt(4, OPEN_FORMAT_PLAYERS)
+                    it.setString(5, name)
+                    it.setBoolean(6, watchable)
+                    it.executeUpdate()
+                }
+                store.seat(connection, roomId, hostUserId, seatNumber = 1)
+                RoomResult.Ok(store.load(connection, roomId)!!)
             }
-            store.seat(connection, roomId, hostUserId, seatNumber = 1)
-            RoomResult.Ok(store.load(connection, roomId)!!)
         }
 
     /**
@@ -133,32 +135,34 @@ class RoomService(
         roomId: UUID,
         userId: UUID,
     ): RoomResult =
-        store.inTransaction { connection ->
-            val room =
-                store.lockedRoom(connection, roomId)
-                    ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
+        oneRoom {
+            store.inTransaction { connection ->
+                val room =
+                    store.lockedRoom(connection, roomId)
+                        ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
 
-            when {
-                room.status != RoomStatus.OPEN ->
-                    RoomResult.Refused(RoomError.NotOpen)
+                when {
+                    room.status != RoomStatus.OPEN ->
+                        RoomResult.Refused(RoomError.NotOpen)
 
-                room.isMember(userId) ->
-                    RoomResult.Refused(RoomError.AlreadyMember)
+                    room.isMember(userId) ->
+                        RoomResult.Refused(RoomError.AlreadyMember)
 
-                store.activeRoomOf(connection, userId, includeInMatch = true) != null ->
-                    RoomResult.Refused(RoomError.AlreadyInARoom)
+                    store.activeRoomOf(connection, userId, includeInMatch = true) != null ->
+                        RoomResult.Refused(RoomError.AlreadyInARoom)
 
-                room.isFull() ->
-                    // §5.22 — never silently create another seat.
-                    RoomResult.Refused(RoomError.Full)
+                    room.isFull() ->
+                        // §5.22 — never silently create another seat.
+                        RoomResult.Refused(RoomError.Full)
 
-                else -> {
-                    // §5.27 — the next free seat, not a chosen one.
-                    val taken = room.members.map { it.seatNumber }.toSet()
-                    val seatNumber = (1..room.desiredPlayerCount).first { it !in taken }
-                    store.seat(connection, roomId, userId, seatNumber)
-                    store.touch(connection, roomId)
-                    RoomResult.Ok(store.load(connection, roomId)!!)
+                    else -> {
+                        // §5.27 — the next free seat, not a chosen one.
+                        val taken = room.members.map { it.seatNumber }.toSet()
+                        val seatNumber = (1..room.desiredPlayerCount).first { it !in taken }
+                        store.seat(connection, roomId, userId, seatNumber)
+                        store.touch(connection, roomId)
+                        RoomResult.Ok(store.load(connection, roomId)!!)
+                    }
                 }
             }
         }
@@ -443,3 +447,15 @@ class RoomService(
             RoomResult.Ok(store.load(connection, roomId)!!)
         }
 }
+
+/**
+ * §5.5 — the check before each seating reads before it writes, so two
+ * tabs at the same instant both pass it; the database's one-room index
+ * (V036) refuses the second, and it gets the same answer.
+ */
+private fun oneRoom(body: () -> RoomResult): RoomResult =
+    try {
+        body()
+    } catch (_: RoomStore.AlreadySeated) {
+        RoomResult.Refused(RoomError.AlreadyInARoom)
+    }

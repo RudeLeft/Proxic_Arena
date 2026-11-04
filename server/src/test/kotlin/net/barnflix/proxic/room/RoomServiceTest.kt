@@ -163,6 +163,41 @@ class RoomServiceTest {
         assertEquals(listOf(host, guest), room.members.map { it.userId })
     }
 
+    /**
+     * §5.5 — two tabs clicking "Open a room" at the same instant. Both
+     * passed the service's check and both inserted until V036 put a
+     * one-room index on the database (docs audit, 2026-11-04).
+     */
+    @Test
+    fun `tabs racing to open rooms get one room`() {
+        val tabs = 12
+        val start = java.util.concurrent.CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(tabs)
+        val results =
+            try {
+                (1..tabs)
+                    .map { pool.submit<RoomResult> { start.await().let { rooms.create(stranger) } } }
+                    .also { start.countDown() }
+                    .map { it.get(30, TimeUnit.SECONDS) }
+            } finally {
+                pool.shutdownNow()
+            }
+
+        assertEquals(1, results.count { it is RoomResult.Ok }, "rooms opened: $results")
+        assertTrue(
+            results.filterIsInstance<RoomResult.Refused>().all { it.error == RoomError.AlreadyInARoom },
+            "a racing tab got another answer: $results",
+        )
+        var seats = -1
+        withConnection { connection ->
+            connection.prepareStatement("SELECT count(*) FROM room_member WHERE user_id = ?").use {
+                it.setObject(1, stranger)
+                it.executeQuery().use { rows -> if (rows.next()) seats = rows.getInt(1) }
+            }
+        }
+        assertEquals(1, seats, "seats held by one player")
+    }
+
     /** §5.5 — one room at a time, so leaving is a deliberate act. */
     @Test
     fun `a user cannot be in two rooms`() {

@@ -93,15 +93,27 @@ internal class RoomStore(private val dataSource: DataSource) {
         userId: UUID,
         seatNumber: Int,
     ) {
-        connection.prepareStatement(
-            "INSERT INTO room_member (room_id, user_id, seat_number) VALUES (?, ?, ?)",
-        ).use {
-            it.setObject(1, roomId)
-            it.setObject(2, userId)
-            it.setInt(3, seatNumber)
-            it.executeUpdate()
+        try {
+            connection.prepareStatement(
+                "INSERT INTO room_member (room_id, user_id, seat_number) VALUES (?, ?, ?)",
+            ).use {
+                it.setObject(1, roomId)
+                it.setObject(2, userId)
+                it.setInt(3, seatNumber)
+                it.executeUpdate()
+            }
+        } catch (e: java.sql.SQLException) {
+            // §5.5 (V036) — two tabs raced past activeRoomOf: the
+            // database's one-room index is the guard.
+            if (e.sqlState == "23505" && e.message.orEmpty().contains("room_member_one_room")) {
+                throw AlreadySeated()
+            }
+            throw e
         }
     }
+
+    /** The user already holds a seat in another live room (V036). */
+    class AlreadySeated : RuntimeException("already seated in another room")
 
     fun removeMember(
         connection: Connection,
