@@ -26,8 +26,16 @@ Layer        Technology                              Owns                       
 ----------   -------------------------------------   -------------------------------   -----------
 chrome       React DOM                               rail, step track, stack, dialogs  yes
 cards        React DOM, transform: translate3d       every permanent and hand card     yes
-connectors   SVG below the cards, pointer-events:none attachment lines                  no
-effects      SVG above the cards, pointer-events:none targeting arrow, glows            no
+lines        SVG above the cards, pointer-events:none combat and target lines         no
+effects      SVG above the cards, pointer-events:none bursts, numbers, glows           no
+```
+
+As built: there are no attachment lines. Auras and Equipment are name
+tags across their host's picture, each its own button (PHASE 7
+AMENDMENT 4), and the one line layer sits above the battlefield and
+below the hand (§5 point 5).
+
+```text
 ```
 
 One coordinate system, one input path, one render pass. Nothing is
@@ -101,14 +109,16 @@ which stand without it.
 ## 3. The contract: one place computes positions
 
 ```text
-layout(state, viewport, viewer) -> Map<objectId, Box>
+layout(input, viewport) -> Layout     frontend/src/battlefield/layout.ts
 ```
 
 Pure, DOM-free, deterministic. It implements `BATTLEFIELD_LAYOUT_CONTRACT.md`
-§2–§3 and Phase 7 §7.6–§7.9 and §7.51 in full: the six fractional
-rectangles, the mirror about `y = 0.5`, the overflow ladder, centre-out
-placement within each zone (§4 below), piling, and per-viewer layout for
-face-down permanents (§7.51.5 — hence the `viewer` argument §7.6 lacks).
+and Phase 7 §7.6–§7.9 and §7.51: the mirror about `y = 0.5`, centre-out
+placement (§4 below), piling, and per-viewer layout for face-down
+permanents (§7.51.5; the viewer comes in with the input). Since spec 0040
+each side is a band of LINES across the whole play width, one kind to a
+line, in place of the contract's six fixed rectangles and overflow
+ladder.
 
 The renderer applies it. The overlays read it. The tests assert it.
 Nothing else positions anything.
@@ -184,9 +194,9 @@ rather than teleports.
    may see (§7.17, `MATCH_ASSET_AUTHORIZATION.md`).
 
 5. **Overlays are SVG, `pointer-events: none`, in separate layers.**
-   Connectors (attachments, §7.21) render *below* the card layer so a host
-   card covers its own connector's end; the targeting arrow (§7.31) and
-   glows render *above*. Several layers at different z-indices are free
+   The plan was connectors for attachments (§7.21) *below* the card layer
+   and the targeting arrow (§7.31) and glows *above*; attachments became
+   name tags on the host instead (AMENDMENT 4), so every line is above. Several layers at different z-indices are free
    on DOM and impossible on a single canvas.
 
    As built (step 5, PHASE 7 AMENDMENT 7): the four lines are one SVG layer
@@ -250,7 +260,7 @@ Measured with a dev route that generates a synthetic board:
 `?permanents=N&faces=M&seed=S`. The route is also how an agent inspects
 the board reproducibly.
 
-### Measured (step 6, 2026-10-21)
+### Measured (step 6, 2026-10-22)
 
 `frontend/e2e/benchmark.spec.ts` (opt-in, `PROXIC_BENCH=1`) on `/dev/bench`:
 80 permanents, 60 distinct pictures (generated at a real scan's 745 x 1040,
@@ -262,12 +272,14 @@ with grain), five runs, in a real Edge window on the owner's PC
                          full      fit        full      fit
 first paint (<= 300)     30 ms     29 ms      30 ms     30 ms     PASS (at 80, twice the board)
 new face (<= 100)        30 ms     30 ms      30 ms     30 ms     PASS
-re-centre at 60 fps      0/486     0/486      0/493     0/488     PASS (frames over 25 ms)
+re-centre at 60 fps      0/488     0/490      0/489     0/491     PASS (frames over 25 ms)
 decoded images (<= 150)  174 MB    8 MB       175 MB    33 MB     FAIL at full size, PASS fitted
 ```
 
-"full" is a picture served at the scan's own size, as Arena serves
-imported pictures today; "fit" is at the size the table draws it, which
+"full" is a picture served at the scan's own size, as Arena served
+imported pictures then (today the table gets a 384-wide display copy,
+and full size only with `?size=full`, for the close-up); "fit" is at the
+size the table draws it, which
 is what §5.4's `srcset` would serve. The memory miss is the PICTURES'
 size, not the renderer's: a browser keeps every PNG decoded at its own
 resolution whatever draws it, and a canvas renderer would upload the same

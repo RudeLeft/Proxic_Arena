@@ -209,7 +209,9 @@ enumerate art they have no right to see.
 the deck name as the first `//` comment (`DECK_PACKAGE_FORMAT.md` §3);
 (2) the card shows a text frame (§5.1 there); (3) yes, back faces since
 2026-10-20 (§5.0 there); (4) a re-sent deck is a new deck, refused as a
-duplicate only if byte-for-byte the same package from the same owner.
+duplicate if byte-for-byte the same package from the same owner, and
+refused `DECK_NAME_TAKEN` under a name that owner already uses
+(`DECK_DEPOT.md`).
 
 1. **Is the deck `.txt` inside the ZIP the same format the old bridge
    parsed** (`4 Lightning Bolt [SET:NUM]`)? Phase 2 must read the

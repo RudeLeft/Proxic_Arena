@@ -12,7 +12,8 @@
 #   - create the data directories. Docker creates a missing bind
 #     mount source itself, and the `init-data` service in
 #     docker-compose.unraid.yml fixes the ownership on every start.
-#   - build. `pull_policy: build` means `up` builds.
+#   - pull. `pull_policy: always` in docker-compose.unraid.yml means
+#     `up` fetches the published image.
 #   - create an account. The password is typed by a person, into a
 #     prompt, and is never handled by a script (PHASE_03 §3.58).
 
@@ -121,8 +122,8 @@ say "       $(pwd)"
 say "     Leave the compose-file discovery alone -- .env now names"
 say "     both files."
 say ""
-say "  2. Press Compose Up. It builds, which takes 3-10 minutes the"
-say "     first time."
+say "  2. Press Compose Up. It downloads the published image, then"
+say "     starts it."
 say ""
 say "  3. Create your account, in the arena-server container console:"
 say "       /app/bin/arena-admin create RudeLeft --admin"

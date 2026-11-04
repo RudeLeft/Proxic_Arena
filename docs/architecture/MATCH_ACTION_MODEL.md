@@ -45,7 +45,10 @@ action:3:card:57     one thing it can DO: Forge's own id for the ability
 
 The number is the ability's id in Forge (`SpellAbility.getId()`), so an
 action keeps its id from one question to the next and two never share
-one (a position in the offer did both by chance, CI 2026-10-21).
+one (a position in the offer did both by chance, CI 2026-10-21). One
+question still numbers by position: "which ability?" for one card
+(`action:<n>:card:<id>`, `MatchController.java`), where every option is
+the same card's and the list is asked once.
 
 Distinct by construction (P6-AB). One object may have:
 

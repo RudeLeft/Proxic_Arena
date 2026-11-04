@@ -81,3 +81,8 @@ A third shared face, `--pa-mono`, names the one monospace use (the
 | F-0017-C | Chrome's text size Large makes text bigger | browser |
 | F-0017-D | No overflow or clipping at 1280, 1920, phone, 125% and 150% | browser + screenshots |
 | F-0017-O | The owner approves the look from side-by-side screenshots ("Yes, ship it", 2026-10-26) | owner |
+
+## Amendments
+
+1. **As built (2026-11-04, a documentation check).** One weight outside the three remains: `font-weight: 500` in
+`game.css` and `battlefield.css` (one rule each).

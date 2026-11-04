@@ -141,3 +141,9 @@ The 40 emoji (owner may swap any):
 - The empty chat shows nothing (no "Nothing yet."), here and in the game
   screen's chat drawer.
 - The message box says "Type a message..." instead of "Say something".
+
+## As built (2026-11-04, a documentation check)
+
+`CHAT` gained no new field: a line is already identified by its
+`lineId`, and `REACT { lineId, emoji, on }` and
+`REACTION { lineId, emoji, on, from }` use it.

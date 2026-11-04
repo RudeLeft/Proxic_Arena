@@ -20,7 +20,7 @@ https://proxic.barnflix.net/api/version
 A player's own view of their match: `GET /api/matches/current` while
 signed in.
 
-## "Waiting for the game" and nothing happens
+## "Pat’s move" (or "One moment") and nothing happens
 
 - **The other player is being asked something.** Only the player Forge
   is waiting on sees a question. Check the other screen.

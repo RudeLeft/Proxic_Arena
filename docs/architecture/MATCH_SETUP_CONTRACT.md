@@ -175,10 +175,12 @@ index cannot save you from.
 | `GET` | `/api/rooms/{roomId}/match-setup` | members |
 | `GET` | `/api/match-presets` | any signed-in user |
 
-`prepare-match` answers one of three things:
+`prepare-match` answers one of four things:
 
 - **200** with the setup and the room — frozen.
 - **409 `SETUP_NOT_READY`** with a per-seat `needsAttention` flag.
+- **422 `INVALID_ROOM_CONFIGURATION`** — the room has the wrong number
+  of players, or its preset is no longer offered.
 - **403 / 404 / 409** for a host, room or revision problem.
 
 ### The privacy split in that 409

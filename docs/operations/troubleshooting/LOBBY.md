@@ -52,9 +52,11 @@ state: a player is online while they have an open `/ws/user` socket.
 
 Check, in order:
 
-1. Are they on `/play`? The socket is opened by the lobby page.
-2. Does their page show the **Disconnected** banner? Then their
-   socket dropped and they should reload.
+1. Are they signed in in a page of the app? The socket is opened by
+   every signed-in page, not only the lobby, and closed at sign-out.
+2. Does their page show **Reconnecting…** ("The connection dropped.
+   This page catches up by itself as soon as it's back.")? Then their
+   socket dropped; it reconnects on its own.
 3. Did they sign in since you loaded the page? They should appear
    automatically; if not, your own socket has quietly died — reload.
 
@@ -100,19 +102,23 @@ to leave their room first.
 
 ## Accepting an invitation fails
 
-> **ROOM_NOT_FOUND** — No such room.
+> **INVITATION_GONE** — That invitation is no longer open.
 
-Deliberately the same answer as a room that does not exist. The
-likely causes:
+There is no open invitation from that room to you. The likely causes:
 
 - the invitation ended (it was withdrawn, or one of you was offline
   60 seconds),
 - the host closed the room or left it,
-- somebody else took the last seat,
 - the invitation was already used — it admits you **once**.
 
-Ask for another one. This refusal is also what you get for guessing a
-room id, which is the point: a room id is not a key (AMENDMENT 1).
+If the invitation was still open but the room refused the seat, you get
+the room's own answer instead (`ROOM_FULL`, `ROOM_NOT_OPEN`,
+`ALREADY_IN_A_ROOM`…), and the invitation is put back for you if it
+can be.
+
+Ask for another one. A room id alone admits nobody: every room is
+listed, so the id is public, and the invitation is the key
+(AMENDMENT 1).
 
 ---
 
@@ -126,14 +132,13 @@ view is stale — reload.
 
 ---
 
-## The page says Disconnected
+## The page says Reconnecting…
 
-Your socket closed. The room is **still on the server** — the banner
-says exactly that, because a lobby that looks live while nothing is
-reaching it is worse than one that admits it (§5.133).
-
-Reload the page. Your membership, seat and deck selection are all
-persisted (§5.118); only presence was lost.
+Your socket closed. The room is **still on the server**, and the page
+says so rather than looking live while nothing is reaching it
+(§5.133). It reconnects on its own and catches up; a reload does the
+same. Your membership, seat and deck selection are all persisted
+(§5.118); only presence was lost.
 
 If it keeps happening: check that the reverse proxy allows WebSocket
 upgrades on `/ws/user`, and look for `authenticated ws close` in the
@@ -145,7 +150,7 @@ server log.
 
 Symptoms: somebody joined and your seat list did not change.
 
-1. **Check for the Disconnected banner.** No socket, no updates.
+1. **Check for Reconnecting….** No socket, no updates.
 2. **Reload.** The page re-fetches the room and reconnects.
 3. If a reload fixes it every time, look in the server log for
    `authenticated ws close` right after `authenticated ws open` —
@@ -182,7 +187,7 @@ Somebody changed deck access underneath the room (§5.50, §5.51):
 
 This is the rule working, and it is better than the alternative: a
 match that cannot start, discovered at the moment the host presses
-Prepare.
+Start match.
 
 Choose another deck.
 
@@ -270,7 +275,9 @@ Per-player reasons:
 
 ## Forge preflight failure
 
-> **FORGE_RESOLUTION_ERROR** — Forge does not recognise X.
+> **FORGE_RESOLUTION_ERROR** — Not supported yet: X.
+>
+> or: The deck could not be checked right now. Try again in a moment.
 
 Preparation asks Forge to build each deck (§5.96). It does **not**
 start a game; it proves the cards still resolve.

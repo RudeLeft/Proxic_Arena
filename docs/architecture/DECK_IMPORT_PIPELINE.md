@@ -16,7 +16,7 @@ Deck Builder (linked computer)        browser (Arena's own tests)
     ▼                                     ▼
 DeckBuilderRoutes ──────────────── DeckRoutes.handleImport
     │  one .zip, multipart; the owner is the token's or the session's account
-    │  streamed to /data/temp/uploads/<id>.zip
+    │  streamed to /data/temp/uploads/upload-<uuid>.zip
     │  route limit 150 MB; the GLOBAL body limit stays at 1 MB
     ▼
 inspect ───────────────────────── PackageInspector
@@ -29,13 +29,22 @@ checksum ───────────────────────�
 parse ─────────────────────────── DeckListParser
     │  the single root .txt, UTF-8, LF or CRLF
     ▼
-legality ──────────────────────── OpenFormat.validate
-    │  60-100 cards, max 4 copies, basics unlimited
-    │  BEFORE Forge: refusing is free, resolving costs ~3 s
+legality, certain part ───────── OpenFormat.certainViolations
+    │  what needs no Forge, BEFORE Forge: refusing is free,
+    │  resolving costs ~3 s
+    ▼
+name ──────────────────────────── DeckNames.taken
+    │  one of this owner's deck names already: DECK_NAME_TAKEN
     ▼
 resolve ───────────────────────── CardResolver -> forge-worker
     │  one child JVM, whole deck in one request
     │  printing checked; another printing of a card is kept (spec 0024)
+    ▼
+legality, the rest ────────────── legalityByForge
+    │  60-100 cards, max 4 copies, basics unlimited; Contraptions and
+    │  Attractions (as Forge reads them) in their own decks, outside
+    │  the 60-100: at least 15 / 10, one copy each (Phase 8 Amd 3)
+    │  then CARDS_NOT_RESOLVED for any card Forge can't play
     ▼
 artwork ───────────────────────── ArtStore.store
     │  one member at a time into staging, decoded, hashed
@@ -74,7 +83,7 @@ used as a path.
 ### Staging
 
 ```text
-/data/temp/uploads/<uuid>.zip          the upload
+/data/temp/uploads/upload-<uuid>.zip   the upload
 /data/temp/deck-imports/<uuid>/        extraction
 ```
 

@@ -97,7 +97,8 @@ An administrator has no privileged access. See
 
 **One play mode: Open Format** — 60–100 cards, at most 4 copies of any
 one card (basic lands unlimited), no sideboard, 2 players. Commander
-and Two-Headed Giant are out of scope. See
+and Two-Headed Giant are not built and not offered; both are planned on
+the ROADMAP (owner, 2026-10-17). See
 `docs/architecture/OPEN_FORMAT.md`.
 
 ---
@@ -154,11 +155,20 @@ Three rules shape all of it:
 | Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
 
-Containers run as non-root with all Linux capabilities dropped,
-`no-new-privileges`, and a read-only root filesystem for the server.
-See `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md`.
+The server container runs as non-root with every Linux capability
+dropped, `no-new-privileges` and a read-only root filesystem. PostgreSQL
+also drops every capability and has `no-new-privileges`, but adds back
+the five its entrypoint needs to step down from root to the postgres
+user (CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID). On Unraid a
+short-lived `init-data` container runs as root, with the same
+restrictions, only to set the data folder's owner. The optional
+`cloudflared` service (profile `edge`, not used live) has no extra
+hardening. See `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md`.
 
-Every version is pinned exactly. Nothing floats.
+Every library and base image version is pinned exactly. The one
+exception is the app's own image, which the compose files take as
+`ghcr.io/rudeleft/proxic_arena:latest`: CI promotes a build to `latest`
+only after every check passes.
 
 ## Project locations
 
@@ -187,7 +197,8 @@ bug in this README (§1.77).
 The upstream Forge checkout is ~1 GB and belongs to upstream, so it
 is deliberately not in this repository (`.gitignore`). Without it the
 server, the frontend, the database and the Docker stack all build and
-run; only the five Forge-worker tests skip, saying why.
+run; the tests that need the built worker or Forge's card data skip,
+saying why (as the database tests skip without Docker).
 
 To build it:
 
@@ -275,9 +286,9 @@ docker compose down -v
 ## Tests
 
 ```bash
-./gradlew :server:test                       # ~490 tests
-cd frontend && npm test                      # ~370 unit tests
-cd frontend && npm run e2e                   # ~75 browser tests
+./gradlew :server:test                       # server tests (JUnit)
+cd frontend && npm test                      # unit tests (Vitest)
+cd frontend && npm run e2e                   # browser tests (Playwright)
 ./gradlew :server:ktlintCheck :server:detekt # Kotlin analysis
 cd frontend && npm run lint                  # ESLint + types
 python -I scripts/check-blocks.py <worker.jar> <forge res>  # one Mechanics Lab game
@@ -337,7 +348,9 @@ The pinned commit lives in exactly one file, `forge-pin.properties`,
 read by both build systems:
 
 ```text
-forge-2.0.15 = 4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676
+forge.commit=4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676
+forge.release=forge-2.0.15
+forge.maven.version=2.0.15
 ```
 
 The server reports it at `/api/version`. The worker reports its own,
@@ -355,23 +368,25 @@ different checkout is refused rather than used.
 ## Cloudflare Tunnel deployment
 
 Production is reached at `https://proxic.barnflix.net` through a
-Cloudflare Tunnel that terminates TLS at the edge and forwards to
-`arena-server` over the internal Docker network. No host port is
-published in that configuration, and PostgreSQL is never exposed.
+Cloudflare Tunnel that terminates TLS at the edge. Live, `cloudflared`
+runs as its own Unraid container, outside this stack, and reaches the
+server on host port 8765 (`docker-compose.unraid.yml`; Phase 1
+Amendment 2 allows this). PostgreSQL is never exposed. Acceptance tests
+P1-R through P1-U passed on 2026-10-15
+(`docs/history/phases/phase-01/PHASE_01_EXIT_GATE.md`);
+`docs/operations/UNRAID_INSTALL.md` Step 9 repeats them from outside.
 
-The token comes from the Unraid environment and never from the
+The stack's own `cloudflared` service (profile `edge`, reaching the
+server over the internal network with no host port) is an option that
+has **never been run**; nothing here describes it as working (§1.71).
+Its token would come from the Unraid environment, never from the
 repository.
-
-> **NOT YET VERIFIED.** The `cloudflared` service is written from the
-> Phase 1 specification and has never been run. Its first run on the
-> Unraid host is its verification, and acceptance tests P1-R through
-> P1-U remain open until then. Nothing in this project describes
-> unrun configuration as working (§1.71).
 
 ## Updating a base image
 
-Every image is pinned by **digest**, not only by tag, in `Dockerfile`,
-`docker-compose.yml` and `docker-compose.dev.yml`. A tag is a moving
+Every base image is pinned by **digest**, not only by tag, in
+`Dockerfile`, `docker-compose.yml`, `docker-compose.unraid.yml` and
+`docker-compose.dev.yml` (the app's own image is `:latest`, above). A tag is a moving
 pointer — `postgres:16.4-alpine` can be republished — so a tag-only
 pin means the build that worked yesterday is not necessarily the one
 that runs today.

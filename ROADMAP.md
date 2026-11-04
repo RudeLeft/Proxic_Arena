@@ -9,9 +9,11 @@ specific card (basic lands unlimited), no sideboard, 2 players. See
 
 ## How work happens now
 
-The main build ran as eight locked phases and finished on 2026-10-22
-with version **1.0.0**. From here the project grows **one feature at a
-time** (owner decision, 2026-10-22):
+The main build ran as locked phases: the first eight (0A and 1-7)
+finished on 2026-10-22 with version **1.0.0**, and Phase 8 (every Forge
+question) was accepted on 2026-10-24 with **1.1.0**, which completed it.
+From here the project grows **one feature at a time** (owner decision,
+2026-10-22), alongside Phase 9:
 
 1. **Spec.** A short document in `docs/features/NNNN-name.md`: what the
    player sees, the tests that prove it, and any decisions for the owner.
@@ -77,7 +79,7 @@ time** (owner decision, 2026-10-22):
 | 0048 | The belt's 7-day rule (shown in the Hall, the holder reminded), Reset the Belt, and an Admin purge -- one player's games, games before a date, or a fresh start keeping accounts -- each previewed and typed to confirm. From the owner | **Done** in 1.27.0 | `docs/features/0048-belt-rule-and-purge.md` |
 | 0049 | Every card wears its own picture -- a stolen creature its owner's (it came out bare or wore the thief's copy), and pictures in a revealed hand, the graveyards and exile. Part 1 of the Deck Builder picture review. From the owner | **Done** in 1.27.0 | `docs/features/0049-pictures-for-every-card.md` |
 | 0050 | One look for every notice -- the same card, top right of every page, for invitations, requests, room news, problems and the connection; questions stay, news fades after 8 s, nothing replaces anything; the game's own messages top right of the table, clicks going through (Phase 9 W-22, W-23); a chime for questions. From the owner (item 6) | **Done** in 1.29.0 | `docs/features/0050-one-look-for-notices.md` |
-| 0051 | Bigger decks and lighter pictures -- 60-100 card decks; the Deck Builder sends light JPEGs and Scryfall art crops (a 100-card deck about 22 MB); the board shows each card's art crop; a light board copy. From the owner | **Done** in 1.28.0 | `docs/features/0051-bigger-decks-lighter-pictures.md` |
+| 0051 | Bigger decks and lighter pictures -- 60-100 card decks; the Deck Builder sends light JPEGs and Scryfall art crops (a 100-card deck about 30 MB, against 159 MB as PNGs); the board shows each card's art crop; a light board copy. From the owner | **Done** in 1.28.0 | `docs/features/0051-bigger-decks-lighter-pictures.md` |
 | 0052 | Pictures kept between games, and cleaned up -- one address per picture for any signed-in player (Cloudflare keeps no copies), so a second game downloads none again; a weekly clean-up of pictures nothing has used for 30 days. From the owner | **Done** in 1.30.0 | `docs/features/0052-pictures-kept-and-cleaned-up.md` |
 | 0053 | Each printing of a card keeps its own picture -- a deck holding four Mountain printings shows four Mountains on the deck page, the table and the close-up; Forge is asked about each printing. From the owner | **Done** in 1.32.0 | `docs/features/0053-each-printing-its-own-picture.md` |
 | 0054 | Idle rooms close; a player left waiting can end the game -- a room in the lobby closes after 30 minutes with nothing happening while the host is alone, 2 hours once a second player is in it, or 10 minutes after the host goes offline, with a 5-minute warning and Keep it open; a game is never ended on its own, but the player still at the table can end it as a win after the other has been offline 10 minutes. From the owner | **Done** in 1.37.0 | `docs/features/0054-idle-rooms-close.md` |
@@ -100,7 +102,7 @@ but the runtime is designed so they stay reachable without rework.
 AGENTS FMT-001 and FMT-005 draw that line — a seat model that can hold
 four is in scope; a game that seats four is not.
 
-## Built: the main build, 2026-10-15 → 2026-10-22
+## Built: the main build, 2026-10-15 → 2026-10-24
 
 Each phase's specification, amendments, audit, exit gate and research
 are kept, unedited, in `docs/history/phases/phase-NN/`. The code cites
@@ -116,6 +118,7 @@ their sections by name ("PHASE_06 §6.17").
 | 5 | Lobby, Game Rooms, Match Setup | **COMPLETE** 2026-10-17 — 26/26; no join codes: presence, invitations, chat |
 | 6 | Forge Match Runtime & Game Protocol | **COMPLETE** 2026-10-20 — 65/65 (63 met, 2 classified); 48/48 required Mechanics Lab cards |
 | 7 | Battlefield Presentation & Interaction, and the application pages | **COMPLETE** 2026-10-22 — 27/27, signed off by the owner; a 2026-10-22 security review fixed and recorded |
+| 8 | Every Forge question, answered and proven | **COMPLETE** 2026-10-24, in 1.1.0 (see the table above) |
 
 How the game works today — the living reference, kept current — is
 `docs/architecture/`; the locked architectural facts from Phase 0A are

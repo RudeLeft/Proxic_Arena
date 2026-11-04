@@ -57,7 +57,8 @@ When it fails, it is almost always one of these:
 
 | What you see | What it means |
 |---|---|
-| `database unavailable` | The server started before Postgres was ready, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. |
+| a Java error naming `proxic-pool` and a connection timeout, after about 10 seconds | Postgres is not reachable, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. |
+| `No database configured. Set PROXIC_DATABASE_URL.` | The container has no database setting at all. |
 | `A password must be at least 12 characters.` | Exactly that. There are no other composition rules. |
 | `A user named "..." already exists.` | Usernames are compared case-insensitively — `RudeLeft` and `rudeleft` are one account. `list` will show it. |
 | the usage text (`arena-admin <command>` and the command list) | The command was not recognised. The argument order is `create <username> [--admin] --password-stdin`. |
@@ -101,8 +102,9 @@ Work through it in this order:
 2. Are you on the tunnel hostname rather than the LAN port? (See the
    first section.)
 3. Reset the password (below) and try the new one immediately.
-4. Only then look at the server log. A genuine failure logs the
-   username and the reason; the password is never logged.
+4. Only then look at the server log. A failed sign-in logs the
+   username tried (`LOGIN_FAILURE`), not why it failed; the password is
+   never logged.
 
 ---
 
@@ -132,7 +134,7 @@ there, because every login and every session check is a query.
 
 ```text
 login page loads, sign in answers 500 or hangs
-/api/health/ready reports database: unavailable
+/api/health/ready reports database: unreachable
 ```
 
 ```bash
@@ -162,8 +164,9 @@ Almost always the cookie, not the session:
 2. **A different hostname than you signed in on.** The cookie belongs
    to the host that set it; `proxic.barnflix.net` and the LAN IP do
    not share one.
-3. **The clock.** Expiry is computed by Postgres (`now()`), so a
-   badly wrong container clock can expire a session as it is created.
+3. **The clock.** A session's expiry is written from the server's
+   clock and checked against Postgres's (`now()`), so a badly wrong
+   clock on either can expire a session as it is created.
    `docker compose exec arena-server date`.
 4. **Someone changed the password** — that revokes every session,
    including the one you just made, if the two raced.

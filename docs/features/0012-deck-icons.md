@@ -88,4 +88,8 @@ Out (and why):
 
 ## Amendments
 
-None.
+1. **As built (2026-11-04, a documentation check).** The colours are
+   stored per deck, not per card: `V021__deck_icons.sql` adds
+   `imported_deck.colors` (NULL until Forge has been asked, which is
+   what "colors_checked" was for) and `imported_deck.icon`; there is no
+   `deck_entry.color_identity` column.

@@ -6,7 +6,7 @@ be**: work starts only on an approved spec (AGENTS PHASE-001), and
 changing an approved spec is an explicit, dated, owner-approved
 amendment (PHASE-002). A big feature simply has a longer spec.
 
-Name: `NNNN-short-name.md`, numbered in order (`0001-sacrifice-question.md`).
+Name: `NNNN-short-name.md`, numbered in order (`0001-sacrifice-and-surveil.md`).
 List every spec in `ROADMAP.md`, with its status.
 
 ## Template

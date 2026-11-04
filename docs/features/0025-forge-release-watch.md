@@ -117,3 +117,9 @@ Out (and why):
   `forge-2.0.15`) to see a real issue's wording; then closed.
 - **F-0025-C:** with the pin equal to the latest release, a run posts
   nothing.
+
+## Amendments
+
+1. **As built (2026-11-04, a documentation check).** The workflow's token has `contents: read` as well as `issues: write`
+(`.github/workflows/forge-watch.yml`): it reads the repository's pin
+file. It still can only open issues.

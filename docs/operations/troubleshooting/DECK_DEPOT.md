@@ -35,7 +35,7 @@ Phase 4 added two refusals to the Phase 2 list:
 Everything else — `NOT_A_ZIP`, `NO_DECK_LIST`, `CARDS_NOT_RESOLVED`
 and the rest — is documented in `DECK_IMPORT.md`.
 
-### "This package has already been imported" — but you have never seen it
+### "You already have this deck" — but you have never seen it
 
 Since **PHASE 4 AMENDMENT 4** this cannot happen for someone else's
 deck. Uniqueness is per owner, so another account importing the same

@@ -60,8 +60,9 @@ socket** -- verified in its code and inside the production container
 ## Internal protocol
 
 Newline-delimited JSON over stdin/stdout. Every frame carries
-`protocolVersion` (1), `type` and `messageId`. Never exposed to a
-browser.
+`protocolVersion` (1) and `type`; a reply carries the `messageId` of
+the frame it answers, and a frame the worker sends on its own (READY,
+DECISION_REQUEST, SNAPSHOT, ...) has none. Never exposed to a browser.
 
 ```text
 server → worker                 worker → server

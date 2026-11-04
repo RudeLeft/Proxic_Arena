@@ -81,3 +81,8 @@ A **Belt and records** tab in Admin:
 **2026-11-03, Phase 9 Amendment 13 (item 11).** The game's own words lost
 their long dashes: after a reset the belt reads "Nobody holds the belt.
 The next game's winner takes it."
+
+**As built (2026-11-04, a documentation check).** "Priority stops" in
+the never-deleted list is moot: the table was dropped in 1.18.0 (spec
+0035, `V029__no_priority_stops.sql`) before this spec, so there are none
+to keep.

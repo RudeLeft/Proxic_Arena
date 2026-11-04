@@ -94,9 +94,10 @@ anyone else is told it does not exist (404). One place answers it,
 
 ## Admin-only operations
 
-Account administration — create, list, disable, enable, set a
-password, revoke sessions, and (PHASE_07) change a role — is in two
-places:
+Account administration — create, list, disable, enable, revoke
+sessions, and (PHASE_07) change a role — is in two places. Setting a
+password directly is `arena-admin set-password` only; the Admin page
+sends a reset link instead (spec 0026), and has no route that sets one:
 
 - **`arena-admin`**, run inside the container by someone with shell
   access to the host. It stays (§7.67) and is the recovery tool.

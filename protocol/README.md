@@ -122,8 +122,9 @@ otherHands   OTHER players' hand cards Forge lets this viewer see --
 
 - `face`/`faces` are sent only for a card this viewer may identify;
   a hidden card carries neither.
-- Art follows the face SHOWN. Packages carry front images only, so a
-  transformed card has no `art` rather than the front's.
+- Art follows the face SHOWN: a transformed card carries its back
+  face's own picture when the deck brought one (spec 0008), and no
+  `art` rather than the front's when it did not.
 - Forge restarts in place and keeps card id numbers, so `card:45` in
   game 2 may be the same physical card as in game 1. Decision ids
   keep rising across a restart, so no answer from game 1 is

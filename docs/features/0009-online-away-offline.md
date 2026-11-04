@@ -79,3 +79,8 @@ Out (and why):
   the other sees the yellow badge in Players, on the seat and in chat;
   a move -> green again.
 - Screenshots for the owner before it ships.
+
+## Amendments
+
+1. **As built (2026-11-04, a documentation check).** `PRESENCE_AWAY` leaves `awaySince` out, rather than sending `null`,
+when a user is back.

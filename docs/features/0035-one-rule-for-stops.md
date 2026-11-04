@@ -162,3 +162,8 @@ words.)
    (F-0035-H); a pause sign in its circle now holds it until the player
    passes, and only the tab in front counts down. See spec 0005's
    Amendment 2.
+
+2. **As built (2026-11-04, a documentation check).** F-0035-I's
+   "eight-turn game" and the measured "nine-turn game" below are the
+   same check's game: how many turns it runs varies, and the check
+   reports the count it saw.

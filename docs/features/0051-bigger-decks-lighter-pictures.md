@@ -193,4 +193,7 @@ Deck Builder (1.4.1: sends them). Plain-English notes for both.
 
 ## Amendments
 
-None.
+**As built (2026-11-04, a documentation check).** F-0051-G's "under
+30 MB" was not met to the letter: the real 100-card deck was 30.3 MB
+(Evidence, above), accepted and playable, against 159 MB as PNGs. The
+server's limit is 150 MB, so nothing depends on the 30.

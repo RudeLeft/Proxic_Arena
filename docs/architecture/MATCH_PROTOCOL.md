@@ -13,8 +13,9 @@ internal (`FORGE_WORKER_RUNTIME.md`).
 
 ## Version
 
-Every frame carries `protocolVersion` (currently **1**), `type` and a
-fresh `messageId`. `/api/version` reports the same number. A client
+Every frame the server sends carries `protocolVersion` (currently
+**1**), `type` and a fresh `messageId`; the browser's frames carry only
+`type` and their fields. `/api/version` reports the same number. A client
 never interprets a version it does not know.
 
 ## Finding the match (HTTP)
@@ -55,8 +56,8 @@ its room lets people watch (`watchable`, "Let people watch", on by
 default); this is asked again at every connection. A spectator gets
 `MATCH_HELLO` with `seat: 0` and `spectator: true`, then the **public
 view** (a `MATCH_SNAPSHOT` whose state has `spectator: true` and
-`viewFrom`: no hand, nothing face down), `MATCH_STEP` and
-`MATCH_ASKING`. It is never asked anything, and whatever it sends is
+`viewFrom`: no hand, nothing face down), `MATCH_STEP`, and
+`MATCH_ASKING` once on connect (later ones go to the players only). It is never asked anything, and whatever it sends is
 dropped. The players get `WATCHING` (`count`, people watching) as it
 changes. The worker builds the public view only while somebody is
 watching (`WATCHED`, `FORGE_WORKER_RUNTIME.md`).
@@ -116,6 +117,7 @@ DECISION_OPTIONS        decisionId, query, total, options   (search results; eac
 DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
 CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER
+                        (and the worker's NO_GAME, NO_SEAT)
 AWAY_END_ACCEPTED       spec 0054: the other player's concession went to Forge
 AWAY_END_REFUSED        reason: NOT_AWAY (back, or not gone long enough),
                         NOT_A_PLAYER, UNREACHABLE
@@ -215,15 +217,17 @@ An object id is never an action id (P6-AB); the action model is
 
 ```text
 NOT_PENDING        nothing is being asked
-WRONG_SEAT         you are not the one being asked
+WRONG_SEAT         the worker's own gate: not the seat being asked
 DUPLICATE          that question was already answered
 STALE_DECISION     not the current question (e.g. from game 1 in game 2)
 STALE_STATE        asked against a board that has moved on
 UNREACHABLE        the match cannot be answered (worker gone)
-NOT_YOURS          not a match you are in
+NOT_YOURS          not a match you are in, or not you being asked
 PASS_NOT_ALLOWED   a mandatory question
-NOT_SEARCHABLE     a search on a question that is not searchable
 ```
+
+A search on a question that is not searchable is refused with
+`DECISION_SEARCH_REFUSED`, reason `NOT_SEARCHABLE`.
 
 and an `actionId` that was not offered is refused before Forge sees it
 (P6-Q). Two tabs answering at once: exactly one is accepted (P6-R).

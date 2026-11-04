@@ -24,7 +24,7 @@ may change to suit the other without this document changing first.
 | | |
 | --- | --- |
 | Type | ZIP; DEFLATE or STORED (pictures are stored since spec 0051: they are already compressed) |
-| Directory entries | none — paths are implied |
+| Directory entries | not needed — paths are implied; one present is skipped |
 | Encryption | none |
 | Nested archives | none |
 | Filename | whatever the user saved it as |
@@ -266,18 +266,28 @@ e.g. real_cards/Mountain [DD1-60].jpg  for  6 Mountain [DD1:60]
 
 ## 6. Validation Arena applies
 
-Structural, in order, before anything is extracted:
+Structural, in order, before anything is extracted
+(`PackageInspector`; the first failure is the answer):
 
 | Check | Refusal |
 | --- | --- |
-| Really a ZIP | `NOT_A_ZIP` |
+| A readable file | `NOT_A_FILE` |
 | ≤ 150 MB | `ARCHIVE_TOO_LARGE` |
+| Really a ZIP | `NOT_A_ZIP` |
 | ≤ 600 entries (300 before spec 0051) | `TOO_MANY_ENTRIES` |
-| No path escapes the staging directory | `UNSAFE_PATH` |
+| Not empty | `EMPTY_ARCHIVE` |
+| Each entry: no path escapes the staging directory | `UNSAFE_PATH` |
+| Each entry: STORED or DEFLATE | `UNSUPPORTED_COMPRESSION` |
+| Each entry: not over the per-entry size limit | `ENTRY_TOO_LARGE` |
+| The whole package, expanded, not over its limit | `UNCOMPRESSED_TOO_LARGE` |
 | No two entries normalise to one path, case-insensitively | `DUPLICATE_PATH` |
-| Expansion ratio ≤ 10 | `COMPRESSION_RATIO` |
 | Only the permitted members: the decklist, `real_cards/` PNGs or JPEGs, `art_crops/` JPEGs, `pictures.json` | `UNEXPECTED_ENTRY` |
+| Expansion ratio ≤ 10 | `COMPRESSION_RATIO` |
+| ≤ 500 images | `TOO_MANY_IMAGES` |
 | Exactly one decklist | `NO_DECK_LIST`, `MULTIPLE_DECK_LISTS` |
+
+The decklist itself has a size limit when it is read
+(`DECK_TEXT_TOO_LARGE`).
 
 A legitimate package expands at a ratio of **1.0001** — PNGs are
 already compressed — so a high ratio is direct evidence of a bomb
@@ -295,7 +305,9 @@ Then content:
 | Package not already imported by this account (per owner since `V005`) | `DUPLICATE_PACKAGE` |
 
 Open Format: **60–100 cards (60–65 before spec 0051), at most 4 copies of any card, basic
-lands unlimited, no sideboard.** "Any number" cards — Relentless
+lands unlimited, no sideboard.** Contraptions and Attractions, as Forge
+reads them, go to their own small decks outside the 60–100: at least 15
+or 10, one copy of each (Phase 8 Amendment 3, `OPEN_FORMAT.md`). "Any number" cards — Relentless
 Rats and similar — are **not** exempt (owner decision 2026-10-15).
 
 ## 7. Failure behaviour
@@ -304,7 +316,11 @@ Rats and similar — are **not** exempt (owner decision 2026-10-15).
   never trimmed. A card Forge does not have refuses the whole import,
   never a substitution. (Another printing of a card Forge has is kept,
   §4.2.)
-- **Every problem is reported at once**, not the first one found.
+- **Problems are reported a stage at a time.** A structural problem
+  is the first one found; a decklist line that does not parse stops at
+  that line; every legality problem is reported together, and every card
+  Forge can't play together -- but a deck that is not legal is refused
+  before its unresolved cards are listed.
 - **An import is all or nothing.** A failure leaves no deck, no
   rows, and no staging directory.
 - **An identical package is refused** when the same account imported

@@ -7,7 +7,8 @@ for exactly that reason.
 
 ```text
 CI Gate Deck.txt      65 cards, five basic lands, 13 each
-                      no real_cards/ directory: artwork is optional
+                      no real_cards/ directory here: the package
+                      builder adds a plain coloured picture per card
 ```
 
 ## Why basics only
@@ -18,9 +19,13 @@ limits to be worked around. Every one of these names resolves in any
 Forge card pool, so the fixture cannot fail for a reason that has
 nothing to do with the code under test.
 
-No artwork, because §5 of `DECK_PACKAGE_FORMAT.md` makes it optional
-and because shipping card images in this repository is the thing the
-gitignore exists to prevent.
+No card images in this folder, because shipping them in this
+repository is the thing the gitignore exists to prevent.
+`scripts/make-ci-deck.mjs` adds one generated, plain coloured picture
+per card name (`real_cards/<Name> [CI].png`), and a small art crop
+(`art_crops/<Name> [CI].jpg`), to the built package, so
+an imported deck shows different cards rather than blanks; they are
+not real card images.
 
 ## What it is for
 

@@ -16,12 +16,17 @@ Related: `MATCH_PROTOCOL.md` (the wire), `FORGE_WORKER_RUNTIME.md`
 
 **One transaction, one conditional update.** Inside it, in order:
 
-1. Load the setup and its room; a setup the caller may not launch and
-   one that does not exist give the same answer (`SETUP_NOT_FOUND`).
-2. Only the room's host may launch (`MATCH_HOST_REQUIRED`).
-3. Revalidate everything §6.12 lists -- every seat's deck still exists
-   and is still usable by that player, every account still active.
-   A failure names the seat, not the reason (`LAUNCH_REVALIDATION_FAILED`).
+1. Load and lock the setup; one that does not exist is
+   `SETUP_NOT_FOUND`.
+2. Only the room's host may launch (`403 MATCH_HOST_REQUIRED`), asked
+   before anything else so a non-host does not learn whether a setup is
+   launchable.
+3. Revalidate everything §6.12 lists -- the preset still offered, every
+   seat's deck still exists and is still usable by that player, every
+   account still active (`LAUNCH_REVALIDATION_FAILED`). A seat's failure
+   names the seat and which of the three it is ("Pat's deck is gone"),
+   never the detail behind it (§5.101); a withdrawn preset or an empty
+   setup names no seat.
 4. **Claim the setup**: `READY → CONSUMED`, and continue only if that
    update changed a row. Reading the status and then updating is the
    race this is written to lose; two concurrent launches create exactly
@@ -31,8 +36,9 @@ Related: `MATCH_PROTOCOL.md` (the wire), `FORGE_WORKER_RUNTIME.md`
    snapshotting each seat's deck name and display name.
 6. Room `READY_FOR_MATCH → IN_MATCH`.
 
-Starting Forge is **not** in the transaction. A JVM takes most of a
-minute; holding a row lock across a process spawn would let §6.9's race
+Starting Forge is **not** in the transaction. A game takes seconds to
+start (about 13 s measured, below) and may take up to the 180 s start
+budget; holding a row lock across a process spawn would let §6.9's race
 be decided by whoever's Forge loaded faster, and an HTTP request that
 waited would be cut off by Cloudflare at 100 s. The route returns once
 the match exists; `MatchRuntime` starts the worker on its own thread
@@ -47,6 +53,9 @@ LAUNCHING ──worker running──▶ RUNNING ──Forge result──▶ ENDE
     ▼                            ├─server restarted───────────▶ FAILED_RUNTIME (SERVER_RESTARTED)
 FAILED_STARTUP                   └─a participant abandoned────▶ TERMINATED
 ```
+
+Abandon is accepted from `LAUNCHING` too (also `TERMINATED`). A
+concession and spec 0054's "End the game" are Forge results: `ENDED`.
 
 Enforced by the `match.status` CHECK. `ENDED` is the only status with a
 Forge result; the others record **no winner** (§6.153). A late failure
@@ -102,15 +111,18 @@ visible (P6-BA, P6-AP).
 
 ## Runtime failure
 
-The worker's stdout ending, the process dying, or a match that can no
-longer be answered raises `WorkerEvent.Stopped`: `FAILED_RUNTIME`, no
-winner, room released, both players told "The game stopped before it
+The worker's stdout ending or the process dying raises
+`WorkerEvent.Stopped`; a match that can no longer be answered ends with
+the worker's own `GAME_ENDED` result `FAILED`. Either way:
+`FAILED_RUNTIME`, no winner, room released, both players told "The game stopped before it
 finished. Nobody won it." Other matches are untouched -- one match per
 process (P6-AW, P6-AX: a worker killed with SIGKILL among three).
 
 A start that fails records `FAILED_STARTUP` with a code
 (`WORKER_UNCONFIGURED`, `WORKER_MISSING`, `WORKER_UNREACHABLE`,
-`WORKER_INCOMPATIBLE`, `GAME_START_TIMEOUT`) and gives the room back
+`WORKER_INCOMPATIBLE`, `GAME_START_TIMEOUT`, `DECK_UNAVAILABLE`, or the
+worker's own, such as `GAME_START_FAILED` and `DECK_UNRESOLVED`) and
+gives the room back
 (P6-AT).
 
 ## Ktor restart

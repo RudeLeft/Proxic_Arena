@@ -20,7 +20,9 @@ An account is a row in `app_user` (migration `V003__accounts.sql`):
 user_id              uuid, primary key
 username             as typed, for display
 username_normalized  unique; what uniqueness is actually decided on
-display_name         required, 1-12 characters (spec 0041), changeable by its owner
+display_name         required, 1-12 characters (spec 0041), changeable by its owner;
+                     `arena-admin create` sets it from --name or the username
+                     without the 12-character check
 password_hash        PHC-encoded Argon2id (never the password)
 role                 PLAYER | ADMIN      (CHECK constraint)
 status               ACTIVE | DISABLED   (CHECK constraint)
@@ -84,8 +86,8 @@ next successful login rather than invalidating everyone's password.
 
 ### Password rules
 
-Minimum **12 characters**; maximum 1024. Nothing else — no required
-symbol, no forced digit, no expiry. Composition rules push people
+Minimum **12 characters**; maximum 1024; not only whitespace. Nothing
+else — no required symbol, no forced digit, no expiry. Composition rules push people
 toward `Password1!` and away from length, which is the only property
 that reliably helps.
 
@@ -207,23 +209,29 @@ CSRF cookie is deliberately **not**, because the page must read it to
 echo it back. That asymmetry is the whole mechanism, not an
 oversight.
 
-Cookies are written with Ktor's default encoding rather than RAW: a
-RAW cookie gets a `$x-enc=RAW` marker appended as an attribute no
-browser asked for.
+Cookies are written with Ktor's default encoding rather than RAW. Ktor
+appends an `$x-enc=` marker either way (the live header reads
+`...; SameSite=Lax; $x-enc=URI_ENCODING`); it is harmless, an attribute
+every browser ignores, and the value is untouched (`AuthRoutes.kt`).
 
 ---
 
 ## CSRF protection
 
 Two independent gates on every mutating request (POST/PUT/PATCH/
-DELETE):
+DELETE) made with a session. The open POSTs -- sign-in, joining by
+invitation, a password reset and linking a computer -- have no session
+and so no CSRF cookie yet; they get the origin check (and a throttle)
+only:
 
 1. **Double submit.** The CSRF token is in a readable cookie and must
    be echoed in the `X-CSRF-Token` **header**. A cross-site attacker
    can cause the cookie to be sent but cannot read it to set the
    header.
-2. **Origin check.** The `Origin`/`Referer` must be the configured
-   origin **or the request's own Host**.
+2. **Origin check.** The `Origin` header, when there is one, must be
+   the configured origin **or the request's own Host**. `Referer` is not
+   read, and a request with no `Origin` passes this gate (the double
+   submit still holds it).
 
 The header, never a query parameter: a token in a URL ends up in
 logs, referrers and browser history.
@@ -406,7 +414,8 @@ chooses their own password. The Admin page has no way to set a password
   check and throttle; every bad link gets the same `410 RESET_INVALID`.
 - A new password ends every session and unlinks every Deck Builder
   computer (§3.36), signs the player in, and emails "Your password was
-  changed". Every password change sends that notice.
+  changed". A change on the Account page sends that notice too;
+  `arena-admin set-password` does not.
 - The address (`app_user.email`) comes from the invitation when the
   account was made from one (V026 fills it in for older accounts too).
   The player changes it on the Account page (no password asked, spec
@@ -431,8 +440,10 @@ chooses their own password. The Admin page has no way to set a password
 
 ## What gets logged
 
-§3.94–§3.97. Thirteen event types, all through one function so
-there is a single place to get this wrong:
+§3.94–§3.97. Thirteen event types are declared, all written through
+one function so there is a single place to get this wrong. Three of
+them -- `SESSION_REVOKED`, `SESSION_EXPIRED_IN_FLIGHT`,
+`ADMIN_PASSWORD_RESET` -- are declared but nothing writes them today:
 
 ```text
 LOGIN_SUCCESS     LOGIN_FAILURE     LOGIN_THROTTLED
@@ -462,7 +473,10 @@ is recorded — a brute-force attempt is illegible without it, and a
 username is not a secret.
 
 The account-changing events (created, disabled, enabled, password
-changed) are emitted by `Accounts`, not by the routes. Those
-operations have one implementation and several callers — the admin
-CLI, the account page, and whatever comes next — and an event
-attached to callers is an event some caller forgets.
+changed) are emitted by `Accounts`, not by the routes, so the admin CLI
+and the account page cannot forget them. As built, not every path goes
+through `Accounts`: the Admin page's enable/disable writes its own
+UPDATE (`AdminAccounts.setStatus`) and logs no `USER_DISABLED` /
+`USER_ENABLED` (its `admin_action` row records it); a role change logs
+no auth event; and a password change on the Account page logs
+`PASSWORD_CHANGED` twice (`Accounts.changePassword` and the route).

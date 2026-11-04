@@ -38,7 +38,7 @@ All under `/api`. Every one requires a session.
 
 | Method | Path | Who | Answer |
 | --- | --- | --- | --- |
-| `POST` | `/rooms` | any | `201` + room; optional body `{"name": "…"}` (PHASE_07 Amendment 9: one line, ≤ 40 characters, `422 INVALID_ROOM_NAME`) |
+| `POST` | `/rooms` | any | `201` + room; optional body `{"name": "…", "watchable": true}` (PHASE_07 Amendment 9: one line, ≤ 40 characters, `422 INVALID_ROOM_NAME`; `watchable`, spec 0047, defaults to true) |
 | `GET` | `/rooms/current` | any | `200` + room **or `null`** |
 | `GET` | `/rooms/{roomId}` | members | `200` + room |
 | `POST` | `/rooms/{roomId}/leave` | members | `200` + room |
@@ -48,8 +48,9 @@ All under `/api`. Every one requires a session.
 | `PUT` | `/rooms/{roomId}/ready` | members | `200` + room |
 | `PUT` | `/rooms/{roomId}/player-count` | host | `200` + room |
 
-**There is no join route.** AMENDMENT 1 removed join codes; an
-invitation over the socket is the only way in. Since PHASE_07 §7.64
+**There is no join route.** AMENDMENT 1 removed join codes; the way in
+is over the socket -- an invitation accepted, or a request to join
+(`JOIN_ASK`) the host accepts (spec 0016, below). Since PHASE_07 §7.64
 every room is LISTED (`ROOMS` below), so a room id is no secret; the
 consumed invitation is what stands between the list and a seat.
 
@@ -322,8 +323,11 @@ through (§4.101).
 
 Socket-only codes: `USER_NOT_ONLINE`, `CANNOT_INVITE_YOURSELF`,
 `PLAYER_IN_A_ROOM`, `ONE_INVITATION_AT_A_TIME`, `PLAYER_ALREADY_INVITED`,
-`INVITATION_GONE` (accepting one that has ended),
-`MESSAGE_TOO_LONG`, `TOO_FAST`, `UNKNOWN_TYPE`.
+`INVITATION_GONE` (accepting one that has ended), `SEAT_HELD` (the seat
+is held for somebody), `ONE_AT_A_TIME` (an invitation or request is
+already waiting), `NOT_IN_GAME` (a game chat line from someone not in a
+game), `MESSAGE_TOO_LONG`, `TOO_FAST`, `UNKNOWN_TYPE`. The socket sends
+`INVALID_REQUEST` too, for a frame missing its player, room or line.
 
 ### `SETUP_NOT_READY`, and who learns what
 

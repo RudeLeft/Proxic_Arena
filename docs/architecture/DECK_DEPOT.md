@@ -264,5 +264,6 @@ also why §4.68's artwork check is "is this asset part of a deck you
 may see" rather than "is this asset yours" — the question of whose
 an image is has no meaning in a content-addressed store.
 
-Roughly 1.5 MB per distinct printing, counted once no matter how
-many decks or owners reference it.
+Roughly 1.5 MB per distinct printing as a PNG, a fraction of that as
+the JPEG the Deck Builder sends since spec 0051, counted once no matter
+how many decks or owners reference it.

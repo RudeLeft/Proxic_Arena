@@ -246,7 +246,8 @@ Sliver 33% of card width; floor 75%; one noncreature row for
 enchantments, planeswalkers and battles with a visible fallback; a
 permanent that changes type moves rows at once; per-viewer layout for
 face-down permanents; front/rear automatic by overflow. Basic lands pile
-from the start (Phase 7 §7.58, 2026-10-20). Steps 1 and 2 of §3 are one
+from the start (Phase 7 §7.58, 2026-10-20; since spec 0036 any identical
+cards pile, at most 15 to a pile). Steps 1 and 2 of §3 are one
 step: fixture pitch equals card width plus the minimum gap
 (`BATTLEFIELD_RENDERING.md` §4).
 

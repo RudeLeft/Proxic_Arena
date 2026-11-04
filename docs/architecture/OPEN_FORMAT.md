@@ -19,7 +19,8 @@ sideboard        not allowed
 players          2
 ```
 
-No Commander. No Two-Headed Giant. No other preset.
+No Commander. No Two-Headed Giant. No other preset. (Both are on the
+ROADMAP as planned, owner 2026-10-17, and not built; FMT-005.)
 
 **Amendment, 2026-11-01 (owner, spec 0051).** Decks are 60 to 100
 cards. Up to 4 copies of a card at any size, basic lands unlimited, no
@@ -43,8 +44,8 @@ and has been stripped.
 
 | Removed | Was | Now |
 | --- | --- | --- |
-| Commander | a supported preset (Phase 5), a Phase 0A blocking test (P0A-I), a Phase 0B deferred item (0B.7) | **out of scope** |
-| Two-Headed Giant | capability-gated, already classified `UNSUPPORTED` | **out of scope** (unchanged in effect) |
+| Commander | a supported preset (Phase 5), a Phase 0A blocking test (P0A-I), a Phase 0B deferred item (0B.7) | **not built**; planned on the ROADMAP (owner 2026-10-17) |
+| Two-Headed Giant | capability-gated, already classified `UNSUPPORTED` | **not built**; planned on the ROADMAP (owner 2026-10-17) |
 | Match preset catalog | multiple presets, player counts 2–4 | one mode, 2 players |
 | Team assignment | 2HG only | **out of scope** |
 

@@ -123,7 +123,9 @@ by construction: there is nowhere to submit one.
 
 **Two-Headed Giant is unreachable** (§5.221). It is not in the
 catalog, there is no way to ask for it, and the player count is
-bounded at 2 in the service and by a CHECK in the schema.
+held at 2 by the service (the one preset seats two). The schema's CHECK
+is wider, `BETWEEN 2 AND 8` (V006), so a seat model that holds more stays
+reachable (FMT-005).
 
 ---
 

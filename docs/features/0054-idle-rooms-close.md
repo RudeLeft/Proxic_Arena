@@ -92,6 +92,8 @@ What the people in a closed room are told:
 - A room back in the lobby after a game starts a fresh clock (fixed
   2026-11-04: it was counted from the game's start, so a room back from
   a two-hour game closed at the next sweep; `RoomMaintenanceTest`).
+- The admin rooms page writes the clock short: "closes in 12m" (and
+  "closes in 2h").
 - The page's wording says "10 minutes" for being away; the server goes by
   its setting (`PROXIC_AWAY_MINUTES`), so a changed setting changes when
   things happen, not the words.

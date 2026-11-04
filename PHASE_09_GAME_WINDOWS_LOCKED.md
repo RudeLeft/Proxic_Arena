@@ -697,7 +697,14 @@ before building).**
    a card that has left is drawn on top.
 
 - *As built:* the pause holds until the player passes (first built
-  per stack object, made simpler 2026-11-03); the worker sends the
+  per stack object, made simpler 2026-11-03). Item 11's words, where
+  this document quotes the older ones: the mulligan button is
+  "Mulligan" with "Draw seven again, put 1 back" under it (W-15); the
+  greyed reasons read "Only once each turn, and you've used it." and
+  "It came in this turn, so it can't tap yet." (W-16). Item 3's target
+  prompt is the ability's own words and its cost ("Wirewood Symbiote:
+  Untap target creature. Next, you'll pay its cost: return an Elf you
+  control to its owner's hand."). The worker sends the
   payment's `owing`
   (protocol/README.md) and the target prompt from the ability's own text;
   `abilities.ts` reads " · " rows, "no cost" and mixed costs; the seal

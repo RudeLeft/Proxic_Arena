@@ -66,8 +66,9 @@ Served only if **all** hold:
 - the asset id is 64 hex characters (anything else is 400, so no path
   traversal is possible);
 - the match is **live** in this server (`LAUNCHING`/`RUNNING`);
-- the caller is a participant of it;
-- that participant's snapshots have referenced this asset.
+- the caller is a participant of it, or a spectator (spec 0047, as the
+  public seat);
+- that seat's snapshots have referenced this asset.
 
 Otherwise **404 "No such asset"** -- the same answer as an asset that
 does not exist, so a refusal never confirms what is in an opponent's

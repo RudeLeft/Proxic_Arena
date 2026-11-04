@@ -15,7 +15,7 @@ mechanism is `docs/architecture/DECK_IMPORT_PIPELINE.md`.
 
 ---
 
-## `NOT_A_ZIP` — "That file is not a deck package"
+## `NOT_A_ZIP` — "The upload is not a readable ZIP archive."
 
 The upload is not a readable ZIP. A `.zip` extension is not
 evidence.
@@ -74,7 +74,7 @@ The message names each card and why.
 | Detail | Meaning |
 | --- | --- |
 | `Forge does not know a card named "..."` | the name is wrong, or the card is newer than the pinned Forge |
-| `Requested CON/65, Forge returned CFX/65` | see below |
+| `Requested <set>/<number>, Forge returned <set>/<number>.` | only for a card whose printing changes what it does; see below |
 
 **One unresolvable card refuses the whole import.** Arena does not
 import a partial deck and does not substitute another card: a deck
