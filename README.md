@@ -192,6 +192,8 @@ only after every check passes.
 - **Maven 3.9** (for the Forge worker)
 - A local checkout of upstream Forge at the pinned commit, **if you
   want the worker to do anything** (see below)
+- **Python 3** (for the Mechanics Lab checks in `scripts/`, not for a
+  build)
 
 Nothing else. If a build needs something not listed here, that is a
 bug in this README (§1.77).
@@ -396,7 +398,7 @@ P1-R through P1-U passed on 2026-10-15
 `docs/operations/UNRAID_INSTALL.md` Step 9 repeats them from outside.
 
 The stack's own `cloudflared` service (profile `edge`, reaching the
-server over the internal network with no host port) is an option that
+server over the `edge` network with no host port) is an option that
 has **never been run**; nothing here describes it as working (§1.71).
 Its token would come from the Unraid environment, never from the
 repository.
@@ -478,8 +480,9 @@ spikes/                    Phase 0A measurement harnesses
 2. `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` — the
    architectural facts Phase 0A established, and why.
 3. `ROADMAP.md` — what is built and what is next; then
-   `docs/history/phases/phase-07/PHASE_07_EXIT_GATE.md` for what the
-   main build proved, and the earlier exit gates for each phase.
+   `docs/history/phases/phase-08/PHASE_08_EXIT_GATE.md` for what the
+   main build proved (it completed with Phase 8, 1.1.0), and the earlier
+   exit gates for each phase.
 4. `docs/operations/troubleshooting/FOUNDATION.md` — when something will not
    start.
 5. `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md` — the §1.99 baseline,

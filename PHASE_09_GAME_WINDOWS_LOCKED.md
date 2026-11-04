@@ -241,8 +241,9 @@ exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
 3") and Amendment 3's "Pat is splitting the cards" line on the other
 player's screen. Everything else is built (see the Amendments), with
 these gaps against principle 6 found by a documentation check
-(2026-11-04): there is no Peek button (only holding Space; see the
-as-built note below), and holding Space fades only the bubble and the
+(2026-11-04): there is no Peek button (only holding Space, which every
+bubble and tray names in "Hold Space to see the table"; see the as-built
+note below), and holding Space fades only the bubble and the
 tray windows (`usePeek`), not the opening hand window (W-15); the reveal
 tray and the graveyard/exile viewer do not fade either, if they count
 as windows. Owner 2026-11-04: Peek is designed with W-21 and W-17.
@@ -846,8 +847,10 @@ https://claude.ai/artifact/A6oesok4EKVjhqk9nVbAFs).**
   says it can't name a land; results with types), with screenshots.
 
 **As built (2026-11-04, a documentation check -- principle 6).** Only
-holding Space fades a window; there is no Peek button, so a player who
-does not know the key cannot see behind a window. Owner 2026-11-04: a
+holding Space fades a window; there is no Peek button. (Corrected
+2026-11-04: the key is not hidden -- every bubble and tray shows "Hold
+Space to see the table" -- but a player must use the keyboard to see
+behind a window.) Owner 2026-11-04: a
 visible Peek is designed with the remaining windows (W-21, W-17), on a
 canvas for approval.
 

@@ -2,7 +2,9 @@
 
 **Status:** ACCEPTED — its open questions were answered by the owner 2026-10-15
 (Phase 7 §7.51); resolved values below. Placement within a zone is
-centre-out (`BATTLEFIELD_RENDERING.md` §4, owner decision 2026-10-19).
+centre-out (`BATTLEFIELD_RENDERING.md` §4, owner decision 2026-10-19),
+except lands, which start at the left edge of their line since spec 0040
+(`layout.ts`).
 **Supersedes:** `designer-blueprint.json` as a source of coordinates
 **Preserves:** every proportion the owner tuned in that file
 **Date:** 2026-10-14

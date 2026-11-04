@@ -152,8 +152,8 @@ asset actually belonging to that deck. A 404 means one of:
 - you may not see that deck;
 - the asset is not part of it (a URL from a different deck will not
   work, even for your own decks);
-- the file is genuinely absent — see "Artwork is missing" in
-  `DECK_IMPORT.md`.
+- the file is genuinely absent — see "`dataRoot` is not `ok`, or art
+  disappears after a restart" in `DECK_IMPORT.md`.
 
 The deck id in that address is load-bearing. Before Phase 4 it was
 not, and any asset could be fetched under any deck id.
@@ -163,7 +163,7 @@ Since spec 0052 the page uses one address per picture instead,
 learns an address only by being shown the card). A 404 there
 (the route's `PICTURE_NOT_FOUND`, which reaches the browser as
 `NOT_FOUND` like every 404) means the file is not on the server; see
-"Artwork is missing" in `DECK_IMPORT.md`. The per-deck address above
+"`dataRoot` is not `ok`, or art disappears after a restart" in `DECK_IMPORT.md`. The per-deck address above
 still answers, with both checks.
 
 ## A legacy deck has no owner

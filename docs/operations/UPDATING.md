@@ -96,12 +96,15 @@ comparing bundle hashes again:
 
 | Where | How |
 | --- | --- |
-| the container log | first line at startup |
+| the container log | the server's first own line at startup |
 | the API | `/api/version` |
 | the image, with nothing running | Docker tab, or `docker inspect` |
 
 The log line is the one to reach for when something is wrong,
-because it appears before anything can fail:
+because it comes before the server does anything that can fail. Two
+things can come first: a startup refusal (a missing or placeholder
+secret), which prints its reasons and exits with code 78 before this
+line, and Ktor's own startup lines.
 
 ```text
 Proxic Arena 1.41.0 · protocol 1 · forge-2.0.15 · build 6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a

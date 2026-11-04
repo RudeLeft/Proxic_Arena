@@ -24,9 +24,12 @@ privacy and code redaction in logs. They were all solving problems
 the code itself created.
 
 A room id is **not** a capability. Knowing one gets you nothing: the
-only way into a room is an invitation the server recorded (below),
-and a non-member asking about a room gets the same 404 as somebody
-naming an id that was never issued.
+only ways into a room are an invitation the server recorded (below) or
+an Ask to join the host accepts (spec 0016), and a non-member reading a
+room gets the same 404 as somebody naming an id that was never issued.
+Actions differ: a non-member's host action is refused `403` and some are
+refused `409` on a stale revision first (`LOBBY_PROTOCOL.md`); rooms are
+listed for everyone anyway (§7.64).
 
 ---
 
@@ -200,9 +203,10 @@ Server-authoritative, and yours alone to change (§5.57).
 - Readiness is cleared by: changing your own deck (§5.59), a material
   room change such as the player count (§5.60), losing access to your
   deck, a failed preflight for your deck (§5.98), cancelling a
-  preparation (§5.117), a guest leaving, being removed or being taken
-  out for being away (everyone's, while the game is prepared; owner
-  2026-11-04), and **a server restart** (§5.198).
+  preparation (§5.117), a guest leaving or being removed while the game
+  is prepared (everyone's; owner 2026-11-04), a guest taken out for
+  being away (everyone's, prepared or not; spec 0054), and **a server
+  restart** (§5.198).
 
 ---
 
@@ -269,7 +273,9 @@ While `READY_FOR_MATCH`, ordinary configuration is blocked (§5.116).
 Cancelling is the way back; a guest leaving, being removed or being
 taken out for being away (spec 0054) is too,
 and ends the setup (owner 2026-11-04: before then Start match could
-seat a player who had left).
+seat a player who had left). Unticking ready ends it the same way
+(owner 2026-11-04); the page greys the tick out while the game is
+prepared, so this is the server's guard for a request from elsewhere.
 
 ---
 
@@ -357,6 +363,7 @@ What a restart puts right, before the routes open:
 | presence | everybody disconnected, automatically — it never left memory |
 | readiness | **reset** (§5.198) |
 | an unconsumed prepared setup | **invalidated**, room back to `OPEN` (§5.122, §5.213) |
+| a room whose game the restart ended | back to `OPEN`, with a fresh clock (spec 0054; `MatchRecovery`) |
 
 Readiness is reset because "ready" is a claim about a person who is
 watching, and after a restart nobody is — every socket died with the
@@ -364,7 +371,10 @@ old process. A table showing itself ready, in front of two people who
 have gone to bed, is the state this prevents.
 
 A restart is **not** activity, so it does not extend a room's life. A
-server bounced nightly must not keep dead rooms alive forever.
+server bounced nightly must not keep dead rooms alive forever. The one
+exception is a room whose game the restart ended: it comes back with a
+fresh clock, as after any game (spec 0054), because its clock was
+counted from the game's start.
 
 ---
 

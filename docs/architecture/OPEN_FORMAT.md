@@ -116,7 +116,9 @@ finding.
 *As built:* the decklist has no sideboard section to reject. A
 `// Sideboard` line is a comment like any other, so every card line
 counts as main deck and the whole deck must be legal (60-100 cards,
-four copies). Nothing is dropped.
+four copies). Nothing is dropped. The one section the parser knows is
+`// Tokens` (spec 0022): card lines after it are the deck's tokens, not
+deck cards.
 
 ### 4.3 Do NOT use Forge's `canHaveAnyNumberOf()` as the exemption test
 
@@ -224,9 +226,10 @@ card pool there is no subset of zones that can be assumed irrelevant.
 | 0B.7 Commander runtime | deferred with trigger | **removed** |
 | Acceptance tests | 10 | **9**, then 10 again with P0A-K below (all passed) |
 
-Phase 0A's remaining open work is unchanged: §0A.8A (protocol lessons
-review), §0A.9A (Scryfall/Forge identity boundary) and §0A.10 (process
-model and Forge packaging).
+Phase 0A's remaining open work was unchanged by this: §0A.8A (protocol
+lessons review), §0A.9A (Scryfall/Forge identity boundary) and §0A.10
+(process model and Forge packaging). All of it has since closed with
+Phase 0A (`docs/history/phases/phase-00/`).
 
 **A new Phase 0A item replaces the Commander test**, because the gap it
 found is real and Open Format widens it:

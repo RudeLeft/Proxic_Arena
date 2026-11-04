@@ -20,8 +20,9 @@ mechanism is `docs/architecture/DECK_IMPORT_PIPELINE.md`.
 The upload is not a readable ZIP. A `.zip` extension is not
 evidence.
 
-Usually the wrong file. Export the deck again from Proxic Deck
-Builder and upload the archive it produced, not a renamed decklist.
+Usually the wrong file. Send the deck again from Proxic Deck Builder
+(Arena's Decks page has no upload since spec 0022); a renamed decklist
+is not a package.
 
 ## `NO_DECK_LIST` — no decklist in the package
 
