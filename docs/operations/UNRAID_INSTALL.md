@@ -189,8 +189,8 @@ all five should read **Ready**.
 > **Signing in will not work on the LAN address, by design.** A browser
 > will not keep a `Secure` cookie delivered over plain HTTP, so the
 > login silently bounces back to the form. Use
-> `https://proxic.barnflix.net`. The LAN port is for diagnostics
-> (owner decision D2); `docs/operations/troubleshooting/AUTHENTICATION.md`
+> `https://proxic.barnflix.net`. The LAN port is the tunnel's (owner
+> decision D2); without a session it shows only the sign-in page; `docs/operations/troubleshooting/AUTHENTICATION.md`
 > leads with this.
 
 If an indicator is not Ready:
@@ -199,7 +199,7 @@ If an indicator is not Ready:
 | --- | --- |
 | Database | `docker compose logs postgres`; check `POSTGRES_PASSWORD` |
 | Forge Runtime | the five-state table in `FOUNDATION.md` |
-| WebSocket | nothing between you and it yet; it should just work |
+| WebSocket | the tunnel must pass `Upgrade` (Step 9, item 3) |
 | Pixi Renderer | the browser console |
 
 ## Step 7 — Confirm the database is not exposed

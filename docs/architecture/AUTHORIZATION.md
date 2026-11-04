@@ -57,7 +57,7 @@ to `/login` itself.
 | the built files the sign-in screen needs (named by the build manifest) | anyone |
 | every other built file (`/assets/…`) | the signed-in user (`private` cache) |
 | `GET /api/health/live`, `/ready` | the server's own container only (127.0.0.1); 404 from anywhere else |
-| `POST /api/auth/login`, `/logout` | anyone (logout is a quiet 204 either way) |
+| `POST /api/auth/login`, `/logout` | anyone; logout with a session needs the CSRF token and the origin check (403 otherwise), and is a quiet 204 without one |
 | `POST /api/auth/join`, `/join/peek` (spec 0014), `/reset`, `/reset/peek` (spec 0026), `/device-link` (spec 0021) | anyone -- each checks its own one-time link or code |
 | `GET /api/deck-rules` (spec 0021) | a signed-in user or a linked computer's device token; the route checks it |
 | `/api/deck-builder/…` (spec 0022) | a linked computer's device token only; the routes check it |
@@ -97,7 +97,9 @@ anyone else is told it does not exist (404). One place answers it,
 Account administration — create, list, disable, enable, revoke
 sessions, and (PHASE_07) change a role — is in two places. Setting a
 password directly is `arena-admin set-password` only; the Admin page
-sends a reset link instead (spec 0026), and has no route that sets one:
+sends a reset link instead (spec 0026). `POST /api/admin/accounts`
+creates an account with a password, but no page calls it: the Admin
+page's way to add someone is an invitation (spec 0014):
 
 - **`arena-admin`**, run inside the container by someone with shell
   access to the host. It stays (§7.67) and is the recovery tool.

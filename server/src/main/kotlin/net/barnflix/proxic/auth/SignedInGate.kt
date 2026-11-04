@@ -29,7 +29,7 @@ import java.io.File
 //   - the built files the sign-in screen needs, named by the build's own
 //     manifest -- and no other built file;
 //   - POST /api/auth/login; GET /api/auth/me, which tells a stranger
-//     nothing (204); POST /api/auth/logout, a quiet 204 either way;
+//     nothing (204); POST /api/auth/logout, behind CSRF with a session, a quiet 204 without;
 //   - POST /api/auth/join and /join/peek, an invitation link's sign-up
 //     page (spec 0014), and /reset and /reset/peek, a password reset
 //     link's page (spec 0026);

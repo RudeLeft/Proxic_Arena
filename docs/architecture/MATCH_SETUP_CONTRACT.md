@@ -83,8 +83,11 @@ choosing what to launch.
 
 ## Validation that has already happened
 
-By the time a setup exists, all of this was true **inside the
-transaction that wrote it** (§5.92, §5.93):
+By the time a setup exists, all of this was checked during
+preparation (§5.92, §5.93) -- in step 1's locked transaction, or by
+Forge in step 2; the transaction that writes it checks only that the
+revision has not moved (below), and presence does not move the
+revision, so "connected" is as of step 1:
 
 ```text
 the requester was the host
@@ -141,6 +144,8 @@ A setup is `READY` until something ends it:
 | host cancels (§5.117) | `INVALIDATED` | `OPEN`, readiness reset |
 | host closes the room (§5.79) | `INVALIDATED` | `CLOSED` |
 | the room closes idle or with its host away (spec 0054; was §5.125's expiry) | `INVALIDATED` | `CLOSED` (`EXPIRED` before spec 0054) |
+| an administrator closes the room (Admin page) | `INVALIDATED` | `CLOSED` |
+| the server restarts (`RoomRecovery`) | `INVALIDATED` | `OPEN` |
 | **Phase 6 launches it** | `CONSUMED` | Phase 6's |
 
 `CONSUMED` is written by Phase 6 and by nothing in Phase 5. Nothing

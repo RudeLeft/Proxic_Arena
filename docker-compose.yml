@@ -130,9 +130,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    # NO ports: section, deliberately (§1.51, §1.55). In production
-    # the tunnel reaches this service over the `edge` network and no
-    # host port is published at all.
+    # NO ports: section, deliberately (§1.51, §1.55). Live, the
+    # Unraid file (docker-compose.unraid.yml) publishes host port 8765
+    # and the tunnel runs outside this stack; the `edge` service below
+    # is the unused in-stack alternative.
     #
     # For local use, add the override that publishes it:
     #   docker compose -f docker-compose.yml -f docker-compose.local.yml up
@@ -141,11 +142,12 @@ services:
     # one someone has to remember, and the exposed one is what runs
     # if they forget.
 
-  # NOT VERIFIED. Written from §1.48-§1.51 and never run: a tunnel
-  # needs the real host and a real token, and this project does not
-  # ship configuration it has only imagined working. Start it with
+  # NOT VERIFIED, and unused live: the production tunnel runs as its
+  # own Unraid container outside this stack, on host port 8765
+  # (docker-compose.unraid.yml). Written from §1.48-§1.51 and never run.
+  # To use it instead:
   #   docker compose --profile edge up
-  # on the Unraid host, and treat its first run as the verification.
+  # and treat its first run as the verification.
   cloudflared:
     image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
     restart: unless-stopped

@@ -86,7 +86,7 @@ saw the cards in its own question.
 ## Face-down objects
 
 A morph cast face down (Willbender), across 60 frames (P6-I,
-`scripts/check-face-down.py`, `e2e/match-face-down.spec.ts`):
+`scripts/check-face-down.py`, `frontend/e2e/match-face-down.spec.ts`):
 
 - its **controller** sees the real name, marked face down;
 - the **opponent** sees "Face-down", `known: false`, and only what the

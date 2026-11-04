@@ -238,7 +238,7 @@ rather than teleports.
 | 2 | **one** Playwright test (`frontend/e2e/battlefield.spec.ts`) | for seeded boards (0-200 permanents) at four window sizes, every card's `getBoundingClientRect()` equals `layout()`'s Box; and PHASE 7 AMENDMENT 4 on what was drawn: no card covers another row, nothing crosses the divider; since spec 0040 a tapped card's corners stay inside its line and no card is clipped to make that so | `RUN` |
 | 3 | Playwright, real events | a dispatched click sends the expected `action_id` (§7.44); the arrow never takes a click | `RUN` |
 | 4 | Playwright, both seats | opponent view's DOM text lacks every face-down identity; controller's has it (§7.45) | `RUN` |
-| 5 | screenshot regression | fixed viewports, pinned fonts, documented tight tolerance (§7.43, §7.47) | `RUN` |
+| 5 | screenshot regression | fixed viewports, pinned fonts, documented tight tolerance (§7.43, §7.47) | **not built**: no test compares screenshots; the e2e screenshots are captures for the owner (tier 6) |
 | 6 | the owner | whether it looks right (§7.46) | `USER` |
 
 Tier 1 is the fast loop: thousands of cases per second, no browser.
@@ -270,8 +270,8 @@ with grain), five runs, in a real Edge window on the owner's PC
 ```text
                          1920x1080            3840x2160
                          full      fit        full      fit
-first paint (<= 300)     30 ms     29 ms      30 ms     30 ms     PASS (at 80, twice the board)
-new face (<= 100)        30 ms     30 ms      30 ms     30 ms     PASS
+first paint (<= 300)     29 ms     31 ms      30 ms     31 ms     PASS (at 80, twice the board)
+new face (<= 100)        29 ms     30 ms      30 ms     29 ms     PASS
 re-centre at 60 fps      0/488     0/490      0/489     0/491     PASS (frames over 25 ms)
 decoded images (<= 150)  174 MB    8 MB       175 MB    33 MB     FAIL at full size, PASS fitted
 ```

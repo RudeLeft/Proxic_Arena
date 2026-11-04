@@ -85,8 +85,9 @@ so nothing is lost in between.
 
 `SHARE_USER_NOT_FOUND`. The Share panel's **Choose a player** list
 holds every other active account the deck is not yet shared with, so
-this means the account was disabled, or removed, after the page
-loaded. Reload and choose again. (The server matches the username the
+this means no name was sent, or the account was removed after the page
+loaded. (An account disabled since then gives `SHARE_USER_DISABLED`
+instead.) Reload and choose again. (The server matches the username the
 way accounts are, so case does not matter.)
 
 Confirm the spelling from the host:
@@ -158,7 +159,8 @@ not, and any asset could be fetched under any deck id.
 Since spec 0052 the page uses one address per picture instead,
 `/api/pictures/{sha}`, for any signed-in player (owner D1: a player
 learns an address only by being shown the card). A 404 there
-(`PICTURE_NOT_FOUND`) means the file is not on the server; see
+(the route's `PICTURE_NOT_FOUND`, which reaches the browser as
+`NOT_FOUND` like every 404) means the file is not on the server; see
 "Artwork is missing" in `DECK_IMPORT.md`. The per-deck address above
 still answers, with both checks.
 

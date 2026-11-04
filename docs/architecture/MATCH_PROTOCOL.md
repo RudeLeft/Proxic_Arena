@@ -29,7 +29,9 @@ GET  /api/matches/{id}             one match, participants only
 POST /api/matches/{id}/abandon     any participant; TERMINATED, no winner
 GET  /api/matches/{id}/assets/{sha256}   card artwork (MATCH_ASSET_AUTHORIZATION.md)
 GET  /api/matches/watch/{roomId}   spec 0047: the game a room is playing, to watch;
-                                   404 NOT_WATCHABLE, 409 YOUR_GAME for a player
+                                   404 (sent as NOT_WATCHABLE, rewritten to
+                                   NOT_FOUND like every 404), 409 YOUR_GAME
+                                   for a player
 ```
 
 Since 1.30.0 (spec 0052) the game page loads every picture from
@@ -279,4 +281,4 @@ then ends like any other, `ENDED` with Forge's winner, and the lobby's
 `MATCH` message carries `concededSeat`. Refused with `NOT_STARTED` before
 the game proper (the mulligan), as Forge's client refuses it; Abandon,
 which has no winner, is the way out then. Proved against Forge by
-`scripts/check-concede.py` and in the browser by `e2e/match-concede.spec.ts`.
+`scripts/check-concede.py` and in the browser by `frontend/e2e/match-concede.spec.ts`.

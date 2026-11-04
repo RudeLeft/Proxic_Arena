@@ -116,16 +116,19 @@ DELETE /api/decks/{deckId}/shares/{userId}
 ```
 
 Immediate and server-side (§4.35). It ends deck detail, the library
-listing **and artwork** together — a test asserts all three, because
-stopping two of three would look like success.
+listing and the deck's own artwork route (`/api/decks/{id}/art/…`)
+together — a test asserts all three, because stopping two of three
+would look like success. Since spec 0052 the pages load pictures from
+`/api/pictures/{sha}`, which any signed-in player may load: an address
+already seen keeps working after a revoke (`DECK_AUTHORIZATION.md`).
 
 Idempotent: revoking a share that is not there is a success, since
 the end state is the one asked for.
 
 **What it cannot do** (§4.36): erase what a browser already
-downloaded. Artwork is served `Cache-Control: private`, so no shared
-cache keeps it, but the viewer's own browser may hold its copy until
-that expires. Revocation governs the server, not pixels already
+downloaded, nor a picture address they were already shown (above).
+Artwork is served `Cache-Control: private`, so no shared cache keeps
+it, but the viewer's own browser may hold its copy until that expires. Revocation governs the server, not pixels already
 delivered — and nothing prevents a screenshot.
 
 ---
@@ -173,8 +176,8 @@ content-addressed.
 18). The comparison ignores capitals and surrounding spaces, so
 "Burn" and " burn" are the same name; two players may each have a
 "Burn". An upload whose name you already use is refused with `409
-DECK_NAME_TAKEN`; the page asks for another name and sends it as the
-optional multipart field `name`. Names you type are 1 to 80
+DECK_NAME_TAKEN`; the Deck Builder asks for another name and sends it
+as the optional multipart field `name` (Arena's own page has no upload). Names you type are 1 to 80
 characters on one line (`422 INVALID_DECK_NAME`).
 
 ```text

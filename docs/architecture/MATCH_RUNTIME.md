@@ -67,10 +67,13 @@ result`).
 
 While a match is `LAUNCHING` or `RUNNING` its room is `IN_MATCH`:
 
-- no lobby action can change it -- leave, close, ready, prepare are all
-  refused (§6.152); the match ends only through the game: its own end,
-  a concession (PHASE_07 §7.55), "End the game" for a player gone 10
-  minutes (spec 0054), or "Abandon match";
+- no lobby action can change it -- leave, close, readying, prepare are
+  refused (§6.152; un-readying is accepted and changes nothing that
+  matters); the match ends through the game: its own end, a concession
+  (PHASE_07 §7.55), "End the game" for a player gone as long as the away
+  setting (spec 0054), or "Abandon match" -- or an administrator closing
+  the room from the Admin page, which abandons the match first
+  (`ROOM_CLOSED` reason `CLOSED_BY_ADMIN`);
 - it is still the players' room: a refreshed page is given it back, and
   neither player can host or join another room (`RoomStore.activeRoomOf
   (includeInMatch = true)`; fixed 2026-10-20, found by the live-site run);

@@ -78,7 +78,8 @@ version, not a health check, not the other pages' code. The health
 checks answer only from inside the server's own container. Accounts
 come by invitation: an administrator sends one from the Admin page and
 the person creates their own account (spec 0014); an administrator can
-also create one on the Admin page or with `arena-admin create`. There is
+also create one with `arena-admin create` (the server has a create route,
+`POST /api/admin/accounts`, that no page uses). There is
 no open sign-up. See
 `docs/architecture/AUTHENTICATION.md`, and
 `docs/operations/troubleshooting/AUTHENTICATION.md` when a login will not work.
@@ -257,12 +258,13 @@ compiled React app, PostgreSQL on a private network with no published
 port, and named volumes for both.
 
 The override is what publishes the port. `docker compose up` on its
-own publishes **nothing** — in production the Cloudflare tunnel
-reaches the server over the internal network, and the safe
-configuration is the default rather than the one you have to
-remember (§1.51, §1.99).
+own publishes **nothing**, so the safe configuration is the default
+rather than the one you have to remember (§1.51, §1.99). Live, the
+Unraid file publishes host port 8765 for the tunnel, which runs outside
+the stack (see "Cloudflare Tunnel deployment" below).
 
-To include the Cloudflare edge (only useful on the real host):
+To include the stack's own Cloudflare edge instead (an option, unused
+live and never run):
 
 ```bash
 docker compose --profile edge up -d
@@ -347,8 +349,9 @@ schema from scratch on next start.
 
 ## Forge version
 
-The pinned commit lives in exactly one file, `forge-pin.properties`,
-read by both build systems:
+The pinned commit lives in `forge-pin.properties`, read by both build
+systems (`scripts/check-integrity.py` alone reads the same commit from
+`PHASE_00_ACCEPTED_DECISIONS.md`):
 
 ```text
 forge.commit=4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676

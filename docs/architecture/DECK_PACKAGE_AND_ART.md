@@ -34,6 +34,11 @@ real_cards/<Card Name> [SET].png
 [SOURCE] archive.writestr(f"{_safe_member(job.deck_name)}.txt", job.deck_text)
 ```
 
+(As quoted when this was written. The Deck Builder's `write_package`
+now sets compression per member -- the decklist deflated, pictures
+stored -- and wraps each name in `_member(...)`; the members are the
+same.)
+
 Four behaviours Phase 2 must build around, all from the exporter
 itself:
 

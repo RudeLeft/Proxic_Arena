@@ -167,14 +167,15 @@ Deck **contents** never travel at all.
 
 ### When access changes underneath a room
 
-§5.50, §5.51. Three triggers, and all of them clear the selection
-*and* the readiness that rested on it:
+§5.50, §5.51. Three triggers. The first two clear the selection *and*
+the readiness that rested on it; preparation clears neither on its own
+check:
 
 | Trigger | What happens |
 | --- | --- |
 | share revoked | that recipient's seat is cleared; everyone else keeps theirs |
 | deck deleted | every seat holding it is cleared, in every active room |
-| preparation | `canUseDeck` is asked again for every seat (§5.93) |
+| preparation | `canUseDeck` is asked again for every seat (§5.93); a seat that fails is a `SETUP_PROBLEM` and is not cleared; a deck that fails the Forge check (step 2) clears that seat's readiness, never its selection |
 
 The members are told, rather than finding out when the host cannot
 start the match.
@@ -315,8 +316,9 @@ are server settings (`PROXIC_ROOM_ALONE_MINUTES` and friends,
 `RoomTimeouts`).
 
 Activity is joining, leaving, configuring, selecting a deck, readying,
-a host action (§5.124), sending an invitation, a lobby chat line from
-one of the room's members (at most once a minute), or "Keep it open";
+a host action (§5.124), sending an invitation, a lobby chat line or
+reaction from one of the room's members (at most once a minute), or
+"Keep it open";
 a game starting and a game ending write it too (a room back from a game
 starts a fresh clock).
 **A browser holding a socket open is not activity** — that is why
@@ -327,7 +329,10 @@ A sweep every minute closes them (`ROOM_CLOSED` with reason `IDLE_30`,
 `IDLE_120` or `HOST_AWAY`; a guest taken out gets `ROOM_REMOVED`,
 reason `AWAY`), ends the memberships, invalidates any unconsumed setup
 and tells whoever was in it. Once an hour, finished rooms older than
-seven days are removed — a diagnostics window, not an archive (§5.126).
+seven days are removed — a diagnostics window, not an archive (§5.126) —
+except a room whose setup was `CONSUMED`, which is every room that
+played a game: those are kept, because a match points at its room and
+the room is never deleted from under it (`RoomExpiry.purgeFinished`).
 
 Unlike the session sweep, this one is **not housekeeping**: nothing
 else closes an idle room, so if it stopped running, abandoned rooms

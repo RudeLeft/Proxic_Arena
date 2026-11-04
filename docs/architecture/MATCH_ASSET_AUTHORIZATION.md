@@ -70,7 +70,8 @@ Served only if **all** hold:
   public seat);
 - that seat's snapshots have referenced this asset.
 
-Otherwise **404 "No such asset"** -- the same answer as an asset that
+Otherwise **404** (the route says "No such asset", and the global
+handler rewrites every 404 to `NOT_FOUND` "No such endpoint.") -- the same answer as an asset that
 does not exist, so a refusal never confirms what is in an opponent's
 deck.
 

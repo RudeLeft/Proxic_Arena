@@ -190,11 +190,11 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | Type | When | To whom |
 | --- | --- | --- |
 | `HELLO` | on connect | the connection |
-| `PRESENCE` | on connect | the connection |
+| `PRESENCE` | on connect | every tab of that user |
 | `PRESENCE_JOINED` | a user's **first** connection | everyone else |
 | `PRESENCE_LEFT` | a user's **last** disconnection | everyone else |
 | `ROOM` | any room change | each member, **individually** |
-| `ROOM_CLOSED` | closed, host left, idle, host away | former members |
+| `ROOM_CLOSED` | closed, host left, closed by an administrator, idle, host away | former members |
 | `ROOM_REMOVED` | you were removed | that user |
 | `INVITED` | you were invited (`roomId`, `roomName`, `from`); again on reconnect | that user |
 | `INVITATION_SENT` | your invitation reached somebody (`roomId`, `to`); again on reconnect | the inviter |
@@ -202,10 +202,10 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `JOIN_ASKED` | somebody asks to join your room (`roomId`, `from`); again on reconnect | the host |
 | `JOIN_ASK_SENT` | your request reached the host (`roomId`, `roomName`, `host`); again on reconnect | the asker |
 | `ROOM_CHECKING` | the host pressed Start and both decks are being checked (`roomId`, `checking: true`), or the check ended without a match (`false`) — spec 0019 | the room's members |
-| `ROOMS` | on connect, and on any room change | everyone |
+| `ROOMS` | on connect (every tab of that user), and on any room change | everyone |
 | `MATCH` | your match moved (`matchId`, `status`, `failureCode?`, seats, the result at the end; PHASE_06 §6.17) | each participant, **individually** |
-| `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | the connection; everybody when it changes |
-| `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | the connection; everybody when it changes |
+| `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | every tab of that user; everybody when it changes |
+| `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | every tab of that user; everybody when it changes |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
 | `CHAT` | somebody said something | everybody |
 | `PRESENCE_AWAY` | a player became away (`awaySince`) or came back (no `awaySince`); away only when every tab of theirs is (spec 0009). `PRESENCE` entries carry `awaySince`, `PLAYERS` entries `lastSeenAt`, `PRESENCE_LEFT` `lastSeenAt` | everybody |
@@ -220,6 +220,7 @@ each member's copy names only their own deck.
 per tab: §5.6 makes several sessions one player.
 
 `ROOM_CLOSED` carries a `reason`: `HOST_LEFT`, `CLOSED_BY_HOST`,
+`CLOSED_BY_ADMIN` (the Admin page; a game in it is abandoned first),
 `IDLE_<minutes>` or `HOST_AWAY` (spec 0054, below; `EXPIRED` before it).
 A client that meets an unfamiliar reason should say something true and
 vague rather than show the code.
@@ -232,8 +233,8 @@ closes it: reason `HOST_AWAY`. A guest offline 10 minutes is taken out:
 `ROOM_REMOVED` reason `AWAY`. `ROOMS` entries add `warnsAt`, from
 when the room's members are warned; `clearsAt` is now the idle close.
 `POST /api/rooms/{roomId}/keep-open` (a member) starts the clock again
-and answers the room. A lobby chat line from a member of a room in the
-lobby also counts, at most once a minute, without moving the room's
+and answers the room. A lobby chat line or reaction from a member of a
+room in the lobby also counts, at most once a minute, without moving the room's
 revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
 
 **PHASE_07 additions (§7.64, Amendments 9 and 11), additive only:**
@@ -242,7 +243,7 @@ revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
   `roomId`, `name` (the host's, or "<host>'s room"), `hostUserId`,
   `status`, `desiredPlayerCount`, `seats` (`seatNumber`, `userId`,
   `displayName`, `ready`, `isHost`), `clearsAt` and `warnsAt` (spec
-  0054; absent in a match), `held` (who an open seat is held for, spec
+  0054; `null` in a match), `held` (who an open seat is held for, spec
   0016) and `watchable` (spec 0047).
   The same for every viewer, which is safe only because it carries
   **no deck** (§7.68); since spec 0016 it also says who an open seat is held for.
@@ -294,13 +295,20 @@ reminder).
 | Situation | Answer |
 | --- | --- |
 | not signed in | `401` |
-| signed in, not a member | `404` — identical to a room that does not exist |
+| signed in, not a member | `404` — identical to a room that does not exist (with exceptions, below) |
 | member, not the host | `403 ROOM_HOST_REQUIRED` |
 | malformed id | `400` — no real id has that shape, so saying so leaks nothing |
 
 The `404` is **literal**. Carry-forward C2: the §1.44 handler rewrites
-every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client
-and "no such room" and "not yours" are byte-identical on the wire.
+every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client.
+
+Not every refusal is that `404`, though. A host action (remove, close,
+player count, prepare) checks the host before membership, so a
+non-member gets `403 ROOM_HOST_REQUIRED`; and a route that checks the
+revision first (remove, ready) answers a non-member who sends a stale
+`expectedRoomRevision` with `409 ROOM_REVISION_STALE`. Either says the
+room exists. That reveals nothing new: since spec 0016 every room is on
+the lobby's room list for every signed-in player.
 
 ---
 
@@ -334,7 +342,8 @@ Socket-only codes: `USER_NOT_ONLINE`, `CANNOT_INVITE_YOURSELF`,
 is held for somebody), `ONE_AT_A_TIME` (an invitation or request is
 already waiting), `NOT_IN_GAME` (a game chat line from someone not in a
 game), `MESSAGE_TOO_LONG`, `TOO_FAST`, `UNKNOWN_TYPE`. The socket sends
-`INVALID_REQUEST` too, for a frame missing its player, room or line.
+`INVALID_REQUEST` too, for a frame missing its player, room or line,
+or a reaction that is not one of the six.
 
 ### `SETUP_NOT_READY`, and who learns what
 

@@ -68,7 +68,8 @@ development, reset the volume (README, *Database reset*).
 
 ## Ktor is not serving the frontend
 
-**Every route returns `FRONTEND_NOT_BUILT` with a 503.** The server is
+**Every page returns `FRONTEND_NOT_BUILT` with a 503** (`/api` still
+answers). The server is
 looking at `PROXIC_STATIC_ROOT` and finding no `index.html`. Either
 the frontend was never built (`cd frontend && npm run build`) or the
 path is wrong. The error is deliberate: an unbuilt frontend is a
@@ -93,8 +94,9 @@ fallback serves `index.html` for them. If one 404s:
 
 ## The WebSocket will not connect
 
-- Check the page's indicator: `Disconnected` means it connected and
-  dropped; `Unavailable` means it never connected.
+- The page's indicator ends on `Disconnected` either way: a socket that
+  never connected fires an error (`Unavailable`) and then a close
+  (`Disconnected`). The browser's network panel tells the two apart.
 - A proxy in front must forward the `Upgrade` and `Connection`
   headers. A proxy that handles plain HTTP perfectly and silently
   drops WebSockets is common; the API working is not evidence that
@@ -119,9 +121,11 @@ action differs for each:
 | `missing` | Configured, file not there | Build it: `cd forge-worker && mvn package`. Check the path. |
 | `unreachable` | Started and never spoke, or died first | Run it by hand (below) and read stderr. |
 | `incompatible` | Answered with the wrong commit or protocol | You are running a jar built against a different Forge. Rebuild. |
-| `resources-missing` | Runs, but Forge's data files are not usable | Set `PROXIC_FORGE_RES`. The detail names which directory. |
+| `resources-missing` | Runs, but Forge's data files are not usable | Set `PROXIC_FORGE_RES`. Run the worker by hand (below) to see which directory. |
 
-Run the worker directly — it is a normal program and will tell you
+Readiness, `/status` and the log carry only the state's word, never a
+detail. Readiness, `/status` and the log carry only the state's word, never a
+detail. Run the worker directly — it is a normal program and will tell you
 what it thinks:
 
 ```bash
@@ -143,7 +147,8 @@ send you debugging the wrong machine.
 
 ## Wrong Forge commit
 
-`forgeWorker: incompatible`, detail naming two commits.
+`forgeWorker: incompatible` (run the worker by hand to see the two
+commits; readiness shows only the word).
 
 The server compares the worker's reported commit against
 `forge-pin.properties` and refuses a mismatch (§1.61). A jar built
@@ -155,7 +160,8 @@ Rebuild the worker from a checkout at the pinned commit. Do **not**
 
 ## Missing Forge resources
 
-`forgeWorker: resources-missing`, detail naming the directory.
+`forgeWorker: resources-missing` (run the worker by hand to see which
+directory; readiness shows only the word).
 
 Forge needs `languages`, `lists`, `cardsfolder`, `tokenscripts`,
 `editions` and `blockdata`. The check is up front because the
@@ -224,9 +230,12 @@ docker compose up -d --force-recreate arena-server
 
 ## Nothing is listening on 8080
 
-`docker compose up` publishes no host port by design (§1.51): in
-production the Cloudflare tunnel reaches the server over the
-internal network. To drive it locally, add the override:
+`docker compose up` with the base file alone publishes no host port
+(§1.51). Live on Unraid, the setup script's `COMPOSE_FILE` adds
+`docker-compose.unraid.yml`, which publishes host port 8765, and the
+Cloudflare tunnel runs as its own container outside the stack reaching
+that port; the stack's own `edge` tunnel is an unused option. To drive
+it locally, add the override:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d

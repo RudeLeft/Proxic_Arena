@@ -29,11 +29,13 @@ broken.
 
 ```text
 sign in here       https://proxic.barnflix.net
-diagnostics only   http://<unraid-ip>:8765
+the tunnel's port  http://<unraid-ip>:8765
 ```
 
-The LAN port is kept on purpose, for exactly the things that do not
-need a session:
+The LAN port is there for the tunnel. Without a session it answers the
+sign-in page and nothing else: `/api/health/*` is 404 from outside the
+container, and every other `/api` address is 401. The health checks are
+read from inside the container:
 
 ```bash
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready

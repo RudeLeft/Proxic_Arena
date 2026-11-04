@@ -131,7 +131,9 @@ refused as before.
 ### Picture validation
 
 Magic bytes (PNG, or JPEG since spec 0051), then the size from the
-header, then a real decode. The extension is never trusted — a picture
+header, then a real decode -- except a picture whose hash is already
+stored, which is kept without decoding it again (its bytes were decoded
+when first stored). The extension is never trusted — a picture
 that is really a payload must not reach disk under a name the browser
 might serve.
 

@@ -159,8 +159,9 @@ different checksum and imports normally.
 
 ## `IMPORT_DISABLED`
 
-`DECK_IMPORT_ENABLED=false` on this server. Reading stays available;
-only mutation is off. The server reads it (default `true`), but no
+`DECK_IMPORT_ENABLED=false` on this server. Only importing is off
+(the Deck Builder's sends included); reading, renaming, deleting,
+sharing and icons still work. The server reads it (default `true`), but no
 compose file passes it through, so on the Compose/Unraid stack it is
 only off if someone added it to the `arena-server` environment; remove
 it there (or set `true`) and Compose Up again.
@@ -186,8 +187,9 @@ docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/read
 
 Forge's data files are not where the worker expects. In the Docker
 image they are baked in at `/app/forge/res`; outside it,
-`PROXIC_FORGE_RES` must point at a Forge `res` directory. The detail
-names which subdirectory is missing.
+`PROXIC_FORGE_RES` must point at a Forge `res` directory. Readiness
+shows only the word; run the worker by hand (`FOUNDATION.md`) to see
+which subdirectory is missing.
 
 ### Imports fail only for large packages
 

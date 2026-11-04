@@ -235,8 +235,11 @@ the tray from the bottom, the cards as pictures:
   the stack, caught mid-way by the screenshot: gone a moment later, not
   a fault.)
 
-Still open (2026-11-04): W-17 and W-21, then the exit gate; every other
-item is built (see the Amendments).
+Still open (2026-11-04): W-17 and W-21, then the exit gate. Two parts of
+built items are recorded as **not built** and need a decision at the
+exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
+3") and Amendment 3's "Pat is splitting the cards" line on the other
+player's screen. Everything else is built (see the Amendments).
 
 ## Amendments
 
@@ -836,3 +839,7 @@ holding Space fades a window; there is no Peek button, so a player who
 does not know the key cannot see behind a window. Owner 2026-11-04: a
 visible Peek is designed with the remaining windows (W-21, W-17), on a
 canvas for approval.
+
+**As built (2026-11-04, a documentation check -- Amendment 14's energy
+words).** The dial says "You have 3." after the card's sentence, not
+"You have 3 energy." (the question already says "Pay how much energy?").

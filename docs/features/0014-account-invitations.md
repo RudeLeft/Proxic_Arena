@@ -88,3 +88,8 @@ settings file's `PROXIC_SMTP_*` stay as a fallback; the tab's settings
 win. Tests: MailSettingsTest (sealed, kept, removed, wrong key, tamper,
 fallback), InviteApiTest (admin only, never echoed, a failed test says
 why), and a browser test of the tab.
+
+**As built (2026-11-04, a documentation check).** The invitation email
+has no "if you weren't expecting this, ignore it" line; only the
+password-reset email says it ("Didn't ask for this? You can ignore this
+email.").

@@ -25,7 +25,10 @@ mismatch (below).
 `0002-replacement-last-state-index.patch`; AGENTS VEND-002,
 `forge_patches/README.md`). The vendored checkout
 `spikes/forge-phase0a/forge-upstream` is never edited (VEND-001);
-`scripts/check-integrity.py` proves it matches the pin with no change.
+`scripts/check-integrity.py` proves it is at the pinned commit with no
+change. That script reads the commit from
+`PHASE_00_ACCEPTED_DECISIONS.md` (its first 40-character hash), not from
+`forge-pin.properties`; the two agree today.
 
 ## Build
 

@@ -110,7 +110,7 @@ chmod 600 .env 2>/dev/null || true
 
 say ""
 say "Checking what is left..."
-remaining=$(grep -c "changeme" .env 2>/dev/null || true)
+remaining=$(grep -v '^#' .env 2>/dev/null | grep -c "changeme" || true)
 [ "${remaining:-0}" = "0" ] || say "  WARNING: $remaining placeholder(s) still in .env"
 
 say ""
