@@ -157,7 +157,7 @@ Three rules shape all of it:
 | Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
 | Worker | Java 17, Maven, `forge-core` + `forge-game`, and `forge-ai` for two checks (can this be paid now? what does it cost now?) |
 | Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
-| Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
+| Analysis | ESLint 9, Prettier 3, ktlint 1.x (Gradle plugin 12.1.1), detekt 1.23.6 |
 
 The server container runs as non-root with every Linux capability
 dropped, `no-new-privileges` and a read-only root filesystem. PostgreSQL
@@ -240,6 +240,14 @@ docker compose -f docker-compose.dev.yml up -d
 cd frontend && npm ci && npm run dev
 ```
 
+`./gradlew :server:run` does not read `.env` (that file is for Docker
+Compose). Without settings it runs in development mode with no
+database. For one, give the host server the dev database's address in
+its environment, e.g. `PROXIC_DATABASE_URL=jdbc:postgresql://127.0.0.1:5432/proxic`,
+`POSTGRES_USER=proxic` and `POSTGRES_PASSWORD=devonly` (the dev compose
+file's defaults; `.env.example`'s `postgres` host name only works inside
+Compose).
+
 PostgreSQL runs in Docker; the server and Vite run on the host, where
 a rebuild is seconds rather than an image build. Vite serves the page
 on <http://localhost:5173> and proxies `/api` and `/ws` to Ktor on
@@ -295,7 +303,7 @@ docker compose down -v
 cd frontend && npm test                      # unit tests (Vitest)
 cd frontend && npm run e2e                   # browser tests (Playwright)
 ./gradlew :server:ktlintCheck :server:detekt # Kotlin analysis
-cd frontend && npm run lint                  # ESLint + types
+cd frontend && npm run lint                  # ESLint (types: npx tsc --noEmit)
 python -I scripts/check-blocks.py <worker.jar> <forge res>  # one Mechanics Lab game
 ```
 
@@ -433,14 +441,14 @@ Generate a session secret with `openssl rand -hex 32`.
 AGENTS.md                  operating contract — read first
 ROADMAP.md                 what is built, what is next, how work happens
 CHANGELOG.md               plain-English notes per release
-VERSION                    the release number
-forge-pin.properties       the pinned Forge commit and app version (one source)
+VERSION                    the release number, for people (nothing reads it)
+forge-pin.properties       the pinned Forge commit and the app version the build reads
 
 server/                    Kotlin/Ktor — HTTP, WS, sessions
 forge-worker/              Java/Maven — Forge, one JVM per match
 frontend/                  React + Vite — board is DOM + SVG; PixiJS a contingency
   e2e/                     Playwright, against a running stack
-protocol/                  shared fixtures and schemas
+protocol/                  shared fixtures (four messages, test decks)
 database/                  see its README — migrations are NOT here
 config/                    detekt configuration
 docs/

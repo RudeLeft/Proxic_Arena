@@ -83,7 +83,9 @@ so nothing is lost in between.
 
 ## Sharing says the user does not exist
 
-`SHARE_USER_NOT_FOUND`. The Share panel's **Choose a player** list
+The server answers `SHARE_USER_NOT_FOUND` with a 404, which reaches the
+browser as `NOT_FOUND` "No such endpoint." like every 404 (below). The
+Share panel's **Choose a player** list
 holds every other active account the deck is not yet shared with, so
 this means no name was sent, or the account was removed after the page
 loaded. (An account disabled since then gives `SHARE_USER_DISABLED`

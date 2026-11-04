@@ -11,6 +11,15 @@ status endpoints are built not to lie. They answer only from inside
 the container: `docker compose exec arena-server wget -qO-
 http://127.0.0.1:8080/api/health/ready` is faster than guessing.
 
+That command prints the JSON only when every check passes. When one
+fails the server answers 503, and the image's wget (BusyBox) prints
+just `wget: server returned error: HTTP/1.1 503 Service Unavailable`,
+not the body. To see which check failed and its word (`unreachable`,
+`resources-missing`, ...), sign in and open the **Status** page
+(`/status`): it reads the same checks from `/api/system/status`, which
+answers 200 with the words even when one is failing. The Forge worker's
+state is also in the server log: `forge worker probe: <state>`.
+
 ---
 
 ## Docker will not start
@@ -36,6 +45,9 @@ reboot.
 ```bash
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
+
+The words below are the Status page's database indicator (or
+`checks.database` in the JSON when the command succeeds).
 
 | `checks.database` | Meaning |
 | --- | --- |

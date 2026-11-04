@@ -37,8 +37,9 @@ Multi-stage `Dockerfile`, `worker` stage (Maven, Temurin 17):
 1. clone the pinned Forge release, verify the commit;
 2. `git apply` every `forge_patches/*.patch` (a patch that does not
    apply fails the build);
-3. `mvn install` forge-core, forge-game and forge-ai (the last for the
-   payment check alone, PHASE_07 §7.61 B8);
+3. `mvn install` forge-core, forge-game and forge-ai (the last for two
+   checks, "can this be paid now?" and each spell's current cost,
+   PHASE_07 §7.61 B8);
 4. `mvn package` the worker -- one shaded jar.
 
 The runtime image carries `/app/forge/forge-worker.jar` and Forge's

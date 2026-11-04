@@ -23,8 +23,8 @@ import java.io.File
 // GET /api/deck-rules — spec 0021.
 //
 // A signed-in browser OR a linked computer's device token (R2: signed-in
-// players only). This is the one route a device token opens; nothing else
-// reads one. A stranger gets the gate's own "Sign in to continue", so this
+// players only). A device token opens this and, since spec 0022, the
+// Deck Builder's own routes (DeckBuilderRoutes). A stranger gets the gate's own "Sign in to continue", so this
 // route looks like every other closed door.
 //
 // The document is the same for everybody, so it carries an ETag: the Deck

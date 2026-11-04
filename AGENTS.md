@@ -148,8 +148,10 @@ you were asked to do, stop and say so.
   delegated. Deck-construction legality is format policy; everything
   after the game starts is still Forge's. Open Format: max 100 cards,
   60-100 cards inclusive, max 4 copies of a card, **basic lands
-  unlimited**, **no sideboard**. Neither size bound matches Forge's
-  Constructed (min 60, no maximum). _REVIEW._
+  unlimited**, **no sideboard**. The floor agrees with Forge's
+  Constructed (min 60); only the 100 ceiling differs (Constructed has no
+  maximum). (Wording corrected 2026-11-04; the rule is unchanged.)
+  _REVIEW._
   **AMENDED 2026-10-23 (owner decision, Phase 8 Amendment 3).**
   Contraptions and Attractions (the Un-sets) go to their own small
   decks, sorted by card type as Forge reads the card, and are not in

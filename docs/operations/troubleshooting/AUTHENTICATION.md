@@ -33,8 +33,9 @@ the tunnel's port  http://<unraid-ip>:8765
 ```
 
 The LAN port is there for the tunnel. Without a session it answers the
-sign-in page and nothing else: `/api/health/*` is 404 from outside the
-container, and every other `/api` address is 401. The health checks are
+sign-in page, `/api/auth/me` (204), the open account POSTs (sign in, sign
+out, join, reset, device-link) and the device-token routes; `/api/health/*`
+is 404 from outside the container, and every other `/api` address is 401. The health checks are
 read from inside the container:
 
 ```bash
@@ -61,7 +62,7 @@ When it fails, it is almost always one of these:
 |---|---|
 | a Java error naming `proxic-pool` and a connection timeout, after about 10 seconds | Postgres is not reachable, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. |
 | `No database configured. Set PROXIC_DATABASE_URL.` | The container has no database setting at all. |
-| `A password must be at least 12 characters.` | Exactly that. There are no other composition rules. |
+| `A password must be at least 12 characters.` | Exactly that. No composition rules otherwise; a password may not be only spaces, nor over 1024 characters. |
 | `A user named "..." already exists.` | Usernames are compared case-insensitively — `RudeLeft` and `rudeleft` are one account. `list` will show it. |
 | the usage text (`arena-admin <command>` and the command list) | The command was not recognised. The argument order is `create <username> [--admin] --password-stdin`. |
 | nothing happens, no output | `docker compose exec` without `-T` gives the tool no stdin to read. |
@@ -136,7 +137,7 @@ there, because every login and every session check is a query.
 
 ```text
 login page loads, sign in answers 500 or hangs
-/api/health/ready reports database: unreachable
+/api/health/ready answers 503; the Status page says database: unreachable
 ```
 
 ```bash
@@ -276,7 +277,8 @@ a sign-out elsewhere, a password change, or `arena-admin disable`.
 `/ws/system` needs a session too since 2026-10-24, so it is no longer
 a test of the connection without one; check the health from inside the
 container instead (`docker compose exec arena-server wget -qO-
-http://127.0.0.1:8080/api/health/ready`).
+http://127.0.0.1:8080/api/health/ready`; a 503 means a check failed --
+`FOUNDATION.md` says how to see which).
 
 ---
 

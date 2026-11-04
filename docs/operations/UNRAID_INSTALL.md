@@ -284,8 +284,9 @@ for the first and third):
    curl -s -o /dev/null -w '%{http_code}\n' https://proxic.barnflix.net/api/health/ready   # 404
    ```
 3. **The live connection works through the tunnel.** Signed in, the
-   Status page's WebSocket indicator reads **Ready**, and the browser's
-   network panel shows **101** for `/ws/user`. A page that loads while
+   Status page's WebSocket indicator reads **Ready** (its connection is
+   `/ws/system`), and on the lobby the browser's network panel shows
+   **101** for `/ws/user`. A page that loads while
    this fails means the tunnel is not passing the `Upgrade` header.
 4. **The browser-security header is still there.**
    ```bash

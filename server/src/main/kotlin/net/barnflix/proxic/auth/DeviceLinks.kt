@@ -13,8 +13,9 @@ import javax.sql.DataSource
 // answer a CSRF check, and it must never be given the player's password.
 // So the player makes a one-time code on the Account page (signed in, in
 // the browser), types it into the Deck Builder, and the Deck Builder
-// trades it for a device token. That token may download the deck rules
-// and nothing else (DeckRulesRoutes is its only reader).
+// trades it for a device token. That token downloads the deck rules
+// (DeckRulesRoutes) and, since spec 0022, sends decks and pictures
+// (DeckBuilderRoutes); nothing else reads one.
 //
 // Codes and tokens are kept only as SHA-256s, as session tokens are
 // (§3.21). A token is 256 random bits, so a fast hash is enough; a code

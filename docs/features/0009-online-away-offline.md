@@ -84,3 +84,7 @@ Out (and why):
 
 1. **As built (2026-11-04, a documentation check).** `PRESENCE_AWAY` leaves `awaySince` out, rather than sending `null`,
 when a user is back.
+
+2. **As built (2026-11-04, a documentation check).** The screen reader
+   words are "Dana, away 7 min" (and "Away 7 min" on the badge), not
+   "away 7 minutes".

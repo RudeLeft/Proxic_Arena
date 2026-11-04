@@ -161,9 +161,11 @@ always a delivery problem, never a divergence.
 
 ---
 
-## A deck is missing from "My decks"
+## A deck is missing from the room's deck list
 
-The list is **decks you own plus decks shared with you** (§5.41).
+The room's deck picker lists **decks you own plus decks shared with
+you** (§5.41). (On `/decks`, "My decks" is your own only; shared decks
+are listed apart.)
 
 - Imported it just now? Reload — the library is fetched on page load.
 - Expecting a shared one? Ask the owner to confirm the share is still
@@ -171,7 +173,9 @@ The list is **decks you own plus decks shared with you** (§5.41).
 - Shared decks say **"shared by <name>"**. If yours does not, it is
   one of your own.
 
-No decks at all: import one from Deck Builder on `/decks`.
+No decks at all: send one from the Deck Builder. `/decks` has no
+import; it says how to link a computer and export from the Deck Builder
+(spec 0022).
 
 ---
 
@@ -286,8 +290,9 @@ Causes, most likely first:
 
 1. **The Forge worker is not configured or not running.** Check
    readiness from inside the container (`docker compose exec arena-server
-   wget -qO- http://127.0.0.1:8080/api/health/ready`) — `forgeWorker`
-   should be `ok`. If it says
+   wget -qO- http://127.0.0.1:8080/api/health/ready`) — it prints the
+   JSON with `forgeWorker` `ok` when all is well, and only a `503` when a
+   check fails; the signed-in Status page then names the state. If it says
    `unconfigured`, `missing` or `unreachable`, the preflight
    deliberately **fails closed**: a server that cannot check decks
    must not launch matches with unchecked ones.

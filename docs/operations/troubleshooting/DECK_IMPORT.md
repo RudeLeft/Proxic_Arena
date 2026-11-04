@@ -178,6 +178,9 @@ Check readiness first:
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
+It prints the JSON only when every check passes; a `503` means one
+failed, and the signed-in Status page shows which (`FOUNDATION.md`).
+
 | Check | Meaning |
 | --- | --- |
 | `database` not `ok` | see `FOUNDATION.md` |

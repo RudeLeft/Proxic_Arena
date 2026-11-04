@@ -100,7 +100,8 @@ RUN cd /build/forge-worker && mvn -q -B package
 # --- Stage 4: runtime -------------------------------------------------
 FROM eclipse-temurin:17.0.20.1_1-jre-alpine@sha256:c4a33e6ddb738fe4be0a28a613ea0940cec42d25d7263c3e2238c43354cb19b0 AS runtime
 
-# Non-root (§1.59). The app writes only to /data, which is a volume.
+# Non-root (§1.59). The app writes to /data, which is a volume, and the
+# JVMs to /tmp, a tmpfs (docker-compose.yml).
 RUN addgroup -S proxic && adduser -S -G proxic proxic
 
 WORKDIR /app

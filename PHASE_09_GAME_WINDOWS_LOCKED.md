@@ -239,7 +239,13 @@ Still open (2026-11-04): W-17 and W-21, then the exit gate. Two parts of
 built items are recorded as **not built** and need a decision at the
 exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
 3") and Amendment 3's "Pat is splitting the cards" line on the other
-player's screen. Everything else is built (see the Amendments).
+player's screen. Everything else is built (see the Amendments), with
+these gaps against principle 6 found by a documentation check
+(2026-11-04): there is no Peek button (only holding Space; see the
+as-built note below), and holding Space fades only the bubble and the
+tray windows (`usePeek`), not the opening hand window (W-15); the reveal
+tray and the graveyard/exile viewer do not fade either, if they count
+as windows. Owner 2026-11-04: Peek is designed with W-21 and W-17.
 
 ## Amendments
 
@@ -764,6 +770,11 @@ https://claude.ai/artifact/FSPaHn8XrLy4a5egPdiVuM).**
     counter." -- the card's own effect); "Pay how much energy?"
     ("Harnessed Lightning deals that much damage to Hill Giant. You have
     3."). Every one names its card at the top.
+    *As built (2026-11-04, a documentation check):* the sentence after
+    the cost is the card's own Oracle sentence, unchanged: "Each time
+    costs {2} more. Everflowing Chalice enters with a charge counter on it
+    for each time it was kicked."; "Harnessed Lightning deals that much
+    damage to that creature. You have 3." (no target's name is put in).
 - *As built:* the worker sends each number question's values in the
   options' order, what can be made, the keyword and its cost, and the
   card's sentence (`arrange.number`), and each option's cost and whether

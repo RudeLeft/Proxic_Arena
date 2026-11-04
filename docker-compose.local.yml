@@ -56,6 +56,6 @@ services:
       #
       # Production keeps Secure on (§3.23 forbids dropping it
       # because the tunnel's origin leg is HTTP), so this belongs
-      # here, in the override that exists only for local use, and
-      # nowhere else.
+      # only in the overrides that never serve production: here, and
+      # docker-compose.ci.yml.
       PROXIC_SECURE_COOKIES: "false"
