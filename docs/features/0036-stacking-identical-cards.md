@@ -106,4 +106,7 @@ All taken 2026-10-29 (see the top).
 
 ## Amendments
 
-None.
+1. **2026-11-03 -- Phase 9 W-14 (Amendment 11).** Attacking or blocking
+   with a pile: each click selects one more of it, shown as a gold seal
+   with the count (Amendment 13, item 10), then a click on what they
+   attack or block points them all. See spec 0037's Amendment 2.

@@ -294,3 +294,21 @@ PROXIC_SMTP_FROM=Proxic Arena <you@gmail.com>
 The tab's password is encrypted with a key made from
 `PROXIC_SESSION_SECRET`: if that secret is ever changed, type the email
 password into the tab again.
+
+## Idle rooms (optional, spec 0054)
+
+Rooms left sitting in the lobby close on their own, with a warning in the
+room first. A room with a game in it is never closed this way. The
+defaults suit most servers; to change them, add any of these to the
+settings file (minutes) and Compose Up again:
+
+```text
+PROXIC_ROOM_ALONE_MINUTES=30      nothing happening, host by themselves
+PROXIC_ROOM_TOGETHER_MINUTES=120  nothing happening, two players in it
+PROXIC_AWAY_MINUTES=10            host offline: the room closes; guest
+                                  offline: they leave it; in a game, the
+                                  player still there may end it
+PROXIC_ROOM_WARNING_MINUTES=5     how long before closing the room says so
+```
+
+Leave them out to keep the defaults.

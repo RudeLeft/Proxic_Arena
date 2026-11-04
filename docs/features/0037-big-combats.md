@@ -105,3 +105,10 @@ blocker now sits ON its attacker, shifted 14% of a card toward the
 middle and to the right, drawn over the rows; every name stays readable.
 Seen on the dev board's combat and in a real swarm game, approved from
 the screenshots.
+
+**Amendment 2 (owner, 2026-11-03 -- Phase 9 W-14, Amendment 11).** Every
+attack and block is chosen the same way: select creatures (a click on a
+pile selects one more), then click what they attack or block; the button
+waits while some are selected and not yet pointed. The "Block how many"
+chooser is gone. A selected creature shows a gold seal with how many from
+its pile (Amendment 13, item 10). See `PHASE_09_GAME_WINDOWS_LOCKED.md`.

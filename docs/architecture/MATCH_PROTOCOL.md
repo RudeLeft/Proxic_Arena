@@ -65,7 +65,8 @@ regression game (P6-L, `scripts/check-snapshot-first.py`).
 MATCH_SNAPSHOT          state: viewer snapshot (below)
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
-                        objectId?, payable?, cost?}], searchable?, optionCount?,
+                        objectId?, payable?, cost?, types?}], searchable?,
+                        optionCount?,
                         unavailable?: {objectId: reason}  -- why each of your
                         cards NOT offered cannot act now (PHASE_07 B7),
                         about?: {name, kind, from?} -- the spell or ability a
@@ -73,14 +74,25 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         looking?: [card] -- cards this question shows you alone
                         (a scry's or surveil's top cards; spec 0001 D3),
                         window?: true -- a response window: your OWN spell or
-                        trigger is on top (spec 0005, Phase 8 Amendment 4)
+                        trigger is on top (spec 0005, Phase 8 Amendment 4),
+                        notNow?: {objectId: [{label, why}]} -- abilities not
+                        offered now (Phase 9 W-16),
+                        owing?: "{1}{R}" -- mana still due on a payment
+                        (Phase 9 Amendment 13),
+                        arrange?: how a window lays the question out -- a
+                        card tray (to, first, shuffle, zone, split, piles),
+                        combat damage, a number (values, canMake, keyword,
+                        each, says), a split (total, targets, at, values),
+                        naming a card (title, says, objects); Phase 9,
+                        field by field in protocol/README.md
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
 MATCH_ASKING            seat: the seat being asked now, or null -- nobody is,
                         the rules engine is working. To every participant,
                         on every change and on connect (spec 0002)
-DECISION_OPTIONS        decisionId, query, total, options   (search results)
+DECISION_OPTIONS        decisionId, query, total, options   (search results; each
+                        with cost? and types?, Phase 9 W-12)
 DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
 CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER

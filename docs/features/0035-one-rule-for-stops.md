@@ -153,6 +153,12 @@ All taken 2026-10-29 (see the top).
 
 ## Amendments
 
-None. (This spec changes spec 0005's D1, 2 s → 5 s, and its "clicking
+(This spec changes spec 0005's D1, 2 s → 5 s, and its "clicking
 the countdown pauses it" rule; and retires spec 0034's stop-dependent
 words.)
+
+1. **2026-11-03 and 2026-11-04 -- Phase 9 Amendments 13 (item 1) and 15
+   (owner).** A click on the countdown's words still resolves at once
+   (F-0035-H); a pause sign in its circle now holds it until the player
+   passes, and only the tab in front counts down. See spec 0005's
+   Amendment 2.

@@ -1,6 +1,6 @@
 # 0054 — Idle rooms close; a player left waiting can end the game
 
-**Status:** Built 2026-11-03 (approved the same day), not yet released
+**Status:** Done in 1.37.0 (approved and built 2026-11-03)
 **Owner note** (2026-11-03): "I don't want people creating a bunch of rooms
 then sitting on them." Players open a room in the lobby and keep it open
 without inviting anyone, or invite someone and never start the game. The

@@ -141,3 +141,11 @@ Forge's messages to a player -- reveals, coin flips ("You win the flip" /
 "Alice wins the flip"), a game restart, chosen values -- are per seat,
 in Forge's wording (`MessageUtil`), and checked never to name a card
 only in an opponent's hand (P6-G).
+
+**Naming a card (PHASE_09 Amendment 16).** The name-a-card question lists
+the cards its player may click to name (`arrange.name.objects`): only
+cards that player can already see -- on the battlefield, in a graveyard,
+face up in exile -- whose names the effect allows. A face-down card, a
+hand or a library is never listed, so the list says nothing the board
+does not. The names and type lines a search returns are Forge's card
+data for every card in Magic, not game state.

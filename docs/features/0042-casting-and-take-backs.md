@@ -90,3 +90,11 @@ All taken 2026-10-30 (above).
    opponent sees its back until it is on the stack, then it flips; an
    optional cost asked in the hand shows the card too. See
    `0044-casting-dock-and-reveal.md`.
+
+2. **2026-11-03 -- Phase 9 Amendment 13 (owner's list, items 2, 8, 9).**
+   The mana still due comes from the question's own `owing` field, not
+   from Forge's "still owing" words, which the buttons no longer repeat;
+   the payment is titled "Pay the mana". A card being cast is not also
+   drawn on the stack while it is in the air, and a trigger being paid
+   for shows what is still owed under its words. See
+   `PHASE_09_GAME_WINDOWS_LOCKED.md`.

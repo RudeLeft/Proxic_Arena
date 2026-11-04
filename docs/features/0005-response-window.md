@@ -83,3 +83,10 @@ Out: any change to the opponent's stops; per-card or remembered choices
    rule's "no more stops this turn unless the opponent acts" (PHASE_07
    §7.53); the opponent's still stop you. Proven by `check-stops.py
    window-skipped`, which fails on the code before it.
+
+2. **2026-11-03 and 2026-11-04 -- Phase 9 Amendments 13 (item 1) and 15
+   (owner, from canvases).** The countdown's circle shows a pause sign:
+   clicked, the spell waits ("Paused · Resolve when you're ready") until
+   the player passes. Only the tab in front counts down: a hidden tab
+   never passes for the player, and back in front it starts again from 5.
+   See `PHASE_09_GAME_WINDOWS_LOCKED.md`.
