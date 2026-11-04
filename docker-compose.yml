@@ -134,8 +134,8 @@ services:
       - /tmp
     # NO ports: section, deliberately (§1.51, §1.55). Live, the
     # Unraid file (docker-compose.unraid.yml) publishes host port 8765
-    # and the tunnel runs outside this stack; the `edge` service below
-    # is the unused in-stack alternative.
+    # and the tunnel runs outside this stack; the `cloudflared` service
+    # below (profile `edge`) is the unused in-stack alternative.
     #
     # For local use, add the override that publishes it:
     #   docker compose -f docker-compose.yml -f docker-compose.local.yml up

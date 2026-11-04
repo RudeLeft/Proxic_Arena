@@ -70,4 +70,6 @@ Out (and why):
 
 ## Amendments
 
-None.
+1. **As built (2026-11-04, a documentation check).** "Resolving Krenko,
+   Mob Boss…" is two lines on the button: "Resolving…" with the card's
+   name under it (`stops.ts`, `GameScreen.tsx`).

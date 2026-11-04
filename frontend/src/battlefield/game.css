@@ -677,7 +677,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   pointer-events: none;
 }
 /* Spec 0030 — the turn ladder between the plates, in the rail's 900-pixel
-   units: from 308 to 506, clear of the opponent's plate (ends 295) and of
+   units: from 288 (top), clear of the opponent's plate and of
    "All attack" (starts 524). Eight rows of 20 with gaps of 2 under an
    18-pixel head. */
 .gs-ladder {

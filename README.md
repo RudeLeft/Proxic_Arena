@@ -213,6 +213,7 @@ To build it:
 git clone https://github.com/Card-Forge/forge.git third_party/forge
 cd third_party/forge
 git checkout 4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676
+for patch in ../../forge_patches/*.patch; do git apply --whitespace=nowarn "$patch"; done
 mvn install -DskipTests -pl forge-core,forge-game,forge-ai -am
 cd ../..
 cd forge-worker && mvn package

@@ -98,8 +98,9 @@ All taken 2026-10-30 (above).
    everywhere.
 
 2. **2026-11-04 (owner, from a documentation check).** Admin rename was
-   never built: the admin routes create, disable, change a role, send a
-   reset and sign out, and only the player renames themselves (Account
+   never built: the admin routes create, disable or enable, change a
+   role, set an email, send a reset, sign out and handle invitations --
+   none renames -- and only the player renames themselves (Account
    page). "Admin's create/rename" and F-0041-B's "in Admin" hold for
    create only. The owner decided to build it; it goes through research,
    a canvas and approval like any feature, and this note is updated when

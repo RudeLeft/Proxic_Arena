@@ -180,3 +180,7 @@ Builder half.**
   `PRINTING_MISMATCH`, Forge's `SLZ 63`. The owner updated the live
   server and Deck Builder 2026-10-28 and sent a promo Lightning Bolt deck
   to the live Deck Depot: it worked (owner, 2026-10-28).
+
+**As built (2026-11-04, a documentation check).** "`POOL_REVISION` goes up"
+was one bump, 2 to 3, shared with spec 0023 (built together, 21deb17); it
+is 3 today (`DeckRules.kt`), not a second bump to 4.

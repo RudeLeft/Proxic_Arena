@@ -65,9 +65,10 @@ and the launcher's `canUseDeck` re-check refuses it) --
 ordinary configuration is refused while `READY_FOR_MATCH` (§5.116), and
 a player leaving, being removed or being taken out for being away
 (spec 0054) invalidates the setup and reopens the room (owner 2026-11-04; before then a game could start with a player who
-had left). Preparing twice at the same revision is not the same
-preparation in practice: the first bumps the revision, so a repeat is
-refused `ROOM_REVISION_STALE`.
+had left). Preparing twice: the first bumps the revision, so a repeat
+that sends the old `expectedRoomRevision` is refused
+`ROOM_REVISION_STALE`; a repeat that sends none (the field is optional)
+gets the existing setup back.
 
 ---
 

@@ -9,6 +9,9 @@ real_cards/          the Mountain's picture (a solid colour, as every CI deck's)
 art_crops/           its art crop: a small yellow-and-blue checkered JPEG
 ```
 
+The folder holds only the deck list; the pictures are made when the
+package is built (`scripts/make-ci-deck.mjs --crops`).
+
 A Mountain on the battlefield shows the checkered crop in its art window
 instead of the zoomed solid picture; its close-up still shows the whole
 picture. Decks without crops (every other fixture) keep the zoom.
