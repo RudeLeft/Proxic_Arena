@@ -1,6 +1,10 @@
 package net.barnflix.proxic.worker.game;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +31,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * failed, which `publishEnd` reads BEFORE it looks for a winner.
  */
 class LoudFailureTest {
+
+    /**
+     * A GameHost reads Forge's phase names through the Localizer. This
+     * test set nothing up and passed only when a test that loads Forge
+     * happened to run first in the same JVM; in the Docker build it ran
+     * first (CI, 2026-11-04). It initialises the languages itself, as
+     * UnreachableQuestionsTest does.
+     */
+    @BeforeAll
+    static void forgeLanguages() {
+        List<Path> candidates = new ArrayList<>();
+        String given = System.getProperty("forge.res", System.getenv("FORGE_RES"));
+        if (given != null) {
+            candidates.add(Path.of(given));
+        }
+        candidates.add(Path.of("..", "spikes", "forge-phase0a", "forge-upstream", "forge-gui", "res"));
+        candidates.add(Path.of("/forge/forge-gui/res"));
+        Path res = candidates.stream().filter(p -> Files.isDirectory(p.resolve("languages"))).findFirst()
+                .orElseThrow(() -> new AssertionError("Forge's resources not found in " + candidates
+                        + " -- set -Dforge.res=<forge-gui/res>"));
+        forge.util.Localizer.getInstance().initialize("en-US", res.toAbsolutePath() + "/languages");
+    }
 
     /** The loud path announces itself before it throws. */
     @Test
