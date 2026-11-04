@@ -40,10 +40,10 @@ const OVER =
 // clicked: Forge offers spells it cannot pay for, and an unpaid cast
 // rolls back to the same question.
 const MILLS: [RegExp, number][] = [
-  [/^Hedron Crab — \{U\}/, 1],
-  [/^Traumatize — \{3\}\{U\}\{U\}/, 5],
-  [/^Tome Scour — \{U\}/, 1],
-  [/^Thought Scour — \{U\}/, 1],
+  [/^Hedron Crab · \{U\}/, 1],
+  [/^Traumatize · \{3\}\{U\}\{U\}/, 5],
+  [/^Tome Scour · \{U\}/, 1],
+  [/^Thought Scour · \{U\}/, 1],
 ];
 
 /**

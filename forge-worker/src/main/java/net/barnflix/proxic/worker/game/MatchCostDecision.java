@@ -1196,6 +1196,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         Card host = ability == null ? null : ability.getHostCard();
         if (host != null && prompt != null && !prompt.isBlank()) {
             String said = prompt.endsWith(".") ? prompt.substring(0, prompt.length() - 1) : prompt;
+            // Forge's "Forage: exile three cards ..." -- the card's name
+            // takes the keyword's place, so no "Bushy Bodyguard: forage: ...".
+            said = said.replaceFirst("^[A-Z][a-z]+( [a-z]+)?: (?=.)", "");
             prompt = host.getName() + ": " + Character.toLowerCase(said.charAt(0)) + said.substring(1)
                     + " to pay its cost.";
         }

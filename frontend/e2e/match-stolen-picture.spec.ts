@@ -37,7 +37,7 @@ test.describe.configure({ timeout: 1_200_000 });
 const treasonPackage = join(process.cwd(), "..", "Test Deck", "treason-deck.zip");
 const goblinPackage = join(process.cwd(), "..", "Test Deck", "goblin-deck.zip");
 
-const STEAL = /^(Act of Treason|Threaten|Traitorous Blood|Kari Zev's Expertise|Hijack) —/;
+const STEAL = /^(Act of Treason|Threaten|Traitorous Blood|Kari Zev's Expertise|Hijack) ·/;
 const CREATURE = /Raging Goblin|Goblin Guide|Monastery Swiftspear|Jackal Pup|Mogg Fanatic/;
 
 test("a stolen creature wears its owner's picture, and the graveyard shows pictures", async ({

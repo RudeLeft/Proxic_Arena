@@ -1187,6 +1187,25 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   cursor: pointer;
   animation: gs-breathe 1.8s ease-in-out infinite;
 }
+/* A flyer you can choose hovers AND breathes: one animation list, or the
+   glow would stop the hover (CI 2026-11-03, match-board-motion). */
+.bf-card.bf-fly.bf-choosable {
+  animation:
+    bf-fly 5s ease-in-out infinite,
+    gs-breathe 1.8s ease-in-out infinite;
+}
+.bf-card.bf-fly.bf-fly-bob.bf-choosable {
+  animation-name: bf-fly-bob, gs-breathe;
+}
+.bf-card.bf-fly.bf-choosable.bf-targeted {
+  animation:
+    bf-fly 5s ease-in-out infinite,
+    bf-targeted 1.6s ease-in-out infinite,
+    gs-breathe 1.8s ease-in-out infinite;
+}
+.bf-card.bf-fly.bf-fly-bob.bf-choosable.bf-targeted {
+  animation-name: bf-fly-bob, bf-targeted, gs-breathe;
+}
 @keyframes gs-breathe {
   0%,
   100% {
@@ -1204,6 +1223,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-card.bf-choosable,
+  .bf-card.bf-fly.bf-choosable,
+  .bf-card.bf-fly.bf-fly-bob.bf-choosable.bf-targeted,
   .bf-tag.bf-choosable,
   .gs-choosable {
     animation: none;

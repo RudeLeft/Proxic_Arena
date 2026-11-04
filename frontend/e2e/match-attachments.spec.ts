@@ -136,7 +136,7 @@ test("attachments are drawn with what they modify, on either side of the table",
         const allPlains = await cardCount(mine.filter({ hasText: "Plains" }));
 
         pick = find(
-          allPlains < allMountains / 2 ? /^Plains — .*Play land/ : /^Mountain — .*Play land/,
+          allPlains < allMountains / 2 ? /^Plains · .*Play land/ : /^Mountain · .*Play land/,
         );
         if (pick < 0) pick = find(/Play land/);
         if (pick < 0 && goblins > 0 && (await has("Bonesplitter")) && !equipped && lands >= 1) {

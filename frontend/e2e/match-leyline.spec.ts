@@ -82,7 +82,7 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
             // A "may": declining is an answer, so Pass is offered.
             await expect(panel.getByRole("button", { name: "Pass" })).toBeVisible();
             // And the page says it is not a spell.
-            await expect(panel.getByText(/not cast, nothing paid/)).toBeVisible();
+            await expect(panel.getByText(/They aren't cast and cost nothing/)).toBeVisible();
             await page.screenshot({ path: "test-results/seen/leyline-offer.png", fullPage: true });
 
             began.push({ page, name: labels[0]!.split(/ [·—] /)[0]! });

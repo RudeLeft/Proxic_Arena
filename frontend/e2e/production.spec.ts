@@ -346,7 +346,7 @@ test("one real game on the live site, both players, start to finish", async ({ b
             (label) =>
               !/\{T\}: Add/.test(label) &&
               !tried.has(`${me}|${turn}|${label}`) &&
-              / — \{/.test(label),
+              / [·—] \{/.test(label),
           );
           if (pick >= 0) tried.add(`${me}|${turn}|${labels[pick]}`);
         }

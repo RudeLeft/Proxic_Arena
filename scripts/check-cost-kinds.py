@@ -1187,8 +1187,9 @@ def forage():
     problems = []
     if any(seat != 1 for seat, _, _ in st["asked"]) or len(st["asked"]) != 3:
         problems.append(f"three picks, all seat 1's: {st['asked']}")
-    if st["asked"][0][2] != "Forage: exile three cards from your graveyard. (3 more needed)" and \
-            not (st["asked"][0][2] or "").startswith("Forage: exile three cards from your graveyard."):
+    # Amendment 13 (item 3): the card's name, what it takes, and that it is a cost.
+    if not (st["asked"][0][2] or "").startswith(
+            "Bushy Bodyguard: exile three cards from your graveyard to pay its cost."):
         problems.append(f"the question should say what forage takes: {st['asked'][0][2]!r}")
     if st["after"]["exile"] != sorted(st["picked"]):
         problems.append(f"exactly the three picked {st['picked']} exiled: {st['after']['exile']}")
@@ -1303,7 +1304,8 @@ def leashling():
     if not st["asked"] or st["drawn"] is None:
         return "inconclusive", "Leashling never returned itself", found
     problems = []
-    if st["asked"][0][0] != 1 or st["asked"][0][2] != "Put a card from your hand on top of your library.":
+    if st["asked"][0][0] != 1 or st["asked"][0][2] != \
+            "Leashling: put a card from your hand on top of your library to pay its cost.":
         problems.append(f"seat 1 asked, in plain words: {st['asked']}")
     if st["after"]["picked_in_hand"] or not st["after"]["leashling_in_hand"]:
         problems.append(f"the card picked leaves the hand and Leashling returns: {st['after']}")
