@@ -112,10 +112,17 @@ class AuthEventsTest {
                     contentType(ContentType.Application.Json)
                     setBody("""{"username":"RudeLeft","password":"$password"}""")
                 }
-            val cookie =
+
+            fun cookie(name: String) =
                 ok.headers.getAll(HttpHeaders.SetCookie)!!
-                    .first { it.startsWith("$SESSION_COOKIE=") }
-            client.post("/api/auth/logout") { header(HttpHeaders.Cookie, cookie) }
+                    .first { it.startsWith("$name=") }
+                    .substringBefore(';')
+            // Signing out takes the CSRF token, as the page sends it.
+            val csrf = cookie(CSRF_COOKIE)
+            client.post("/api/auth/logout") {
+                header(HttpHeaders.Cookie, "${cookie(SESSION_COOKIE)}; $csrf")
+                header(CSRF_HEADER, csrf.substringAfter('='))
+            }
 
             val recorded = events()
             for (event in listOf("LOGIN_FAILURE", "LOGIN_SUCCESS", "LOGOUT", "USER_CREATED")) {

@@ -225,7 +225,9 @@ Two independent gates on every mutating request (POST/PUT/PATCH/
 DELETE) made with a session. The open POSTs -- sign-in, joining by
 invitation, a password reset and linking a computer -- have no session
 and so no CSRF cookie yet; they get the origin check (and a throttle)
-only:
+only. Signing out (`/api/auth/logout`) is behind both gates when it
+carries a session (it had neither until 2026-11-04, owner; a page
+elsewhere could sign a player out), and a quiet success without one:
 
 1. **Double submit.** The CSRF token is in a readable cookie and must
    be echoed in the `X-CSRF-Token` **header**. A cross-site attacker
@@ -272,7 +274,7 @@ limit is a brake on guessing, not a distributed defence.
 
 ```text
 POST /api/auth/login          username + password -> session
-POST /api/auth/logout         ends this session; quiet success if none
+POST /api/auth/logout         ends this session (CSRF); quiet success if none
 POST /api/auth/logout-all     ends EVERY session this user holds
 GET  /api/auth/me             who am I (204, empty, if nobody)
 POST /api/auth/password       change password; revokes EVERY session

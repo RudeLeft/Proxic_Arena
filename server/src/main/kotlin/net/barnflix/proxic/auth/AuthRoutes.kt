@@ -171,7 +171,13 @@ fun Route.authRoutes(
             // an unauthenticated caller "you were not signed in"
             // says more than it needs to, and the client's job is
             // the same either way.
-            call.principal(sessions)?.let {
+            //
+            // With a session it is behind CSRF like every other change
+            // (owner 2026-11-04): a page elsewhere could otherwise sign
+            // the player out. Without one there is nothing to protect.
+            val principal = call.principal(sessions)
+            if (principal != null && !call.csrfOk(config)) return@post
+            principal?.let {
                 sessions.revokeSession(it.sessionId)
                 call.application.log.authEvent(
                     AuthEvent.LOGOUT,

@@ -233,6 +233,41 @@ class AuthApiTest {
         }
 
     @Test
+    fun `logout needs the CSRF token, like every other change`() =
+        testApplication {
+            // A page elsewhere posting to /logout must not sign the
+            // player out (owner 2026-11-04; it had no check at all).
+            seedUser()
+            application { module(config()) }
+            val response = login()
+            val session = response.cookie(SESSION_COOKIE)!!
+            val csrf = response.cookie(CSRF_COOKIE)!!
+
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                client.post("/api/auth/logout") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session; $CSRF_COOKIE=$csrf")
+                }.status,
+                "no CSRF header should be refused",
+            )
+            assertEquals(
+                HttpStatusCode.Forbidden,
+                client.post("/api/auth/logout") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session; $CSRF_COOKIE=$csrf")
+                    header(CSRF_HEADER, csrf)
+                    header(HttpHeaders.Origin, "https://elsewhere.example")
+                }.status,
+                "a foreign origin should be refused",
+            )
+            assertTrue(
+                client.get("/api/auth/me") {
+                    header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session")
+                }.bodyAsText().contains("RudeLeft"),
+                "a refused sign-out still signed the player out",
+            )
+        }
+
+    @Test
     fun `logout without a session is still a quiet success`() =
         testApplication {
             // Telling an unauthenticated caller "you were not signed in"
