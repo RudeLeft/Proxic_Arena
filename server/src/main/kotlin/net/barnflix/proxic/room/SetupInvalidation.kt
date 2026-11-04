@@ -61,3 +61,28 @@ internal fun invalidateReadySetups(
         it.executeUpdate()
     }
 }
+
+/**
+ * A player is gone from a room whose game was prepared (owner
+ * 2026-11-04): the setup goes, nobody stays ready and the room is OPEN
+ * again -- else Start match seated somebody who had left. Bumps the
+ * revision and the activity stamp, so no `touch` after it.
+ */
+internal fun reopenAfterLeaving(
+    connection: Connection,
+    roomId: UUID,
+) {
+    invalidateReadySetups(connection, roomId)
+    for (
+    sql in listOf(
+        "UPDATE room_member SET ready = FALSE WHERE room_id = ?",
+        "UPDATE room SET status = 'OPEN', revision = revision + 1, last_activity_at = now() " +
+            "WHERE room_id = ? AND status = 'READY_FOR_MATCH'",
+    )
+    ) {
+        connection.prepareStatement(sql).use {
+            it.setObject(1, roomId)
+            it.executeUpdate()
+        }
+    }
+}

@@ -393,6 +393,33 @@ class MatchSetupServiceTest {
         assertTrue(deleted.isSuccess, "a closed room still held the deck")
     }
 
+    /**
+     * Owner 2026-11-04 — a player who leaves (or is removed) after the
+     * game was prepared cancels it: the room is OPEN again with nobody
+     * ready, and no setup is left that could seat somebody who left.
+     */
+    @Test
+    fun `leaving or being removed from a prepared room cancels it`() {
+        for (removed in listOf(false, true)) {
+            val room = readyRoom()
+            val service = setups()
+            assertIs<PrepareResult.Prepared>(service.prepare(room.roomId, room.hostUserId))
+            val guest = room.members.first { it.userId != room.hostUserId }.userId
+
+            val gone =
+                if (removed) {
+                    rooms().remove(room.roomId, room.hostUserId, guest)
+                } else {
+                    rooms().leave(room.roomId, guest)
+                }
+            val ok = assertIs<RoomResult.Ok>(gone)
+            assertEquals(RoomStatus.OPEN, ok.room.status, "removed=$removed: the room stayed prepared")
+            assertTrue(ok.room.members.none { it.ready }, "removed=$removed: somebody stayed ready")
+            assertNull(service.readySetup(room.roomId), "removed=$removed: a launchable setup was left")
+            check(rooms().close(room.roomId, room.hostUserId) is RoomResult.Ok)
+        }
+    }
+
     /** §5.79 — closing a room does not leave a launchable setup. */
     @Test
     fun `closing a prepared room invalidates its setup`() {

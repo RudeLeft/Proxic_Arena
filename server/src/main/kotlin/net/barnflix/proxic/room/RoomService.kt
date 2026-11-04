@@ -201,7 +201,11 @@ class RoomService(
                 store.close(connection, roomId)
             } else {
                 store.removeMember(connection, roomId, userId)
-                store.touch(connection, roomId)
+                if (room.status == RoomStatus.READY_FOR_MATCH) {
+                    reopenAfterLeaving(connection, roomId)
+                } else {
+                    store.touch(connection, roomId)
+                }
             }
             RoomResult.Ok(store.load(connection, roomId)!!)
         }
@@ -240,7 +244,11 @@ class RoomService(
 
                 else -> {
                     store.removeMember(connection, roomId, targetUserId)
-                    store.touch(connection, roomId)
+                    if (room.status == RoomStatus.READY_FOR_MATCH) {
+                        reopenAfterLeaving(connection, roomId)
+                    } else {
+                        store.touch(connection, roomId)
+                    }
                     RoomResult.Ok(store.load(connection, roomId)!!)
                 }
             }

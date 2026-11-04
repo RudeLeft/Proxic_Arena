@@ -246,7 +246,7 @@ Nothing stores it and nothing survives a restart.
                 prepare-match
    OPEN ──────────────────────────► READY_FOR_MATCH
       ◄──────────────────────────
-             cancel-preparation
+             cancel-preparation, or a guest leaves / is removed
       │                                    │
       │ host closes / host leaves          │ restart
       ▼                                    ▼
@@ -264,7 +264,9 @@ memberships and invalidate any unconsumed setup; the room row survives
 as a record until the sweep removes it.
 
 While `READY_FOR_MATCH`, ordinary configuration is blocked (§5.116).
-Cancelling is the way back.
+Cancelling is the way back; a guest leaving or being removed is too,
+and ends the setup (owner 2026-11-04: before then Start match could
+seat a player who had left).
 
 ---
 
