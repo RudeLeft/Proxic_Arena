@@ -421,6 +421,13 @@ class RoomService(
             if (room.status != RoomStatus.OPEN && ready) {
                 return@inTransaction RoomResult.Refused(RoomError.NotOpen)
             }
+            // Owner 2026-11-04: unticking ready after the game was
+            // prepared cancels it, as leaving does -- else Start match
+            // started it anyway, with the deck they meant to change.
+            if (!ready && room.status == RoomStatus.READY_FOR_MATCH) {
+                reopenAfterLeaving(connection, roomId)
+                return@inTransaction RoomResult.Ok(store.load(connection, roomId)!!)
+            }
 
             if (ready) {
                 val deckId =

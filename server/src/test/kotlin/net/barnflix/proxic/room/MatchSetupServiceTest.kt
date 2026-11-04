@@ -401,7 +401,8 @@ class MatchSetupServiceTest {
     @Test
     fun `leaving or being removed from a prepared room cancels it`() {
         // Taken out for being away (spec 0054's sweep) is a removal too.
-        for (how in listOf("leave", "remove", "away")) {
+        // So is unticking ready (owner 2026-11-04).
+        for (how in listOf("leave", "remove", "away", "unready")) {
             val removed = how
             val room = readyRoom()
             val service = setups()
@@ -412,6 +413,7 @@ class MatchSetupServiceTest {
                 when (how) {
                     "remove" -> assertIs<RoomResult.Ok>(rooms().remove(room.roomId, room.hostUserId, guest)).room
                     "away" -> RoomIdle(database!!.dataSource()).removeAway(room.roomId, guest)!!
+                    "unready" -> assertIs<RoomResult.Ok>(rooms().setReady(room.roomId, guest, false)).room
                     else -> assertIs<RoomResult.Ok>(rooms().leave(room.roomId, guest)).room
                 }
             assertEquals(RoomStatus.OPEN, after.status, "removed=$removed: the room stayed prepared")

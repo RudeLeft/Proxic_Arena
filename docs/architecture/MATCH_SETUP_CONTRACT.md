@@ -149,7 +149,7 @@ A setup is `READY` until something ends it:
 | Event | Setup becomes | Room becomes |
 |---|---|---|
 | host cancels (§5.117) | `INVALIDATED` | `OPEN`, readiness reset |
-| a guest leaves, is removed, or is taken out for being away (owner 2026-11-04) | `INVALIDATED` | `OPEN`, readiness reset |
+| a guest leaves, is removed, or is taken out for being away, or a member unticks ready (owner 2026-11-04) | `INVALIDATED` | `OPEN`, readiness reset |
 | host closes the room (§5.79) | `INVALIDATED` | `CLOSED` |
 | the room closes idle or with its host away (spec 0054; was §5.125's expiry) | `INVALIDATED` | `CLOSED` (`EXPIRED` before spec 0054) |
 | an administrator closes the room (Admin page) | `INVALIDATED` | `CLOSED` |
