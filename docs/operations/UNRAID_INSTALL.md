@@ -214,8 +214,10 @@ another machine `curl http://<unraid-ip>:5432` must fail.
 Port 8765 **will** answer — that is PHASE 1 AMENDMENT 2: the
 Cloudflare tunnel, which runs outside this stack, reaches the server on
 it, so anything on your LAN can reach it too. Everything there needs a
-session except the sign-in page; the health checks answer only inside
-the container (404 from anywhere else).
+session except the sign-in page and its own routes (sign-in, joining by
+invitation, a password reset, linking the Deck Builder); the Deck
+Builder's routes take its device token instead. The health checks
+answer only inside the container (404 from anywhere else).
 
 ## Step 8 — Survive a reboot
 

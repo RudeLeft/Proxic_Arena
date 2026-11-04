@@ -85,7 +85,7 @@ needs a session), or read the Admin page's health pill, which shows the
 version and a short build id.
 
 ```json
-{"proxicVersion":"0.1.0", ..., "buildId":"6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a"}
+{"proxicVersion":"1.41.0", ..., "buildId":"6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a"}
 ```
 
 `buildId` is the commit. Compare it with the latest commit on
@@ -104,12 +104,13 @@ The log line is the one to reach for when something is wrong,
 because it appears before anything can fail:
 
 ```text
-Proxic Arena 0.1.0 · protocol 1 · forge-2.0.15 · build 7cf1f40
+Proxic Arena 1.41.0 · protocol 1 · forge-2.0.15 · build 6b7e1b7e7f80c8dc3176498c0b4c3cdb46fa134a
 ```
 
 A **local** build reports `dev` unless the shell told it otherwise —
-honest about being neither published nor reproducible. A local build
-made from uncommitted changes reports `-dirty`, which matters more
+honest about being neither published nor reproducible. With the recipe
+in `docker-compose.local.yml` (`export PROXIC_BUILD_ID=...`), a local
+build made from uncommitted changes reports `-dirty`, which matters more
 than the sha: a build that looks like a clean commit and is not is
 worse than one that admits it is nothing in particular.
 

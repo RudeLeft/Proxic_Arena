@@ -154,14 +154,17 @@ two can land either way round.
 no per-room socket, so §5.215's "direct room socket attack" has
 nothing to connect to.
 
-Every frame is a Phase 1 envelope:
+Every frame the server sends is a Phase 1 envelope:
 
 ```jsonc
 { "protocolVersion": 1, "type": "…", "messageId": "…", /* body */ }
 ```
 
-A protocol-version mismatch fails loudly and is never interpreted
-(§1.32).
+The browser's frames carry only `type` and their fields (`{"type":
+"PING"}`), and the server reads only `type`. The lobby page does not
+check `protocolVersion`: only the foundation socket and `/api/version`
+are checked against the page's own version (§1.32); a newer server is
+caught by the version notice instead (spec 0050).
 
 ### Client → server
 
@@ -238,7 +241,9 @@ revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
 - `ROOMS` is every room that is open, starting or in a match:
   `roomId`, `name` (the host's, or "<host>'s room"), `hostUserId`,
   `status`, `desiredPlayerCount`, `seats` (`seatNumber`, `userId`,
-  `displayName`, `ready`, `isHost`) and `clearsAt` (null in a match).
+  `displayName`, `ready`, `isHost`), `clearsAt` and `warnsAt` (spec
+  0054; absent in a match), `held` (who an open seat is held for, spec
+  0016) and `watchable` (spec 0047).
   The same for every viewer, which is safe only because it carries
   **no deck** (§7.68); since spec 0016 it also says who an open seat is held for.
 - `PLAYERS` is every active account (`userId`, `username`,
@@ -278,7 +283,9 @@ viewer. Since spec 0018 these are the current season's places (by
 rating, five games to be ranked; `wins`/`games` this season), and the
 Hall page's own data is `GET /api/hall` (signed in). Since spec 0019
 `STANDINGS` also carries `belt` (the Champion's Belt holder's `userId`,
-absent when nobody holds it), for the mark beside their name.
+absent when nobody holds it), for the mark beside their name, and since
+spec 0048 `beltDefendBy` (the holder's defend-by date, for the lobby's
+reminder).
 
 ---
 

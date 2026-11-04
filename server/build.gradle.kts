@@ -98,7 +98,7 @@ application {
 // PHASE_03 3.56, 3.150 -- the account administration tool, shipped
 // beside the server so it can be run in the deployed container:
 //
-//   docker compose exec arena-server /app/bin/arena-admin user list
+//   docker compose exec arena-server /app/bin/arena-admin list
 //
 // Its own start script rather than a flag on the server, so running
 // it cannot accidentally start an HTTP listener.

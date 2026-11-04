@@ -145,5 +145,5 @@ The 40 emoji (owner may swap any):
 ## As built (2026-11-04, a documentation check)
 
 `CHAT` gained no new field: a line is already identified by its
-`lineId`, and `REACT { lineId, emoji, on }` and
-`REACTION { lineId, emoji, on, from }` use it.
+envelope's `messageId`, which `REACT { lineId, emoji, on }` and
+`REACTION { lineId, emoji, on, from }` call `lineId`.

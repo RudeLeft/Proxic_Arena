@@ -103,3 +103,7 @@ All taken 2026-10-30 (above).
    written on each creature: the round button's second line says it
    ("5 power · select more, or click one to take it back"; for blockers,
    "Select more, or click a blocker to take it back").
+
+4. **As built (2026-11-04, a documentation check).** The round button
+   reads "Attack with 2" (with "5 power · …" under it) and "Block with 2",
+   not "Attack with 2 power" and "Block".

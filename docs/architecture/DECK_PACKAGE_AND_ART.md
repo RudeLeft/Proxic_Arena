@@ -199,7 +199,9 @@ This matters more than it looks: the Mechanics Lab corpus alone is
 De-duplication must not weaken Phase 6 §6.122's match-scoped
 authorization. Shared storage is an implementation detail; **access is
 still per match and per viewer**, and a player must not be able to
-enumerate art they have no right to see.
+enumerate art they have no right to see. (As built, spec 0052: one
+address, `/api/pictures/{sha}`, for any signed-in player; a hidden
+card's address is never sent, and there is no listing.)
 
 ---
 

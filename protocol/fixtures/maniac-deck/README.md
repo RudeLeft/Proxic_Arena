@@ -13,7 +13,8 @@ Maniac Test Deck.txt   40 Island
                        4 Thought Scour
 ```
 
-The host mulligans until the Maniac is in hand, casts it, and only
+The host mulligans (at most twice, then keeps and draws into it) until
+the Maniac is in hand, casts it, and only
 then mills ITSELF -- every mill spell and Hedron Crab trigger targets
 the host -- until its library is empty and its next draw wins. The
 guest plays lands and nothing else. Nobody attacks, so life never

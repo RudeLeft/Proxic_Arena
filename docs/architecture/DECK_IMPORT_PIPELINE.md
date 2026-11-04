@@ -54,7 +54,8 @@ artwork ────────────────────────
     ▼
 persist ───────────────────────── DeckImporter.persist
     │  ONE transaction: imported_deck, art_asset, deck_entry,
-    │  deck_face_art (back faces), deck_token (token pictures)
+    │  deck_face_art (back faces), deck_token (token pictures),
+    │  deck_crop_art (art crops, spec 0051)
     ▼
 cleanup ───────────────────────── always, including on failure
     │  /data/temp/deck-imports/<id> removed
@@ -149,6 +150,9 @@ One transaction. Either the whole deck exists or none of it does.
 imported_deck   one row, (owner_user_id, package_sha256) UNIQUE (V005)
 art_asset       one row per distinct image, shared across decks
 deck_entry      one row per decklist line
+deck_face_art   a back face's own picture (V015)
+deck_token      a token's picture (spec 0022)
+deck_crop_art   a card's art crop (V033, spec 0051)
 ```
 
 ### File promotion
@@ -193,9 +197,11 @@ The display derivative is served when it exists, the original
 otherwise. Content-addressed bytes cannot change for an id, so
 responses are cacheable for a year.
 
-De-duplication is **storage only**. Access control is per match and
-per viewer from Phase 6 (§6.122); nothing here lets a player
-enumerate art they have no right to see.
+De-duplication is **storage only**. Since spec 0052 the pages load a
+picture from `/api/pictures/{sha}`, which any signed-in player may
+fetch (`MATCH_ASSET_AUTHORIZATION.md`); what keeps a hidden card hidden
+is that its address is never sent to a player who may not see it.
+There is no listing, so nothing here lets a player enumerate art.
 
 ### Unraid-backed persistent storage
 

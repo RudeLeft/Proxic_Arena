@@ -37,8 +37,9 @@ Related: `MATCH_PROTOCOL.md` (the wire), `FORGE_WORKER_RUNTIME.md`
 6. Room `READY_FOR_MATCH → IN_MATCH`.
 
 Starting Forge is **not** in the transaction. A game takes seconds to
-start (about 13 s measured, below) and may take up to the 180 s start
-budget; holding a row lock across a process spawn would let §6.9's race
+start (about 13 s measured, below); the server gives up only after 180 s
+of silence with nobody being asked (a player's mulligan does not count,
+`FORGE_WORKER_RUNTIME.md`), so there is no overall ceiling; holding a row lock across a process spawn would let §6.9's race
 be decided by whoever's Forge loaded faster, and an HTTP request that
 waited would be cut off by Cloudflare at 100 s. The route returns once
 the match exists; `MatchRuntime` starts the worker on its own thread

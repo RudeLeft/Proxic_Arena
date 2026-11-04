@@ -76,7 +76,8 @@ deck pictures are sent and used; parts 1 and 2 were specs 0049 and 0051):
    the spectator page too.
 3. The Deck Depot's deck page gets the same addresses from the server
    (`artUrl` on cards, back faces and tokens).
-4. `art_asset` gains `unused_since` (migration V035: V034 is held for the notices work).
+4. `art_asset` gains `unused_since` (migration V035; V034 was held for the notices work, which needed no
+   migration, so V034 does not exist).
 5. A weekly job (the same kind of scheduled runner as session upkeep):
    mark pictures no deck uses as unused since now; clear the mark of any
    that are used again; delete those unused for 30 days that no running

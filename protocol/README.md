@@ -11,20 +11,25 @@ only** — no Magic concepts. Game messages arrive in Phase 6.
 (`hello.json`, `ping.json`, `pong.json`, `error-protocol-mismatch.json`).
 **Both the Kotlin and the TypeScript test suites parse the same files.**
 If one side's model drifts from the other, a test fails rather than a
-game breaking at runtime. Its folders are test decks (each with its own
-README), not messages; the match and lobby messages are proven by the
+game breaking at runtime. Its folders are test decks (each with a
+README, except `goblin-deck`, which `match-stolen-picture.spec.ts`
+describes), not messages; the match and lobby messages are proven by the
 tests named in `docs/architecture/MATCH_PROTOCOL.md` and
 `LOBBY_PROTOCOL.md`.
 
 ## Envelope
 
-Every message carries:
+Every message the SERVER sends carries:
 
 ```text
-protocolVersion   a mismatch fails loudly, it is never interpreted
+protocolVersion   on the foundation socket a mismatch fails loudly
 type              what this message is
 messageId         identity; duplicate/stale rejection depends on it
 ```
+
+The browser's lobby and match frames carry only `type` and their
+fields, and the pages check `protocolVersion` only on the foundation
+socket and `/api/version`.
 
 The infrastructure messages put the rest under `payload`. Lobby and
 match messages are flat: their fields sit beside `type`
@@ -174,9 +179,11 @@ chooseSpellAbilitiesForEffect   N different abilities, one at a time
 chooseTargetsFor          also NEW targets for a copy (Krark): the
                           prompt starts "New target for"; passing
                           keeps the targets it has
-arrangeForScry            scry N: first the cards for the BOTTOM via
-                          chooseEntitiesForEffect (pass when done),
-                          then "which goes on top" one at a time
+arrangeForScry            scry N: both steps are kind arrangeForScry,
+                          shown in the card tray (W-08): first the
+                          cards for the BOTTOM ("... then Done"), then
+                          "Which goes on top of your library?" one at
+                          a time
 willPutCardOnTop          one card: "Top" or "Bottom"
 ```
 

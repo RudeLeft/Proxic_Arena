@@ -160,7 +160,10 @@ different checksum and imports normally.
 ## `IMPORT_DISABLED`
 
 `DECK_IMPORT_ENABLED=false` on this server. Reading stays available;
-only mutation is off. Set it to `true` and restart.
+only mutation is off. The server reads it (default `true`), but no
+compose file passes it through, so on the Compose/Unraid stack it is
+only off if someone added it to the `arena-server` environment; remove
+it there (or set `true`) and Compose Up again.
 
 ---
 

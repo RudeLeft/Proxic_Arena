@@ -91,4 +91,16 @@ All taken 2026-10-30 (above).
 
 ## Amendments
 
-None.
+1. **As built (2026-11-04, a documentation check).** F-0041-E's "all-W
+   names in full in every place" was not met to the letter: the owner
+   accepted (2026-10-30, above) that names of all the widest letters end
+   in "…" on the game's name plates. Real 12-character names fit
+   everywhere.
+
+2. **2026-11-04 (owner, from a documentation check).** Admin rename was
+   never built: the admin routes create, disable, change a role, send a
+   reset and sign out, and only the player renames themselves (Account
+   page). "Admin's create/rename" and F-0041-B's "in Admin" hold for
+   create only. The owner decided to build it; it goes through research,
+   a canvas and approval like any feature, and this note is updated when
+   it ships.

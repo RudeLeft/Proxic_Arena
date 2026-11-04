@@ -75,8 +75,11 @@ Who applies each Magic rule, and the proof, is
 **Everything requires a session** (owner, 2026-10-24): a visitor who
 is not signed in is sent the sign-in screen and nothing else -- not the
 version, not a health check, not the other pages' code. The health
-checks answer only from inside the server's own container. Accounts are created by an administrator with
-`arena-admin`; there is no self-registration. See
+checks answer only from inside the server's own container. Accounts
+come by invitation: an administrator sends one from the Admin page and
+the person creates their own account (spec 0014); an administrator can
+also create one on the Admin page or with `arena-admin create`. There is
+no open sign-up. See
 `docs/architecture/AUTHENTICATION.md`, and
 `docs/operations/troubleshooting/AUTHENTICATION.md` when a login will not work.
 
@@ -151,7 +154,7 @@ Three rules shape all of it:
 | Server | Kotlin 1.9.24, Ktor 2.3.13 (Netty 4.1.139), Java 17 (Temurin 17.0.20) |
 | Database | PostgreSQL 16.15, Flyway 10.22.0, HikariCP 5.1.0 |
 | Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
-| Worker | Java 17, Maven, `forge-core` + `forge-game`, and `forge-ai` for one check (can this be paid now?) |
+| Worker | Java 17, Maven, `forge-core` + `forge-game`, and `forge-ai` for two checks (can this be paid now? what does it cost now?) |
 | Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
 

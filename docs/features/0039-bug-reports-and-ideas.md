@@ -133,3 +133,7 @@ The version in a report is the one the server says it is running.
 **Amendment 2 (2026-11-03, Phase 9 Amendment 13, item 11).** The game's
 own words lost their long dashes: the thanks reads "Thanks. Your report
 was sent." (was "Thanks — report sent").
+
+**As built (2026-11-04, a documentation check).** The log viewer has four
+tabs, not three: Their screen · The game record · The server · Engine
+errors (built with the spec, 2026-10-29).

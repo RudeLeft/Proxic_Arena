@@ -110,3 +110,8 @@ All taken 2026-10-29 (see the top).
    with a pile: each click selects one more of it, shown as a gold seal
    with the count (Amendment 13, item 10), then a click on what they
    attack or block points them all. See spec 0037's Amendment 2.
+2. **As built (2026-11-04, a documentation check).** F-0036-G's "one per
+   click" on an attacker pile is proven by the unit test
+   `combatPlan.test.ts`; the browser test (`match-big-combat.spec.ts`)
+   uses All attack for attackers and clicks one at a time on the blocker
+   pile.

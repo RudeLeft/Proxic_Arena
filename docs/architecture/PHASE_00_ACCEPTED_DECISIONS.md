@@ -218,6 +218,12 @@ Two-Headed Giant      REMOVED, and UNSUPPORTED by Forge at this pin
 **Amended 2026-11-01 (owner decision, spec 0051):** decks are 60-100
 cards. Everything else above is unchanged.
 
+**Note (2026-11-04, a documentation check):** since the owner's decision
+of 2026-10-17, Commander and Two-Headed Giant are not "removed" but
+**planned, not built** (ROADMAP; AGENTS FMT-001, FMT-005): nothing offers
+them, and the runtime is kept so they stay reachable. Two-Headed Giant
+is still unsupported by Forge at this pin.
+
 Deck legality is **Proxic's**, not Forge's: `DeckFormat.Constructed`
 is min 60 with no maximum. Do **not** use
 `DeckFormat.canHaveAnyNumberOf()` as the copy-limit exemption — it also

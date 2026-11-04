@@ -112,3 +112,6 @@ pile selects one more), then click what they attack or block; the button
 waits while some are selected and not yet pointed. The "Block how many"
 chooser is gone. A selected creature shows a gold seal with how many from
 its pile (Amendment 13, item 10). See `PHASE_09_GAME_WINDOWS_LOCKED.md`.
+
+**As built (2026-11-04, a documentation check).** A pair stack's badge
+reads "×N", like every other pile; the word "pairs" is not shown.

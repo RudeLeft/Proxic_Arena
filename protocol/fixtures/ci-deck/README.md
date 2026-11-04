@@ -22,8 +22,9 @@ nothing to do with the code under test.
 No card images in this folder, because shipping them in this
 repository is the thing the gitignore exists to prevent.
 `scripts/make-ci-deck.mjs` adds one generated, plain coloured picture
-per card name (`real_cards/<Name> [CI].png`), and a small art crop
-(`art_crops/<Name> [CI].jpg`), to the built package, so
+per card name (`real_cards/<Name> [CI].png`) to the built package (and
+a small art crop, `art_crops/<Name> [CI].jpg`, only with `--crops`,
+which CI uses for the crop deck alone), so
 an imported deck shows different cards rather than blanks; they are
 not real card images.
 

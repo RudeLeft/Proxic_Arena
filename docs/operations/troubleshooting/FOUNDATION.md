@@ -7,7 +7,8 @@ expensive part is never the fix, it is the hour spent looking in the
 wrong place.
 
 **First question, always: what did it actually say?** This project's
-status endpoints are built not to lie. `curl
+status endpoints are built not to lie. They answer only from inside
+the container: `docker compose exec arena-server wget -qO-
 http://127.0.0.1:8080/api/health/ready` is faster than guessing.
 
 ---

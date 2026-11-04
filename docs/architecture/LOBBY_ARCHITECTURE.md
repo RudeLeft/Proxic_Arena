@@ -316,7 +316,9 @@ are server settings (`PROXIC_ROOM_ALONE_MINUTES` and friends,
 
 Activity is joining, leaving, configuring, selecting a deck, readying,
 a host action (§5.124), sending an invitation, a lobby chat line from
-one of the room's members (at most once a minute), or "Keep it open".
+one of the room's members (at most once a minute), or "Keep it open";
+a game starting and a game ending write it too (a room back from a game
+starts a fresh clock).
 **A browser holding a socket open is not activity** — that is why
 `last_activity_at` is written by those operations and never by the
 heartbeat.

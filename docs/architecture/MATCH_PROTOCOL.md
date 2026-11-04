@@ -15,8 +15,10 @@ internal (`FORGE_WORKER_RUNTIME.md`).
 
 Every frame the server sends carries `protocolVersion` (currently
 **1**), `type` and a fresh `messageId`; the browser's frames carry only
-`type` and their fields. `/api/version` reports the same number. A client
-never interprets a version it does not know.
+`type` and their fields. `/api/version` reports the same number. The game
+page does not check `protocolVersion` on this socket (only the
+foundation socket and `/api/version` are checked); an unknown `type` is
+ignored rather than misread.
 
 ## Finding the match (HTTP)
 

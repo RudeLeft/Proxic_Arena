@@ -114,3 +114,7 @@ All four made 2026-10-27 (R1-R4, above).
   one import applies. The account routes sit under `/api/auth/` beside the
   other account routes, not `/api/account/`. A new password also ends a
   linked computer, as it ends every session.
+- **As built (2026-11-04, a documentation check).** F-0021-A is proven
+  from the worker's own list, not a Scryfall sample: `CardPoolTest`
+  resolves every 25th listed printing (over 3,000) and requires
+  `RESOLVED`, and checks that a printing it leaves out is refused.

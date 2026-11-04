@@ -20,7 +20,7 @@ never cast, which is the point: "If this is in your opening hand,
 you may begin the game with it on the battlefield." No mana, no
 stack.
 
-Used by `frontend/e2e/match-leyline.spec.ts`. CI builds the package
+Used by `frontend/e2e/match-leyline.spec.ts` and `match-opening-hand.spec.ts`. CI builds the package
 with `scripts/make-ci-deck.mjs`, which generates placeholder art.
 The worker-level check (`scripts/check-leyline.py`) uses its own,
 non-legal deck with far more Leylines, because the worker does not

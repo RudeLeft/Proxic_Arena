@@ -285,7 +285,9 @@ start a game; it proves the cards still resolve.
 Causes, most likely first:
 
 1. **The Forge worker is not configured or not running.** Check
-   `GET /api/health/ready` — `forgeWorker` should be `ok`. If it says
+   readiness from inside the container (`docker compose exec arena-server
+   wget -qO- http://127.0.0.1:8080/api/health/ready`) — `forgeWorker`
+   should be `ok`. If it says
    `unconfigured`, `missing` or `unreachable`, the preflight
    deliberately **fails closed**: a server that cannot check decks
    must not launch matches with unchecked ones.

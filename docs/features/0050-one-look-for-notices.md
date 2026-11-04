@@ -112,3 +112,10 @@ switch, on by default, kept in this browser.
 | F-0050-H | A new version in a game waits for the game to end | unit |
 | F-0050-I | The chime plays for questions only, not when Sounds is off; the tab title counts waiting questions | unit |
 | F-0050-J | Screenshots at 1920×1080: Lobby, Deck Depot, Hall, a game | browser |
+
+## Amendments
+
+1. **As built (2026-11-04, a documentation check).** "Match didn't
+   start" shows the reason for that start: for a start that took too
+   long, "The game took too long to start. The room is open again, so
+   try once more."; other reasons have their own words (`lobby.ts`).

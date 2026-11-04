@@ -16,5 +16,5 @@ The host puts a creature on the battlefield and clicks it while nothing
 is being asked about it (it is selected; nothing attacks), and starts a
 burn spell, then cancels at the target question (nothing is cast).
 
-Used by `frontend/e2e/match-interaction.spec.ts`. CI builds the package
+Used by `frontend/e2e/match-interaction.spec.ts` and `match-window.spec.ts`. CI builds the package
 with `scripts/make-ci-deck.mjs`.

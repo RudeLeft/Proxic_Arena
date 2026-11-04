@@ -60,9 +60,12 @@ socket** -- verified in its code and inside the production container
 ## Internal protocol
 
 Newline-delimited JSON over stdin/stdout. Every frame carries
-`protocolVersion` (1) and `type`; a reply carries the `messageId` of
-the frame it answers, and a frame the worker sends on its own (READY,
-DECISION_REQUEST, SNAPSHOT, ...) has none. Never exposed to a browser.
+`protocolVersion` (1) and `type`; a successful reply (PONG,
+DECISION_ACCEPTED, DECISION_OPTIONS, CONCEDE_ACCEPTED, ...) carries the
+`messageId` of the frame it answers. An `ERROR` never does (the request's
+`decisionId`, where there is one, says what it answers), and a frame the
+worker sends on its own (WORKER_READY, DECISION_REQUEST, SNAPSHOT, ...)
+has none. Never exposed to a browser.
 
 ```text
 server → worker                 worker → server
@@ -85,7 +88,7 @@ START_GAME  matchId, players    GAME_STARTED        the running milestone
                                 MATCH_SNAPSHOT      one per seat, per change
                                 DECISION_REQUEST    authorisedSeat, actedForSeat, kind, options...
 DECISION_RESPONSE               DECISION_ACCEPTED / ERROR DECISION_REFUSED
-DECISION_SEARCH                 DECISION_OPTIONS
+DECISION_SEARCH                 DECISION_OPTIONS / ERROR SEARCH_REFUSED
                                 MATCH_STEP          a step nobody is asked at (public;
                                                     PHASE_07 Amendment 13)
 CONCEDE  seat                   CONCEDE_ACCEPTED  seat; or ERROR CONCEDE_REFUSED

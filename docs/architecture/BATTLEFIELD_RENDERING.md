@@ -177,7 +177,7 @@ rather than teleports.
    data-controller="viewer" data-tapped="true" data-pt="4/4" data-face="up"
    ```
    As built: `data-zone` is the card's line (`viewer:creature-1`,
-   `opponent:land-2`, spec 0040), or `viewer:hand` / `stack`;
+   `opponent:land-2`, spec 0040), or `viewer:hand` / `opponent:hand` / `stack`;
    `data-face` is `up` or `down`.
    Ids are the Phase 6 typed ids (`card:51`, `stack:3`), never bare
    integers. This is what makes §7.42 and §7.45 assertions one-liners.
@@ -202,7 +202,7 @@ rather than teleports.
    As built (step 5, PHASE 7 AMENDMENT 7): the four lines are one SVG layer
    above the battlefield and below the hand (stacking: battlefield cards
    under 2000, a riding blocker from 2000 up to about 4000 (spec 0037), a
-   swooping attacker 4500, lines 5000, bursts and numbers 6000,
+   card selected to attack or block 4400 (W-14), a swooping attacker 4500, lines 5000, bursts and numbers 6000,
    hand 10000+). Every line starts and ends **inside the card's picture**,
    never on its name or power/toughness bar (the mock ended its block line
    at 72% of the card's height for the same reason). A swoop comes

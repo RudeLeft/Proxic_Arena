@@ -86,3 +86,6 @@ A third shared face, `--pa-mono`, names the one monospace use (the
 
 1. **As built (2026-11-04, a documentation check).** One weight outside the three remains: `font-weight: 500` in
 `game.css` and `battlefield.css` (one rule each).
+2. **As built (2026-11-04, a documentation check).** The Deck Depot's
+   drop box is gone; `--pa-mono` is used for the device-link code
+   (`app.css`) and the report log (`report.css`).

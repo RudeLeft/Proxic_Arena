@@ -10,7 +10,8 @@ Mindslaver Test Deck.txt   56 Mountain
                                           their next turn
 ```
 
-The host mulligans until Mindslaver is in hand, casts it at six
+The host mulligans (at most twice, then keeps and draws into it) until
+Mindslaver is in hand, casts it at six
 lands and uses it the next turn on the guest. During the guest's
 next turn the HOST's page is asked the guest's questions ("Playing
 for seat 2") and sees the guest's hand; the guest's page is asked

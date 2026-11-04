@@ -67,8 +67,10 @@ output       32 bytes
 version      1.3 (0x13)
 ```
 
-These are the OWASP-recommended Argon2id settings. Measured on the
-deployment host: **median 99 ms** per hash (89/91/99/100/103 ms),
+These are the OWASP-recommended Argon2id settings. Measured
+2026-10-16 on the development machine (`PasswordHasher`'s benchmark
+note): **median 99 ms** per hash (89/91/99/100/103 ms); the Unraid host
+is slower, which is the safe direction,
 which is the intended cost — fast enough for a human signing in, slow
 enough that an offline attacker pays for every guess.
 
@@ -140,8 +142,9 @@ makes the idle window a sliding one.
 
 ### Revocation
 
-Sessions are **revoked, never deleted** — `revoked_at` is set to a
-timestamp. A deleted row answers no questions afterwards; a revoked
+Sessions are **revoked, not deleted, while they matter** — `revoked_at`
+is set to a timestamp; the cleanup sweep (below) deletes a row only 30
+days after it expired. A deleted row answers no questions afterwards; a revoked
 one still shows that a session existed, when it started and when it
 ended.
 

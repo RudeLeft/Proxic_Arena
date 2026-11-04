@@ -235,7 +235,8 @@ the tray from the bottom, the cards as pictures:
   the stack, caught mid-way by the screenshot: gone a moment later, not
   a fault.)
 
-Still open: every other item, one at a time.
+Still open (2026-11-04): W-17 and W-21, then the exit gate; every other
+item is built (see the Amendments).
 
 ## Amendments
 
@@ -829,3 +830,9 @@ https://claude.ai/artifact/A6oesok4EKVjhqk9nVbAFs).**
   `match-card-name.spec.ts` (Pithing Needle named by a click on a
   Mountain; for Phyrexian Revoker a Mountain does not glow and a click
   says it can't name a land; results with types), with screenshots.
+
+**As built (2026-11-04, a documentation check -- principle 6).** Only
+holding Space fades a window; there is no Peek button, so a player who
+does not know the key cannot see behind a window. Owner 2026-11-04: a
+visible Peek is designed with the remaining windows (W-21, W-17), on a
+canvas for approval.
