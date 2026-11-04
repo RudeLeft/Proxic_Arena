@@ -36,8 +36,9 @@ the one stops rule the server turns on for every player (spec 0035).
              among its options
   force      F-0035-E: seat 2 holds only Force of Will and no land: seat 1's
              Bolt asks seat 2 (the free cost, exiling a blue card)
-  ninjutsu   F-0035-F: seat 1 attacks with a Ninja nobody can block: after
-             blocks it is asked, a Ninjutsu among its options
+  ninjutsu   F-0035-F: seat 1 attacks with a Ninja nobody can block, holding
+             another and {1}{U} untapped: after blocks it is asked, a
+             Ninjutsu among its options
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -487,7 +488,7 @@ def stack_answer(name, seat2, offered, needs=()):
 def ninjutsu():
     """F-0035-F: Ninjutsu after blocks on your turn."""
     g = game("ninjutsu", [("Island", 36), ("Ninja of the Deep Hours", 24)], [("Forest", 60)])
-    st = {"attacked": None, "asked_after_blocks": [], "offered": False}
+    st = {"attacked": None, "asked_after_blocks": [], "offered": False, "held_back": []}
 
     def policy(g, f):
         turn, phase, stack, active = where(g, f)
@@ -499,6 +500,16 @@ def ninjutsu():
                 return None  # one Ninja attacks; the rest stay home
             ninja = next((o["actionId"] for o in f.get("options", [])
                           if (o.get("label") or "").startswith("Ninja")), None)
+            # Attack only when Ninjutsu ({1}{U}) could be paid from the hand:
+            # with nothing to cast the rule rightly passes for seat 1 (the
+            # 'nothing' scenario), which is not this check's question. CI
+            # 41860617095 attacked holding only Islands -- the second Ninja
+            # came from the attacker's own combat-damage draw -- and called
+            # the right pass WRONG.
+            if ninja and not (g.zone(1, "hand", name="Ninja of the Deep Hours")
+                              and len(g.untapped_lands(1)) >= 2):
+                st["held_back"].append(turn)
+                return None
             if ninja:
                 st["attacked"] = turn
             return ninja
@@ -516,10 +527,10 @@ def ninjutsu():
             return cast(g, f, "Ninja of the Deep Hours")
         return None
 
-    g.run(policy, until=lambda g: st["offered"] or (st["attacked"] and g.turn > st["attacked"] + 1), max_turn=12)
+    g.run(policy, until=lambda g: st["offered"] or (st["attacked"] and g.turn > st["attacked"] + 1), max_turn=16)
     found = dict(st, stopped=g.stopped_badly())
     if st["attacked"] is None:
-        return "inconclusive", "seat 1 never attacked with a Ninja", found
+        return "inconclusive", "seat 1 never attacked with a Ninja while holding another and {1}{U}", found
     problems = [found["stopped"]] if found["stopped"] else []
     if not st["offered"]:
         problems.append("after blocks, with a Ninja unblocked and another in hand, Ninjutsu should be offered")

@@ -76,8 +76,18 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
+    // A game that has ended shows nothing more: stop and say how it ended,
+    // instead of watching a finished table until the deadline (CI
+    // 41860617095 did for 16 minutes).
+    const ended = async () =>
+      [
+        ...(await host.locator("#gs-over-text").allTextContents()),
+        ...(await guest.locator("#gs-over-text").allTextContents()),
+      ].join(" ");
+
     const deadline = Date.now() + 1_000_000;
     while (Date.now() < deadline && !(await everything())) {
+      if (await ended()) break;
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);
@@ -120,6 +130,12 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
           const affordable = swamps >= cost.B && plains >= cost.W && swamps + plains >= cost.total;
           if (affordable) pick = find(new RegExp(`^${name} · \\{`));
         }
+      } else if (/Pay 2 life\? You have ([0-7])\./.test(prompt)) {
+        // Call of the Ring's draw, every upkeep: paying it every time is
+        // how the host died on turn 25 in CI 41860617095 before either
+        // player found White Plume Adventurer. Nobody attacks, so with the
+        // life kept the game runs until both have drawn one.
+        pick = -1;
       } else if (labels.length) {
         // The Ring-bearer, paying 2 life, a dungeon room, a scry,
         // mana and targets: Forge's first.
@@ -133,11 +149,13 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
       await live.waitForTimeout(40);
     }
 
-    expect(await seen(/the Ring has tempted/), "the Ring never tempted anyone").toBe(true);
-    expect(await seen(/command zone: .*The Ring/), "the Ring is not in the command zone").toBe(
-      true,
-    );
-    expect(await seen(/Undercity \(room: /), "no dungeon room was shown").toBe(true);
+    const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
+    expect(await seen(/the Ring has tempted/), `the Ring never tempted anyone${why}`).toBe(true);
+    expect(
+      await seen(/command zone: .*The Ring/),
+      `the Ring is not in the command zone${why}`,
+    ).toBe(true);
+    expect(await seen(/Undercity \(room: /), `no dungeon room was shown${why}`).toBe(true);
     // Public: both players see the same Ring-bearers.
     expect(await bearers(host).count()).toBeGreaterThan(0);
     expect(await bearers(guest).count()).toBe(await bearers(host).count());
