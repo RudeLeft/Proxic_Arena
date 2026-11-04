@@ -17,6 +17,17 @@ const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
 const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
 const click = clickNow;
 
+/** The tab sent behind others, or brought back in front (as the browser says it). */
+const setHidden = (page: Page, hidden: boolean) =>
+  page.evaluate((h) => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => h });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (h ? "hidden" : "visible"),
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+
 const opponentLife = async (page: Page) =>
   Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
 
@@ -41,12 +52,14 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   let clicked = false;
   // Amendment 13 (item 1): the circle pauses; nothing resolves until asked.
   let paused = false;
+  // Owner 2026-11-04: only the tab in front counts down.
+  let hiddenTab = false;
   // The opponent may still pass after us before the spell resolves, so the
   // life total is checked as the game goes on.
   let ranOutFrom: number | null = null;
   let clickedFrom: number | null = null;
   const deadline = Date.now() + 780_000;
-  while (!(ranOut && clicked && paused) && Date.now() < deadline) {
+  while (!(ranOut && clicked && paused && hiddenTab) && Date.now() < deadline) {
     const life = await opponentLife(host);
     if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
     if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];
@@ -91,6 +104,23 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
           await click(windowButton);
           await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
           paused = true;
+        } else if (ranOut && clicked && paused && !hiddenTab) {
+          // Owner 2026-11-04: a tab that is not in front never resolves
+          // anything; back in front, it counts again from 5.
+          await expect(windowButton).toContainText(/Resolves in [45]/);
+          await setHidden(page, true);
+          await page.waitForTimeout(6_000);
+          await expect(
+            page.locator('[data-zone="stack"]').first(),
+            "still on the stack after 6 s in a hidden tab",
+          ).toBeAttached();
+          await setHidden(page, false);
+          await expect(windowButton, "back in front, it counts from 5 again").toContainText(
+            /Resolves in [45]/,
+          );
+          await click(windowButton);
+          await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
+          hiddenTab = true;
         } else {
           // An earlier window's spell is still on its way: let this one run out.
           await expect(windowButton).toHaveCount(0, { timeout: 8_000 });
@@ -139,6 +169,7 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   expect(ranOut, "a response window ran out and the spell resolved").toBe(true);
   expect(clicked, "a clicked response window resolved the spell").toBe(true);
   expect(paused, "a paused response window waited, then resolved when asked").toBe(true);
+  expect(hiddenTab, "a hidden tab's window waited, and counted again in front").toBe(true);
   await clearEverything(host).catch(() => undefined);
   await clearEverything(guest).catch(() => undefined);
   // Closed, or a page left signed in follows the player into the next

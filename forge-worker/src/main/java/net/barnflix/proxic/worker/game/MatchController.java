@@ -861,14 +861,16 @@ public final class MatchController extends GeneratedControllerBase {
             return true;
         }
 
-        // Divided as you choose (Fire // Ice, P6-AJ): a SECOND question
-        // after each target -- "how much to this one?" -- as Forge's own
-        // InputSelectTargets asks it. Every target gets at least 1, all
-        // of it must be assigned, and targeting ends when none is left.
-        // Was refused loudly; this is Forge's shape, one answer each.
+        // Divided as you choose (Fire // Ice, P6-AJ): every target first,
+        // then how much each one gets (rule 601.2d's order; Phase 9
+        // Amendment 14, owner 2026-11-03: one split window). Every target
+        // gets at least 1, so there are never more targets than there is
+        // to divide.
         boolean divided = ability.isDividedAsYouChoose();
+        int toDivide = divided ? ability.getStillToDivide() : 0;
+        int most = toDivide > 0 ? Math.min(max, toDivide) : max;
 
-        while (ability.getTargets().size() < max && (!divided || ability.getStillToDivide() > 0)) {
+        while (ability.getTargets().size() < most) {
             java.util.List<forge.game.GameEntity> candidates =
                     restrictions.getAllCandidates(ability);
             // Already chosen ones are not offered again: a target
@@ -937,7 +939,7 @@ public final class MatchController extends GeneratedControllerBase {
                     // Stop. With enough targets that is "no more";
                     // without them it is "cancel", and Forge reads
                     // false as the player changing their mind.
-                    return enough && finishDivision(ability);
+                    return enough && divideAll(ability);
                 }
                 SpellAbility spell = onStack.get(choice);
                 if (spell != null) {
@@ -946,36 +948,70 @@ public final class MatchController extends GeneratedControllerBase {
                 }
                 forge.game.GameEntity chosen = byId.get(choice);
                 if (chosen == null) {
-                    return enough && finishDivision(ability);
+                    return enough && divideAll(ability);
                 }
                 ability.getTargets().add(chosen);
-                if (divided && !divide(ability, chosen, candidates.size() == 1
-                        || ability.getTargets().size() >= max)) {
-                    return false;
-                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;
             }
         }
 
-        return ability.getTargets().size() >= min && finishDivision(ability);
+        return ability.getTargets().size() >= min && divideAll(ability);
+    }
+
+    /**
+     * Phase 9 Amendment 14 -- the split, once every target is chosen: each
+     * target but the last is asked its share in the order chosen, from 1
+     * up to what leaves 1 for each target after it; the last takes the
+     * rest (finishDivision). Every question carries the whole split
+     * (arrange.divide) so the page can show it as one window and answer
+     * them all from it. One target takes it all, unasked.
+     */
+    private boolean divideAll(SpellAbility ability) {
+        if (!ability.isDividedAsYouChoose() || ability.getStillToDivide() <= 0) {
+            return true;
+        }
+        java.util.List<forge.game.GameObject> chosen = new java.util.ArrayList<>(ability.getTargets());
+        int total = ability.getStillToDivide();
+        com.google.gson.JsonArray targets = new com.google.gson.JsonArray();
+        for (forge.game.GameObject target : chosen) {
+            com.google.gson.JsonObject one = new com.google.gson.JsonObject();
+            if (target instanceof forge.game.card.Card card) {
+                one.addProperty("object", "card:" + card.getId());
+                if (card.isPlaneswalker()) {
+                    one.addProperty("lethal", card.getCurrentLoyalty());
+                } else if (card.isCreature()) {
+                    one.addProperty("lethal", Math.max(0, card.getLethalDamage()));
+                }
+            } else if (target instanceof Player who) {
+                one.addProperty("object", host.objectIdOf("target:player:" + who.getId()));
+            }
+            targets.add(one);
+        }
+        for (int i = 0; i < chosen.size() - 1; i++) {
+            int after = chosen.size() - 1 - i;
+            if (!divide(ability, chosen.get(i), ability.getStillToDivide() - after, total, targets, i)) {
+                return false;
+            }
+        }
+        return finishDivision(ability);
     }
 
     /**
      * How much of a divided amount goes to `target` -- Forge's own
-     * question ("Select how much damage to deal to ..."), with the
-     * amounts Forge allows: 1 up to what is left. The last possible
-     * target takes the rest without asking, because there is no
-     * other answer. Returns false if the player backs out.
+     * question ("Select how much damage to deal to ..."): 1 up to [most].
+     * One possible answer is not asked. Returns false if the player
+     * backs out.
      */
-    private boolean divide(SpellAbility ability, forge.game.GameEntity target, boolean last) {
+    private boolean divide(SpellAbility ability, forge.game.GameObject target, int most, int total,
+            com.google.gson.JsonArray targets, int at) {
         int left = ability.getStillToDivide();
         if (left <= 0) {
             return true;
         }
-        if (last || left == 1) {
-            ability.addDividedAllocation(target, left);
+        if (most <= 1) {
+            ability.addDividedAllocation(target, 1);
             return true;
         }
         String verb = switch (String.valueOf(ability.getApi())) {
@@ -985,20 +1021,27 @@ public final class MatchController extends GeneratedControllerBase {
             default -> "to distribute to ";
         };
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        for (int amount = 1; amount <= left; amount++) {
+        com.google.gson.JsonArray values = new com.google.gson.JsonArray();
+        for (int amount = 1; amount <= most; amount++) {
             labels.put("divide:" + amount, String.valueOf(amount));
+            values.add(amount);
         }
+        com.google.gson.JsonObject split = new com.google.gson.JsonObject();
+        split.addProperty("total", total);
+        split.addProperty("what", verb.startsWith("damage") ? "damage"
+                : verb.startsWith("counters") ? "counters" : "amount");
+        split.add("targets", targets);
+        split.addProperty("at", at);
+        split.add("values", values);
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("divide", split);
+        host.offerSubject(ability);
+        String prompt = "How much " + verb + (target instanceof forge.game.card.Card card
+                ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(target))
+                + "? (" + left + " left to assign)";
         try {
-            String choice = host.gate().ask(
-                    actedForSeat,
-                    authorisedSeat,
-                    "divideAsYouChoose",
-                    new java.util.ArrayList<>(labels.keySet()),
-                    true,
-                    "How much " + verb + (target instanceof forge.game.card.Card card
-                            ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(target))
-                            + "? (" + left + " left to assign)",
-                    pending -> host.publishDecision(pending, labels));
+            String choice = askArranged(how, "divideAsYouChoose", new java.util.ArrayList<>(labels.keySet()),
+                    true, prompt, labels);
             ability.addDividedAllocation(target, Integer.parseInt(choice.substring("divide:".length())));
             return true;
         } catch (InterruptedException e) {
@@ -1528,6 +1571,28 @@ public final class MatchController extends GeneratedControllerBase {
             byId.put(id, value);
             labels.put(id, announce + " = " + value);
         }
+        // Phase 9 Amendment 14 -- the dial: what each X costs, which of
+        // them the mana that can be made covers (the rest stay choosable,
+        // marked), and the values themselves.
+        String manaCost = cost == null ? null : cost.getTotalMana().toString();
+        boolean priced = "X".equals(announce) && manaCost != null && manaCost.contains("{X}");
+        int canMake = availableMana();
+        java.util.Map<String, String> costs = new java.util.HashMap<>();
+        java.util.Set<String> unpayable = new java.util.HashSet<>();
+        byId.forEach((id, value) -> {
+            if (priced) {
+                String each = NumberCosts.withX(manaCost, value);
+                costs.put(id, each);
+                if (NumberCosts.manaValue(each) > canMake) {
+                    unpayable.add(id);
+                }
+            }
+        });
+        host.offerSubject(ability);
+        host.offerCosts(costs);
+        host.offerUnpayable(unpayable);
+        com.google.gson.JsonObject how = numberLayout(byId.values(), priced ? canMake : null, null, null,
+                NumberCosts.sentence(ability.getHostCard().getOracleText(), "\\b" + java.util.regex.Pattern.quote(announce) + "\\b"));
 
         // Forge's own split: a mandatory cost gets a prompt that
         // cannot be cancelled, anything else can be backed out of.
@@ -1537,15 +1602,8 @@ public final class MatchController extends GeneratedControllerBase {
                 : ability.getParamOrDefault("AnnounceTitle", announce);
 
         try {
-            String choice =
-                    host.gate().ask(
-                            actedForSeat,
-                            authorisedSeat,
-                            "announceRequirements",
-                            new java.util.ArrayList<>(byId.keySet()),
-                            mandatory,
-                            "Choose " + title + " for " + ability.getHostCard().getName() + ".",
-                            pending -> host.publishDecision(pending, labels));
+            String choice = askArranged(how, "announceRequirements", new java.util.ArrayList<>(byId.keySet()),
+                    mandatory, "Choose " + title + " for " + ability.getHostCard().getName() + ".", labels);
             if (DecisionGate.PASS.equals(choice)) {
                 // Only reachable when this was cancellable. Forge
                 // unwinds the cast, which is what a player who
@@ -1587,17 +1645,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (max != Integer.MAX_VALUE && max - min <= OFFER_LIMIT) {
             return max;
         }
-        int available = player.getManaPool().totalMana();
-        for (forge.game.card.Card card
-                : player.getCardsIn(forge.game.zone.ZoneType.Battlefield)) {
-            for (forge.game.spellability.SpellAbility mana : card.getManaAbilities()) {
-                mana.setActivatingPlayer(player);
-                if (mana.canPlay(true)) {
-                    available++;
-                    break;
-                }
-            }
-        }
+        int available = availableMana();
         // AT LEAST Forge's own window of ten, whatever the board
         // looks like. Its desktop client offers min..min+9 and a
         // box for anything larger, and it does not check first
@@ -1609,6 +1657,70 @@ public final class MatchController extends GeneratedControllerBase {
         // to exactly one value.
         int window = Math.max(available, FORGE_WINDOW);
         return Math.min(max, min + Math.min(window, OFFER_LIMIT));
+    }
+
+    /**
+     * How much mana could be made right now: what is floating, and one
+     * for each permanent with a mana ability Forge says can be played.
+     * An over-estimate (colours, and what the cost needs, are not
+     * reasoned about) -- see ceilingFor.
+     */
+    private int availableMana() {
+        int available = player.getManaPool().totalMana();
+        for (forge.game.card.Card card
+                : player.getCardsIn(forge.game.zone.ZoneType.Battlefield)) {
+            for (forge.game.spellability.SpellAbility mana : card.getManaAbilities()) {
+                mana.setActivatingPlayer(player);
+                if (mana.canPlay(true)) {
+                    available++;
+                    break;
+                }
+            }
+        }
+        return available;
+    }
+
+    /**
+     * Phase 9 Amendment 14 -- what the page's dial needs besides the
+     * options: each option's number in order (the page never reads a
+     * number from a label or an id), how much mana can be made (null
+     * when no mana is asked), the keyword paid each time and its cost, and
+     * the card's own sentence about the number.
+     */
+    private static com.google.gson.JsonObject numberLayout(java.util.Collection<Integer> values, Integer canMake,
+            String keyword, String each, String says) {
+        com.google.gson.JsonObject number = new com.google.gson.JsonObject();
+        if (says != null) {
+            number.addProperty("says", says);
+        }
+        com.google.gson.JsonArray list = new com.google.gson.JsonArray();
+        values.forEach(list::add);
+        number.add("values", list);
+        if (canMake != null) {
+            number.addProperty("canMake", canMake);
+        }
+        if (keyword != null) {
+            number.addProperty("keyword", keyword);
+        }
+        if (each != null) {
+            number.addProperty("each", each);
+        }
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("number", number);
+        return how;
+    }
+
+    /** One question, asked with [how] laid out for the page. */
+    private String askArranged(com.google.gson.JsonObject how, String kind, java.util.List<String> ids,
+            boolean mandatory, String prompt, java.util.Map<String, String> labels) throws InterruptedException {
+        com.google.gson.JsonObject before = host.arrange();
+        host.arranging(how);
+        try {
+            return host.gate().ask(actedForSeat, authorisedSeat, kind, ids, mandatory, prompt,
+                    pending -> host.publishDecision(pending, labels));
+        } finally {
+            host.arranging(before);
+        }
     }
 
     /** Forge's own default list length, and the floor for ours. */
@@ -1929,13 +2041,35 @@ public final class MatchController extends GeneratedControllerBase {
         }
         int ceiling = ceilingFor(0, max);
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+        java.util.List<Integer> values = new java.util.ArrayList<>();
+        // Phase 9 Amendment 14 -- each count's whole cost (the spell's own
+        // plus the keyword's, that many times), and which of them the mana
+        // that can be made covers.
+        String base = sa.getPayCosts() == null ? "" : sa.getPayCosts().getTotalMana().toString();
+        String each = cost == null ? null : cost.getTotalMana().toString();
+        int canMake = availableMana();
+        java.util.Map<String, String> costs = new java.util.HashMap<>();
+        java.util.Set<String> unpayable = new java.util.HashSet<>();
         for (int value = 0; value <= ceiling; value++) {
-            labels.put("number:" + value, String.valueOf(value));
+            String id = "number:" + value;
+            labels.put(id, String.valueOf(value));
+            values.add(value);
+            if (each != null) {
+                String whole = NumberCosts.plus("no cost".equals(base) ? "" : base, each, value);
+                costs.put(id, whole);
+                if (NumberCosts.manaValue(whole) > canMake) {
+                    unpayable.add(id);
+                }
+            }
         }
+        host.offerCosts(costs);
+        host.offerUnpayable(unpayable);
+        com.google.gson.JsonObject how = numberLayout(values, each == null ? null : canMake,
+                keyword.getKeyword() == null ? null : keyword.getKeyword().toString(), each,
+                NumberCosts.sentence(sa.getHostCard().getOracleText(), "kicked|for each time"));
         try {
-            String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseNumberForKeywordCost",
-                    new java.util.ArrayList<>(labels.keySet()), false, what + " -- how many times?",
-                    pending -> host.publishDecision(pending, labels));
+            String choice = askArranged(how, "chooseNumberForKeywordCost", new java.util.ArrayList<>(labels.keySet()),
+                    false, what + ": how many times?", labels);
             return choice == null || !choice.startsWith("number:") ? 0 : Integer.parseInt(choice.substring(7));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -2120,22 +2254,27 @@ public final class MatchController extends GeneratedControllerBase {
         for (int value = min, ceiling = ceilingFor(min, max); value <= ceiling; value++) {
             values.add(value);
         }
-        return pickNumber(title, values);
+        return pickNumber(sa, title, values);
     }
 
     /** A number from Forge's own list of allowed ones. */
     @Override
     public int chooseNumber(SpellAbility sa, String title, java.util.List<Integer> choices, Player relatedPlayer) {
-        return pickNumber(title, choices);
+        return pickNumber(sa, title, choices);
     }
 
-    private int pickNumber(String title, java.util.List<Integer> values) {
+    private int pickNumber(SpellAbility sa, String title, java.util.List<Integer> values) {
         if (values.size() == 1) {
             return values.get(0);
         }
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
         values.forEach(value -> labels.put("number:" + value, String.valueOf(value)));
-        String answer = askOne("chooseNumber", title, labels, true);
+        // Phase 9 Amendment 14 -- named by its card, and its values for the dial.
+        host.offerSubject(sa);
+        String says = sa == null || sa.getHostCard() == null ? null
+                : NumberCosts.sentence(sa.getHostCard().getOracleText(), "that much|that many|the amount|\\bX\\b");
+        String answer = arranged(numberLayout(values, null, null, null, says),
+                () -> askOne("chooseNumber", title, labels, true));
         return answer == null ? values.get(0) : Integer.parseInt(answer.substring("number:".length()));
     }
 

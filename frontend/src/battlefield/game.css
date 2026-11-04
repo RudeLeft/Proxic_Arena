@@ -2646,6 +2646,46 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   border-color: #d9b26a;
   outline: none;
 }
+/* W-11 (Amendment 14) -- one number on a dial: large, with - and +. */
+.gs-dial {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.gs-dial-step {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #5a6560;
+  background: #1b2420;
+  color: #e3e8e4;
+  font: 600 var(--pa-size-xl)/1 var(--pa-text);
+  cursor: pointer;
+}
+.gs-dial-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.gs-dial-step:hover:not(:disabled),
+.gs-dial-step:focus-visible {
+  border-color: #d9b26a;
+  outline: none;
+}
+.gs-dial-n {
+  min-width: 64px;
+  text-align: center;
+  font: 700 var(--pa-size-2xl)/1 var(--pa-card);
+  color: #ffe7a8;
+  font-variant-numeric: tabular-nums;
+}
+.gs-dial-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gs-dial-over {
+  color: #e0a07a;
+}
 /* Combat damage (item 5): each blocker, what it needs, + and -. */
 .gs-win-damage {
   align-items: flex-start;

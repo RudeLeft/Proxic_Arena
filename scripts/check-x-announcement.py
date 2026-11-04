@@ -36,7 +36,6 @@ charged {2}{R}, and X = 3 taking one life, as faults. They were
 two targets and three targets.
 """
 import json
-import re
 import subprocess
 import sys
 import uuid
@@ -107,14 +106,14 @@ for line in proc.stdout:
         if dkind == "announceRequirements":
             offers.append(len(options))
             targeted = 0
-            # The biggest X on offer that is still cheap enough to
-            # pay for early, so the game keeps moving.
-            values = []
-            for index, label in enumerate(labels):
-                found = re.search(r"=\s*(\d+)", label)
-                if found:
-                    values.append((int(found.group(1)), index))
-            affordable = [v for v in values if v[0] <= 3]
+            # The biggest X on offer, up to 3, that the board can pay for
+            # now (Phase 9 Amendment 14: each option says so, and its
+            # number is arrange.number.values) -- an X that cannot be paid
+            # is cast, refused and cast again, and no Fireball ever lands.
+            numbers = ((frame.get("arrange") or {}).get("number") or {}).get("values") or []
+            values = [(n, index) for index, (n, o) in enumerate(zip(numbers, options))
+                      if o.get("payable") is not False]
+            affordable = [v for v in values if 0 < v[0] <= 3]
             if affordable:
                 value, index = max(affordable)
                 pick = options[index]
@@ -152,7 +151,8 @@ for line in proc.stdout:
         else:
             lands = [o for o, label in zip(options, labels) if "Play land" in label]
             casts = [o for o, label in zip(options, labels)
-                     if "Play land" not in label and "Add {" not in label]
+                     if "Play land" not in label and "Add {" not in label
+                     and o.get("payable") is not False]
             pick = lands[0] if lands else (casts[0] if casts else None)
 
         send({"protocolVersion": 1, "type": "DECISION_RESPONSE",

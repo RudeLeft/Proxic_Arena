@@ -17,6 +17,9 @@
 //       dimmed, with why.
 // W-10  Fact or Fiction: the split (click a card to move it between the
 //       piles) and the choice (the two piles, "Take this pile").
+// W-11  a split "divided as you choose" (Rolling Thunder, Arc Lightning):
+//       every target with − and +, at least 1 each, filled in to start,
+//       Done when nothing is left (Amendment 14, like the damage tray).
 //
 // Where the game asks one card at a time, the tray asks once and hands
 // the page a plan (cardPlans.ts) that answers the rest.
@@ -31,6 +34,8 @@ import {
   askingName,
   cardGroups,
   damageSteps,
+  divideSteps,
+  usualDivide,
   usualSplit,
   notOffered,
   orderSteps,
@@ -746,6 +751,101 @@ export function DamageTray(props: TrayProps) {
             {stepper("player", split.player, fight.divides || allLethal)}
           </div>
         )}
+      </div>
+    </Tray>
+  );
+}
+
+/**
+ * W-11 (Amendment 14, owner 2026-11-03: option A) -- a split "divided as
+ * you choose", once every target is chosen: each target with its share,
+ * − and +, at least 1 each; filled in to start (enough to kill each
+ * creature in order, the rest to the player); Done when none is left. The
+ * game's one-share-at-a-time questions are answered from the split.
+ */
+export function DivideTray(props: TrayProps) {
+  const { decision, board, busy, artUrl } = props;
+  const split = decision.arrange!.divide!;
+  const [shares, setShares] = useState(() => usualDivide(split));
+  const left = split.total - shares.reduce((a, b) => a + b, 0);
+  const what = split.what === "damage" ? "damage" : split.what === "counters" ? "counters" : "";
+  const name = askingName(board, decision) ?? "Your spell";
+  const move = (i: number, by: number) =>
+    setShares((now) => now.map((n, j) => (j === i ? Math.max(1, n + by) : n)));
+  const title = `Split ${split.total}${what ? ` ${what}` : ""}`;
+  return (
+    <Tray
+      geometry={props.geometry}
+      label={title}
+      from={name}
+      title={title}
+      kind={decision.kind}
+      prompt="Each target gets at least 1. + and − to change it."
+      actions={
+        <>
+          <span className={`gs-win-left${left === 0 ? " gs-win-left-done" : ""}`}>
+            {what ? `${what[0]!.toUpperCase()}${what.slice(1)}` : "Amount"} left: {left}
+          </span>
+          <MainButton
+            busy={busy}
+            disabled={left !== 0}
+            onClick={() => props.onPlan(divideSteps(decision.kind, split.total, shares))}
+          >
+            Done
+          </MainButton>
+        </>
+      }
+    >
+      <div className="gs-win-tiles gs-win-damage">
+        {split.targets.map((t, i) => {
+          const card = board.battlefield.find((c) => c.id === t.object) ?? null;
+          const who = t.object?.startsWith("player:")
+            ? board.players.find((p) => `player:${p.seat}` === t.object)
+            : undefined;
+          const n = shares[i]!;
+          const dies = t.lethal !== null && what === "damage" && n >= t.lethal;
+          return (
+            <div key={`${t.object}-${i}`} className="gs-win-damage-one" data-object-id={t.object}>
+              {card ? (
+                <div className="gs-win-tile gs-win-tile-small" aria-label={card.name}>
+                  <BigCard card={card} artUrl={artUrl} small />
+                  <span className="gs-win-tile-name">{card.name}</span>
+                </div>
+              ) : (
+                <div className="gs-win-damage-player">
+                  <b>{who ? (who.seat === board.seat ? "You" : who.name) : "A target"}</b>
+                  <span>{who ? `${who.life} life` : ""}</span>
+                </div>
+              )}
+              <span className={`gs-win-tile-caption${dies ? " gs-win-lethal" : ""}`}>
+                {t.lethal !== null && what === "damage"
+                  ? `needs ${t.lethal}${dies ? " ✓" : ""}`
+                  : " "}
+              </span>
+              <span className="gs-win-stepper">
+                <button
+                  type="button"
+                  className="gs-win-chip-btn"
+                  aria-label="One less"
+                  disabled={busy || n <= 1}
+                  onClick={() => move(i, -1)}
+                >
+                  −
+                </button>
+                <b aria-live="polite">{n}</b>
+                <button
+                  type="button"
+                  className="gs-win-chip-btn"
+                  aria-label="One more"
+                  disabled={busy || left <= 0}
+                  onClick={() => move(i, 1)}
+                >
+                  +
+                </button>
+              </span>
+            </div>
+          );
+        })}
       </div>
     </Tray>
   );

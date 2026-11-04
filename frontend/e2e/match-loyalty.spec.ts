@@ -228,29 +228,39 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       },
       {
         name: "the X announcement",
-        heading: /Choose how much/,
+        heading: /^Choose X$/,
         shot: "test-results/seen/announce-x.png",
         check: async (panel: Locator) => {
-          // Secure the Wastes is {X}{W}. The values are offered as
-          // actions because the protocol has no number field, which
-          // is Forge's own desktop behaviour too — it lists them
-          // and adds a box for anything larger.
-          const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
-          expect(offered.every((label) => /^X = \d+$/.test(label.trim()))).toBe(true);
+          // Phase 9 W-11 (Amendment 14): Secure the Wastes is {X}{W}, and
+          // X is a dial -- the number, what can be made, and one button
+          // that casts with it.
+          await expect(panel.locator(".gs-dial-n")).toHaveText(/^\d+$/);
+          await expect(panel.locator("button.gs-dial-go")).toHaveText(
+            /^Cast Secure the Wastes with X = \d+$/,
+          );
+          await expect(panel.getByText(/You can make \d+ mana\./)).toBeVisible();
 
-          // Consecutive, starting at the minimum, so the player is
-          // not quietly offered a subset.
-          //
-          // HOW MANY there are is a property of the board, not of
-          // the code, and asserting "more than one" here failed on
-          // a perfectly correct question: Forge offers a spell
-          // whether or not it can be paid for -- CostPartMana.canPay
-          // is unconditionally true, which is also what sat behind
-          // the §6.189 loop -- so X can legitimately be announced
-          // with nothing untapped, and then nought is the only
-          // value the board supports. The worker-level check is
-          // where the range itself is measured.
-          const values = offered.map((label) => Number(label.trim().slice(4)));
+          // Every value is still an option, in "List choices": consecutive,
+          // starting at the minimum, so the player is not quietly offered
+          // a subset. HOW MANY is a property of the board, not of the
+          // code: Forge offers a spell whether or not it can be paid for
+          // (CostPartMana.canPay is unconditionally true), so X can be
+          // announced with nothing untapped, and then nought is the only
+          // value. The worker-level checks measure the range itself.
+          const offered = await (await choices(panel.page())).allTextContents();
+          // The list names the card first ("Secure the Wastes · X = 2") and
+          // marks what can't be paid now ("X = 13 (not enough mana right now)").
+          const said = offered.map((label) =>
+            label
+              .trim()
+              .replace(/^.* · /, "")
+              .replace(/ \(.*\)$/, ""),
+          );
+          expect(
+            said.every((label) => /^X = \d+$/.test(label)),
+            said.join(", "),
+          ).toBe(true);
+          const values = said.map((label) => Number(label.slice(4)));
           expect(values.length).toBeGreaterThan(0);
           expect(values).toEqual(values.map((_, i) => values[0]! + i));
 

@@ -10,12 +10,14 @@ import {
   notOffered,
   orderSteps,
   damageSteps,
+  divideSteps,
   placeWords,
   plainPrompt,
   rowSteps,
   splitSteps,
   stepAnswer,
   trayOf,
+  usualDivide,
   usualSplit,
 } from "./cardPlans";
 
@@ -300,5 +302,65 @@ describe("combat damage among blockers (owner 2026-11-01, item 5)", () => {
       trayOf(decision({ kind: "assignCombatDamage", arrange: { ...arrange({}), damage: fight } })),
     ).toBe("damage");
     expect(trayOf(decision({ kind: "assignCombatDamage" }))).toBeNull();
+  });
+});
+
+// W-11 (Amendment 14): a split "divided as you choose", in one tray.
+describe("the split", () => {
+  const thunder = {
+    total: 5,
+    what: "damage",
+    targets: [
+      { object: "player:2", lethal: null },
+      { object: "card:7", lethal: 3 },
+      { object: "card:9", lethal: 2 },
+    ],
+    at: 0,
+    values: [1, 2, 3],
+  };
+
+  it("starts with enough to kill each creature in order, the rest to the player", () => {
+    expect(usualDivide(thunder)).toEqual([1, 3, 1]);
+    expect(usualDivide({ ...thunder, total: 9 })).toEqual([4, 3, 2]);
+    // Too little to kill anything: 1 each.
+    expect(usualDivide({ ...thunder, total: 3 })).toEqual([1, 1, 1]);
+    // No player: the rest to the last target.
+    expect(
+      usualDivide({
+        total: 7,
+        targets: [
+          { object: "card:1", lethal: 2 },
+          { object: "card:2", lethal: 2 },
+        ],
+      }),
+    ).toEqual([2, 5]);
+  });
+
+  it("answers only the shares the game asks: never the last, never one with no choice", () => {
+    const kind = "divideAsYouChoose";
+    expect(divideSteps(kind, 5, [1, 3, 1])).toEqual([
+      { kind, value: 1 },
+      { kind, value: 3 },
+    ]);
+    // 3 over 3: every share is 1, nothing is asked.
+    expect(divideSteps(kind, 3, [1, 1, 1])).toEqual([]);
+    // 4 over 3: the first may take 2; after it took 2 the second has no choice.
+    expect(divideSteps(kind, 4, [2, 1, 1])).toEqual([{ kind, value: 2 }]);
+    expect(divideSteps(kind, 4, [1, 2, 1])).toEqual([
+      { kind, value: 1 },
+      { kind, value: 2 },
+    ]);
+  });
+
+  it("is a tray from its first share, and a share is answered by its value", () => {
+    const first = decision({
+      kind: "divideAsYouChoose",
+      options: [option("divide:1", null), option("divide:2", null), option("divide:3", null)],
+      arrange: arrange({ divide: thunder }),
+    });
+    expect(trayOf(first)).toBe("divide");
+    expect(trayOf({ ...first, arrange: arrange({ divide: { ...thunder, at: 1 } }) })).toBeNull();
+    expect(stepAnswer({ kind: "divideAsYouChoose", value: 3 }, first)).toBe("divide:3");
+    expect(stepAnswer({ kind: "divideAsYouChoose", value: 4 }, first)).toBeUndefined();
   });
 });

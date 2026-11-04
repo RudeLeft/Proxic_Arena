@@ -564,3 +564,163 @@ export function ListTray(props: Common & { onClose: () => void }) {
     </Tray>
   );
 }
+
+/** W-11 -- the questions whose answer is one number, when the game sent the dial's layout. */
+export const NUMBER_KINDS = new Set([
+  "announceRequirements",
+  "chooseNumberForKeywordCost",
+  "chooseNumber",
+]);
+
+/** W-11 -- the dial's words for one question (Amendment 14's table). */
+export function dialWords(
+  decision: Decision,
+  name: string | null,
+  energy: number | null,
+): { title: string; says: string; button: (n: number) => string } {
+  const layout = decision.arrange?.number;
+  const card = name ?? "it";
+  const said = layout?.says ? `${layout.says} ` : "";
+  const make = layout?.canMake != null ? `You can make ${layout.canMake} mana.` : "";
+  if (decision.kind === "announceRequirements") {
+    const spell = decision.about?.kind !== "ability";
+    return {
+      title: "Choose X",
+      says: `${said}${make}`.trim(),
+      button: (n) => (spell ? `Cast ${card} with X = ${n}` : `X = ${n}`),
+    };
+  }
+  if (decision.kind === "chooseNumberForKeywordCost") {
+    const keyword = layout?.keyword ?? "";
+    const kicks = /multikicker/i.test(keyword);
+    const each = layout?.each ? `Each time costs ${layout.each} more. ` : "";
+    return {
+      title: kicks
+        ? "Kick it how many times?"
+        : /replicate/i.test(keyword)
+          ? "Copy it how many times?"
+          : "Pay it how many times?",
+      says: `${each}${said}${make}`.trim(),
+      button: (n) =>
+        n === 0
+          ? kicks
+            ? "Cast it unkicked"
+            : "None"
+          : `${kicks ? "Kick it" : "Pay it"} ${n} ${n === 1 ? "time" : "times"}`,
+    };
+  }
+  const energyAsked = /energy/i.test(decision.prompt ?? "");
+  return {
+    title: energyAsked ? "Pay how much energy?" : "Choose a number",
+    says: `${said}${energyAsked && energy !== null ? `You have ${energy}.` : ""}`.trim(),
+    button: (n) => (energyAsked ? `Pay ${n} energy` : `Choose ${n}`),
+  };
+}
+
+/**
+ * W-11 (Amendment 14, owner 2026-11-03: option A) -- one number, on a dial:
+ * the number large with − and +, "None" and "Most you can pay", the cost
+ * as it changes, and one button that answers. A number that can't be paid
+ * now stays choosable and says so (the rules decide, as before).
+ */
+export function NumberWindow(props: Common) {
+  const { decision, board, busy, onAnswer } = props;
+  const layout = decision.arrange!.number!;
+  const values = layout.values;
+  const source = sourceOf(board, decision);
+  const name = decision.about?.name ?? source?.name ?? null;
+  const me = board.players.find((p) => p.seat === board.seat);
+  const energy = me?.counters.find((c) => c.name.toLowerCase() === "energy")?.count ?? null;
+  const words = dialWords(decision, name, energy);
+  const payable = (i: number) => decision.options[i]?.payable !== false;
+  let most = -1;
+  values.forEach((_, i) => {
+    if (payable(i)) most = i;
+  });
+  // Starts at the most that can be paid (a kicker: none); when nothing can
+  // be paid, at the least.
+  const [at, setAt] = useState(() =>
+    decision.kind === "chooseNumberForKeywordCost" ? 0 : Math.max(0, most),
+  );
+  const option = decision.options[at];
+  const n = values[at] ?? 0;
+  const cost = option?.cost ?? null;
+  return (
+    <Bubble
+      anchor={props.anchor}
+      geometry={props.geometry}
+      label={words.title}
+      from={name ?? "Your spell"}
+      title={words.title}
+      titleClass="gs-question-title"
+      kind={decision.kind}
+      actions={
+        <>
+          <button
+            type="button"
+            className="gs-win-btn gs-win-btn-main gs-dial-go"
+            disabled={busy || !option}
+            onClick={() => option && onAnswer(option.actionId)}
+          >
+            {words.button(n)}
+          </button>
+          <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />
+        </>
+      }
+    >
+      {words.says && (
+        <p className="gs-win-prompt gs-question-prompt decision-prompt">
+          <ManaText text={words.says} />
+        </p>
+      )}
+      <div className="gs-dial">
+        <button
+          type="button"
+          className="gs-dial-step"
+          aria-label="One less"
+          disabled={busy || at <= 0}
+          onClick={() => setAt(at - 1)}
+        >
+          −
+        </button>
+        <b className="gs-dial-n" aria-live="polite">
+          {n}
+        </b>
+        <button
+          type="button"
+          className="gs-dial-step"
+          aria-label="One more"
+          disabled={busy || at >= values.length - 1}
+          onClick={() => setAt(at + 1)}
+        >
+          +
+        </button>
+      </div>
+      <div className="gs-dial-quick">
+        <button type="button" className="gs-win-chip-btn" disabled={busy} onClick={() => setAt(0)}>
+          {values[0] === 0 ? "None" : `Least: ${values[0]}`}
+        </button>
+        {most >= 0 && layout.canMake !== null && (
+          <button
+            type="button"
+            className="gs-win-chip-btn"
+            disabled={busy}
+            onClick={() => setAt(most)}
+          >
+            Most you can pay: {values[most]}
+          </button>
+        )}
+      </div>
+      {(cost || !payable(at)) && (
+        <p className="gs-win-prompt gs-dial-cost">
+          {cost && (
+            <>
+              Costs <ManaText text={cost} />
+            </>
+          )}
+          {!payable(at) && <span className="gs-dial-over"> · more than you can pay now</span>}
+        </p>
+      )}
+    </Bubble>
+  );
+}

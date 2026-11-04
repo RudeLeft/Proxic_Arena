@@ -3,6 +3,7 @@ import type { Decision, DecisionOption, Snapshot } from "../match";
 import {
   BUBBLE_MOST,
   colourSymbol,
+  dialWords,
   fitsBubble,
   listGroups,
   optionWords,
@@ -79,5 +80,67 @@ describe("group 2 windows", () => {
     (b as unknown as { casting: unknown[] }).casting = [{ id: "card:9", name: "Sinew Sliver" }];
     const d = { about: { name: "Sinew Sliver" }, prompt: null } as unknown as Decision;
     expect(sourceOf(b, d)?.id).toBe("card:9");
+  });
+});
+
+// W-11 (Amendment 14): the dial's words, as the owner approved them.
+describe("the dial's words", () => {
+  const ask = (kind: string, number: object, extra: Partial<Decision> = {}): Decision =>
+    ({
+      kind,
+      prompt: null,
+      about: { name: "Fireball", kind: "spell", from: "hand", copy: null, copies: null },
+      arrange: {
+        number: {
+          values: [0, 1, 2],
+          canMake: null,
+          keyword: null,
+          each: null,
+          says: null,
+          ...number,
+        },
+      },
+      ...extra,
+    }) as unknown as Decision;
+
+  it("X: the card's sentence, what can be made, and a button that casts", () => {
+    const words = dialWords(
+      ask("announceRequirements", { canMake: 5, says: "Fireball deals X damage." }),
+      "Fireball",
+      null,
+    );
+    expect(words.title).toBe("Choose X");
+    expect(words.says).toBe("Fireball deals X damage. You can make 5 mana.");
+    expect(words.button(3)).toBe("Cast Fireball with X = 3");
+  });
+
+  it("multikicker: how many times, what each time costs", () => {
+    const words = dialWords(
+      ask("chooseNumberForKeywordCost", { keyword: "Multikicker", each: "{2}", canMake: 5 }),
+      "Everflowing Chalice",
+      null,
+    );
+    expect(words.title).toBe("Kick it how many times?");
+    expect(words.says).toBe("Each time costs {2} more. You can make 5 mana.");
+    expect(words.button(0)).toBe("Cast it unkicked");
+    expect(words.button(1)).toBe("Kick it 1 time");
+    expect(words.button(2)).toBe("Kick it 2 times");
+  });
+
+  it("energy: how much there is", () => {
+    const words = dialWords(
+      ask(
+        "chooseNumber",
+        { says: "Harnessed Lightning deals that much damage to that creature." },
+        { prompt: "amount of energy to pay" },
+      ),
+      "Harnessed Lightning",
+      3,
+    );
+    expect(words.title).toBe("Pay how much energy?");
+    expect(words.says).toBe(
+      "Harnessed Lightning deals that much damage to that creature. You have 3.",
+    );
+    expect(words.button(2)).toBe("Pay 2 energy");
   });
 });

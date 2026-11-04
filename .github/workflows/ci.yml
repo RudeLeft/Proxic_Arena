@@ -242,7 +242,7 @@ jobs:
               attachments printings face-down costs modes shapes results \
               tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
               library-order mana-pool sacrifice surveil mulligan you-choose combat-choices unreachable cost-kinds dice unset \
-              many-triggers take-backs trigger-costs what-happened land-mana spectator card-trays who-did-it \
+              many-triggers take-backs trigger-costs what-happened land-mana spectator card-trays who-did-it numbers \
             | awk -v shard="$shard" 'NR % 2 == shard % 2' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=600;; esac;
@@ -511,6 +511,12 @@ jobs:
       - name: Build the card trays deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/card-trays-deck.zip" protocol/fixtures/card-trays-deck
+
+      # Phase 9 W-11: the questions whose answer is a number (X, splitting
+      # damage, multikicker, energy).
+      - name: Build the numbers deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/numbers-deck.zip" protocol/fixtures/numbers-deck
 
       # And a creature nobody can answer (owner 2026-11-01, item 2): the
       # cast card lands straight on its place on the battlefield.

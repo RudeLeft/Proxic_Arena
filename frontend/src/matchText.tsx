@@ -219,6 +219,8 @@ export function headingFor(kind: string): string {
       return "Call it";
     case "chooseNumber":
       return "Choose a number";
+    case "divideAsYouChoose":
+      return "Split it";
     case "chooseSingleCardFace":
     case "chooseSingleSpellForEffect":
       return "Choose one";
@@ -438,6 +440,8 @@ export function hintFor(kind: string, options: number): string {
       // Library cards: worth saying they are shown to this player
       // alone, as Forge shows them (spec 0001: as pictures).
       return "Only you can see these cards. The line above says what to do with them.";
+    case "divideAsYouChoose":
+      return "Each target gets at least 1. What is left goes to the targets after this one.";
     case "chooseNumber":
       return "These are the numbers allowed. This cannot be skipped.";
     case "chooseNumberForKeywordCost":

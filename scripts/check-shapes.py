@@ -127,7 +127,7 @@ def adventure():
 
 def split():
     g = game("split", [("Mountain", 12), ("Island", 12), ("Fire // Ice", 36)])
-    st = {"fire": False, "ice": False, "divided": [], "before": None}
+    st = {"fire": False, "ice": False, "divided": [], "targeted": 0, "before": None}
     seat2 = seat2_plays("Grizzly Bears")
 
     def policy(g, f):
@@ -160,11 +160,13 @@ def split():
         if kind == "chooseTargetsFor":
             labels = [o["label"] for o in f["options"]]
             if st["fire"] and not st["ice"]:
-                # Fire: one point to the opponent, one to a creature.
+                # Fire: one point to the opponent, one to a creature. Every
+                # target is chosen first, then the split (Phase 9 Amendment 14).
                 player = next((o["actionId"] for o in f["options"] if o["label"] == "Bob"), None)
                 creature = next((o["actionId"] for o in f["options"] if "Grizzly" in o["label"]), None)
-                chosen = len(st["divided"])
-                return (player if chosen == 0 else creature) or f["options"][0]["actionId"] if labels else None
+                pick = player if st["targeted"] == 0 else creature
+                st["targeted"] += 1
+                return (pick or f["options"][0]["actionId"]) if labels else None
             return next((o["actionId"] for o in f["options"] if "Grizzly" in o["label"]), f["options"][0]["actionId"])
         if kind == "divideAsYouChoose":
             st["divided"].append([o["label"] for o in f["options"]])
@@ -184,8 +186,9 @@ def split():
     if not st["fire"] or not st["ice"]:
         return "inconclusive", "both halves were never cast", found
     problems = [found["stopped"]] if found["stopped"] else []
-    if not st["divided"]:
-        problems.append("Fire's damage was never divided")
+    # Two damage over two targets is 1 and 1: nothing to ask (Amendment 14).
+    if st["divided"]:
+        problems.append(f"Fire's 1 and 1 has no other answer, yet it was asked: {st['divided']}")
     if found["their_life"][0] is not None and found["their_life"][1] != found["their_life"][0] - 1:
         problems.append(f"one of Fire's two damage should have hit the player: {found['their_life']}")
     if found["hand"][1] != found["hand"][0]:  # -1 Ice, +1 drawn

@@ -161,6 +161,38 @@ export interface DecisionArrange {
    * its damage as it chooses).
    */
   damage?: DamageFight | null;
+  /** Phase 9 W-11 (Amendment 14) -- a number question, for the dial. */
+  number?: NumberLayout | null;
+  /** Phase 9 W-11 (Amendment 14) -- one share of a split, with the whole split. */
+  divide?: DivideLayout | null;
+}
+
+/**
+ * Phase 9 W-11 -- what the dial needs besides the options: each option's
+ * number in the options' order (a number is never read from a label),
+ * how much mana can be made (null when no mana is asked), the keyword
+ * paid each time and what each time costs, and the card's own sentence.
+ */
+export interface NumberLayout {
+  values: number[];
+  canMake: number | null;
+  keyword: string | null;
+  each: string | null;
+  says: string | null;
+}
+
+/**
+ * Phase 9 W-11 -- a split ("divided as you choose"): the total, every
+ * target in the order chosen with what a creature still needs to die,
+ * which target this question is about, and each option's amount.
+ */
+export interface DivideLayout {
+  total: number;
+  /** "damage", "counters" or "amount". */
+  what: string;
+  targets: { object: string | null; lethal: number | null }[];
+  at: number;
+  values: number[];
 }
 
 /** The spell or ability a question is about. */
@@ -1045,6 +1077,42 @@ function asFight(value: unknown): DamageFight | null {
   };
 }
 
+function asNumbers(value: unknown): number[] {
+  return Array.isArray(value) ? value.map(asNumber).filter((n): n is number => n !== null) : [];
+}
+
+function asNumberLayout(value: unknown): NumberLayout | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const values = asNumbers(v["values"]);
+  if (values.length === 0) return null;
+  return {
+    values,
+    canMake: asNumber(v["canMake"]),
+    keyword: asString(v["keyword"]),
+    each: asString(v["each"]),
+    says: asString(v["says"]),
+  };
+}
+
+function asDivide(value: unknown): DivideLayout | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const total = asNumber(v["total"]);
+  if (!total || !Array.isArray(v["targets"])) return null;
+  const targets = v["targets"].map((t) => {
+    const one = (typeof t === "object" && t !== null ? t : {}) as Record<string, unknown>;
+    return { object: asString(one["object"]), lethal: asNumber(one["lethal"]) };
+  });
+  return {
+    total,
+    what: asString(v["what"]) ?? "amount",
+    targets,
+    at: asNumber(v["at"]) ?? 0,
+    values: asNumbers(v["values"]),
+  };
+}
+
 function asArrange(value: unknown): DecisionArrange | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
@@ -1066,6 +1134,8 @@ function asArrange(value: unknown): DecisionArrange | null {
     split: typeof v["split"] === "string" || v["split"] === true,
     piles: piles && piles.length === 2 ? piles : null,
     damage: asFight(v["damage"]),
+    number: asNumberLayout(v["number"]),
+    divide: asDivide(v["divide"]),
   };
 }
 

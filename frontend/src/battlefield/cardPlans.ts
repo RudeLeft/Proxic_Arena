@@ -20,7 +20,9 @@ export type PlanStep =
   /** A yes or a no -- Ponder's "Do you want to shuffle the library?". */
   | { kind: string; yes: boolean }
   /** An option by its id -- the defending player, for trample (item 5). */
-  | { kind: string; action: string };
+  | { kind: string; action: string }
+  /** W-11 -- the option worth this number (arrange's values, in the options' order). */
+  | { kind: string; value: number };
 
 /**
  * The answer `step` gives `decision`: an action id, null for a pass, or
@@ -35,6 +37,11 @@ export function stepAnswer(step: PlanStep, decision: Decision): string | null | 
   if ("pass" in step) return decision.mandatory ? undefined : null;
   if ("action" in step) {
     return decision.options.some((o) => o.actionId === step.action) ? step.action : undefined;
+  }
+  if ("value" in step) {
+    const values = decision.arrange?.divide?.values ?? decision.arrange?.number?.values ?? [];
+    const at = values.indexOf(step.value);
+    return at >= 0 ? (decision.options[at]?.actionId ?? undefined) : undefined;
   }
   const word = step.yes ? /^yes\b/i : /^no\b/i;
   return decision.options.find((o) => word.test(o.label ?? ""))?.actionId ?? undefined;
@@ -88,8 +95,11 @@ export const ROW_KINDS = new Set(["arrangeForScry", "arrangeForSurveil", "willPu
  */
 export function trayOf(
   decision: Decision,
-): "order" | "rows" | "hidden" | "split" | "piles" | "damage" | null {
+): "order" | "rows" | "hidden" | "split" | "piles" | "damage" | "divide" | null {
   const arrange = decision.arrange;
+  // W-11: a split, the whole of it in one tray -- from its first share
+  // (a share asked again part way keeps its own window).
+  if (decision.kind === "divideAsYouChoose" && arrange?.divide?.at === 0) return "divide";
   // Item 5: combat damage among blockers, the whole fight in one tray.
   if (decision.kind === "assignCombatDamage" && arrange?.damage) return "damage";
   if (decision.kind === "chooseCardsPile" && arrange?.piles) return "piles";
@@ -230,5 +240,46 @@ export function damageSteps(
     for (let n = 0; n < (split.blockers[i] ?? 0); n++) steps.push({ kind, card });
   });
   for (let n = 0; n < split.player; n++) steps.push({ kind, action: DAMAGE_TO_PLAYER });
+  return steps;
+}
+
+/**
+ * W-11 (Amendment 14) -- a split to start from: 1 to each target, then
+ * enough to kill each creature in the order chosen, the rest to the first
+ * player chosen, else to the last target.
+ */
+export function usualDivide(split: {
+  total: number;
+  targets: readonly { object: string | null; lethal: number | null }[];
+}): number[] {
+  const shares = split.targets.map(() => 1);
+  let left = split.total - shares.length;
+  split.targets.forEach((t, i) => {
+    if (t.lethal === null || left <= 0) return;
+    const more = Math.min(left, Math.max(0, t.lethal - 1));
+    shares[i]! += more;
+    left -= more;
+  });
+  if (left > 0 && shares.length > 0) {
+    const player = split.targets.findIndex((t) => t.object?.startsWith("player:"));
+    shares[player >= 0 ? player : shares.length - 1]! += left;
+  }
+  return shares;
+}
+
+/**
+ * W-11 -- the split as the game's questions: each target but the last is
+ * asked its share in order, and only when it has a choice (the game puts
+ * the 1 that is all a target can get without asking); the last takes the
+ * rest.
+ */
+export function divideSteps(kind: string, total: number, shares: readonly number[]): PlanStep[] {
+  const steps: PlanStep[] = [];
+  let left = total;
+  shares.slice(0, -1).forEach((share, i) => {
+    const most = left - (shares.length - 1 - i);
+    if (most > 1) steps.push({ kind, value: share });
+    left -= share;
+  });
   return steps;
 }

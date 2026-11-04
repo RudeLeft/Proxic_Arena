@@ -188,6 +188,21 @@ decision.notNow           on a priority question: each of the asked player's
 decision.owing            on a payment question (applyManaToCost): the mana
                           still due, "{1}{R}"; the buttons no longer repeat
                           it (Phase 9 Amendment 13, item 9)
+arrange.number            on a number question (announceRequirements,
+                          chooseNumberForKeywordCost, chooseNumber): values
+                          (each option's number, in the options' order),
+                          canMake (mana that can be made; absent when no
+                          mana is asked), keyword and each (multikicker,
+                          "{2}"), says (the card's sentence). Each option's
+                          cost and payable say what it costs and whether it
+                          can be paid (Phase 9 Amendment 14)
+arrange.divide            on each share of a split (divideAsYouChoose),
+                          asked once every target is chosen: total, what
+                          ("damage"), targets [{object, lethal}] in the
+                          order chosen, at (this share's target), values
+                          (each option's amount). The last target takes
+                          the rest unasked; a share with one possible
+                          amount is not asked (Amendment 14)
 snapshot.action           who did what to a library or hand, in this
                           reader's words, with only the cards it may know;
                           never to the seat that chose (Amendment 12, 13)

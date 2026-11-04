@@ -712,3 +712,97 @@ before building).**
   reworded for item 11; the lab checks reworded for " · "; screenshots of
   a real game for items 1, 5, 6, 10 and 12 (two defects found only on
   them: the pause sign turned on its side, the seal cut off).
+
+
+**Amendment 14 (2026-11-03, W-11 decided -- choosing a number; canvas
+https://claude.ai/artifact/FSPaHn8XrLy4a5egPdiVuM).**
+
+- *Today (a real game with the numbers test deck,
+  `protocol/fixtures/numbers-deck`, `match-numbers.spec.ts`):* X
+  (Rolling Thunder, Fireball, Comet Storm) is ten buttons "X = 0" to
+  "X = 9" with one Mountain out, saying nothing of cost or of what can
+  be paid (X = 8 could be chosen, and the payment then failed); the split
+  (Arc Lightning, Forked Bolt, Rolling Thunder) is titled "Your move",
+  asked for each target as it is chosen, the rest going to the last
+  target unasked; multikicker (Everflowing Chalice, Comet Storm) shows
+  the engine's "Choose Amount for Multikicker: {2} -- how many times?";
+  Harnessed Lightning shows "amount of energy to pay" under "Choose",
+  without its card's name, what the energy does, or how much there is.
+- *Decided (owner: option A for one number, option A for the split,
+  wording approved as written):*
+  - *One number* (X, a kicker paid more than once, energy, any "choose a
+    number"): one window, a dial: the number large with − and +, "None"
+    and "Most you can pay: N", the cost as it changes ("Costs {3}{R}"),
+    what you can make ("You can make 5 mana." / "You have 3 energy."),
+    and one button that answers ("Cast Fireball with X = 3"), with
+    Cancel where today's question can be cancelled. More than can be
+    paid stays choosable and is marked "more than you can pay now" (the
+    rules decide, as today).
+  - *The split:* every target is chosen first, then one window like the
+    combat damage window: each target's picture with − and +, at least 1
+    each, filled in to start (enough to kill each creature, in order,
+    the rest to the player), "Damage left: N", Done when it is 0. This
+    is the rules' order (601.2d), so the worker asks the split after the
+    targets instead of as each is chosen.
+  - *Words:* "Choose X" (the card's words and its cost); "Split N
+    damage" ("Each target gets at least 1."); "Kick it how many times?"
+    ("Each time costs {2} more and gives Everflowing Chalice a charge
+    counter." -- the card's own effect); "Pay how much energy?"
+    ("Harnessed Lightning deals that much damage to Hill Giant. You have
+    3."). Every one names its card at the top.
+- *As built:* the worker sends each number question's values in the
+  options' order, what can be made, the keyword and its cost, and the
+  card's sentence (`arrange.number`), and each option's cost and whether
+  it can be paid; a split is asked after the targets, one question per
+  share with a choice, each carrying the whole split (`arrange.divide`,
+  protocol/README.md); no more targets than there is to divide. The
+  page's dial (`NumberWindow`) starts at the most that can be paid (a
+  kicker at none; nothing payable, the least); the split tray
+  (`DivideTray`) answers the game's shares from the split. The multikicker
+  question no longer carries the engine's "--".
+- *Evidence:* `scripts/check-numbers.py` (Fireball, Everflowing Chalice,
+  Arc Lightning, Harnessed Lightning: values, costs, payable, the split's
+  order and contents, the board after; every scenario fails on the worker
+  before this change), added to the Mechanics Lab in CI;
+  `check-shapes.py` split (Fire // Ice, 1 and 1 not asked);
+  `NumberCostsTest` (worker); unit tests for the split's start and
+  answers and the dial's words; `match-numbers.spec.ts` (a real game with
+  the numbers deck: the dial for X, multikicker and energy, the split
+  tray, no share asked again), with screenshots of each.
+
+**Amendment 15 (2026-11-04, a second tab and the countdown).**
+
+- *Today:* every tab a player has open on a game runs their spell's
+  5-second countdown, so a forgotten tab resolves a spell they paused in
+  the other (found in CI 2026-11-03, where a previous test's page did
+  exactly that; older than the pause).
+- *Decided (owner: "only the tab in front counts"):* a hidden or
+  minimised tab never resolves anything for the player; brought back to
+  the front, its countdown starts again from 5. The tab in front works
+  as before. A pause holds until the player passes (Amendment 13,
+  item 1, as rebuilt 2026-11-03).
+- *Evidence:* `match-window.spec.ts` (the page hidden for 6 s with the
+  spell still on the stack, then counting from 5 again in front); every
+  game spec closes its pages when it ends.
+
+**Amendment 16 (2026-11-04, W-12 decided -- name a card; canvas
+https://claude.ai/artifact/A6oesok4EKVjhqk9nVbAFs).**
+
+- *Today (a real game, the name-a-card test deck, Pithing Needle and
+  Phyrexian Revoker, `match-card-name.spec.ts`):* the old question panel
+  in the middle of the table, over the board; a search box and a list of
+  names only (no cost or type: "Mountain Goat" and "Mountain Stronghold"
+  look alike); no way to click a card you can see; the hint "Any of
+  34,457 card names can go here."
+- *Decided (owner: option A, wording approved as written):* the cards
+  this player can see on the table, and in open zones such as a
+  graveyard, glow; one click names one. The window beside the card
+  asking (the W-00 frame) holds the search for any other name, each
+  result with its cost and type ("Goblin Guide {R} · Creature — Goblin
+  Scout"). A card the effect can't name (a land, for Phyrexian Revoker)
+  does not glow, and a click on it says why ("Phyrexian Revoker can't
+  name a land."). The answer is always one of the game's own names: a
+  click searches the card's exact name and picks that result.
+- *Words:* "Name a card" (Phyrexian Revoker: "Name a nonland card");
+  the card's own words under it; "Type any card's name"; "Showing 8 of
+  214. Type more to narrow it down."

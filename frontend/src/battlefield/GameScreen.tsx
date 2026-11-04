@@ -63,11 +63,19 @@ import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
 import { CastingCard, CastingFlight, castingSpot, docks, owingSymbols } from "./CastingCard";
-import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
+import {
+  ChoiceWindow,
+  ListTray,
+  NUMBER_KINDS,
+  NumberWindow,
+  TableQuestionWindow,
+  sourceOf,
+} from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import {
   DamageTray,
+  DivideTray,
   HiddenZoneTray,
   OrderCardsTray,
   PilesTray,
@@ -875,7 +883,16 @@ export function GameScreen({
   // keyed to the question and the stack's top). Amendment 13, item 1.
   const [paused, setPaused] = useState(false);
   const windowPaused = windowId !== null && paused;
-  const counting = windowId !== null && !paused;
+  // Owner 2026-11-04: only the tab in front counts down. A hidden tab (a
+  // second one, forgotten) never resolves anything for the player; back
+  // in front, its countdown starts again from 5.
+  const [hidden, setHidden] = useState(() => document.hidden);
+  useEffect(() => {
+    const changed = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", changed);
+    return () => document.removeEventListener("visibilitychange", changed);
+  }, []);
+  const counting = windowId !== null && !paused && !hidden;
   const pauseWindow = useCallback(() => {
     if (windowId !== null) setPaused(true);
   }, [windowId]);
@@ -1078,7 +1095,12 @@ export function GameScreen({
       if (tray === "hidden") return <HiddenZoneTray key={decision.decisionId} {...trayProps} />;
       if (tray === "split") return <SplitTray key={decision.decisionId} {...trayProps} />;
       if (tray === "damage") return <DamageTray key={decision.decisionId} {...trayProps} />;
+      if (tray === "divide") return <DivideTray key={decision.decisionId} {...trayProps} />;
       return <PilesTray key={decision.decisionId} {...trayProps} />;
+    }
+    // W-11 -- one number, on the dial (Amendment 14).
+    if (NUMBER_KINDS.has(decision.kind) && decision.arrange?.number) {
+      return <NumberWindow key={decision.decisionId} {...common} />;
     }
     if (yesNo(decision)) {
       return (
