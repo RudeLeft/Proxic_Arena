@@ -413,6 +413,9 @@ export function GameScreen({
     (actionId: string | null) => {
       if (!decision) return;
       answered.current = decision.decisionId;
+      // Amendment 13 (item 1): a pause lasts until the player passes --
+      // resolving the spell, or moving on.
+      if (actionId === null && decision.kind === "chooseSpellAbilityToPlay") setPaused(false);
       // W-07 -- Brainstorm: a card from the hand to the top, numbered in
       // the order clicked.
       if (
@@ -783,10 +786,7 @@ export function GameScreen({
       if (box) castFrom.current = { id: objectId, box };
       const result = clickOn(question, objectId, decision?.notNow?.[objectId]?.length ?? 0);
       // Spec 0005: a card you could play pauses the response window.
-      if (result.kind !== "select" && decision?.window) {
-        const top = board?.stack[0]?.id;
-        setPausedKeys([`decision:${decision.decisionId}`, ...(top ? [top] : [])]);
-      }
+      if (result.kind !== "select" && decision?.window) setPaused(true);
       const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
       setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
@@ -869,26 +869,16 @@ export function GameScreen({
     decision?.window && question?.context === "priority" && game.awaiting === null
       ? decision.decisionId
       : null;
-  // A pause is for the spell or trigger on top, not for one question: the
-  // game may ask again about the same stack (a new decision id), and a
-  // paused countdown must not start over then (Amendment 13, item 1). It
-  // holds both the question and the stack's top, because the stack can
-  // arrive just after the question (CI, 2026-11-03: a pause made before
-  // the spell showed on the stack ran out 5 s later).
-  const stackTop = board?.stack[0]?.id ?? null;
-  const windowKeys = useMemo(
-    () => (windowId === null ? [] : [`decision:${windowId}`, ...(stackTop ? [stackTop] : [])]),
-    [windowId, stackTop],
-  );
-  const [pausedKeys, setPausedKeys] = useState<readonly string[]>([]);
-  const windowPaused = windowKeys.some((key) => pausedKeys.includes(key));
-  const counting = windowId !== null && !windowPaused;
-  const pauseWindow = useCallback(() => setPausedKeys(windowKeys), [windowKeys]);
-  // Paused before the stack showed its top: the top joins the pause.
-  useEffect(() => {
-    if (windowPaused && windowKeys.some((key) => !pausedKeys.includes(key)))
-      setPausedKeys((keys) => [...new Set([...keys, ...windowKeys])]);
-  }, [windowPaused, windowKeys, pausedKeys]);
+  // A pause holds until the player passes (answer, above): not tied to one
+  // question or one stack entry, which the game may change under it (CI
+  // 2026-11-03: a paused countdown ran out twice, once after the pause was
+  // keyed to the question and the stack's top). Amendment 13, item 1.
+  const [paused, setPaused] = useState(false);
+  const windowPaused = windowId !== null && paused;
+  const counting = windowId !== null && !paused;
+  const pauseWindow = useCallback(() => {
+    if (windowId !== null) setPaused(true);
+  }, [windowId]);
   const [countdown, setCountdown] = useState<number | null>(null);
   // The latest answer, so a question updated mid-countdown never restarts it.
   const answerRef = useRef(answer);
