@@ -127,8 +127,6 @@ import "./game.css";
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
 const RESPONSE_WINDOW_MS = 5000;
-/** Spec 0054 — how long the other player is offline before "End the game" is offered. */
-const AWAY_MS = 10 * 60_000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
 const HOLD_MS = 1500;
 
@@ -340,8 +338,9 @@ export function GameScreen({
   // chat is closed (owner 2026-10-21). By the line's id, not a count: the
   // log keeps only the latest lines, so its length stops growing.
   const { lobby } = useLobbyConnection();
-  // Spec 0054 (owner 2026-11-03) — the other player has been offline 10
-  // minutes: the one still here may keep waiting, or end the game as the
+  // Spec 0054 (owner 2026-11-03) — the other player has been offline as
+  // long as the server's away setting (game.awayMinutes, from the
+  // greeting): the one still here may keep waiting, or end the game as the
   // other's concession. The server checks the time again; this only says
   // when to offer it. Offline is the lobby's word for it, and only trusted
   // while the lobby can see YOU (a dropped lobby shows everybody gone).
@@ -375,7 +374,7 @@ export function GameScreen({
     !watching &&
     live &&
     goneSince !== null &&
-    awayNow - goneSince >= AWAY_MS &&
+    awayNow - goneSince >= game.awayMinutes * 60_000 &&
     keptWaiting !== goneSince;
   // Spec 0028 — each stack object with its caster's picture.
   const stackShown = useMemo(
@@ -1295,7 +1294,10 @@ export function GameScreen({
                 <NoticeStack notices={tableNotices} place="table" />
                 {awayLong && !finished && (
                   <div className="gs-away" role="alert">
-                    <p className="gs-away-title">{theirName} has been gone 10 minutes.</p>
+                    <p className="gs-away-title">
+                      {theirName} has been gone {game.awayMinutes}{" "}
+                      {game.awayMinutes === 1 ? "minute" : "minutes"}.
+                    </p>
                     <p className="gs-away-sub">
                       Ending the game counts as {theirName} conceding: you win.
                     </p>

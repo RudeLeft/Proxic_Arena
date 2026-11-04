@@ -525,6 +525,11 @@ export interface MatchState {
   asking: { seat: number | null } | null;
   /** Spec 0047 -- how many people are watching (players are told). */
   watching: number;
+  /**
+   * Spec 0054 -- minutes the other player is offline before "End the
+   * game" is offered: the server's setting, from the greeting.
+   */
+  awayMinutes: number;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -538,6 +543,7 @@ export const EMPTY_MATCH: MatchState = {
   concession: null,
   asking: null,
   watching: 0,
+  awayMinutes: 10,
 };
 
 /**
@@ -553,7 +559,13 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
     case "MATCH_HELLO": {
       const seat = asNumber(message["seat"]);
       if (seat === null) return state;
-      return { ...state, connection: "open", seat };
+      const away = asNumber(message["awayMinutes"]);
+      return {
+        ...state,
+        connection: "open",
+        seat,
+        ...(away !== null && away > 0 ? { awayMinutes: away } : {}),
+      };
     }
 
     // Spec 0047 -- how many people are watching this game.

@@ -320,12 +320,16 @@ fun askingMessage(seat: Int?): JsonObject =
 fun matchHelloMessage(
     matchId: UUID,
     seat: Int,
+    away: java.time.Duration = net.barnflix.proxic.room.RoomTimeouts.active.away,
 ): JsonObject =
     envelope("MATCH_HELLO") {
         put("matchId", matchId.toString())
         put("seat", seat)
         // Spec 0047 — seat 0 is nobody's: a spectator.
         if (seat == 0) put("spectator", true)
+        // Spec 0054 — when the page may offer "End the game": the
+        // server's own setting, so the offer and the check agree.
+        put("awayMinutes", away.toMinutes())
     }
 
 /** The answer went in. Not a game event — a receipt. */

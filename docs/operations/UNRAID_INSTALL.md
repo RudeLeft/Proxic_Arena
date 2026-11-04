@@ -338,9 +338,7 @@ PROXIC_ROOM_ALONE_MINUTES=30      nothing happening, host by themselves
 PROXIC_ROOM_TOGETHER_MINUTES=120  nothing happening, two players in it
 PROXIC_AWAY_MINUTES=10            host offline: the room closes; guest
                                   offline: they leave it; in a game, the
-                                  player still there may end it (the
-                                  game offers that after a fixed 10
-                                  minutes: keep this at 10 or less)
+                                  player still there may end it
 PROXIC_ROOM_WARNING_MINUTES=5     how long before closing the room says so
 ```
 

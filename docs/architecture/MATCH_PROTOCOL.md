@@ -66,7 +66,8 @@ watching (`WATCHED`, `FORGE_WORKER_RUNTIME.md`).
 
 ```text
 WATCHING          count -- only when somebody is watching
-MATCH_HELLO       matchId, seat
+MATCH_HELLO       matchId, seat, awayMinutes (spec 0054: when "End the
+                  game" is offered), spectator? (seat 0)
 MATCH_SNAPSHOT    the board as THIS player may see it      (if any yet)
 DECISION_REQUEST  the question still waiting for this player (if any)
 MATCH_ASKING      who is being asked now

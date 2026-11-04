@@ -34,6 +34,12 @@ describe("connecting", () => {
     expect(state.connection).toBe("open");
   });
 
+  it("learns from the greeting how long away is (spec 0054)", () => {
+    expect(apply([{ type: "MATCH_HELLO", matchId: "m-1", seat: 1 }]).awayMinutes).toBe(10);
+    const state = apply([{ type: "MATCH_HELLO", matchId: "m-1", seat: 1, awayMinutes: 20 }]);
+    expect(state.awayMinutes).toBe(20);
+  });
+
   it("ignores a greeting with no seat rather than claiming seat zero", () => {
     const state = apply([{ type: "MATCH_HELLO", matchId: "m-1" }]);
     expect(state.seat).toBeNull();

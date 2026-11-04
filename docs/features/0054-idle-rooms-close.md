@@ -94,9 +94,14 @@ What the people in a closed room are told:
   a two-hour game closed at the next sweep; `RoomMaintenanceTest`).
 - The admin rooms page writes the clock short: "closes in 12m" (and
   "closes in 2h").
-- The page's wording says "10 minutes" for being away; the server goes by
-  its setting (`PROXIC_AWAY_MINUTES`), so a changed setting changes when
-  things happen, not the words.
+- The lobby's wording says "10 minutes" for being away; the server goes
+  by its setting (`PROXIC_AWAY_MINUTES`), so in the lobby a changed setting
+  changes when things happen, not the words.
+- In a game, "End the game" is offered after the server's setting, and
+  says it ("Pat has been gone 20 minutes"): the game's greeting carries it
+  (`MATCH_HELLO.awayMinutes`). Fixed 2026-11-04 (owner): the page had a
+  fixed 10 minutes, so with the setting at 20 its offer was refused until
+  20 (`MatchHelloTest`, `match.test.ts`).
 - Seen on the real local game with short settings (6 minutes, warning 5,
   away 1): the warning and Keep it open; a host closing the browser and
   the guest told "The host went offline, so the room closed"; in a game,
