@@ -263,7 +263,7 @@ export default function App() {
     <main>
       <h1>PROXIC ARENA</h1>
       <p className="sub">
-        Foundation Build {snap.version?.proxicVersion ?? "—"}
+        Foundation Build {snap.version?.proxicVersion ?? "unknown"}
         {snap.version ? ` · protocol v${snap.version.protocolVersion}` : ""}
         {/* Which build is this? The question cost an hour during the
             Phase 4 deployment, answered by comparing bundle hashes.
@@ -307,7 +307,7 @@ export default function App() {
         {overall === "ready"
           ? "Application foundation ready"
           : overall === "version-mismatch"
-            ? "Client and server protocol versions differ — reload, or update the client"
+            ? "This page is out of date. Reload to update it."
             : "Application server unavailable"}
       </p>
     </main>

@@ -39,12 +39,14 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
 
   let ranOut = false;
   let clicked = false;
+  // Amendment 13 (item 1): the circle pauses; nothing resolves until asked.
+  let paused = false;
   // The opponent may still pass after us before the spell resolves, so the
   // life total is checked as the game goes on.
   let ranOutFrom: number | null = null;
   let clickedFrom: number | null = null;
   const deadline = Date.now() + 780_000;
-  while (!(ranOut && clicked) && Date.now() < deadline) {
+  while (!(ranOut && clicked && paused) && Date.now() < deadline) {
     const life = await opponentLife(host);
     if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
     if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];
@@ -75,6 +77,20 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
             timeout: 3_000,
           });
           expect(Date.now() - before, "well before the countdown ran out").toBeLessThan(3_500);
+        } else if (ranOut && clicked && !paused) {
+          // Amendment 13 (item 1): the pause in the circle stops the
+          // countdown; it waits past when it would have run out, then a
+          // click resolves it.
+          await click(panel.locator("button.gs-act-pause"));
+          await expect(windowButton).toContainText("Paused");
+          await host.screenshot({ path: "test-results/seen/window-paused.png" });
+          await page.waitForTimeout(6_000);
+          await expect(windowButton, "still paused after the countdown's 5 s").toContainText(
+            "Paused",
+          );
+          await click(windowButton);
+          await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
+          paused = true;
         } else {
           // An earlier window's spell is still on its way: let this one run out.
           await expect(windowButton).toHaveCount(0, { timeout: 8_000 });
@@ -122,6 +138,7 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   }
   expect(ranOut, "a response window ran out and the spell resolved").toBe(true);
   expect(clicked, "a clicked response window resolved the spell").toBe(true);
+  expect(paused, "a paused response window waited, then resolved when asked").toBe(true);
   await clearEverything(host).catch(() => undefined);
   await clearEverything(guest).catch(() => undefined);
 });

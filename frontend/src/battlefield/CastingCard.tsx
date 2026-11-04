@@ -175,6 +175,18 @@ export function costPips(
   });
 }
 
+/**
+ * Phase 9 Amendment 13 -- what is still due on a payment question, as
+ * symbols: the game's own field, else (an older server) "still owing" in the
+ * buttons' words.
+ */
+export function owingSymbols(
+  owing: string | null | undefined,
+  labels: readonly (string | null)[],
+): string[] | null {
+  return owing ? manaSymbols(owing) : stillOwing(labels);
+}
+
 /** Forge's "still owing {2}{W}" on a payment question, as symbols. */
 export function stillOwing(labels: readonly (string | null)[]): string[] | null {
   for (const label of labels) {

@@ -278,7 +278,7 @@ export default function DevBenchPage() {
       )}
       <div className="bf-dev-note" role="note">
         <span>
-          Benchmark — permanents {permanents}, faces {results.faces || faces}, pictures {res}. Not a
+          Benchmark: permanents {permanents}, faces {results.faces || faces}, pictures {res}. Not a
           game.{" "}
           {results.firstPaintMs !== undefined &&
             `First paint ${results.firstPaintMs.toFixed(0)} ms. `}

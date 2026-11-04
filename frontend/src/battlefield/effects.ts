@@ -13,6 +13,9 @@ import type { Box, Geometry } from "./layout";
 import type { Point } from "./motion";
 
 /** Stacking, between the battlefield (up to ~2000) and the hand (10000). */
+/** A card selected to attack or block (W-14): lifted over its neighbours,
+    so its seal shows (Amendment 13, item 10); under the lines. */
+export const Z_MARKED = 4400;
 export const Z_SWOOP = 4500;
 export const Z_LINES = 5000;
 export const Z_EFFECTS = 6000;

@@ -362,7 +362,7 @@ export function ReportDialog({
     return (
       <div className="pa-report-backdrop" data-report-skip="true">
         <div className="pa-report-sent" role="status">
-          <span className="pa-report-sent-title">Thanks — report sent</span>
+          <span className="pa-report-sent-title">Thanks. Your report was sent.</span>
           <span>
             It went to the admins
             {kind === "PROBLEM" ? " with your page’s log" : ""}

@@ -152,7 +152,7 @@ function InvitationList({
                 <small>sent {agoText(invite.createdAt, now)}</small>
               </span>
               <span className="pa-admin-account-meta">
-                {invite.state === "WAITING" ? untilText(invite.expiresAt, now) : "—"}
+                {invite.state === "WAITING" ? untilText(invite.expiresAt, now) : "none"}
               </span>
               {invite.state === "JOINED" ? (
                 <span className="pa-admin-invite-actions" />

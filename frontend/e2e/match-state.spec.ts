@@ -101,18 +101,23 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         const forests = await cardCount(lands.filter({ hasText: "Forest" }));
         const plains = await cardCount(lands.filter({ hasText: "Plains" }));
         const hubs = await cardCount(lands.filter({ hasText: "Aether Hub" }));
-        pick = find(/^Aether Hub — no cost — Play land/);
+        pick = find(/^Aether Hub · no cost · Play land/);
         if (pick < 0) pick = find(/Play land/);
         for (const [name, cost] of Object.entries(COSTS)) {
           if (pick >= 0) break;
           const affordable =
             forests >= cost.G && plains >= cost.W && forests + plains + hubs >= cost.total;
-          if (affordable) pick = find(new RegExp(`^${name} — \\{`));
+          if (affordable) pick = find(new RegExp(`^${name} · \\{`));
         }
       } else {
         // Mana, targets, confirmations: Forge's first. Mandatory
         // questions with nothing else to go on take it too.
-        if (find(/still owing/) >= 0 || find(/^Pay the cost/) >= 0 || labels.length) pick = 0;
+        if (
+          (/Pay the mana/.test(heading) ? 0 : -1) >= 0 ||
+          find(/^Pay the cost/) >= 0 ||
+          labels.length
+        )
+          pick = 0;
       }
       if (pick >= 0) {
         await answer(options.nth(pick));

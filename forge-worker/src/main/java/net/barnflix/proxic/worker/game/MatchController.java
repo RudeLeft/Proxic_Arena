@@ -219,7 +219,7 @@ public final class MatchController extends GeneratedControllerBase {
                     continue;
                 }
                 byId.put(id, sa);
-                labels.put(id, sa.getHostCard().getName() + " — "
+                labels.put(id, sa.getHostCard().getName() + " · "
                         + forge.util.TextUtil.fastReplace(
                                 String.valueOf(sa.getDescription()), "CARDNAME", sa.getHostCard().getName()));
             }
@@ -734,7 +734,7 @@ public final class MatchController extends GeneratedControllerBase {
         String words = cost.getTotalMana().toString();
         String name = sa.getHostCard() == null ? "This trigger" : sa.getHostCard().getName();
         if (!payable(sa, player)) {
-            host.note(actedForSeat, name + ": not enough to pay " + words + " — skipped.");
+            host.note(actedForSeat, name + ": you can't pay " + words + ", so it was skipped.");
             return false;
         }
         host.offerSubject(sa);
@@ -761,7 +761,57 @@ public final class MatchController extends GeneratedControllerBase {
      */
     @Override
     public boolean chooseTargetsFor(SpellAbility ability) {
-        return selectTargets(ability, null, null);
+        return selectTargets(ability, null, targetPrompt(ability));
+    }
+
+    /**
+     * Phase 9 Amendment 13 (item 3) -- what a target is FOR, in the card's
+     * own words, and that a cost choice follows: "Wirewood Symbiote: Untap
+     * target creature. Next, you'll pay its cost: return an Elf you control
+     * to its owner's hand." Without it the banner said only "Choose a
+     * target", and the player clicked the Elf they meant to return.
+     */
+    static String targetPrompt(SpellAbility ability) {
+        if (ability == null || ability.getHostCard() == null) {
+            return null;
+        }
+        String description = ability.getDescription() == null ? "" : ability.getDescription().trim();
+        String cost = "";
+        String effect = description;
+        int colon = description.indexOf(": ");
+        if (ability.isAbility() && colon > 0) {
+            cost = description.substring(0, colon).trim();
+            effect = description.substring(colon + 2).trim();
+        }
+        int stop = effect.indexOf(". ");
+        if (stop > 0) {
+            effect = effect.substring(0, stop + 1);
+        }
+        if (effect.isEmpty()) {
+            return null;
+        }
+        String prompt = ability.getHostCard().getName() + ": " + effect;
+        if (!cost.isEmpty() && choosesForCost(ability)) {
+            prompt += " Next, you'll pay its cost: " + Character.toLowerCase(cost.charAt(0)) + cost.substring(1) + ".";
+        }
+        return prompt;
+    }
+
+    /** A cost the player will choose cards for (return, sacrifice, discard, exile, tap others). */
+    private static boolean choosesForCost(SpellAbility ability) {
+        forge.game.cost.Cost cost = ability.getPayCosts();
+        if (cost == null) {
+            return false;
+        }
+        for (forge.game.cost.CostPart part : cost.getCostParts()) {
+            if (part instanceof forge.game.cost.CostPartWithList && !part.payCostFromSource()) {
+                return true;
+            }
+            if (part instanceof forge.game.cost.CostTapType) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2047,7 +2097,7 @@ public final class MatchController extends GeneratedControllerBase {
             return first;
         }
         java.util.List<String> texts = new java.util.ArrayList<>();
-        possible.forEach(st -> texts.add(st.getHostCard() + " — " + st));
+        possible.forEach(st -> texts.add(st.getHostCard() + " · " + st));
         int picked = askIndex("chooseSingleStaticAbility", texts, true, "Which applies first?");
         return picked < 0 ? first : possible.get(picked);
     }
@@ -3926,7 +3976,7 @@ public final class MatchController extends GeneratedControllerBase {
      */
     private boolean askYesNo(String kind, String question, boolean fallback) {
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        labels.put("confirm:yes", "Yes — " + question);
+        labels.put("confirm:yes", yesLabel(question));
         labels.put("confirm:no", "No");
         try {
             String choice =
@@ -4322,12 +4372,33 @@ public final class MatchController extends GeneratedControllerBase {
 
         StringBuilder label = new StringBuilder(name);
         if (!cost.isEmpty()) {
-            label.append(" — ").append(cost);
+            label.append(" · ").append(cost);
         }
         if (!what.isEmpty()) {
-            label.append(" — ").append(what);
+            label.append(" · ").append(what);
         }
         return label.toString();
+    }
+
+    /** Questions that start with a verb read on after "Yes, ": "Yes, pay {2} for Rhystic Study". */
+    private static final java.util.Set<String> VERBS = java.util.Set.of(
+            "Use", "Pay", "Do", "Put", "Return", "Sacrifice", "Discard", "Exile", "Draw", "Reveal", "Shuffle",
+            "Cast", "Play", "Tap", "Untap", "Search", "Choose", "Keep", "Take", "Have", "Add", "Remove", "Let");
+
+    /**
+     * Phase 9 Amendment 13 (item 11) -- the yes answer, without a dash:
+     * "Yes, pay {2} for Rhystic Study" for a question that starts with a
+     * verb; "Yes: Mages' Contest: top the bid?" keeps a name's capital.
+     */
+    static String yesLabel(String question) {
+        String q = question == null ? "" : question.trim();
+        int space = q.indexOf(' ');
+        String first = space > 0 ? q.substring(0, space) : q;
+        if (VERBS.contains(first)) {
+            String said = q.endsWith("?") ? q.substring(0, q.length() - 1) : q;
+            return "Yes, " + Character.toLowerCase(said.charAt(0)) + said.substring(1);
+        }
+        return "Yes: " + q;
     }
 
     /**

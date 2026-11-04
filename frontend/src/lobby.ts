@@ -690,7 +690,7 @@ function matchFailed(code: string | null): string {
     case "WORKER_MISSING":
       return "This server cannot run matches right now. The room is open again.";
     case "GAME_START_TIMEOUT":
-      return "The game took too long to start. The room is open again — try once more.";
+      return "The game took too long to start. The room is open again, so try once more.";
     default:
       return "The match did not start. The room is open again.";
   }

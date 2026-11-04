@@ -1190,6 +1190,15 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
      */
     private java.util.List<Card> pickCards(
             forge.game.card.CardCollectionView cards, int needed, String kind, String prompt) {
+        // Phase 9 Amendment 13 (item 3) -- say whose cost this is and that it
+        // is one: "Wirewood Symbiote: return an Elf to its owner's hand to
+        // pay its cost." A target asked just before was for something else.
+        Card host = ability == null ? null : ability.getHostCard();
+        if (host != null && prompt != null && !prompt.isBlank()) {
+            String said = prompt.endsWith(".") ? prompt.substring(0, prompt.length() - 1) : prompt;
+            prompt = host.getName() + ": " + Character.toLowerCase(said.charAt(0)) + said.substring(1)
+                    + " to pay its cost.";
+        }
         forge.game.card.CardCollection left = new forge.game.card.CardCollection(cards);
         java.util.List<Card> chosen = new java.util.ArrayList<>();
         while (chosen.size() < needed) {

@@ -847,7 +847,7 @@ function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
                   hour12: false,
                 })}
               </span>
-              <span className="pa-admin-record-who">{m.players || "—"}</span>
+              <span className="pa-admin-record-who">{m.players || "none"}</span>
               <span
                 className={`pa-admin-outcome pa-admin-outcome-${outcome.tone}`}
                 title={outcome.code ?? undefined}

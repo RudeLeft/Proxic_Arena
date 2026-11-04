@@ -2,7 +2,7 @@
 
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board } from "./Board";
+import { Board, stackCaption } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, layout } from "./layout";
 import { centreOf } from "./effects";
@@ -515,5 +515,17 @@ describe("Board lines and effects", () => {
     expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
     expect(view.container.querySelectorAll("[data-impact]")).toHaveLength(0);
     expect(view.container.querySelectorAll("[data-damage-number]")).toHaveLength(4);
+  });
+});
+
+// Amendment 13 (item 12) -- one line under the stack, one style.
+describe("the line under the stack", () => {
+  it("names who resolves next and how many wait", () => {
+    const theirs = { by: "Pat", kind: "trigger", name: "Soul Warden", seat: 2 };
+    expect(stackCaption([theirs], 1, 1, 4)).toBe("Next: Pat's trigger");
+    expect(stackCaption([theirs, theirs], 1, 2, 4)).toBe("Next: Pat's trigger · 2 on the stack");
+    expect(stackCaption([{ by: "RudeLeft", kind: "spell", name: "Shock", seat: 1 }], 1, 1, 4)).toBe(
+      "Next: your Shock",
+    );
   });
 });

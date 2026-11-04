@@ -87,6 +87,7 @@ import {
   type TargetRef,
   Z_EFFECTS,
   Z_LINES,
+  Z_MARKED,
   Z_SWOOP,
 } from "./effects";
 
@@ -244,6 +245,15 @@ export interface BoardProps {
   clockMs?: number;
   /** What each hand card's cast costs right now, by card id (Forge's reckoning). */
   handCosts?: ReadonlyMap<string, string>;
+  /**
+   * Amendment 13 (item 2) -- the stack object of the spell whose cast card is
+   * in the air: drawn invisible (its spot still there for the flight); and
+   * the ones that were, which do not slide in again once shown.
+   */
+  hiddenStack?: string | null;
+  quietStack?: ReadonlySet<string>;
+  /** Amendment 13 (item 8) -- the mana still due for the front stack object. */
+  stackOwing?: readonly string[] | null;
   /** An attachment's host being chosen. */
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
@@ -296,6 +306,27 @@ const GLYPH: Record<Look, string> = {
 function stackFocus(stack: readonly StackView[] | undefined, pointed: string | null | undefined) {
   if (!stack || stack.length === 0) return null;
   return pointed && stack.some((s) => s.id === pointed) ? pointed : stack[0]!.id;
+}
+
+/**
+ * Amendment 13 (item 12) -- the line under the stack: "Next: Pat's trigger ·
+ * 2 on the stack". A spell is named; a trigger or ability is called one.
+ */
+export function stackCaption(
+  stack: readonly { by?: string | null; kind?: string; name: string; seat?: number }[],
+  viewerSeat: number,
+  total: number,
+  shown: number,
+): string {
+  const front = stack[0];
+  if (!front) return "";
+  const what =
+    front.kind === "trigger" ? "trigger" : front.kind === "ability" ? "ability" : front.name;
+  const whose = front.seat === viewerSeat ? "your" : front.by ? `${front.by}'s` : null;
+  const next = whose ? `Next: ${whose} ${what}` : `Next: ${what}`;
+  if (total <= 1) return next;
+  const hidden = stack.length > shown ? `, ${stack.length - shown} not shown` : "";
+  return `${next} · ${total} on the stack${hidden}`;
 }
 
 /** "1st", "2nd", "3rd", "4th"… for a screen reader's "2nd to resolve". */
@@ -475,6 +506,15 @@ interface Ghost extends Drawn {
   /** Held in place this long first: a creature killed by damage waits for
    * its impact before it leaves. */
   delay: number;
+  /**
+   * Amendment 13 (item 13) -- a resolved stack object leaves in the look it
+   * had on the stack (W-20's whole card, a trigger's words plate), never
+   * swapped for a different picture; drawn above the stack still there.
+   */
+  stack?:
+    | { low: string; high: string; kind: string; does: string | null; whose: string }
+    | undefined;
+  zIndex?: number;
 }
 
 /** A burst, a damage number or a resolving spell's spark, on its way out. */
@@ -539,6 +579,9 @@ export function Board({
   arrivals,
   departures,
   flyingOnto = null,
+  hiddenStack = null,
+  quietStack,
+  stackOwing = null,
   combat,
   stack,
   pointedStack,
@@ -789,11 +832,6 @@ export function Board({
                 <span className="bf-state">TAPPED</span>
               ) : null}
               {count > 1 && <span className="bf-pile">×{count}</span>}
-              {leadAct.marks > 0 && (
-                <span className="bf-marked-n" aria-hidden="true">
-                  ✓{count > 1 ? ` ${leadAct.marks}` : ""}
-                </span>
-              )}
               {/* Spec 0046 -- what a land makes, as mana symbols. */}
               {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
                 <span
@@ -833,6 +871,23 @@ export function Board({
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
+            {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
+                it sits beside the card, which clips what crosses its edge. */}
+            {leadAct.marks > 0 && (
+              <span className="bf-marked-n" aria-hidden="true">
+                <svg viewBox="0 0 20 20">
+                  <path
+                    d="M4 10.5 L8.5 15 L16 6"
+                    stroke="#1a1408"
+                    strokeWidth="3"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {count > 1 && <b>{leadAct.marks}</b>}
+              </span>
+            )}
             {attached.length > 0 && (
               // Auras and Equipment as name tags across the host's picture
               // (AMENDMENT 4). Each is its own button, with its own id, so
@@ -1004,6 +1059,9 @@ export function Board({
     act,
     handCosts,
   ]);
+  // A card selected to attack or block draws over its neighbours (Z_MARKED).
+  const zOf = (item: Item) =>
+    marked && item.ids.some((one) => marked.includes(one)) ? Z_MARKED : item.box.z;
 
   /** Where every object is drawn now: piles' members and hosts' tags
    * share their card's box. */
@@ -1254,6 +1312,7 @@ export function Board({
           }
         }
         const into = s.source ? now.get(s.source) : undefined;
+        const whole = box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
         gone.push({
           name: s.name,
           look: "artifact",
@@ -1272,6 +1331,16 @@ export function Board({
           toOrigin: into ? into.origin : { x: 0, y: 0 },
           fade: true,
           delay: RESOLVE_MS,
+          stack: whole
+            ? {
+                low: artUrl(s.art!),
+                high: closeUpOf(artUrl(s.art!)),
+                kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                does: s.does ?? null,
+                whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+              }
+            : undefined,
+          zIndex: Z_LINES - 50,
         });
       }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
@@ -1448,12 +1517,12 @@ export function Board({
               else elements.current.delete(item.id);
             }}
             className="bf-slot"
-            data-z={item.box.z}
+            data-z={zOf(item)}
             style={{
               width: g.cardW,
               height: g.cardH,
               ...placement(item.box, g.cardW, g.cardH, item.origin),
-              zIndex: item.box.z,
+              zIndex: zOf(item),
               ...(item.id === flyingOnto && item.ids.length === 1
                 ? // Not drawn, but still there to click (a target chosen while
                   // it lands); it goes straight to its place (no glide), so
@@ -1494,6 +1563,8 @@ export function Board({
                 // Pointed at, a card lower in the stack comes to the front.
                 zIndex: pointedOnStack === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
                 ["--stack-scale" as string]: String(box.scale),
+                ...(hiddenStack === s.id ? { opacity: 0 } : {}),
+                ...(quietStack?.has(s.id) ? { animation: "none" } : {}),
               }}
             >
               <button
@@ -1530,9 +1601,12 @@ export function Board({
                       className="bf-stack-whole"
                     />
                     {kind !== "Spell" && s.does && (
+                      // Amendment 13 (item 12) -- one paragraph, symbols inline.
                       <span className="bf-stack-words">
                         <b>{kind}</b>
-                        <ManaText text={s.does} />
+                        <span className="bf-stack-said">
+                          <ManaText text={s.does} />
+                        </span>
                       </span>
                     )}
                   </>
@@ -1550,6 +1624,14 @@ export function Board({
                   />
                 )}
               </button>
+              {/* Amendment 13 (item 8) -- paying for this one: what's still due,
+                  under its words, as on a card being cast. */}
+              {i === 0 && stackOwing && stackOwing.length > 0 && (
+                <span className="bf-stack-owe" aria-label={`Still to pay: ${stackOwing.join(" ")}`}>
+                  <span className="bf-stack-owe-word">To pay</span>
+                  <ManaText text={stackOwing.map((m) => `{${m}}`).join("")} />
+                </span>
+              )}
               {/* Beside the card's name bar, so neither covers the name. */}
               <span className="bf-stack-tag" aria-hidden="true">
                 <span className="bf-stack-n">{i + 1}</span>
@@ -1588,23 +1670,12 @@ export function Board({
               zIndex: Z_LINES - 99,
             }}
           >
+            {/* Amendment 13 (item 12) -- one line, one style: what resolves
+                next, whose, and how many wait. The card's own plate says
+                what it does, so pointing adds nothing here. */}
             <span className="bf-stack-next">
-              {stack[0]!.by ? `1 resolves next · ${stack[0]!.by}` : "1 resolves next"}
+              {stackCaption(stack, viewerSeat, stackTotal, spot.length)}
             </span>
-            {/* Spec 0045 -- pointing at a stack card says what it does. */}
-            {pointedOnStack && stack.find((s) => s.id === pointedOnStack)?.does && (
-              <span className="bf-stack-does">
-                <ManaText text={stack.find((s) => s.id === pointedOnStack)!.does!} />
-              </span>
-            )}
-            {stackTotal > 1 && (
-              <span className="bf-stack-count">
-                {stackTotal} on the stack
-                {stack.length > spot.length
-                  ? ` · ${stack.length - spot.length} older not shown`
-                  : " · point at one to see its target"}
-              </span>
-            )}
           </div>
         )}
         <svg
@@ -1801,11 +1872,37 @@ function GhostCard({
       className="bf-slot bf-ghost"
       aria-hidden="true"
       data-ghost-of={ghost.id}
-      style={{ width: cardW, height: cardH, ...from, zIndex: ghost.box.z + 2000 }}
+      style={{
+        width: cardW,
+        height: cardH,
+        ...from,
+        zIndex: ghost.zIndex ?? ghost.box.z + 2000,
+        ...(ghost.stack ? { ["--stack-scale" as string]: String(ghost.box.scale) } : {}),
+      }}
     >
-      <div className={`bf-card bf-look-${ghost.look}`}>
-        <CardFace {...ghost} />
-      </div>
+      {ghost.stack ? (
+        // Amendment 13 (item 13) -- as it was on the stack.
+        <div className={`bf-card bf-stack-card bf-look-artifact${ghost.stack.whose}`}>
+          <SharpCard
+            low={ghost.stack.low}
+            high={ghost.stack.high}
+            alt=""
+            className="bf-stack-whole"
+          />
+          {ghost.stack.kind !== "Spell" && ghost.stack.does && (
+            <span className="bf-stack-words">
+              <b>{ghost.stack.kind}</b>
+              <span className="bf-stack-said">
+                <ManaText text={ghost.stack.does} />
+              </span>
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className={`bf-card bf-look-${ghost.look}`}>
+          <CardFace {...ghost} />
+        </div>
+      )}
     </div>
   );
 }

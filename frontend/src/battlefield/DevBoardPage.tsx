@@ -114,8 +114,8 @@ export default function DevBoardPage() {
           {script
             ? "Synthetic combat"
             : scenarioLabel(scenario)
-              ? `Named board — ${scenarioLabel(scenario)}`
-              : `Synthetic board — permanents ${permanents}, faces ${faces}, seed ${seed}`}
+              ? `Named board: ${scenarioLabel(scenario)}`
+              : `Synthetic board: permanents ${permanents}, faces ${faces}, seed ${seed}`}
           , change {change}
           {change > 0 ? ` (${now.what})` : ""}. Not a game.
         </span>

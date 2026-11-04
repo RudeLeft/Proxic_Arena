@@ -140,7 +140,7 @@ test("attachments are drawn with what they modify, on either side of the table",
         );
         if (pick < 0) pick = find(/Play land/);
         if (pick < 0 && goblins > 0 && (await has("Bonesplitter")) && !equipped && lands >= 1) {
-          pick = find(/^Bonesplitter — .*Equip/);
+          pick = find(/^Bonesplitter · .*Equip/);
           if (pick >= 0) intent = "goblin";
         }
         if (
@@ -150,27 +150,27 @@ test("attachments are drawn with what they modify, on either side of the table",
           !reconfigured &&
           mountains >= 1
         ) {
-          pick = find(/^Rabbit Battery — .*Reconfigure/);
+          pick = find(/^Rabbit Battery · .*Reconfigure/);
           if (pick >= 0) intent = "goblin";
         }
         if (pick < 0 && bears && !pacified && plains >= 1 && lands >= 2) {
-          pick = find(/^Pacifism — \{/);
+          pick = find(/^Pacifism · \{/);
           if (pick >= 0) intent = "pacifism";
         }
-        if (pick < 0 && goblins < 2 && mountains >= 1) pick = find(/^Raging Goblin — \{R\}/);
+        if (pick < 0 && goblins < 2 && mountains >= 1) pick = find(/^Raging Goblin · \{R\}/);
         if (pick < 0 && !(await has("Rabbit Battery")) && mountains >= 1)
-          pick = find(/^Rabbit Battery — \{R\}/);
+          pick = find(/^Rabbit Battery · \{R\}/);
         if (pick < 0 && !(await has("Bonesplitter")) && lands >= 1)
-          pick = find(/^Bonesplitter — \{1\}/);
+          pick = find(/^Bonesplitter · \{1\}/);
       } else if (/Your move/.test(heading)) {
         // The guest: lands, and Grizzly Bears to be pacified.
         const free = cardsOf(guest, "viewer").filter({ hasNotText: "tapped" });
         const forests = await cardCount(free.filter({ hasText: "Forest" }));
-        pick = find(/^Forest — .*Play land/);
+        pick = find(/^Forest · .*Play land/);
         if (pick < 0) pick = find(/Play land/);
-        if (pick < 0 && forests >= 2) pick = find(/^Grizzly Bears — \{/);
-      } else if (find(/still owing/) >= 0) {
-        pick = find(/still owing/);
+        if (pick < 0 && forests >= 2) pick = find(/^Grizzly Bears · \{/);
+      } else if ((/Pay the mana/.test(heading) ? 0 : -1) >= 0) {
+        pick = /Pay the mana/.test(heading) ? 0 : -1;
       } else if (intent === "pacifism" && find(/^Grizzly Bears/) >= 0) {
         pick = find(/^Grizzly Bears/);
       } else if (intent === "goblin" && find(/^Raging Goblin/) >= 0) {

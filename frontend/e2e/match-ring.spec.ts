@@ -107,7 +107,7 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
         const swampsOut = await cardCount(mine.filter({ hasText: "Swamp" }));
         const plainsOut = await cardCount(mine.filter({ hasText: "Plains" }));
         pick = find(
-          new RegExp(`^${swampsOut <= plainsOut ? "Swamp" : "Plains"} — no cost — Play land`),
+          new RegExp(`^${swampsOut <= plainsOut ? "Swamp" : "Plains"} · no cost · Play land`),
         );
         if (pick < 0) pick = find(/Play land/);
         for (const [name, cost] of Object.entries(COSTS)) {
@@ -118,7 +118,7 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
           )
             continue;
           const affordable = swamps >= cost.B && plains >= cost.W && swamps + plains >= cost.total;
-          if (affordable) pick = find(new RegExp(`^${name} — \\{`));
+          if (affordable) pick = find(new RegExp(`^${name} · \\{`));
         }
       } else if (labels.length) {
         // The Ring-bearer, paying 2 life, a dungeon room, a scry,

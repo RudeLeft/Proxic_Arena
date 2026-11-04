@@ -127,10 +127,10 @@ for line in proc.stdout:
                 pick = options[0] if options else None
 
         elif dkind == "applyManaToCost" and announced is not None:
-            # "Mountain - still owing {3}{R}" -- the first thing
-            # asked for after announcing is the whole cost.
-            owed = re.search(r"still owing (\S+)", labels[0] if labels else "")
-            owed_checks.append((announced, owed.group(1) if owed else "?"))
+            # The mana still due, the question's own field since Phase 9
+            # Amendment 13 (the buttons no longer repeat it): the first
+            # thing asked for after announcing is the whole cost.
+            owed_checks.append((announced, frame.get("owing") or "?"))
             announced = None
             pick = options[0] if options else None
 

@@ -138,7 +138,7 @@ for line in proc.stdout:
         # search before Blood Moon, a Mountain's red mana after.
         wilds = {c["id"] for c in mine(2, "Evolving Wilds")}
         if seat == 2 and wilds:
-            acts = sorted({label.split(" — ", 1)[-1] for o, label in zip(options, labels)
+            acts = sorted({label.split(" · ", 1)[-1] for o, label in zip(options, labels)
                            if card_of(o["actionId"]) in wilds})
             if mine(2, "Blood Moon"):
                 found["wilds_actions_after"] = acts or ["(none)"]

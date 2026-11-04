@@ -159,7 +159,7 @@ export function ReportsPanel({
                   ? r.attached
                       .map((a) => (a === "record" ? "Record" : a === "log" ? "Log" : "Picture"))
                       .join(" · ")
-                  : "—"}
+                  : "none"}
               </span>
             </button>
           </li>

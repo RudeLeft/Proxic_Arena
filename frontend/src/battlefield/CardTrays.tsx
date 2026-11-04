@@ -600,9 +600,9 @@ export function PilesTray(props: TrayProps) {
   );
 }
 
-/** "Grizzly Bears — 2/2 — 1 so far": the points a blocker already has. */
+/** "Grizzly Bears (2/2) · 1 damage so far": the points a blocker already has. */
 function soFar(label: string | null): number {
-  const m = /(\d+) so far/.exec(label ?? "");
+  const m = /(\d+) (?:damage )?so far/.exec(label ?? "");
   return m ? Number(m[1]) : 0;
 }
 

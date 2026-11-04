@@ -16,7 +16,7 @@ internal object ReportReadme {
     fun of(report: ReportDetail): String =
         buildString {
             val problem = report.kind == "PROBLEM"
-            appendLine("# Proxic report #${report.number} — ${if (problem) "a problem" else "an idea"}")
+            appendLine("# Proxic report #${report.number}: ${if (problem) "a problem" else "an idea"}")
             appendLine()
             appendLine("From **${report.username}**, sent ${report.createdAt}. Status: ${report.status}.")
             appendLine()
@@ -92,27 +92,27 @@ internal object ReportReadme {
         buildList {
             if (Reports.BROWSER_LOG in names) {
                 add(
-                    "- `${Reports.BROWSER_LOG}` — their page, one JSON object a line ({t, kind, text}): clicks, " +
+                    "- `${Reports.BROWSER_LOG}`: their page, one JSON object a line ({t, kind, text}): clicks, " +
                         "questions, answers, boards, reconnects, errors. The moment they reported is its last " +
                         "lines (kind \"report\").",
                 )
             }
             if (Reports.GAME_RECORD in names) {
                 add(
-                    "- `${Reports.GAME_RECORD}` — the whole game so far, BOTH players' hidden information " +
+                    "- `${Reports.GAME_RECORD}`: the whole game so far, BOTH players' hidden information " +
                         "(admins only): gzip, one line each {ms, from: worker|server|note, frame}.",
                 )
             }
             if (Reports.SERVER_LOG in names) {
-                add("- `${Reports.SERVER_LOG}` — the server's lines for this player and this game, last 30 minutes.")
+                add("- `${Reports.SERVER_LOG}`: the server's lines for this player and this game, last 30 minutes.")
             }
             if (Reports.ENGINE_ERRORS in names) {
-                add("- `${Reports.ENGINE_ERRORS}` — the game engine's error output for this game.")
+                add("- `${Reports.ENGINE_ERRORS}`: the game engine's error output for this game.")
             }
             if (Reports.PICTURE in names) {
-                add("- `${Reports.PICTURE}` — their screen when they pressed Report, or a picture they added.")
+                add("- `${Reports.PICTURE}`: their screen when they pressed Report, or a picture they added.")
             }
-            add("- `report.json` — this report as data.")
+            add("- `report.json`: this report as data.")
         }
 
     private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

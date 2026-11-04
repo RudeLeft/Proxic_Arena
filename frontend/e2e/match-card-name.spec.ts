@@ -156,10 +156,19 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
         continue;
       }
       const namer = labels.findIndex((label) =>
-        /^(Pithing Needle|Phyrexian Revoker) —/.test(label),
+        /^(Pithing Needle|Phyrexian Revoker) ·/.test(label),
       );
       const land = labels.findIndex((label) => label.includes("Play land"));
-      const paying = labels.findIndex((label) => /still owing/.test(label));
+      const paying =
+        labels.length > 0 &&
+        /Pay the mana/.test(
+          await matchPanel(live)
+            .locator(".gs-question-title")
+            .allTextContents()
+            .then((t) => t.join(" ")),
+        )
+          ? 0
+          : -1;
       const pick = paying >= 0 ? paying : namer >= 0 ? namer : land;
       if (pick >= 0) {
         await options

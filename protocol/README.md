@@ -185,6 +185,12 @@ decision.notNow           on a priority question: each of the asked player's
                           permanents' abilities NOT offered now, as
                           {objectId: [{label, why}]} ("Needs 7 loyalty");
                           words only, to the asked seat only (Phase 9 W-16)
+decision.owing            on a payment question (applyManaToCost): the mana
+                          still due, "{1}{R}"; the buttons no longer repeat
+                          it (Phase 9 Amendment 13, item 9)
+snapshot.action           who did what to a library or hand, in this
+                          reader's words, with only the cards it may know;
+                          never to the seat that chose (Amendment 12, 13)
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer

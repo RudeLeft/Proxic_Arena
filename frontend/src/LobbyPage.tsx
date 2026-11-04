@@ -1051,8 +1051,8 @@ function YourRoom({
 
       {playing ? (
         <p className="pa-your-room-note">
-          The match is being played. Nothing here can change it — closing a browser is not a
-          concession, and neither is leaving the room.
+          The match is being played. Nothing here can change it. Closing a browser or leaving the
+          room does not concede.
         </p>
       ) : (
         <>

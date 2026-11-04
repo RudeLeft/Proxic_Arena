@@ -1617,7 +1617,7 @@ def contest():
     seats = [seat for seat, _ in st["asked"]]
     if seats[:4] != [1, 2, 1, 2] or set(seats) != {1, 2}:
         problems.append(f"the players are asked in turn, the caster first: {seats}")
-    if not st["asked"][0][1].startswith("Yes — Mages' Contest: top the bid? The highest bid is 1 life, by "):
+    if not st["asked"][0][1].startswith("Yes: Mages' Contest: top the bid? The highest bid is 1 life, by "):
         problems.append(f"the question names the highest bid and bidder: {st['asked'][0][1]!r}")
     (me0, them0), (me1, them1) = st["life"], st["after"]["life"]
     if (me0 - me1, them0 - them1) != (4, 0) or not st["after"]["countered"]:

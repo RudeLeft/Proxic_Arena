@@ -270,7 +270,7 @@ class DeckImporter(
             } else {
                 resolution?.detail
             }
-        return "Line ${entry.lineNumber}: ${entry.name}${detail?.let { " — $it" } ?: ""}"
+        return "Line ${entry.lineNumber}, ${entry.name}${detail?.let { ": $it" } ?: ""}"
     }
 
     private fun notLegal(violations: List<DeckViolation>) =

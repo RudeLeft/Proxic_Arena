@@ -447,7 +447,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-coin-timer {
   background: #1d1408;
 }
-.gs-coin-timer svg {
+.gs-coin-timer .gs-coin-dial {
   position: absolute;
   inset: 0;
   transform: rotate(-90deg);
@@ -466,6 +466,38 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   to {
     stroke-dashoffset: 100;
   }
+}
+/* Amendment 13 (item 1) -- the pause sign in the countdown's circle, and the
+   button over the circle that pauses (the act button's coin sits at 12px,
+   560px: its left padding and its height centred). */
+.gs-coin-pause {
+  position: absolute;
+}
+.gs-coin .gs-coin-pause path {
+  fill: none;
+  stroke: #f6cf7f;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.gs-act-pause {
+  position: absolute;
+  left: 12.4px;
+  top: 560px;
+  width: 46px;
+  height: 46px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.gs-act-pause:hover {
+  box-shadow: 0 0 0 2px #ffe7a8;
+}
+.gs-act-pause:focus-visible {
+  outline: 2px solid #f1f4f8;
+  outline-offset: 2px;
 }
 .gs-coin-n {
   font-family: var(--pa-card);
@@ -623,11 +655,11 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   stroke: #e0a44a;
 }
 
-/* Choosable and selected, in the column too: an outline AND a word. */
+/* Choosable and selected, in the column too (a life total to target):
+   Amendment 13 (item 5) -- the same breathing glow as the board. */
 .gs-choosable {
-  outline: 2px dashed #e0a44a;
-  outline-offset: 2px;
   cursor: pointer;
+  animation: gs-breathe 1.8s ease-in-out infinite;
 }
 .gs-selected {
   outline: 3px solid #9ccbff;
@@ -1110,6 +1142,10 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-md);
   line-height: 1.35;
 }
+.gs-ab-said {
+  display: block;
+  text-wrap: pretty;
+}
 .gs-ab-why {
   font-style: normal;
   font-size: var(--pa-size-sm);
@@ -1141,26 +1177,40 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   margin: 0;
 }
 
-/* The board's own marks for choosable, selected and unpayable cards. */
+/* The board's own marks for choosable, selected and unpayable cards.
+   Amendment 13 (item 5, owner's option A) -- a card you can play or choose
+   breathes: a soft gold glow that slowly brightens and fades, in place of
+   the dashed outline and the CHOOSE tag. A screen reader still hears "can
+   be chosen" (Board.tsx). */
 .bf-card.bf-choosable,
 .bf-tag.bf-choosable {
-  outline: 2px dashed #e0a44a;
-  outline-offset: 1px;
   cursor: pointer;
+  animation: gs-breathe 1.8s ease-in-out infinite;
 }
-.bf-asking .bf-card.bf-choosable::after {
-  content: "CHOOSE";
-  position: absolute;
-  right: 3%;
-  top: 22%;
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: #e0a44a;
-  color: #17110a;
-  font-family: var(--pa-display);
-  font-weight: 700;
-  font-size: calc(var(--card-h) * 0.07);
-  letter-spacing: var(--pa-track-button);
+@keyframes gs-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1.5px rgb(233 194 122 / 85%),
+      0 0 6px 1px rgb(255 205 110 / 35%),
+      0 4px 10px rgb(0 0 0 / 45%);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px #ffd98a,
+      0 0 18px 5px rgb(255 205 110 / 75%),
+      0 4px 10px rgb(0 0 0 / 45%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-card.bf-choosable,
+  .bf-tag.bf-choosable,
+  .gs-choosable {
+    animation: none;
+    box-shadow:
+      0 0 0 1.5px #ffd98a,
+      0 0 12px 3px rgb(255 205 110 / 60%);
+  }
 }
 .bf-card.bf-selected,
 .bf-tag.bf-selected {
@@ -1175,27 +1225,69 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
    the CHOOSE label's place, with how many on a pile ("✓ 2"). */
 .bf-card.bf-choosable.bf-marked,
 .bf-card.bf-marked {
+  /* Selected: a steady ring, not the breathing "you can choose" glow. */
+  animation: none;
   outline: 3px solid #ffe7a8;
   outline-offset: 2px;
   box-shadow: 0 0 calc(var(--card-h) * 0.12) rgb(255 214 120 / 55%);
   translate: 0 calc(var(--card-h) * -0.06);
 }
-.bf-asking .bf-card.bf-marked::after {
-  content: none;
-}
+/* Amendment 13 (item 10, owner's option 1) -- a gold seal with a check on
+   the card's corner; on a pile, the count in a dark bubble. */
 .bf-marked-n {
   position: absolute;
-  right: 3%;
-  top: 22%;
-  padding: 1px 5px;
-  border-radius: 2px;
-  background: #ffe7a8;
-  color: #17110a;
+  right: calc(var(--card-h) * -0.08);
+  top: calc(var(--card-h) * -0.08);
+  z-index: 3;
+  width: calc(var(--card-h) * 0.26);
+  height: calc(var(--card-h) * 0.26);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid #fff1c6;
+  background: radial-gradient(circle at 35% 30%, #fff3cf, #e0a44a 60%, #94601c);
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / 55%),
+    0 0 12px 2px rgb(255 200 100 / 45%);
+  pointer-events: none;
+  /* Lifted with its selected card (.bf-marked). */
+  translate: 0 calc(var(--card-h) * -0.06);
+  animation: bf-seal-in 0.3s ease-out both;
+}
+.bf-marked-n svg {
+  width: 55%;
+  height: 55%;
+}
+.bf-marked-n b {
+  position: absolute;
+  right: -28%;
+  bottom: -18%;
+  min-width: 62%;
+  height: 62%;
+  padding: 0 12%;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid #ffe7a8;
+  background: #1a1408;
+  color: #ffe7a8;
   font-family: var(--pa-display);
   font-weight: 700;
   font-size: calc(var(--card-h) * 0.09);
-  letter-spacing: var(--pa-track-button);
-  pointer-events: none;
+}
+@keyframes bf-seal-in {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 .bf-card {
   cursor: pointer;
@@ -2077,6 +2169,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  /* Amendment 13 (item 6) -- the scroll edge clipped a chosen card's
+     outline (4px out) and its number bubble (10px out): 16px of room. */
+  padding: 16px;
 }
 .gs-win-head {
   display: flex;
@@ -2595,7 +2690,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-win-tiles-scroll {
   max-height: min(470px, 46vh);
   overflow-y: auto;
-  padding: 10px 6px 4px;
+  /* Amendment 13 (item 6) -- room for a chosen card's outline and
+     number bubble, as .gs-tray-body. */
+  padding: 16px;
 }
 /* PHASE_09 group 2 -- the everyday questions (W-01, W-02, W-03). */
 .gs-win-list {

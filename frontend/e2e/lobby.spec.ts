@@ -516,7 +516,7 @@ test("a signed-in player can find the lobby by clicking", async ({ browser }) =>
     await expect(page).toHaveURL(/\/decks/);
 
     // The logo returns to the Lobby from anywhere.
-    await page.getByRole("link", { name: "Proxic Arena — Lobby" }).click();
+    await page.getByRole("link", { name: "Proxic Arena lobby" }).click();
     await expect(page).toHaveURL(/\/play/);
   } finally {
     await leaveAnyRoom(page);

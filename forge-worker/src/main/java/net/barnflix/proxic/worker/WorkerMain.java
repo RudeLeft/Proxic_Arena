@@ -362,6 +362,11 @@ public final class WorkerMain {
                             });
                             ask.add("notNow", byObject);
                         }
+                        // Phase 9 Amendment 13 -- the mana still due, as its own
+                        // field (the buttons no longer repeat it).
+                        if (GAME.owing() != null) {
+                            ask.addProperty("owing", GAME.owing());
+                        }
                         // What backing out of this question undoes (owner 2026-10-22).
                         if (GAME.subject() != null) {
                             ask.add("about", GAME.subject());

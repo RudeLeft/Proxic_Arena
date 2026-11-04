@@ -128,9 +128,7 @@ test("an administrator invites someone, who makes their own account; then sends 
     await expect(row).toContainText(`${username}@example.com`);
     await manage(row);
     await expect(row.getByRole("menuitem", { name: /Set a new password/ })).toHaveCount(0);
-    await row
-      .getByRole("menuitem", { name: `Send ${shown} a password reset` })
-      .click();
+    await row.getByRole("menuitem", { name: `Send ${shown} a password reset` }).click();
     // No email account on this stack (or, while the Email tab test runs,
     // one nothing listens on): refused in words, and no link shown.
     await expect(

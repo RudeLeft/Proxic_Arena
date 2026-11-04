@@ -81,7 +81,7 @@ final class CombatChoices {
                 if (combat.isAttacking(creature)) {
                     String back = UNATTACK + creature.getId();
                     takeBack.put(back, creature);
-                    labels.put(back, "Stop attacking — " + describe(creature));
+                    labels.put(back, "Stop attacking with " + describe(creature));
                     continue;
                 }
                 // FORGE decides whether it can attack anything at
@@ -183,7 +183,7 @@ final class CombatChoices {
             return true;
         }
         host.note(actedForSeat,
-                "That attack breaks a rule — a creature that must attack, or one that can't"
+                "That attack breaks a rule. A creature must attack, or one can't"
                         + " attack alone. Change your attackers.");
         return false;
     }
@@ -263,7 +263,7 @@ final class CombatChoices {
                 if (blocking) {
                     String back = UNBLOCK + creature.getId();
                     takeBack.put(back, creature);
-                    labels.put(back, "Stop blocking — " + describe(creature));
+                    labels.put(back, "Stop blocking with " + describe(creature));
                 }
                 if (!CombatUtil.canBlock(creature, combat)) {
                     if (!blocking && creature.isCreature()) {
@@ -450,7 +450,7 @@ final class CombatChoices {
                 String id = "damage:card:" + blocker.getId();
                 byId.put(id, blocker);
                 labels.put(id, describe(blocker)
-                        + " — " + assigned.getOrDefault(blocker, 0) + " so far");
+                        + " · " + assigned.getOrDefault(blocker, 0) + " damage so far");
             }
             // A null key is Forge's way of saying "the defending player".
             // Trample reaches them only once every blocker has lethal
@@ -460,7 +460,7 @@ final class CombatChoices {
             // damage as it chooses may give the player any of it.
             if ((trampleOver && allLethal(attacker, blockers, assigned)) || (divides && defender != null)) {
                 labels.put("damage:defender", String.valueOf(defender)
-                        + " — " + assigned.getOrDefault(null, 0) + " so far (trample)");
+                        + " · " + assigned.getOrDefault(null, 0) + " damage so far (trample)");
             }
 
             String choice =
@@ -514,8 +514,8 @@ final class CombatChoices {
 
     /** A creature, as a player needs to see it in combat. */
     private String describe(Card creature) {
-        return ViewerSnapshot.nameFor(creature, viewer) + " — " + creature.getNetPower() + "/"
+        return ViewerSnapshot.nameFor(creature, viewer) + " (" + creature.getNetPower() + "/"
                 + creature.getNetToughness()
-                + (creature.isTapped() ? " (tapped)" : "");
+                + (creature.isTapped() ? ", tapped)" : ")");
     }
 }

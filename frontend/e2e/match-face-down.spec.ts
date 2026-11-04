@@ -80,8 +80,8 @@ test("a face-down creature is named for its controller and hidden from the oppon
           );
           if (islands >= 3) pick = find(/cast this card face down/);
         }
-      } else if (find(/still owing/) >= 0) {
-        pick = find(/still owing/);
+      } else if ((/Pay the mana/.test(heading) ? 0 : -1) >= 0) {
+        pick = /Pay the mana/.test(heading) ? 0 : -1;
       } else if (
         labels.length &&
         (await panel.getByRole("button", { name: "Pass" }).count()) === 0

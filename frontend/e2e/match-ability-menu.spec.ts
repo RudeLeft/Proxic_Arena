@@ -24,7 +24,7 @@ import {
 
 const pkg = join(process.cwd(), "..", "Test Deck", "loyalty-deck.zip");
 const ROW = {
-  label: "Plains — -7: Create five 3/3 white Angel tokens.",
+  label: "Plains · -7: Create five 3/3 white Angel tokens.",
   why: "Needs 7 loyalty (it has 4).",
 };
 
@@ -93,6 +93,12 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
           await expect(no).toContainText("Needs 7 loyalty (it has 4).");
           // Greyed: not a choice anybody can click.
           await expect(no.locator("button")).toHaveCount(0);
+          // The whole menu on screen, even for a card in the far-left column.
+          const menu = await page.locator(".gs-popup").boundingBox();
+          expect(menu!.x, "the menu's left edge is on screen").toBeGreaterThanOrEqual(0);
+          expect(menu!.x + menu!.width, "its right edge too").toBeLessThanOrEqual(
+            page.viewportSize()!.width,
+          );
           await page.screenshot({ path: "test-results/seen/ability-menu-greyed.png" });
           await page.keyboard.press("Escape");
           greyed = true;

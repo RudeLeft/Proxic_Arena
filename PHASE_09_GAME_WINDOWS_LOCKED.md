@@ -693,3 +693,22 @@ before building).**
 13. *A resolved trigger keeps its stack look* (whole card and words),
    glows, sparks to its target and shrinks into its source (option B);
    a card that has left is drawn on top.
+
+- *As built:* the pause is held per stack object (a new spell on top
+  counts again); the worker sends the payment's `owing`
+  (protocol/README.md) and the target prompt from the ability's own text;
+  `abilities.ts` reads " · " rows, "no cost" and mixed costs; the seal
+  hangs beside the card and a selected card is drawn over its neighbours
+  (the card clipped it, the next card covered its count); the stack
+  ghost carries the stack card's look. Also, approved on the
+  screenshots (owner 2026-11-03): a card's ability menu stays on screen
+  for a card in the far-left column (it was half off the edge).
+- *Evidence:* the unit tests (Board, abilities, triggers, match);
+  `match-window.spec.ts` (a paused window still paused after the 5 s,
+  then resolved by a click); `match-big-combat.spec.ts` (the seal's count
+  seen, not covered: it failed before the fix); `match-ability-menu.spec.ts`
+  (the menu inside the screen: failed before); `match-card-trays`,
+  `match-damage-tray`, `match-what-happened` and the other e2e specs
+  reworded for item 11; the lab checks reworded for " · "; screenshots of
+  a real game for items 1, 5, 6, 10 and 12 (two defects found only on
+  them: the pause sign turned on its side, the seal cut off).

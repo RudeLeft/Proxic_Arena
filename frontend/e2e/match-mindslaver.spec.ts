@@ -106,8 +106,8 @@ test("under Mindslaver the controller answers for the other player and sees thei
         if (out && untapped >= 4) pick = find(/You control target player/);
         if (pick >= 0) used = true;
         if (pick < 0) pick = find(/Play land/);
-        if (pick < 0 && !out && lands >= 6 && untapped >= 6) pick = find(/^Mindslaver — \{6\}/);
-        if (pick < 0) pick = find(/still owing/);
+        if (pick < 0 && !out && lands >= 6 && untapped >= 6) pick = find(/^Mindslaver · \{6\}/);
+        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
         if (pick < 0) pick = find(new RegExp(`^${secondUser}`)); // the target
         if (pick < 0) pick = find(/^Pay the cost/); // sacrificing it
       } else {

@@ -103,7 +103,25 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
             await clickNow(mine);
             await expect(mine).toHaveAttribute("data-marked", String(i));
           }
-          await expect(mine.locator(".bf-marked-n")).toHaveText(`✓ ${n}`);
+          // The seal sits beside the card (the card clips what crosses its edge).
+          const seal = mine.locator("xpath=..").locator(".bf-marked-n");
+          await expect(seal).toHaveText(`${n}`);
+          // Seen, not just there: the count's middle shows the count.
+          await page.waitForTimeout(400);
+          const count = await seal.locator("b").boundingBox();
+          expect(count, "the count has a box").not.toBeNull();
+          const shown = await page.evaluate(
+            ({ x, y }) => {
+              // The seal takes no clicks; let it be hit for this look only.
+              const seals = [...document.querySelectorAll<HTMLElement>(".bf-marked-n")];
+              seals.forEach((e) => (e.style.pointerEvents = "auto"));
+              const hit = !!document.elementFromPoint(x, y)?.closest(".bf-marked-n");
+              seals.forEach((e) => (e.style.pointerEvents = ""));
+              return hit;
+            },
+            { x: count!.x + count!.width / 2, y: count!.y + count!.height / 2 },
+          );
+          expect(shown, "the seal's count is not clipped or covered").toBe(true);
           // Selected and not pointed: the button waits (owner: locked).
           await expect(panel.locator("button.gs-act-combat")).toBeDisabled();
           await expect(panel.locator("button.gs-act-combat")).toContainText(`${n} selected`);

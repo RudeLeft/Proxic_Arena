@@ -231,7 +231,7 @@ describe("a decision that cannot be refused", () => {
       MANDATORY,
       { type: "DECISION_REFUSED", decisionId: 9, reason: "PASS_NOT_ALLOWED" },
     ]);
-    expect(state.notice).toContain("cannot be skipped");
+    expect(state.notice).toContain("You can't skip this");
     // And the question stays, because it still needs answering.
     expect(state.decision?.decisionId).toBe(9);
   });
@@ -979,7 +979,7 @@ describe("what Cancel says", () => {
       cancelWords({ name: "Gingerbrute", kind: "ability", from: null, copy: null, copies: null })
         .sub,
     ).toContain("not activated");
-    expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out — nothing happens" });
+    expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out. Nothing is spent." });
   });
 });
 

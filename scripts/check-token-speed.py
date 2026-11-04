@@ -57,7 +57,7 @@ def policy(g, f):
         if not g.mine(1, name="Krenko, Mob Boss"):
             for o in f.get("options", []):
                 label = o.get("label") or ""
-                if label.startswith("Krenko, Mob Boss —") and "Create" not in label and o.get("payable", True):
+                if label.startswith("Krenko, Mob Boss ·") and "Create" not in label and o.get("payable", True):
                     return o["actionId"]
         return None
     if kind in ("declareAttackers", "declareBlockers"):

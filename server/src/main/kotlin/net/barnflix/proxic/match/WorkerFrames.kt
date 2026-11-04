@@ -57,6 +57,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
                     (reason as? JsonPrimitive)?.contentOrNull?.let { objectId to it }
                 }.toMap(),
             notNow = frame["notNow"] as? JsonObject,
+            owing = (frame["owing"] as? JsonPrimitive)?.contentOrNull,
             about =
                 (frame["about"] as? JsonObject).orEmpty().mapNotNull { (key, value) ->
                     (value as? JsonPrimitive)?.contentOrNull?.let { key to it }

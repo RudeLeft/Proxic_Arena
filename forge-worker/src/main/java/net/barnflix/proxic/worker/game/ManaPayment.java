@@ -134,15 +134,18 @@ final class ManaPayment {
             LinkedHashMap<String, String> labels = new LinkedHashMap<>();
             // Floating mana first: it is already made, and it empties at the
             // end of the step whether it is spent or not.
-            floating.forEach((id, kind) -> labels.put(id, "Use floating {" + id.substring(POOL.length())
-                    + "} — you have " + player.getManaPool().getAmountOfColor(kind) + " — " + remaining(toPay)));
-            sources.forEach((id, card) -> labels.put(id, card.getName() + " — " + remaining(toPay)));
+            // Phase 9 Amendment 13 (item 9, owner-approved words): what is
+            // still due is shown on the card (sent as its own field), so the
+            // buttons say only what each one does.
+            floating.forEach((id, kind) -> labels.put(id, "Use {" + id.substring(POOL.length())
+                    + "} you already made (" + player.getManaPool().getAmountOfColor(kind) + " left)"));
+            sources.forEach((id, card) -> labels.put(id, card.getName()));
             if (lifeForMana) {
-                labels.put(PHYREXIAN, "Pay 2 life for a Phyrexian symbol — you have "
-                        + (player.getLife() - lifeToLose) + " life — " + remaining(toPay));
+                labels.put(PHYREXIAN, "Pay 2 life instead (you have " + (player.getLife() - lifeToLose) + ")");
             }
 
             host.offerSubject(paidFor);
+            host.offerOwing(toPay.toString());
             String choice =
                     host.gate().ask(
                             actedForSeat,
@@ -373,7 +376,7 @@ final class ManaPayment {
         for (SpellAbility ability : usable) {
             String id = "mana:ability:" + byId.size() + ":card:" + card.getId();
             byId.put(id, ability);
-            labels.put(id, card.getName() + " — " + ability);
+            labels.put(id, card.getName() + " · " + ability);
         }
         host.offerSubject(paidFor);
         String choice =
@@ -387,7 +390,4 @@ final class ManaPayment {
     }
 
     /** What is still owed, for the prompt. */
-    private static String remaining(ManaCostBeingPaid toPay) {
-        return "still owing " + toPay;
-    }
 }

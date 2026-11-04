@@ -41,4 +41,22 @@ describe("an ability's cost, first (W-16)", () => {
     });
     expect(abilityParts("Card — Choose one: draw a card.", "Card").cost).toBeNull();
   });
+
+  // Amendment 13 (item 4) -- the owner's Forgotten Cave.
+  it("puts mana in the cost and the action in the words, dropping the bracketed reminder", () => {
+    expect(
+      abilityParts(
+        "Forgotten Cave — {R}, Discard Forgotten Cave — Cycling ({R}, Discard this card: Draw a card.)",
+        "Forgotten Cave",
+      ),
+    ).toEqual({ cost: "{R}", kind: "mana", text: "Cycling · Discard this card: draw a card." });
+  });
+
+  it("says a land play plainly, with nothing to pay", () => {
+    expect(abilityParts("Forgotten Cave — no cost — Play land", "Forgotten Cave")).toEqual({
+      cost: null,
+      kind: null,
+      text: "Play this land",
+    });
+  });
 });

@@ -492,9 +492,9 @@
   bottom: 9%;
   min-height: 30%;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 2%;
+  /* Amendment 13 (item 12) -- a block, not a column: a column put every
+     mana symbol and the text after it (a final full stop) on its own line. */
+  display: block;
   padding: 4% 5%;
   border-radius: 3px;
   background: rgb(248 240 226 / 97%);
@@ -505,12 +505,44 @@
   line-height: 1.25;
   text-align: left;
 }
+.bf-stack-said {
+  display: block;
+  text-wrap: pretty;
+}
 .bf-stack-words b {
+  display: block;
+  margin-bottom: 2%;
   font-family: var(--pa-display, "Barlow Condensed", sans-serif);
   font-size: calc(var(--card-h) * 0.04);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #7a3d14;
+}
+/* Amendment 13 (item 8) -- the mana still due for the trigger or ability
+   being paid for, at the bottom of its stack card, scaled with it. */
+.bf-stack-owe {
+  position: absolute;
+  left: 50%;
+  bottom: 1.5%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--card-h) * 0.015);
+  padding: calc(var(--card-h) * 0.01) calc(var(--card-h) * 0.03);
+  border-radius: 999px;
+  background: rgb(13 17 23 / 88%);
+  box-shadow: 0 0 0 1px #e0a44a;
+  white-space: nowrap;
+  font-family: var(--pa-display, "Barlow Condensed", sans-serif);
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.045);
+  color: #f0dcb6;
+}
+.bf-stack-owe .mana,
+.bf-stack-owe img {
+  width: calc(var(--card-h) * 0.06);
+  height: calc(var(--card-h) * 0.06);
 }
 /* The number and caster stay their usual size beside a readable card. */
 .bf-stack-tag {
@@ -658,31 +690,13 @@
 }
 /* A dark backing on each line: the caption often sits over the board's
    right-hand cards (spec 0028). */
-.bf-stack-next,
-.bf-stack-count {
+.bf-stack-next {
   padding: 1px 6px;
   border-radius: 4px;
   background: rgb(13 17 23 / 85%);
-}
-.bf-stack-next {
   color: #f0c46a;
   font-weight: 600;
   letter-spacing: 0.04em;
-}
-.bf-stack-count {
-  color: #b8bec7;
-  font-size: 0.88em;
-}
-/* Spec 0045 -- what the pointed stack card does, in a few lines. */
-.bf-stack-does {
-  max-width: 100%;
-  padding: 3px 8px;
-  border: 1px solid #39424f;
-  border-radius: 6px;
-  background: rgb(13 17 23 / 92%);
-  color: #e3e8e4;
-  white-space: normal;
-  text-align: left;
 }
 @keyframes bf-stack-in {
   from {

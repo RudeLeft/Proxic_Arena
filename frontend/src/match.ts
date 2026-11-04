@@ -99,6 +99,8 @@ export interface Decision {
   unavailable: Record<string, string>;
   /** Phase 9 W-16 -- each permanent's abilities not offered now, and why, by object id. */
   notNow?: Record<string, { label: string; why: string }[]> | undefined;
+  /** Phase 9 Amendment 13 -- on a payment question, the mana still due ("{1}{R}"). */
+  owing?: string | null;
   /**
    * Owner 2026-10-22 — what a question you can back out of is about (the
    * spell being cast, the ability being paid for), so Cancel says what it
@@ -687,7 +689,7 @@ function refusalText(reason: string | null): string {
     case "NOT_YOURS":
       return "That decision is not yours to make.";
     case "PASS_NOT_ALLOWED":
-      return "This one cannot be skipped — the rules require a choice.";
+      return "You can't skip this. The rules require a choice.";
     case "UNREACHABLE":
       return "The game did not receive that. It may have stopped.";
     case "NOT_SEARCHABLE":
@@ -1015,6 +1017,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     results: null,
     unavailable: asReasons(message["unavailable"]),
     notNow: asNotNow(message["notNow"]),
+    owing: asString(message["owing"]),
     about: asAbout(message["about"]),
     looking: asCards(message["looking"]),
     arrange: asArrange(message["arrange"]),

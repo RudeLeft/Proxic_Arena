@@ -54,7 +54,11 @@ export function yesNo(decision: Decision): { yes: DecisionOption; no: DecisionOp
  * ability of Boggart Shenanigans?" becomes "Use Boggart Shenanigans?".
  */
 export function confirmTitle(yesLabel: string): string {
-  const question = yesLabel.replace(/^Yes\s*[—-]\s*/, "").trim();
+  // "Yes, pay {2} for Rhystic Study" / "Yes: Mages' Contest: ..." since
+  // Amendment 13 (item 11); "Yes — ..." from an older worker.
+  const plain = /^Yes,\s/.test(yesLabel);
+  let question = yesLabel.replace(/^Yes(?:\s*[—-]\s*|,\s*|:\s*)/, "").trim();
+  if (plain && !question.endsWith("?")) question += "?";
   const trigger = /^use the triggered ability of (.+?)\?$/.exec(question);
   if (trigger) return `Use ${trigger[1]}?`;
   return question.charAt(0).toUpperCase() + question.slice(1);
@@ -146,9 +150,9 @@ export function endsCopies(decision: Decision, copies: Copies | null): boolean {
  */
 export function abilityWords(label: string, name: string): string {
   let words = label.replace(/\s*\[[^\]]*\]\s*$/, "").trim();
-  if (words.startsWith(name)) words = words.slice(name.length).replace(/^\s*—\s*/, "");
-  // A cost ("{0} —") before the words.
-  words = words.replace(/^\{[^}]*\}(?:\{[^}]*\})*\s*—\s*/, "");
+  if (words.startsWith(name)) words = words.slice(name.length).replace(/^\s*[—·]\s*/, "");
+  // A cost ("{0} ·", or "{0} —" from an older worker) before the words.
+  words = words.replace(/^\{[^}]*\}(?:\{[^}]*\})*\s*[—·]\s*/, "");
   return words;
 }
 

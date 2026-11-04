@@ -100,6 +100,8 @@ data class DecisionRequest(
      * seat the question goes to and nobody else.
      */
     val notNow: JsonObject? = null,
+    /** Phase 9 Amendment 13 -- the mana still due, "{1}{R}", on a payment question. */
+    val owing: String? = null,
     /**
      * Owner 2026-10-22 — what a question that can be backed out of is
      * about ("name", "kind": spell/ability/trigger/card, and a spell's

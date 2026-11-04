@@ -23,13 +23,13 @@ final class WhyNot {
     /** A creature of the attacking player that is not offered as an attacker. */
     static String attack(Card creature) {
         if (creature.isTapped()) {
-            return "Tapped — it can't attack.";
+            return "It's tapped, so it can't attack.";
         }
         if (creature.hasSickness()) {
-            return "Came in this turn — it can't attack yet.";
+            return "It came in this turn, so it can't attack yet.";
         }
         if (creature.hasKeyword(Keyword.DEFENDER)) {
-            return "Has defender — it can't attack.";
+            return "It has defender, so it can't attack.";
         }
         return "It can't attack right now.";
     }
@@ -37,7 +37,7 @@ final class WhyNot {
     /** A creature of the defending player that is not offered as a blocker. */
     static String block(Card creature) {
         if (creature.isTapped()) {
-            return "Tapped — it can't block.";
+            return "It's tapped, so it can't block.";
         }
         return "It can't block any of the attackers.";
     }
@@ -50,7 +50,7 @@ final class WhyNot {
     static String ability(forge.game.spellability.SpellAbility sa, Card card, Player player) {
         if (sa.isPwAbility()) {
             if (card.getPlaneswalkerAbilityActivated() > 0) {
-                return "Once each turn — already used this turn.";
+                return "Only once each turn, and you've used it.";
             }
             if (!player.canCastSorcery()) {
                 return "Only in your main phase, with nothing on the stack.";
@@ -74,7 +74,7 @@ final class WhyNot {
                 return "It's tapped.";
             }
             if (card.isCreature() && card.hasSickness()) {
-                return "Came in this turn — it can't tap yet.";
+                return "It came in this turn, so it can't tap yet.";
             }
         }
         if (sa.getRestrictions() != null && sa.getRestrictions().isSorcerySpeed()

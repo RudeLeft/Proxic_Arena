@@ -60,7 +60,7 @@ test("the Hall says when the holder must defend the Belt, and the rule; after a 
 
   holder = null;
   await page.reload();
-  await expect(belt).toContainText("Nobody holds the belt — the next game's winner takes it.");
+  await expect(belt).toContainText("Nobody holds the belt. The next game's winner takes it.");
   await expect(page.getByTestId("belt-defend")).toHaveCount(0);
 });
 

@@ -860,6 +860,18 @@ public final class GameHost {
         return notNow;
     }
 
+    /** Phase 9 Amendment 13 (items 8, 9) -- the mana still due, "{1}{R}", for
+     *  the payment question it was set for; null otherwise. */
+    private volatile String owing;
+
+    void offerOwing(String symbols) {
+        owing = symbols;
+    }
+
+    public String owing() {
+        return owing;
+    }
+
     /**
      * Owner 2026-10-22 -- what a question that can be backed out of is
      * ABOUT: the spell or ability being cast, paid for or targeted, so the
@@ -1039,6 +1051,7 @@ public final class GameHost {
         costs = java.util.Map.of();
         unavailable = java.util.Map.of();
         notNow = java.util.Map.of();
+        owing = null;
         subject = null;
         responseWindow = false;
     }

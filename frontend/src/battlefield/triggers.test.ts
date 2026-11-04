@@ -272,3 +272,14 @@ describe("calmer trigger storms (spec 0043)", () => {
     expect(sameTrigger(a, entry({ id: "stack:5", kind: "spell" }))).toBe(false);
   });
 });
+
+// Phase 9 Amendment 13 (item 11) -- the yes answer without a dash.
+describe("the yes answer, as the worker now writes it", () => {
+  it("reads a verb question and a named one back as a title", () => {
+    expect(confirmTitle("Yes, pay {2} for Rhystic Study")).toBe("Pay {2} for Rhystic Study?");
+    expect(confirmTitle("Yes, use the triggered ability of Boggart Shenanigans")).toBe(
+      "Use Boggart Shenanigans?",
+    );
+    expect(confirmTitle("Yes: Mages' Contest: top the bid?")).toBe("Mages' Contest: top the bid?");
+  });
+});

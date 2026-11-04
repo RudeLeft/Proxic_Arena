@@ -37,7 +37,7 @@ def game(name, seat1, seat2):
 
 
 def strike_costs(f):
-    return [o.get("cost") for o in f.get("options", []) if (o.get("label") or "").startswith(STRIKE + " —")]
+    return [o.get("cost") for o in f.get("options", []) if (o.get("label") or "").startswith(STRIKE + " ·")]
 
 
 def run(name, seat1, seat2, enabler, enabler_seat):

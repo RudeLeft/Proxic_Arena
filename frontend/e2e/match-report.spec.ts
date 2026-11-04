@@ -70,7 +70,7 @@ test("a report from a real game reaches the administrator, with everything in it
   await form.getByLabel(/What happened\?/).fill(`The ${stamp} did nothing`);
   await form.getByRole("button", { name: "Small thing", exact: true }).click();
   await form.getByRole("button", { name: "Send report" }).click();
-  const sent = guest.getByRole("status").filter({ hasText: "Thanks — report sent" });
+  const sent = guest.getByRole("status").filter({ hasText: "Thanks. Your report was sent." });
   await expect(sent).toContainText("this game’s record");
   const number = Number((await sent.locator("b").innerText()).replace("#", ""));
   await sent.getByRole("button", { name: "Back to the game" }).click();
@@ -87,7 +87,9 @@ test("a report from a real game reaches the administrator, with everything in it
   await ideaForm.getByRole("tab", { name: "Suggest an idea" }).click();
   await ideaForm.getByLabel(/Your idea in a few words/).fill(`Idea ${stamp}`);
   await ideaForm.getByRole("button", { name: "Send idea" }).click();
-  await expect(host.getByRole("status").filter({ hasText: "Thanks — report sent" })).toBeVisible();
+  await expect(
+    host.getByRole("status").filter({ hasText: "Thanks. Your report was sent." }),
+  ).toBeVisible();
   await host.getByRole("button", { name: "Close" }).click();
 
   // The administrator's Reports tab: counted, listed, opened.

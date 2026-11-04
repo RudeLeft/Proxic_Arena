@@ -85,8 +85,8 @@ def adventure():
             return seat2(g, f)
         kind = f.get("kind")
         if kind == "chooseSpellAbilityToPlay":
-            st["labels"].update(o["label"].split(" — ")[0] + " — " + o["label"].split(" — ")[1]
-                                for o in f["options"] if " — " in o["label"] and "Bonecrusher" in o["label"]
+            st["labels"].update(o["label"].split(" · ")[0] + " · " + o["label"].split(" · ")[1]
+                                for o in f["options"] if " · " in o["label"] and "Bonecrusher" in o["label"]
                                 or o["label"].startswith("Stomp"))
             if len(g.mine(1, name="Mountain")) < 3:
                 return g.play_land(f)
@@ -99,7 +99,7 @@ def adventure():
                     return o
             if not st["stomp"] and g.zone(1, "battlefield", owner=2, name="Grizzly Bears") \
                     and len(g.untapped_lands(1)) >= 2:
-                o = starts(f, "Stomp — {1}{R}")
+                o = starts(f, "Stomp · {1}{R}")
                 if o:
                     st["stomp"] = True
                     return o
@@ -144,14 +144,14 @@ def split():
                     return land
             if not st["fire"] and g.zone(1, "battlefield", owner=2, name="Grizzly Bears") \
                     and len(g.untapped_lands(1, "Mountain")) >= 1 and len(g.untapped_lands(1)) >= 2:
-                o = starts(f, "Fire — {1}{R}")
+                o = starts(f, "Fire · {1}{R}")
                 if o:
                     st["fire"] = True
                     st["before"] = {"their_life": g.player(1, 2).get("life")}
                     return o
             if st["fire"] and not st["ice"] and g.zone(1, "battlefield", owner=2, name="Grizzly Bears") \
                     and g.untapped_lands(1, "Island") and len(g.untapped_lands(1)) >= 2:
-                o = starts(f, "Ice — {1}{U}")
+                o = starts(f, "Ice · {1}{U}")
                 if o:
                     st["ice"] = True
                     st["before"]["hand"] = g.player(1, 1).get("handCount")
@@ -207,7 +207,7 @@ def aftermath():
                 return g.play_land(f)
             if not st["commit"] and g.zone(1, "battlefield", owner=2, name="Grizzly Bears") \
                     and len(g.untapped_lands(1)) >= 4:
-                o = starts(f, "Commit — {3}{U}")
+                o = starts(f, "Commit · {3}{U}")
                 if o:
                     st["commit"], st["card"] = True, card_of(o)
                     st["before"] = {"bears": len(g.zone(1, "battlefield", owner=2, name="Grizzly Bears"))}
@@ -265,7 +265,7 @@ def fuse():
                     and g.untapped_lands(1, name="Plains") and g.untapped_lands(1, name="Mountain")
                     and len(g.untapped_lands(1)) >= 3):
                 # {1}{R}{W} in either colour order: Forge prints {1}{W}{R}.
-                o = (starts(f, "Wear // Tear — {1}{R}{W}") or starts(f, "Wear // Tear — {1}{W}{R}"))
+                o = (starts(f, "Wear // Tear · {1}{R}{W}") or starts(f, "Wear // Tear · {1}{W}{R}"))
                 if o:
                     st["targets"] = []
                     # P7-F: one card, three ways to cast it -- every one
@@ -298,7 +298,7 @@ def fuse():
         return "inconclusive", "never had an artifact and an enchantment to destroy", found
     problems = [found["stopped"]] if found["stopped"] else []
     offered = found["offered"] or []
-    if len(set(offered)) < 3 or not any(" // " not in label.split(" — ")[0] for label in offered):
+    if len(set(offered)) < 3 or not any(" // " not in label.split(" · ")[0] for label in offered):
         problems.append(f"Wear, Tear and both fused should each be offered for the one card: {offered}")
     if sorted(n or "" for n in found["destroyed"]) != ["Glorious Anthem", "Ornithopter"]:
         problems.append(f"one cast should destroy the targeted artifact AND enchantment: {found['destroyed']}")
@@ -331,7 +331,7 @@ def rooms():
                 if here:
                     st["room"][room] = here[0]["id"]
                 if not here:
-                    o = starts(f, f"{first} — {first_cost}")
+                    o = starts(f, f"{first} · {first_cost}")
                     if o:
                         return o
                 elif second not in (here[0].get("name") or ""):
@@ -366,7 +366,7 @@ def rooms():
         label = st["unlock_labels"].get(room, "")
         if f"Unlock {second}" not in label:
             problems.append(f"{room}: unlocking {second} was never offered")
-        elif f"— {second_cost} —" not in label:
+        elif f"· {second_cost} ·" not in label:
             problems.append(f"{room}: the unlock is offered at the wrong price: {label!r}")
         if second not in str(found["rooms"].get(room)):
             problems.append(f"{room}: {second} did not unlock: {found['rooms'].get(room)}")
@@ -390,7 +390,7 @@ def mutate():
             if not bears:
                 return g.option(f, name="Grizzly Bears", zone="hand", land=False)
             if not st["cast"] and len(g.untapped_lands(1)) >= 3:
-                o = starts(f, "Gemrazer — {1}{G}{G}")
+                o = starts(f, "Gemrazer · {1}{G}{G}")
                 if o:
                     st["cast"], st["host"] = True, bears[0]["id"]
                     st["before"] = {"creatures": len([c for c in g.mine(1) if c.get("kind") == "creature"])}
@@ -440,7 +440,7 @@ def battle():
                 if o:
                     return o
             if not st["cast"] and len(g.untapped_lands(1)) >= 4:
-                o = starts(f, "Invasion of Zendikar — {3}{G}")
+                o = starts(f, "Invasion of Zendikar · {3}{G}")
                 if o:
                     st["cast"] = True
                     return o
@@ -499,25 +499,25 @@ def prepare():
             # the copy never resolved, and no land arrived (one CI run).
             if g.mine(1, name="Studious First-Year") and not st["growth"] \
                     and len(g.untapped_lands(1)) >= 2 and g.untapped_lands(1, "Forest"):
-                o = starts(f, "Rampant Growth — {1}{G}")
+                o = starts(f, "Rampant Growth · {1}{G}")
                 if o:
                     st["growth"] = True
                     st["before"]["lands"] = len([c for c in g.mine(1) if c.get("kind") == "land"])
                     return o
             if g.mine(1, name="Emeritus of Ideation") and not st["recall"] and g.untapped_lands(1, "Island"):
-                o = starts(f, "Ancestral Recall — {U}")
+                o = starts(f, "Ancestral Recall · {U}")
                 if o:
                     st["recall"] = True
                     st["before"]["hand"] = g.player(1, 1).get("handCount")
                     return o
             if not g.mine(1, name="Studious First-Year") and g.untapped_lands(1, "Forest"):
-                o = starts(f, "Studious First-Year — {G}")
+                o = starts(f, "Studious First-Year · {G}")
                 if o:
                     st["studious"] = True
                     return o
             if not g.mine(1, name="Emeritus of Ideation") and len(g.untapped_lands(1, "Island")) >= 2 \
                     and len(g.untapped_lands(1)) >= 5:
-                o = starts(f, "Emeritus of Ideation — {3}{U}{U}")
+                o = starts(f, "Emeritus of Ideation · {3}{U}{U}")
                 if o:
                     st["emeritus"] = True
                     return o
@@ -584,7 +584,7 @@ def daybound():
             # one turn bring day back.
             night = g.state.get(1, {}).get("dayTime") == "night"
             if (not st["cast"] or night) and len(g.untapped_lands(1)) >= 3:
-                o = starts(f, "Reckless Stormseeker — {2}{R}")
+                o = starts(f, "Reckless Stormseeker · {2}{R}")
                 if o:
                     st["cast"] = True
                     return o

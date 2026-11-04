@@ -62,7 +62,7 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
-import { CastingCard, CastingFlight, castingSpot, docks, stillOwing } from "./CastingCard";
+import { CastingCard, CastingFlight, castingSpot, docks, owingSymbols } from "./CastingCard";
 import { ChoiceWindow, ListTray, TableQuestionWindow, sourceOf } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
@@ -600,6 +600,25 @@ export function GameScreen({
       : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handCountOf reads this board
   }, [casting, castingDocked, castingHiddenBy]);
+  // Amendment 13 (item 2) -- while your cast card is in the air, the spell
+  // is not also drawn on the stack: it shows there only once the card has
+  // flown there, and a spell that resolves first never shows there at all.
+  // Read in render (not an effect), so the first frame after the cast is
+  // covered too, before the flight exists.
+  const castNow =
+    flight && !flight.hidden && !flight.reveal
+      ? flight.card.id
+      : lastCasting.current &&
+          lastCasting.current.card.id !== casting?.id &&
+          !lastCasting.current.hidden
+        ? lastCasting.current.card.id
+        : null;
+  const hiddenStack = castNow
+    ? (board?.stack.find((entry) => entry.source === castNow)?.id ?? null)
+    : null;
+  // A stack card first drawn under a flight does not slide in again later.
+  const quietStack = useRef(new Set<string>());
+  if (hiddenStack) quietStack.current.add(hiddenStack);
   const arrived = useRef<number | null>(null);
   useEffect(() => {
     if (!decision) return;
@@ -710,6 +729,7 @@ export function GameScreen({
     if (here.length !== marked.length) setMarked(here);
   }, [board, marked]);
 
+  const lastTarget = useRef<string | null>(null);
   const pick = useCallback(
     (objectId: string, members?: readonly string[]) => {
       if (decision && DECLARE_KINDS.has(decision.kind) && !planRef.current) {
@@ -745,12 +765,26 @@ export function GameScreen({
           return;
         }
       }
+      // Amendment 13 (item 3) -- a cost asked right after a target (Wirewood
+      // Symbiote: untap a creature, then return an Elf): a click on a pile
+      // takes another of its cards than the one just targeted, when it can.
+      if (
+        decision?.kind.startsWith("Cost") &&
+        members &&
+        members.length > 1 &&
+        objectId === lastTarget.current
+      ) {
+        const other = members.find((id) => id !== objectId && question?.onBoard.has(id));
+        if (other) objectId = other;
+      }
+      if (decision?.kind === "chooseTargetsFor") lastTarget.current = objectId;
       // Spec 0042: where a card rose from, if this click casts it.
       const box = atRef.current?.(objectId);
       if (box) castFrom.current = { id: objectId, box };
       const result = clickOn(question, objectId, decision?.notNow?.[objectId]?.length ?? 0);
       // Spec 0005: a card you could play pauses the response window.
-      if (result.kind !== "select" && decision?.window) setPausedWindow(decision.decisionId);
+      if (result.kind !== "select" && decision?.window)
+        setPausedWindow(board?.stack[0]?.id ?? `decision:${decision.decisionId}`);
       const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
       setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
@@ -833,11 +867,15 @@ export function GameScreen({
     decision?.window && question?.context === "priority" && game.awaiting === null
       ? decision.decisionId
       : null;
-  const [pausedWindow, setPausedWindow] = useState<number | null>(null);
-  const counting = windowId !== null && pausedWindow !== windowId;
+  // A pause is for the spell or trigger on top, not for one question: the
+  // game may ask again about the same stack (a new decision id), and a
+  // paused countdown must not start over then (Amendment 13, item 1).
+  const windowKey = windowId !== null ? (board?.stack[0]?.id ?? `decision:${windowId}`) : null;
+  const [pausedWindow, setPausedWindow] = useState<string | null>(null);
+  const counting = windowKey !== null && pausedWindow !== windowKey;
   const pauseWindow = useCallback(() => {
-    if (windowId !== null) setPausedWindow(windowId);
-  }, [windowId]);
+    if (windowKey !== null) setPausedWindow(windowKey);
+  }, [windowKey]);
   const [countdown, setCountdown] = useState<number | null>(null);
   // The latest answer, so a question updated mid-countdown never restarts it.
   const answerRef = useRef(answer);
@@ -1137,6 +1175,18 @@ export function GameScreen({
             arrivals={data.arrivals}
             departures={data.departures}
             flyingOnto={flyingOnto}
+            hiddenStack={hiddenStack}
+            stackOwing={
+              // Amendment 13 (item 8) -- paying for a trigger or ability on
+              // the stack (no spell being cast): its card shows what's due.
+              decision?.kind === "applyManaToCost" && !casting
+                ? owingSymbols(
+                    decision.owing,
+                    decision.options.map((o) => o.label),
+                  )
+                : null
+            }
+            quietStack={quietStack.current}
             combat={data.combat}
             stack={stackShown}
             clock={counting && windowId !== null ? String(windowId) : null}
@@ -1237,6 +1287,8 @@ export function GameScreen({
                 }
                 onAnswer={answer}
                 countdown={countdown}
+                windowPaused={windowKey !== null && pausedWindow === windowKey}
+                onPauseWindow={pauseWindow}
                 onResolveAll={() => {
                   setResolveAll(new Set(board.stack.map((entry) => entry.id)));
                   answer(null);
@@ -1259,7 +1311,10 @@ export function GameScreen({
                       from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
                       owing={
                         decision?.kind === "applyManaToCost"
-                          ? stillOwing(decision.options.map((o) => o.label))
+                          ? owingSymbols(
+                              decision.owing,
+                              decision.options.map((o) => o.label),
+                            )
                           : null
                       }
                       artUrl={artUrl}
@@ -1362,7 +1417,7 @@ export function GameScreen({
               ? "Game over."
               : match.status === "LAUNCHING"
                 ? game.decision
-                  ? "Setting the game up — and it needs an answer from you."
+                  ? "Setting up the game. It needs an answer from you."
                   : "Starting the game."
                 : "The game is running."}
           </p>
@@ -1999,6 +2054,9 @@ const EMBLEM = {
   flag: "M6 21V4M6 4h11l-2.5 4L17 12H6",
   ask: "M12 19V6M6 11l6-6 6 6",
   leave: "M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3",
+  // Amendment 13 (item 1) -- the countdown's pause, and resolving when paused.
+  pause: "M9 5v14M15 5v14",
+  play: "M8 5l11 7-11 7z",
 } as const;
 
 function passEmblem(word: string): keyof typeof EMBLEM {
@@ -2018,7 +2076,7 @@ function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: numb
   if (seconds !== undefined) {
     return (
       <span className="gs-coin gs-coin-timer" aria-hidden="true">
-        <svg viewBox="0 0 46 46" width="46" height="46">
+        <svg className="gs-coin-dial" viewBox="0 0 46 46" width="46" height="46">
           <circle
             className="gs-coin-ring"
             cx="23"
@@ -2028,7 +2086,11 @@ function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: numb
             style={{ animationDuration: `${RESPONSE_WINDOW_MS}ms` }}
           />
         </svg>
-        <span className="gs-coin-n">{seconds}</span>
+        {/* Amendment 13 (item 1) -- a pause sign in the circle; the seconds
+            are in the words beside it. */}
+        <svg className="gs-coin-pause" viewBox="0 0 24 24" width="22" height="22">
+          <path d={EMBLEM.pause} />
+        </svg>
       </span>
     );
   }
@@ -2085,6 +2147,8 @@ function Rail({
   cancel,
   onAnswer,
   countdown,
+  windowPaused = false,
+  onPauseWindow,
   onResolveAll,
   onView,
   over,
@@ -2110,6 +2174,9 @@ function Rail({
   onAnswer: (actionId: string | null) => void;
   /** Spec 0005 — seconds left in a response window, or null when none is counting. */
   countdown: number | null;
+  /** Amendment 13 (item 1) -- your own spell's countdown, paused by you. */
+  windowPaused?: boolean;
+  onPauseWindow?: () => void;
   /** Spec 0043 — "Let it all resolve": pass until the stack empties or grows. */
   onResolveAll: () => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
@@ -2275,6 +2342,16 @@ function Rail({
               </span>
             </span>
           </button>
+          {/* Amendment 13 (item 1) -- the circle pauses the countdown. Its own
+              button over the coin: the words beside it still resolve now. */}
+          {onPauseWindow && (
+            <button
+              type="button"
+              className="gs-act-pause"
+              aria-label="Pause the countdown"
+              onClick={onPauseWindow}
+            />
+          )}
           {/* Spec 0043: pass until the stack is empty -- asked again if
               anything new is added to it. */}
           {board.stack.length > 1 && (
@@ -2283,6 +2360,21 @@ function Rail({
             </button>
           )}
         </div>
+      ) : myPriority && windowPaused ? (
+        // Amendment 13 (item 1) -- paused: nothing resolves until you say.
+        <button
+          type="button"
+          className="gs-act gs-act-window"
+          disabled={busy}
+          onClick={() => onAnswer(null)}
+          aria-label={`Pass: Resolve ${top?.name ?? "it"}. Paused.`}
+        >
+          <Coin emblem="play" />
+          <span className="gs-act-text">
+            <span className="gs-act-word">Paused</span>
+            <span className="gs-act-sub">Resolve when you're ready</span>
+          </span>
+        </button>
       ) : myPriority ? (
         <div className="gs-act-group">
           {/* The same pass whatever it says (§7.53 extra): the words say
@@ -2395,7 +2487,7 @@ function QuestionBar({
         onClick={() => onAnswer(o.actionId)}
       >
         <ManaText text={o.label ?? o.actionId} />
-        {!o.payable && <span className="gs-option-note"> — not enough mana right now</span>}
+        {!o.payable && <span className="gs-option-note"> (not enough mana right now)</span>}
       </button>
     </li>
   );
@@ -2743,9 +2835,13 @@ function ActionPopup({
 }) {
   const first = useRef<HTMLButtonElement | null>(null);
   useEffect(() => first.current?.focus({ preventScroll: true }), []);
+  // Centred on the card, but never past the board's edges (owner
+  // 2026-11-03): a card in the far-left column opens it fully on screen.
+  // Half the menu's 380px width, plus 8px (40px on the left, clear of the
+  // game chat's tab).
   const style = box
     ? {
-        left: box.x + box.w / 2,
+        left: `clamp(230px, ${box.x + box.w / 2}px, calc(100% - 198px))`,
         top: box.y > 300 ? box.y - 12 : box.y + box.h + 12,
         transform: box.y > 300 ? "translate(-50%, -100%)" : "translate(-50%, 0)",
       }
@@ -2798,7 +2894,10 @@ function ActionPopup({
                 >
                   {cost(parts.cost, parts.kind)}
                   <span className="gs-ab-words">
-                    <ManaText text={parts.text} />
+                    {/* Amendment 13 (item 4) -- one paragraph, symbols inline. */}
+                    <span className="gs-ab-said">
+                      <ManaText text={parts.text} />
+                    </span>
                     {!o.payable && <em className="gs-ab-why">Not enough mana right now</em>}
                   </span>
                 </button>
@@ -2815,7 +2914,9 @@ function ActionPopup({
               >
                 {cost(parts.cost, parts.kind)}
                 <span className="gs-ab-words">
-                  <ManaText text={parts.text} />
+                  <span className="gs-ab-said">
+                    <ManaText text={parts.text} />
+                  </span>
                   <em className="gs-ab-why">{row.why}</em>
                 </span>
               </li>

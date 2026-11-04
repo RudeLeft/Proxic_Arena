@@ -172,7 +172,7 @@ def reasons():
     problems = []
     if seen["land"] != "You've already played a land this turn.":
         problems.append(f"second land: {seen['land']!r}")
-    if seen["sick"] != "Came in this turn — it can't attack yet.":
+    if seen["sick"] != "It came in this turn, so it can't attack yet.":
         problems.append(f"a creature cast this turn: {seen['sick']!r}")
     if seen["timing"] != "Only in your main phase, with nothing on the stack.":
         problems.append(f"a creature on the opponent's turn: {seen['timing']!r}")

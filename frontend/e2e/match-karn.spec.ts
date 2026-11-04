@@ -98,8 +98,8 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
         pick = find(/-14: Restart the game/);
         if (pick < 0) pick = find(/\+4: Target player/);
         if (pick < 0) pick = find(/Play land/);
-        if (pick < 0 && !karnOut && lands >= 7) pick = find(/^Karn Liberated — \{7\}/);
-        if (pick < 0) pick = find(/still owing/);
+        if (pick < 0 && !karnOut && lands >= 7) pick = find(/^Karn Liberated · \{7\}/);
+        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
         if (pick < 0) pick = find(new RegExp(`^${secondUser}`)); // +4's target: the opponent
       } else {
         // The guest plays lands and nothing else; when Karn's +4 makes

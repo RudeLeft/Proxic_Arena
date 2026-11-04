@@ -39,7 +39,13 @@ export function plainHint(kind: string, count: number): string {
 /** An option's words without its card's name in front ("Faithless Looting — "). */
 export function optionWords(option: DecisionOption, name: string | null): string {
   const label = option.label ?? option.actionId;
-  return name && label.startsWith(`${name} — `) ? label.slice(name.length + 3) : label;
+  if (!name) return label;
+  // The worker joins a name and its words with " · " (Amendment 13); an
+  // older one with " — ".
+  for (const sep of [" · ", " — "]) {
+    if (label.startsWith(`${name}${sep}`)) return label.slice(name.length + sep.length);
+  }
+  return label;
 }
 
 /** The mana symbol a colour choice stands for, or null. */
@@ -227,10 +233,10 @@ function OptionButton({
         {/* The card's name stays in the text (the scripted games read the
             whole label); beside its picture it is only hidden from sight. */}
         {name && optionWords(option, name) !== (option.label ?? option.actionId) && (
-          <span className="gs-win-option-card">{name} — </span>
+          <span className="gs-win-option-card">{name} · </span>
         )}
         <ManaText text={optionWords(option, name)} />
-        {!option.payable && <span className="gs-option-note"> — not enough mana right now</span>}
+        {!option.payable && <span className="gs-option-note"> (not enough mana right now)</span>}
       </button>
     </li>
   );

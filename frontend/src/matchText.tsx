@@ -72,7 +72,7 @@ export function NameSearch({
       )}
       <p className="hint">
         {results && results.total > results.options.length
-          ? `Showing ${results.options.length} of ${results.total.toLocaleString()} matches — type more to narrow it down.`
+          ? `Showing ${results.options.length} of ${results.total.toLocaleString()} matches. Type more to narrow it down.`
           : `Any of ${decision.optionCount.toLocaleString()} card names can go here. Type to search them.`}
       </p>
     </div>
@@ -146,7 +146,8 @@ export function headingFor(kind: string): string {
     case "chooseManaAbility":
       return "Choose which mana to make";
     case "applyManaToCost":
-      return "Tap something for mana";
+      // Phase 9 Amendment 13 (item 9, owner-approved words).
+      return "Pay the mana";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "Discard a card";
     case "declareAttackers":
@@ -326,9 +327,9 @@ export function hintFor(kind: string, options: number): string {
       return "That card can do more than one thing. Cancel (or Esc) backs out.";
     case "applyManaToCost":
     case "chooseManaAbility":
-      // The label carries what is still owed, so the hint says
-      // what the choice IS rather than repeating it.
-      return "Choose what to tap, or spend mana you have floating. Cancel (or Esc) backs out of the whole thing.";
+      // The card shows what is still due, so the hint says what the choice
+      // IS (Phase 9 Amendment 13, item 9).
+      return "Tap a land or other source, or use mana you already made. Cancel (or Esc) takes back the whole spell.";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "You are over your maximum hand size. This cannot be skipped.";
     case "declareAttackers":
@@ -370,7 +371,7 @@ export function hintFor(kind: string, options: number): string {
     case "chooseSaToActivateFromOpeningHand":
       // §6.68 — it is NOT cast: no mana, no stack, nothing to respond
       // to. Saying so stops the page reading like a free spell.
-      return "These start the game already on the battlefield — not cast, nothing paid. Choose them one at a time in the order they happen, then pass when you have the ones you want.";
+      return "These start the game on the battlefield. They aren't cast and cost nothing. Choose them one at a time in the order they happen, then pass when you have the ones you want.";
     case "chooseSomeType":
     case "chooseColor":
     case "chooseColors":
@@ -458,7 +459,7 @@ export function hintFor(kind: string, options: number): string {
  * "Bargain?"; several are "Pay optional costs?".
  */
 export function optionalCostTitle(decision: Decision): string {
-  const names = decision.options.map((o) => (o.label ?? "").split(/\s[–—-]\s/)[0]!.trim());
+  const names = decision.options.map((o) => (o.label ?? "").split(/\s[–—·-]\s/)[0]!.trim());
   return names.length === 1 && names[0] ? `${names[0]}?` : "Pay optional costs?";
 }
 
@@ -473,7 +474,7 @@ export function matchUrl(matchId: string): string {
  * refunds any mana paid -- so nothing is spent.
  */
 export function cancelWords(about: DecisionAbout | null): { word: string; sub: string } {
-  if (!about) return { word: "Cancel", sub: "Back out — nothing happens" };
+  if (!about) return { word: "Cancel", sub: "Back out. Nothing is spent." };
   switch (about.kind) {
     case "spell":
       return {

@@ -148,7 +148,7 @@ export default function HallPage() {
               <p>
                 {hall.belt.holder
                   ? `Finish a game every ${beltDays(hall)} days or the belt passes to the top-rated active player.`
-                  : "Nobody holds the belt — the next game's winner takes it."}
+                  : "Nobody holds the belt. The next game's winner takes it."}
               </p>
             </div>
           </section>

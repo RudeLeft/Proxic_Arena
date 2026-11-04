@@ -343,7 +343,7 @@ export function OrderTray({
         {groups.map((group) => {
           const o = group.options[0]!;
           const card = o.objectId ? cardOfAny(board, o.objectId) : null;
-          const name = card?.name ?? (o.label ?? "").split(" — ")[0] ?? "";
+          const name = card?.name ?? (o.label ?? "").split(/ [·—] /)[0] ?? "";
           const at = order.indexOf(group.key);
           const many = group.options.length > 1 ? ` ×${group.options.length}` : "";
           return (

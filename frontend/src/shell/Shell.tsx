@@ -75,7 +75,7 @@ function Header() {
   useEffect(() => logLine("page", `went to ${pathname}`), [pathname]);
   return (
     <header className={`pa-header${menuOpen ? " pa-header-open" : ""}`}>
-      <NavLink to="/play" className="pa-logo" aria-label="Proxic Arena — Lobby">
+      <NavLink to="/play" className="pa-logo" aria-label="Proxic Arena lobby">
         <img src={logo} alt="Proxic Arena" width={156} height={52} />
       </NavLink>
       <button
