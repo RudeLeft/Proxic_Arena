@@ -400,21 +400,22 @@ class MatchSetupServiceTest {
      */
     @Test
     fun `leaving or being removed from a prepared room cancels it`() {
-        for (removed in listOf(false, true)) {
+        // Taken out for being away (spec 0054's sweep) is a removal too.
+        for (how in listOf("leave", "remove", "away")) {
+            val removed = how
             val room = readyRoom()
             val service = setups()
             assertIs<PrepareResult.Prepared>(service.prepare(room.roomId, room.hostUserId))
             val guest = room.members.first { it.userId != room.hostUserId }.userId
 
-            val gone =
-                if (removed) {
-                    rooms().remove(room.roomId, room.hostUserId, guest)
-                } else {
-                    rooms().leave(room.roomId, guest)
+            val after =
+                when (how) {
+                    "remove" -> assertIs<RoomResult.Ok>(rooms().remove(room.roomId, room.hostUserId, guest)).room
+                    "away" -> RoomIdle(database!!.dataSource()).removeAway(room.roomId, guest)!!
+                    else -> assertIs<RoomResult.Ok>(rooms().leave(room.roomId, guest)).room
                 }
-            val ok = assertIs<RoomResult.Ok>(gone)
-            assertEquals(RoomStatus.OPEN, ok.room.status, "removed=$removed: the room stayed prepared")
-            assertTrue(ok.room.members.none { it.ready }, "removed=$removed: somebody stayed ready")
+            assertEquals(RoomStatus.OPEN, after.status, "removed=$removed: the room stayed prepared")
+            assertTrue(after.members.none { it.ready }, "removed=$removed: somebody stayed ready")
             assertNull(service.readySetup(room.roomId), "removed=$removed: a launchable setup was left")
             check(rooms().close(room.roomId, room.hostUserId) is RoomResult.Ok)
         }

@@ -61,8 +61,8 @@ taken at.** As built it is written and shown, and nothing compares it:
 the launcher does not check it. What keeps a setup from launching for a
 room that moved on is that the moves are refused or end the setup --
 ordinary configuration is refused while `READY_FOR_MATCH` (§5.116), and
-a player leaving or being removed invalidates the setup and reopens the
-room (owner 2026-11-04; before then a game could start with a player who
+a player leaving, being removed or being taken out for being away
+(spec 0054) invalidates the setup and reopens the room (owner 2026-11-04; before then a game could start with a player who
 had left). Preparing twice at the same revision is not the same
 preparation in practice: the first bumps the revision, so a repeat is
 refused `ROOM_REVISION_STALE`.
@@ -149,7 +149,7 @@ A setup is `READY` until something ends it:
 | Event | Setup becomes | Room becomes |
 |---|---|---|
 | host cancels (§5.117) | `INVALIDATED` | `OPEN`, readiness reset |
-| a guest leaves or is removed (owner 2026-11-04) | `INVALIDATED` | `OPEN`, readiness reset |
+| a guest leaves, is removed, or is taken out for being away (owner 2026-11-04) | `INVALIDATED` | `OPEN`, readiness reset |
 | host closes the room (§5.79) | `INVALIDATED` | `CLOSED` |
 | the room closes idle or with its host away (spec 0054; was §5.125's expiry) | `INVALIDATED` | `CLOSED` (`EXPIRED` before spec 0054) |
 | an administrator closes the room (Admin page) | `INVALIDATED` | `CLOSED` |
@@ -161,8 +161,8 @@ in Phase 5 ever rewrites a `CONSUMED` row — that is a match that
 happened, and tidying it would be falsifying history.
 
 While a room is `READY_FOR_MATCH`, ordinary configuration is blocked
-(§5.116). Cancelling is the way back; a guest leaving or being removed
-is too.
+(§5.116). Cancelling is the way back; a guest leaving, being removed
+or being taken out for being away is too.
 
 ### The guarantee Phase 6 needs
 

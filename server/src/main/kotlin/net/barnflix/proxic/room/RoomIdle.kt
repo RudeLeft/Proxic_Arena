@@ -52,8 +52,14 @@ class RoomIdle(dataSource: DataSource) {
             }
             if (room.isHost(userId) || !room.isMember(userId)) return@inTransaction null
             store.removeMember(connection, roomId, userId)
-            store.clearReadiness(connection, roomId)
-            store.touch(connection, roomId)
+            if (room.status == RoomStatus.READY_FOR_MATCH) {
+                // As leave and remove do (owner 2026-11-04): the prepared
+                // game goes with them, or Start match seats somebody gone.
+                reopenAfterLeaving(connection, roomId)
+            } else {
+                store.clearReadiness(connection, roomId)
+                store.touch(connection, roomId)
+            }
             store.load(connection, roomId)
         }
 
