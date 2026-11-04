@@ -80,10 +80,12 @@ regressed -- `RoomServiceTest` "a room in a match is still yours".
 
 ## A card picture is missing
 
-Expected for: **tokens** (in no deck package), a **transformed card's
-back face** (packages carry front images only), and any card after the
-match ended (pictures are served only during the match). Otherwise check
-that the deck was imported with its artwork (Deck Depot).
+Expected for: a **token** when neither deck brought a picture for it
+(a decklist's `// Tokens` section, spec 0022; it shows as a named chip),
+and a **transformed card's back face** when the deck brought no picture
+for that face (spec 0008). Otherwise check that the deck was imported
+with its artwork (Deck Depot), and was sent again after spec 0053 if it
+should show each printing's own picture.
 
 ## Confusing but correct
 

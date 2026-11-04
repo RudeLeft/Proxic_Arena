@@ -58,7 +58,9 @@ result`).
 While a match is `LAUNCHING` or `RUNNING` its room is `IN_MATCH`:
 
 - no lobby action can change it -- leave, close, ready, prepare are all
-  refused (§6.152); "Abandon match" is the only exit;
+  refused (§6.152); the match ends only through the game: its own end,
+  a concession (PHASE_07 §7.55), "End the game" for a player gone 10
+  minutes (spec 0054), or "Abandon match";
 - it is still the players' room: a refreshed page is given it back, and
   neither player can host or join another room (`RoomStore.activeRoomOf
   (includeInMatch = true)`; fixed 2026-10-20, found by the live-site run);
@@ -132,9 +134,11 @@ losing.
 
 - The worker is stopped on every end path; `MatchLauncherTest`
   proves the process is gone (mutation-tested).
-- The only per-match file is the worker's stderr log,
-  `<dataRoot>/match-logs/<matchId>.log`, kept for diagnosis (§6.155).
-  The runtime creates no other per-match files (§6.30).
+- Two files per match: the worker's stderr log,
+  `<dataRoot>/match-logs/<matchId>.log`, kept for diagnosis (§6.155), and
+  the server's game record, `<dataRoot>/match-records/<matchId>.jsonl.gz`
+  (PHASE_07 §7.56, deleted after `PROXIC_MATCH_RECORD_DAYS`). Nothing else
+  is created per match (§6.30).
 - Card artwork is served from the imported packages; nothing is
   copied per match.
 

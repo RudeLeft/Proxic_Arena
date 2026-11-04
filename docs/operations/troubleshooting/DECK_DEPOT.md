@@ -10,9 +10,11 @@ rejected ZIPs, missing cards, bad artwork — are
 
 ---
 
-## "Upload" does nothing, or the page sends you to sign in
+## The Decks page sends you to sign in
 
-Every Deck Depot route needs a session, import included. If you are
+Decks arrive from a linked Proxic Deck Builder (spec 0022; the upload
+box is gone), which uses its device token. Every Deck Depot page route
+needs a session. If you are
 on `http://<unraid-ip>:8765`, signing in cannot work at all — a
 browser will not keep a `Secure` cookie over plain HTTP. Use
 `https://proxic.barnflix.net`.
@@ -30,8 +32,8 @@ Phase 4 added two refusals to the Phase 2 list:
 | `403` | The CSRF token was missing — the page must send `X-CSRF-Token`. A call made outside the app will see this. |
 | `DUPLICATE_PACKAGE` | **You** have already imported this exact package. It names the deck, because it is yours. |
 
-Everything else — `NOT_A_ZIP`, `NO_DECK_LIST`, `CARD_NOT_FOUND` and
-the rest — is unchanged and documented in `DECK_IMPORT.md`.
+Everything else — `NOT_A_ZIP`, `NO_DECK_LIST`, `CARDS_NOT_RESOLVED`
+and the rest — is documented in `DECK_IMPORT.md`.
 
 ### "This package has already been imported" — but you have never seen it
 
@@ -81,10 +83,11 @@ so nothing is lost in between.
 
 ## Sharing says the user does not exist
 
-`SHARE_USER_NOT_FOUND`. The username must be exact — it is matched
-the way accounts are, so case does not matter (`pAt` finds `Pat`),
-but spelling does. There is deliberately no user directory and no
-search (§4.30).
+`SHARE_USER_NOT_FOUND`. The Share panel's **Choose a player** list
+holds every other active account the deck is not yet shared with, so
+this means the account was disabled, or removed, after the page
+loaded. Reload and choose again. (The server matches the username the
+way accounts are, so case does not matter.)
 
 Confirm the spelling from the host:
 
@@ -116,8 +119,8 @@ was duplicated.
 
 1. **Have them reload.** The library is fetched when the page loads;
    a share created a moment ago appears on the next load.
-2. **Check the recipient.** Open the deck and look at *Currently
-   shared with* — it is the server's list, not the page's memory.
+2. **Check the recipient.** Open the deck and look at *Shared with* —
+   it is the server's list, not the page's memory.
 3. **Check they are signed in as that account.**
 
 Nothing is cached server-side, so a share that exists in that list is
@@ -139,8 +142,9 @@ Two different things, and only one is a fault:
 
 ## Artwork is missing, or answers 404
 
-Since PHASE 4 AMENDMENT 2, artwork needs **both** deck access and
-the asset actually belonging to that deck. A 404 means one of:
+Under the per-deck address (`/api/decks/{deckId}/assets/{sha}`),
+since PHASE 4 AMENDMENT 2, artwork needs **both** deck access and the
+asset actually belonging to that deck. A 404 means one of:
 
 - you may not see that deck;
 - the asset is not part of it (a URL from a different deck will not
@@ -148,8 +152,15 @@ the asset actually belonging to that deck. A 404 means one of:
 - the file is genuinely absent — see "Artwork is missing" in
   `DECK_IMPORT.md`.
 
-The deck id in an artwork URL is load-bearing. Before Phase 4 it was
+The deck id in that address is load-bearing. Before Phase 4 it was
 not, and any asset could be fetched under any deck id.
+
+Since spec 0052 the page uses one address per picture instead,
+`/api/pictures/{sha}`, for any signed-in player (owner D1: a player
+learns an address only by being shown the card). A 404 there
+(`PICTURE_NOT_FOUND`) means the file is not on the server; see
+"Artwork is missing" in `DECK_IMPORT.md`. The per-deck address above
+still answers, with both checks.
 
 ## A legacy deck has no owner
 

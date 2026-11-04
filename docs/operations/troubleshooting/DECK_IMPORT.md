@@ -87,20 +87,23 @@ update warning.
 ### Printing mismatches
 
 Forge's lookup does **not** fail for a wrong set or collector
-number; it quietly returns another printing of the same name. Arena
-checks and refuses, because the printing is what you chose and what
-your artwork is keyed to.
+number; it quietly returns another printing of the same name. Since
+spec 0024 (owner 2026-10-27) Arena **accepts** that: the deck keeps
+your printing and picture, and Forge plays the printing it has. The
+one refusal left is a card whose printing changes what it does
+(Attractions, Everythingamajig, Garbage Elemental, Sly Spy and the
+like): that one must be a printing Forge has.
 
 Set-code differences between Deck Builder (Scryfall) and Forge are
 handled automatically — `CON` and `CFX` are both Conflux — so a
 mismatch here means a genuinely different printing.
 
-## `INVALID_ARTWORK` — an image is not a usable PNG
+## `INVALID_ARTWORK` — an image is not a usable picture
 
 | Code | Meaning |
 | --- | --- |
-| `NOT_A_PNG` | the file is not a PNG whatever it is called |
-| `UNDECODABLE_IMAGE` | a PNG header, but the data is corrupt |
+| `NOT_A_PICTURE` | the file is neither a PNG nor a JPEG (spec 0051), whatever it is called |
+| `UNDECODABLE_IMAGE` | a picture's header, but the data is corrupt |
 | `UNREASONABLE_DIMENSIONS` | smaller than 50 px or larger than 4000 px |
 | `IMAGE_TOO_LARGE` | over 16 MB |
 
@@ -116,9 +119,10 @@ cards render a fallback.
 
 ## `ARCHIVE_TOO_LARGE` / `TOO_MANY_ENTRIES` / `TOO_MANY_IMAGES`
 
-Above the limits in `PackageLimits.kt`: 150 MB, 300 entries, 200
-images. A 65-card deck of entirely distinct cards is ~70 MB, so a
-package past these is not a normal export.
+Above the limits in `PackageLimits.kt`: 150 MB, 600 entries, 500
+images (300 and 200 before spec 0051). A 100-card deck of entirely
+distinct cards is well inside them, so a package past these is not a
+normal export.
 
 ## `COMPRESSION_RATIO` — the package expands too much
 
@@ -128,8 +132,9 @@ are already compressed. A ratio above 10 is not a well-packed deck.
 ## `UNSAFE_PATH` / `DUPLICATE_PATH` / `UNEXPECTED_ENTRY`
 
 The archive contains a path that escapes its directory, two files
-that resolve to the same name, or a member that is neither the
-decklist nor a PNG in `real_cards/`.
+that resolve to the same name, or a member that is not one of: the
+decklist, a PNG or JPEG in `real_cards/`, a JPEG in `art_crops/`
+(spec 0051), or `pictures.json` (spec 0022).
 
 Not produced by Deck Builder. Something rebuilt the archive.
 
@@ -144,8 +149,10 @@ and sends the picture in full.
 
 ## `DUPLICATE_PACKAGE` — already imported
 
-The byte-for-byte identical package was imported before. The message
-names the existing deck; use that one, or delete it first.
+You imported the byte-for-byte identical package before (the check is
+per account since PHASE 4 AMENDMENT 4: another player may import the
+same file). The message names your existing deck; use that one, or
+delete it first.
 
 A deck with any change — one card, one different printing — has a
 different checksum and imports normally.
@@ -221,9 +228,10 @@ du -sh /mnt/user/appdata/proxic_arena/v2/data/temp
 `temp` should be nearly empty — staging is removed after every
 import. Anything persistent there is a bug worth reporting.
 
-Deleting a deck does **not** delete its art, because another deck
-may share it. Reclaiming unreferenced art is a sweep that does not
-exist yet.
+Deleting a deck does **not** delete its art at once, because another
+deck may share it. A weekly sweep (`PictureCleanup`, spec 0052) removes
+pictures no deck has held for 30 days, never one a game now running
+may show.
 
 ### A deck imported before a Forge change now behaves differently
 

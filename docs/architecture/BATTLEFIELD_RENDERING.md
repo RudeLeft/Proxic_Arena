@@ -163,9 +163,12 @@ rather than teleports.
 
 2. **Every card element is self-describing.**
    ```html
-   data-object-id="card:51" data-zone="p-crea" data-controller="p"
-   data-tapped="true" data-pt="4/4" data-face="front"
+   data-object-id="card:51" data-zone="viewer:creature-1"
+   data-controller="viewer" data-tapped="true" data-pt="4/4" data-face="up"
    ```
+   As built: `data-zone` is the card's line (`viewer:creature-1`,
+   `opponent:land-2`, spec 0040), or `viewer:hand` / `stack`;
+   `data-face` is `up` or `down`.
    Ids are the Phase 6 typed ids (`card:51`, `stack:3`), never bare
    integers. This is what makes §7.42 and §7.45 assertions one-liners.
 
@@ -174,10 +177,11 @@ rather than teleports.
    contextual action surface (§7.28) hang off real elements with real
    focus order. No `role` on a `div`.
 
-4. **Card art is an `<img>`** with the five layout scales offered as
-   `srcset`, `decoding="async"`. Decode, caching and eviction belong to
-   the browser. §7.17 asset authorization is unchanged: the `src` is a
-   match-scoped authorized URL.
+4. **Card art is an `<img>`**, `decoding="async"`. Decode, caching and
+   eviction belong to the browser. As built there is no `srcset`: one
+   picture per card, at its one address `/api/pictures/{sha}` since spec
+   0052 (`?size=full` for the close-up), named only for a card the viewer
+   may see (§7.17, `MATCH_ASSET_AUTHORIZATION.md`).
 
 5. **Overlays are SVG, `pointer-events: none`, in separate layers.**
    Connectors (attachments, §7.21) render *below* the card layer so a host
@@ -186,8 +190,9 @@ rather than teleports.
    on DOM and impossible on a single canvas.
 
    As built (step 5, PHASE 7 AMENDMENT 7): the four lines are one SVG layer
-   above the battlefield and below the hand (stacking: battlefield up to
-   ~2000, a swooping attacker 4500, lines 5000, bursts and numbers 6000,
+   above the battlefield and below the hand (stacking: battlefield cards
+   under 2000, a riding blocker from 2000 up to about 4000 (spec 0037), a
+   swooping attacker 4500, lines 5000, bursts and numbers 6000,
    hand 10000+). Every line starts and ends **inside the card's picture**,
    never on its name or power/toughness bar (the mock ended its block line
    at 72% of the card's height for the same reason). A swoop comes
@@ -220,7 +225,7 @@ rather than teleports.
 | Tier | Tool | Asserts | Evidence class |
 | --- | --- | --- | --- |
 | 1 | Vitest on `layout()` | §7.42 properties across (state × viewport × viewer × card count 0/1/8/9/23/31/60), both seats | `RUN` |
-| 2 | **one** Playwright test (`frontend/e2e/battlefield.spec.ts`) | for seeded boards (0-200 permanents) at four window sizes, every card's `getBoundingClientRect()` equals `layout()`'s Box; and PHASE 7 AMENDMENT 4 on what was drawn: no card covers another row, nothing crosses the divider, tilted corners are really clipped (hit-tested) | `RUN` |
+| 2 | **one** Playwright test (`frontend/e2e/battlefield.spec.ts`) | for seeded boards (0-200 permanents) at four window sizes, every card's `getBoundingClientRect()` equals `layout()`'s Box; and PHASE 7 AMENDMENT 4 on what was drawn: no card covers another row, nothing crosses the divider; since spec 0040 a tapped card's corners stay inside its line and no card is clipped to make that so | `RUN` |
 | 3 | Playwright, real events | a dispatched click sends the expected `action_id` (§7.44); the arrow never takes a click | `RUN` |
 | 4 | Playwright, both seats | opponent view's DOM text lacks every face-down identity; controller's has it (§7.45) | `RUN` |
 | 5 | screenshot regression | fixed viewports, pinned fonts, documented tight tolerance (§7.43, §7.47) | `RUN` |

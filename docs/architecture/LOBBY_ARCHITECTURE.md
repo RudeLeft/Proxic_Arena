@@ -60,8 +60,9 @@ invite URLs (§5.13). The room list is the one loosening: spec 0016 (R1)
 shows every room to everyone as a card with its seats, and a player in
 no room may **Ask to join** one with an open seat (R3); the host accepts
 or declines. There is still no code to type and no link that admits
-anybody. The presence list shows accounts that are connected right now
-and nothing about them beyond a display name.
+anybody. **Players** lists every active account (`PLAYERS`: name,
+picture, when last seen) and which of them are online and away right
+now (presence) -- nothing about a deck.
 
 ---
 
@@ -224,7 +225,8 @@ There is **no `/ws/rooms/{roomId}`**, which is why §5.215's "direct
 room socket attack" has nothing to attack.
 
 Client vocabulary: `PING`, `INVITE`, `INVITE_ACCEPT`,
-`INVITE_DECLINE`, `CHAT`, `REACT`, `ACTIVITY`. Everything else is server-to-client. See
+`INVITE_DECLINE`, `INVITE_WITHDRAW`, `JOIN_ASK`, `JOIN_CANCEL`,
+`JOIN_ACCEPT`, `JOIN_DECLINE` (spec 0016), `CHAT`, `REACT`, `ACTIVITY`. Everything else is server-to-client. See
 `LOBBY_PROTOCOL.md`.
 
 Chat is AMENDMENT 3: one global ephemeral channel, memory only,
@@ -245,7 +247,10 @@ Nothing stores it and nothing survives a restart.
       ▼                                    ▼
    CLOSED                               OPEN (setup invalidated)
 
-   OPEN ──── idle, or host away ───► CLOSED   (spec 0054)
+   READY_FOR_MATCH ──── match launched ───► IN_MATCH ──── match ends ───► OPEN
+                                             (PHASE_06; nothing in the lobby changes it)
+
+   OPEN or READY_FOR_MATCH ──── idle, or host away ───► CLOSED   (spec 0054)
 ```
 
 `CLOSED` (and `EXPIRED`, which rooms closed by the old 24-hour rule

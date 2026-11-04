@@ -587,7 +587,8 @@ https://claude.ai/artifact/CWpWdsm4GHvXwESVPPi6Xn (the safety)).**
   them, unselect them (click each again, or Esc for all). Selected
   creatures never attack or block unless pointed; nothing is quietly
   dropped and no turn moves on by mistake. Nothing selected and nothing
-  declared: the button is "No attack" / "No blocks", as today.
+  declared: the button is "No attack" / "No blocks", as today (*as
+  built:* "No attacks").
 - *The game still decides:* the page answers the game's own questions
   one creature at a time from what you pointed (as the Boggart "same for
   all" plan does), each checked by the game; if one is refused, the page

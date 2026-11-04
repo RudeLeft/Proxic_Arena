@@ -82,7 +82,7 @@ for a hashed file that a rebuild replaced. Hard-refresh.
 
 ## A React route returns 404
 
-`/play`, `/settings` and friends have no file behind them; the SPA
+`/play`, `/decks` and friends have no file behind them; the SPA
 fallback serves `index.html` for them. If one 404s:
 
 - The request path starts with `/api` or `/ws`, which are excluded
@@ -260,12 +260,19 @@ old build, which looks exactly like a change that had no effect.
 
 ## proxic.barnflix.net does not reach Arena Server
 
-- The tunnel's public hostname must route to `arena-server:8080` over
-  the internal network, not to a published host port.
+- On the live host the tunnel's `cloudflared` runs **outside** this
+  stack and reaches the server on the host's port 8765 (PHASE 1
+  AMENDMENT 2, `docker-compose.unraid.yml`). The tunnel's public
+  hostname must point there. (The `edge` profile's in-stack
+  `cloudflared`, routing to `arena-server:8080`, is the other shape the
+  compose file allows; it is not the one in use.)
 - `docker compose ps` — the server must be `healthy`, not merely
   `Up`.
-- Test the origin from inside the stack before blaming the edge:
-  `docker compose exec cloudflared wget -qO- http://arena-server:8080/api/health/live`.
+- Test the origin from the host before blaming the edge:
+  `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/` should
+  print `200` (the sign-in page). The health checks answer only inside
+  the container, so test them with
+  `docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/live`.
 
 ## Public HTTP works but the WebSocket fails
 

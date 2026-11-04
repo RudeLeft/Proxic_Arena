@@ -7,10 +7,14 @@ only** — no Magic concepts. Game messages arrive in Phase 6.
 
 ## Why fixtures exist
 
-`fixtures/` holds canonical JSON for every message type. **Both the
-Kotlin and the TypeScript test suites parse the same files.** If one
-side's model drifts from the other, a test fails rather than a game
-breaking at runtime.
+`fixtures/` holds canonical JSON for the four infrastructure messages
+(`hello.json`, `ping.json`, `pong.json`, `error-protocol-mismatch.json`).
+**Both the Kotlin and the TypeScript test suites parse the same files.**
+If one side's model drifts from the other, a test fails rather than a
+game breaking at runtime. Its folders are test decks (each with its own
+README), not messages; the match and lobby messages are proven by the
+tests named in `docs/architecture/MATCH_PROTOCOL.md` and
+`LOBBY_PROTOCOL.md`.
 
 ## Envelope
 
@@ -20,8 +24,11 @@ Every message carries:
 protocolVersion   a mismatch fails loudly, it is never interpreted
 type              what this message is
 messageId         identity; duplicate/stale rejection depends on it
-payload           type-specific
 ```
+
+The infrastructure messages put the rest under `payload`. Lobby and
+match messages are flat: their fields sit beside `type`
+(`{"protocolVersion":1,"type":"WATCHING","messageId":"…","count":2}`).
 
 `messageId` is present from the first infrastructure message on
 purpose. Phase 0A's decision gate rejects duplicate and stale

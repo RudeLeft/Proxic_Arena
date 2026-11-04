@@ -15,6 +15,11 @@ crowded kind takes a spare line; each card shows at least half of itself
 before a side shrinks, in steps of 90, 80, 75 and 70%; the sliver (33%)
 stays the least ever shown. The card size, the band, the rail and the
 mirror are unchanged. Where §2–§3 disagree with spec 0040, the spec wins.
+**As built:** the board is `frontend/src/battlefield/layout.ts` (React DOM
++ SVG, `BATTLEFIELD_RENDERING.md`). What §3 and §6 say about the Phase 0A
+spike -- `layout.mjs`, `BUILD_STATUS.md`, its pinned geometry -- describes
+that spike as it was on 2026-10-14, the reasoning for this contract; none
+of it is in use.
 
 ---
 

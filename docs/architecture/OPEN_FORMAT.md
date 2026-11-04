@@ -112,6 +112,11 @@ section rather than silently dropping it — quietly discarding part of
 what a player built is the kind of divergence this project keeps
 finding.
 
+*As built:* the decklist has no sideboard section to reject. A
+`// Sideboard` line is a comment like any other, so every card line
+counts as main deck and the whole deck must be legal (60-100 cards,
+four copies). Nothing is dropped.
+
 ### 4.3 Do NOT use Forge's `canHaveAnyNumberOf()` as the exemption test
 
 A trap worth naming, because the helper looks exactly right:
@@ -132,6 +137,12 @@ permit 30 Relentless Rats — a rule nobody chose.
 Open Format exemption test: card.getRules().getType().isBasicLand()
 ```
 
+*As built:* `OpenFormat.isBasicLand` checks the card's name against the
+basic land names (Plains, Island, Swamp, Mountain, Forest, Wastes and
+their snow-covered versions), so the copy limit can be checked before
+Forge is asked. It exempts the same cards and, as FMT-004 requires,
+never uses `canHaveAnyNumberOf()`.
+
 Nothing of that kind appears in the Mechanics Lab corpus today, but
 Open Format allows any card, so one will eventually be imported.
 
@@ -146,9 +157,8 @@ A deck containing five Relentless Rats is therefore INVALID in Open
 Format, and the import must say so plainly rather than silently
 trimming it.
 
-**Open question (small):** should those cards be exempt after all?
-Default, pending a decision, is **no** — the literal reading of the
-rule as given.
+~~**Open question (small):** should those cards be exempt after all?~~
+Answered above: **no**, by the owner, 2026-10-15.
 
 ### 4.4 Deck size is 60–65 inclusive — CONFIRMED
 

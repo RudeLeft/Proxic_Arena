@@ -1,7 +1,7 @@
 # Arena Server — production image (PHASE_01 §1.56, §1.57, §1.59).
 #
-# Three stages: build the frontend, build the server, then ship a JRE
-# runtime that contains neither toolchain. The production app needs no
+# Four stages: build the frontend, build the server, build Forge and the
+# worker, then ship a JRE runtime that contains none of the toolchains. The production app needs no
 # Node server (§1.56) — Ktor serves the compiled assets (§1.27).
 
 # --- Stage 1: frontend ------------------------------------------------
@@ -109,7 +109,8 @@ COPY --from=frontend /src/dist/ /app/frontend/dist/
 
 # The worker jar and Forge's own data files (~430 MB of card
 # scripts, editions and token definitions — no artwork). Forge is
-# GPL; this image is private to the deployment and not published.
+# GPL. CI publishes this image to ghcr.io/rudeleft/proxic_arena, and
+# the host pulls it from there (docs/operations/UPDATING.md).
 COPY --from=worker /build/forge-worker/target/forge-worker-0.1.0.jar /app/forge/forge-worker.jar
 COPY --from=worker /forge/forge-gui/res/ /app/forge/res/
 

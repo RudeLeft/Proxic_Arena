@@ -24,7 +24,7 @@ inspect ────────────────────────
     │  type, size, entry count, paths, duplicates, ratio, shape
     ▼
 checksum ──────────────────────── ArtStore.sha256Of
-    │  SHA-256; an identical package stops here as a duplicate
+    │  SHA-256; a package this owner already imported stops here
     ▼
 parse ─────────────────────────── DeckListParser
     │  the single root .txt, UTF-8, LF or CRLF
@@ -35,7 +35,7 @@ legality ───────────────────────�
     ▼
 resolve ───────────────────────── CardResolver -> forge-worker
     │  one child JVM, whole deck in one request
-    │  printing verified; a mismatch is reported, never accepted
+    │  printing checked; another printing of a card is kept (spec 0024)
     ▼
 artwork ───────────────────────── ArtStore.store
     │  one member at a time into staging, decoded, hashed
@@ -111,14 +111,19 @@ One worker per request, whole deck at once: Forge costs ~2.8 s and
 deck.
 
 Four outcomes: `RESOLVED`, `NOT_FOUND`, `PRINTING_MISMATCH`,
-`UNAVAILABLE`. Anything but `RESOLVED` refuses the import, naming
-the card.
+`UNAVAILABLE`. `NOT_FOUND` and `UNAVAILABLE` refuse the import, naming
+the card. `PRINTING_MISMATCH` is accepted since spec 0024 (owner
+2026-10-27): the line keeps its printing and picture, and Forge plays
+the printing it has (`resolved_set`, `resolved_number`) -- except for a
+card whose printing changes what it does (`printingMatters`), which is
+refused as before.
 
-### PNG validation
+### Picture validation
 
-Magic bytes, then a real decode, then dimensions. The extension is
-never trusted — a "PNG" that is really a payload must not reach disk
-under a name the browser might serve.
+Magic bytes (PNG, or JPEG since spec 0051), then the size from the
+header, then a real decode. The extension is never trusted — a picture
+that is really a payload must not reach disk under a name the browser
+might serve.
 
 ### Internal manifest
 
@@ -132,7 +137,7 @@ truth that can disagree.
 One transaction. Either the whole deck exists or none of it does.
 
 ```text
-imported_deck   one row, package_sha256 UNIQUE
+imported_deck   one row, (owner_user_id, package_sha256) UNIQUE (V005)
 art_asset       one row per distinct image, shared across decks
 deck_entry      one row per decklist line
 ```
@@ -142,8 +147,9 @@ deck_entry      one row per decklist line
 Art is **content-addressed**, so there is no promotion step:
 
 ```text
-/data/art/original/<ab>/<sha256>.png    as exported, for zoom
-/data/art/display/<ab>/<sha256>.png     384 px wide
+/data/art/original/<ab>/<sha256>.png|.jpg   as exported (JPEG since spec 0051)
+/data/art/display/<ab>/<sha256>.jpg         384 px wide (a .png before spec 0051)
+/data/art/zoom/<ab>/<sha256>.jpg            the close-up copy (spec 0015)
 ```
 
 Writing is idempotent — the same bytes land in the same place — so a

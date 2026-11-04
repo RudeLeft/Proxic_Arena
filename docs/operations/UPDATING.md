@@ -45,9 +45,10 @@ image, which is exactly right and completely useless.
 ```text
 push to main
    -> build the candidate image          ghcr.io/...:ci-<sha>
-   -> static analysis + 49 frontend tests
-   -> 233 server tests                   against that image's Forge
-   -> 29 browser tests                   against that image, running
+   -> static analysis + the frontend tests
+   -> the server tests                   against that image's Forge
+   -> the browser tests and the          against that image, running
+      Mechanics Lab checks
    -> all green? retag it latest and <sha>
    -> Unraid: Check for Updates -> Update Stack
 ```
@@ -63,8 +64,10 @@ passed; a gate that tests one build and ships another is not a gate.
 If a run fails, no new image appears, your Update button stays quiet,
 and the server keeps running what it was running.
 
-The host pulls a finished image. It never compiles anything, never
-needs the repository, and never needs 4 GB free to deploy.
+The host pulls a finished image. It never compiles anything and never
+needs 4 GB free to deploy. An ordinary update never needs the
+repository either; a change to the compose files does (a `git pull`,
+below).
 
 The image carries the commit it was built from, so the question that
 used to take twenty minutes takes one request.

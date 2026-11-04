@@ -9,7 +9,7 @@ alternative is looking for a bug that is not there.
 
 ---
 
-## "Host a game" is refused
+## "Open a room" is refused
 
 > **ALREADY_IN_A_ROOM** — Leave your current room first.
 
@@ -33,7 +33,8 @@ with two players (spec 0054; server settings).
 Correct. PHASE 5 AMENDMENT 1 removed join codes entirely, and
 AMENDMENT 2 replaced them with presence and invitations.
 
-The host clicks your name in **Who is here** and you get a prompt. Or
+The host clicks **Invite** beside your name in **Players** and you get
+a prompt. Or
 find the room in the room list and click **Ask to join** (spec 0016):
 it shows on a room with an open seat while you are in no room, and the
 host accepts or declines. There is no code and no link, by design
@@ -43,10 +44,11 @@ If the host cannot see your name, see the next entry.
 
 ---
 
-## Somebody is signed in but not in "Who is here"
+## Somebody is signed in but shows as offline in "Players"
 
-Presence is **connection state** (§5.120), not account state. The
-list shows people with an open `/ws/user` socket right now.
+**Players** lists every account; offline ones are folded away under
+"Offline · N". Online is **connection state** (§5.120), not account
+state: a player is online while they have an open `/ws/user` socket.
 
 Check, in order:
 
@@ -60,16 +62,20 @@ A user in two tabs appears **once** (§5.6). That is deliberate.
 
 ---
 
-## The Invite button is not there
+## The Invite button is greyed out, or not there
 
-It appears only when all of these hold:
+**Invite** shows beside every online player who is not in your room.
+With no room yet, clicking it offers **Open a room**, and the
+invitation is for that one. Otherwise it is greyed, with the reason
+beside it:
 
-- you are the **host** of a room (§5.17),
-- the room is still `OPEN` — not prepared, not closed,
-- there is a free seat (§5.22),
-- the person is not you.
+- "Only the host of a room invites" (§5.17),
+- "Your room has no free seat" — or it is starting a match (§5.22),
+- "One invitation at a time" — withdraw the one you sent first,
+- "<name> is already in a room".
 
-Host a game first; the button appears next to every other name.
+An offline player has no Invite button: invitations go to online
+players only.
 
 ---
 
@@ -227,10 +233,12 @@ the old process.
 
 ---
 
-## "Prepare match" is greyed out
+## There is no "Start match" button
 
-It needs **every** seat filled, decked and ready (§5.92). The seat
-list shows which is missing: `no deck yet` or `not ready`.
+The host's **Start match** needs **every** seat filled, decked and
+ready (§5.92); until then the box says what it waits for ("Waiting for
+a second player", "Waiting for you to be ready", "Waiting for <name> to
+be ready"). Your seat shows "No deck chosen yet" or "Not ready".
 
 An empty seat counts: a one-player Open Format match is not a match.
 

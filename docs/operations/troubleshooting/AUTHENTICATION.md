@@ -6,9 +6,12 @@ what to do about it.
 The mechanism is `docs/architecture/AUTHENTICATION.md`; who may do
 what is `docs/architecture/AUTHORIZATION.md`.
 
-No command in this document takes a password as an argument. Every
-one of them reads it from stdin, so nothing lands in shell history or
-the process table.
+No command in this document passes a password to `arena-admin` as an
+argument (it refuses one). Typed at its prompt, the password lands
+nowhere. The `printf ... | ... --password-stdin` form, for scripts,
+keeps it out of the process table, but the `printf` line itself is in
+your shell history: prefer the prompt at a terminal, or clear the
+history line afterwards.
 
 ---
 
@@ -57,7 +60,7 @@ When it fails, it is almost always one of these:
 | `database unavailable` | The server started before Postgres was ready, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. |
 | `A password must be at least 12 characters.` | Exactly that. There are no other composition rules. |
 | `A user named "..." already exists.` | Usernames are compared case-insensitively — `RudeLeft` and `rudeleft` are one account. `list` will show it. |
-| `No such command` | The argument order is `create <username> [--admin] --password-stdin`. |
+| the usage text (`arena-admin <command>` and the command list) | The command was not recognised. The argument order is `create <username> [--admin] --password-stdin`. |
 | nothing happens, no output | `docker compose exec` without `-T` gives the tool no stdin to read. |
 
 On Git Bash for Windows, prefix the command with `MSYS_NO_PATHCONV=1`
@@ -116,8 +119,8 @@ sessions stop working on their next request, and an open `/ws/user`
 connection closes within 30 seconds. Re-enabling does **not** restore
 revoked sessions — the user signs in again.
 
-If `disable` refuses with `the last administrator cannot be
-disabled`, that is §3.110 doing its job. Create or promote another
+If `disable` refuses with `Refusing: "<name>" is the only active
+administrator.`, that is §3.110 doing its job. Create or promote another
 administrator first.
 
 ---

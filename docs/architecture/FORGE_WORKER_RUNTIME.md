@@ -20,8 +20,9 @@ commit**. `/api/version` reports the commit the running server was built
 with; the worker reports its own at startup and the server refuses a
 mismatch (below).
 
-**Patches:** one, owner-approved, applied at image build only
-(`forge_patches/0001-leyline-last-known-state.patch`, AGENTS VEND-002,
+**Patches:** two, owner-approved, applied at image build only
+(`forge_patches/0001-leyline-last-known-state.patch`,
+`0002-replacement-last-state-index.patch`; AGENTS VEND-002,
 `forge_patches/README.md`). The vendored checkout
 `spikes/forge-phase0a/forge-upstream` is never edited (VEND-001);
 `scripts/check-integrity.py` proves it matches the pin with no change.
@@ -84,6 +85,13 @@ START_GAME  matchId, players    GAME_STARTED        the running milestone
                                 DECISION_REQUEST    authorisedSeat, actedForSeat, kind, options...
 DECISION_RESPONSE               DECISION_ACCEPTED / ERROR DECISION_REFUSED
 DECISION_SEARCH                 DECISION_OPTIONS
+                                MATCH_STEP          a step nobody is asked at (public;
+                                                    PHASE_07 Amendment 13)
+CONCEDE  seat                   CONCEDE_ACCEPTED  seat; or ERROR CONCEDE_REFUSED
+                                                    (PHASE_07 §7.55; spec 0054's End
+                                                    the game is a CONCEDE too)
+WATCHED  on                     (no reply)          spec 0047: build the public view,
+                                                    sent as MATCH_SNAPSHOT seat 0
 GAME_RESULT (diagnostics)       GAME_RESULT
                                 GAME_ENDED          outcome, winningSeat, reason?, turn
                                 GAME_LOG            entries: [{type, message}] -- Forge's
@@ -144,7 +152,8 @@ declined -- never a silent default (AGENTS STUB-002).
 ## Temporary directories
 
 None per match. The worker writes nothing but its stderr log; the
-runtime creates no other per-match files (§6.30, P6-BA).
+server's only other per-match file is the game record above (§6.30,
+P6-BA).
 
 ## Shutdown
 

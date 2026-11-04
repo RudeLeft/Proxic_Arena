@@ -95,7 +95,8 @@ cannot express it — and a body that adds one is ignored (§5.216).
     "hostUserId": "…",
     "presetId": "OPEN_FORMAT_1V1",
     "desiredPlayerCount": 2,
-    "status": "OPEN | READY_FOR_MATCH | CLOSED | EXPIRED",
+    "status": "OPEN | READY_FOR_MATCH | IN_MATCH | CLOSED",  // EXPIRED: old rows only
+    "watchable": true,          // spec 0047: "Let people watch"
     "revision": 42,
     "everyoneReady": false,
     "members": [
@@ -189,7 +190,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `PRESENCE_JOINED` | a user's **first** connection | everyone else |
 | `PRESENCE_LEFT` | a user's **last** disconnection | everyone else |
 | `ROOM` | any room change | each member, **individually** |
-| `ROOM_CLOSED` | closed, host left, expired | former members |
+| `ROOM_CLOSED` | closed, host left, idle, host away | former members |
 | `ROOM_REMOVED` | you were removed | that user |
 | `INVITED` | you were invited (`roomId`, `roomName`, `from`); again on reconnect | that user |
 | `INVITATION_SENT` | your invitation reached somebody (`roomId`, `to`); again on reconnect | the inviter |
@@ -198,6 +199,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `JOIN_ASK_SENT` | your request reached the host (`roomId`, `roomName`, `host`); again on reconnect | the asker |
 | `ROOM_CHECKING` | the host pressed Start and both decks are being checked (`roomId`, `checking: true`), or the check ended without a match (`false`) — spec 0019 | the room's members |
 | `ROOMS` | on connect, and on any room change | everyone |
+| `MATCH` | your match moved (`matchId`, `status`, `failureCode?`, seats, the result at the end; PHASE_06 §6.17) | each participant, **individually** |
 | `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | the connection; everybody when it changes |
 | `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | the connection; everybody when it changes |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
@@ -214,8 +216,9 @@ each member's copy names only their own deck.
 per tab: §5.6 makes several sessions one player.
 
 `ROOM_CLOSED` carries a `reason`: `HOST_LEFT`, `CLOSED_BY_HOST`,
-`EXPIRED`. A client that meets an unfamiliar reason should say
-something true and vague rather than show the code.
+`IDLE_<minutes>` or `HOST_AWAY` (spec 0054, below; `EXPIRED` before it).
+A client that meets an unfamiliar reason should say something true and
+vague rather than show the code.
 
 **Spec 0054 (idle rooms close), additive only.** A room in the lobby
 closes after 30 minutes with nothing happening while the host is alone,
@@ -298,7 +301,8 @@ and "no such room" and "not yours" are byte-identical on the wire.
 | Code | Status | Meaning |
 | --- | --- | --- |
 | `ROOM_NOT_FOUND` | `404` | no such room, **or** not yours |
-| `ROOM_NOT_OPEN` | `409` | closed, expired, or locked by preparation |
+| `ROOM_NOT_OPEN` | `409` | closed, or locked by preparation |
+| `MATCH_IN_PROGRESS` | `409` | §6.152 — the room is playing; it comes back when the match ends |
 | `ROOM_FULL` | `409` | every seat is taken |
 | `ALREADY_IN_A_ROOM` | `409` | §5.5 — leave the current one first |
 | `ALREADY_MEMBER` | `409` | you are already in that room |
@@ -307,6 +311,7 @@ and "no such room" and "not yours" are byte-identical on the wire.
 | `DECK_NOT_USABLE` | `422` | §5.42, and the answer for a deck that does not exist |
 | `DECK_REQUIRED` | `422` | §5.41 — ready needs a deck |
 | `INVALID_ROOM_CONFIGURATION` | `422` | §5.35, unsupported preset, host removing themselves |
+| `INVALID_ROOM_NAME` | `422` | PHASE_07 Amendment 9: one line, ≤ 40 characters |
 | `SETUP_NOT_READY` | `409` | §5.100 — with per-seat `needsAttention` |
 | `INVALID_ROOM_ID` / `INVALID_USER_ID` / `INVALID_DECK_ID` | `400` | not a uuid |
 | `INVALID_REQUEST` | `400` | the body is not the expected shape |

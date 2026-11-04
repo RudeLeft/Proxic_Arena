@@ -51,6 +51,10 @@ Void works before anyone has acted. The vendored checkout stays
 unmodified; the Docker build applies the patch to a fresh clone of the
 pin. See `forge_patches/README.md`.
 
+**Amended later (owner decision):** a second patch,
+`forge_patches/0002-replacement-last-state-index.patch`, is approved and
+applied the same way; `forge_patches/README.md` lists both.
+
 ## Forge adapter strategy
 
 **Strategy A — a Proxic-owned `PlayerController`**, on `forge-core` +
@@ -132,6 +136,9 @@ cardsfolder/   languages/   editions/   tokenscripts/   lists/
 ```
 
 Not required for Open Format: `blockdata/`, `setlookup/`.
+*Note 2026-11-04:* the worker's resource check (`ForgeResources.java`)
+requires `blockdata/` too, since Forge's `StaticData` reads it; the image
+ships Forge's whole `res/` tree.
 
 `lists/` passes a naive absence test because `editions/` also feeds the
 type vocabulary — but it is the **only** source of `BasicTypes`,
@@ -139,6 +146,10 @@ type vocabulary — but it is the **only** source of `BasicTypes`,
 
 **Forge creates missing resource directories**, i.e. it writes to the
 resource tree. A read-only mount is unresolved (Phase 0B §0B.5).
+*Note 2026-11-04:* resolved in practice: the image ships every directory
+Forge looks for, and the server runs with a read-only root filesystem
+(`read_only: true` in `docker-compose.yml`), which holds Forge's
+`res/`.
 
 ## State serialization strategy
 
@@ -247,6 +258,11 @@ abstract-method count diff on PlayerController
 ---
 
 ## Unresolved items affecting Phase 1 (§1.4)
+
+*Note 2026-11-04: all four are settled now* -- the resource tree runs
+read-only (above); the battlefield decisions were made in Phase 7; "any
+number" cards are not exempt (owner, `OPEN_FORMAT.md` §4.3); back faces
+travel in the package (`DECK_PACKAGE_FORMAT.md` §5.0). As recorded then:
 
 None blocking. For completeness:
 

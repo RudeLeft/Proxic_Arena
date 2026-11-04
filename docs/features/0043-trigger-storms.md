@@ -80,4 +80,8 @@ All taken 2026-10-31 (above).
 
 ## Amendments
 
-None.
+1. **As built (2026-10-31), and Phase 9 Amendment 13 (2026-11-03).** The
+   question names the card: "Pay {2}{R} for Skirk Drill Sergeant?" (as
+   built). A trigger that can't be paid is noted as "Skirk Drill Sergeant:
+   you can't pay {2}{R}, so it was skipped." (Amendment 13's plain words;
+   it read "not enough mana" before).

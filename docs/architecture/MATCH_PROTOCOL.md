@@ -25,6 +25,8 @@ GET  /api/matches/current          the caller's LAUNCHING/RUNNING match, or null
 GET  /api/matches/{id}             one match, participants only
 POST /api/matches/{id}/abandon     any participant; TERMINATED, no winner
 GET  /api/matches/{id}/assets/{sha256}   card artwork (MATCH_ASSET_AUTHORIZATION.md)
+GET  /api/matches/watch/{roomId}   spec 0047: the game a room is playing, to watch;
+                                   404 NOT_WATCHABLE, 409 YOUR_GAME for a player
 ```
 
 Since 1.30.0 (spec 0052) the game page loads every picture from
@@ -44,15 +46,29 @@ back in the match (§6.114).
 Authenticated by the session cookie, like every request (§3.78). A
 match the user is not in and a match that does not exist close the
 same way (`VIOLATED_POLICY`, "not a participant"); knowing a match id
-grants nothing, and there are no spectators (§6.108). Separate from
-the lobby socket `/ws/user`.
+grants nothing by itself (§6.108). Separate from the lobby socket
+`/ws/user`.
+
+**Spectators (spec 0047).** A signed-in user who is not a player is
+let in as a spectator when the match is `RUNNING` on this server and
+its room lets people watch (`watchable`, "Let people watch", on by
+default); this is asked again at every connection. A spectator gets
+`MATCH_HELLO` with `seat: 0` and `spectator: true`, then the **public
+view** (a `MATCH_SNAPSHOT` whose state has `spectator: true` and
+`viewFrom`: no hand, nothing face down), `MATCH_STEP` and
+`MATCH_ASKING`. It is never asked anything, and whatever it sends is
+dropped. The players get `WATCHING` (`count`, people watching) as it
+changes. The worker builds the public view only while somebody is
+watching (`WATCHED`, `FORGE_WORKER_RUNTIME.md`).
 
 ### On connect, in this order (§6.110)
 
 ```text
+WATCHING          count -- only when somebody is watching
 MATCH_HELLO       matchId, seat
 MATCH_SNAPSHOT    the board as THIS player may see it      (if any yet)
 DECISION_REQUEST  the question still waiting for this player (if any)
+MATCH_ASKING      who is being asked now
 ```
 
 State before the question: a question names objects by id, so the board
@@ -63,6 +79,10 @@ regression game (P6-L, `scripts/check-snapshot-first.py`).
 
 ```text
 MATCH_SNAPSHOT          state: viewer snapshot (below)
+MATCH_STEP              state: the step bar's state -- a step nobody is asked
+                        at; public, the cards stay as the last board has them
+                        (PHASE_07 Amendment 13)
+WATCHING                count: people watching (spec 0047), to the players
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
                         objectId?, payable?, cost?, types?}], searchable?,

@@ -54,7 +54,9 @@ card name**. If a player owns a foil Lightning Bolt and a regular one,
 the package carries whichever the deck lists first. That is a real
 limitation of the art pipeline, not of Forge, and it interacts with
 §0A.9A's exact-printing work: Proxic can know the printing from the
-decklist, but may not have distinct art for it.
+decklist, but may not have distinct art for it. **Since spec 0053
+(Arena 1.32.0) it can:** a package may also bring a picture of one
+printing (`DECK_PACKAGE_FORMAT.md` §5.3).
 
 **Spec 0024 (2026-10-27): any printing of a card Forge plays is
 accepted.** When Forge knows the card but not the printing a line asks
@@ -75,9 +77,10 @@ say so (`format.anyPrinting`, `printingMatters` on those cards).
 ```
 
 The exporter already assumes no sideboard, which independently matches
-the owner's Open Format decision. Phase 2 should still **reject** a
-package that somehow contains one rather than silently dropping it
-(`OPEN_FORMAT.md` §4.2).
+the owner's Open Format decision. *As built:* the import has no sideboard
+section to detect. A `// Sideboard` line is a comment like any other, and
+card lines after it count as main deck, so the deck must still be legal
+as a whole (60-100 cards, four copies). Nothing is dropped.
 
 ### 2.3 Filenames keep accents and spaces
 
@@ -202,6 +205,12 @@ enumerate art they have no right to see.
 
 ## 6. Open questions
 
+*All four are answered now:* (1) yes, `4 Lightning Bolt [SET:NUM]` with
+the deck name as the first `//` comment (`DECK_PACKAGE_FORMAT.md` §3);
+(2) the card shows a text frame (§5.1 there); (3) yes, back faces since
+2026-10-20 (§5.0 there); (4) a re-sent deck is a new deck, refused as a
+duplicate only if byte-for-byte the same package from the same owner.
+
 1. **Is the deck `.txt` inside the ZIP the same format the old bridge
    parsed** (`4 Lightning Bolt [SET:NUM]`)? Phase 2 must read the
    actual export rather than assume; `PHASE_02` §2.41 already says so.
@@ -224,7 +233,7 @@ enumerate art they have no right to see.
        going to replace it."
 ```
 
-The old Proxic Arena stays live on Unraid until the new stack replaces
-it. It is not to be modified (AGENTS ISO-001), and no migration path
-between the two is planned — the new build is a replacement, not an
-upgrade.
+*As of 2026-11-04:* the new stack is the live one on Unraid
+(`docs/operations/UNRAID_INSTALL.md`); the old project is a read-only
+reference (AGENTS ISO-001). No migration path between the two was
+built — the new build is a replacement, not an upgrade.

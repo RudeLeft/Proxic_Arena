@@ -162,7 +162,7 @@ edition's own aliases — code, secondary code, alias and Scryfall
 code — and **does not** carry a mapping table, which would rot with
 every new set.
 
-### 4.2 A wrong printing is not silently accepted
+### 4.2 A wrong printing is reported (and, since spec 0024, kept)
 
 Forge's lookup does **not** return null for a bad set or collector
 number; it quietly returns another printing of the same name:
@@ -175,7 +175,10 @@ Lightning Bolt + ZZZ + 999  ->  SLZ/63
 For gameplay that substitution is harmless. For Proxic it is not:
 the printing is what the player chose and what their artwork is
 keyed to. Arena compares what Forge returned against what was asked
-for and reports a mismatch.
+for and records a mismatch. Since spec 0024 (owner 2026-10-27) a
+mismatch is accepted: the line keeps its printing and picture, and
+Forge plays the printing it has. Only a card whose printing changes
+what it does (`printingMatters`) must be a printing Forge has.
 
 ### 4.3 Multi-face cards
 
@@ -192,8 +195,8 @@ real_cards/<front face name> [<SET>].png
 - **One image per distinct card NAME**, not per printing and not per
   copy. 11 images for a 65-card deck. Since spec 0053 a package may
   also bring a picture of one PRINTING (§5.3).
-- **Front faces only** in packages exported before 2026-10-20. A
-  transforming card's back face is being added (§5.0).
+- **Front faces only** in packages exported before 2026-10-20. Since
+  then a transforming card's back face comes too (§5.0).
 - The set code appears in the filename without the collector number,
   so the deck line and the image name are not interchangeable.
 - Illegal filename characters `<>:"/\|?*` are stripped. **Accents
@@ -223,8 +226,8 @@ e.g. real_cards/Storm-Charged Slasher [MID].png
 - Until a package carries it, a back face renders as a text frame,
   never with the front's picture.
 
-Implemented by the owner in Proxic Deck Builder; Arena's import change
-is Phase 7 work.
+Implemented by the owner in Proxic Deck Builder; Arena imports it
+(`deck_face_art`, `V015`) and shows it while that face is up.
 
 ### 5.1 Artwork is optional
 
@@ -289,7 +292,7 @@ Then content:
 | Every card resolves in Forge | `CARDS_NOT_RESOLVED` |
 | Every image decodes as a PNG or a JPEG, of a reasonable size | `INVALID_ARTWORK` |
 | Every picture `pictures.json` names is in one of the sender's decks | `PICTURE_NOT_HELD` |
-| Package not already imported | `DUPLICATE_PACKAGE` |
+| Package not already imported by this account (per owner since `V005`) | `DUPLICATE_PACKAGE` |
 
 Open Format: **60–100 cards (60–65 before spec 0051), at most 4 copies of any card, basic
 lands unlimited, no sideboard.** "Any number" cards — Relentless
@@ -298,13 +301,15 @@ Rats and similar — are **not** exempt (owner decision 2026-10-15).
 ## 7. Failure behaviour
 
 - **Nothing is silently corrected.** An over-limit deck is refused,
-  never trimmed. An unresolvable card refuses the whole import,
-  never a substitution.
+  never trimmed. A card Forge does not have refuses the whole import,
+  never a substitution. (Another printing of a card Forge has is kept,
+  §4.2.)
 - **Every problem is reported at once**, not the first one found.
 - **An import is all or nothing.** A failure leaves no deck, no
   rows, and no staging directory.
-- **An identical package is refused**, naming the deck already
-  imported. Identity is the SHA-256 of the package.
+- **An identical package is refused** when the same account imported
+  it before, naming that deck. Identity is the SHA-256 of the package;
+  another account may import the same file (PHASE 4 AMENDMENT 4).
 
 ## 8. What Arena does not require
 

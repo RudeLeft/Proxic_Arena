@@ -133,10 +133,15 @@ command-zone cards.
 
 ## Match assets
 
-A picture follows visibility exactly: a viewer may fetch only the
-artwork its own snapshots referenced, during that match
-(`MATCH_ASSET_AUTHORIZATION.md`). A hidden card has no reference, so
-there is nothing to ask for.
+A picture's address follows visibility exactly: a snapshot names a
+picture (`art`, `crop`, its content hash) only for a card that viewer
+may identify, so a hidden card has no reference and there is nothing
+to ask for (`MATCH_ASSET_AUTHORIZATION.md`). Since spec 0052 (owner D1)
+the pages load it from `/api/pictures/{sha}`, which any signed-in
+player may load and which keeps working after the match. The server
+does not check who was shown an address; what protects a hidden card
+is that its address (a content hash, which cannot be guessed) is never
+sent to a player who may not see it.
 
 ## Notices
 

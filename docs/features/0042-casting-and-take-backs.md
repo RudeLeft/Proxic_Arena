@@ -98,3 +98,8 @@ All taken 2026-10-30 (above).
    drawn on the stack while it is in the air, and a trigger being paid
    for shows what is still owed under its words. See
    `PHASE_09_GAME_WINDOWS_LOCKED.md`.
+
+3. **As built (Phase 9 W-14, 2026-11-03).** "Click to take back" is not
+   written on each creature: the round button's second line says it
+   ("5 power · select more, or click one to take it back"; for blockers,
+   "Select more, or click a blocker to take it back").

@@ -20,7 +20,7 @@ An account is a row in `app_user` (migration `V003__accounts.sql`):
 user_id              uuid, primary key
 username             as typed, for display
 username_normalized  unique; what uniqueness is actually decided on
-display_name         free text, changeable by its owner
+display_name         required, 1-12 characters (spec 0041), changeable by its owner
 password_hash        PHC-encoded Argon2id (never the password)
 role                 PLAYER | ADMIN      (CHECK constraint)
 status               ACTIVE | DISABLED   (CHECK constraint)
@@ -160,8 +160,9 @@ player's password.
   (`POST /api/auth/device-codes`): 8 characters from an alphabet without
   look-alikes, shown as `K7QX-M4PD`, good for 10 minutes and one use. A
   new code replaces the player's last unused one. The Deck Builder sends
-  it to `POST /api/auth/device-link`, the one open route besides
-  signing in and an invitation's sign-up page, throttled like signing in,
+  it to `POST /api/auth/device-link`, open to a caller with no session
+  (as signing in, an invitation's sign-up page and a reset link's page
+  are), throttled like signing in,
   and every wrong, used or expired code gets the same 410. The answer is
   a 256-bit token, given once.
 - **Kept as hashes.** Codes and tokens are stored only as SHA-256s, as
@@ -194,7 +195,8 @@ proxicarena_csrf      readable by JS, SameSite=Lax, Path=/, Max-Age=30d
 ```
 
 `Secure` is set from `PROXIC_SECURE_COOKIES`, default **true**. It is
-switched off only in `docker-compose.local.yml`, because a browser
+switched off only in `docker-compose.local.yml` and `docker-compose.ci.yml`
+(both plain HTTP on the machine itself), because a browser
 will not keep a `Secure` cookie delivered over plain HTTP — a local
 stack would otherwise appear to sign you in and then immediately not
 know you. In production, Cloudflare terminates TLS and the flag stays
@@ -261,7 +263,7 @@ limit is a brake on guessing, not a distributed defence.
 POST /api/auth/login          username + password -> session
 POST /api/auth/logout         ends this session; quiet success if none
 POST /api/auth/logout-all     ends EVERY session this user holds
-GET  /api/auth/me             who am I (200 with a null user if nobody)
+GET  /api/auth/me             who am I (204, empty, if nobody)
 POST /api/auth/password       change password; revokes EVERY session
 POST /api/auth/display-name   change display name
 POST /api/auth/device-codes   a one-time code to link a computer (spec 0021)
@@ -276,9 +278,10 @@ POST /api/deck-builder/pictures/known   device token: which picture hashes your 
 POST /api/deck-builder/decks            device token: send a deck package
 ```
 
-`/api/auth/me` answers 200 for an anonymous caller rather than 401:
-"nobody is signed in" is a normal answer to that question, and the
-page needs it on every load.
+`/api/auth/me` answers an anonymous caller with 204 and nothing else,
+rather than 401: "nobody is signed in" is a normal answer to that
+question, the page needs it on every load, and an empty answer tells a
+stranger nothing (200 with a null user until 2026-10-24).
 
 A **password change revokes every session, including the one making
 the request** (§3.36). That is the point: a password is changed
@@ -330,8 +333,8 @@ reads it from stdin instead, which is the automation path.
 - The tool returns a result value rather than calling `exitProcess`,
   so its behaviour is testable in-process.
 
-The first administrator is created this way; see
-`docs/operations/UNRAID_CHECKLIST.md`.
+The first administrator is created this way; see Step 5 of
+`docs/operations/UNRAID_INSTALL.md`.
 
 ---
 

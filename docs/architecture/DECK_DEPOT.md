@@ -37,8 +37,8 @@ Nothing in the authorization path consults the role at all, and a
 test tries each of those as an admin, because "it does not do that"
 is only worth believing once somebody has tried.
 
-Account administration still lives in `arena-admin`, behind host
-access.
+Account administration lives in the Admin page (PHASE_07 §7.67) and in
+`arena-admin`, behind host access; see `AUTHORIZATION.md`.
 
 ---
 
@@ -104,9 +104,10 @@ is the protection.
   back, so two requests racing end with one share and an answer that
   describes what *is* (§4.104).
 - **By username, exactly** (§4.29) — normalized the way accounts are,
-  so `pAt` finds `Pat`. There is no listing endpoint and no prefix
-  search: §4.30 forbids building a user directory to implement
-  sharing.
+  so `pAt` finds `Pat`. The Share panel no longer asks for it to be
+  typed: the deck's share list carries `candidates`, every other active
+  account it is not yet shared with (username and display name), and the
+  page offers them in a **Choose a player** list.
 
 ### Revocation
 
@@ -156,7 +157,8 @@ A deck's page shows the token pictures it brought in a **Tokens** band
 under its cards, outside the card count. A deck now arrives without
 the page opening it, so the icon its colours suggest shows until one
 is chosen from **Change icon** (spec 0012's "Choose an icon" after an
-import went with the upload box).
+import went with the upload box). Choosing one is the owner's, later,
+from **Change icon**.
 
 **The same package may be imported by different owners** (PHASE 4
 AMENDMENT 4). Each account may import a given package once; a
@@ -204,8 +206,7 @@ until Forge has been asked, which the background fill does once for
 older decks) and `icon` (the owner's choice, or absent). With no
 choice the page shows the suggestion from the colours
 (`deckIcons.tsx`). Setting it is the owner's: a recipient gets `403`, a
-stranger `404`, a name outside the set `422 INVALID_ICON`. A new
-import opens with the picker; "Change icon" opens it later. The icon
+stranger `404`, a name outside the set `422 INVALID_ICON`. "Change icon" opens the picker. The icon
 shows where the deck's name does (the list, the deck's header, your own
 deck dropdown in a room). Since spec 0018 (owner H8, 2026-10-27) a
 deck's **name and icon** may be shown to other players -- the Hall of
@@ -214,8 +215,10 @@ are, except to whoever it is shared with.
 
 ### Share, revoke, delete
 
-Open a deck you own and the Share panel appears: a username field,
-and the current recipients with a revoke control beside each. A
+Open a deck you own and the Share panel appears: a **Choose a player**
+list (every other active account not yet shared with) and, under
+**Shared with**, the current recipients with a revoke control beside
+each. A
 recipient opening the same deck sees no panel.
 
 Deleting a deck removes its entries and its shares (§4.78, §4.91),
@@ -247,9 +250,13 @@ Ownership and sharing are **database** concepts. No file moved, and
 none will (PHASE 4 AMENDMENT 1).
 
 ```text
-/data/art/original/<aa>/<sha256>.png
-/data/art/display/<aa>/<sha256>.png
+/data/art/original/<aa>/<sha256>.png|.jpg   as sent (JPEG since spec 0051)
+/data/art/display/<aa>/<sha256>.jpg         the table's copy (a .png before spec 0051)
+/data/art/zoom/<aa>/<sha256>.jpg            the close-up copy (spec 0015)
 ```
+
+Pictures no deck holds are removed by a weekly sweep once unused for
+30 days (`PictureCleanup`, spec 0052).
 
 The asset id **is** the SHA-256 of the image, so one file is shared
 by every deck that uses that printing, whoever owns them. This is

@@ -89,15 +89,16 @@ Its controller, who may identify it, gets the real picture.
 
 ## Multi-face cards
 
-Picture follows the face **shown**. Packages carry **front images
-only**, so:
+Picture follows the face **shown**:
 
 - a card on its front face (Delver of Secrets; a split, adventure,
   aftermath or Room card, stored as "A // B" and named "A" by Forge)
   gets its picture;
 - a transformed card (Insectile Aberration; a daybound card at night
-  showing its back face) gets **no `art`** rather than the front's --
-  showing the front's picture for the back face would be wrong.
+  showing its back face) gets its back face's own picture when the deck
+  brought one (spec 0008, `deck_face_art`, looked up by that face's
+  name), and otherwise **no `art`** rather than the front's -- showing
+  the front's picture for the back face would be wrong.
 
 ## Tokens
 
@@ -118,9 +119,10 @@ shared cache could serve one viewer's authorised image to somebody never
 shown it. A browser may keep its own copy: an id is a content hash, so
 those bytes cannot come to mean something else.
 
-Access ends with the match. The authorization lives with the live match
-in memory and goes when it stops; after the end, even its own players
-get 404 for its assets.
+On the match route, access ends with the match: the authorization
+lives with the live match in memory and goes when it stops; after the
+end, even its own players get 404 there. The one address the pages use
+since spec 0052 (`/api/pictures/{sha}`) does not end (above).
 
 ## Relationship to Deck Depot permissions
 
@@ -128,4 +130,5 @@ Separate on purpose. Seeing an opponent's card during a match grants
 **no** access to their deck: the Deck Depot's image route still requires
 owning or being shared the deck, and this route serves only what this
 match has shown you (§6.122, §6.129). Being shown four cards lets you
-fetch four images, not the package.
+fetch four images, not the package -- through `/api/pictures/` too,
+since an address is learned only by being shown the card (spec 0052).

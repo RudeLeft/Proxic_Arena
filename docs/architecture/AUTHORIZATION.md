@@ -58,12 +58,16 @@ to `/login` itself.
 | every other built file (`/assets/…`) | the signed-in user (`private` cache) |
 | `GET /api/health/live`, `/ready` | the server's own container only (127.0.0.1); 404 from anywhere else |
 | `POST /api/auth/login`, `/logout` | anyone (logout is a quiet 204 either way) |
+| `POST /api/auth/join`, `/join/peek` (spec 0014), `/reset`, `/reset/peek` (spec 0026), `/device-link` (spec 0021) | anyone -- each checks its own one-time link or code |
+| `GET /api/deck-rules` (spec 0021) | a signed-in user or a linked computer's device token; the route checks it |
+| `/api/deck-builder/…` (spec 0022) | a linked computer's device token only; the routes check it |
 | `GET /api/auth/me` | anyone (204, nothing, when not signed in) |
 | `GET /api/version`, `/api/system/status`, `/ws/system` | the signed-in user |
 | any other `/api/…` address, real or not | the signed-in user -- a stranger gets the same 401 for all |
 | `POST /api/auth/password`, `/display-name` | the signed-in user |
 | `POST /api/auth/logout-all` | the signed-in user, for their own sessions only |
-| **every** `/api/decks` route | any signed-in user |
+| **every** `/api/decks` route | a signed-in user, and then the deck's own rule: its owner, or a player it is shared with (below) |
+| `GET /api/pictures/{sha}` (spec 0052) | any signed-in user |
 | `GET /ws/user` | any signed-in user |
 
 Two decisions shape this table:
@@ -73,20 +77,18 @@ endpoint requires a session, reads included. This replaced the
 anonymous access Phase 2 allowed, which existed only because there
 was no authentication to require yet.
 
-**Health and version stay public** (§3.83, §3.84). A monitor must not
-need credentials, and owner decision D2 keeps the LAN port useful for
-exactly that.
+**Health and version were public in Phase 3** (§3.83, §3.84). Since
+2026-10-24 they are not: the health checks answer only inside the
+server's own container (Docker's check runs there), and the version
+needs a session, like every other `/api` address.
 
-### Decks are unowned
+### Decks have owners (Phase 4)
 
-A deck has **no owner** (§3.86). Any signed-in user sees every deck
-and may import or delete any of them. That is the intended shape for
-a two-player server among people who know each other, not an omission
-— per-deck ownership would be a schema change and a set of rules this
-phase does not have.
-
-What authentication bought here is accountability and a closed door,
-not separation: nothing reaches the deck API without a session.
+Phase 3 left decks unowned (§3.86). Phase 4 gave every deck an owner
+(`owner_user_id`, `V004`) and shares: the owner may view, use, share,
+revoke and delete it; a player it is shared with may view and use it;
+anyone else is told it does not exist (404). One place answers it,
+`DeckAccess.kt`; see `DECK_DEPOT.md`.
 
 ---
 
@@ -141,9 +143,8 @@ but is disabled" is information an attacker can use.
 
 Where a later phase would attach, and what already exists for it:
 
-- **Per-deck or per-match ownership.** `Principal` carries `userId`;
-  nothing stores it against a deck yet. This is the schema change
-  that unowned decks defer.
+- **Per-deck ownership.** Built in Phase 4 (`DeckAccess.kt`,
+  `DECK_DEPOT.md`).
 - **Admin HTTP surface.** Built in PHASE_07 (§7.67) on
   `call.requireAdmin(sessions)`; see "Admin-only operations" above.
 - **Per-match authorization** (Phase 6). Seat and priority rules

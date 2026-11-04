@@ -88,7 +88,8 @@ walk into one uninvited. There is no matchmaking. See `docs/architecture/LOBBY_A
 and `docs/operations/troubleshooting/LOBBY.md` when a room misbehaves.
 
 **Decks are private.** Each belongs to the account that uploaded it,
-and is visible to nobody else until its owner shares it by username.
+and is visible to nobody else until its owner shares it with a player
+(the deck's Share panel lists every other active account to choose from).
 In a room, the other player learns that you have chosen a deck —
 never which one.
 An administrator has no privileged access. See
@@ -135,7 +136,9 @@ Three rules shape all of it:
 1. **The server is never a second rules engine.** It owns HTTP,
    WebSocket, sessions and worker lifecycle. It does not depend on
    Forge at all — the worker does, behind a process boundary.
-2. **Forge is used unmodified**, pinned by commit. See
+2. **Forge is pinned by commit and not edited in place.** Two small
+   owner-approved patches are applied to a fresh clone of the pin when
+   the image is built; the vendored checkout stays unmodified. See
    `forge_patches/README.md`.
 3. **Never send a viewer data they are not entitled to.** Filtering
    in the UI is not filtering.
@@ -147,7 +150,7 @@ Three rules shape all of it:
 | Server | Kotlin 1.9.24, Ktor 2.3.13 (Netty 4.1.139), Java 17 (Temurin 17.0.20) |
 | Database | PostgreSQL 16.15, Flyway 10.22.0, HikariCP 5.1.0 |
 | Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
-| Worker | Java 17, Maven, `forge-core` + `forge-game` only |
+| Worker | Java 17, Maven, `forge-core` + `forge-game`, and `forge-ai` for one check (can this be paid now?) |
 | Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
 | Analysis | ESLint 9, Prettier 3, ktlint 12.1.1, detekt 1.23.6 |
 
@@ -192,7 +195,7 @@ To build it:
 git clone https://github.com/Card-Forge/forge.git third_party/forge
 cd third_party/forge
 git checkout 4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676
-mvn install -DskipTests -pl forge-core,forge-game -am
+mvn install -DskipTests -pl forge-core,forge-game,forge-ai -am
 cd ../..
 cd forge-worker && mvn package
 ```
@@ -394,8 +397,10 @@ architecture — amd64 here and on the Unraid host.
 `.env` is gitignored and must stay that way. `.env.example` holds
 placeholders only.
 
-In production the server **refuses to start** when a secret is
-missing or still holds its placeholder — exit code 78. That is
+In production the server **refuses to start** when the session secret
+is missing or still holds a placeholder (`changeme` and the like), or
+the database address is missing — exit code 78. The database password
+is not checked that way: `scripts/unraid-setup.sh` generates it. That is
 deliberate: a server that boots with an insecure default is worse
 than one that does not boot.
 
@@ -455,7 +460,6 @@ spikes/                    Phase 0A measurement harnesses
    not the LAN port.
 8. `docs/operations/UPDATING.md` — two clicks, how to tell what is
    deployed, and how to roll back.
-9. `docs/operations/UNRAID_INSTALL.md` — installing on the host, and
-   `docs/operations/UNRAID_CHECKLIST.md` — going public through the
-   tunnel. Both have since been run against the real host, and
-   carry the three corrections that deployment found.
+9. `docs/operations/UNRAID_INSTALL.md` — installing on the host and
+   checking it from outside through the tunnel. It has been run against
+   the real host and carries the corrections that deployment found.

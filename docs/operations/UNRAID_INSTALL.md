@@ -8,8 +8,8 @@ by the project instead of by a person.
 > **Verified on a real Unraid 6.12/7.x host.** The notes marked
 > *Found by deploying* are failures this document exists to prevent.
 >
-> This gets the stack running and reachable on the LAN. Going public
-> through `proxic.barnflix.net` is `UNRAID_CHECKLIST.md`.
+> This gets the stack running, reachable on the LAN, and checked from
+> outside through `proxic.barnflix.net` (Step 9).
 
 **Everything requires a sign-in** (since 2026-10-24, the version and
 the health checks too -- those answer only from inside the container),
@@ -73,7 +73,9 @@ sh scripts/unraid-setup.sh
 
 It writes `.env`: production mode, a 32-byte session secret, a
 16-byte database password, the public URL, and `COMPOSE_FILE` so that
-no command ever needs `-f` flags again.
+no command ever needs `-f` flags again. (The compose file does not pass
+`PUBLIC_BASE_URL` to the server; the server uses
+`https://proxic.barnflix.net` unless the variable reaches it.)
 
 Safe to run twice. **It never regenerates a secret that is already
 set** — doing so to `POSTGRES_PASSWORD` would lock the server out of
@@ -130,15 +132,17 @@ arena-server   pulls ghcr.io/rudeleft/proxic_arena:latest, then starts
   and card art would fail with permission denied on the first import.
 
 Watch the `arena-server` log for `Successfully applied N migrations`
-(five on a fresh database, V001 through V005).
+(on a fresh database, every one in `server/src/main/resources/db/migration`;
+an update applies only the new ones).
 
 The image is public — an anonymous pull was verified — so nothing
 needs a login. If a pull is ever refused with `denied`, check the
 package's visibility: GitHub → the repository's **Packages** →
 `proxic_arena` → **Package settings**.
 
-If it stops with **"Forge mismatch"**, that is the §1.61 guard
-refusing to build from the wrong source, not a network problem.
+The §1.61 "Forge mismatch" guard runs where the image is built (GitHub
+Actions), so the host never sees it: a mismatched Forge fails that build
+and no image is published.
 
 ## Step 5 — Create your account
 
@@ -177,9 +181,12 @@ Expected, exactly:
 {"status":"ok","checks":{"dataRoot":"ok","database":"ok","forgeWorker":"ok"}}
 ```
 
-Open `http://<unraid-ip>:8765` — five indicators, all **Ready**.
+`http://<unraid-ip>:8765` should answer with the sign-in page. The five
+indicators are on the **Status** page (`/status`), which needs a
+sign-in, so open `https://proxic.barnflix.net/status` after Step 5:
+all five should read **Ready**.
 
-> **Signing in will not work on that address, by design.** A browser
+> **Signing in will not work on the LAN address, by design.** A browser
 > will not keep a `Secure` cookie delivered over plain HTTP, so the
 > login silently bounces back to the form. Use
 > `https://proxic.barnflix.net`. The LAN port is for diagnostics
@@ -204,9 +211,11 @@ docker compose ps
 `postgres` must show `5432/tcp` with **no** host binding, and from
 another machine `curl http://<unraid-ip>:5432` must fail.
 
-Port 8765 **will** answer — that is PHASE 1 AMENDMENT 2, and it means
-anything on your LAN can reach the server. Health and version are
-public there; everything else needs a session.
+Port 8765 **will** answer — that is PHASE 1 AMENDMENT 2: the
+Cloudflare tunnel, which runs outside this stack, reaches the server on
+it, so anything on your LAN can reach it too. Everything there needs a
+session except the sign-in page; the health checks answer only inside
+the container (404 from anywhere else).
 
 ## Step 8 — Survive a reboot
 
@@ -258,10 +267,32 @@ to roll one back.
 > bind mounts so `-v` will not take it — but do not rely on that.
 > Deleting the appdata folders will.
 
-## Next
+## Step 9 — Check it from outside
 
-`UNRAID_CHECKLIST.md` for the Cloudflare tunnel and the remaining
-acceptance tests.
+The tunnel is Cloudflare's, outside this stack, pointed at the host's
+port 8765. A wrong setting there breaks the site in ways the LAN never
+shows, so check from outside your network (a phone off Wi-Fi will do
+for the first and third):
+
+1. **The site loads.** Open `https://proxic.barnflix.net`: the sign-in
+   page.
+2. **A stranger gets nothing.** Signed out:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' https://proxic.barnflix.net/api/version        # 401
+   curl -s -o /dev/null -w '%{http_code}\n' https://proxic.barnflix.net/api/health/ready   # 404
+   ```
+3. **The live connection works through the tunnel.** Signed in, the
+   Status page's WebSocket indicator reads **Ready**, and the browser's
+   network panel shows **101** for `/ws/user`. A page that loads while
+   this fails means the tunnel is not passing the `Upgrade` header.
+4. **The browser-security header is still there.**
+   ```bash
+   curl -sI https://proxic.barnflix.net | grep -i strict-transport-security
+   ```
+   HSTS comes from Cloudflare, not the server (§1.49); if it is gone, a
+   Cloudflare setting dropped it.
+
+`docs/operations/troubleshooting/FOUNDATION.md` covers each failure.
 
 ## Invitation email (optional, spec 0014)
 

@@ -40,8 +40,12 @@ offers Renew (P6-AA).
 
 ```text
 card:57              an object -- what it IS
-action:3:card:57     one thing it can DO, numbered per offer
+action:3:card:57     one thing it can DO: Forge's own id for the ability
 ```
+
+The number is the ability's id in Forge (`SpellAbility.getId()`), so an
+action keeps its id from one question to the next and two never share
+one (a position in the offer did both by chance, CI 2026-10-21).
 
 Distinct by construction (P6-AB). One object may have:
 

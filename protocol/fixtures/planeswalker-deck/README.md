@@ -36,7 +36,8 @@ planeswalker ability could be activated at all until that cost was
 implemented, and this deck is what made that fail loudly instead of
 never being tried.
 
-Sixteen 0/4s, and every one of them is the point. The `+1` needs a
+Twelve 0/4s (Steel Wall, Wall of Omens, Perimeter Captain), and every
+one of them is the point. The `+1` needs a
 creature: with none in play it has no legal target, `TargetMin$ 0`
 means Forge does not ask, and the decision under test never
 happens.
@@ -50,7 +51,7 @@ is there from the first one cast until the game ends.
 
 Four of each because Open Format allows at most four copies of a
 card that is not a basic land, and a fixture that breaks the format
-it is testing is not a fixture. Five different ones because four
+it is testing is not a fixture. Three different ones because four
 copies of anything is not enough on its own.
 
 Alley Evasion is here for a second decision: `chooseModeForAbility`.
@@ -89,7 +90,7 @@ The zip is built at test time by `scripts/make-ci-deck.mjs`, which
 takes a fixture directory as its second argument:
 
 ```bash
-node scripts/make-ci-deck.mjs frontend/build/loyalty-deck.zip protocol/fixtures/planeswalker-deck
+node scripts/make-ci-deck.mjs "Test Deck/loyalty-deck.zip" protocol/fixtures/planeswalker-deck
 ```
 
 Artwork is generated from the decklist, one flat-coloured rectangle
