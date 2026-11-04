@@ -141,4 +141,8 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   expect(paused, "a paused response window waited, then resolved when asked").toBe(true);
   await clearEverything(host).catch(() => undefined);
   await clearEverything(guest).catch(() => undefined);
+  // Closed, or a page left signed in follows the player into the next
+  // test's game and answers for them there.
+  await host.context().close();
+  await guest.context().close();
 });

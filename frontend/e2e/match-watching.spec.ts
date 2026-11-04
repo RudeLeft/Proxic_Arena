@@ -111,6 +111,12 @@ test("a third player watches a game, read-only, and the players see it", async (
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);
+    // Closed, or a page left signed in follows the player into the next
+    // test's game and answers for them there (CI 2026-11-03: a paused
+    // response window passed by the previous test's page).
+    await host.context().close();
+    await guest.context().close();
+    await viewer.context().close();
     await clearEverything(viewer).catch(() => undefined);
   }
 });
@@ -148,6 +154,12 @@ test("with watching off there is no Watch button, and the server refuses", async
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);
+    // Closed, or a page left signed in follows the player into the next
+    // test's game and answers for them there (CI 2026-11-03: a paused
+    // response window passed by the previous test's page).
+    await host.context().close();
+    await guest.context().close();
+    await viewer.context().close();
     await clearEverything(viewer).catch(() => undefined);
   }
 });

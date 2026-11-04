@@ -238,5 +238,10 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);
+    // Closed, or a page left signed in follows the player into the next
+    // test's game and answers for them there (CI 2026-11-03: a paused
+    // response window passed by the previous test's page).
+    await host.context().close();
+    await guest.context().close();
   }
 });
