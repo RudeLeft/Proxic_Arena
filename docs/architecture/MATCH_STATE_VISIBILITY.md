@@ -74,7 +74,11 @@ know it -- their own card, a card now in a public zone, or one Forge
 revealed to them -- and otherwise `faceDown: true, known: false` with no
 name; ids are `action:<n>:<i>`, never a card's own (`ActionReports`,
 `scripts/check-who-did-it.py`). `stamp` orders it against `reveal`: the
-newer is shown.
+newer is shown. Amendment 13 (item 7): the seat that made the choices
+(the actor; for a discard the target chooses, the target) is sent no
+`action` for it, and Forge's reveal to it during that effect is neither a
+`reveal` nor a "Looking at ..." notice (`ActionReports.choosingNow`): it
+saw the cards in its own question.
 
 ## Face-down objects
 

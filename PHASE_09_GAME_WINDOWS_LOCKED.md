@@ -649,3 +649,47 @@ https://claude.ai/artifact/G4xmYLxuUdTsUviDaSAUCe).**
   `check-library-order.py`, `check-what-happened.py` still pass;
   screenshots of the real page with the reports Bob was sent.
 
+
+**Amendment 13 (2026-11-03, the owner's 13-item list -- canvases
+https://claude.ai/artifact/Qy16T3u4YahPD51CDGC4LU and
+https://claude.ai/artifact/64zmhdhcZTYn4KiJCTuMSN; every item approved
+before building).**
+
+1. *Pause:* the countdown circle shows a pause sign; clicking it pauses
+   ("Paused · Resolve when you're ready"), clicking again resolves; the
+   words still resolve now.
+2. *No stack flash:* while a cast card is in the air nothing is drawn in
+   the stack spot; a spell that resolves first goes straight from the big
+   card to the battlefield (instants and sorceries likewise). The
+   opponent's hold on the stack (2026-10-22) stays.
+3. *Targets say what they're for:* every target step names the card and
+   what the target is for ("Wirewood Symbiote: choose a creature to
+   untap."), and says when a cost choice follows ("Next, you'll choose an
+   Elf to return."); the cost step names it too. With a pile, the cost
+   step prefers a card other than the one just targeted.
+4. *Ability rows:* the words flow as one paragraph with mana inline; a cost
+   with an action puts the mana in the cost column and the rest in words;
+   the bracketed reminder is dropped; "Play this land".
+5. *Playable look:* option A, the breathing gold glow, replaces the dashed
+   outline and the CHOOSE tag (still "can be chosen" to a screen reader).
+6. *Card-row room:* 16px round the cards in a tray, so a chosen card's
+   outline and number always show.
+7. *Amends Amendment 12:* whoever made the choices gets no report, no
+   reveal tray and no "Looking at ..." line for it; everyone else does
+   (Mind Rot: the caster is told what the target discarded).
+8. *Mana on triggers:* while a trigger on the stack is being paid for, its
+   card shows the mana still due under its words, counting down.
+9. *The mana question:* "Pay the mana"; "Tap a land or other source, or
+   use mana you already made."; "Use {R} you already made (1 left)"; a
+   source's button is its name; "Pay 2 life instead (you have 20)". The
+   amount due travels as its own field.
+10. *Selected attacker or blocker:* option 1, a gold seal with a check on
+   the card's corner and the count in a dark bubble.
+11. *No em dashes:* the 38 player-facing lines and the admin ones are
+   rewritten as the canvas's table (card text keeps its dashes).
+12. *Trigger text:* the plate's words flow as one paragraph sized to fit;
+   no words under a pointed stack card; one line under the stack, one
+   style: "Next: Pat's trigger · 2 on the stack".
+13. *A resolved trigger keeps its stack look* (whole card and words),
+   glows, sparks to its target and shrinks into its source (option B);
+   a card that has left is drawn on top.

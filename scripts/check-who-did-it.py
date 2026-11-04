@@ -4,16 +4,16 @@
 
 Alice (seat 1) plays a card that searches, looks at, reorders or moves
 cards in a library or a hand; Bob (seat 2) plays lands and small
-creatures. Each scenario checks the report BOTH seats are sent once it
-resolves: one sentence naming who did it, in that reader's words, and
+creatures. Each scenario checks the report the other player is sent once
+it resolves: one sentence naming who did it, in that reader's words, and
 the cards -- face up only where that reader may know them, otherwise a
-back with no name.
+back with no name. Amendment 13 (item 7): the player who made the
+choices is sent no report, and no reveal tray, for it.
 
-  tutor       Demonic Tutor: Alice reads "You searched your library and
-              put <card> into your hand"; Bob reads "Alice searched their
-              library and put a card into their hand", and his card is a
-              back, nameless
-  matron      Goblin Matron (searched, revealed): both read the card's name
+  tutor       Demonic Tutor: Bob reads "Alice searched their library and
+              put a card into their hand", and his card is a back,
+              nameless; Alice is told nothing
+  matron      Goblin Matron (searched, revealed): Bob reads the card's name
   ponder      Ponder: Bob reads "Alice looked at the top 3 cards of their
               library and put them back in an order they chose", 3 backs
   brainstorm  Brainstorm: Bob reads "Alice drew 3 cards, then put 2 cards
@@ -23,6 +23,8 @@ back with no name.
   probe       Gitaxian Probe on Bob: Bob reads "Alice looked at your hand."
   scour       Thought Scour on Bob: "Alice put the top 2 cards of your
               library into your graveyard: <names>"
+  mindrot     Mind Rot on Bob, who chooses: Alice reads "Bob discarded
+              <names>"; Bob is told nothing
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -40,27 +42,28 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BOB = [("Plains", 30), ("Savannah Lions", 15), ("Raging Goblin", 15)]
 
-# name: (Alice's deck, the card, lands it needs, {seat: the sentence}, seats whose cards must all be backs)
+# name: (Alice's deck, the card, lands it needs, {seat: the sentence}, seats whose cards must all be backs,
+#        the seat that chose and so is told nothing)
 SCENARIOS = {
     "tutor": ([("Swamp", 30), ("Demonic Tutor", 30)], "Demonic Tutor", 2,
-              {1: r"^You searched your library and put Demonic Tutor into your hand, then shuffled\.$",
-               2: r"^Alice searched their library and put a card into their hand, then shuffled\.$"}, {2}),
+              {2: r"^Alice searched their library and put a card into their hand, then shuffled\.$"}, {2}, 1),
     "matron": ([("Mountain", 24), ("Goblin Matron", 18), ("Goblin Piker", 18)], "Goblin Matron", 3,
-               {1: r"^You searched your library and put Goblin (Matron|Piker) into your hand, then shuffled\.$",
-                2: r"^Alice searched their library and put Goblin (Matron|Piker) into their hand, then shuffled\.$"},
-               set()),
+               {2: r"^Alice searched their library and put Goblin (Matron|Piker) into their hand, then shuffled\.$"},
+               set(), 1),
     "ponder": ([("Island", 30), ("Ponder", 30)], "Ponder", 1,
                {2: r"^Alice looked at the top 3 cards of their library and put them back in an order they chose"
-                   r"(, then shuffled)?\.$"}, {1, 2}),
+                   r"(, then shuffled)?\.$"}, {2}, 1),
     "brainstorm": ([("Island", 30), ("Brainstorm", 30)], "Brainstorm", 1,
-                   {2: r"^Alice drew 3 cards, then put 2 cards from their hand on top of their library\.$"}, {2}),
+                   {2: r"^Alice drew 3 cards, then put 2 cards from their hand on top of their library\.$"}, {2}, 1),
     "seize": ([("Swamp", 30), ("Thoughtseize", 30)], "Thoughtseize", 1,
-              {1: r"^You looked at Bob's hand and chose (Savannah Lions|Raging Goblin) for Bob to discard\.$",
-               2: r"^Alice looked at your hand and chose (Savannah Lions|Raging Goblin) for you to discard\.$"}, set()),
+              {2: r"^Alice looked at your hand and chose (Savannah Lions|Raging Goblin) for you to discard\.$"},
+              set(), 1),
     "probe": ([("Island", 30), ("Gitaxian Probe", 30)], "Gitaxian Probe", 1,
-              {1: r"^You looked at Bob's hand\.$", 2: r"^Alice looked at your hand\.$"}, set()),
+              {2: r"^Alice looked at your hand\.$"}, set(), 1),
     "scour": ([("Island", 30), ("Thought Scour", 30)], "Thought Scour", 1,
-              {2: r"^Alice put the top 2 cards of your library into your graveyard: .+\.$"}, set()),
+              {2: r"^Alice put the top 2 cards of your library into your graveyard: .+\.$"}, set(), 1),
+    "mindrot": ([("Swamp", 30), ("Mind Rot", 30)], "Mind Rot", 3,
+                {1: r"^Bob discarded .+\.$"}, set(), 2),
 }
 
 
@@ -73,7 +76,7 @@ def trace_of(name):
 
 
 def run(name):
-    deck, card, lands, expected, backs_for = SCENARIOS[name]
+    deck, card, lands, expected, backs_for, chooser = SCENARIOS[name]
     g = Game(seat1=deck, seat2=BOB, jar=JAR, res=RES, trace=trace_of(name))
     cast = {"turn": None}
     seen = {1: [], 2: []}
@@ -106,7 +109,7 @@ def run(name):
         return cast["turn"] is not None and game.turn > cast["turn"] + 1
 
     g.run(policy, until=until, max_turn=16)
-    return g, cast["turn"], seen, expected, backs_for
+    return g, cast["turn"], seen, expected, backs_for, chooser
 
 
 def main():
@@ -114,7 +117,7 @@ def main():
     for name in SCENARIOS:
         if ONLY and name not in ONLY:
             continue
-        g, turn, seen, expected, backs_for = run(name)
+        g, turn, seen, expected, backs_for, chooser = run(name)
         bad = g.stopped_badly()
         if bad:
             problems.append(f"{name}: {bad}")
@@ -126,6 +129,8 @@ def main():
         for seat, pattern in expected.items():
             if not any(re.search(pattern, a.get("said") or "") for a in seen[seat]):
                 problems.append(f"{name}: seat {seat} was never told {pattern!r}; it was told {found[name][seat]}")
+        if seen[chooser]:
+            problems.append(f"{name}: seat {chooser} made the choices and was still told: {found[name][chooser]}")
         for seat in backs_for:
             for a in seen[seat]:
                 for c in a.get("cards", []):

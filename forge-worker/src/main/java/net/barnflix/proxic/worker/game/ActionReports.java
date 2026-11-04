@@ -53,6 +53,12 @@ final class ActionReports {
         final int bottom;
         /** Cards drawn before a put-back (Brainstorm's three). */
         int drew;
+        /**
+         * Amendment 13 (item 7) -- who made the choices: they are not told
+         * what they just did. The target, for a discard the target chooses
+         * (Mind Rot); otherwise the player who acted.
+         */
+        Player chooser;
         /** The moved cards, by id, for their names. */
         final java.util.Map<Integer, Card> cards = new java.util.HashMap<>();
 
@@ -231,6 +237,7 @@ final class ActionReports {
         Report report = new Report(keys.incrementAndGet(), actor, host.getName(), kind, subject, count,
                 List.copyOf(mine), where, shuffled.contains(subject), scryTop, scryBottom);
         report.drew = drew;
+        report.chooser = kind == Kind.DISCARD ? subject : actor;
         for (Move move : mine) {
             Card card = game.findById(move.cardId());
             if (card != null) {
@@ -238,6 +245,31 @@ final class ActionReports {
             }
         }
         return report;
+    }
+
+    /**
+     * Amendment 13 (item 7) -- is [player] the one making the choices for an
+     * effect this class reports, resolving now? Forge's own reveal to them
+     * (Goblin Ringleader's four, Thoughtseize's hand) and its "Looking at
+     * ..." line are then not shown: they chose, and the other player gets
+     * the report.
+     */
+    static boolean choosingNow(Game game, Player player) {
+        if (player == null || !game.getStack().isResolving() || game.getStack().isEmpty()) {
+            return false;
+        }
+        SpellAbility root = game.getStack().peekAbility();
+        if (root == null || root.getActivatingPlayer() == null) {
+            return false;
+        }
+        for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
+            Kind kind = kindOf(each);
+            if (kind != null) {
+                Player chooser = kind == Kind.DISCARD ? subjectOf(each, root.getActivatingPlayer()) : root.getActivatingPlayer();
+                return chooser == player;
+            }
+        }
+        return false;
     }
 
     /** What kind of action this one ability is, or null when it is none of ours. */
@@ -347,7 +379,7 @@ final class ActionReports {
     JsonObject reportFor(Player reader, java.util.function.Predicate<Integer> revealedTo,
             java.util.function.Function<Card, JsonObject> shown, java.util.function.ToIntFunction<Player> seatOf) {
         Report report = latest;
-        if (report == null || reader == null) {
+        if (report == null || reader == null || reader == report.chooser) {
             return null;
         }
         Words w = new Words(reader, report.actor);

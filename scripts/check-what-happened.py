@@ -9,10 +9,11 @@
               Soul Warden named)
   decking     seat 1 starts with 9 cards: the game ends with Forge's reason
               for the loss, Milled
-  ringleader  Goblin Ringleader reveals the top four: BOTH seats get the
-              four cards face up, titled by Ringleader, and once it has
+  ringleader  Goblin Ringleader reveals the top four: the OTHER seat gets
+              the four cards face up, titled by Ringleader, and once it has
               resolved each says where it went -- Goblins to the hand, the
-              rest to the bottom
+              rest to the bottom. The caster chose the bottom order and is
+              sent no reveal for it (PHASE_09 Amendment 13, item 7)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -128,16 +129,18 @@ def ringleader():
             if reveal:
                 st["reveals"][seat] = reveal
         settled = [s for s, r in st["reveals"].items() if all(c.get("to") for c in r.get("cards", []))]
-        return st["cast"] and len(settled) == 2
+        return st["cast"] and 2 in settled
 
     g.run(policy, until=until, max_turn=14)
     found = {seat: {"title": r.get("title"), "cards": [(c.get("name"), c.get("known"), c.get("to"))
                                                        for c in r.get("cards", [])]}
              for seat, r in st["reveals"].items()}
     found["stopped"] = g.stopped_badly()
-    if not st["cast"] or len(st["reveals"]) < 2:
-        return "inconclusive", "Ringleader never revealed to both seats", found
+    if not st["cast"] or 2 not in st["reveals"]:
+        return "inconclusive", "Ringleader never revealed to the other seat", found
     problems = [found["stopped"]] if found["stopped"] else []
+    if 1 in st["reveals"]:
+        problems.append(f"seat 1 cast it and chose, and was still sent a reveal: {st['reveals'][1].get('title')!r}")
     for seat, reveal in st["reveals"].items():
         cards = reveal.get("cards", [])
         if not (reveal.get("title") or "").startswith("Goblin Ringleader"):
@@ -150,7 +153,7 @@ def ringleader():
                 problems.append(f"seat {seat}: a revealed card was not face up: {c.get('name')}")
             if c.get("to") != ("hand" if goblin else "bottom"):
                 problems.append(f"seat {seat}: {c.get('name')} went {c.get('to')}")
-    ok = "both seats saw the four cards, each marked hand or bottom"
+    ok = "the other seat saw the four cards, each marked hand or bottom; the caster was sent none"
     return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
 
 

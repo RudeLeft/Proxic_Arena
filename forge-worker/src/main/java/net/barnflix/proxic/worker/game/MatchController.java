@@ -4497,6 +4497,12 @@ public final class MatchController extends GeneratedControllerBase {
             boolean own,
             String message,
             boolean addSuffix) {
+        // Phase 9 Amendment 13 (item 7) -- the player making the choices for
+        // an effect that is reported (ActionReports) is not shown what they
+        // are choosing again, nor told afterwards: the other player is.
+        if (ActionReports.choosingNow(player.getGame(), player)) {
+            return;
+        }
         String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
         String where = whose + " " + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
         String text;
