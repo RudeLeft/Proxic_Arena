@@ -130,8 +130,11 @@ Questions added 2026-10-20, each one at a time like every other:
 chooseTargetsFor          also offers spells ON THE STACK, as
                           "target:stack:N" -- the snapshot's own id
                           for that stack entry (counterspells)
-divideAsYouChoose         after each target of a divided spell (Fire):
-                          "divide:N", 1 up to what is left
+divideAsYouChoose         once every target of a divided spell is chosen
+                          (Phase 9 Amendment 14; was after each target):
+                          one share per target but the last, "divide:N",
+                          1 up to what leaves 1 for each target after it;
+                          a share with one possible amount is not asked
 applyManaToCost           also "mana:life:phyrexian" -- pay 2 life for
                           a Phyrexian symbol; the life is paid only
                           when the whole cost is

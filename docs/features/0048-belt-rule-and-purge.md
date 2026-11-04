@@ -75,3 +75,9 @@ A **Belt and records** tab in Admin:
 | F-0048-E | A player purge removes exactly that player's finished games (both sides) and recordings; others stay | server test |
 | F-0048-F | A fresh start keeps accounts and removes games, recordings, decks and pictures, rooms, chat, reports, sign-ins; refused while a game runs | server test |
 | F-0048-G | The Admin tab: preview, type PURGE, done; Reset the Belt likewise | browser |
+
+## Amendments
+
+**2026-11-03, Phase 9 Amendment 13 (item 11).** The game's own words lost
+their long dashes: after a reset the belt reads "Nobody holds the belt.
+The next game's winner takes it."

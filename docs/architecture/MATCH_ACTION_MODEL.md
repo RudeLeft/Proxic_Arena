@@ -51,9 +51,11 @@ Distinct by construction (P6-AB). One object may have:
   Divining Top two abilities; a split card each half plus fuse; a Room
   each door; an adventure creature its adventure.
 
-Each is its own option, labelled `<face name> — <its own cost> —
+Each is its own option, labelled `<face name> · <its own cost> ·
 <description>` with the face's own name and cost (a Fire // Ice half is
-"Fire — {1}{R}", never the whole card's cost).
+"Fire · {1}{R}", never the whole card's cost). The separator was " — "
+until Phase 9 Amendment 13 (item 11, 2026-11-03: no long dashes in the
+game's own words).
 
 ## Zone-dependent actions
 

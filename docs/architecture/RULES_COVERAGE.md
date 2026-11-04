@@ -58,7 +58,7 @@ own human screen or a rule that leaves no choice:
 | A priority pass with something on the stack but nothing you could do | pass | Nothing to choose |
 | Your OWN spell or trigger on top, and you could act | asked, as a **response window**: your page passes after a visible 5-second countdown you let run out (a click on it passes at once); the pause in its circle holds it until you pass, and a tab not in front never counts down (Phase 9 Amendments 13, 15) | Phase 8 Amendment 4, specs 0005 and 0035 |
 | One legal answer (one colour, one defender, one blocker taking all the damage) | that answer | Forge's human screen does the same |
-| "Block N" from the block-many chooser | the player's page answers Forge's own "block with which?" and "block what?" once per pair, for the N pairs the player chose, stopping at the first Forge does not offer | spec 0037: the player's choice, given once |
+| Attacks and blocks chosen as a selection pointed at what they attack or block (Phase 9 W-14; the block-many chooser is gone) | the player's page answers Forge's own per-creature questions ("attack with which?", "attack what?", "block with which?", "block what?") for each creature it was given, stopping at the first Forge does not offer, the rest still selected | Phase 9 Amendment 11, spec 0037 Amendment 2: the player's choice, given once |
 | `chooseNumberForCostReduction` | the whole reduction | Forge's human screen asks only in its "full control" mode |
 | `chooseManaFromPool` (Forge's automatic pool payment, a tie) | the first | as Forge's screen; only reached while a cost is checked |
 | `sideboard` | none | Open Format has no sideboard (FMT-002) |

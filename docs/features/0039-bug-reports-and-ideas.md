@@ -129,3 +129,7 @@ pick from. The report still says which page and which game it was sent
 from; a game played earlier is found by its time and player in
 Admin › Games. A picker can come later if reports show it is needed.
 The version in a report is the one the server says it is running.
+
+**Amendment 2 (2026-11-03, Phase 9 Amendment 13, item 11).** The game's
+own words lost their long dashes: the thanks reads "Thanks. Your report
+was sent." (was "Thanks — report sent").

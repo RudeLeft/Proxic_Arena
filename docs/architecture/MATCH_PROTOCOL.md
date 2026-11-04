@@ -164,7 +164,9 @@ and forwarded unchanged; the server does not re-filter or rebuild it
 (counters, designations, command zone, Ring temptations, completed
 dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
 (only what Forge reveals), `battlefield`, `graveyard`, `exile`,
-`stack`, plus `notices` -- Forge's messages to this player. What may
+`stack`, plus `notices` -- Forge's messages to this player -- and
+`action`: who searched, looked at or moved cards, in this reader's words
+(Phase 9 Amendments 12, 13; never to the seat that chose). What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
