@@ -3,6 +3,28 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.40.0 — 2026-11-04
+
+Choosing a number, and the countdown in a second tab (Phase 9).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Choosing a number**
+- Choosing X (Fireball, Rolling Thunder) is now a dial: the number in large type with − and +, "Most you can pay", what it costs as you change it, how much mana you can make, and one button: "Cast Fireball with X = 3".
+- A number you can't pay for right now is still allowed, and says so.
+- Paying a kicker more than once (Everflowing Chalice, Comet Storm) uses the same dial: "Kick it how many times?" and "Each time costs {2} more."
+- Paying energy (Harnessed Lightning) says what it does and how much you have: "Pay how much energy? ... You have 3."
+- Each one shows the card's own words about the number.
+
+**Splitting damage**
+- A spell that splits its damage (Arc Lightning, Forked Bolt, Rolling Thunder) now lets you choose every target first, then split it in one window, like combat damage: each target with − and +, filled in to start, Done when nothing is left.
+- You can't choose more targets than there is damage to give each of them at least 1.
+
+**The countdown on your own spell**
+- Only the tab in front counts down: a game left open in another tab never resolves your spell for you. Back in front, it starts again from 5.
+- A paused spell stays paused until you resolve it.
+
 ## 1.39.0 — 2026-11-03
 
 Your list of 13 game-screen fixes, the rest of it (Phase 9).
