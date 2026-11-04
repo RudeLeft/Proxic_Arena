@@ -39,7 +39,10 @@ visibility.
 ### Visible identity → imported asset
 
 At launch the server loads each seat's imported deck art (Phase 2's
-import stores every image by content hash) keyed two ways:
+import stores every image by content hash). A card's picture comes from
+the deck of the seat that **owns** it, not the one controlling it (spec
+0049: a creature taken with Control Magic wears its owner's picture),
+keyed two ways:
 
 1. **by printing** -- `printing:SET/NUMBER|name`, the exact printing
    Forge built the card from (`card.printing`, P6-BD);
@@ -51,8 +54,9 @@ is used **only for the card's front face** (below).
 ### Match-scoped reference
 
 The server adds `art: <sha256>` to a card in a viewer's snapshot when
-that card is `known` and an asset exists for it. **Sending it is the
-grant:** each viewer's set of fetchable assets is built from exactly the
+that card is `known` and an asset exists for it, and `crop: <sha256>`
+when the deck brought that card's art crop (spec 0051). **Sending it is
+the grant:** each viewer's set of fetchable assets is built from exactly the
 references its own snapshots carried (`MatchArt.shown[seat]`).
 
 ### Viewer authorization and retrieval

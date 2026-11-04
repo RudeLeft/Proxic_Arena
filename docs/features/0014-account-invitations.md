@@ -93,3 +93,9 @@ why), and a browser test of the tab.
 has no "if you weren't expecting this, ignore it" line; only the
 password-reset email says it ("Didn't ask for this? You can ignore this
 email.").
+
+**As built (2026-11-04, a documentation check).** The invitation email's
+subject is "Your invitation to Proxic Arena" and the email does not name
+who sent it (owner 2026-10-28, `Mailer.kt` `InviteEmail`). The
+Create your account page still shows who invited you ("Invited by
+RudeLeft", `JoinPage.tsx`).

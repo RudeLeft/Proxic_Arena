@@ -164,8 +164,9 @@ dropped, `no-new-privileges` and a read-only root filesystem. PostgreSQL
 also drops every capability and has `no-new-privileges`, but adds back
 the five its entrypoint needs to step down from root to the postgres
 user (CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID). On Unraid a
-short-lived `init-data` container runs as root, with the same
-restrictions, only to set the data folder's owner. The optional
+short-lived `init-data` container runs as root, with every capability
+dropped but the three its chown needs (CHOWN, FOWNER, DAC_OVERRIDE) and
+`no-new-privileges`, only to set the data folder's owner. The optional
 `cloudflared` service (profile `edge`, not used live) has no extra
 hardening. See `docs/history/phases/phase-01/PHASE_01_BASELINE_REVIEW.md`.
 

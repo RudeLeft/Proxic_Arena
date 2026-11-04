@@ -283,8 +283,9 @@ prepared, so this is the server's guard for a request from elsewhere.
 
 ## Optimistic concurrency
 
-Every mutation a player makes bumps `room.revision` (a restart's
-readiness reset, `RoomRecovery`, does not). A client may send
+Every mutation a player makes bumps `room.revision`. A restart's
+`RoomRecovery` bumps it when it reopens a prepared room, but not when
+it only resets readiness in an open one. A client may send
 `expectedRoomRevision`, and a mismatch is `409 ROOM_REVISION_STALE`
 rather than a silent overwrite (§5.136, §5.137).
 

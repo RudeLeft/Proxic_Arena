@@ -46,7 +46,8 @@ application code — is what guarantees it.
 is `"ı"`, so the server's locale would otherwise decide whether two
 usernames collide.
 
-Allowed characters are letters, digits, dot, underscore and hyphen.
+A username is 3 to 32 characters of ASCII letters, digits, dot,
+underscore and hyphen (`[A-Za-z0-9._-]`, `Accounts.rejectionReason`).
 
 ---
 
