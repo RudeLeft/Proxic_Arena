@@ -300,7 +300,8 @@ happening while the host is alone, 2 hours with two players, or when the
 host has been offline 10 minutes; a guest offline 10 minutes is taken
 out. The room says so 5 minutes before an idle close, with **Keep it
 open**. Activity is joining, leaving, configuring, selecting a deck,
-readying, a host action (§5.124) or a chat line in the room.
+readying, a host action (§5.124), sending an invitation, or a lobby chat
+line from one of the room's members.
 
 **Holding a socket open is not activity.** A room with a game in it is
 never closed this way. The limits are server settings

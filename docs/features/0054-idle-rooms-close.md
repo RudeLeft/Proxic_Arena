@@ -85,6 +85,10 @@ What the people in a closed room are told:
 
 ## As built
 
+- "Chatting in the room" is a lobby chat line from one of the room's
+  members (there is no chat inside a room); it moves the room's clock at
+  most once a minute. Sending an invitation moves it too (fixed
+  2026-11-04: at first it did not, `InvitationGraceTest`).
 - The page's wording says "10 minutes" for being away; the server goes by
   its setting (`PROXIC_AWAY_MINUTES`), so a changed setting changes when
   things happen, not the words.

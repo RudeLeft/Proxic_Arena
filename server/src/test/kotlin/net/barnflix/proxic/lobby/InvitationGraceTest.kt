@@ -125,4 +125,33 @@ class InvitationGraceTest {
             val ended = hostOut.next("INVITATION_ENDED")!!
             assertEquals("OFFLINE", ended["reason"]!!.jsonPrimitive.content)
         }
+
+    /**
+     * Spec 0054 -- inviting is something happening in the host's room: the
+     * room's idle clock starts again (the same hook a chat line uses).
+     */
+    @Test
+    fun `an invitation sent moves the host's room clock`() =
+        runBlocking {
+            val source = database!!.dataSource()
+            val rooms = RoomService(source, DeckAuthorization(source))
+            val touched = mutableListOf<java.util.UUID>()
+            val lobby =
+                LobbyService(LobbyHub(), rooms, chatted = { userId -> touched.add(userId) })
+            val host = user("RudeLeft")
+            val guest = user("Pat")
+            rooms.create(host.userId)
+            val hostOut = Channel<Frame>(Channel.UNLIMITED)
+            val hostSession = lobby.open("h", host, hostOut)
+            lobby.open("g", guest, Channel(Channel.UNLIMITED))
+            hostSession.handle(
+                "INVITE",
+                buildJsonObject {
+                    put("type", "INVITE")
+                    put("userId", guest.userId.toString())
+                },
+            )
+            hostOut.next("INVITATION_SENT")!!
+            assertEquals(listOf(host.userId), touched, "the invitation moved the host's room clock")
+        }
 }

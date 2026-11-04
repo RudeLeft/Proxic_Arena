@@ -32,6 +32,11 @@ class InvitationDesk(
     private val nameOf: (UUID) -> String?,
     /** Spec 0016 R2 — a held seat started or ended: the room list says so. */
     private val changed: suspend () -> Unit = {},
+    /**
+     * Spec 0054 — inviting is something happening in the host's room: its
+     * idle clock starts again (the chat's hook, RoomIdle.chatted).
+     */
+    private val activity: (UUID) -> Boolean = { false },
 ) {
     private fun entry(userId: UUID): PresenceEntry? {
         val online = hub.entryFor(userId)
@@ -137,6 +142,7 @@ class InvitationDesk(
                 hub.sendTo(targetId, inviteMessage(room.roomId, from, room.displayName()))
                 // Every tab the host has, not only the one that clicked.
                 hub.sendTo(me, invitationSentMessage(target, room.roomId))
+                runCatching { activity(me) }
                 changed()
             }
         }

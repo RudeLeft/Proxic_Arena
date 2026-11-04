@@ -47,11 +47,13 @@ snapshots (P6-BK).
 
 ## Libraries
 
-**No library contents are ever in a snapshot** -- a count only, for every
-player including the owner. A library card is named only where Forge
-shows it to one player: the options of a search or a scry (sent only to
-the player asked) and a reveal notice (below). A searched card is
-followed by id from the library to its destination (P6-H, P6-K).
+**A snapshot's library is a count only**, for every player including the
+owner. A library card is named only where Forge shows it to one player:
+the options of a search or a scry (sent only to the player asked), a
+reveal notice (below), and an `action` report, which names a card going
+to a library only to a reader who owns it or saw it revealed (Goblin
+Ringleader's revealed cards going to the bottom, below). A searched card
+is followed by id from the library to its destination (P6-H, P6-K).
 
 ## Reveals and known hidden cards
 
@@ -65,11 +67,12 @@ Plains"). Delver of Secrets' look reaches its controller before the
 **Who did it (PHASE_09 Amendment 12).** When a spell or ability
 searches a library, looks at or reveals its top cards, reorders it,
 scries, surveils, puts cards from a hand on top, looks at a hand, makes
-a player discard or mills, every seat's snapshot carries an `action`:
-`by` (the seat that acted), `source` (the card), `said` (the whole action
-in THAT reader's words: "Pat searched their library and put a card into
-their hand." / "You searched your library and put Demonic Tutor into your
-hand.") and `cards`. A card is described face up only when the reader may
+a player discard or mills, the snapshot of every seat but the one that
+made the choices (below) carries an `action`: `by` (the seat that acted),
+`source` (the card), `said` (the whole action in THAT reader's words:
+"Pat searched their library and put a card into their hand."; for Mind
+Rot, the caster reads "Pat discarded Savannah Lions and Shock.") and
+`cards`. A card is described face up only when the reader may
 know it -- their own card, a card now in a public zone, or one Forge
 revealed to them -- and otherwise `faceDown: true, known: false` with no
 name; ids are `action:<n>:<i>`, never a card's own (`ActionReports`,

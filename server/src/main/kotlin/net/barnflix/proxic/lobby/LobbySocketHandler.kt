@@ -90,7 +90,7 @@ class LobbyService(
         hub.entryFor(userId)?.displayName ?: accounts().firstOrNull { it.userId == userId }?.displayName
     }
     private val desk =
-        InvitationDesk(hub, rooms, invitations, nameOf = nameOf, changed = { publishRooms() })
+        InvitationDesk(hub, rooms, invitations, nameOf = nameOf, changed = { publishRooms() }, activity = chatted)
 
     /**
      * The room list as everybody sees it: the rooms, and (spec 0016 R2)
