@@ -59,7 +59,9 @@ the §5.111 checklist named it and `V006` did not have it.
 **`source_room_revision` records the room's revision the setup was
 taken at.** As built it is written and shown, and nothing compares it:
 the launcher does not check it. What keeps a setup from launching for a
-room that moved on is that the moves are refused or end the setup --
+room that moved on is that the moves are refused, end the setup, or are
+caught at launch (a deck whose access was lost is cleared from its seat,
+and the launcher's `canUseDeck` re-check refuses it) --
 ordinary configuration is refused while `READY_FOR_MATCH` (§5.116), and
 a player leaving, being removed or being taken out for being away
 (spec 0054) invalidates the setup and reopens the room (owner 2026-11-04; before then a game could start with a player who

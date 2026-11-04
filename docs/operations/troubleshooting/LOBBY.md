@@ -291,10 +291,12 @@ Causes, most likely first:
 1. **The Forge worker is not configured or not running.** Check
    readiness from inside the container (`docker compose exec arena-server
    wget -qO- http://127.0.0.1:8080/api/health/ready`) — it prints the
-   JSON with `forgeWorker` `ok` when all is well, and only a `503` when a
-   check fails; the signed-in Status page then names the state. If its
-   Forge Runtime says "Not configured", "Not found" or "Unreachable"
-   (`unconfigured`, `missing`, `unreachable`), the preflight
+   JSON when all is well, and only a `503` when a check fails. A worker
+   that is not configured is not a failure for readiness: it answers
+   `200` with `"forgeWorker":"unconfigured"`. `missing` or `unreachable`
+   give the `503`, and the signed-in Status page then names the state.
+   If its Forge Runtime says "Not configured", "Not found" or
+   "Unreachable", the preflight
    deliberately **fails closed**: a server that cannot check decks
    must not launch matches with unchecked ones.
 2. **A card no longer resolves** after a Forge pin change. The

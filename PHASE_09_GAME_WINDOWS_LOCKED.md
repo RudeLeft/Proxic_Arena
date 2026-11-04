@@ -862,3 +862,10 @@ words).** The dial says "You have 3." after the card's sentence, not
 yes/no bubble does not say "2 of 7": its header is the card and how many
 are on the stack ("Skirk Drill Sergeant · 7 on the stack"). Only the
 copy-target bubble numbers the trigger ("<card> · trigger 2 of 7").
+
+**As built (2026-11-04, a documentation check -- W-05's trigger order).**
+Spec 0043 (1.24.0) changed how different triggers are ordered: the tray
+opens already numbered in a suggested order (damage first, payments
+last), so Done is one click; clicking cards sets your own order, with
+"Start over". The "clicked in the order they should resolve" wording
+above is the design before spec 0043.

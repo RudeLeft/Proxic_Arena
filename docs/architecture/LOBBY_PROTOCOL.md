@@ -300,7 +300,9 @@ reminder).
 | malformed id | `400` — no real id has that shape, so saying so leaks nothing |
 
 The `404` is **literal**. Carry-forward C2: the §1.44 handler rewrites
-every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client.
+every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client
+over HTTP. A socket refusal (an invitation accepted for a room that is
+gone) can still carry it in an `ERROR` frame.
 
 Not every refusal is that `404`, though. A host action (remove, close,
 player count, prepare) checks the host before membership, so a

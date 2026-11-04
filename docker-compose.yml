@@ -48,9 +48,10 @@ services:
     # NO ports: section. §1.39 forbids a public PostgreSQL binding,
     # and the server reaches it over the internal network by name.
     # §1.99 — minimal permissions. PostgreSQL needs its data volume
-    # and a writable run directory; it needs no Linux capabilities
-    # beyond the defaults it drops here, and nothing it runs should
-    # ever gain more privilege than it started with.
+    # and a writable run directory. Every capability is dropped and
+    # only the five its entrypoint needs are added back (below), and
+    # nothing it runs should ever gain more privilege than it started
+    # with.
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -101,8 +102,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PROXIC_SESSION_SECRET: ${PROXIC_SESSION_SECRET:?set PROXIC_SESSION_SECRET in .env}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # Spec 0014 — the invitation email. All optional: unset, invitations
-      # are links an administrator copies and sends by hand.
+      # Specs 0014, 0026 — invitation and reset email. All optional, and
+      # only the fallback: the Admin page's Email tab, once saved, wins.
+      # With neither, invitations are links an administrator sends by hand.
       PROXIC_SMTP_HOST: ${PROXIC_SMTP_HOST:-}
       PROXIC_SMTP_PORT: ${PROXIC_SMTP_PORT:-587}
       PROXIC_SMTP_SECURITY: ${PROXIC_SMTP_SECURITY:-starttls}

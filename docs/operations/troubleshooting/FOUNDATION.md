@@ -52,9 +52,12 @@ reboot.
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
-The words below are `checks.database` in the JSON (when the command
-succeeds); the Status page's Database indicator shows them as "Not
-configured", "Unreachable" and "Ready".
+The words below are `checks.database` in the JSON. With the database
+down the command shows only the `503`, and the Status page cannot help:
+every signed-in request checks the session in the database, so signing
+in fails and the page offers "Sign in" (one already open shows the
+database as unavailable). Read the server log instead: `database health
+check failed: <reason>` names it.
 
 | `checks.database` | Meaning |
 | --- | --- |
@@ -68,7 +71,7 @@ recovers is picked up automatically — no server restart.
 **The server starts fine with the database down.** That is by design:
 liveness does not depend on dependencies (§1.23), so Docker will not
 restart a healthy server because PostgreSQL blinked. Readiness answers
-503 and the page shows it.
+503 and the log says why.
 
 **Flyway reports a checksum mismatch** — a migration that already ran
 has been edited. Never edit an applied migration; add a new one. In

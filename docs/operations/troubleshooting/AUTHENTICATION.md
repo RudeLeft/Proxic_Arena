@@ -137,7 +137,7 @@ there, because every login and every session check is a query.
 
 ```text
 login page loads, sign in answers 500 or hangs
-/api/health/ready answers 503; the Status page's Database says Unreachable
+/api/health/ready answers 503; the server log says "database health check failed"
 ```
 
 ```bash
@@ -310,9 +310,9 @@ password:
 docker compose exec arena-server /app/bin/arena-admin revoke-sessions RudeLeft
 ```
 
-If every administrator password is lost, the only way back is a
-`psql` session against the database — host access, which is the
-boundary the design intends.
+If every administrator password is lost, `arena-admin set-password
+<username>` inside the container sets a new one (above) — container
+access, which is the boundary the design intends.
 
 ---
 

@@ -154,7 +154,7 @@ Three rules shape all of it:
 | --- | --- |
 | Server | Kotlin 1.9.24, Ktor 2.3.13 (Netty 4.1.139), Java 17 (Temurin 17.0.20) |
 | Database | PostgreSQL 16.15, Flyway 10.22.0, HikariCP 5.1.0 |
-| Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`) |
+| Frontend | React 18.3.1, React Router 7.18.4, Vite 7.3.7, TypeScript 5.5.4; board is DOM + SVG. PixiJS 8.22.0 installed as a measured contingency (`docs/architecture/BATTLEFIELD_RENDERING.md`); the signed-in Status page uses it for its renderer check |
 | Worker | Java 17, Maven, `forge-core` + `forge-game`, and `forge-ai` for two checks (can this be paid now? what does it cost now?) |
 | Tests | Vitest 5, JUnit 5, Testcontainers 1.21.3, Playwright 1.64.1 |
 | Analysis | ESLint 9, Prettier 3, ktlint 1.x (Gradle plugin 12.1.1), detekt 1.23.6 |

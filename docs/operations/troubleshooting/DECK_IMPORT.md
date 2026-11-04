@@ -106,7 +106,8 @@ mismatch here means a genuinely different printing.
 | `NOT_A_PICTURE` | the file is neither a PNG nor a JPEG (spec 0051), whatever it is called |
 | `UNDECODABLE_IMAGE` | a picture's header, but the data is corrupt |
 | `UNREASONABLE_DIMENSIONS` | smaller than 50 px or larger than 4000 px |
-| `IMAGE_TOO_LARGE` | over 16 MB |
+| `ENTRY_TOO_LARGE` | a file in the package over 16 MB, by the size the archive declares |
+| `IMAGE_TOO_LARGE` | a picture whose data turned out larger than the archive declared |
 
 Re-export. If it recurs for the same card, the cached art in Deck
 Builder is probably damaged.

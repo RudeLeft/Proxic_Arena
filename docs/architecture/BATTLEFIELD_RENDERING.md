@@ -222,8 +222,10 @@ rather than teleports.
    leaving needs a brief exit hold; both are real work and budgeted.
 
 8. **Fonts are self-hosted.** Screenshot regression (§7.43) is not
-   trustworthy against a web-font request. Barlow Condensed and any other
-   display face ship with the frontend.
+   trustworthy against a web-font request. *As built (2026-11-04):* only
+   the card-title face ships (`assets/fonts/card-title.woff2`, spec
+   0032). Barlow Condensed is named in the font stacks but not shipped,
+   so a player without it installed sees the next font in the stack.
 
 9. **Lifecycle guarantees of Phase 1 §1.18 still apply** to the overlay
    layers and any animation loop: no duplicates across navigation, no

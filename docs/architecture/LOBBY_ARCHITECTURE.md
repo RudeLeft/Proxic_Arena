@@ -204,7 +204,8 @@ Server-authoritative, and yours alone to change (§5.57).
   room change such as the player count (§5.60), losing access to your
   deck, a failed preflight for your deck (§5.98), cancelling a
   preparation (§5.117), a guest leaving or being removed while the game
-  is prepared (everyone's; owner 2026-11-04), a guest taken out for
+  is prepared (everyone's; owner 2026-11-04), a member unticking ready
+  while the game is prepared (everyone's; owner 2026-11-04), a guest taken out for
   being away (everyone's, prepared or not; spec 0054), and **a server
   restart** (§5.198).
 
@@ -252,7 +253,8 @@ Nothing stores it and nothing survives a restart.
                 prepare-match
    OPEN ──────────────────────────► READY_FOR_MATCH
       ◄──────────────────────────
-             cancel-preparation, or a guest leaves / is removed / is away
+             cancel-preparation, or a guest leaves / is removed / is away,
+             or a member unticks ready
       │                                    │
       │ host closes / host leaves          │ restart
       ▼                                    ▼
@@ -281,7 +283,8 @@ prepared, so this is the server's guard for a request from elsewhere.
 
 ## Optimistic concurrency
 
-Every mutation bumps `room.revision`. A client may send
+Every mutation a player makes bumps `room.revision` (a restart's
+readiness reset, `RoomRecovery`, does not). A client may send
 `expectedRoomRevision`, and a mismatch is `409 ROOM_REVISION_STALE`
 rather than a silent overwrite (§5.136, §5.137).
 

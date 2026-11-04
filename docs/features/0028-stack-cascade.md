@@ -61,3 +61,8 @@ None. Note (2026-10-28, as built): the number and the caster's picture sit
 just left of each card's name bar rather than on its corners, so neither
 covers the name; the caption under the front card has a dark backing,
 since it often sits over the board's right-hand cards.
+
+As built (2026-11-04, a documentation check): past what fits, the oldest
+objects are not drawn rather than compressed to name bars, and the
+caption says ", N not shown" (built so in b696952; `effects.ts`). Every
+object that fits is drawn; F-0028-A holds for those.

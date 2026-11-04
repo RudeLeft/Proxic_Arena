@@ -16,8 +16,10 @@ an instant or sorcery -- about two upkeeps in five with this deck.
 The instants are never cast; they are there to be on top.
 
 Written as the export writes a two-faced card, "A // B", so the
-import, the art file name (front face only, as the real exporter
-names it) and the match-time lookup all meet the real shape.
+import, the art file name (named by the front face, as the real
+exporter names it; the build also writes the back face's own picture,
+which `match-multiface.spec.ts` uses) and the match-time lookup all meet
+the real shape.
 
 Used by `frontend/e2e/match-multiface.spec.ts`; the worker-level check
 (`scripts/check-multiface.py`) uses its own non-legal deck.

@@ -101,8 +101,8 @@ is the protection.
   not the share's.
 - **Twice is fine** (§4.33) — idempotent, answered `200` rather than
   `201`. The insert uses `ON CONFLICT DO NOTHING` and reads the row
-  back, so two requests racing end with one share and an answer that
-  describes what *is* (§4.104).
+  back, so two requests racing end with one share (both may be answered
+  `201`; the share is the same) (§4.104).
 - **By username, exactly** (§4.29) — normalized the way accounts are,
   so `pAt` finds `Pat`. The Share panel no longer asks for it to be
   typed: the deck's share list carries `candidates`, every other active
@@ -204,9 +204,9 @@ PUT /api/decks/{deckId}/icon    {"icon": "goblin"}    (or null)
 Every deck shows one of the owner's 100 round icons
 (`frontend/src/assets/deck-icons/`, named in `DeckIcons.NAMES`). The
 library's entries carry `colors` (the deck's colour identity in WUBRG
-order, as Forge reports each card at import; `""` colourless; absent
+order, as Forge reports each card at import; `""` colourless; `null`
 until Forge has been asked, which the background fill does once for
-older decks) and `icon` (the owner's choice, or absent). With no
+older decks) and `icon` (the owner's choice, or `null`). With no
 choice the page shows the suggestion from the colours
 (`deckIcons.tsx`). Setting it is the owner's: a recipient gets `403`, a
 stranger `404`, a name outside the set `422 INVALID_ICON`. "Change icon" opens the picker. The icon
@@ -267,6 +267,6 @@ also why §4.68's artwork check is "is this asset part of a deck you
 may see" rather than "is this asset yours" — the question of whose
 an image is has no meaning in a content-addressed store.
 
-Roughly 1.5 MB per distinct printing as a PNG, a fraction of that as
+Roughly 1.1 MB per distinct printing as a PNG (measured over the 275-card corpus), a fraction of that as
 the JPEG the Deck Builder sends since spec 0051, counted once no matter
 how many decks or owners reference it.

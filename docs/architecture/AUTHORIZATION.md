@@ -63,7 +63,7 @@ to `/login` itself.
 | `/api/deck-builder/…` (spec 0022) | a linked computer's device token only; the routes check it |
 | `GET /api/auth/me` | anyone (204, nothing, when not signed in) |
 | `GET /api/version`, `/api/system/status`, `/ws/system` | the signed-in user |
-| any other `/api/…` address, real or not | the signed-in user -- a stranger gets the same 401 for all |
+| any other `/api/…` address, real or not | the signed-in user -- a stranger gets the same 401 for all (under `/api/deck-builder/` an unknown path is 404: those routes take a device token) |
 | `POST /api/auth/password`, `/display-name` | the signed-in user |
 | `POST /api/auth/logout-all` | the signed-in user, for their own sessions only |
 | **every** `/api/decks` route | a signed-in user, and then the deck's own rule: its owner, or a player it is shared with (below) |

@@ -59,7 +59,8 @@ applied the same way; `forge_patches/README.md` lists both.
 ## Forge adapter strategy
 
 **Strategy A — a Proxic-owned `PlayerController`**, on `forge-core` +
-`forge-game` only. Scored 53, against 24 for reusing Forge's network
+`forge-game` (and, since 2026-10-21, `forge-ai` for two checks -- see
+the packaging amendment above). Scored 53, against 24 for reusing Forge's network
 layer and 30 for a hybrid.
 
 Forge's own network layer is remote invocation of **GUI** methods over
