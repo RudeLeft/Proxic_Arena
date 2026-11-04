@@ -1,6 +1,6 @@
 # --- Card artwork: copyrighted, large, and regenerable -------------------
 # The Mechanics Lab corpus is defined by its TXT + CSV, which ARE versioned.
-# The 275 card images (~291 MB) are Wizards of the Coast artwork delivered by
+# The 275 card images (about 303 MB) are Wizards of the Coast artwork delivered by
 # a Deck Builder export at runtime; git would keep every byte forever.
 # Any real_cards folder, at any depth. The earlier rule was anchored
 # to one path, and a second test deck arrived as

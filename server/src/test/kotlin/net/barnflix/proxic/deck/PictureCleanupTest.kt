@@ -36,7 +36,10 @@ class PictureCleanupTest {
 
     @BeforeTest
     fun setUp() {
-        assumeTrue(runCatching { DockerClientFactory.instance().isDockerAvailable }.getOrDefault(false))
+        assumeTrue(
+            runCatching { DockerClientFactory.instance().isDockerAvailable }.getOrDefault(false),
+            "SKIPPED: Docker is not available (ADR 0001)",
+        )
         val c = TestPostgres.fresh().also { container = it }
         db =
             Database.connect(

@@ -31,7 +31,9 @@ GET  /api/matches/{id}/assets/{sha256}   card artwork (MATCH_ASSET_AUTHORIZATION
 GET  /api/matches/watch/{roomId}   spec 0047: the game a room is playing, to watch;
                                    404 (sent as NOT_WATCHABLE, rewritten to
                                    NOT_FOUND like every 404), 409 YOUR_GAME
-                                   for a player
+                                   for a player of a game that may be
+                                   watched (one that may not is 404 for
+                                   everyone, players too)
 ```
 
 Since 1.30.0 (spec 0052) the game page loads every picture from
@@ -186,9 +188,10 @@ those could answer for somebody else or defeat the staleness check
 
 ## Viewer snapshots
 
-One per player, built by the worker for that viewer from Forge's state
-and forwarded unchanged; the server does not re-filter or rebuild it
-(§6.42). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
+One per player, built by the worker for that viewer from Forge's state;
+the server does not re-filter or rebuild it (§6.42) -- it only adds the
+picture addresses (`art`, `crop`) for the cards that viewer was sent
+(`MATCH_ASSET_AUTHORIZATION.md`). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
 `stateRevision`, every player's public totals and Forge state
 (counters, designations, command zone, Ring temptations, completed
 dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
@@ -266,7 +269,9 @@ on the live site a page reloaded mid-game was back in the same match
 
 ## End and failure
 
-The final snapshots are sent to every player before the end. The match
+When the game itself ends (a win, a draw, a concession), the final
+snapshots are sent to every player before the end; a failure or an
+abandon sends none (the worker is stopped). The match
 then shows its result through the lobby (`ENDED` with the winner, or
 `FAILED_*`/`TERMINATED` with no winner) and the question area is
 cleared; a question from a finished match is never shown

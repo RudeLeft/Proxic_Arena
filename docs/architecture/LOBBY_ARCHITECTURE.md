@@ -200,7 +200,9 @@ Server-authoritative, and yours alone to change (§5.57).
 - Readiness is cleared by: changing your own deck (§5.59), a material
   room change such as the player count (§5.60), losing access to your
   deck, a failed preflight for your deck (§5.98), cancelling a
-  preparation (§5.117), and **a server restart** (§5.198).
+  preparation (§5.117), a guest leaving, being removed or being taken
+  out for being away (everyone's, while the game is prepared; owner
+  2026-11-04), and **a server restart** (§5.198).
 
 ---
 
@@ -319,11 +321,12 @@ are server settings (`PROXIC_ROOM_ALONE_MINUTES` and friends,
 `RoomTimeouts`).
 
 Activity is joining, leaving, configuring, selecting a deck, readying,
-a host action (§5.124), sending an invitation, a lobby chat line or
-reaction from one of the room's members (at most once a minute), or
-"Keep it open";
-a game starting and a game ending write it too (a room back from a game
-starts a fresh clock).
+a host action (§5.124), "Keep it open", and -- at most once a minute --
+sending an invitation or a lobby chat line or reaction from one of the
+room's members. A game starting and a game ending write it too (a room
+back from a game starts a fresh clock), as do a seat losing access to
+its deck, a failed preflight clearing seats, and an away guest being
+taken out.
 **A browser holding a socket open is not activity** — that is why
 `last_activity_at` is written by those operations and never by the
 heartbeat.

@@ -74,7 +74,7 @@ The message names each card and why.
 | Detail | Meaning |
 | --- | --- |
 | `Forge does not know a card named "..."` | the name is wrong, or the card is newer than the pinned Forge |
-| `Requested <set>/<number>, Forge returned <set>/<number>.` | only for a card whose printing changes what it does; see below |
+| `this card plays differently in each printing, and this printing is not one Arena has` | a card whose printing changes what it does, in a printing Forge does not have; see below. Any other card in another printing is accepted (spec 0024) |
 
 **One unresolvable card refuses the whole import.** Arena does not
 import a partial deck and does not substitute another card: a deck
@@ -179,7 +179,9 @@ docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/read
 ```
 
 It prints the JSON only when every check passes; a `503` means one
-failed, and the signed-in Status page shows which (`FOUNDATION.md`).
+failed. The signed-in Status page shows the database and the Forge
+worker; it has no data-folder indicator, so a 503 with both "Ready"
+there is `dataRoot` (below; `FOUNDATION.md`).
 
 | Check | Meaning |
 | --- | --- |

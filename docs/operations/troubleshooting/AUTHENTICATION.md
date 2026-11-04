@@ -137,7 +137,7 @@ there, because every login and every session check is a query.
 
 ```text
 login page loads, sign in answers 500 or hangs
-/api/health/ready answers 503; the Status page says database: unreachable
+/api/health/ready answers 503; the Status page's Database says Unreachable
 ```
 
 ```bash

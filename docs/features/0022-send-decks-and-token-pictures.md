@@ -154,3 +154,8 @@ All made 2026-10-27 (S1-S7, above).
   owner sent a deck from Deck Builder 1.3.1 to the live Deck Depot and,
   in a real game, the Ape token wore the picture the deck brought
   (owner, 2026-10-27).
+
+**As built (2026-11-04, a documentation check).** "Up to 300 picture
+hashes" never matched the code: the cap is the package's picture limit
+(`MAX_ASKED = PackageLimits.MAX_IMAGE_COUNT`), 200 when this shipped and
+500 since spec 0051.

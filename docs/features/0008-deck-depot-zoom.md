@@ -100,3 +100,7 @@ Out (and why):
   two-faced card, Esc returns focus; the size switch survives a reload;
   on a phone View brings the deck into view; a failed delete is shown.
 - Screenshots at 1280, 1600 and on a phone for the owner before it ships.
+
+**As built (2026-11-04, a documentation check).** The message reads
+`You already have this deck: "Burn".` (the name in quotes, with a full
+stop).

@@ -12,11 +12,14 @@ hidden, battlefield visible" is the version §6.43 forbids).
 
 In the **worker**, per viewer, from Forge's own view layer
 (`CardView`/`PlayerView`, the layer Forge's own clients use). The server
-forwards each player's snapshot unchanged and never re-filters it
-(§6.42); a card a viewer may not see is **never sent**, not even blanked.
+never re-filters a player's snapshot (§6.42) -- it only adds picture
+addresses for the cards sent; a card a viewer may not see is **never
+sent**, not even blanked.
 
-Two Forge checks are asked for **every card, for every viewer**, and a
-name or picture is read only when both pass:
+Two Forge checks are asked for every card, for every viewer, and a name
+or picture is read only when both pass -- except a face-up card the
+worker passes as shown to that viewer (a reveal tray, an action report;
+below), which is named without them:
 
 ```text
 canBeShownTo          zone-level -- true for everything on the battlefield

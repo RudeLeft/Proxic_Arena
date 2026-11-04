@@ -318,9 +318,16 @@ Rats and similar — are **not** exempt (owner decision 2026-10-15).
   §4.2.)
 - **Problems are reported a stage at a time.** A structural problem
   is the first one found; a decklist line that does not parse stops at
-  that line; every legality problem is reported together, and every card
-  Forge can't play together -- but a deck that is not legal is refused
-  before its unresolved cards are listed.
+  that line. Legality is checked in two passes, each reported on its
+  own: first everything that needs no Forge (too few cards, too many
+  copies), returned alone if anything is wrong; then, after resolution,
+  the deck size and the Contraption/Attraction side decks, which need
+  Forge's reading of the cards (`DeckImporter`). A 101-card deck with
+  five copies of one card is refused for the copies, and the size is
+  said only once that is fixed. When Forge cannot answer, the second
+  pass says nothing and the cards are reported as not checked. Every
+  card Forge can't play is listed together -- but a deck that is not
+  legal is refused before its unresolved cards are listed.
 - **An import is all or nothing.** A failure leaves no deck, no
   rows, and no staging directory.
 - **An identical package is refused** when the same account imported

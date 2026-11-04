@@ -76,7 +76,9 @@ Rules the server enforces, so a client cannot get round them:
   `DECISION_OPTIONS`. A guessed id is refused before Forge sees it,
   even when Forge would allow the name.
 - Results are ranked exact match, then name-starts-with, then a word
-  starts with, then anywhere; case and accents are ignored. `total`
+  starts with, then anywhere -- judged at the text's first place in the
+  name, so a name where it first appears mid-word ranks "anywhere" even
+  if a later word starts with it; case and accents are ignored. `total`
   is how many matched; only the best 50 are sent.
 - A query is trimmed and cut to 64 characters.
 
@@ -106,8 +108,10 @@ player.command       emblems, dungeons and cards in the command zone --
                      not Forge's internal effect pieces
 dayTime      "day" or "night" once a daybound card has made it one
 card.printing  "SET/NUMBER" Forge built the card from, e.g. "M10/242"
-             (P6-BD). Only for a card this viewer may identify; a
-             token has none. Art is chosen by it first, then by name.
+             (P6-BD). Only for a card this viewer may identify. A
+             token has no real printing: Forge's token answers its
+             placeholder set "???" (PaperToken), so a token's is a
+             placeholder. Art is chosen by it first, then by name.
 card.faceDown  true for a face-down permanent. For its controller it
              carries the REAL name (and `known`); for anyone else
              `name` is "Face-down", `known` false, and only what the

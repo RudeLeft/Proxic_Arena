@@ -14,11 +14,17 @@ http://127.0.0.1:8080/api/health/ready` is faster than guessing.
 That command prints the JSON only when every check passes. When one
 fails the server answers 503, and the image's wget (BusyBox) prints
 just `wget: server returned error: HTTP/1.1 503 Service Unavailable`,
-not the body. To see which check failed and its word (`unreachable`,
-`resources-missing`, ...), sign in and open the **Status** page
-(`/status`): it reads the same checks from `/api/system/status`, which
-answers 200 with the words even when one is failing. The Forge worker's
-state is also in the server log: `forge worker probe: <state>`.
+not the body. Sign in and open the **Status** page (`/status`): it
+reads `/api/system/status`, which answers 200 even when a check fails,
+and shows the database and the Forge worker in its own words --
+"Ready", "Not configured", "Not found", "Unreachable", "Version
+mismatch", "Data files missing" (the readiness words `ok`,
+`unconfigured`, `missing`, `unreachable`, `incompatible`,
+`resources-missing`). It has **no data-folder indicator**: readiness
+also checks `dataRoot`, so a 503 while the Status page shows Database
+and Forge Runtime "Ready" means `/data` is not writable (see
+`DECK_IMPORT.md`, "`dataRoot` is not `ok`"). The Forge worker's state
+is also in the server log: `forge worker probe: <state>`.
 
 ---
 
@@ -46,8 +52,9 @@ reboot.
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
-The words below are the Status page's database indicator (or
-`checks.database` in the JSON when the command succeeds).
+The words below are `checks.database` in the JSON (when the command
+succeeds); the Status page's Database indicator shows them as "Not
+configured", "Unreachable" and "Ready".
 
 | `checks.database` | Meaning |
 | --- | --- |

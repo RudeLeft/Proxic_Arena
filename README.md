@@ -244,9 +244,11 @@ cd frontend && npm ci && npm run dev
 Compose). Without settings it runs in development mode with no
 database. For one, give the host server the dev database's address in
 its environment, e.g. `PROXIC_DATABASE_URL=jdbc:postgresql://127.0.0.1:5432/proxic`,
-`POSTGRES_USER=proxic` and `POSTGRES_PASSWORD=devonly` (the dev compose
-file's defaults; `.env.example`'s `postgres` host name only works inside
-Compose).
+`POSTGRES_USER=proxic` and `POSTGRES_PASSWORD` set to the value in your
+`.env` -- the dev database takes its password from there (`changeme` as
+copied from `.env.example`, unless you changed it; `devonly` only with no
+`.env`). `.env.example`'s `postgres` host name only works inside
+Compose.
 
 PostgreSQL runs in Docker; the server and Vite run on the host, where
 a rebuild is seconds rather than an image build. Vite serves the page
@@ -304,7 +306,7 @@ cd frontend && npm test                      # unit tests (Vitest)
 cd frontend && npm run e2e                   # browser tests (Playwright)
 ./gradlew :server:ktlintCheck :server:detekt # Kotlin analysis
 cd frontend && npm run lint                  # ESLint (types: npx tsc --noEmit)
-python -I scripts/check-blocks.py <worker.jar> <forge res>  # one Mechanics Lab game
+python -I scripts/check-blocks.py <worker.jar> <forge res>  # Mechanics Lab games (menace, reasons)
 ```
 
 Run the server suite and the browser tests **one at a time**: the
@@ -328,8 +330,11 @@ docker compose logs -f postgres         # database
 docker compose --profile edge logs -f cloudflared
 ```
 
-Worker logs arrive on the server's stderr, because the worker's stdout
-is the protocol channel.
+A worker's stdout is the protocol channel, and its stderr never reaches
+the server's log: a match worker's goes to
+`<dataRoot>/match-logs/<matchId>.log`, and the probe and card-resolver
+workers' is discarded. `docker compose logs arena-server` shows no
+worker output.
 
 Every server line carries `req`, `conn`, `sess`, `match`, `player` and
 `err` fields, empty until the relevant phase populates them. To follow

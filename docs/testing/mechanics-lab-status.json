@@ -57,7 +57,7 @@
       "scenario": "The controlling player answers the controlled player's decisions; the controlled player cannot.",
       "result": "PASSED",
       "notes": "Found and fixed: seats were mapped by Player.getLobbyPlayer(), which is the CURRENT controller's, so under Mindslaver the controlled player was filed under the master's seat -- the master got two snapshots a round (one from the controlled player's view) and the controlled player none. Now getOriginalLobbyPlayer(); a mutation run confirms the check catches the old mapping. Other players' hand cards Forge lets the viewer see now travel as otherHands.",
-      "evidence": "scripts/check-mindslaver.py (worker, in CI) and frontend/e2e/match-mindslaver.spec.ts (browser), 2026-10-20. During the controlled turn every question for seat 2 is actedForSeat 2, authorisedSeat 1; seat 2 answering one is refused WRONG_SEAT; seat 1 sees seat 2's hand then and not before; each seat gets exactly one snapshot per round, its own; seat 2 answers again afterwards. In the browser: the host is asked under 'Playing for seat 2' and shown 'Pat's hand -- you can see it', the guest is asked nothing. Screenshots seen/mindslaver-*.png."
+      "evidence": "scripts/check-mindslaver.py (worker, in CI) and frontend/e2e/match-mindslaver.spec.ts (browser), 2026-10-20. During the controlled turn every question for seat 2 is actedForSeat 2, authorisedSeat 1; seat 2 answering one is refused WRONG_SEAT; seat 1 sees seat 2's hand then and not before; each seat gets exactly one snapshot per round, its own; seat 2 answers again afterwards. In the browser: the host is asked under 'Playing for seat 2' and shown 'Pat's hand, as far as you may see it' (words as of 2026-11-04), the guest is asked nothing. Screenshots seen/mindslaver-*.png."
     },
     "Pithing Needle": {
       "owner": "P6_REQUIRED",
@@ -133,7 +133,7 @@
       "tests": "P6-AN, §6.92",
       "scenario": "Phyrexian mana: pay life or mana per symbol.",
       "result": "PASSED",
-      "evidence": "scripts/check-costs.py dismember (worker, in CI), 2026-10-20. One Swamp pays {1}; {B/P}{B/P} are paid with 4 life (offered as 'Pay 2 life for a Phyrexian symbol'); the creature dies. Found: Phyrexian life payment was not offered at all -- ported from Forge's own input."
+      "evidence": "scripts/check-costs.py dismember (worker, in CI), 2026-10-20. One Swamp pays {1}; {B/P}{B/P} are paid with 4 life (offered as 'Pay 2 life instead (you have N)', words as of 2026-11-04); the creature dies. Found: Phyrexian life payment was not offered at all -- ported from Forge's own input."
     },
     "Force of Will": {
       "owner": "P6_REQUIRED",
@@ -247,7 +247,7 @@
       "tests": "P6-AJ, P6-BF, §6.82",
       "scenario": "Adventure: cast Stomp, then the Giant from exile.",
       "result": "PASSED",
-      "evidence": "scripts/check-shapes.py adventure (worker, in CI), 2026-10-20. Stomp offered as 'Stomp -- {1}{R}', kills a creature; the Giant waits in exile (now in the snapshot) and is cast from there, the same card. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
+      "evidence": "scripts/check-shapes.py adventure (worker, in CI), 2026-10-20. Stomp offered as 'Stomp · {1}{R}' (words as of 2026-11-04), kills a creature; the Giant waits in exile (now in the snapshot) and is cast from there, the same card. Found: every half was offered at the WHOLE card's cost and name ('Fire // Ice -- {2}{R}{U}'); labels now use the face's own name and cost."
     },
     "Fire // Ice": {
       "owner": "P6_REQUIRED",
@@ -478,7 +478,7 @@
       "tests": "P6-AK",
       "scenario": "An Aura on the opponent's creature, drawn on that creature.",
       "result": "PASSED",
-      "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Seat 1's Aura attached to seat 2's creature in both views; the browser draws it on the opponent's creature as 'Pacifism (yours)' and, for the opponent, 'Pacifism (RudeLeft's)'. Found: the board had drawn it nowhere -- attachments were looked for among their own controller's cards only."
+      "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Seat 1's Aura attached to seat 2's creature in both views; the browser draws it on the opponent's creature as 'Pacifism, attached to <creature>, yours' and, for the opponent, '..., opponent's' (words as of 2026-11-04). Found: the board had drawn it nowhere -- attachments were looked for among their own controller's cards only."
     },
     "Rabbit Battery": {
       "owner": "P8_COVERAGE",

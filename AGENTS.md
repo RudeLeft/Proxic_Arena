@@ -514,7 +514,7 @@ Release-blocking. Treat every rule here as security, not presentation.
 
 - **GIT-001 — MUST NOT:** Commit card artwork. The Mechanics Lab corpus is
   defined by its TXT and CSV, which are versioned; the 275 images
-  (~291 MB) are Wizards artwork delivered at runtime and git keeps every
+  (about 303 MB, 289 MiB) are Wizards artwork delivered at runtime and git keeps every
   byte forever. _AUTO._
 - **GIT-002 — MUST:** Commit or push only when the owner asks. _USER._
 - **GIT-003 — MUST:** Write commit messages that explain *why*, including

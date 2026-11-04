@@ -153,8 +153,10 @@ losing.
 - Two files per match: the worker's stderr log,
   `<dataRoot>/match-logs/<matchId>.log`, kept for diagnosis (§6.155), and
   the server's game record, `<dataRoot>/match-records/<matchId>.jsonl.gz`
-  (PHASE_07 §7.56, deleted after `PROXIC_MATCH_RECORD_DAYS`). Nothing else
-  is created per match (§6.30).
+  (PHASE_07 §7.56, deleted after `PROXIC_MATCH_RECORD_DAYS`). Each worker
+  also makes an empty `proxic-custom-editions*` folder in `/tmp` and
+  removes it once Forge has read it (`FORGE_WORKER_RUNTIME.md`); nothing
+  else is created per match (§6.30).
 - Card artwork is served from the imported packages; nothing is
   copied per match.
 
