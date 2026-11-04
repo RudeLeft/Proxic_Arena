@@ -241,12 +241,13 @@ Nothing stores it and nothing survives a restart.
       ▼                                    ▼
    CLOSED                               OPEN (setup invalidated)
 
-   OPEN ──── 24h inactive ───► EXPIRED
+   OPEN ──── idle, or host away ───► CLOSED   (spec 0054)
 ```
 
-`CLOSED` and `EXPIRED` are terminal. Both end the memberships and
-invalidate any unconsumed setup; the room row survives as a record
-until the sweep removes it.
+`CLOSED` (and `EXPIRED`, which rooms closed by the old 24-hour rule
+carry; nothing sets it since spec 0054) are terminal. Both end the
+memberships and invalidate any unconsumed setup; the room row survives
+as a record until the sweep removes it.
 
 While `READY_FOR_MATCH`, ordinary configuration is blocked (§5.116).
 Cancelling is the way back.
@@ -291,23 +292,31 @@ network blip do not destroy a lobby (§5.119).
 
 ## Expiration
 
-Owner decision D4: **24 hours of inactivity**.
+Spec 0054 (owner, 2026-11-03; it replaced D4's 24 hours of
+inactivity): a room in the lobby closes after **30 minutes** with nothing
+happening while the host is alone, **2 hours** once a second player is
+in it; a host offline **10 minutes** closes it, a guest offline 10
+minutes is taken out; the room warns its members **5 minutes** before an
+idle close. A room with a game in it is never closed this way. All four
+are server settings (`PROXIC_ROOM_ALONE_MINUTES` and friends,
+`RoomTimeouts`).
 
-Activity is joining, leaving, configuring, selecting a deck, readying
-or a host action (§5.124). **A browser holding a socket open is not
-activity** — that is why `last_activity_at` is written by those
-operations and never by the heartbeat. Two people idling in a room
-all night have an abandoned room with tabs open.
+Activity is joining, leaving, configuring, selecting a deck, readying,
+a host action (§5.124), a chat line in the room, or "Keep it open".
+**A browser holding a socket open is not activity** — that is why
+`last_activity_at` is written by those operations and never by the
+heartbeat.
 
-An hourly sweep expires them, ends the memberships, invalidates any
-unconsumed setup and tells whoever was in it. Finished rooms are
-removed after seven days — a diagnostics window, not an archive
-(§5.126).
+A sweep every minute closes them (`ROOM_CLOSED` with reason `IDLE_30`,
+`IDLE_120` or `HOST_AWAY`; a guest taken out gets `ROOM_REMOVED`,
+reason `AWAY`), ends the memberships, invalidates any unconsumed setup
+and tells whoever was in it. Once an hour, finished rooms older than
+seven days are removed — a diagnostics window, not an archive (§5.126).
 
 Unlike the session sweep, this one is **not housekeeping**: nothing
-else expires a room, so if it stopped running, abandoned rooms would
-stay joinable forever. The honest cost is that a room can outlive its
-24 hours by up to one sweep interval.
+else closes an idle room, so if it stopped running, abandoned rooms
+would stay joinable forever. A room can outlive its limit by up to a
+minute.
 
 ---
 

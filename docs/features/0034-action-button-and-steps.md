@@ -93,4 +93,10 @@ All taken 2026-10-29 (see the top).
 
 ## Amendments
 
-None.
+1. **2026-11-03 -- Phase 9 (Amendments 11, 13 and 15).** The table's
+   words changed: your own spell counting down reads "Resolves in 3 ·
+   Your Lightning Bolt · click to resolve now", with a pause sign in its
+   circle (spec 0035 already made the click resolve); attackers read
+   "Attack with 2 · 5 power · select more, or click one to take it back",
+   and while some are selected and not pointed, "2 selected · Click what
+   they attack · Esc unselects".

@@ -86,13 +86,15 @@ that the deck was imported with its artwork (Deck Depot).
 ## Confusing but correct
 
 - **Spells you cannot pay for are offered.** Forge offers them and puts
-  the spell back when the payment fails. Safe; Phase 7 will show them
-  better.
-- **The game stops at every step** (upkeep, draw...). Every priority
-  window is asked; Phase 7 decides which steps stop by default.
-- **"Attack declaration invalid".** Forge refused the attack -- usually
-  a creature that must attack (a Legion Warboss token) was left home.
-  Pick it too. Phase 7 will say why.
+  the spell back when the payment fails. They are shown dimmed (§7.54),
+  and a number you can't pay for is marked (Phase 9 W-11).
+- **The game stops at every step** (upkeep, draw...). It should not:
+  one stops rule decides where play stops for everyone (spec 0035). A
+  stop at every step is a bug worth a report.
+- **An attack or block that won't go.** Forge refused it -- usually a
+  creature that must attack (a Legion Warboss token) was left home. The
+  page says which one can't go there and keeps the rest selected
+  (Phase 9 W-14).
 
 ## Checking a deployment end to end
 

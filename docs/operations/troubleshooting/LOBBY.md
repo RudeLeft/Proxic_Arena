@@ -22,8 +22,9 @@ Reload `/play`. The page asks `GET /api/rooms/current` on load and
 will put you back in the room you are actually in (§5.119). Leave it
 from there.
 
-If the room is one you no longer want and cannot see, it expires on
-its own after 24 hours (owner D4).
+If the room is one you no longer want and cannot see, it closes on its
+own: 30 minutes with nothing happening while you are alone in it, 2 hours
+with two players (spec 0054; server settings).
 
 ---
 
@@ -292,17 +293,20 @@ page that is not applying `ROOM` messages.
 
 ---
 
-## "That room expired after a day of inactivity"
+## "That room closed" while nobody was playing
 
-Owner decision D4: 24 hours of **inactivity**, where activity is
-joining, leaving, configuring, selecting a deck, readying or a host
-action (§5.124).
+Spec 0054: a room in the lobby closes after 30 minutes with nothing
+happening while the host is alone, 2 hours with two players, or when the
+host has been offline 10 minutes; a guest offline 10 minutes is taken
+out. The room says so 5 minutes before an idle close, with **Keep it
+open**. Activity is joining, leaving, configuring, selecting a deck,
+readying, a host action (§5.124) or a chat line in the room.
 
-**Holding a socket open is not activity.** Two people idling in a
-room overnight have an abandoned room with tabs open, and it expires.
-
-The sweep runs hourly, so a room can outlive its 24 hours by up to an
-hour. Host a new one; nothing is lost but the room.
+**Holding a socket open is not activity.** A room with a game in it is
+never closed this way. The limits are server settings
+(`PROXIC_ROOM_ALONE_MINUTES`, `PROXIC_ROOM_TOGETHER_MINUTES`,
+`PROXIC_AWAY_MINUTES`, `PROXIC_ROOM_WARNING_MINUTES`; see the Unraid
+install guide). Host a new one; nothing is lost but the room.
 
 ---
 

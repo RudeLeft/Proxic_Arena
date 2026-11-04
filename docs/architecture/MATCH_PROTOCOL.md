@@ -145,8 +145,10 @@ card of theirs works only in; and anything on the stack. The opponent's
 spell or trigger is asked plainly; their OWN is asked as a **response
 window** (spec 0005, Phase 8 Amendment 4) -- marked `window: true`, the
 page counts down 5 seconds and passes for them if they let it run out;
-clicking the countdown passes at once; clicking a card they could play,
-the close look or a list pauses it for good. A sacrifice that makes mana
+clicking the countdown's words passes at once; the pause in its circle,
+clicking a card they could play, the close look or a list pauses it until
+they pass; a tab not in front never counts down (Phase 9 Amendments 13,
+15). A sacrifice that makes mana
 counts while something is on the stack; tapping for mana alone never
 does. A seat without `stops` (the Mechanics Lab) is asked at every step.
 

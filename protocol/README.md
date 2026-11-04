@@ -50,7 +50,8 @@ server → browser  DECISION_REQUEST   searchable: true, optionCount: 34334,
                                      options: []   (none sent)
 browser → server  DECISION_SEARCH    decisionId, query
 server → browser  DECISION_OPTIONS   decisionId, query, total,
-                                     options: [{actionId, label}]  (best 50)
+                                     options: [{actionId, label, cost?,
+                                     types?}]  (best 50)
 browser → server  DECISION_RESPONSE  decisionId, actionId   (as for any question)
 server → browser  DECISION_SEARCH_REFUSED  decisionId, reason
 ```

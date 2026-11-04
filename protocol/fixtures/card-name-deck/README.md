@@ -15,9 +15,11 @@ answered by searching (owner decision 2026-10-20) -- the question
 arrives searchable, the browser sends what the player types, and the
 player picks one of the names the server sent back.
 
-The Revoker is here on purpose: its "nonland" restriction is checked
-by Forge AFTER the pick, on a real card instance, and a land name is
-asked for again. The Needle has no such restriction.
+The Revoker is here on purpose: its "nonland" restriction leaves every
+land out of the names Forge allows (the browser test searches "mountain"
+and is offered no Mountain), and Forge checks the pick again on a real
+card instance, asking again if it fails. The Needle has no such
+restriction.
 
 Colourless and cheap so that either card is castable from turn one
 or two off Mountains alone; eight of them in sixty cards so that one

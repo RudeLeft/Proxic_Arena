@@ -86,4 +86,9 @@ Forge decides.
 
 ## Amendments
 
-None.
+1. **2026-11-03 -- Phase 9 Amendments 12 and 13 (item 7).** A reveal made
+   by searching, looking at or moving cards (Goblin Ringleader's among
+   them) is headed by the player who did it and the card ("Pat · Goblin
+   Ringleader"), with the whole action in one sentence, instead of "Goblin
+   Ringleader revealed:"; the player who made the choices is not shown it
+   again. See `PHASE_09_GAME_WINDOWS_LOCKED.md`.

@@ -582,7 +582,8 @@ https://claude.ai/artifact/CWpWdsm4GHvXwESVPPi6Xn (the safety)).**
   the target.
 - *The safety (owner: option B, the button locked):* while anything is
   selected but not pointed at anything, the Attack / Block button reads
-  "N selected · click a target" and cannot be pressed. To go on without
+  "N selected" ("Click what they attack · Esc unselects") and cannot
+  be pressed. To go on without
   them, unselect them (click each again, or Esc for all). Selected
   creatures never attack or block unless pointed; nothing is quietly
   dropped and no turn moves on by mistake. Nothing selected and nothing
@@ -694,8 +695,9 @@ before building).**
    glows, sparks to its target and shrinks into its source (option B);
    a card that has left is drawn on top.
 
-- *As built:* the pause is held per stack object (a new spell on top
-  counts again); the worker sends the payment's `owing`
+- *As built:* the pause holds until the player passes (first built
+  per stack object, made simpler 2026-11-03); the worker sends the
+  payment's `owing`
   (protocol/README.md) and the target prompt from the ability's own text;
   `abilities.ts` reads " · " rows, "no cost" and mixed costs; the seal
   hangs beside the card and a selected card is drawn over its neighbours
