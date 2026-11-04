@@ -41,7 +41,7 @@ Forge's own desktop screen does the checking, so Arena's worker must.
 |---|---|---|
 | Legal attacks and blocks -- the whole block (menace, "can't block alone") | `CombatChoices` validates with Forge's `CombatUtil` before answering | `check-blocks` |
 | Trample: lethal damage to every blocker before any to the player (CR 702.19c); deathtouch makes 1 lethal (702.2c) | `CombatChoices.allLethal`, as Forge's `VAssignCombatDamage.canAssignTo` | `check-combat-choices trample` |
-| Divided damage or counters: at least 1 to each target, all of it assigned (CR 601.2d) | `MatchController.divide` / `finishDivision` | `check-shapes`, `check-concede` (divided damage); `check-you-choose` (Harm's Way's shield) |
+| Divided damage or counters: at least 1 to each target, all of it assigned, the split after every target is chosen (CR 601.2d) | `MatchController.divideAll` / `divide` / `finishDivision` | `check-numbers` (split: order, contents, the board after); `check-shapes`, `check-concede` (divided damage); `check-you-choose` (Harm's Way's shield) |
 | Convoke / Improvise / Waterbend: each tapped card pays a mana it can | `MatchController.chooseCardsForConvokeOrImprovise` | `check-costs` |
 | Costs paid in a rules-legal order that never loses a card for nothing (CR 601.2h) | `MatchController.orderCosts` -- refundable first, sacrifices last (Phase 8 Amendment 2) | `check-cost-kinds mill-no` |
 | Choices between min and max (sacrifice, discard, reveal, "any number") | `pickSeveral` / `pickCards`: never fewer than required, a pass only when allowed | the record's scenarios |

@@ -66,7 +66,7 @@
       "scenario": "Choose any card name.",
       "result": "PASSED",
       "notes": "Owner decision 2026-10-20: search, then pick. Forge offers the named card's ability anyway -- its own desktop client does too (getAllPossibleAbilities does not consult CantBeActivated) -- and refuses it on activation.",
-      "evidence": "scripts/check-card-name.py (worker, in CI) and frontend/e2e/match-card-name.spec.ts (browser, in CI), 2026-10-20. The question arrives searchable with 34,334 allowed names and none sent; search ranks the exact name first and ignores accents; a guessed id is refused; the server accepts only names it sent; Evolving Wilds named, its ability is then refused at activation (no sacrifice asked, still on the battlefield). In the browser: a search box, Mountain first for the Needle, no Mountain for Phyrexian Revoker's nonland list."
+      "evidence": "scripts/check-card-name.py (worker, in CI) and frontend/e2e/match-card-name.spec.ts (browser, in CI), 2026-10-20. The question arrives searchable with 34,334 allowed names and none sent; search ranks the exact name first and ignores accents; a guessed id is refused; the server accepts only names it sent; Evolving Wilds named, its ability is then refused at activation (no sacrifice asked, still on the battlefield). In the browser: a search box, Mountain first for the Needle, no Mountain for Phyrexian Revoker's nonland list. Phase 9 W-12 (Amendment 16, 2026-11-04): the question names Pithing Needle, is titled \"Name a card\" with the card's sentence, lists the cards on the table it may name (they glow; a click names one, checked in the browser on a Mountain), and each search result carries its cost and type line; Phyrexian Revoker's Mountain does not glow and says it can't name a land."
     },
     "Adaptive Automaton": {
       "owner": "P6_REQUIRED",
@@ -82,8 +82,8 @@
       "tests": "P6-AN, §6.92",
       "scenario": "Announce X from enumerated options; X is paid and the damage dealt.",
       "result": "PASSED",
-      "evidence": "scripts/check-x-announcement.py (2026-10-19): X announced, paid and dealt.",
-      "notes": "Dividing damage among several targets is a separate decision and not covered here."
+      "evidence": "scripts/check-x-announcement.py (2026-10-19): X announced, paid and dealt. Phase 9 W-11 (Amendment 14, 2026-11-04): scripts/check-numbers.py (in CI): each X option's cost with X filled in, can't-pay marked from the mana that can be made; check-x-announcement.py now announces only an X it can pay. The browser's X is a dial (match-numbers.spec.ts).",
+      "notes": "Dividing damage as you choose (Arc Lightning, Rolling Thunder) is scripts/check-numbers.py's split scenario: every target first, then one question per share (Amendment 14)."
     },
     "Cryptic Command": {
       "owner": "P6_REQUIRED",
