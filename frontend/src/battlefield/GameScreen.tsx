@@ -66,6 +66,7 @@ import { CastingCard, CastingFlight, castingSpot, docks, owingSymbols } from "./
 import {
   ChoiceWindow,
   ListTray,
+  NameWindow,
   NUMBER_KINDS,
   NumberWindow,
   TableQuestionWindow,
@@ -721,10 +722,22 @@ export function GameScreen({
     () => (declaring && board && marked.length > 0 ? combatTargets(declaring, board) : null),
     [declaring, board, marked.length],
   );
-  const boardChoosable = useMemo(
-    () => (aimAt ? new Set([...choosable, ...aimAt]) : choosable),
-    [aimAt, choosable],
+  // W-12 (Amendment 16): the cards this question may name glow; a click
+  // looks the name up and answers with it.
+  const nameable = useMemo(
+    () =>
+      decision?.kind === "chooseCardName" && decision.arrange?.name
+        ? new Set(decision.arrange.name.objects)
+        : null,
+    [decision],
   );
+  const [naming, setNaming] = useState<string | null>(null);
+  // Set below, once the search it uses exists.
+  const nameCardRef = useRef<(objectId: string) => void>(() => undefined);
+  const boardChoosable = useMemo(() => {
+    const base = aimAt ? new Set([...choosable, ...aimAt]) : choosable;
+    return nameable ? new Set([...base, ...nameable]) : base;
+  }, [aimAt, choosable, nameable]);
   // Between two questions there is a moment with none: only a question of
   // another kind (and no plan running) ends the selection.
   useEffect(() => {
@@ -743,6 +756,10 @@ export function GameScreen({
   const lastTarget = useRef<string | null>(null);
   const pick = useCallback(
     (objectId: string, members?: readonly string[]) => {
+      if (decision?.kind === "chooseCardName" && decision.arrange?.name) {
+        nameCardRef.current(objectId);
+        return;
+      }
       if (decision && DECLARE_KINDS.has(decision.kind) && !planRef.current) {
         const ids = members && members.length > 0 ? members : [objectId];
         // Pointed at a target: the selection goes there.
@@ -948,6 +965,42 @@ export function GameScreen({
     [decisionId],
   );
 
+  // W-12 (Amendment 16): a card clicked to name it. Its exact name is
+  // searched, and the result with that name is the answer (below): the
+  // answer is always one the game sent. A card on the table it may not
+  // name says why.
+  const nameCard = useCallback(
+    (objectId: string) => {
+      if (!board || !decision?.arrange?.name) return;
+      const card = [...board.battlefield, ...board.graveyard, ...board.exile].find(
+        (c) => c.id === objectId,
+      );
+      if (!card) return;
+      if (!nameable?.has(objectId)) {
+        if (board.battlefield.some((c) => c.id === objectId)) {
+          const asker = decision.about?.name ?? "This card";
+          const what = /\bLand\b/.test(card.types) ? "a land" : "that card";
+          setSelected(objectId);
+          setWhy({ objectId, text: `${asker} can't name ${what}.` });
+        }
+        return;
+      }
+      setWhy(null);
+      setNaming(card.name);
+      search(card.name);
+    },
+    [board, decision, nameable, search],
+  );
+  nameCardRef.current = nameCard;
+  useEffect(() => {
+    if (!naming || decision?.results?.query !== naming.slice(0, 64)) return;
+    const exact = decision.results.options.find((o) => o.label === naming);
+    setNaming(null);
+    if (exact) answer(exact.actionId);
+  }, [naming, decision, answer]);
+  // A new question ends a look-up.
+  useEffect(() => setNaming(null), [decision?.decisionId]);
+
   // Spec 0043 -- while "Let it all resolve" holds: pass each time the
   // player is asked whether to respond, until the stack is empty or holds
   // something that was not there when it was pressed.
@@ -1013,7 +1066,7 @@ export function GameScreen({
   const barOnly =
     !!decision &&
     !!question &&
-    (decision.searchable ||
+    ((decision.searchable && !decision.arrange?.name) ||
       (!listOpen &&
         ((decision.looking.length > 0 && !trayOf(decision)) ||
           COMBAT_KINDS.has(decision.kind) ||
@@ -1043,6 +1096,10 @@ export function GameScreen({
       artUrl,
       onAnswer: answer,
     };
+    // W-12 (Amendment 16): naming a card, beside the card asking.
+    if (decision.kind === "chooseCardName" && decision.searchable && decision.arrange?.name) {
+      return <NameWindow key={decision.decisionId} {...common} onSearch={search} naming={naming} />;
+    }
     if (listOpen && !decision.searchable) {
       return <ListTray key={decision.decisionId} {...common} onClose={() => setListOpen(false)} />;
     }
@@ -1511,6 +1568,8 @@ export function GameScreen({
             artUrl={pictureUrl}
             onZone={setViewer}
             onInspect={setInspecting}
+            nameable={nameable}
+            onName={nameCard}
             onClose={() => setViewer(null)}
           />
         )}
@@ -3254,10 +3313,15 @@ function ZoneViewer({
   onZone,
   onInspect,
   onClose,
+  nameable = null,
+  onName,
 }: {
   board: Snapshot;
   seat: number;
   zone: ZoneName;
+  /** W-12: while a card is being named, the cards here it may name, and naming one. */
+  nameable?: ReadonlySet<string> | null;
+  onName?: (id: string) => void;
   /** -1 for a spectator: every pile is somebody else's. */
   mySeat: number;
   artUrl: (art: string) => string;
@@ -3343,7 +3407,7 @@ function ZoneViewer({
               <li key={card.id}>
                 <button
                   type="button"
-                  className="gs-viewer-card gs-ztray-card"
+                  className={`gs-viewer-card gs-ztray-card${nameable?.has(card.id) ? " gs-nameable" : ""}`}
                   aria-label={[
                     `${card.name}${copies > 1 ? ` ×${copies}` : ""}`,
                     card.types,
@@ -3351,7 +3415,9 @@ function ZoneViewer({
                   ]
                     .filter(Boolean)
                     .join(", ")}
-                  onClick={() => onInspect(card.id)}
+                  onClick={() =>
+                    nameable?.has(card.id) && onName ? onName(card.id) : onInspect(card.id)
+                  }
                 >
                   {card.art && !(card.faceDown && !card.known) ? (
                     <img src={artUrl(card.art)} alt="" draggable={false} />

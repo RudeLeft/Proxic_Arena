@@ -22,6 +22,12 @@ activated unless they're mana abilities." Checked off the protocol:
                  the worker does not offer what Forge's "can't be
                  activated" check forbids (owner decision 2026-10-20;
                  it used to be offered, clicked, and rolled back)
+  the window     Phase 9 W-12 (Amendment 16): the question names its
+                 card (about: Pithing Needle), carries the title "Name a
+                 card" and the card's sentence about the name, and lists
+                 the asker's Evolving Wilds on the battlefield among the
+                 cards that may be named (arrange.name.objects); a search
+                 result carries its type line ("Land" for the Wilds)
 
 A focused deck: Mountains, Evolving Wilds and Pithing Needles. Each
 player plays an Evolving Wilds and never cracks it, casts a Needle,
@@ -126,6 +132,7 @@ for line in proc.stdout:
         for option in frame.get("options", []):
             if option.get("label") == WILDS:
                 found["_wilds_id"] = option["actionId"]
+                found["wilds_result"] = {"cost": option.get("cost"), "types": option.get("types")}
         pending = [q for q in queries if q not in found["searches"]]
         if pending:
             search(naming, pending[0])
@@ -161,9 +168,15 @@ for line in proc.stdout:
     pick = None
 
     if dkind == "chooseCardName" and found["question"] is None:
+        name = (frame.get("arrange") or {}).get("name") or {}
+        wilds_here = {c["id"] for c in mine(seat, "battlefield") if c.get("name") == WILDS}
         found["question"] = {"searchable": frame.get("searchable"), "optionCount": frame.get("optionCount"),
                              "options_sent": len(options), "mandatory": frame.get("mandatory"),
-                             "prompt": frame.get("prompt"), "seat": seat}
+                             "prompt": frame.get("prompt"), "seat": seat,
+                             "about": (frame.get("about") or {}).get("name"),
+                             "title": name.get("title"), "says": name.get("says"),
+                             "wilds_listed": sorted(wilds_here & set(name.get("objects") or [])),
+                             "wilds_here": sorted(wilds_here)}
         naming = frame
         search(frame, queries[0])
         continue
@@ -245,6 +258,12 @@ if not hits.get("oin the") or not any("Óin" in label for label in hits["oin the
     problems.append(f"'oin the' did not find Óin the Brave: {hits.get('oin the')}")
 if hits.get("zzzzzz") and hits["zzzzzz"][0] != 0:
     problems.append(f"nonsense found something: {hits['zzzzzz']}")
+if q.get("about") != NEEDLE or q.get("title") != "Name a card" or "chosen name" not in (q.get("says") or ""):
+    problems.append(f"the window's card, title and words: {q.get('about')!r}, {q.get('title')!r}, {q.get('says')!r}")
+if q.get("wilds_here") and q.get("wilds_listed") != q.get("wilds_here"):
+    problems.append(f"the Evolving Wilds on the table may be named, so it is listed: {q}")
+if (found.get("wilds_result") or {}).get("types") != "Land":
+    problems.append(f"a result says what it is: {found.get('wilds_result')}")
 if found["bogus_refused"] != "STALE_DECISION":
     problems.append(f"a made-up name id was not refused: {found['bogus_refused']}")
 if not found["wilds_ability_before"]:

@@ -41,6 +41,8 @@ export interface DecisionOption {
   payable: boolean;
   /** What a spell costs right now, Forge's reckoning ("{R}"); null otherwise. */
   cost: string | null;
+  /** Phase 9 W-12 -- a named card's type line ("Creature — Goblin Scout"). */
+  types?: string | null;
 }
 
 /** A target, as the server names it: an object id, or a player's seat. */
@@ -165,6 +167,19 @@ export interface DecisionArrange {
   number?: NumberLayout | null;
   /** Phase 9 W-11 (Amendment 14) -- one share of a split, with the whole split. */
   divide?: DivideLayout | null;
+  /** Phase 9 W-12 (Amendment 16) -- naming a card. */
+  name?: NameLayout | null;
+}
+
+/**
+ * Phase 9 W-12 -- naming a card: the window's title ("Name a nonland
+ * card"), the card's own sentence about the name, and the cards this
+ * player can see whose names it may name (they glow; a click names one).
+ */
+export interface NameLayout {
+  title: string;
+  says: string | null;
+  objects: string[];
 }
 
 /**
@@ -1113,6 +1128,18 @@ function asDivide(value: unknown): DivideLayout | null {
   };
 }
 
+function asNameLayout(value: unknown): NameLayout | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  return {
+    title: asString(v["title"]) ?? "Name a card",
+    says: asString(v["says"]),
+    objects: Array.isArray(v["objects"])
+      ? v["objects"].filter((id): id is string => typeof id === "string")
+      : [],
+  };
+}
+
 function asArrange(value: unknown): DecisionArrange | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
@@ -1136,6 +1163,7 @@ function asArrange(value: unknown): DecisionArrange | null {
     damage: asFight(v["damage"]),
     number: asNumberLayout(v["number"]),
     divide: asDivide(v["divide"]),
+    name: asNameLayout(v["name"]),
   };
 }
 
@@ -1181,6 +1209,7 @@ function asOptions(value: unknown): DecisionOption[] {
       // Only an explicit false dims: absent means payable (§7.54).
       payable: row["payable"] !== false,
       cost: asString(row["cost"]),
+      types: asString(row["types"]),
     });
   }
   return options;

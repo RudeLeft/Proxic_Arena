@@ -17,6 +17,11 @@
 // offer it at all for the Revoker. Both lists are FORGE's; the page
 // only displays them.
 //
+// Phase 9 W-12 (Amendment 16): the window sits beside the card asking,
+// each result shows its cost and type, and the cards on the table it
+// may name glow -- the Needle names a Mountain by a click on one; for
+// the Revoker a Mountain does not glow, and a click says why.
+//
 // The deck is protocol/fixtures/card-name-deck: 52 Mountains, four
 // of each card. CI builds it; locally:
 //
@@ -29,6 +34,7 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   choices,
   clearEverything,
+  clickNow,
   isAsked,
   matchPanel,
   sharedDeck,
@@ -56,12 +62,12 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
     await startAMatch(host, guest, deckName);
 
     const seen = { any: false, nonland: false };
-    const naming = /Name a card/;
+    const naming = /^Name a (nonland )?card$/;
 
     /** The question on `page`, checked, looked at, and answered. */
     const answerNaming = async (page: Page, panel: Locator) => {
-      const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
-      const nonland = /nonland/i.test(prompt);
+      const heading = (await panel.getByRole("heading", { name: naming }).textContent()) ?? "";
+      const nonland = /nonland/.test(heading);
 
       // Searchable: a box, and no list of thirty thousand buttons.
       const box = panel.getByRole("searchbox", { name: "Card name" });
@@ -73,7 +79,9 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       await box.fill("mountain");
       const results = panel.getByRole("list", { name: "Matching names" }).getByRole("button");
       await expect(results.first()).toBeVisible({ timeout: 30_000 });
-      const names = await results.allTextContents();
+      const names = await results.locator(".gs-name-result-name").allTextContents();
+      // Each result says what it is: a type line on every one.
+      await expect(results.first().locator(".gs-name-result-types")).not.toBeEmpty();
 
       if (nonland) {
         // Forge's predicate removed every land before the search.
@@ -92,8 +100,24 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
         fullPage: true,
       });
 
-      // The pick is one of the server's results, and the game moves.
-      await results.first().click({ timeout: 15_000 });
+      // The cards on the table it may name glow; a Mountain for the Needle,
+      // not for the Revoker -- and a click on one there says why.
+      const mountain = page
+        .locator(".bf-cards button[data-object-id]")
+        .filter({ hasText: /^Mountain/ })
+        .first();
+      if (nonland) {
+        await expect(mountain).not.toHaveAttribute("data-choosable", "true");
+        await clickNow(mountain);
+        await expect(page.getByText(/can't name a land/)).toBeVisible({ timeout: 5_000 });
+        // The pick is one of the server's results, and the game moves.
+        await results.first().click({ timeout: 15_000 });
+      } else {
+        await expect(mountain).toHaveAttribute("data-choosable", "true");
+        // Named by a click on the table: the page looks the name up and
+        // answers with the game's own result.
+        await clickNow(mountain);
+      }
       await expect(panel.getByRole("heading", { name: naming })).toHaveCount(0, {
         timeout: 60_000,
       });

@@ -751,6 +751,24 @@ public final class GameHost {
     public static final int SEARCH_LIMIT = 50;
 
     /**
+     * Phase 9 W-12 (Amendment 16) -- a card name's mana cost and type line,
+     * from Forge's card data, so a search result reads "Goblin Guide {R} ·
+     * Creature — Goblin Scout". Null for a name Forge has no card for.
+     */
+    public static String[] cardFacts(String name) {
+        forge.item.PaperCard paper = name == null ? null
+                : forge.StaticData.instance().getCommonCards().getCard(name);
+        if (paper == null) {
+            return null;
+        }
+        forge.card.CardRules rules = paper.getRules();
+        String cost = rules.getManaCost() == null || rules.getManaCost().isNoCost()
+                ? null : rules.getManaCost().toString();
+        String types = rules.getType() == null ? null : rules.getType().toString().replace(" - ", " \u2014 ");
+        return new String[] {cost, types};
+    }
+
+    /**
      * Search the outstanding question's options — P6-AG.
      *
      * Null when there is nothing to search: no such question, or

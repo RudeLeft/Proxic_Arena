@@ -236,6 +236,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
                         option.objectId?.let { put("objectId", it) }
                         if (!option.payable) put("payable", false)
                         option.cost?.let { put("cost", it) }
+                        option.types?.let { put("types", it) }
                     },
                 )
             }
@@ -264,6 +265,7 @@ fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
                         option.objectId?.let { put("objectId", it) }
                         if (!option.payable) put("payable", false)
                         option.cost?.let { put("cost", it) }
+                        option.types?.let { put("types", it) }
                     },
                 )
             }

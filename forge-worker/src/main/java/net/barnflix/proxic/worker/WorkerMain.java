@@ -314,6 +314,14 @@ public final class WorkerMain {
                             ask.addProperty("searchable", true);
                             ask.addProperty("optionCount", pending.options().size());
                             ask.add("options", options);
+                            // Phase 9 W-12 -- the card asking, and the window's
+                            // title, words and the cards it may name.
+                            if (GAME.subject() != null) {
+                                ask.add("about", GAME.subject());
+                            }
+                            if (GAME.arrange() != null) {
+                                ask.add("arrange", GAME.arrange());
+                            }
                             send(ask);
                             return;
                         }
@@ -571,6 +579,14 @@ public final class WorkerMain {
                     JsonObject option = new JsonObject();
                     option.addProperty("actionId", id);
                     option.addProperty("label", label);
+                    // Phase 9 W-12 -- what the card costs and is.
+                    String[] facts = net.barnflix.proxic.worker.game.GameHost.cardFacts(label);
+                    if (facts != null && facts[0] != null) {
+                        option.addProperty("cost", facts[0]);
+                    }
+                    if (facts != null && facts[1] != null) {
+                        option.addProperty("types", facts[1]);
+                    }
                     options.add(option);
                 });
                 reply.add("options", options);

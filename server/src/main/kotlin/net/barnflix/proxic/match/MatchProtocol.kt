@@ -24,6 +24,8 @@ data class DecisionOption(
     val payable: Boolean = true,
     /** What a spell costs right now, Forge's reckoning ("{R}"); null for anything else. */
     val cost: String? = null,
+    /** Phase 9 W-12 -- a named card's type line ("Creature — Goblin Scout"); null otherwise. */
+    val types: String? = null,
 )
 
 /**

@@ -196,6 +196,12 @@ arrange.number            on a number question (announceRequirements,
                           "{2}"), says (the card's sentence). Each option's
                           cost and payable say what it costs and whether it
                           can be paid (Phase 9 Amendment 14)
+arrange.name              on the name-a-card question (chooseCardName,
+                          searchable): title ("Name a nonland card"), says
+                          (the card's sentence), objects (the cards this
+                          player can see whose names are allowed). Each
+                          search result carries cost and types ("Creature
+                          — Goblin Scout") (Phase 9 Amendment 16)
 arrange.divide            on each share of a split (divideAsYouChoose),
                           asked once every target is chosen: total, what
                           ("damage"), targets [{object, lethal}] in the

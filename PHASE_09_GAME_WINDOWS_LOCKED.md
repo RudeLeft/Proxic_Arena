@@ -806,3 +806,16 @@ https://claude.ai/artifact/A6oesok4EKVjhqk9nVbAFs).**
 - *Words:* "Name a card" (Phyrexian Revoker: "Name a nonland card");
   the card's own words under it; "Type any card's name"; "Showing 8 of
   214. Type more to narrow it down."
+- *As built:* the worker names the card asking (about), sends
+  `arrange.name` (title from the effect's own restriction, the card's
+  sentence, and the ids of the cards on the battlefield, in graveyards and
+  face up in exile whose names are allowed) on the searchable question,
+  and each search result's cost and type line (`types`, through the
+  server). The page's `NameWindow` sits beside the card; the table's
+  allowed cards glow, as do those in an open graveyard or exile; a click
+  searches the card's exact name and answers with that result.
+- *Evidence:* `check-card-name.py` (the window's card, title, words, the
+  Evolving Wilds on the table listed, a result's type line);
+  `match-card-name.spec.ts` (Pithing Needle named by a click on a
+  Mountain; for Phyrexian Revoker a Mountain does not glow and a click
+  says it can't name a land; results with types), with screenshots.

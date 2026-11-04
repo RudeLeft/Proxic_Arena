@@ -12,7 +12,7 @@
 // The class names the scripted games read (`gs-question-title`, list
 // buttons `gs-option`, a "Pass" button) are kept on purpose.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard } from "../match";
 import { hintFor } from "../matchText";
 import { SharpCard, closeUpOf } from "../closeUp";
@@ -721,6 +721,101 @@ export function NumberWindow(props: Common) {
           {!payable(at) && <span className="gs-dial-over"> · more than you can pay now</span>}
         </p>
       )}
+    </Bubble>
+  );
+}
+
+/**
+ * W-12 (Amendment 16, owner 2026-11-04: option A) -- naming a card, beside
+ * the card asking: its own words, and a search for any card's name, each
+ * result with its cost and type. The cards on the table it may name glow
+ * there: a click names one (GameScreen). The answer is always one of the
+ * game's own results.
+ */
+export function NameWindow(
+  props: Common & {
+    onSearch: (query: string) => void;
+    /** A card clicked on the table, being looked up to answer with. */
+    naming: string | null;
+  },
+) {
+  const { decision, board, busy, onAnswer, onSearch } = props;
+  const layout = decision.arrange!.name!;
+  const source = sourceOf(board, decision);
+  const name = decision.about?.name ?? source?.name ?? null;
+  const [query, setQuery] = useState("");
+  // The server trims and caps what it searches for; compare like with like.
+  const asked = query.trim().slice(0, 64);
+  useEffect(() => {
+    if (!asked) return undefined;
+    // Wait for a pause in typing rather than searching every key.
+    const timer = window.setTimeout(() => onSearch(asked), 200);
+    return () => window.clearTimeout(timer);
+  }, [asked, onSearch]);
+  const results = decision.results?.query === asked ? decision.results : null;
+  return (
+    <Bubble
+      anchor={props.anchor}
+      geometry={props.geometry}
+      label={layout.title}
+      from={name ?? "Your spell"}
+      title={layout.title}
+      titleClass="gs-question-title"
+      kind={decision.kind}
+      actions={null}
+    >
+      {layout.says && (
+        <p className="gs-win-prompt gs-question-prompt decision-prompt">
+          <ManaText text={layout.says} />
+        </p>
+      )}
+      {layout.objects.length > 0 && (
+        <p className="gs-win-prompt">Click a card on the table, or search for any other name.</p>
+      )}
+      <input
+        className="gs-win-search gs-name-search"
+        type="search"
+        role="searchbox"
+        aria-label="Card name"
+        placeholder="Type any card's name"
+        autoComplete="off"
+        autoFocus
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      {props.naming && <p className="gs-win-prompt">Naming {props.naming}…</p>}
+      {asked && !results && <p className="gs-win-prompt">Searching…</p>}
+      {results && results.total === 0 && <p className="gs-win-prompt">No card is called that.</p>}
+      {results && results.options.length > 0 && (
+        <ul className="gs-name-results" aria-label="Matching names">
+          {results.options.map((option) => (
+            <li key={option.actionId}>
+              <button
+                type="button"
+                className="gs-name-result"
+                aria-label={option.label ?? option.actionId}
+                disabled={busy}
+                onClick={() => onAnswer(option.actionId)}
+              >
+                <span className="gs-name-result-name">{option.label ?? option.actionId}</span>
+                {option.cost && (
+                  <span className="gs-name-result-cost">
+                    <ManaText text={option.cost} />
+                  </span>
+                )}
+                {option.types && <span className="gs-name-result-types">{option.types}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {results && results.total > results.options.length && (
+        <p className="gs-win-prompt">
+          Showing {results.options.length} of {results.total.toLocaleString()}. Type more to narrow
+          it down.
+        </p>
+      )}
+      <Notice notice={props.notice} />
     </Bubble>
   );
 }

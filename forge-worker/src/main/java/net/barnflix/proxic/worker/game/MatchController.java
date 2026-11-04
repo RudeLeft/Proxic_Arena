@@ -1619,6 +1619,40 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Phase 9 W-12 (Amendment 16) -- what the name-a-card window needs: its
+     * title from the effect's own restriction ("Name a nonland card"), the
+     * card's sentence about the name, and the cards this player can see
+     * (on the battlefield, in a graveyard, face up in exile) whose names
+     * the effect allows, by object id.
+     */
+    private com.google.gson.JsonObject nameLayout(SpellAbility sa, java.util.Set<String> allowed) {
+        com.google.gson.JsonObject name = new com.google.gson.JsonObject();
+        String desc = sa == null ? null : sa.getParam("ValidDescription");
+        name.addProperty("title", desc == null || desc.isBlank() ? "Name a card" : "Name a " + desc + " card");
+        String says = sa == null || sa.getHostCard() == null ? null
+                : NumberCosts.sentence(sa.getHostCard().getOracleText(),
+                        "chosen name|that name|the named|with the name");
+        if (says != null) {
+            name.addProperty("says", says);
+        }
+        com.google.gson.JsonArray objects = new com.google.gson.JsonArray();
+        for (Player owner : player.getGame().getPlayers()) {
+            for (forge.game.zone.ZoneType zone : java.util.List.of(forge.game.zone.ZoneType.Battlefield,
+                    forge.game.zone.ZoneType.Graveyard, forge.game.zone.ZoneType.Exile)) {
+                for (forge.game.card.Card card : owner.getCardsIn(zone)) {
+                    if (!card.isFaceDown() && allowed.contains(card.getName())) {
+                        objects.add("card:" + card.getId());
+                    }
+                }
+            }
+        }
+        name.add("objects", objects);
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("name", name);
+        return how;
+    }
+
+    /**
      * How many values to put on offer.
      *
      * The hard part, and the reason it is not simply `max`: for an
@@ -3731,8 +3765,15 @@ public final class MatchController extends GeneratedControllerBase {
             labels.put("name:" + labels.size(), name);
         }
 
+        // Phase 9 W-12 (Amendment 16) -- the window's title and the card's
+        // own words, and the cards this player can see whose names are
+        // allowed: they glow, and a click names one.
+        com.google.gson.JsonObject how = nameLayout(sa, new java.util.HashSet<>(names));
+        host.offerSubject(sa);
         while (true) {
             String choice;
+            com.google.gson.JsonObject before = host.arrange();
+            host.arranging(how);
             try {
                 // Mandatory: Forge's chooser has no cancel here.
                 choice = host.gate().ask(
@@ -3743,6 +3784,8 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return "";
+            } finally {
+                host.arranging(before);
             }
             String name = labels.get(choice);
             if (name == null) {
