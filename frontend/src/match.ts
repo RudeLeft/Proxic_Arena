@@ -718,7 +718,11 @@ export function concessionText(concession: string | null): string | null {
 }
 
 /** Spec 0054 — where "End the game" stands, in words; null when there is none. */
-export function awayEndText(awayEnd: string | null | undefined, name: string): string | null {
+export function awayEndText(
+  awayEnd: string | null | undefined,
+  name: string,
+  awayMinutes = 10,
+): string | null {
   switch (awayEnd) {
     case null:
     case undefined:
@@ -726,7 +730,7 @@ export function awayEndText(awayEnd: string | null | undefined, name: string): s
     case "SENT":
       return `Ending the game: ${name} concedes.`;
     case "NOT_AWAY":
-      return `${name} is back, or hasn't been gone 10 minutes yet.`;
+      return `${name} is back, or hasn't been gone ${awayMinutes} ${awayMinutes === 1 ? "minute" : "minutes"} yet.`;
     case "UNREACHABLE":
       return "The game did not receive that. It may have stopped.";
     default:

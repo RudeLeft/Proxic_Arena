@@ -1015,6 +1015,10 @@ describe("ending the game for an away player", () => {
     expect(awayEndText(refused.awayEnd, "Pat")).toBe(
       "Pat is back, or hasn't been gone 10 minutes yet.",
     );
+    // The server's own setting, not a fixed 10 (owner 2026-11-04).
+    expect(awayEndText(refused.awayEnd, "Pat", 20)).toBe(
+      "Pat is back, or hasn't been gone 20 minutes yet.",
+    );
     expect(awayEndText(null, "Pat")).toBeNull();
   });
 });

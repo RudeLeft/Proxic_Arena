@@ -120,6 +120,18 @@ class MatchLauncherTest {
         return deckId
     }
 
+    /** Runs [sql] on one room; for a SELECT, its first number. */
+    private fun idleSeconds(
+        roomId: UUID,
+        sql: String,
+    ): Double =
+        source().connection.use { connection ->
+            connection.prepareStatement(sql).use {
+                it.setObject(1, roomId)
+                if (it.execute()) it.resultSet.use { rows -> rows.next().let { rows.getDouble(1) } } else 0.0
+            }
+        }
+
     /** A room prepared through the real Phase 5 path, ready to launch. */
     private fun preparedRoom(): Pair<Room, UUID> {
         val rooms = RoomService(source(), DeckAuthorization(source()))
@@ -413,9 +425,19 @@ class MatchLauncherTest {
         val (room, setupId) = preparedRoom()
         val launched = assertIs<LaunchResult.Launched>(launcher().launch(setupId, room.hostUserId))
         MatchRecords(source()).recordRunning(launched.match.matchId, java.time.Instant.now())
+        // A long game: the room's clock is from its start.
+        idleSeconds(
+            room.roomId,
+            "UPDATE room SET last_activity_at = now() - interval '150 minutes' WHERE room_id = ?",
+        )
 
         MatchRecovery(source(), org.slf4j.LoggerFactory.getLogger("test")).recover()
 
+        // Spec 0054 -- back with a fresh clock, as after a finished game;
+        // it kept the game's, and the first sweep closed it.
+        val idle =
+            idleSeconds(room.roomId, "SELECT extract(epoch FROM now() - last_activity_at) FROM room WHERE room_id = ?")
+        assertTrue(idle < 60, "the room kept the game's clock: idle $idle s")
         val (status, summary, failure) = matchRow(launched.match.matchId)
         assertEquals("FAILED_RUNTIME", status)
         assertEquals("SERVER_RESTARTED", failure)

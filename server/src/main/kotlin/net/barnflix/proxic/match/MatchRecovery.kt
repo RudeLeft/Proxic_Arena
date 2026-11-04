@@ -94,11 +94,14 @@ class MatchRecovery(
      * than it appeared to.)
      *
      * D4's shape, the same as a match ending normally: OPEN, with
-     * everyone still seated and their decks still chosen.
+     * everyone still seated and their decks still chosen -- and, as
+     * there (spec 0054), a fresh clock: counted from the game's start,
+     * a room back from a long game closed at the first sweep.
      */
     private fun releaseRooms(connection: java.sql.Connection): Int =
         connection.prepareStatement(
-            "UPDATE room SET status = 'OPEN', revision = revision + 1 WHERE status = 'IN_MATCH'",
+            "UPDATE room SET status = 'OPEN', revision = revision + 1, last_activity_at = now() " +
+                "WHERE status = 'IN_MATCH'",
         ).use { it.executeUpdate() }
 
     /**

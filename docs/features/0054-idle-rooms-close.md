@@ -91,7 +91,9 @@ What the people in a closed room are told:
   2026-11-04: at first it did not, `InvitationGraceTest`).
 - A room back in the lobby after a game starts a fresh clock (fixed
   2026-11-04: it was counted from the game's start, so a room back from
-  a two-hour game closed at the next sweep; `RoomMaintenanceTest`).
+  a two-hour game closed at the next sweep; `RoomMaintenanceTest`). A
+  room a server restart gives back gets one too (fixed the same day,
+  `MatchLauncherTest`).
 - The admin rooms page writes the clock short: "closes in 12m" (and
   "closes in 2h").
 - The lobby's wording says "10 minutes" for being away; the server goes
@@ -101,7 +103,8 @@ What the people in a closed room are told:
   says it ("Pat has been gone 20 minutes"): the game's greeting carries it
   (`MATCH_HELLO.awayMinutes`). Fixed 2026-11-04 (owner): the page had a
   fixed 10 minutes, so with the setting at 20 its offer was refused until
-  20 (`MatchHelloTest`, `match.test.ts`).
+  20 (`MatchHelloTest`, `match.test.ts`). The refusal says the setting
+  too: "Pat is back, or hasn't been gone 20 minutes yet."
 - Seen on the real local game with short settings (6 minutes, warning 5,
   away 1): the warning and Keep it open; a host closing the browser and
   the guest told "The host went offline, so the room closed"; in a game,

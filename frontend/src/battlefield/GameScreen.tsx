@@ -1301,8 +1301,10 @@ export function GameScreen({
                     <p className="gs-away-sub">
                       Ending the game counts as {theirName} conceding: you win.
                     </p>
-                    {awayEndText(game.awayEnd, theirName) && (
-                      <p className="gs-away-note">{awayEndText(game.awayEnd, theirName)}</p>
+                    {awayEndText(game.awayEnd, theirName, game.awayMinutes) && (
+                      <p className="gs-away-note">
+                        {awayEndText(game.awayEnd, theirName, game.awayMinutes)}
+                      </p>
                     )}
                     <div className="gs-away-buttons">
                       <button
