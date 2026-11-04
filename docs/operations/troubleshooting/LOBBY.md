@@ -28,14 +28,16 @@ with two players (spec 0054; server settings).
 
 ---
 
-## There is no "join" button, and nowhere to type a code
+## There is nowhere to type a code
 
 Correct. PHASE 5 AMENDMENT 1 removed join codes entirely, and
 AMENDMENT 2 replaced them with presence and invitations.
 
-The host clicks your name in **Who is here** and you get a prompt.
-There is no public games list and no code, by design (§5.13 survived
-the amendments unchanged).
+The host clicks your name in **Who is here** and you get a prompt. Or
+find the room in the room list and click **Ask to join** (spec 0016):
+it shows on a room with an open seat while you are in no room, and the
+host accepts or declines. There is no code and no link, by design
+(§5.13).
 
 If the host cannot see your name, see the next entry.
 
@@ -73,12 +75,15 @@ Host a game first; the button appears next to every other name.
 
 ## An invitation never arrived
 
-Invitations go to **online users only** (owner D2) and live five
-minutes. They are forgotten when:
+Invitations go to **online users only** (owner D2) and have no timer.
+They end, and both sides are told why, when:
 
-- the room fills, closes or expires,
-- either party disconnects,
-- a newer invitation replaces it — a user holds at most one.
+- it is accepted, declined or withdrawn,
+- the seat fills or the room closes,
+- either of the two has been offline 60 seconds (a reload does not
+  end it).
+
+A user holds at most one invitation at a time.
 
 If the invitee was already in a room, the prompt is **suppressed on
 purpose**: §5.5 means they would have to leave to accept, and a
@@ -94,7 +99,8 @@ to leave their room first.
 Deliberately the same answer as a room that does not exist. The
 likely causes:
 
-- the invitation expired (five minutes),
+- the invitation ended (it was withdrawn, or one of you was offline
+  60 seconds),
 - the host closed the room or left it,
 - somebody else took the last seat,
 - the invitation was already used — it admits you **once**.

@@ -7,7 +7,8 @@ number (PHASE_09 W-11, owner 2026-11-03).
 Numbers Test Deck.txt   24 Mountain, 4 Gray Ogre, 4 Hill Giant (targets)
                         X:        4 Fireball, 4 Rolling Thunder, 4 Comet Storm
                         divide:   4 Arc Lightning, 4 Forked Bolt,
-                                  Rolling Thunder, Fireball
+                                  Rolling Thunder (Fireball divides
+                                  evenly by itself, so never asks)
                         how many: 4 Everflowing Chalice, Comet Storm
                                   (multikicker)
                         a number: 4 Harnessed Lightning (energy)

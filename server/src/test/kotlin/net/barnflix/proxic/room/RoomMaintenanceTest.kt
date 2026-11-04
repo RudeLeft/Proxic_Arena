@@ -297,6 +297,28 @@ class RoomMaintenanceTest {
     }
 
     /**
+     * Spec 0054 -- a game ends: the room is back in the lobby with a fresh
+     * clock. It was counted from the game's start, so a room back from a
+     * game of two hours closed at the next sweep.
+     */
+    @Test
+    fun `a room back from a long game starts a fresh clock`() {
+        val room = (rooms().create(userId("RudeLeft")) as RoomResult.Ok).room
+        database!!.dataSource().connection.use { connection ->
+            connection.prepareStatement("UPDATE room SET status = 'IN_MATCH' WHERE room_id = ?").use {
+                it.setObject(1, room.roomId)
+                it.executeUpdate()
+            }
+        }
+        ageRoom(room.roomId, Duration.ofMinutes(150))
+
+        net.barnflix.proxic.match.MatchRecords(database!!.dataSource()).releaseRoom(room.roomId)
+
+        assertEquals(0, maintenance(Recorder()).sweep())
+        assertEquals("OPEN", statusOf(room.roomId))
+    }
+
+    /**
      * The half that matters more.
      *
      * A sweep that closes everything would pass the tests above and

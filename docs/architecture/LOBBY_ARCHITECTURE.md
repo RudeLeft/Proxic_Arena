@@ -46,18 +46,22 @@ accepting would need only a room id — and a room id passed from one
 user to another is a join code with extra steps. The invitation is
 **consumed**, so it admits you once.
 
-Invitations are in memory and live five minutes, because owner
-decision D2 limits them to users who are online. After a restart
-there are no connections, so there is nobody an invitation could
-still be reaching.
+Invitations are in memory, because owner decision D2 limits them to
+users who are online. After a restart there are no connections, so
+there is nobody an invitation could still be reaching.
 
-An invitation is forgotten when the room fills, when it closes, when
-it expires, or when either party disconnects.
+An invitation has **no timer** (it lived five minutes before spec 0016).
+It ends when it is accepted, declined or withdrawn, when the seat fills,
+when the room closes, or when one of the two has been offline 60 seconds
+(a reload does not end it); the other side is told which.
 
-Still forbidden, and not loosened by the amendments: friends, friend
-requests, a social graph, public invite URLs, and **any directory of
-rooms** (§5.13). The presence list shows accounts that are connected
-right now and nothing about them beyond a display name.
+Still forbidden: friends, friend requests, a social graph and public
+invite URLs (§5.13). The room list is the one loosening: spec 0016 (R1)
+shows every room to everyone as a card with its seats, and a player in
+no room may **Ask to join** one with an open seat (R3); the host accepts
+or declines. There is still no code to type and no link that admits
+anybody. The presence list shows accounts that are connected right now
+and nothing about them beyond a display name.
 
 ---
 

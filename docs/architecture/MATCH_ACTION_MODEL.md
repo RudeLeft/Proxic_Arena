@@ -97,9 +97,12 @@ exactly one answer (as Forge's own client does); otherwise it asks. A
 question it does not yet implement **fails the match loudly**, naming
 the method -- never a silent default (AGENTS STUB-002). Built so far:
 every question the Phase 6 regressions and the 48 required Mechanics Lab
-cards reach. **42 Forge questions are still unbuilt** (for example
-"each player sacrifices", surveil, voting); each is built when a real
-game reaches it (STUB-001). Listed in `docs/history/phases/phase-06/PHASE_06_ACCEPTANCE_AUDIT.md`.
+cards reach. Phase 6 left 42 questions unbuilt (for example "each
+player sacrifices", surveil, voting; listed in
+`docs/history/phases/phase-06/PHASE_06_ACCEPTANCE_AUDIT.md`); Phase 8
+built every one a game can reach, and none is unbuilt now
+(`forge-worker/src/test/resources/forge-questions.tsv`). A question Forge
+adds later still fails loudly until it is built (STUB-001).
 
 ## Phase 7 contract
 

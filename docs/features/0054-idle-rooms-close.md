@@ -89,6 +89,9 @@ What the people in a closed room are told:
   members (there is no chat inside a room); it moves the room's clock at
   most once a minute. Sending an invitation moves it too (fixed
   2026-11-04: at first it did not, `InvitationGraceTest`).
+- A room back in the lobby after a game starts a fresh clock (fixed
+  2026-11-04: it was counted from the game's start, so a room back from
+  a two-hour game closed at the next sweep; `RoomMaintenanceTest`).
 - The page's wording says "10 minutes" for being away; the server goes by
   its setting (`PROXIC_AWAY_MINUTES`), so a changed setting changes when
   things happen, not the words.

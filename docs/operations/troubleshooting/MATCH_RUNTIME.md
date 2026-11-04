@@ -44,7 +44,9 @@ adapter does not implement [asked: {...}] [declined: N]
 That is deliberate (AGENTS STUB-002): an unbuilt question fails loudly
 rather than being answered for the player. Note the card that was being
 played and the method name; it is built when a real game reaches it
-(42 are still unbuilt -- `docs/history/phases/phase-06/PHASE_06_ACCEPTANCE_AUDIT.md`). Out of memory
+(none is unbuilt today -- Phase 8 built them all,
+`forge-worker/src/test/resources/forge-questions.tsv` -- so this means a
+question a newer Forge added). Out of memory
 is the other cause: allow ~1 GiB per concurrent match.
 
 ## A match never starts

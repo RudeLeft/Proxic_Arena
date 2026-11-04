@@ -71,7 +71,10 @@ internal class MatchRecords(private val dataSource: DataSource) {
         net.barnflix.proxic.room.MatchSetupStore(dataSource).inTransaction { connection ->
             val released =
                 connection.prepareStatement(
-                    "UPDATE room SET status = 'OPEN', revision = revision + 1 " +
+                    // Spec 0054: back in the lobby with a fresh clock -- it was
+                    // counted from the game's start, and a room back from a
+                    // two-hour game closed at the next sweep.
+                    "UPDATE room SET status = 'OPEN', revision = revision + 1, last_activity_at = now() " +
                         "WHERE room_id = ? AND status = 'IN_MATCH'",
                 ).use {
                     it.setObject(1, roomId)

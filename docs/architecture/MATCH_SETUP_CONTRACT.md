@@ -140,7 +140,7 @@ A setup is `READY` until something ends it:
 |---|---|---|
 | host cancels (§5.117) | `INVALIDATED` | `OPEN`, readiness reset |
 | host closes the room (§5.79) | `INVALIDATED` | `CLOSED` |
-| the room expires (§5.125) | `INVALIDATED` | `EXPIRED` |
+| the room closes idle or with its host away (spec 0054; was §5.125's expiry) | `INVALIDATED` | `CLOSED` (`EXPIRED` before spec 0054) |
 | **Phase 6 launches it** | `CONSUMED` | Phase 6's |
 
 `CONSUMED` is written by Phase 6 and by nothing in Phase 5. Nothing
