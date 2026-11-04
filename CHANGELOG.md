@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.38.0 — 2026-11-03
+
+Who did it, and what they did (Phase 9).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Searching, looking at and moving cards**
+- When a player searches their library, looks at or reveals the top of it, puts cards back in order, scries or surveils, puts cards from their hand back on top, looks at your hand, makes you discard, or puts cards from a library into a graveyard, the other player is told.
+- The tray shows the player's picture and name and the card they used ("Pat · Demonic Tutor"), then says the whole thing in one sentence: "Pat searched their library and put a card into their hand, then shuffled."
+- It's in your own words: "Pat looked at your hand and chose Savannah Lions for you to discard."
+- The player who made the choices isn't shown it again: after your own Goblin Ringleader you see nothing extra. When the other player chooses (Mind Rot: they pick what to discard), you're told what they discarded.
+- Their seat glows while the tray is open.
+- Cards only show face up when you're allowed to know them (your own, ones revealed to you, or ones that went somewhere public). Anything else is a face-down card back.
+- Before, most of these said nothing to the other player, and the rest only named the card ("Goblin Matron revealed:").
+
 ## 1.37.0 — 2026-11-03
 
 Idle rooms close, and nobody waits forever for a missing player (spec 0054).
