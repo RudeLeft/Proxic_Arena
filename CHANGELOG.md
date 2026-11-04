@@ -3,6 +3,34 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.39.0 — 2026-11-03
+
+Your list of 13 game-screen fixes, the rest of it (Phase 9).
+
+**For whoever runs the server**
+- Nothing to do: no database update.
+
+**Your own spell's countdown**
+- The circle shows a pause sign. Click it and the spell waits ("Paused · Resolve when you're ready") until you click again. Clicking the words still resolves it at once.
+
+**Casting and the stack**
+- A card you cast no longer flashes in the stack spot while it's still flying there.
+- A trigger being paid for shows the mana still owed under its words, counting down as you pay.
+- Trigger words read as one paragraph, and one line under the stack says what's next: "Next: Pat's trigger · 2 on the stack".
+- A trigger that resolves keeps its look, glows, then shrinks into the card it came from.
+
+**Questions and buttons**
+- Choosing a target says what it's for and what comes next: "Wirewood Symbiote: Untap target creature. Next, you'll pay its cost: return an Elf you control to its owner's hand."
+- Paying mana is plainer: "Pay the mana", "Use {R} you already made (1 left)", a land's button is just its name, "Pay 2 life instead (you have 20)".
+- A card's abilities read more cleanly: the mana cost in its own column, the words as one paragraph, "Play this land".
+- A card's ability menu always opens fully on screen, even for a card at the far left.
+- No more long dashes in the game's own words (card text keeps its own).
+
+**Cards you can choose**
+- What you can choose now breathes with a soft gold glow, instead of a dashed outline and a CHOOSE tag.
+- A creature you've selected to attack or block shows a gold seal with a check on its corner, with how many from a pile ("2").
+- Cards in a tray have more room round them, so a chosen card's outline and number always show.
+
 ## 1.38.0 — 2026-11-03
 
 Who did it, and what they did (Phase 9).
