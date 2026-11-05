@@ -790,7 +790,11 @@ public final class MatchController extends GeneratedControllerBase {
         if (effect.isEmpty()) {
             return null;
         }
-        String prompt = ability.getHostCard().getName() + ": " + effect;
+        // Amendment 17: Forge's "CARDNAME" is the card's own name. A
+        // sentence that now starts with it needs no "Name: " before it.
+        String name = ability.getHostCard().getName();
+        effect = effect.replace("CARDNAME", name);
+        String prompt = effect.startsWith(name) ? effect : name + ": " + effect;
         if (!cost.isEmpty() && choosesForCost(ability)) {
             prompt += " Next, you'll pay its cost: " + Character.toLowerCase(cost.charAt(0)) + cost.substring(1) + ".";
         }
@@ -917,6 +921,13 @@ public final class MatchController extends GeneratedControllerBase {
                 labels.put(id, candidate.toString());
             }
             onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
+            // Phase 9 Amendment 17 -- backing out is its own answer, last
+            // (a pass with enough chosen means "no more", so it cannot
+            // also mean "cancel"), and the page is told what is chosen
+            // and whether that is enough, never reading it from words.
+            labels.put(CANCEL_TARGETS, "Cancel");
+            com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+            how.add("targets", targetsSoFar(ability, enough, most));
 
             host.offerSubject(ability);
             // Phase 9 W-06: one of several copies going on the stack
@@ -924,6 +935,8 @@ public final class MatchController extends GeneratedControllerBase {
             if (copiesTotal > 1 && ability.isTrigger()) {
                 host.offerCopies(copyNumber, copiesTotal);
             }
+            com.google.gson.JsonObject before = host.arrange();
+            host.arranging(how);
             try {
                 String choice =
                         host.gate().ask(
@@ -935,6 +948,11 @@ public final class MatchController extends GeneratedControllerBase {
                                 prompt,
                                 pending -> host.publishDecision(pending, labels));
 
+                if (CANCEL_TARGETS.equals(choice)) {
+                    // Back out, however many are chosen: Forge reads
+                    // false as the player changing their mind.
+                    return false;
+                }
                 if (DecisionGate.PASS.equals(choice)) {
                     // Stop. With enough targets that is "no more";
                     // without them it is "cancel", and Forge reads
@@ -954,10 +972,49 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;
+            } finally {
+                host.arranging(before);
             }
         }
 
         return ability.getTargets().size() >= min && divideAll(ability);
+    }
+
+    /** Phase 9 Amendment 17 -- the target question's own "cancel" answer. */
+    static final String CANCEL_TARGETS = "target:cancel";
+
+    /**
+     * Phase 9 Amendment 17 -- what a target question has chosen so far:
+     * chosen (the snapshot's ids, in the order chosen), enough (stopping
+     * now goes on with them), more (how many more may be chosen) and
+     * cancel (the answer that backs out). The page shows Done only when
+     * enough is true, and never works this out from the prompt.
+     */
+    private com.google.gson.JsonObject targetsSoFar(SpellAbility ability, boolean enough, int most) {
+        com.google.gson.JsonArray chosen = new com.google.gson.JsonArray();
+        for (forge.game.GameObject target : ability.getTargets()) {
+            String id = null;
+            if (target instanceof forge.game.card.Card card) {
+                id = "card:" + card.getId();
+            } else if (target instanceof Player who) {
+                id = host.objectIdOf("target:player:" + who.getId());
+            } else if (target instanceof SpellAbility spell) {
+                for (forge.game.spellability.SpellAbilityStackInstance instance : player.getGame().getStack()) {
+                    if (instance.getSpellAbility() == spell) {
+                        id = "stack:" + instance.getId();
+                    }
+                }
+            }
+            if (id != null) {
+                chosen.add(id);
+            }
+        }
+        com.google.gson.JsonObject targets = new com.google.gson.JsonObject();
+        targets.add("chosen", chosen);
+        targets.addProperty("enough", enough);
+        targets.addProperty("more", Math.max(0, most - ability.getTargets().size()));
+        targets.addProperty("cancel", CANCEL_TARGETS);
+        return targets;
     }
 
     /**

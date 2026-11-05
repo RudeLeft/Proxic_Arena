@@ -71,6 +71,7 @@ import {
   NumberWindow,
   TableQuestionWindow,
   sourceOf,
+  targetsTitle,
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
@@ -302,6 +303,7 @@ export function GameScreen({
     [decision, visible],
   );
   const choosable = useMemo(() => new Set(question?.onBoard.keys() ?? []), [question]);
+  const chosenTargets = useMemo(() => new Set(question?.chosen ?? []), [question]);
   // Owner 2026-10-21: what each hand card's cast costs right now -- Forge
   // says, on the options of the question you are asked; the first spell
   // option of a card is its ordinary cast.
@@ -879,11 +881,12 @@ export function GameScreen({
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
-      answer(null);
+      // Amendment 17: a target question's own cancel, else a pass.
+      answer(question?.cancel ?? null);
     };
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
-  }, [cancellable, offer, inspecting, viewer, answer]);
+  }, [cancellable, offer, inspecting, viewer, answer, question]);
 
   // Spec 0005 — the response window. Your own spell or trigger is on top:
   // the act button counts down and, if you let it run out, your page passes
@@ -1090,7 +1093,7 @@ export function GameScreen({
           ? `Playing for seat ${decision.actedForSeat}`
           : decision.kind === "chooseOptionalCosts"
             ? optionalCostTitle(decision)
-            : headingFor(decision.kind),
+            : targetsTitle(decision, headingFor(decision.kind)),
       passWord: passWordFor(decision, question, listOpen),
       artUrl,
       onAnswer: answer,
@@ -1278,6 +1281,7 @@ export function GameScreen({
             onInspect={setInspecting}
             choosable={boardChoosable}
             marked={marked}
+            chosenTargets={chosenTargets}
             unpayable={unpayable}
             selected={selected}
             asking={question?.context === "choose"}
@@ -1368,7 +1372,7 @@ export function GameScreen({
                   CANCEL_KINDS.has(decision.kind) &&
                   question.canPass &&
                   !listOpen
-                    ? cancelWords(decision.about)
+                    ? { ...cancelWords(decision.about), answer: question.cancel }
                     : null
                 }
                 onAnswer={answer}
@@ -1528,7 +1532,7 @@ export function GameScreen({
               match={match}
               report={reportGame}
               live={live && !finished}
-              choices={decision ? decision.options.length : null}
+              choices={decision ? decision.options.length - (question?.cancel ? 1 : 0) : null}
               listOpen={listOpen}
               onList={() => setListOpen((open) => !open)}
               concession={finished ? null : concessionText(game.concession)}
@@ -1850,6 +1854,8 @@ function SeatBlock({
   const seatedAs = seats?.find((p) => p.seatNumber === player.seat)?.userId;
   const priority = board.prioritySeat === player.seat;
   const choosable = Boolean(question?.onBoard.has(id) || aim?.has(id));
+  // Amendment 17: already chosen as a target of the spell being cast.
+  const chosenTarget = question?.chosen.includes(id) ?? false;
   // The spell resolving next targets this player: their life total glows
   // (owner 2026-10-21), as a targeted card does on the board.
   const targeted = (board.stack[0]?.targets ?? []).some(
@@ -1901,14 +1907,20 @@ function SeatBlock({
         </span>
         <button
           type="button"
-          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}`}
-          aria-label={`${player.name}, ${player.life} life${choosable ? ", can be chosen" : ""}`}
+          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}${chosenTarget ? " gs-chosen-target" : ""}`}
+          aria-label={`${player.name}, ${player.life} life${chosenTarget ? ", chosen as a target" : ""}${choosable ? ", can be chosen" : ""}`}
           data-object-id={id}
           data-choosable={choosable ? "true" : undefined}
+          data-chosen-target={chosenTarget ? "true" : undefined}
           disabled={busy && choosable}
           onClick={() => onPick(id)}
         >
           <span className="gs-life-n">{player.life}</span>
+          {chosenTarget && (
+            <span className="gs-life-target" aria-hidden="true">
+              TARGET
+            </span>
+          )}
         </button>
       </div>
       {/* Spec 0031 — the opponent's hand is drawn on the board, fanned down
@@ -2257,8 +2269,10 @@ function Rail({
   onPass: () => void;
   /** Declaring attackers or blockers: the act button is the combat button. */
   combat: CombatButton | null;
-  /** A question whose "no" backs out (a target, a payment): what Cancel says. */
-  cancel: { word: string; sub: string } | null;
+  /** A question whose "no" backs out (a target, a payment): what Cancel
+   * says, and the answer it sends (null: a pass; Amendment 17: a target
+   * question's own cancel, since there a pass can mean "no more"). */
+  cancel: { word: string; sub: string; answer: string | null } | null;
   onAnswer: (actionId: string | null) => void;
   /** Spec 0005 — seconds left in a response window, or null when none is counting. */
   countdown: number | null;
@@ -2400,7 +2414,7 @@ function Rail({
           type="button"
           className="gs-act gs-act-cancel"
           disabled={busy}
-          onClick={() => onAnswer(null)}
+          onClick={() => onAnswer(cancel.answer)}
           aria-label={`${cancel.word}: ${cancel.sub}`}
         >
           <Coin emblem="cancel" />

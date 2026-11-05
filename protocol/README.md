@@ -232,6 +232,15 @@ arrange.divide            on each share of a split (divideAsYouChoose),
                           (each option's amount). The last target takes
                           the rest unasked; a share with one possible
                           amount is not asked (Amendment 14)
+arrange.targets           on every target question (chooseTargetsFor):
+                          chosen (the snapshot's ids of the targets chosen
+                          so far, in order), enough (a pass now goes on
+                          with them: "no more"), more (how many more may
+                          be chosen), cancel (the answer that backs out,
+                          "target:cancel", always the LAST option; it is
+                          not a target). Before, a pass was the only "no",
+                          and with enough chosen it could not cancel
+                          (Phase 9 Amendment 17)
 snapshot.action           who did what to a library or hand, in this
                           reader's words, with only the cards it may know;
                           never to the seat that chose (Amendment 12, 13)

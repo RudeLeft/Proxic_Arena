@@ -248,6 +248,25 @@ tray windows (`usePeek`), not the opening hand window (W-15); the reveal
 tray and the graveyard/exile viewer do not fade either, if they count
 as windows. Owner 2026-11-04: Peek is designed with W-21 and W-17.
 
+**Also open (2026-11-05, a W-01 follow-up; owner: make it an item,
+canvas first): stopping at enough targets.** Found while fixing
+`match-numbers.spec.ts` (77119d7). *Today (a real game, the numbers
+test deck):* Arc Lightning with the other player and a Hill Giant
+chosen still says "Choose a target", does not mark or count what is
+chosen, and its only "no more" is the act button reading "Cancel Arc
+Lightning · Back to your hand · nothing is spent". Pressing it (or
+Esc) goes on with the two targets to the split: with enough chosen,
+the worker reads a pass as "no more" (`MatchController.selectTargets`).
+So after the first target there is no way back. From the code, not yet
+seen in a game: for an "up to one target" spell, "Cancel" with nothing
+chosen casts it with no target. The words show Forge's "CARDNAME". The
+page cannot tell "enough chosen" today: the target question carries no
+chosen targets or minimum, and its words must not be parsed (PROTO-006).
+Canvas https://claude.ai/artifact/1id2phFCuGHxMDcph86pDd: option A (the
+act button becomes Done, Cancel moves into the bubble), option B (Done
+in the bubble, the act button really cancels; recommended), option C
+(honest words only, still no way back). Decided and built: Amendment 17.
+
 ## Amendments
 
 **Amendment 1 (2026-10-30, group 1 as built).**
@@ -869,3 +888,51 @@ opens already numbered in a suggested order (damage first, payments
 last), so Done is one click; clicking cards sets your own order, with
 "Start over". The "clicked in the order they should resolve" wording
 above is the design before spec 0043.
+
+**Amendment 17 (2026-11-05, stopping at enough targets decided -- a
+W-01 follow-up; canvas https://claude.ai/artifact/1id2phFCuGHxMDcph86pDd).
+Not built yet.**
+
+- *Today:* see "Also open (2026-11-05)" above.
+- *Decided (owner: option B, with all three extras):*
+  - Once enough targets are chosen, the bubble shows a gold **Done**
+    ("Done · 2 targets"); pressing it goes on with the targets chosen.
+  - The act button under the stack stays "Cancel <card>" and always
+    cancels, as Esc does, however many targets are chosen (the
+    2026-10-30 rule: backing out is the act button and Esc). So the page
+    needs a cancel answer of its own; a pass with enough chosen keeps
+    meaning "no more".
+  - Chosen targets wear a TARGET tag; the bubble counts them ("Choose up
+    to 1 more target", "2 chosen: RudeLeft, Hill Giant").
+  - The words name the card where Forge writes "CARDNAME" ("Arc
+    Lightning deals 3 damage divided as you choose ...").
+- *Needs:* the target question carries the targets chosen so far and
+  whether that is enough (never read from its words, PROTO-006); a
+  cancel answer distinct from "no more". `match-numbers.spec.ts` stops
+  at two with today's act button and changes with this.
+- *As built (2026-11-05):* every target question carries
+  `arrange.targets` (chosen, enough, more, cancel) and a last option
+  `target:cancel` that backs out however many are chosen; a pass is "no
+  more" with enough chosen, as before (protocol/README.md). The words
+  put the card's name where Forge writes "CARDNAME" and drop the
+  "Arc Lightning: " before a sentence that now starts with it. The page
+  keeps the cancel out of every list and chip (and the "List choices"
+  count); the act button, Esc and the list's Cancel send it. The bubble
+  (and the choice window and the list) titles "Choose up to N more
+  target(s)", says "N chosen: ...", and shows a gold "Done · N targets"
+  once enough are chosen ("Done · no target" for an "up to one" spell
+  with none). Chosen cards wear a TARGET tag, a chosen player a TARGET
+  tag under the life total.
+- *Evidence:* `check-numbers.py` targets (chosen/enough/more/cancel at
+  each step; cancel with Bob and an Ogre chosen leaves Arc Lightning in
+  hand, Bob's life and the lands untouched; Done after Bob, Bob -3); on
+  the worker before this change it never got its targets facts and saw
+  "CARDNAME". 18 other Mechanics Lab checks that ask targets still pass.
+  Unit tests (the cancel never listed; titles and "2 chosen" words; one
+  fails with the cancel filter removed). `match-numbers.spec.ts` asserts
+  the title, "2 chosen", two TARGET tags, "Done · 2 targets", "Cancel
+  Arc Lightning" and no "CARDNAME"; the first time Cancel puts the card
+  back in hand, then Done goes on to the split: 5 of 5 local runs.
+  `match-interaction` (a cancelled target casts nothing),
+  `match-many-triggers` (copy targets), `match-casting-dock`,
+  `match-ability-menu` and `match` pass on the same build.

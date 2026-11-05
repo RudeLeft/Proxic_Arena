@@ -9,6 +9,8 @@ import {
   optionWords,
   plainHint,
   sourceOf,
+  chosenWords,
+  targetsTitle,
 } from "./QuestionWindows";
 
 const option = (label: string, objectId: string | null = null): DecisionOption =>
@@ -142,5 +144,38 @@ describe("the dial's words", () => {
       "Harnessed Lightning deals that much damage to that creature. You have 3.",
     );
     expect(words.button(2)).toBe("Pay 2 energy");
+  });
+});
+
+describe("Phase 9 Amendment 17 -- choosing several targets", () => {
+  const asked = (chosen: string[], more: number, enough = true) =>
+    ({
+      kind: "chooseTargetsFor",
+      options: [],
+      arrange: { targets: { chosen, enough, more, cancel: "target:cancel" } },
+    }) as unknown as Decision;
+  const table = {
+    ...board(["card:7"], { "card:7": "Hill Giant" }),
+    players: [
+      { seat: 1, name: "Pat" },
+      { seat: 2, name: "RudeLeft" },
+    ],
+  } as unknown as Snapshot;
+
+  it("titles the question by how many more may be chosen", () => {
+    expect(targetsTitle(asked([], 3, false), "Choose a target")).toBe("Choose a target");
+    expect(targetsTitle(asked(["player:2"], 2), "Choose a target")).toBe(
+      "Choose up to 2 more targets",
+    );
+    expect(targetsTitle(asked(["player:2", "card:7"], 1), "Choose a target")).toBe(
+      "Choose up to 1 more target",
+    );
+  });
+
+  it("names what is chosen, players and cards, in the order chosen", () => {
+    expect(chosenWords(asked(["player:2", "card:7"], 1), table)).toBe(
+      "2 chosen: RudeLeft, Hill Giant",
+    );
+    expect(chosenWords(asked([], 3, false), table)).toBeNull();
   });
 });

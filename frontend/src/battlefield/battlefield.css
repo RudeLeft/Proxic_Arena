@@ -334,6 +334,12 @@
   background: #2f6fae;
   border-color: #6aaee8;
 }
+/* Phase 9 Amendment 17: already chosen as a target of the spell being cast. */
+.bf-state-target {
+  color: #1a1206;
+  background: #e0a44a;
+  border-color: #f2d48a;
+}
 .bf-card[data-rides] {
   outline: 2px solid #3b8fd6;
   outline-offset: -2px;

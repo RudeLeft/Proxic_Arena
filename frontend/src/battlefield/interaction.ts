@@ -33,6 +33,14 @@ export interface Question {
   listed: DecisionOption[];
   /** Whether "no" / pass is an answer (§6.x: some questions have none). */
   canPass: boolean;
+  /**
+   * Phase 9 Amendment 17 -- the answer that backs out, when the game
+   * gives one of its own (a target question: there a pass with enough
+   * chosen means "no more"). Null: backing out is a pass. Never listed.
+   */
+  cancel: string | null;
+  /** Phase 9 Amendment 17 -- the targets already chosen (snapshot ids). */
+  chosen: readonly string[];
 }
 
 /**
@@ -43,8 +51,12 @@ export interface Question {
  */
 export function questionOf(decision: Decision, visible: ReadonlySet<string>): Question {
   const context = decision.kind === PRIORITY_KIND ? "priority" : "choose";
+  const cancelId = decision.arrange?.targets?.cancel ?? null;
+  const cancel =
+    cancelId && decision.options.some((o) => o.actionId === cancelId) ? cancelId : null;
+  const options = decision.options.filter((option) => option.actionId !== cancel);
   const onBoard = new Map<string, DecisionOption[]>();
-  for (const option of decision.options) {
+  for (const option of options) {
     if (option.objectId && visible.has(option.objectId)) {
       onBoard.set(option.objectId, [...(onBoard.get(option.objectId) ?? []), option]);
     }
@@ -52,7 +64,7 @@ export function questionOf(decision: Decision, visible: ReadonlySet<string>): Qu
   // Listed: what the board cannot show, and -- inside a context -- what
   // it cannot tell apart: two modes of one spell are one card on the
   // board, so they are listed too (the card still offers them).
-  const listed = decision.options.filter((option) => {
+  const listed = options.filter((option) => {
     const mine = option.objectId ? onBoard.get(option.objectId) : undefined;
     return !mine || (context === "choose" && mine.length > 1);
   });
@@ -61,6 +73,8 @@ export function questionOf(decision: Decision, visible: ReadonlySet<string>): Qu
     onBoard,
     listed,
     canPass: !decision.mandatory,
+    cancel,
+    chosen: decision.arrange?.targets?.chosen ?? [],
   };
 }
 

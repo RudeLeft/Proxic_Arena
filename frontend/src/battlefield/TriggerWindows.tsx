@@ -250,23 +250,26 @@ export function CopyTargetWindow({
         </p>
       )}
       <div className="gs-win-chips">
-        {decision.options.map((o) => (
-          <button
-            key={o.actionId}
-            type="button"
-            className="gs-win-chip"
-            disabled={busy}
-            onClick={() => onAnswer(o.actionId)}
-          >
-            <ManaText
-              text={
-                o.objectId === `player:${board.seat}`
-                  ? `${o.label ?? "You"} (you)`
-                  : (o.label ?? o.actionId)
-              }
-            />
-          </button>
-        ))}
+        {/* Amendment 17: the question's own cancel is not a target. */}
+        {decision.options
+          .filter((o) => o.actionId !== decision.arrange?.targets?.cancel)
+          .map((o) => (
+            <button
+              key={o.actionId}
+              type="button"
+              className="gs-win-chip"
+              disabled={busy}
+              onClick={() => onAnswer(o.actionId)}
+            >
+              <ManaText
+                text={
+                  o.objectId === `player:${board.seat}`
+                    ? `${o.label ?? "You"} (you)`
+                    : (o.label ?? o.actionId)
+                }
+              />
+            </button>
+          ))}
       </div>
       {first && (
         <label className="gs-win-check">

@@ -169,6 +169,21 @@ export interface DecisionArrange {
   divide?: DivideLayout | null;
   /** Phase 9 W-12 (Amendment 16) -- naming a card. */
   name?: NameLayout | null;
+  /** Phase 9 Amendment 17 -- a target question: what is chosen so far. */
+  targets?: TargetsLayout | null;
+}
+
+/**
+ * Phase 9 Amendment 17 -- a target question's state, from the game:
+ * the targets chosen so far (snapshot ids, in order), whether that is
+ * enough (a pass then goes on with them: Done), how many more may be
+ * chosen, and the answer that backs out (the act button and Esc).
+ */
+export interface TargetsLayout {
+  chosen: string[];
+  enough: boolean;
+  more: number;
+  cancel: string | null;
 }
 
 /**
@@ -1144,6 +1159,19 @@ function asDivide(value: unknown): DivideLayout | null {
   };
 }
 
+function asTargets(value: unknown): TargetsLayout | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  return {
+    chosen: Array.isArray(v["chosen"])
+      ? v["chosen"].filter((id): id is string => typeof id === "string")
+      : [],
+    enough: v["enough"] === true,
+    more: asNumber(v["more"]) ?? 0,
+    cancel: asString(v["cancel"]),
+  };
+}
+
 function asNameLayout(value: unknown): NameLayout | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
@@ -1180,6 +1208,7 @@ function asArrange(value: unknown): DecisionArrange | null {
     number: asNumberLayout(v["number"]),
     divide: asDivide(v["divide"]),
     name: asNameLayout(v["name"]),
+    targets: asTargets(v["targets"]),
   };
 }
 

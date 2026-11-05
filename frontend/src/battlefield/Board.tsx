@@ -274,6 +274,9 @@ export interface BoardProps {
   /** Phase 9 W-14 -- creatures selected to attack or block, not yet
    * pointed: a check mark, and on a pile how many of it ("✓ 2"). */
   marked?: readonly string[];
+  /** Phase 9 Amendment 17 -- the targets already chosen for the spell
+   * being cast: a TARGET tag, so the player sees what is picked. */
+  chosenTargets?: ReadonlySet<string>;
   /** Forge is asking for a CHOICE (a target, an attacker...), not just
    * what to do with priority: choosable objects then say "choose". */
   asking?: boolean;
@@ -596,6 +599,7 @@ export function Board({
   unpayable,
   selected,
   marked,
+  chosenTargets,
   asking,
   rail,
   top,
@@ -689,23 +693,27 @@ export function Board({
       const dim = !canChoose && ids.some((one) => unpayable?.has(one));
       const isSelected = ids.some((one) => one === selected);
       const isTargeted = ids.some((one) => targeted.has(one));
+      const isChosen = ids.some((one) => chosenTargets?.has(one));
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       return {
-        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${marks ? " bf-marked" : ""}`,
+        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}`,
         words: [
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
           isSelected ? "selected" : "",
           marks ? (ids.length > 1 ? `${marks} selected` : "selected") : "",
           isTargeted ? "targeted" : "",
+          isChosen ? "chosen as a target" : "",
         ],
         marks,
+        chosen: isChosen,
         data: {
           "data-choosable": canChoose ? "true" : undefined,
           "data-selected": isSelected ? "true" : undefined,
           "data-marked": marks ? String(marks) : undefined,
           "data-unpayable": dim ? "true" : undefined,
+          "data-chosen-target": isChosen ? "true" : undefined,
         },
         handlers: {
           // Spec 0037: and the whole stack, for "block with all of these".
@@ -719,7 +727,7 @@ export function Board({
         },
       };
     };
-  }, [choosable, unpayable, selected, marked, targeted, onPick, onInspect]);
+  }, [choosable, unpayable, selected, marked, chosenTargets, targeted, onPick, onInspect]);
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -823,7 +831,10 @@ export function Board({
               data-rides={slot.rides}
             >
               <CardFace {...drawn} />
-              {slot.rides ? (
+              {leadAct.chosen ? (
+                // Phase 9 Amendment 17: already chosen for the spell being cast.
+                <span className="bf-state bf-state-target">TARGET</span>
+              ) : slot.rides ? (
                 // Spec 0037: blue, on the blocker sitting on its attacker.
                 <span className="bf-state bf-state-blocking">BLOCKING</span>
               ) : lead.attacking ? (

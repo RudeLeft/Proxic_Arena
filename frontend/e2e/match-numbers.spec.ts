@@ -11,6 +11,11 @@
 //   the split  Arc Lightning, Rolling Thunder: every target
 //              first (two here), then one tray, "Split N damage", + and -,
 //              Done -- and no share asked again
+//   two targets Arc Lightning, Rolling Thunder (Phase 9 Amendment 17):
+//              with two chosen, "Choose up to 1 more target", "2 chosen:
+//              ...", a TARGET tag on each; the first time the act button's
+//              "Cancel ..." backs out (the card is back in hand), after that
+//              the bubble's "Done · 2 targets" goes on to the split
 //
 // Each is pictured the first time, and its words written to
 // test-results/seen/numbers.json. Both players use the numbers test deck
@@ -35,7 +40,7 @@ const pkg = join(process.cwd(), "..", "Test Deck", "numbers-deck.zip");
 const SPELLS =
   /^(Fireball|Rolling Thunder|Comet Storm|Arc Lightning|Forked Bolt|Harnessed Lightning|Everflowing Chalice|Gray Ogre|Hill Giant)/;
 const DIALS = ["announceRequirements", "chooseNumberForKeywordCost", "chooseNumber"];
-const KINDS = [...DIALS, "divideAsYouChoose"];
+const KINDS = [...DIALS, "divideAsYouChoose", "chooseTargetsFor"];
 /** The spells whose split can be asked: more damage than targets. */
 const DIVIDED = /^(Arc Lightning|Rolling Thunder)$/;
 const click = clickNow;
@@ -187,13 +192,47 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           // and then no more. Three damage over three targets is one each,
           // which nobody is asked (MatchController.divide), and a third
           // target was there whenever a creature was on the table: the
-          // split was never asked in CI 41972497084. With enough targets
-          // the act button's pass is "no more" (chooseTargetsFor).
+          // split was never asked in CI 41972497084.
           const targeting = panel.locator('[data-kind="chooseTargetsFor"]');
           const isTarget = (await targeting.count()) > 0;
-          const divided = DIVIDED.test(casting.get(page) ?? "");
+          const spellName = casting.get(page) ?? "";
+          const divided = DIVIDED.test(spellName);
           if (isTarget && divided && (targeted.get(page) ?? 0) >= 2) {
-            await click(panel.locator("button.gs-act-cancel"));
+            // Amendment 17: what is chosen is shown, and the act button
+            // really cancels -- the first time; then Done goes on.
+            const bubble = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
+            await expect(bubble.locator(".gs-targets-chosen")).toHaveText(/^2 chosen: .+, .+$/);
+            await expect(bubble.locator(".gs-win-title")).toHaveText(
+              /^Choose up to \d+ more targets?$/,
+            );
+            const tags = page.locator('[data-chosen-target="true"]');
+            await expect(tags, "a TARGET tag on each chosen target").toHaveCount(2);
+            const done = bubble.locator("button.gs-targets-done");
+            await expect(done).toHaveText("Done · 2 targets");
+            const cancel = panel.locator("button.gs-act-cancel");
+            await expect(cancel).toContainText(`Cancel ${spellName}`);
+            await expect(bubble.locator(".decision-prompt")).not.toContainText("CARDNAME");
+            if (!seen.has("chooseTargetsFor")) {
+              const inHand = page
+                .locator('[data-zone="viewer:hand"]')
+                .filter({ hasText: new RegExp(`^${spellName}`) });
+              const held = await inHand.count();
+              await page.screenshot({ path: "test-results/seen/numbers-chooseTargetsFor.png" });
+              seen.set("chooseTargetsFor", {
+                title: await bubble.locator(".gs-win-title").textContent(),
+                chosen: await bubble.locator(".gs-targets-chosen").textContent(),
+                done: await done.textContent(),
+                cancel: await cancel.getAttribute("aria-label"),
+                says: await bubble.locator(".decision-prompt").textContent(),
+              });
+              await click(cancel);
+              await expect(inHand, "Cancel backs out: the card is back in hand").toHaveCount(
+                held + 1,
+              );
+              await expect(tags, "nothing is chosen any more").toHaveCount(0);
+              continue;
+            }
+            await click(done);
             continue;
           }
           const listed = panel.locator(
@@ -245,18 +284,22 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           .filter({ hasText: /^(Gray Ogre|Hill Giant)/ })
           .count();
         const unseen = (kind: string) => !seen.has(kind);
+        // A split spell while the split or Amendment 17's two-target step
+        // is unseen; for the latter only with a creature on the table, so
+        // a third target is possible and the game asks for more after two
+        // (with only the two players it stops asking by itself).
+        const split =
+          (unseen("divideAsYouChoose") || unseen("chooseTargetsFor")) &&
+          (creatures > 0 || !unseen("chooseTargetsFor"));
         const useful = (name: string): boolean => {
           switch (name) {
             case "Gray Ogre":
             case "Hill Giant":
               return true;
             case "Arc Lightning":
-              return untapped >= 3 && unseen("divideAsYouChoose");
+              return untapped >= 3 && split;
             case "Rolling Thunder":
-              return (
-                (untapped >= 5 && unseen("divideAsYouChoose")) ||
-                (untapped >= 4 && unseen("announceRequirements"))
-              );
+              return (untapped >= 5 && split) || (untapped >= 4 && unseen("announceRequirements"));
             case "Fireball":
               return untapped >= 4 && unseen("announceRequirements");
             case "Comet Storm":

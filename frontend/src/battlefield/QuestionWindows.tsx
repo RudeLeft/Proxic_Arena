@@ -242,6 +242,72 @@ function OptionButton({
   );
 }
 
+/**
+ * Phase 9 Amendment 17 -- a target question's title once something is
+ * chosen: how many more may be ("Choose up to 1 more target").
+ */
+export function targetsTitle(decision: Decision, heading: string): string {
+  const t = decision.arrange?.targets;
+  if (decision.kind !== "chooseTargetsFor" || !t || t.chosen.length === 0 || t.more <= 0) {
+    return heading;
+  }
+  return `Choose up to ${t.more} more target${t.more === 1 ? "" : "s"}`;
+}
+
+/** What one chosen target is called: a player's name, a card's, a spell's. */
+function targetName(board: Snapshot, id: string): string {
+  if (id.startsWith("player:")) {
+    const seat = Number(id.slice("player:".length));
+    return board.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat}`;
+  }
+  const entry = board.stack.find((s) => s.id === id);
+  if (entry) return entry.name;
+  const card = cardOf(board, id);
+  if (!card) return "a card";
+  return card.faceDown && !card.known ? "a face-down card" : card.name;
+}
+
+/** Amendment 17 -- "2 chosen: RudeLeft, Hill Giant", or nothing. */
+export function chosenWords(decision: Decision, board: Snapshot): string | null {
+  const chosen = decision.arrange?.targets?.chosen ?? [];
+  if (decision.kind !== "chooseTargetsFor" || chosen.length === 0) return null;
+  return `${chosen.length} chosen: ${chosen.map((id) => targetName(board, id)).join(", ")}`;
+}
+
+/**
+ * Amendment 17 (owner: option B) -- Done, once enough targets are
+ * chosen: go on with them. A pass, which with enough chosen the game
+ * reads as "no more"; backing out is the act button and Esc.
+ */
+function DoneButton({
+  decision,
+  busy,
+  onAnswer,
+}: {
+  decision: Decision;
+  busy: boolean;
+  onAnswer: (actionId: string | null) => void;
+}) {
+  const t = decision.arrange?.targets;
+  if (decision.kind !== "chooseTargetsFor" || !t?.enough) return null;
+  const n = t.chosen.length;
+  return (
+    <button
+      type="button"
+      className="gs-win-btn gs-win-btn-main gs-targets-done"
+      disabled={busy}
+      onClick={() => onAnswer(null)}
+    >
+      {n === 0 ? "Done · no target" : `Done · ${n} target${n === 1 ? "" : "s"}`}
+    </button>
+  );
+}
+
+function ChosenLine({ decision, board }: { decision: Decision; board: Snapshot }) {
+  const words = chosenWords(decision, board);
+  return words ? <p className="gs-win-prompt gs-targets-chosen">{words}</p> : null;
+}
+
 /** "Pass", or what backing out undoes ("Cancel Lightning Bolt"). */
 function PassButton({
   word,
@@ -308,13 +374,19 @@ export function TableQuestionWindow(props: Common) {
           <Picture card={source} artUrl={artUrl} />
         ) : null
       }
-      actions={<PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />}
+      actions={
+        <>
+          <DoneButton decision={decision} busy={busy} onAnswer={onAnswer} />
+          <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />
+        </>
+      }
     >
       {decision.prompt && (
         <p className="gs-win-prompt gs-question-prompt decision-prompt">
           <ManaText text={decision.prompt} />
         </p>
       )}
+      <ChosenLine decision={decision} board={board} />
       <p className="gs-win-prompt">
         <ManaText text={plainHint(decision.kind, decision.options.length)} />
       </p>
@@ -354,7 +426,12 @@ export function ChoiceWindow(props: Common) {
   ]
     .filter(Boolean)
     .join(" ");
-  const pass = <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />;
+  const pass = (
+    <>
+      <DoneButton decision={decision} busy={busy} onAnswer={onAnswer} />
+      <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />
+    </>
+  );
   const colours = choices.length > 0 && choices.every((o) => colourSymbol(o.label) !== null);
   const chips = choices.every((o) => (o.label ?? o.actionId).length <= CHIP);
   const chipList = (list: readonly DecisionOption[]) => (
@@ -508,21 +585,32 @@ export function ChoiceWindow(props: Common) {
  */
 export function ListTray(props: Common & { onClose: () => void }) {
   const { decision, board, busy, artUrl, onAnswer } = props;
-  const groups = useMemo(() => listGroups(decision.options, board), [decision, board]);
+  // Amendment 17: the target question's own cancel is the Cancel button, not a choice.
+  const options = useMemo(
+    () => decision.options.filter((o) => o.actionId !== props.question.cancel),
+    [decision, props.question.cancel],
+  );
+  const groups = useMemo(() => listGroups(options, board), [options, board]);
   const title =
     decision.kind === "chooseSpellAbilityToPlay" ? "Everything you can do" : props.heading;
   return (
     <Tray
       geometry={props.geometry}
       label="Every choice"
-      from={`${decision.options.length} choices`}
+      from={`${options.length} choices`}
       title={title}
       titleClass="gs-question-title"
       kind={decision.kind}
       prompt={decision.prompt}
       actions={
         <>
-          <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />
+          <DoneButton decision={decision} busy={busy} onAnswer={onAnswer} />
+          {/* Amendment 17: a target question's own cancel, else a pass. */}
+          <PassButton
+            word={props.passWord}
+            busy={busy}
+            onPass={() => onAnswer(props.question.cancel ?? null)}
+          />
           <button type="button" className="gs-win-btn gs-win-btn-quiet" onClick={props.onClose}>
             Hide the list
           </button>

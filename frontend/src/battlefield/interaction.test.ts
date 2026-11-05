@@ -121,3 +121,36 @@ describe("clickOn", () => {
     expect(move.listed).toEqual([]);
   });
 });
+
+describe("Phase 9 Amendment 17 -- a target question's own cancel", () => {
+  const targets = (chosen: string[], enough: boolean) => ({
+    ...decision("chooseTargetsFor", [
+      option("target:card:1", "card:1", "Hill Giant"),
+      option("target:player:2", "player:2", "Pat"),
+      option("target:cancel", null, "Cancel"),
+    ]),
+    arrange: {
+      to: null,
+      first: null,
+      shuffle: false,
+      zone: null,
+      split: false,
+      piles: null,
+      targets: { chosen, enough, more: 1, cancel: "target:cancel" },
+    },
+  });
+
+  it("is the act button's answer, never a listed choice, and the chosen are known", () => {
+    const q = questionOf(targets(["player:2", "card:9"], true), visible);
+    expect(q.cancel).toBe("target:cancel");
+    expect(q.listed.map((o) => o.actionId)).not.toContain("target:cancel");
+    expect([...q.onBoard.keys()].sort()).toEqual(["card:1", "player:2"]);
+    expect(q.chosen).toEqual(["player:2", "card:9"]);
+  });
+
+  it("is absent when the game sends none: backing out stays a pass", () => {
+    const q = questionOf(decision("chooseTargetsFor", [option("t", "card:1")]), visible);
+    expect(q.cancel).toBeNull();
+    expect(q.chosen).toEqual([]);
+  });
+});

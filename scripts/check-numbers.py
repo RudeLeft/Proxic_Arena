@@ -17,6 +17,13 @@ question; these games read it off the protocol and check the board after:
            one question, its arrange.divide the whole split (3 damage, the
            two targets in order, the Ogre needing 2, values [1, 2]); 1 to
            Bob -- Bob loses 1, the Ogre dies.
+  targets  Arc Lightning, Phase 9 Amendment 17: each target question
+           carries arrange.targets -- chosen (in order), enough, more,
+           cancel -- with the cancel answer as the last option; its words
+           name the card, never "CARDNAME". With Bob and an Ogre chosen,
+           cancel backs out (Arc Lightning back in hand, Bob's life and
+           the lands untouched); cast again, a pass after Bob is "no
+           more": Bob takes all 3.
   energy   Harnessed Lightning: chooseNumber names its card (about) and
            carries the card's sentence ("... deals that much damage ...");
            pay all 3 -- the Ogre dies.
@@ -252,6 +259,83 @@ def arc_lightning():
     return outcome(problems, "Arc Lightning: both targets, then one split question; Bob -1, the Ogre died", found)
 
 
+def targets():
+    g = game("targets", [("Mountain", 40), ("Arc Lightning", 20)])
+    st = {"casts": 0, "asked": [], "cancelled": None, "arcs": None, "bob": None, "done": False,
+          "after_cancel": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or cast(g, f, "Gray Ogre")
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            arcs = len(g.zone(1, "hand", name="Arc Lightning"))
+            if st["casts"] == 1 and st["after_cancel"] is None:
+                # The first question after backing out: what it left.
+                st["after_cancel"] = {"arcs": arcs, "bob": g.player(1, 2).get("life"),
+                                      "untapped": len(g.untapped_lands(1))}
+            ogres = g.zone(1, "battlefield", owner=2, name="Gray Ogre")
+            if st["casts"] < 2 and ogres and len(g.untapped_lands(1)) >= 3:
+                o = cast(g, f, "Arc Lightning")
+                if o:
+                    st["casts"] += 1
+                    if st["casts"] == 1:
+                        st["arcs"], st["bob"] = arcs, g.player(1, 2).get("life")
+                        st["untapped"] = len(g.untapped_lands(1))
+                    return o
+            return g.play_land(f)
+        if seat == 1 and k == "chooseTargetsFor" and st["casts"] in (1, 2) and not st["done"]:
+            t = (f.get("arrange") or {}).get("targets")
+            st["asked"].append({"cast": st["casts"], "targets": t, "prompt": f.get("prompt"),
+                                "last": f["options"][-1]["actionId"] if f["options"] else None})
+            chosen = len((t or {}).get("chosen") or [])
+            if chosen == 0:
+                return next((o["actionId"] for o in f["options"] if o.get("label") == "Bob"), DEFAULT)
+            if st["casts"] == 1 and chosen == 1:
+                o = next((o for o in f["options"] if (o.get("label") or "").startswith("Gray Ogre")), None)
+                return o["actionId"] if o else DEFAULT
+            if st["casts"] == 1:
+                st["cancelled"] = t
+                return (t or {}).get("cancel") or DEFAULT
+            st["done"] = True
+            return None  # Done: no more targets, Bob takes all 3
+        return DEFAULT
+
+    def until(g):
+        # Resolved: the stack is also empty while it is being paid for.
+        return st["done"] and not g.state.get(1, {}).get("stack")             and g.player(1, 2).get("life") != st["bob"]
+
+    g.run(policy, until=until, max_turn=16)
+    found = {"stopped": g.stopped_badly(), "asked": st["asked"], "after_cancel": st["after_cancel"],
+             "before": {"arcs": st["arcs"], "bob": st["bob"], "untapped": st.get("untapped")},
+             "bob_end": g.player(1, 2).get("life")}
+    if not st["done"]:
+        return "inconclusive", "Arc Lightning was never cast twice with an Ogre out", found
+    problems = []
+    first = [a for a in st["asked"] if a["cast"] == 1]
+    second = [a for a in st["asked"] if a["cast"] == 2]
+    want1 = [([], False, 3), (["player:2"], True, 2), (None, True, 1)]
+    for a, (chosen, enough, more) in zip(first, want1):
+        t = a["targets"] or {}
+        if (chosen is not None and t.get("chosen") != chosen) or t.get("enough") is not enough                 or t.get("more") != more or t.get("cancel") != "target:cancel":
+            problems.append(f"cast 1 asked {t}, wanted chosen {chosen}, enough {enough}, more {more}")
+        if a["last"] != "target:cancel":
+            problems.append(f"the cancel answer is the last option: {a['last']}")
+        if "CARDNAME" in (a["prompt"] or "") or not (a["prompt"] or "").startswith("Arc Lightning deals"):
+            problems.append(f"the words name the card: {a['prompt']!r}")
+    if len(first) != 3 or len((first[2]["targets"] or {}).get("chosen") or []) != 2:
+        problems.append(f"Bob and the Ogre, then the cancel: {first}")
+    before, after = found["before"], st["after_cancel"] or {}
+    if after.get("arcs") != before["arcs"] or after.get("bob") != before["bob"]             or after.get("untapped") != before["untapped"]:
+        problems.append(f"cancel backs out: Arc Lightning in hand, Bob and the lands untouched: {before} -> {after}")
+    if len(second) != 2 or (second[1]["targets"] or {}).get("chosen") != ["player:2"]:
+        problems.append(f"cast 2: Bob, then Done: {second}")
+    if before["bob"] is not None and found["bob_end"] != before["bob"] - 3:
+        problems.append(f"Done went on: Bob takes all 3 ({before['bob']} -> {found['bob_end']})")
+    return outcome(problems, "Arc Lightning: chosen/enough/more/cancel each step; cancel at two backed out; "
+                   "Done at one, Bob -3", found)
+
+
 def harnessed():
     g = game("energy", [("Mountain", 40), ("Harnessed Lightning", 20)])
     st = {"asked": None, "cast": False, "ogre": None}
@@ -300,7 +384,8 @@ def harnessed():
     return outcome(problems, "Harnessed Lightning: named, its sentence, 3 energy paid, the Ogre died", found)
 
 
-SCENARIOS = {"x": fireball, "kicker": chalice, "split": arc_lightning, "energy": harnessed}
+SCENARIOS = {"x": fireball, "kicker": chalice, "split": arc_lightning, "targets": targets,
+             "energy": harnessed}
 
 if __name__ == "__main__":
     codes = []

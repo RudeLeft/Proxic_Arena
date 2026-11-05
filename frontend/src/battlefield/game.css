@@ -1961,6 +1961,24 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   filter: drop-shadow(0 0 6px rgb(240 168 48 / 70%));
   animation: gs-life-targeted 1.6s ease-in-out infinite;
 }
+/* Phase 9 Amendment 17: this player is already a chosen target. */
+.gs-life.gs-chosen-target {
+  position: relative;
+}
+.gs-life-target {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  border: 1px solid #f2d48a;
+  border-radius: 3px;
+  background: #e0a44a;
+  color: #1a1206;
+  font: 700 var(--pa-size-xs) / 1.2 var(--pa-display);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
 @keyframes gs-life-targeted {
   50% {
     filter: drop-shadow(0 0 12px rgb(255 220 140 / 90%));
