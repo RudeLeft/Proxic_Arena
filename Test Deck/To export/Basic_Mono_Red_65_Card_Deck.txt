@@ -1,0 +1,13 @@
+// Basic_Mono_Red_65_Card_Deck
+
+4 Fiery Temper [INR:154]
+4 Hellspark Elemental [CON:65]
+4 Legion Warboss [RVR:116]
+4 Light Up the Stage [RVR:117]
+4 Mardu Scout [FRF:108]
+25 Mountain [FRA:287]
+4 Rabbit Battery [NEO:157]
+4 Reckless Stormseeker // Storm-Charged Slasher [MID:157]
+4 Rift Bolt [2X2:122]
+4 Staggershock [2X2:125]
+4 Voldaren Epicure [INR:182]

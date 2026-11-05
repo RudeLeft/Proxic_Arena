@@ -1,0 +1,12 @@
+// Basic_Mono_Green_60_Card_Deck
+
+4 Llanowar Elves [DOM:168]
+4 Grizzly Bears [10E:268]
+4 Centaur Courser [M19:171]
+4 Steel Leaf Champion [DOM:182]
+4 Thornhide Wolves [M19:204]
+4 Colossal Dreadmaw [M19:172]
+4 Giant Growth [10E:266]
+4 Titanic Growth [M19:205]
+4 Rabid Bite [M19:195]
+24 Forest [M19:277]
