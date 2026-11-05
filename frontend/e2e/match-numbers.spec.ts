@@ -8,7 +8,7 @@
 //   how many   Everflowing Chalice, Comet Storm: "Kick it how many times?",
 //              what each time costs
 //   a number   Harnessed Lightning: "Pay how much energy?", how much there is
-//   the split  Arc Lightning, Forked Bolt, Rolling Thunder: every target
+//   the split  Arc Lightning, Rolling Thunder: every target
 //              first (two here), then one tray, "Split N damage", + and -,
 //              Done -- and no share asked again
 //
@@ -36,6 +36,8 @@ const SPELLS =
   /^(Fireball|Rolling Thunder|Comet Storm|Arc Lightning|Forked Bolt|Harnessed Lightning|Everflowing Chalice|Gray Ogre|Hill Giant)/;
 const DIALS = ["announceRequirements", "chooseNumberForKeywordCost", "chooseNumber"];
 const KINDS = [...DIALS, "divideAsYouChoose"];
+/** The spells whose split can be asked: more damage than targets. */
+const DIVIDED = /^(Arc Lightning|Rolling Thunder)$/;
 const click = clickNow;
 
 test("number questions: the dial for X, a kicker and energy; one tray for a split", async ({
@@ -54,6 +56,8 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
   const seen = new Map<string, Record<string, unknown>>();
   /** Targets chosen for the spell being cast, per page: a split stops at two. */
   const targeted = new Map<Page, number>();
+  /** The spell each page is casting, for how many targets it gets. */
+  const casting = new Map<Page, string>();
   /** A share asked on its own after the split tray's Done: never. */
   const askedAgain: string[] = [];
   let splitDone = false;
@@ -63,8 +67,16 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
     const deadline = Date.now() + 780_000;
+    // A game that has ended shows nothing more: stop and say how it ended,
+    // instead of watching a finished table until the deadline.
+    const ended = async () =>
+      [
+        ...(await host.locator("#gs-over-text").allTextContents()),
+        ...(await guest.locator("#gs-over-text").allTextContents()),
+      ].join(" ");
 
     while (seen.size < KINDS.length && Date.now() < deadline) {
+      if (await ended()) break;
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
@@ -169,23 +181,35 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
           0;
         if (!priority) {
-          // Targets: the other player first, then anything on the table; a
-          // divided spell stops at two, so its split has something to choose.
-          const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
-          const enough = targeting.locator("button.gs-win-btn-quiet");
-          if ((targeted.get(page) ?? 0) >= 2 && (await enough.count()) > 0) {
-            await click(enough);
+          // Targets: the other player first, then anything on the table.
+          // A divided spell gets exactly two, on purpose: the other player,
+          // then a creature (theirs, else one's own), else one's own life,
+          // and then no more. Three damage over three targets is one each,
+          // which nobody is asked (MatchController.divide), and a third
+          // target was there whenever a creature was on the table: the
+          // split was never asked in CI 41972497084. With enough targets
+          // the act button's pass is "no more" (chooseTargetsFor).
+          const targeting = panel.locator('[data-kind="chooseTargetsFor"]');
+          const isTarget = (await targeting.count()) > 0;
+          const divided = DIVIDED.test(casting.get(page) ?? "");
+          if (isTarget && divided && (targeted.get(page) ?? 0) >= 2) {
+            await click(panel.locator("button.gs-act-cancel"));
             continue;
           }
           const listed = panel.locator(
             ".gs-question li button, .gs-win li button, .gs-win button.gs-win-btn-main",
           );
           const them = panel.locator(".gs-seat-opponent .gs-life.gs-choosable");
+          const creature = page.locator(
+            '.bf-cards button[data-choosable="true"][data-zone*="creature"]',
+          );
+          const theirs = creature.and(page.locator('[data-controller="opponent"]'));
           const board = page.locator(
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable, [data-zone="viewer:hand"][data-choosable="true"]',
           );
-          const isTarget = (await targeting.count()) > 0;
           if ((await them.count()) > 0) await click(them);
+          else if (isTarget && divided && (await theirs.count()) > 0) await click(theirs);
+          else if (isTarget && divided && (await creature.count()) > 0) await click(creature);
           else if ((await board.count()) > 0) await click(board);
           else if ((await listed.count()) > 0) await click(listed);
           else await click(panel.locator("button.gs-pass, button.gs-act"));
@@ -209,32 +233,54 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
         );
         const handSize = await page.locator('[data-zone="viewer:hand"]').count();
         const names = (await spell.allTextContents()).map((t) => t.match(SPELLS)?.[1] ?? t);
-        // Each spell when it can do what is being looked for: a creature
-        // first (Harnessed Lightning needs one), Arc Lightning with 3 lands
-        // (3 damage over two targets: a split with a choice), X with 4 (X
-        // of 2 or more), Everflowing Chalice with 2 (kicked once).
+        // Each spell only while what it shows is unseen, so the burn stops
+        // once it has been seen and the game lasts until all of it is:
+        // Arc Lightning with 3 lands (3 damage over two targets: a split
+        // with a choice), Rolling Thunder with 5 (X of 3 over two) or 4 (an
+        // X of 2), Fireball and Comet Storm with 4, Everflowing Chalice
+        // with 2 (kicked once), Harnessed Lightning on a creature. Forked
+        // Bolt never: 2 damage over two targets is 1 and 1, never asked.
         const creatures = await page
           .locator(".bf-cards button[data-object-id]")
           .filter({ hasText: /^(Gray Ogre|Hill Giant)/ })
           .count();
-        const useful = (name: string) =>
-          /^(Gray Ogre|Hill Giant)$/.test(name)
-            ? true
-            : name === "Arc Lightning" || name === "Forked Bolt"
-              ? untapped >= 3 && !seen.has("divideAsYouChoose")
-              : name === "Harnessed Lightning"
-                ? creatures > 0 && !seen.has("chooseNumber")
-                : name === "Everflowing Chalice"
-                  ? untapped >= 2 && !seen.has("chooseNumberForKeywordCost")
-                  : name === "Comet Storm"
-                    ? untapped >= 4 && !seen.has("chooseNumberForKeywordCost")
-                    : untapped >= 4;
+        const unseen = (kind: string) => !seen.has(kind);
+        const useful = (name: string): boolean => {
+          switch (name) {
+            case "Gray Ogre":
+            case "Hill Giant":
+              return true;
+            case "Arc Lightning":
+              return untapped >= 3 && unseen("divideAsYouChoose");
+            case "Rolling Thunder":
+              return (
+                (untapped >= 5 && unseen("divideAsYouChoose")) ||
+                (untapped >= 4 && unseen("announceRequirements"))
+              );
+            case "Fireball":
+              return untapped >= 4 && unseen("announceRequirements");
+            case "Comet Storm":
+              return (
+                untapped >= 4 &&
+                (unseen("chooseNumberForKeywordCost") || unseen("announceRequirements"))
+              );
+            case "Harnessed Lightning":
+              return creatures > 0 && unseen("chooseNumber");
+            case "Everflowing Chalice":
+              return untapped >= 2 && unseen("chooseNumberForKeywordCost");
+            default:
+              return false;
+          }
+        };
+        // The split first (it needs the most luck: a divided spell in hand
+        // and the lands for it), then a creature if there is none (a target
+        // for Harnessed Lightning), then the rest.
+        const indexed = names.map((n, i) => [n, i] as const);
         const order = [
-          ...names
-            .map((n, i) => [n, i] as const)
-            .filter(([n]) => creatures === 0 && /Ogre|Giant/.test(n)),
-          ...names.map((n, i) => [n, i] as const).filter(([n]) => !/Ogre|Giant/.test(n)),
-          ...names.map((n, i) => [n, i] as const).filter(([n]) => /Ogre|Giant/.test(n)),
+          ...indexed.filter(([n]) => DIVIDED.test(n)),
+          ...indexed.filter(([n]) => creatures === 0 && /Ogre|Giant/.test(n)),
+          ...indexed.filter(([n]) => !DIVIDED.test(n) && !/Ogre|Giant/.test(n)),
+          ...indexed.filter(([n]) => /Ogre|Giant/.test(n)),
         ];
         const pick =
           order.find(
@@ -244,6 +290,7 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           const key = `${names[pick]}|${untapped}|${handSize}`;
           tries.set(key, (tries.get(key) ?? 0) + 1);
           targeted.set(page, 0);
+          casting.set(page, names[pick] ?? "");
           await click(spell.nth(pick));
           const popup = page.locator(".gs-popup .gs-option");
           if ((await popup.count()) > 0) await click(popup);
@@ -258,7 +305,8 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
       "test-results/seen/numbers.json",
       JSON.stringify(Object.fromEntries(seen), null, 2),
     );
-    expect([...seen.keys()].sort(), "every number question seen").toEqual([...KINDS].sort());
+    const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
+    expect([...seen.keys()].sort(), `every number question seen${why}`).toEqual([...KINDS].sort());
     expect(askedAgain, "a split's shares are answered from its tray").toEqual([]);
   } finally {
     await clearEverything(host).catch(() => undefined);
