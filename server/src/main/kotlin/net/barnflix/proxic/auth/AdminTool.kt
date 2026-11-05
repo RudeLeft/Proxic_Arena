@@ -57,7 +57,27 @@ class AdminTool(
     private val sessions: Sessions,
     private val dataSource: DataSource,
     private val prompt: PasswordPrompt = ConsolePasswordPrompt,
+    /**
+     * "Your password was changed", as the Account page and a reset link
+     * send it (spec 0026). Nothing when no email is set up; a failure is
+     * logged by the sender and never undoes the change.
+     */
+    private val passwordChanged: (User) -> Unit = {},
 ) {
+    private val log = org.slf4j.LoggerFactory.getLogger(AdminTool::class.java)
+
+    /**
+     * [run], with the database's failures said in one plain line: with
+     * Postgres down the tool printed a stack trace after the pool's
+     * ten-second wait (until 2026-11-04).
+     */
+    fun runSafely(args: List<String>): AdminResult =
+        try {
+            run(args)
+        } catch (e: java.sql.SQLException) {
+            AdminResult.failure("The database could not be reached: ${e.message?.lineSequence()?.first()}")
+        }
+
     fun run(args: List<String>): AdminResult {
         // §3.58, §3.139 — a password given as an argument is
         // REFUSED, not used and warned about. Warning would leave it
@@ -94,6 +114,12 @@ class AdminTool(
         val displayName = args.indexOf("--name").let { if (it >= 0) args.getOrNull(it + 1) else null }
 
         Usernames.rejectionReason(username)?.let { return AdminResult.failure(it) }
+        // Spec 0041 — the same 1-12 characters as signing up. A username
+        // too long to be the name is refused rather than shown cut short.
+        DisplayNames.rejectionReason(displayName ?: username)?.let { reason ->
+            val hint = if (displayName == null) " Give one with --name <display name>." else ""
+            return AdminResult.failure(reason + hint)
+        }
         if (accounts.findByUsername(username) != null) {
             // §3.60. Named plainly here: this is an operator at a
             // terminal, not a login form, so there is no
@@ -111,7 +137,7 @@ class AdminTool(
             ) ?: return AdminResult.failure(NO_TERMINAL)
         PasswordHasher.rejectionReason(password)?.let { return AdminResult.failure(it) }
 
-        val user = accounts.createUser(username, password, role, displayName ?: username)
+        val user = accounts.createUser(username, password, role, (displayName ?: username).trim())
         return AdminResult.ok("Created ${user.username} (${user.role}) ${user.userId}")
     }
 
@@ -187,7 +213,16 @@ class AdminTool(
             ) ?: return AdminResult.failure(NO_TERMINAL)
         PasswordHasher.rejectionReason(password)?.let { return AdminResult.failure(it) }
 
-        accounts.changePassword(user.userId, password)
+        accounts.changePassword(user.userId, password, user.username)
+        log.authEvent(
+            AuthEvent.ADMIN_PASSWORD_RESET,
+            AuthResult.SUCCESS,
+            username = user.username,
+            userId = user.userId,
+            detail = "by=arena-admin",
+        )
+        runCatching { passwordChanged(user) }
+            .onFailure { log.warn("password-changed email not sent: {}", it.message) }
         // §3.36 — changePassword revokes every session, and the
         // operator should be told rather than discover it when
         // someone is signed out.
@@ -202,6 +237,13 @@ class AdminTool(
             accounts.findByUsername(username)
                 ?: return AdminResult.failure("No user named \"$username\".")
         val revoked = sessions.revokeAllForUser(user.userId)
+        log.authEvent(
+            AuthEvent.SESSION_REVOKED,
+            AuthResult.SUCCESS,
+            username = user.username,
+            userId = user.userId,
+            detail = "sessionsRevoked=$revoked",
+        )
         return AdminResult.ok("Revoked $revoked session(s) for ${user.username}.")
     }
 
@@ -287,8 +329,16 @@ fun main(args: Array<String>) {
     }
     database.use {
         val sessions = Sessions(it.dataSource())
-        val tool = AdminTool(Accounts(it.dataSource(), sessions), sessions, it.dataSource())
-        val result = tool.run(args.toList())
+        val accounts = Accounts(it.dataSource(), sessions)
+        // The same email account the server sends with; without one (or
+        // without the server's secret) nothing is sent and nothing fails.
+        val notify: (User) -> Unit =
+            runCatching { net.barnflix.proxic.accountReach(config, it, accounts, sessions).resets }
+                .getOrNull()
+                ?.let { desk -> desk::passwordChanged }
+                ?: {}
+        val tool = AdminTool(accounts, sessions, it.dataSource(), passwordChanged = notify)
+        val result = tool.runSafely(args.toList())
         if (result.exitCode == 0) println(result.message) else System.err.println(result.message)
         exitProcess(result.exitCode)
     }

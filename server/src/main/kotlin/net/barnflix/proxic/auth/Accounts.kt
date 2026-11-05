@@ -238,6 +238,7 @@ class Accounts(
     fun changePassword(
         userId: UUID,
         newPassword: String,
+        username: String? = null,
     ) {
         PasswordHasher.rejectionReason(newPassword)?.let { throw IllegalArgumentException(it) }
         dataSource.connection.use { connection ->
@@ -252,9 +253,13 @@ class Accounts(
             }
         }
         val revoked = sessions.revokeAllForUser(userId)
+        // The one PASSWORD_CHANGED for every path (the Account page, a
+        // reset link, arena-admin); the Account page logged a second
+        // until 2026-11-04.
         log.authEvent(
             AuthEvent.PASSWORD_CHANGED,
             AuthResult.SUCCESS,
+            username = username,
             userId = userId,
             detail = "sessionsRevoked=$revoked",
         )

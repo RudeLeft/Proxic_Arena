@@ -22,6 +22,7 @@ import org.testcontainers.DockerClientFactory
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -145,6 +146,80 @@ class AuthEventsTest {
                 events().any { it.contains("event=USER_DISABLED") },
                 "disabling an account was not recorded",
             )
+        }
+
+    /**
+     * 2026-11-04 (owner, from the documentation review): a password
+     * changed on the Account page was recorded twice, and the Admin
+     * page's disable, enable, role change and sign-out were not
+     * recorded at all, nor arena-admin's set-password and
+     * revoke-sessions as what they are.
+     */
+    @Test
+    fun `every account change is recorded once, wherever it is made`() =
+        testApplication {
+            val accounts = seed()
+            application { module(config()) }
+            val ok =
+                client.post("/api/auth/login") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"username":"RudeLeft","password":"$password"}""")
+                }
+
+            fun cookie(name: String) =
+                ok.headers.getAll(HttpHeaders.SetCookie)!!
+                    .first { it.startsWith("$name=") }
+                    .substringBefore(';')
+            val csrf = cookie(CSRF_COOKIE)
+            client.post("/api/auth/password") {
+                header(HttpHeaders.Cookie, "${cookie(SESSION_COOKIE)}; $csrf")
+                header(CSRF_HEADER, csrf.substringAfter('='))
+                contentType(ContentType.Application.Json)
+                setBody("""{"currentPassword":"$password","newPassword":"another fine passphrase"}""")
+            }
+            assertEquals(
+                1,
+                events().count { it.contains("event=PASSWORD_CHANGED") },
+                "the Account page's change: ${events()}",
+            )
+
+            val database = Database.connect(config())!!
+            val sessions = Sessions(database.dataSource())
+            val pat = accounts.createUser("Pat", password, Role.PLAYER)
+            val admin = net.barnflix.proxic.admin.AdminAccounts(database.dataSource(), accounts, sessions)
+            admin.setStatus(pat.userId, AccountStatus.DISABLED)
+            admin.setStatus(pat.userId, AccountStatus.ACTIVE)
+            admin.setRole(pat.userId, Role.ADMIN)
+            admin.signOutEverywhere(pat.userId)
+            val mailed = mutableListOf<String>()
+            val tool =
+                AdminTool(accounts, sessions, database.dataSource(), { password.toCharArray() }) {
+                    mailed += it.username
+                }
+            tool.run(listOf("set-password", "Pat"))
+            tool.run(listOf("revoke-sessions", "Pat"))
+
+            val recorded = events()
+            for (
+            (event, times) in listOf(
+                "USER_DISABLED" to 1,
+                "USER_ENABLED" to 1,
+                "ROLE_CHANGED" to 1,
+                "SESSION_REVOKED" to 2,
+                "ADMIN_PASSWORD_RESET" to 1,
+                "PASSWORD_CHANGED" to 2,
+            )
+            ) {
+                assertEquals(
+                    times,
+                    recorded.count { it.contains("event=$event ") },
+                    "$event: $recorded",
+                )
+            }
+            assertTrue(recorded.any { it.contains("event=ROLE_CHANGED") && it.contains("role=ADMIN") }, "$recorded")
+            // set-password sends "Your password was changed", as the page does.
+            assertEquals(listOf("Pat"), mailed)
+            database.close()
         }
 
     /**

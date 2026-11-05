@@ -269,6 +269,31 @@ class AdminToolTest {
         assertTrue(!result.message.contains(goodPassword), result.message)
     }
 
+    /** Spec 0041 — the tool keeps sign-up's 1-12 character name (2026-11-04). */
+    @Test
+    fun `create refuses a display name sign-up would refuse`() {
+        val long = tool.run(listOf("create", "pat", "--name", "Patricia Longname"))
+        assertEquals(1, long.exitCode, long.message)
+        assertTrue(long.message.contains("at most 12"), long.message)
+        val fromUsername = tool.run(listOf("create", "averyveryverylongname"))
+        assertEquals(1, fromUsername.exitCode, fromUsername.message)
+        assertTrue(fromUsername.message.contains("--name"), fromUsername.message)
+        assertEquals(null, accounts.findByUsername("averyveryverylongname"))
+        assertEquals(0, tool.run(listOf("create", "averyveryverylongname", "--name", "Avery")).exitCode)
+    }
+
+    /** The "password was changed" email failing never undoes the change. */
+    @Test
+    fun `set-password stands when its email cannot be sent`() {
+        tool.run(listOf("create", "pat"))
+        val failing =
+            AdminTool(accounts, sessions, database!!.dataSource(), FixedPrompt("another fine passphrase")) {
+                error("no mail server")
+            }
+        assertEquals(0, failing.run(listOf("set-password", "pat")).exitCode)
+        assertTrue(accounts.login("pat", "another fine passphrase") is LoginResult.Success)
+    }
+
     @Test
     fun `an unknown command explains itself`() {
         val result = tool.run(listOf("wibble"))

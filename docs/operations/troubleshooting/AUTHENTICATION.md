@@ -60,7 +60,8 @@ When it fails, it is almost always one of these:
 
 | What you see | What it means |
 |---|---|
-| a Java error naming `proxic-pool` and a connection timeout, after about 10 seconds | Postgres is not reachable, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. |
+| `The database could not be reached: …`, after about 10 seconds | Postgres is not reachable, or `POSTGRES_PASSWORD` is wrong. See *Database unavailable* below. (Until 2026-11-04 this was a Java stack trace naming `proxic-pool`.) |
+| `Choose a display name: it is what other players see.` or `A display name may be at most 12 characters.` (with `Give one with --name <display name>.`) | `create` keeps sign-up's 1-12 character name; a username over 12 characters needs `--name`. |
 | `No database configured. Set PROXIC_DATABASE_URL.` | The container has no database setting at all. |
 | `A password must be at least 12 characters.` | Exactly that. No composition rules otherwise; a password may not be only spaces, nor over 1024 characters. |
 | `A user named "..." already exists.` | Usernames are compared case-insensitively — `RudeLeft` and `rudeleft` are one account. `list` will show it. |

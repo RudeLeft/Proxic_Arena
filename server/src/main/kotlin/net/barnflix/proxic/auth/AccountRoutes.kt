@@ -60,16 +60,9 @@ fun Route.accountRoutes(
             )
         }
 
-        accounts.changePassword(principal.user.userId, body.newPassword)
-        // §3.94 — the event, never the password. Every session died
-        // with it (§3.36), which is itself worth recording.
-        call.application.log.authEvent(
-            AuthEvent.PASSWORD_CHANGED,
-            AuthResult.SUCCESS,
-            username = principal.user.username,
-            userId = principal.user.userId,
-            sessionId = principal.sessionId,
-        )
+        // §3.94 — Accounts records the event (never the password), and
+        // that every session died with it (§3.36).
+        accounts.changePassword(principal.user.userId, body.newPassword, principal.user.username)
         resets?.let { desk -> call.application.launch(Dispatchers.IO) { desk.passwordChanged(principal.user) } }
         // Every session died, including this one (§3.36), so the
         // cookie is cleared rather than left pointing at a revoked

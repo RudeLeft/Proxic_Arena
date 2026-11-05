@@ -21,8 +21,9 @@ user_id              uuid, primary key
 username             as typed, for display
 username_normalized  unique; what uniqueness is actually decided on
 display_name         required, 1-12 characters (spec 0041), changeable by its owner;
-                     `arena-admin create` sets it from --name or the username
-                     without the 12-character check
+                     `arena-admin create` takes it from --name, or the username,
+                     with the same check (since 2026-11-04; a username over
+                     12 characters needs --name)
 password_hash        PHC-encoded Argon2id (never the password)
 role                 PLAYER | ADMIN      (CHECK constraint)
 status               ACTIVE | DISABLED   (CHECK constraint)
@@ -420,8 +421,9 @@ chooses their own password. The Admin page has no way to set a password
   check and throttle; every bad link gets the same `410 RESET_INVALID`.
 - A new password ends every session and unlinks every Deck Builder
   computer (§3.36), signs the player in, and emails "Your password was
-  changed". A change on the Account page sends that notice too;
-  `arena-admin set-password` does not.
+  changed". A change on the Account page sends that notice too, and so
+  does `arena-admin set-password` (since 2026-11-04) when an email
+  account is set up; a notice that cannot be sent never undoes the change.
 - The address (`app_user.email`) comes from the invitation when the
   account was made from one (V026 fills it in for older accounts too).
   The player changes it on the Account page (no password asked, spec
@@ -446,19 +448,23 @@ chooses their own password. The Admin page has no way to set a password
 
 ## What gets logged
 
-§3.94–§3.97. Thirteen event types are declared, all written through
-one function so there is a single place to get this wrong. Three of
-them -- `SESSION_REVOKED`, `SESSION_EXPIRED_IN_FLIGHT`,
-`ADMIN_PASSWORD_RESET` -- are declared but nothing writes them today:
+§3.94–§3.97. Thirteen event types, all written through one function so
+there is a single place to get this wrong, and every one is written:
 
 ```text
 LOGIN_SUCCESS     LOGIN_FAILURE     LOGIN_THROTTLED
 LOGOUT            LOGOUT_EVERYWHERE
 PASSWORD_CHANGED  DISPLAY_NAME_CHANGED
-SESSION_REVOKED   SESSION_EXPIRED_IN_FLIGHT
+SESSION_REVOKED   (an administrator ends someone's sessions: the
+                   Admin page's sign-out, arena-admin revoke-sessions)
 USER_CREATED      USER_DISABLED     USER_ENABLED
-ADMIN_PASSWORD_RESET
+ROLE_CHANGED      (the Admin page; detail role=ADMIN or PLAYER)
+ADMIN_PASSWORD_RESET (arena-admin set-password; PASSWORD_CHANGED too)
 ```
+
+2026-11-04: `ROLE_CHANGED` was added, and `SESSION_EXPIRED_IN_FLIGHT`
+removed — a session that expires is simply not found, so no place could
+tell it apart from a bad token without a second query on every request.
 
 One line, fixed shape, so it greps:
 
@@ -480,9 +486,9 @@ username is not a secret.
 
 The account-changing events (created, disabled, enabled, password
 changed) are emitted by `Accounts`, not by the routes, so the admin CLI
-and the account page cannot forget them. As built, not every path goes
-through `Accounts`: the Admin page's enable/disable writes its own
-UPDATE (`AdminAccounts.setStatus`) and logs no `USER_DISABLED` /
-`USER_ENABLED` (its `admin_action` row records it); a role change logs
-no auth event; and a password change on the Account page logs
-`PASSWORD_CHANGED` twice (`Accounts.changePassword` and the route).
+and the account page cannot forget them: one `PASSWORD_CHANGED` per
+change, wherever it was made. The Admin page's enable, disable, role
+change and sign-out write their own rows (`AdminAccounts`) and record
+their events there, beside the `admin_action` row that says who did it
+(since 2026-11-04: until then they recorded none, and the Account page
+recorded `PASSWORD_CHANGED` twice; `AuthEventsTest`).

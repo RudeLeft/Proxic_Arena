@@ -3,8 +3,11 @@ package net.barnflix.proxic.admin
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.auth.AccountStatus
 import net.barnflix.proxic.auth.Accounts
+import net.barnflix.proxic.auth.AuthEvent
+import net.barnflix.proxic.auth.AuthResult
 import net.barnflix.proxic.auth.Role
 import net.barnflix.proxic.auth.Sessions
+import net.barnflix.proxic.auth.authEvent
 import java.sql.Connection
 import java.util.UUID
 import javax.sql.DataSource
@@ -54,6 +57,10 @@ class AdminAccounts(
     val accounts: Accounts,
     private val sessions: Sessions,
 ) {
+    // §3.94 — the page's changes are recorded as the tool's are; until
+    // 2026-11-04 only the admin_action row said what happened.
+    private val log = org.slf4j.LoggerFactory.getLogger(AdminAccounts::class.java)
+
     fun list(): List<AdminAccountView> =
         dataSource.connection.use { connection ->
             val admins = activeAdmins(connection, lock = false)
@@ -108,7 +115,15 @@ class AdminAccounts(
                     it.executeUpdate()
                 }
             }
-        if (change is AdminChange.Done && status == AccountStatus.DISABLED) sessions.revokeAllForUser(userId)
+        if (change !is AdminChange.Done) return change
+        val revoked = if (status == AccountStatus.DISABLED) sessions.revokeAllForUser(userId) else 0
+        log.authEvent(
+            if (status == AccountStatus.DISABLED) AuthEvent.USER_DISABLED else AuthEvent.USER_ENABLED,
+            AuthResult.SUCCESS,
+            username = change.username,
+            userId = userId,
+            detail = "sessionsRevoked=$revoked",
+        )
         return change
     }
 
@@ -123,12 +138,30 @@ class AdminAccounts(
                 it.setObject(2, userId)
                 it.executeUpdate()
             }
+        }.also { change ->
+            if (change is AdminChange.Done) {
+                log.authEvent(
+                    AuthEvent.ROLE_CHANGED,
+                    AuthResult.SUCCESS,
+                    username = change.username,
+                    userId = userId,
+                    detail = "role=$role",
+                )
+            }
         }
 
     /** End every session this account has, on every device. */
     fun signOutEverywhere(userId: UUID): Pair<AdminChange, Int> {
         val username = usernameOf(userId) ?: return AdminChange.NotFound to 0
-        return AdminChange.Done(username) to sessions.revokeAllForUser(userId)
+        val revoked = sessions.revokeAllForUser(userId)
+        log.authEvent(
+            AuthEvent.SESSION_REVOKED,
+            AuthResult.SUCCESS,
+            username = username,
+            userId = userId,
+            detail = "sessionsRevoked=$revoked",
+        )
+        return AdminChange.Done(username) to revoked
     }
 
     private fun usernameOf(userId: UUID): String? =
