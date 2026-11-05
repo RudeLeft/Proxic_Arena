@@ -3,6 +3,30 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.42.0 — 2026-11-04
+
+Fixes from a full review of the documentation against the code.
+
+**For whoever runs the server**
+- A database update runs by itself on start: a player can only ever be in one room (it clears any seats left in closed rooms first).
+- The game's headings now use their own font (Barlow Condensed), shipped with the game instead of relying on the player's computer.
+- The sign-in log now records every account change once: an account turned on or off and a role changed from the Admin page, a password changed (it was written twice), and sessions signed out.
+- `arena-admin set-password` now emails the player "Your password was changed", `arena-admin create` refuses a display name sign-up would refuse, and with the database down the tool prints one plain line instead of a stack trace.
+- A game no longer leaves an empty folder behind in the server's temporary space.
+
+**Rooms**
+- Sending an invitation counts as activity, so an inviting host's room no longer closes as idle.
+- A room back from a game, including one a server restart gave back, starts a fresh idle clock instead of closing at the next check.
+- If a player leaves, is removed, is taken out for being away or unticks ready after the game was prepared, the start is cancelled and the room waits again. Before, Start match could seat somebody who had gone.
+- Two tabs opening a room at the same moment can no longer give one player two rooms.
+
+**In a game**
+- "End the game" for a player who has gone offline follows the server's away setting, and says it ("Pat has been gone 20 minutes"); it was always 10 minutes on the page.
+
+**Accounts and reports**
+- Signing out is protected the same way as every other change, so another website can't sign you out.
+- An idea sent from the report button carries only its words, picture, page and version; the browser, screen, game details and server log go with problems only.
+
 ## 1.41.0 — 2026-11-04
 
 Naming a card (Phase 9).
