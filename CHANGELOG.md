@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.43.0 — 2026-11-05
+
+An administrator can rename a player, and the last fixes from the documentation review.
+
+**For whoever runs the server**
+- Two database updates run by themselves on start: old rooms can now be cleaned up, and a renamed player's notice is kept until they see it.
+- Closed rooms older than seven days are now removed even if a game was played in them. The games, their players and the Hall of Champions are kept.
+
+**Renaming a player** (Admin page)
+- "Change display name…" in an account's Manage menu opens a small form, like changing an email address, with the same 1 to 12 character rule as signing up.
+- Only the name shown in the lobby, games and the Hall changes; the player still signs in with the same username.
+- The player is told once: "An administrator changed your display name to Ash." Everyone else sees the new name at once.
+- Renames are written to the sign-in log, including when a player renames themselves.
+
+**Rooms and decks**
+- Someone who is not in a room is always told "no such room" if they try to change it.
+- Ticking or unticking ready while a game is being played is refused.
+- Sharing a deck with the same player twice at the same moment shares it once and says so once.
+
 ## 1.42.0 — 2026-11-04
 
 Fixes from a full review of the documentation against the code.
