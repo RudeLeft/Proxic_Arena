@@ -204,6 +204,15 @@ player.dungeonsCompleted  one dungeon name per completion
 player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
+rolls                     Phase 9 W-17: the dice rolled lately, public, the
+                          last six: {n (only grows), seat, source "card:N",
+                          name, sides, results [final]}
+decision.arrange.dice     Phase 9 W-17, on the roll questions: {how
+                          (reroll|nudge|swap|swapValue|ignore), sides,
+                          rolls, by [{id, name}], price?, power?,
+                          toughness?}
+decision.arrange.binary   chooseBinary: Forge's BinaryChoiceType
+decision.arrange.crankNext chooseSprocket: the sprocket cranked next turn
 player.commandWords       Phase 9 W-21: one entry per `command` entry, in
                           its order -- {name, says} for an emblem (Forge's
                           card text, markup removed), {name, rooms: [{name,

@@ -236,7 +236,8 @@ the tray from the bottom, the cards as pictures:
   a fault.)
 
 Still open (2026-11-04): W-17 and W-21, then the exit gate. (2026-11-05: W-21
-and Peek decided and built, Amendment 18; W-17 left.) Two parts of
+and Peek decided and built, Amendment 18; W-17 decided and built,
+Amendment 19: every item is done, the exit gate is next.) Two parts of
 built items are recorded as **not built** and need a decision at the
 exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
 3") and Amendment 3's "Pat is splitting the cards" line on the other
@@ -1009,3 +1010,74 @@ opening hand, and there is no Peek button. The owner chose:
   click on the table, one at a time; the graveyard viewer and the "Every
   choice" tray fade with Space and Peek; screenshots in
   test-results/seen/w21-*.png.
+
+**Amendment 19 (2026-11-05, W-17 decided -- dice, rolls and Un-set
+choices; canvas https://claude.ai/artifact/NJ1vSPfRqfSkyopVdiqim4, with
+working demos).** *Today (a real game; each question exactly as the
+Mechanics Lab dice and Un-set games ask it, Ebony Fly's roll on the
+stack):* rolls are plain "Roll: 4" buttons; the reroll question never
+says it costs {1} or that Monitor Monitor is why; "Increase or decrease
+result 6 by 1" is titled "Call it" with coin-flip help ("The game flips
+it") -- the page gives EVERY chooseBinary that title and help; "These are
+the actions you can take" fills the windows; "Pass" never says what
+passing means; the sprocket choices show a raw "--"; the sector and
+sprocket choices don't say what's in each; the crank question shows
+Goblin Slingshot as text; a roll is only a fading message for both
+players. The owner chose:
+
+- **A 3D die, animated** (asked for after the first canvas; approved on
+  the demo): when a card rolls, a die tumbles out beside the card on the
+  stack on BOTH screens and lands on the result, staying until the
+  ability resolves; the roll questions show the rolled dice in 3D in the
+  window -- you click a die (ignore one, reroll it), and a reroll tumbles
+  again in the window and on the stack. A d6 has pips; other dice tumble
+  in their own shape with the number. Reduced motion: no tumble.
+- **Sectors and sprockets say what's in each one**, counted from the
+  board, and pointing at a choice lights those cards; a sprocket says
+  when it cranks ("cranks next turn", "in 2 turns"). Crank shows the
+  Contraption's picture, with Crank / Don't crank.
+- **Fixed with it:** only a real coin call is "Call it"; each other
+  chooseBinary gets its own title and no coin words; no "These are the
+  actions you can take"; the card that rolled and the card letting you
+  change the roll (and its price) are named; "Pass" says what it means
+  ("Keep the 4", "Don't swap", "Don't crank"); the swap buttons show the
+  creature's numbers; plain words for "--".
+- *As built (2026-11-05).* The worker adds `arrange.dice` to the five roll
+  questions (how, the die's sides from the resolving RollDice ability,
+  the rolls, the cards letting the player change it -- Forge's own
+  RollDiceEffect.getRerollCards / getIncrementCards -- and the reroll
+  price from the card's RollRerollCost), `arrange.binary` (Forge's
+  BinaryChoiceType) to every chooseBinary, `arrange.crankNext` to
+  chooseSprocket (whose choices now read "Sprocket 1, cranks next
+  turn"), and `rolls` to every board, players' and spectators' (who,
+  the card, the sides, the final results; numbered, the last six),
+  recorded once per roll from Forge's own roll announcement. The page:
+  Die3D.tsx (CSS 3D cube; other dice in their outline with the number),
+  DiceWindows.tsx (the roll, sector, sprocket and crank windows, and the
+  die beside the card on the stack: it stays while the ability is there,
+  then lingers 3 s and fades; rolls made before the page opened don't
+  tumble). The rolling card is the top of the stack (the question
+  doesn't name it). Not named, because Forge doesn't say at that point:
+  the card behind a swap (Vedalken Squirrel-Whacker) and the effect
+  behind an ignore (Bamboozling Beeble) -- those windows show the card
+  that rolled. A die rerolled tumbles on the stack once the roll is
+  final (Forge announces only the final result).
+- *Evidence:* Mechanics Lab `check-dice.py` (reroll, nudge, swap, ignore:
+  each first question's `arrange.dice` -- how, d6, the rolls offered,
+  Monitor Monitor and {1}, Xenosquirrels; the swap value's power and
+  toughness; the nudge's binary is IncreaseOrDecrease; the roll on BOTH
+  boards with seat, card, sides and the final result = the Fly's power)
+  and `check-unset.py` (the next crank told and said plainly, no "--").
+  Unit tests `DiceWindows.test.tsx` (titles: only a coin call is "Call
+  it" -- shown failing with every binary titled so; the words and pass
+  of each roll window; 3D dice clicked answer the game's own option;
+  power and toughness numbers; a d20's shape; the cube always turns
+  forward to the face; sectors list who is in each and light them;
+  sprockets say when they crank; Crank shows the picture; the stack die,
+  newest per card, lingering then gone, and old rolls not tumbling --
+  shown failing with that rule broken). Browser `match-dice.spec.ts` in
+  a real game: the die beside Ebony Fly on the stack; the reroll window
+  (3D die, Monitor Monitor, Keep the 4, Peek, no filler words); "Raise or
+  lower the roll" with no coin words; two dice to ignore; Gamma lighting
+  two cards; the sprockets; Crank with its picture. Screenshots in
+  test-results/seen/w17-*.png.

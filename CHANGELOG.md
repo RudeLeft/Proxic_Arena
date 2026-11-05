@@ -5,7 +5,7 @@ words, newest first. Each release on GitHub carries the same notes.
 
 ## Unreleased
 
-The status tray's list, and a Peek button (Phase 9).
+The status tray's list, a Peek button, and dice (Phase 9).
 
 **The status tray** (the thin bar beside each player's plate: mana, counters, Monarch, the Ring, emblems, dungeons)
 - Long names are shortened in the row ("Liliana emblem", "Undercity · Secret Entrance"), so one emblem no longer hides behind a lone "+1". The Ring shows once, with how many times it has tempted you.
@@ -16,6 +16,13 @@ The status tray's list, and a Peek button (Phase 9).
 **Peek**
 - Every game window has a **Peek** button: press and hold it to see the table behind the window, let go and it comes back. Holding Space still works.
 - Peek and Space now fade every window: questions, Play or draw and the opening hand, the revealed cards, the graveyard / exile / library viewer, the card close-up and the status list. (During the countdown before a spell resolves, Space still means "resolve now"; use the Peek button then.)
+
+**Dice and the Un-set cards** (Ebony Fly, Monitor Monitor, Xenosquirrels, Bamboozling Beeble, Space Beleren, Contraptions)
+- When a card rolls a die, both players see a 3D die tumble out beside the card on the stack and land on the result.
+- Questions about a roll show your dice in 3D; you click the die. They name the card that rolled and the card letting you change it, with its price ("Monitor Monitor lets you reroll for {1}"), and say what passing means ("Keep the 4").
+- "Increase or decrease the roll" (and odd or even, tap or untap, and the like) no longer calls itself a coin flip. Only a real coin call says "Call it".
+- Choosing a sector (Space Beleren) or a sprocket (Contraptions) shows what is in each one, and pointing at a choice lights those cards. A sprocket says when it cranks.
+- Cranking shows the Contraption's picture, with Crank and Don't crank.
 
 ## 1.44.0 — 2026-11-05
 

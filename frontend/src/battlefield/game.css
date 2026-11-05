@@ -3384,3 +3384,203 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     transition: none;
   }
 }
+
+/* --- PHASE_09 W-17 (Amendment 19): the 3D die ----------------------------- */
+.gs-die {
+  position: relative;
+  display: inline-block;
+  width: var(--die);
+  height: var(--die);
+  perspective: calc(var(--die) * 12);
+  flex: none;
+}
+.gs-die-cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 1.1s cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+.gs-die-face {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid #c7bea8;
+  border-radius: 18%;
+  background: linear-gradient(145deg, #fbf8f1, #e2dccd);
+  box-shadow: inset 0 0 calc(var(--die) * 0.14) rgb(0 0 0 / 15%);
+  backface-visibility: hidden;
+}
+.gs-die-pip {
+  position: absolute;
+  width: 19%;
+  height: 19%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #444, #050505);
+  transform: translate(-50%, -50%);
+}
+.gs-die-poly svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gs-die-poly-out {
+  fill: #d9e2f0;
+  stroke: #7d8aa0;
+  stroke-width: 2;
+}
+.gs-die-poly-in {
+  fill: #f4f7fb;
+  stroke: #7d8aa0;
+  stroke-width: 1.5;
+}
+.gs-die-poly text {
+  font-family: var(--pa-text);
+  font-weight: 700;
+  fill: #1d2633;
+}
+.gs-die-spinning svg {
+  animation: gs-die-spin 1.1s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+@keyframes gs-die-spin {
+  from {
+    transform: rotate(-540deg) scale(0.7);
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+/* On the stack: the die rolls out beside the card that rolled and lands. */
+.gs-roll {
+  position: absolute;
+  z-index: 4500;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 6px rgb(0 0 0 / 50%));
+}
+.gs-roll-toss {
+  animation: gs-roll-toss 1.15s cubic-bezier(0.25, 0.7, 0.35, 1) both;
+}
+@keyframes gs-roll-toss {
+  0% {
+    transform: translate(90px, -110px) scale(0.7);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(30px, -50px) scale(1.05);
+  }
+  70% {
+    transform: translate(0, 0) scale(1);
+  }
+  82% {
+    transform: translate(-5px, -8px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+.gs-roll-fading {
+  opacity: 0;
+  transition: opacity 600ms ease 2400ms;
+}
+/* In a roll question: the dice to click. */
+.gs-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin: 10px 4px 4px 14px;
+}
+.gs-dice-pick {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: #9aa79f;
+  font: inherit;
+  font-size: var(--pa-size-xs);
+  cursor: pointer;
+}
+.gs-dice-pick:hover:not(:disabled),
+.gs-dice-pick:focus-visible {
+  border-color: #d9b26a;
+}
+.gs-dice-pick:disabled {
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-die-cube {
+    transition: none;
+  }
+  .gs-die-spinning svg,
+  .gs-roll-toss {
+    animation: none;
+  }
+}
+/* W-17: cards lit while a sector or sprocket choice is pointed at. */
+.bf-lit {
+  box-shadow:
+    0 0 0 2px #f0d49a,
+    0 0 18px rgb(240 212 154 / 60%);
+}
+.gs-roll-dice {
+  display: flex;
+  gap: 10px;
+}
+/* W-17: sectors and sprockets, each saying what is in it. */
+.gs-places {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-place {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #3a4a42;
+  border-radius: 10px;
+  background: #1b2420;
+  color: #e3e8e4;
+  font: inherit;
+  font-size: var(--pa-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+.gs-place:hover:not(:disabled),
+.gs-place:focus-visible {
+  border-color: #d9b26a;
+}
+.gs-place span {
+  font-size: var(--pa-size-xs);
+  color: #9aa79f;
+}
+.gs-crank-cards {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-crank-card {
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+}
+.gs-crank-card:hover:not(:disabled) {
+  border-color: #d9b26a;
+}

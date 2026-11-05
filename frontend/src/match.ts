@@ -171,6 +171,39 @@ export interface DecisionArrange {
   name?: NameLayout | null;
   /** Phase 9 Amendment 17 -- a target question: what is chosen so far. */
   targets?: TargetsLayout | null;
+  /** Phase 9 W-17 (Amendment 19) -- a roll question's dice. */
+  dice?: DiceLayout | null;
+  /** Phase 9 W-17 -- a two-way choice's kind (Forge's BinaryChoiceType: "HeadsOrTails", "IncreaseOrDecrease"...). */
+  binary?: string | null;
+  /** Phase 9 W-17 -- the sprocket the crank marker moves to next turn. */
+  crankNext?: number | null;
+}
+
+/**
+ * Phase 9 W-17 (Amendment 19) -- what a roll question's window draws: how
+ * the roll may change ("reroll", "nudge", "swap", "swapValue", "ignore"),
+ * the die's sides, the rolls offered, the cards letting the player change
+ * it (snapshot ids) and its price ("{1}"); for "swapValue" the creature's
+ * power and toughness.
+ */
+export interface DiceLayout {
+  how: string;
+  sides: number;
+  rolls: number[];
+  by: { id: string; name: string }[];
+  price: string | null;
+  power: number | null;
+  toughness: number | null;
+}
+
+/** Phase 9 W-17 -- one die roll, public: who, with which card, the sides, the final results. */
+export interface SnapshotRoll {
+  n: number;
+  seat: number;
+  source: string | null;
+  name: string | null;
+  sides: number;
+  results: number[];
 }
 
 /**
@@ -473,6 +506,8 @@ export interface Snapshot {
    */
   notices: string[];
   battlefield: SnapshotCard[];
+  /** Phase 9 W-17 -- the dice rolled lately (public); absent from an older worker. */
+  rolls?: SnapshotRoll[] | undefined;
   hand: SnapshotCard[];
   /**
    * §6.37, §6.38 — other players' hand cards that FORGE says this
@@ -819,6 +854,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     players: asPlayers(row["players"]),
     notices: asNotices(row["notices"]),
     battlefield: asCards(row["battlefield"]),
+    rolls: asRolls(row["rolls"]),
     hand: asCards(row["hand"]),
     otherHands: asCards(row["otherHands"]),
     casting: asCards(row["casting"]),
@@ -1255,7 +1291,63 @@ function asArrange(value: unknown): DecisionArrange | null {
     divide: asDivide(v["divide"]),
     name: asNameLayout(v["name"]),
     targets: asTargets(v["targets"]),
+    dice: asDice(v["dice"]),
+    binary: asString(v["binary"]),
+    crankNext: asNumber(v["crankNext"]),
   };
+}
+
+function asDice(value: unknown): DiceLayout | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const how = asString(v["how"]);
+  if (!how) return null;
+  const rolls = Array.isArray(v["rolls"])
+    ? v["rolls"].map((r) => asNumber(r)).filter((r): r is number => r !== null)
+    : [];
+  const by = Array.isArray(v["by"])
+    ? v["by"].flatMap((entry) => {
+        if (typeof entry !== "object" || entry === null) return [];
+        const e = entry as Record<string, unknown>;
+        const id = asString(e["id"]);
+        const name = asString(e["name"]);
+        return id && name ? [{ id, name }] : [];
+      })
+    : [];
+  return {
+    how,
+    sides: asNumber(v["sides"]) ?? 6,
+    rolls,
+    by,
+    price: asString(v["price"]),
+    power: asNumber(v["power"]),
+    toughness: asNumber(v["toughness"]),
+  };
+}
+
+/** Phase 9 W-17 -- the dice rolled lately, as the worker keeps them. */
+function asRolls(value: unknown): SnapshotRoll[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const e = entry as Record<string, unknown>;
+    const n = asNumber(e["n"]);
+    const seat = asNumber(e["seat"]);
+    if (n === null || seat === null) return [];
+    const results = Array.isArray(e["results"])
+      ? e["results"].map((r) => asNumber(r)).filter((r): r is number => r !== null)
+      : [];
+    return [
+      {
+        n,
+        seat,
+        source: asString(e["source"]),
+        name: asString(e["name"]),
+        sides: asNumber(e["sides"]) ?? 6,
+        results,
+      },
+    ];
+  });
 }
 
 function asAbout(value: unknown): DecisionAbout | null {

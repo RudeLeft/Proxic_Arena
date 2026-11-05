@@ -22,6 +22,14 @@ Each brings one Un-set card that changes rolls (Phase 8 Amendment 1, owner
   ignore      Bamboozling Beeble on seat 1 itself: two dice, one ignored
               (chooseRollToIgnore) -- the LAST offered; the Fly is the other
 
+Phase 9 W-17 (Amendment 19): each roll question also carries what its
+window draws (`arrange.dice`: how, the die's sides, the rolls offered, the
+cards letting the player change the roll and the price), the nudge's
+"Increase or decrease" says it is that kind of choice and not a coin
+(`arrange.binary`), and the roll itself reaches BOTH players' boards
+(`rolls`: who, with which card, the sides, the final result) so each page
+tumbles the same die.
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
@@ -72,6 +80,40 @@ def sources(g):
     return len(g.untapped_lands(1)) + len([c for c in g.mine(1, name="Ebony Fly") if not c.get("tapped")])
 
 
+DICE_KINDS = ("chooseDiceToReroll", "chooseRollToModify", "chooseRollToSwap", "chooseRollSwapValue",
+              "chooseRollToIgnore", "chooseBinary")
+
+
+def dice_facts(g, st, how, kind, by=None, price=None):
+    """Phase 9 W-17: the first `kind` question's arrange.dice, and the roll on
+    both players' boards (its final result is the Fly's power)."""
+    problems = []
+    dice = ((st.get("arrange") or {}).get(kind) or {}).get("dice") or {}
+    if dice.get("how") != how or dice.get("sides") != 6:
+        problems.append(f"{kind}: the window is told how ({how}) and that it is a d6: {dice}")
+    first = next((a for a in st["asked"] if a[0] == kind), None)
+    if first and dice.get("rolls") != first[1]:
+        problems.append(f"{kind}: the dice drawn are the rolls offered {first[1]}: {dice.get('rolls')}")
+    if by and by not in [c.get("name") for c in dice.get("by") or []]:
+        problems.append(f"{kind}: names the card letting you change the roll ({by}): {dice.get('by')}")
+    if price is not None and dice.get("price") != price:
+        problems.append(f"{kind}: its price {price}: {dice.get('price')}")
+    mine = g.state.get(1, {}).get("rolls") or []
+    theirs = g.state.get(2, {}).get("rolls") or []
+    fly = [r for r in mine if r.get("name") == "Ebony Fly"]
+    if not fly:
+        problems.append(f"the roll reaches the roller's board: {mine}")
+    else:
+        last = fly[-1]
+        if last.get("seat") != 1 or last.get("sides") != 6 or last.get("results") != [st["after"]["power"]]:
+            problems.append(f"the roll on the board: seat 1, a d6, the final {st['after']['power']}: {last}")
+        if not str(last.get("source", "")).startswith("card:"):
+            problems.append(f"the roll names the card that rolled: {last}")
+    if theirs != mine:
+        problems.append(f"a roll is public: the other player's board has the same rolls: {theirs} vs {mine}")
+    return problems
+
+
 def rolls_in(f):
     return [int(m.group(1)) for o in f["options"] for m in [ROLL.match(o.get("label") or "")] if m]
 
@@ -88,6 +130,8 @@ def fly_game(name, extra_cards, ready, answer, lands_needed=4, max_turn=24):
 
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 1 and k in DICE_KINDS:
+            st.setdefault("arrange", {}).setdefault(k, f.get("arrange"))
         got = answer(g, f, st) if seat == 1 else None
         if got is not None:
             return got
@@ -154,6 +198,7 @@ def reroll():
                         f"itself), got {st['lands'] - st['after']['lands']}")
     if not 1 <= (st["after"]["power"] or 0) <= 6:
         problems.append(f"the Fly is the new roll, 1 to 6: {st['after']['power']}")
+    problems += dice_facts(g, st, "reroll", "chooseDiceToReroll", by="Monitor Monitor", price="{1}")
     return outcome(problems, f"Monitor Monitor: the die rerolled for {{1}}, the Fly is a {st['after']['power']}", found)
 
 
@@ -183,6 +228,10 @@ def nudge():
     squirrels = [v for v in st["after"]["board"].values() if v[0] == "Xenosquirrels"]
     if not squirrels or squirrels[0][2].get("P1P1") != 1:
         problems.append(f"one +1/+1 counter removed from Xenosquirrels: {squirrels}")
+    problems += dice_facts(g, st, "nudge", "chooseRollToModify", by="Xenosquirrels")
+    binary = (st.get("arrange") or {}).get("chooseBinary") or {}
+    if binary.get("binary") != "IncreaseOrDecrease":
+        problems.append(f"Increase or decrease is that kind of choice, not a coin call: {binary}")
     return outcome(problems, f"Xenosquirrels: the {roll} became {roll + 1}, one counter spent", found)
 
 
@@ -231,6 +280,10 @@ def swap():
         problems.append(f"the {roll} exchanged with power: the Whacker's power should be {roll}, got {whacker[1]}")
     if st["after"]["power"] != old:
         problems.append(f"the Fly takes the Whacker's old {side} {old}, got {st['after']['power']}")
+    problems += dice_facts(g, st, "swap", "chooseRollToSwap")
+    value = ((st.get("arrange") or {}).get("chooseRollSwapValue") or {}).get("dice") or {}
+    if value.get("how") != "swapValue" or value.get("rolls") != [roll] or value.get("power") is None:
+        problems.append(f"the power-or-toughness window is told the roll and the creature's numbers: {value}")
     return outcome(problems, f"Squirrel-Whacker: the {roll} exchanged with its {side}, the Fly took the old {old}",
                    found)
 
@@ -277,6 +330,7 @@ def ignore():
         problems.append(f"two dice instead of one, both offered: {rolls}")
     if st["after"]["power"] != st["kept"]:
         problems.append(f"the last roll ignored, so the Fly is {st['kept']}, got {st['after']['power']}")
+    problems += dice_facts(g, st, "ignore", "chooseRollToIgnore")
     return outcome(problems, f"Bamboozling Beeble: rolled {rolls}, the last ignored -- the Fly is {st['kept']}", found)
 
 

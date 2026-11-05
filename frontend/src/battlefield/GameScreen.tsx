@@ -73,6 +73,16 @@ import {
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { StatusTray } from "./StatusTray";
+import {
+  CrankWindow,
+  DICE_KINDS,
+  DiceWindow,
+  ROLL_LINGER_MS,
+  RollsOverlay,
+  SectorWindow,
+  SprocketWindow,
+  binaryTitle,
+} from "./DiceWindows";
 import { PeekButton, usePeek } from "./GameWindow";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import {
@@ -527,6 +537,36 @@ export function GameScreen({
       ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
       : null;
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
+  // W-17 -- the cards lit while a sector or sprocket choice is pointed at.
+  const [lit, setLit] = useState<ReadonlySet<string>>(() => new Set());
+  const lightCards = useCallback((ids: readonly string[]) => setLit(new Set(ids)), []);
+  useEffect(() => setLit(new Set()), [decision?.decisionId]);
+  // W-17 -- the dice rolled: each tumbles once, when first seen; the ones
+  // rolled before this page opened (a reload, a late join) don't.
+  const rollsBefore = useRef<number | null>(null);
+  const rollsArrived = useRef(new Map<number, number>());
+  const [rollsNow, setRollsNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!board) return undefined;
+    const rolls = board.rolls ?? [];
+    if (rollsBefore.current === null) {
+      rollsBefore.current = rolls.reduce((most, roll) => Math.max(most, roll.n), 0);
+    }
+    let fresh = false;
+    for (const roll of rolls) {
+      if (rollsArrived.current.has(roll.n)) continue;
+      rollsArrived.current.set(roll.n, Date.now());
+      fresh = true;
+    }
+    if (fresh) setRollsNow(Date.now());
+    // Again once the newest linger is over, so a resolved roll's die goes
+    // even when no new board comes.
+    const newest = Math.max(0, ...rollsArrived.current.values());
+    const left = newest + ROLL_LINGER_MS + 700 - Date.now();
+    if (left <= 0) return undefined;
+    const later = window.setTimeout(() => setRollsNow(Date.now()), left);
+    return () => window.clearTimeout(later);
+  }, [board]);
   // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
   // onto the battlefield (nothing answered it): the flight lands on its
   // place there, and the board shows the card only once it has.
@@ -1093,7 +1133,7 @@ export function GameScreen({
           ? `Playing for seat ${decision.actedForSeat}`
           : decision.kind === "chooseOptionalCosts"
             ? optionalCostTitle(decision)
-            : targetsTitle(decision, headingFor(decision.kind)),
+            : (binaryTitle(decision) ?? targetsTitle(decision, headingFor(decision.kind))),
       passWord: passWordFor(decision, question, listOpen),
       artUrl,
       onAnswer: answer,
@@ -1136,6 +1176,19 @@ export function GameScreen({
           }}
         />
       );
+    }
+    // W-17 (Amendment 19) -- dice, sectors, sprockets, cranking.
+    if (DICE_KINDS.has(decision.kind) && decision.arrange?.dice) {
+      return <DiceWindow key={decision.decisionId} {...common} />;
+    }
+    if (decision.kind === "chooseSector") {
+      return <SectorWindow key={decision.decisionId} {...common} onLight={lightCards} />;
+    }
+    if (decision.kind === "chooseSprocket") {
+      return <SprocketWindow key={decision.decisionId} {...common} onLight={lightCards} />;
+    }
+    if (decision.kind === "chooseContraptionsToCrank") {
+      return <CrankWindow key={decision.decisionId} {...common} />;
     }
     // PHASE_09 group 3 -- the card trays (W-07..W-10).
     const tray = trayOf(decision);
@@ -1282,6 +1335,7 @@ export function GameScreen({
             choosable={boardChoosable}
             marked={marked}
             chosenTargets={chosenTargets}
+            lit={lit}
             unpayable={unpayable}
             selected={selected}
             asking={question?.context === "choose"}
@@ -1393,6 +1447,16 @@ export function GameScreen({
               atRef.current = at;
               return (
                 <>
+                  {board && (
+                    <RollsOverlay
+                      rolls={board.rolls ?? []}
+                      stack={board.stack}
+                      since={rollsBefore.current ?? Number.MAX_SAFE_INTEGER}
+                      arrived={rollsArrived.current}
+                      now={rollsNow}
+                      at={at}
+                    />
+                  )}
                   {casting && (
                     <CastingCard
                       key={casting.id}

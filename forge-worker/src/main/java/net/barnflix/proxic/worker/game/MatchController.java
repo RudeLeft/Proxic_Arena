@@ -2773,10 +2773,14 @@ public final class MatchController extends GeneratedControllerBase {
     public List<Integer> chooseDiceToReroll(List<Integer> rolls) {
         List<Integer> left = new java.util.ArrayList<>(rolls);
         List<Integer> chosen = new java.util.ArrayList<>();
+        forge.game.card.CardCollection by = forge.game.ability.effects.RollDiceEffect.getRerollCards(player, MONITOR);
+        String price = by.isEmpty() ? null : costWords(by.get(0).getSVar("RollRerollCost"));
         while (!left.isEmpty()) {
-            int picked = askIndex("chooseDiceToReroll", rollLabels(left), false, "You rolled " + rollList(rolls)
+            List<Integer> offered = new java.util.ArrayList<>(left);
+            int picked = arranged(diceLayout("reroll", offered, by, price), () -> askIndex("chooseDiceToReroll",
+                    rollLabels(offered), false, "You rolled " + rollList(rolls)
                     + ". Choose dice to reroll" + (chosen.isEmpty() ? ", or pass." : " (" + rollList(chosen)
-                    + " chosen), or pass when done."));
+                    + " chosen), or pass when done.")));
             if (picked < 0) {
                 break;
             }
@@ -2788,16 +2792,18 @@ public final class MatchController extends GeneratedControllerBase {
     /** Which roll to change by one, or none. Was a loud stub. */
     @Override
     public Integer chooseRollToModify(List<Integer> rolls) {
-        int picked = askIndex("chooseRollToModify", rollLabels(rolls), false,
-                "You rolled " + rollList(rolls) + ". Choose a roll to change by one, or pass.");
+        List<forge.game.card.Card> by = forge.game.ability.effects.RollDiceEffect.getIncrementCards(player, XENO,
+                NIGHT_SHIFT);
+        int picked = arranged(diceLayout("nudge", rolls, by, null), () -> askIndex("chooseRollToModify",
+                rollLabels(rolls), false, "You rolled " + rollList(rolls) + ". Choose a roll to change by one, or pass."));
         return picked < 0 ? null : rolls.get(picked);
     }
 
     /** Which roll to ignore (one must be). Was a loud stub. */
     @Override
     public Integer chooseRollToIgnore(List<Integer> rolls) {
-        int picked = askIndex("chooseRollToIgnore", rollLabels(rolls), true,
-                "Rolled " + rollList(rolls) + ". Choose a roll to ignore.");
+        int picked = arranged(diceLayout("ignore", rolls, java.util.List.of(), null), () -> askIndex(
+                "chooseRollToIgnore", rollLabels(rolls), true, "Rolled " + rollList(rolls) + ". Choose a roll to ignore."));
         return rolls.get(Math.max(0, picked));
     }
 
@@ -2807,16 +2813,23 @@ public final class MatchController extends GeneratedControllerBase {
             List<forge.game.ability.effects.RollDiceEffect.DieRollResult> rolls) {
         List<String> labels = new java.util.ArrayList<>();
         rolls.forEach(r -> labels.add("Roll: " + r.getModifiedValue()));
-        int picked = askIndex("chooseRollToSwap", labels, false,
-                "Choose a roll to exchange with a creature's power or toughness, or pass.");
+        List<Integer> values = new java.util.ArrayList<>();
+        rolls.forEach(r -> values.add(r.getModifiedValue()));
+        int picked = arranged(diceLayout("swap", values, java.util.List.of(), null), () -> askIndex(
+                "chooseRollToSwap", labels, false,
+                "Choose a roll to exchange with a creature's power or toughness, or pass."));
         return picked < 0 ? null : rolls.get(picked);
     }
 
     /** Exchange the roll with power or with toughness, or neither. Was a loud stub. */
     @Override
     public String chooseRollSwapValue(List<String> swapChoices, Integer currentResult, int power, int toughness) {
-        int picked = askIndex("chooseRollSwapValue", swapChoices, false, "Exchange the roll of " + currentResult
-                + " with power (" + power + ") or toughness (" + toughness + ")? Pass for neither.");
+        com.google.gson.JsonObject how = diceLayout("swapValue", java.util.List.of(currentResult),
+                java.util.List.of(), null);
+        how.getAsJsonObject("dice").addProperty("power", power);
+        how.getAsJsonObject("dice").addProperty("toughness", toughness);
+        int picked = arranged(how, () -> askIndex("chooseRollSwapValue", swapChoices, false, "Exchange the roll of "
+                + currentResult + " with power (" + power + ") or toughness (" + toughness + ")? Pass for neither."));
         return picked < 0 ? null : swapChoices.get(picked);
     }
 
@@ -2847,10 +2860,12 @@ public final class MatchController extends GeneratedControllerBase {
             int there = forge.game.card.CardLists.count(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
                     forge.game.card.CardPredicates.isContraptionOnSprocket(sprocket));
             labels.add("Sprocket " + sprocket + (there > 0 ? " (" + there + " there)" : "")
-                    + (sprocket == next ? " -- cranked next turn" : ""));
+                    + (sprocket == next ? ", cranks next turn" : ""));
         }
-        return sprockets.get(Math.max(0, askIndex("chooseSprocket", labels, true,
-                "Assemble " + ViewerSnapshot.nameFor(assignee, player.getView()) + " onto a sprocket.")));
+        // Phase 9 W-17 -- the sprocket the crank marker moves to next turn.
+        return sprockets.get(Math.max(0, arranged(layout("crankNext", String.valueOf(next)), () -> askIndex(
+                "chooseSprocket", labels, true,
+                "Assemble " + ViewerSnapshot.nameFor(assignee, player.getView()) + " onto a sprocket."))));
     }
 
     /**
@@ -2921,6 +2936,67 @@ public final class MatchController extends GeneratedControllerBase {
             left -= picked;
         }
         return result;
+    }
+
+    // Forge's own words for the cards that change a roll (RollDiceEffect).
+    private static final String MONITOR = "Once each turn, you may pay {1} to reroll one or more dice you rolled.";
+    private static final String XENO = "After you roll a die, you may remove a +1/+1 counter from Xenosquirrels. If you"
+            + " do, increase or decrease the result by 1.";
+    private static final String NIGHT_SHIFT = "After you roll a die, you may pay 1 life. If you do, increase or"
+            + " decrease the result by 1. Do this only once each turn.";
+
+    /**
+     * Phase 9 W-17 (Amendment 19) -- what a roll question's window draws:
+     * the dice offered and how many sides they have (from the ability
+     * rolling, on the stack: Ebony Fly's d6), and the cards letting this
+     * player change the roll, with the price when there is one.
+     */
+    private com.google.gson.JsonObject diceLayout(String how, List<Integer> rolls,
+            List<forge.game.card.Card> by, String price) {
+        com.google.gson.JsonObject dice = new com.google.gson.JsonObject();
+        dice.addProperty("how", how);
+        dice.addProperty("sides", rollingSides());
+        com.google.gson.JsonArray values = new com.google.gson.JsonArray();
+        rolls.forEach(values::add);
+        dice.add("rolls", values);
+        com.google.gson.JsonArray cards = new com.google.gson.JsonArray();
+        for (forge.game.card.Card card : by) {
+            com.google.gson.JsonObject one = new com.google.gson.JsonObject();
+            one.addProperty("id", "card:" + card.getId());
+            one.addProperty("name", ViewerSnapshot.nameFor(card, player.getView()));
+            cards.add(one);
+        }
+        dice.add("by", cards);
+        if (price != null) {
+            dice.addProperty("price", price);
+        }
+        com.google.gson.JsonObject layout = new com.google.gson.JsonObject();
+        layout.add("dice", dice);
+        return layout;
+    }
+
+    /** The sides of the die the resolving ability rolls; a d6 when it doesn't say. */
+    private int rollingSides() {
+        SpellAbility top = player.getGame().getStack().isEmpty() ? null
+                : player.getGame().getStack().peekAbility();
+        for (SpellAbility sa = top; sa != null; sa = sa.getSubAbility()) {
+            if (sa.getApi() == forge.game.ability.ApiType.RollDice) {
+                try {
+                    return Integer.parseInt(sa.getParamOrDefault("Sides", "6"));
+                } catch (NumberFormatException e) {
+                    return 6;
+                }
+            }
+        }
+        return 6;
+    }
+
+    /** "1" -> "{1}": a cost SVar as mana symbols, the way the page reads them. */
+    private static String costWords(String svar) {
+        if (svar == null || svar.isBlank()) {
+            return null;
+        }
+        return svar.matches("\\d+") ? "{" + svar + "}" : svar;
     }
 
     private static List<String> rollLabels(List<Integer> rolls) {
@@ -3886,12 +3962,13 @@ public final class MatchController extends GeneratedControllerBase {
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
         labels.put("binary:yes", firstOf(kind));
         labels.put("binary:no", secondOf(kind));
-        String answer =
+        // Phase 9 W-17 -- which kind, so only a coin call reads as one.
+        String answer = arranged(layout("binary", kind.name()), () ->
                 askOne(
                         "chooseBinary",
                         question == null || question.isBlank() ? labelOf(kind) : question,
                         labels,
-                        true);
+                        true));
         if (answer == null) {
             return defaultVal != null && defaultVal;
         }
@@ -4881,7 +4958,28 @@ public final class MatchController extends GeneratedControllerBase {
                 ? ""
                 : sa.getHostCard().getName() + ": ";
         host.note(actedForSeat, about + message);
+        // Phase 9 W-17 -- a die roll, recorded once, by the roller's own
+        // controller (Forge tells every player): the page tumbles a die.
+        if (sa != null && sa.getApi() == forge.game.ability.ApiType.RollDice && realtimeTarget == player) {
+            java.util.regex.Matcher m = ROLLED.matcher(value == null ? "" : value.split("\\R", 2)[0]);
+            if (m.find()) {
+                java.util.List<Integer> results = new java.util.ArrayList<>();
+                for (String n : m.group(1).split(",\\s*")) {
+                    results.add(Integer.parseInt(n.trim()));
+                }
+                int sides;
+                try {
+                    sides = Integer.parseInt(sa.getParamOrDefault("Sides", "6"));
+                } catch (NumberFormatException e) {
+                    sides = 6;
+                }
+                host.rolled(actedForSeat, sa.getHostCard(), sides, results);
+            }
+        }
     }
+
+    /** Forge's "Alice rolled 4, 5" (lblPlayerRolledResult): the final results. */
+    private static final java.util.regex.Pattern ROLLED = java.util.regex.Pattern.compile("(\\d+(?:,\\s*\\d+)*)\\s*$");
 
     /** How many times this seat was offered priority. Diagnostics. */
     public int priorityWindows() {

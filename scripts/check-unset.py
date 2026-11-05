@@ -22,6 +22,7 @@ Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
 import json
+import re
 import os
 import sys
 
@@ -153,7 +154,8 @@ def contraption(crank):
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "chooseSprocket":
-            st["sprocket"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt")))
+            st["sprocket"].append((seat, [o.get("label") for o in f["options"]], f.get("prompt"),
+                                   (f.get("arrange") or {}).get("crankNext")))
             return f["options"][-1]["actionId"]
         if k == "chooseContraptionsToCrank":
             st["crank"].append((seat, len(f["options"]), f.get("prompt")))
@@ -194,8 +196,13 @@ def contraption(crank):
     if not st["sprocket"] or not st["crank"] or st["after"] is None:
         return "inconclusive", "a Contraption was never assembled and then offered for cranking", found
     problems = []
-    seat, labels, prompt = st["sprocket"][0]
-    if seat != 1 or [l.split(" ")[1] for l in labels] != ["1", "2", "3"] or             not prompt.startswith("Assemble Goblin Slingshot onto a sprocket"):
+    seat, labels, prompt, crank_next = st["sprocket"][0]
+    # Phase 9 W-17: the window is told which sprocket cranks next turn, and
+    # the choices say so in plain words (no "--").
+    said_next = [m.group(1) for l in labels for m in [re.match(r"Sprocket (\d)\b.*cranks next turn", l)] if m]
+    if crank_next is None or said_next != [str(crank_next)] or any("--" in l for l in labels):
+        problems.append(f"the next crank, told to the window and said plainly: {crank_next}, {labels}")
+    if seat != 1 or [re.match(r"Sprocket (\d)", l).group(1) for l in labels] != ["1", "2", "3"] or             not prompt.startswith("Assemble Goblin Slingshot onto a sprocket"):
         problems.append(f"seat 1 assembles the Slingshot onto sprocket 1, 2 or 3: {st['sprocket'][0]}")
     if st.get("shown") != [3, 3]:
         problems.append(f"both boards should show the Slingshot on sprocket 3: {st.get('shown')}")

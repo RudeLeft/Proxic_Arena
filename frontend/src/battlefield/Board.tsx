@@ -277,6 +277,9 @@ export interface BoardProps {
   /** Phase 9 Amendment 17 -- the targets already chosen for the spell
    * being cast: a TARGET tag, so the player sees what is picked. */
   chosenTargets?: ReadonlySet<string>;
+  /** Phase 9 W-17 -- the cards in the sector or on the sprocket the
+   * player is pointing at in the question: lit, and said ("pointed at"). */
+  lit?: ReadonlySet<string>;
   /** Forge is asking for a CHOICE (a target, an attacker...), not just
    * what to do with priority: choosable objects then say "choose". */
   asking?: boolean;
@@ -600,6 +603,7 @@ export function Board({
   selected,
   marked,
   chosenTargets,
+  lit,
   asking,
   rail,
   top,
@@ -703,10 +707,11 @@ export function Board({
       const isSelected = ids.some((one) => one === selected);
       const isTargeted = ids.some((one) => targeted.has(one));
       const isChosen = ids.some((one) => chosenTargets?.has(one));
+      const isLit = ids.some((one) => lit?.has(one));
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       return {
-        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}`,
+        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}`,
         words: [
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
@@ -714,6 +719,7 @@ export function Board({
           marks ? (ids.length > 1 ? `${marks} selected` : "selected") : "",
           isTargeted ? "targeted" : "",
           isChosen ? "chosen as a target" : "",
+          isLit ? "pointed at" : "",
         ],
         marks,
         chosen: isChosen,
@@ -723,6 +729,7 @@ export function Board({
           "data-marked": marks ? String(marks) : undefined,
           "data-unpayable": dim ? "true" : undefined,
           "data-chosen-target": isChosen ? "true" : undefined,
+          "data-lit": isLit ? "true" : undefined,
         },
         handlers: {
           // Spec 0037: and the whole stack, for "block with all of these".
@@ -736,7 +743,7 @@ export function Board({
         },
       };
     };
-  }, [choosable, unpayable, selected, marked, chosenTargets, targeted, onPick, onInspect]);
+  }, [choosable, unpayable, selected, marked, chosenTargets, lit, targeted, onPick, onInspect]);
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];

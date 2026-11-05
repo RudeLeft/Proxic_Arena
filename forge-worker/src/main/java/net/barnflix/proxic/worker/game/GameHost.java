@@ -362,6 +362,42 @@ public final class GameHost {
         }
     }
 
+    /**
+     * Phase 9 W-17 (Amendment 19) -- the dice rolled lately, public: who
+     * rolled, with which card, how many sides, the final results. Each
+     * has a number that only grows, so a page tumbles a die once per roll
+     * and both players see the same one. Bounded like the notices.
+     */
+    private final java.util.Deque<com.google.gson.JsonObject> rolls = new java.util.ArrayDeque<>();
+
+    private int rollsSeen = 0;
+
+    private static final int ROLLS_KEPT = 6;
+
+    synchronized void rolled(int seat, forge.game.card.Card source, int sides, java.util.List<Integer> results) {
+        com.google.gson.JsonObject roll = new com.google.gson.JsonObject();
+        roll.addProperty("n", ++rollsSeen);
+        roll.addProperty("seat", seat);
+        if (source != null) {
+            roll.addProperty("source", "card:" + source.getId());
+            roll.addProperty("name", source.getName());
+        }
+        roll.addProperty("sides", sides);
+        com.google.gson.JsonArray values = new com.google.gson.JsonArray();
+        results.forEach(values::add);
+        roll.add("results", values);
+        rolls.addLast(roll);
+        while (rolls.size() > ROLLS_KEPT) {
+            rolls.removeFirst();
+        }
+    }
+
+    private synchronized com.google.gson.JsonArray rollsSoFar() {
+        com.google.gson.JsonArray out = new com.google.gson.JsonArray();
+        rolls.forEach(roll -> out.add(roll.deepCopy()));
+        return out;
+    }
+
     /** Spec 0045 -- Forge showed this seat these cards (MatchController#reveal). */
     void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords) {
         Causes now = causes;
@@ -698,6 +734,7 @@ public final class GameHost {
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
+            snapshot.add("rolls", rollsSoFar());
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {
@@ -713,6 +750,7 @@ public final class GameHost {
             if (damage != null) {
                 everyone.add("damage", damage.deepCopy());
             }
+            everyone.add("rolls", rollsSoFar());
             try {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);
             } catch (RuntimeException e) {

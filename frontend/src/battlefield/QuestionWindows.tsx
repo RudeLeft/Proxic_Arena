@@ -159,14 +159,14 @@ export function listGroups(
  * Spec 0042: the card being cast is already big in the middle. Spec 0044:
  * so is the hand card an optional cost is asked about.
  */
-function beingCast(board: Snapshot, decision: Decision, card: SnapshotCard): boolean {
+export function beingCast(board: Snapshot, decision: Decision, card: SnapshotCard): boolean {
   return (
     board.casting.some((c) => c.id === card.id) ||
     (decision.kind === "chooseOptionalCosts" && board.hand.some((c) => c.id === card.id))
   );
 }
 
-function Picture({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => string }) {
+export function Picture({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => string }) {
   const look = lookOf(card.kind, card.types);
   return (
     <div className={`bf-card bf-look-${look}`} aria-hidden="true">
@@ -309,7 +309,7 @@ function ChosenLine({ decision, board }: { decision: Decision; board: Snapshot }
 }
 
 /** "Pass", or what backing out undoes ("Cancel Lightning Bolt"). */
-function PassButton({
+export function PassButton({
   word,
   busy,
   onPass,
@@ -326,7 +326,7 @@ function PassButton({
   );
 }
 
-interface Common {
+export interface Common {
   decision: Decision;
   question: Question;
   board: Snapshot;
@@ -421,7 +421,12 @@ export function ChoiceWindow(props: Common) {
   // The game's hint ("not cast, nothing paid"), and the table as the
   // other way to answer when it can.
   const hint = [
-    plainHint(decision.kind, decision.options.length),
+    // W-17: the coin words belong to a coin call alone.
+    decision.kind === "chooseBinary" &&
+    decision.arrange?.binary &&
+    decision.arrange.binary !== "HeadsOrTails"
+      ? ""
+      : plainHint(decision.kind, decision.options.length),
     question.onBoard.size > 0 ? "Or click a highlighted card or player on the table." : "",
   ]
     .filter(Boolean)
