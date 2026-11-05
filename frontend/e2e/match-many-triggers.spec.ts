@@ -17,10 +17,39 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
-const MAKERS =
-  /^(Dragon Fodder|Krenko's Command|Hordeling Outburst|Goblin Rally|Goblin Instigator|Goblin Arsonist)/;
-const WIPES = /^(Pyroclasm|Sweltering Suns)/;
+// The Goblin makers and what each costs, played only when affordable
+// (the hand's filter cannot tell, see WIPES below).
+const MAKERS: [name: string, mana: number][] = [
+  ["Dragon Fodder", 2],
+  ["Krenko's Command", 2],
+  ["Goblin Instigator", 2],
+  ["Hordeling Outburst", 3],
+  ["Goblin Rally", 5],
+  ["Goblin Arsonist", 1],
+];
+// What each wipe costs, cheapest first: it is cast only when this many
+// Mountains are untapped. The hand's "not enough mana" mark never shows on
+// a card that can be clicked (Board dims only cards that are not
+// choosable), so the hand filter below lets an unaffordable wipe through:
+// CI 41978649343 clicked Sweltering Suns with 2 of 4 Mountains untapped,
+// the cast went back to the hand, and with "cast" already set the host
+// never tried again -- the Goblins lived for the rest of the game.
+const WIPES: [name: string, mana: number][] = [
+  ["Pyroclasm", 2],
+  ["Sweltering Suns", 3],
+];
 const SEEN = "test-results/seen";
+
+/** The host's untapped Mountains, piles counted. */
+async function untappedMountains(page: Page): Promise<number> {
+  const piles = await page
+    .locator(
+      '.bf-cards button[data-controller="viewer"][data-zone^="viewer:land"][data-tapped="false"]',
+    )
+    .filter({ hasText: "Mountain" })
+    .evaluateAll((els) => els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)));
+  return piles.reduce((a, b) => a + b, 0);
+}
 
 /** The host's Goblin creatures on the battlefield, piles counted. */
 async function goblins(page: Page): Promise<number> {
@@ -51,7 +80,10 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
 
+    // A wipe was put on the stack with the Goblins on the table; they died
+    // when the Goblin count then fell to none.
     let cast = false;
+    let died = false;
     let copies = 0;
     let yesToAll = 0;
     let lifeBefore = NaN;
@@ -63,7 +95,17 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
       yesToAll > 0 &&
       ((await host.locator(".gs-over").count()) > 0 ||
         (await life(host, "opponent")) <= lifeBefore - Math.min(copies, lifeBefore));
+    // A game that has ended shows nothing more: stop and say how it ended,
+    // instead of watching a finished table until the deadline (as dee3667
+    // and 87103a2 did for the other game specs).
+    const ended = async () =>
+      [
+        ...(await host.locator("#gs-over-text").allTextContents()),
+        ...(await guest.locator("#gs-over-text").allTextContents()),
+      ].join(" ");
     while (Date.now() < deadline && !(await settled())) {
+      if (await ended()) break;
+      if (cast && !died && (await goblins(host)) === 0) died = true;
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
@@ -142,8 +184,11 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
             const card = hand.filter({ hasText: name });
             if ((await card.count()) === 0) return false;
             await clickNow(card);
+            // Sweltering Suns offers its cast and its cycling: the cast.
             const popup = page.locator(".gs-popup .gs-option");
-            if ((await popup.count()) > 0) await clickNow(popup);
+            const castIt = popup.filter({ hasNotText: /cycling/i });
+            if ((await castIt.count()) > 0) await clickNow(castIt);
+            else if ((await popup.count()) > 0) await clickNow(popup);
             return true;
           };
           if (page === guest) {
@@ -156,11 +201,34 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
             .count();
           if (await playing("Mountain")) continue;
           if (!boggart && (await playing("Boggart Shenanigans"))) continue;
-          if (boggart && (await goblins(page)) >= 3 && !cast && (await playing(WIPES))) {
-            cast = true;
-            continue;
+          // The wipe, once the Goblins are out and only when it can be paid
+          // for. Until they have died it may be cast again: a cast that
+          // went back to the hand killed nothing.
+          if (boggart && !died && (await goblins(page)) >= 3) {
+            const mana = await untappedMountains(page);
+            let wiped = false;
+            for (const [name, cost] of WIPES) {
+              if (mana >= cost && (await playing(new RegExp(`^${name}`)))) {
+                wiped = true;
+                break;
+              }
+            }
+            if (wiped) {
+              cast = true;
+              continue;
+            }
           }
-          if (!cast && (await playing(MAKERS))) continue;
+          if (!cast) {
+            const mana = await untappedMountains(page);
+            let made = false;
+            for (const [name, cost] of MAKERS) {
+              if (mana >= cost && (await playing(new RegExp(`^${name}`)))) {
+                made = true;
+                break;
+              }
+            }
+            if (made) continue;
+          }
           await clickNow(act);
           continue;
         }
@@ -173,8 +241,13 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
       }
       await host.waitForTimeout(100);
     }
-    expect(cast, "the host never cast Pyroclasm over its Goblins").toBe(true);
-    expect(copies, "the first copy's target was asked with Same target for all").toBeGreaterThan(1);
+    const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
+    expect(cast, `the host never cast Pyroclasm over its Goblins${why}`).toBe(true);
+    expect(
+      copies,
+      `the first copy's target was asked with Same target for all` +
+        `${died ? " (the Goblins died)" : " (the Goblins never died)"}${why}`,
+    ).toBeGreaterThan(1);
     expect(yesToAll, "the first yes offered Yes to all").toBe(copies);
     // The page answered the rest: every copy hit the opponent (or killed them).
     expect(await settled(), "every copy dealt 1 after one Yes to all").toBe(true);
