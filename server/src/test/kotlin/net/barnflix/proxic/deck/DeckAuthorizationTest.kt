@@ -196,6 +196,41 @@ class DeckAuthorizationTest {
         assertFalse(access.mayManage(), "a recipient must not be able to delete or re-share")
     }
 
+    /**
+     * §4.104 — two share requests for the same player at the same
+     * instant make one share, and only one of them is told it created
+     * it; the other hears "already shared", as a repeat does. Both said
+     * Created until 2026-11-04 (owner, from the documentation review).
+     */
+    @Test
+    fun `racing shares create one share, and say so once`() {
+        val mine = deck("Mono Red", owner)
+        val sharing = DeckSharing(dataSource(), auth)
+        val tries = 8
+        val start = java.util.concurrent.CountDownLatch(1)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(tries)
+        val results =
+            try {
+                (1..tries)
+                    .map { pool.submit<ShareResult> { start.await().let { sharing.share(mine, owner, "Pat") } } }
+                    .also { start.countDown() }
+                    .map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+            } finally {
+                pool.shutdownNow()
+            }
+
+        assertEquals(1, results.count { it is ShareResult.Created }, "told Created: $results")
+        assertEquals(tries - 1, results.count { it is ShareResult.AlreadyShared }, "the others: $results")
+        var rows = -1
+        withConnection { connection ->
+            connection.prepareStatement("SELECT count(*) FROM deck_share WHERE deck_id = ?").use {
+                it.setObject(1, mine)
+                it.executeQuery().use { found -> if (found.next()) rows = found.getInt(1) }
+            }
+        }
+        assertEquals(1, rows, "share rows")
+    }
+
     /** §4.143 — the third user is the one two-user tests miss. */
     @Test
     fun `a deck shared with one user stays invisible to a third`() {

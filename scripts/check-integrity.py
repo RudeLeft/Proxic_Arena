@@ -18,8 +18,9 @@ only with --record.
   Test Deck    the canonical TXT and CSV match their committed bytes
                and their recorded SHA-256
   Forge        the vendored tree's HEAD is the pin in
-               PHASE_00_ACCEPTED_DECISIONS.md and it has no change of
-               any kind against it
+               forge-pin.properties (forge.commit, what the build uses;
+               it read PHASE_00_ACCEPTED_DECISIONS.md until 2026-11-04)
+               and it has no change of any kind against it
 
 Local only: CI has no sibling checkouts. Exit 0 when everything held,
 1 when something did not.
@@ -50,8 +51,8 @@ def sha256(path):
 
 
 def pin():
-    text = (ROOT / "docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md").read_text(encoding="utf-8")
-    return re.search(r"\b[0-9a-f]{40}\b", text).group(0)
+    text = (ROOT / "forge-pin.properties").read_text(encoding="utf-8")
+    return re.search(r"^forge\.commit=([0-9a-f]{40})\s*$", text, re.MULTILINE).group(1)
 
 
 if "--record" in sys.argv:

@@ -368,8 +368,8 @@ schema from scratch on next start.
 ## Forge version
 
 The pinned commit lives in `forge-pin.properties`, read by both build
-systems (`scripts/check-integrity.py` alone reads the same commit from
-`PHASE_00_ACCEPTED_DECISIONS.md`):
+systems and by `scripts/check-integrity.py` (since 2026-11-04; it read
+`PHASE_00_ACCEPTED_DECISIONS.md` before):
 
 ```text
 forge.commit=4ec5f1a2c32fa90ecb983a72b9eb47aa5c5d7676

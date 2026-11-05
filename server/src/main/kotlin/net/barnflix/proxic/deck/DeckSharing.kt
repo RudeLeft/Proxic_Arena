@@ -95,26 +95,29 @@ class DeckSharing(
         existingShare(deckId, recipient.userId)?.let { return ShareResult.AlreadyShared(it) }
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(
-                "INSERT INTO deck_share (share_id, deck_id, shared_with_user_id, created_by_user_id) " +
-                    "VALUES (?, ?, ?, ?) ON CONFLICT (deck_id, shared_with_user_id) DO NOTHING",
-            ).use { statement ->
-                statement.setObject(1, UUID.randomUUID())
-                statement.setObject(2, deckId)
-                statement.setObject(3, recipient.userId)
-                statement.setObject(4, ownerId)
-                statement.executeUpdate()
-            }
+            val inserted =
+                connection.prepareStatement(
+                    "INSERT INTO deck_share (share_id, deck_id, shared_with_user_id, created_by_user_id) " +
+                        "VALUES (?, ?, ?, ?) ON CONFLICT (deck_id, shared_with_user_id) DO NOTHING",
+                ).use { statement ->
+                    statement.setObject(1, UUID.randomUUID())
+                    statement.setObject(2, deckId)
+                    statement.setObject(3, recipient.userId)
+                    statement.setObject(4, ownerId)
+                    statement.executeUpdate()
+                }
             // ON CONFLICT DO NOTHING rather than a second check:
             // two share requests racing both pass a check-then-insert,
             // and §4.104 asks for that case to end in one row rather
-            // than an error. The row is read back so the answer
-            // describes what IS, not what we tried to write.
+            // than an error. Only the request whose row went in says
+            // Created; the one that lost the race says AlreadyShared, as
+            // a repeat does (it said Created too until 2026-11-04). The
+            // row is read back so the answer describes what IS.
             val stored = existingShare(deckId, recipient.userId)
-            if (stored == null) {
-                ShareResult.Rejected("SHARE_FAILED", "That share could not be created.")
-            } else {
-                ShareResult.Created(stored)
+            when {
+                stored == null -> ShareResult.Rejected("SHARE_FAILED", "That share could not be created.")
+                inserted == 0 -> ShareResult.AlreadyShared(stored)
+                else -> ShareResult.Created(stored)
             }
         }
     }

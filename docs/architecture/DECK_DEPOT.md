@@ -101,8 +101,10 @@ is the protection.
   not the share's.
 - **Twice is fine** (§4.33) — idempotent, answered `200` rather than
   `201`. The insert uses `ON CONFLICT DO NOTHING` and reads the row
-  back, so two requests racing end with one share (both may be answered
-  `201`; the share is the same) (§4.104).
+  back, so two requests racing end with one share (§4.104). Only the
+  request whose row went in is answered `201`; the other gets `200`, as
+  a repeat does (both could be answered `201` until 2026-11-04, owner;
+  `DeckAuthorizationTest`).
 - **By username, exactly** (§4.29) — normalized the way accounts are,
   so `pAt` finds `Pat`. The Share panel no longer asks for it to be
   typed: the deck's share list carries `candidates`, every other active

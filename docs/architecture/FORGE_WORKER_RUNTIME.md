@@ -26,9 +26,9 @@ mismatch (below).
 `forge_patches/README.md`). The vendored checkout
 `spikes/forge-phase0a/forge-upstream` is never edited (VEND-001);
 `scripts/check-integrity.py` proves it is at the pinned commit with no
-change. That script reads the commit from
-`PHASE_00_ACCEPTED_DECISIONS.md` (its first 40-character hash), not from
-`forge-pin.properties`; the two agree today.
+change. That script reads the commit from `forge-pin.properties`
+(`forge.commit`), as the builds do (it read the first 40-character hash
+in `PHASE_00_ACCEPTED_DECISIONS.md` until 2026-11-04, owner).
 
 ## Build
 
