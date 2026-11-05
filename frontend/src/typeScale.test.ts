@@ -56,10 +56,12 @@ describe("the type scale", () => {
         ({ value }) =>
           value !== "inherit" &&
           !/^var\(--pa-(display|text|mono|card)\b/.test(value) &&
-          value !== '"Proxic Card Title"',
+          value !== '"Proxic Card Title"' &&
+          value !== '"Barlow Condensed"',
       );
       // Only styles.css itself names the faces, in their variables (and the
-      // card-title face's own @font-face, spec 0032).
+      // shipped faces' own @font-face rules: the card title, spec 0032, and
+      // the display face, owner 2026-11-04).
       expect(typed, `hand-typed typeface in ${sheet}`).toEqual([]);
     });
   }

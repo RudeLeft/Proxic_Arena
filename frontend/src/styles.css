@@ -11,6 +11,42 @@
   font-display: swap;
 }
 
+/* The display face, --pa-display (spec 0017). It was only named, never
+   shipped, so a player without it installed saw Segoe UI (owner
+   2026-11-04). Google Fonts' Latin files, the four weights the app uses;
+   SIL Open Font License, assets/fonts/OFL-barlow.txt. */
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-400.woff2") format("woff2");
+  font-weight: 100 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-700.woff2") format("woff2");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg: #0d1014;

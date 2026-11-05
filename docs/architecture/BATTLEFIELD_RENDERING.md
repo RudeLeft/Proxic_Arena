@@ -224,8 +224,10 @@ rather than teleports.
 8. **Fonts are self-hosted.** Screenshot regression (§7.43) is not
    trustworthy against a web-font request. *As built (2026-11-04):* only
    the card-title face ships (`assets/fonts/card-title.woff2`, spec
-   0032). Barlow Condensed is named in the font stacks but not shipped,
-   so a player without it installed sees the next font in the stack.
+   0032), and Barlow Condensed in four weights since 2026-11-04 (owner:
+   it was named in the font stacks but not shipped, so a player without
+   it installed saw Segoe UI; `assets/fonts/barlow-condensed-*.woff2`,
+   SIL Open Font License in `OFL-barlow.txt`).
 
 9. **Lifecycle guarantees of Phase 1 §1.18 still apply** to the overlay
    layers and any animation loop: no duplicates across navigation, no
