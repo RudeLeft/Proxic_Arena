@@ -273,9 +273,9 @@ jobs:
       # which proves nothing, so it fails too. Three at a time: each is
       # its own worker process and none depends on timing. Each prints its
       # whole output when it finishes, so the log stays readable. Each has
-      # five minutes -- you-choose and cost-kinds ten: they hold forty-odd
-      # games each and took about three minutes on a development machine
-      # (Phase 8 P8-F, 2026-10-23) -- because a hung scenario once
+      # five minutes -- you-choose, cost-kinds and who-did-it fifteen: they
+      # hold forty-odd games each; cost-kinds took about 9.5 minutes in CI
+      # (2026-11-05) and once ran past ten with every game passing -- because a hung scenario once
       # ran the whole job into its time limit, and a killed job keeps no
       # log at all, so nobody could tell which one it was.
       # An INCONCLUSIVE scenario (exit 2) never reached its moment -- the
@@ -309,7 +309,7 @@ jobs:
               take-backs trigger-costs land-mana spectator \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=600;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=900;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then

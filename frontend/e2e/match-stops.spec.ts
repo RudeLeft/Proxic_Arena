@@ -80,7 +80,7 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
           // yes-or-no window (madness at cleanup: "Do you want to play Fiery
           // Temper?") has its own buttons, not a list.
           const question = matchPanel(page).locator(
-            ".gs-question li button, .gs-win li button, .gs-combat li button, .gs-win button.gs-win-btn",
+            ".gs-question li button, .gs-win li button, .gs-combat li button, .gs-win button.gs-win-btn:not(.gs-peek-btn)",
           );
           if ((await question.count()) > 0) {
             await question
