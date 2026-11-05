@@ -161,7 +161,11 @@ A setup is `READY` until something ends it:
 
 `CONSUMED` is written by Phase 6 and by nothing in Phase 5. Nothing
 in Phase 5 ever rewrites a `CONSUMED` row — that is a match that
-happened, and tidying it would be falsifying history.
+happened, and tidying it would be falsifying history. *As built
+(2026-11-04, owner, V037):* a finished room is removed seven days after
+it closes, and its setups (consumed ones too) with it; the history is the
+`match` row, which keeps the setup and room ids (no longer database
+references) and its participants.
 
 While a room is `READY_FOR_MATCH`, ordinary configuration is blocked
 (§5.116). Cancelling is the way back; a guest leaving, being removed

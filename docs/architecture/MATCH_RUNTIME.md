@@ -67,9 +67,9 @@ result`).
 
 While a match is `LAUNCHING` or `RUNNING` its room is `IN_MATCH`:
 
-- no lobby action can change it -- leave, close, readying, prepare are
-  refused (§6.152; un-readying is accepted and changes nothing that
-  matters); the match ends through the game: its own end, a concession
+- no lobby action can change it -- leave, close, readying and
+  un-readying, prepare are refused (§6.152; un-readying was accepted and
+  changed nothing until 2026-11-04, owner); the match ends through the game: its own end, a concession
   (PHASE_07 §7.55), "End the game" for a player gone as long as the away
   setting (spec 0054), or "Abandon match" -- or an administrator closing
   the room from the Admin page, which abandons the match first

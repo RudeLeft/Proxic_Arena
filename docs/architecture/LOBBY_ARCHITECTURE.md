@@ -26,9 +26,9 @@ the code itself created.
 A room id is **not** a capability. Knowing one gets you nothing: the
 only ways into a room are an invitation the server recorded (below) or
 an Ask to join the host accepts (spec 0016), and a non-member reading a
-room gets the same 404 as somebody naming an id that was never issued.
-Actions differ: a non-member's host action is refused `403` and some are
-refused `409` on a stale revision first (`LOBBY_PROTOCOL.md`); rooms are
+room, or trying to change it, gets the same 404 as somebody naming an
+id that was never issued (membership is checked before the host and
+revision checks since 2026-11-04, owner; `LOBBY_PROTOCOL.md`). Rooms are
 listed for everyone anyway (§7.64).
 
 ---
@@ -346,9 +346,11 @@ A sweep every minute closes them (`ROOM_CLOSED` with reason `IDLE_30`,
 reason `AWAY`), ends the memberships, invalidates any unconsumed setup
 and tells whoever was in it. Once an hour, finished rooms older than
 seven days are removed — a diagnostics window, not an archive (§5.126) —
-except a room whose setup was `CONSUMED`, which is every room that
-played a game: those are kept, because a match points at its room and
-the room is never deleted from under it (`RoomExpiry.purgeFinished`).
+rooms that played a game included, with their setups (owner 2026-11-04,
+V037; they were kept forever before). The match keeps the room and
+setup ids as history; nothing about a finished game reads the room.
+A room whose match is still starting or running is never removed
+(`RoomExpiry.purgeFinished`).
 
 Unlike the session sweep, this one is **not housekeeping**: nothing
 else closes an idle room, so if it stopped running, abandoned rooms

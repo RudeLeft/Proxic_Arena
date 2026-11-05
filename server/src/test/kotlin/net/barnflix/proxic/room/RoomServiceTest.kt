@@ -18,6 +18,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -230,6 +231,10 @@ class RoomServiceTest {
         assertEquals(RoomError.AlreadyInARoom, refusal(rooms.create(host)))
         val other = ok(rooms.create(stranger))
         assertEquals(RoomError.AlreadyInARoom, refusal(rooms.join(other.roomId, guest)))
+        // §6.152 — nor is the ready tick changed mid-game (owner
+        // 2026-11-04: unticking was accepted and changed nothing).
+        assertEquals(RoomError.MatchInProgress, refusal(rooms.setReady(room.roomId, guest, false)))
+        assertEquals(RoomError.MatchInProgress, refusal(rooms.setReady(room.roomId, guest, true)))
     }
 
     /** §5.22 — a full room refuses rather than growing. */
@@ -314,16 +319,30 @@ class RoomServiceTest {
         assertEquals(RoomStatus.OPEN, rooms.find(room.roomId)!!.status)
     }
 
-    /** §4.65's lesson: a stranger learns nothing about a room. */
+    /**
+     * §4.65's lesson: a stranger learns nothing about a room. Every
+     * change answers "no such room", before the host check (403) or the
+     * revision check (409) could say it is there (owner 2026-11-04: host
+     * actions answered 403, and a stale revision 409, first).
+     */
     @Test
     fun `a stranger acting on a room is told it does not exist`() {
         val room = roomWithBoth()
+        val old = room.revision - 1
         assertEquals(RoomError.NotFound, refusal(rooms.leave(room.roomId, stranger)))
         assertEquals(RoomError.NotFound, refusal(rooms.selectDeck(room.roomId, stranger, hostDeck)))
         assertEquals(RoomError.NotFound, refusal(rooms.setReady(room.roomId, stranger, true)))
-        // Not HostRequired for configuration, either: that would
-        // confirm the room exists.
-        assertEquals(RoomError.HostRequired, refusal(rooms.setPlayerCount(room.roomId, stranger, 2)))
+        assertEquals(RoomError.NotFound, refusal(rooms.setPlayerCount(room.roomId, stranger, 2)))
+        assertEquals(RoomError.NotFound, refusal(rooms.close(room.roomId, stranger)))
+        assertEquals(RoomError.NotFound, refusal(rooms.remove(room.roomId, stranger, guest)))
+        // With an out-of-date revision too: the stale check comes after.
+        assertEquals(RoomError.NotFound, refusal(rooms.selectDeck(room.roomId, stranger, hostDeck, old)))
+        assertEquals(RoomError.NotFound, refusal(rooms.setReady(room.roomId, stranger, false, old)))
+        assertEquals(RoomError.NotFound, refusal(rooms.setPlayerCount(room.roomId, stranger, 2, old)))
+        assertEquals(RoomError.NotFound, refusal(rooms.remove(room.roomId, stranger, guest, old)))
+        // A member still learns which rule refused them.
+        assertEquals(RoomError.HostRequired, refusal(rooms.setPlayerCount(room.roomId, guest, 2)))
+        assertIs<RoomError.StaleRevision>(refusal(rooms.setReady(room.roomId, guest, false, old)))
     }
 
     // --- decks and readiness ---------------------------------------------

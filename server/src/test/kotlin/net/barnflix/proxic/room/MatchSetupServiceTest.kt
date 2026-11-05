@@ -202,6 +202,20 @@ class MatchSetupServiceTest {
         assertEquals(RoomStatus.OPEN, rooms().find(room.roomId)!!.status)
     }
 
+    /**
+     * A stranger preparing or cancelling is told the room does not
+     * exist, even with an out-of-date revision (owner 2026-11-04: the
+     * revision check answered 409 first, the host check 403).
+     */
+    @Test
+    fun `a stranger cannot learn that a room exists by preparing it`() {
+        val room = readyRoom()
+        val stranger = userId("Sam")
+        val prepared = setups().prepare(room.roomId, stranger, room.revision - 1)
+        assertEquals(RoomError.NotFound, assertIs<PrepareResult.Refused>(prepared).error)
+        assertEquals(RoomError.NotFound, assertIs<RoomResult.Refused>(setups().cancel(room.roomId, stranger)).error)
+    }
+
     /** §5.92 — the exact required number of members. */
     @Test
     fun `a half empty room cannot be prepared`() {

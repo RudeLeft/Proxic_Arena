@@ -42,6 +42,19 @@ private fun stale(
         null
     }
 
+/**
+ * The room, locked, if [userId] is in it; null otherwise. A non-member
+ * changing a room is told "no such room" (404), as for an id never
+ * issued, before a host or revision check could answer 403 or 409 and
+ * say the room is there (owner 2026-11-04). Joining and asking to join
+ * are the calls a non-member is meant to make, and do not use this.
+ */
+internal fun RoomStore.lockedRoomFor(
+    connection: java.sql.Connection,
+    roomId: UUID,
+    userId: UUID,
+): Room? = lockedRoom(connection, roomId)?.takeIf { it.isMember(userId) }
+
 class RoomService(
     dataSource: DataSource,
     private val deckAuthorization: DeckAuthorization,
@@ -219,7 +232,7 @@ class RoomService(
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
-                store.lockedRoom(connection, roomId)
+                store.lockedRoomFor(connection, roomId, hostUserId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             stale(room, expectedRevision)?.let { return@inTransaction it }
 
@@ -261,7 +274,7 @@ class RoomService(
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
-                store.lockedRoom(connection, roomId)
+                store.lockedRoomFor(connection, roomId, hostUserId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             if (!room.isHost(hostUserId)) {
                 return@inTransaction RoomResult.Refused(RoomError.HostRequired)
@@ -295,7 +308,7 @@ class RoomService(
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
-                store.lockedRoom(connection, roomId)
+                store.lockedRoomFor(connection, roomId, hostUserId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             stale(room, expectedRevision)?.let { return@inTransaction it }
 
@@ -362,7 +375,7 @@ class RoomService(
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
-                store.lockedRoom(connection, roomId)
+                store.lockedRoomFor(connection, roomId, userId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             stale(room, expectedRevision)?.let { return@inTransaction it }
 
@@ -411,13 +424,18 @@ class RoomService(
     ): RoomResult =
         store.inTransaction { connection ->
             val room =
-                store.lockedRoom(connection, roomId)
+                store.lockedRoomFor(connection, roomId, userId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             stale(room, expectedRevision)?.let { return@inTransaction it }
             val member =
                 room.member(userId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
 
+            // §6.152 — nor is the ready tick of a game being played: it was
+            // accepted and changed nothing (owner 2026-11-04: refuse it).
+            if (room.status == RoomStatus.IN_MATCH) {
+                return@inTransaction RoomResult.Refused(RoomError.MatchInProgress)
+            }
             if (room.status != RoomStatus.OPEN && ready) {
                 return@inTransaction RoomResult.Refused(RoomError.NotOpen)
             }

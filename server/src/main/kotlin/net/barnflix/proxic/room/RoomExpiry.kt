@@ -18,10 +18,12 @@ internal class RoomExpiry(private val dataSource: DataSource) {
      * diagnostics window and not an archive. CASCADE takes the
      * setups and their seats with it.
      *
-     * A CONSUMED setup holds the room alive, because Phase 6 will
-     * have a live match pointing at it and deleting the room out
-     * from under a running game is the kind of tidy-up that only
-     * shows up in production.
+     * A room that played a game goes too (owner 2026-11-04; V037): its
+     * matches keep the room and setup ids as history, and nothing about
+     * a finished game reads the room. It was kept forever before. A
+     * room whose match is still starting or running is never touched --
+     * deleting it out from under a live game is the kind of tidy-up
+     * that only shows up in production.
      */
     fun purgeFinished(retention: Duration): Int =
         dataSource.connection.use { connection ->
@@ -31,8 +33,8 @@ internal class RoomExpiry(private val dataSource: DataSource) {
                  WHERE status IN ('CLOSED', 'EXPIRED')
                    AND last_activity_at < now() - ?::interval
                    AND NOT EXISTS (
-                         SELECT 1 FROM match_setup s
-                          WHERE s.room_id = room.room_id AND s.status = 'CONSUMED'
+                         SELECT 1 FROM match m
+                          WHERE m.room_id = room.room_id AND m.status IN ('LAUNCHING', 'RUNNING')
                        )
                 """.trimIndent(),
             ).use {

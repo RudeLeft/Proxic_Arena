@@ -88,7 +88,7 @@ class MatchSetupService(
     ): RoomResult =
         setups.inTransaction { connection ->
             val room =
-                rooms.lockedRoom(connection, roomId)
+                rooms.lockedRoomFor(connection, roomId, hostUserId)
                     ?: return@inTransaction RoomResult.Refused(RoomError.NotFound)
             if (!room.isHost(hostUserId)) {
                 return@inTransaction RoomResult.Refused(RoomError.HostRequired)
@@ -144,7 +144,7 @@ class MatchSetupService(
     ): FirstPass =
         setups.inTransaction { connection ->
             val room =
-                rooms.lockedRoom(connection, roomId)
+                rooms.lockedRoomFor(connection, roomId, hostUserId)
                     ?: return@inTransaction refuse(RoomError.NotFound)
 
             if (expectedRevision != null && expectedRevision != room.revision) {
