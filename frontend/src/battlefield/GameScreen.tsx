@@ -20,8 +20,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type ReactNode,
 } from "react";
 import logo from "../assets/logo-header.webp";
 import libraryArt from "../assets/zones/library.webp";
@@ -74,6 +72,8 @@ import {
   targetsTitle,
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
+import { StatusTray } from "./StatusTray";
+import { PeekButton, usePeek } from "./GameWindow";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import {
   DamageTray,
@@ -101,7 +101,7 @@ import { NoticeStack } from "../NoticeStack";
 import { GAME_MESSAGE_MS, inArrival, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead, pictureUrl } from "../closeUp";
-import { ManaCost, ManaText, costChange, symbolUrl, withSymbols } from "./ManaCost";
+import { ManaCost, ManaText, costChange, withSymbols } from "./ManaCost";
 import {
   combatPart,
   gameOverWords,
@@ -1803,12 +1803,6 @@ function StepLadder({
 
 // --- the right-hand column ------------------------------------------------------------
 
-function manaText(pool: Record<string, number>): string {
-  return Object.entries(pool)
-    .map(([colour, n]) => `${n} ${colour}`)
-    .join(" · ");
-}
-
 /** Spec 0045 -- a library nearly empty ("low", 3 or fewer) or empty. */
 export function libraryWarning(count: number): "low" | "empty" | null {
   return count === 0 ? "empty" : count <= 3 ? "low" : null;
@@ -1970,166 +1964,6 @@ function SeatBlock({
           <span className="gs-zone-key">Exile</span>
         </button>
       </div>
-    </div>
-  );
-}
-
-/** Spec 0038 — floating mana in WUBRG order, then colourless. */
-const MANA_ORDER = ["W", "U", "B", "R", "G", "C"] as const;
-/** Spec 0038 — a counter's dot, by Forge's name; any other counter is grey. */
-const COUNTER_DOT: Record<string, string> = {
-  poison: "#6fbf4a",
-  energy: "#e8c547",
-  experience: "#8fb3e8",
-  rad: "#9fe05a",
-  ticket: "#e0905a",
-  tickets: "#e0905a",
-};
-/** Spec 0038 — a tray's one row, in the rail's units: 216 less padding. */
-const TRAY_ROOM = 198;
-const TRAY_GAP = 6;
-/** About how wide an item is drawn, from its words: a chip's padding,
- * border and dot, then ~6.6 per letter at the chips' size. */
-const itemWidth = (text: string, dot: boolean) => 16 + (dot ? 12 : 0) + text.length * 6.6;
-/** "monarch" → "Monarch": Forge names a designation in lower case. */
-const titled = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
-/**
- * Spec 0038 — a player's status tray: floating mana as the real symbols
- * with counts, counters as chips, held markers gold, the command zone
- * purple (a click lists it), the rest behind "+N". Its words, in the
- * plates' old wording, are read aloud.
- */
-export function StatusTray({
-  player,
-  side,
-}: {
-  player: Snapshot["players"][number];
-  side: "opponent" | "viewer";
-}) {
-  const [open, setOpen] = useState(false);
-  const mana = MANA_ORDER.filter((c) => (player.manaPool[c] ?? 0) > 0);
-  const counters = player.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`);
-  const items: { key: string; text: string; width: number; node: ReactNode }[] = [
-    ...mana.map((c) => ({
-      key: `mana:${c}`,
-      width: 26 + 9 * String(player.manaPool[c]).length,
-      text: `${player.manaPool[c]} ${c} mana`,
-      node: (
-        <span className="gs-mana" key={`mana:${c}`}>
-          <img src={symbolUrl(c)} alt={c} draggable={false} />
-          {player.manaPool[c]}
-        </span>
-      ),
-    })),
-    ...player.counters.map((c) => ({
-      key: `counter:${c.name}`,
-      text: `${c.count} ${c.name.toLowerCase()}`,
-      width: itemWidth(`${c.count} ${c.name}`, true),
-      node: (
-        <span
-          className="gs-chip"
-          key={`counter:${c.name}`}
-          style={{ "--dot": COUNTER_DOT[c.name.toLowerCase()] } as CSSProperties}
-        >
-          <span className="gs-chip-dot" aria-hidden="true" />
-          {c.count} {c.name.toLowerCase()}
-        </span>
-      ),
-    })),
-    ...[
-      ...player.designations,
-      ...(player.ringTempted > 0 ? [`Ring ×${player.ringTempted}`] : []),
-    ].map((d) => ({
-      key: `marker:${d}`,
-      text: titled(d),
-      width: itemWidth(d, false),
-      node: (
-        <span className="gs-chip gs-chip-marker" key={`marker:${d}`}>
-          {titled(d)}
-        </span>
-      ),
-    })),
-    ...(player.command.length > 0
-      ? [
-          {
-            key: "command",
-            text: `command zone: ${player.command.join(", ")}`,
-            width: itemWidth(
-              player.command.length === 1
-                ? player.command[0]!
-                : `${player.command.length} in command zone`,
-              false,
-            ),
-            node: (
-              <button
-                type="button"
-                className="gs-chip gs-chip-zone"
-                key="command"
-                aria-expanded={open}
-                onClick={() => setOpen((o) => !o)}
-              >
-                {player.command.length === 1
-                  ? player.command[0]
-                  : `${player.command.length} in command zone`}
-              </button>
-            ),
-          },
-        ]
-      : []),
-  ];
-  // As many as fit in the row; the rest behind "+N" (room kept for it).
-  const total = items.reduce((sum, item, i) => sum + item.width + (i ? TRAY_GAP : 0), 0);
-  const fits = total <= TRAY_ROOM;
-  const shown: typeof items = [];
-  let used = itemWidth("+9", false) + TRAY_GAP;
-  for (const item of fits ? [] : items) {
-    if (used + item.width > TRAY_ROOM) break;
-    shown.push(item);
-    used += item.width + TRAY_GAP;
-  }
-  if (fits) shown.push(...items);
-  // The plates' old line, word for word, for a screen reader.
-  const said = [
-    [
-      ...counters,
-      ...player.designations.map((d) => `· ${d.toLowerCase()}`),
-      ...(mana.length > 0 ? [`mana ${manaText(player.manaPool)}`] : []),
-    ].join("  "),
-    player.command.length > 0
-      ? `command zone: ${player.command.join(", ")}${player.ringTempted > 0 ? ` · the Ring has tempted ${player.ringTempted}×` : ""}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(". ");
-  return (
-    <div
-      className={`gs-status gs-status-${side}${items.length > 0 ? " gs-status-on" : ""}`}
-      data-seat={player.seat}
-    >
-      {said && <span className="pa-visually-hidden">{`${player.name}: ${said}`}</span>}
-      {shown.map((item) => item.node)}
-      {!fits && (
-        <button
-          type="button"
-          className="gs-chip gs-chip-more"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-        >
-          +{items.length - shown.length}
-        </button>
-      )}
-      {open && (
-        <ul className="gs-status-list" aria-label={`${player.name}: everything in play for them`}>
-          {items.map((item) => (
-            <li key={item.key}>
-              <ManaText text={item.text} />
-            </li>
-          ))}
-          {player.command.length > 1 &&
-            player.command.map((thing) => <li key={`zone:${thing}`}>· {thing}</li>)}
-        </ul>
-      )}
     </div>
   );
 }
@@ -3065,10 +2899,12 @@ function Inspect({
   onClose: () => void;
 }) {
   const close = useRef<HTMLButtonElement | null>(null);
+  // Amendment 18 -- Space or Peek fades this window too.
+  const peek = usePeek(true);
   useEffect(() => close.current?.focus({ preventScroll: true }), []);
   const hidden = card && card.faceDown && !card.known;
   return (
-    <div className="gs-backdrop" onClick={onClose}>
+    <div className={`gs-backdrop${peek ? " gs-win-peek" : ""}`} onClick={onClose}>
       <div
         className="gs-inspect"
         role="dialog"
@@ -3130,6 +2966,7 @@ function Inspect({
               <InspectChips card={card} />
             </>
           )}
+          <PeekButton className="gs-inspect-peek" />
           <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
             Close
           </button>
@@ -3217,6 +3054,8 @@ function StackInspect({
   onClose: () => void;
 }) {
   const close = useRef<HTMLButtonElement | null>(null);
+  // Amendment 18 -- Space or Peek fades this window too.
+  const peek = usePeek(true);
   useEffect(() => close.current?.focus({ preventScroll: true }), []);
   const at = board.stack.findIndex((entry) => entry.id === id);
   const entry = board.stack[at]!;
@@ -3238,7 +3077,7 @@ function StackInspect({
   const kind =
     entry.kind === "trigger" ? "Triggered ability" : entry.kind === "ability" ? "Ability" : "Spell";
   return (
-    <div className="gs-backdrop" onClick={onClose}>
+    <div className={`gs-backdrop${peek ? " gs-win-peek" : ""}`} onClick={onClose}>
       <div
         className="gs-inspect"
         role="dialog"
@@ -3299,6 +3138,7 @@ function StackInspect({
               </>
             )}
           </dl>
+          <PeekButton className="gs-inspect-peek" />
           <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
             Close
           </button>
@@ -3348,6 +3188,8 @@ function ZoneViewer({
   onClose: () => void;
 }) {
   const close = useRef<HTMLButtonElement | null>(null);
+  // Amendment 18 -- Space or Peek fades this window too.
+  const peek = usePeek(true);
   useEffect(() => close.current?.focus({ preventScroll: true }), []);
   const whose = (s: number) =>
     s === mySeat ? "Your" : `${board.players.find((p) => p.seat === s)?.name ?? "Their"}'s`;
@@ -3373,7 +3215,7 @@ function ZoneViewer({
   );
   if (zone === "hand") tabs.push({ seat, zone });
   return (
-    <div className="gs-backdrop" onClick={onClose}>
+    <div className={`gs-backdrop${peek ? " gs-win-peek" : ""}`} onClick={onClose}>
       <div
         className="gs-viewer gs-ztray"
         role="dialog"
@@ -3389,6 +3231,7 @@ function ZoneViewer({
           <span className="gs-ztray-count">
             {count === 0 ? "empty" : `${count} card${count === 1 ? "" : "s"} · newest first`}
           </span>
+          <PeekButton className="gs-ztray-peek" />
           <button
             ref={close}
             type="button"

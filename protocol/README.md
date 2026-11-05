@@ -204,6 +204,11 @@ player.dungeonsCompleted  one dungeon name per completion
 player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
+player.commandWords       Phase 9 W-21: one entry per `command` entry, in
+                          its order -- {name, says} for an emblem (Forge's
+                          card text, markup removed), {name, rooms: [{name,
+                          says, next: [room names], here?}]} for a dungeon,
+                          {name} alone for the Ring; public, as `command` is
 decision.notNow           on a priority question: each of the asked player's
                           permanents' abilities NOT offered now, as
                           {objectId: [{label, why}]} ("Needs 7 loyalty");

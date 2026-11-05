@@ -7,6 +7,7 @@
 import { useState } from "react";
 import type { Decision, Snapshot, SnapshotCard } from "../match";
 import { headingFor } from "../matchText";
+import { PeekButton, usePeek } from "./GameWindow";
 
 /** The questions this window answers. */
 export const OPENING_KINDS = new Set([
@@ -60,6 +61,8 @@ export function OpeningHand({
   onBegin: (cards: string[]) => void;
 }) {
   const [picked, setPicked] = useState<string[]>([]);
+  // Amendment 18 -- Space or Peek fades this window too.
+  const peek = usePeek(true);
   const hand = board.hand;
   const me = board.players.find((p) => p.seat === board.seat);
   const mulligans = me?.mulligans ?? 0;
@@ -170,7 +173,7 @@ export function OpeningHand({
 
   return (
     <div
-      className="gs-opening"
+      className={`gs-opening${peek ? " gs-win-peek" : ""}`}
       data-kind={kind}
       role="dialog"
       aria-modal="false"
@@ -220,6 +223,10 @@ export function OpeningHand({
         </ul>
       )}
       <div className="gs-opening-buttons">
+        <span className="gs-win-peek-hint gs-opening-peek">
+          <PeekButton />
+          <span className="gs-peek-or">or hold Space</span>
+        </span>
         {buttons.map((b) => (
           <button
             key={b.key}

@@ -2075,28 +2075,129 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #d9cdf5;
   cursor: pointer;
 }
+/* Phase 9 W-21 (Amendment 18) -- the list, beside its tray: out over the
+   table's right edge, left of the column, pointing at the tray; never over
+   the turn steps, the action button or a plate. In the rail's units. */
+.gs-status .gs-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gs-status-list {
   position: absolute;
-  left: 0;
+  right: calc(100% + 7.4px + 14px);
   z-index: 40000;
-  width: 216px;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-height: 640px;
   box-sizing: border-box;
-  margin: 0;
-  padding: 8px 10px;
-  list-style: none;
-  border: 1px solid #6b5a99;
-  border-radius: 8px;
-  background: #11161d;
-  box-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+  padding: 12px 0;
+  border: 1px solid #3a4a42;
+  border-radius: 12px;
+  background: #121a17;
+  box-shadow:
+    0 16px 44px rgb(0 0 0 / 70%),
+    inset 0 0 0 1px rgb(217 178 106 / 20%);
   font-size: var(--pa-size-sm);
-  line-height: 1.5;
-  color: #dfe4ea;
+  line-height: 1.4;
+  color: #e3e8e4;
+  text-align: left;
+  transition: opacity 120ms ease;
 }
 .gs-status-opponent .gs-status-list {
-  top: 38px;
+  top: -4px;
 }
 .gs-status-viewer .gs-status-list {
-  bottom: 38px;
+  bottom: -4px;
+}
+.gs-status-pointer {
+  position: absolute;
+  right: -8px;
+  width: 14px;
+  height: 14px;
+  border-top: 1px solid #3a4a42;
+  border-right: 1px solid #3a4a42;
+  background: #121a17;
+  transform: rotate(45deg);
+}
+.gs-status-opponent .gs-status-pointer {
+  top: 14px;
+}
+.gs-status-viewer .gs-status-pointer {
+  bottom: 14px;
+}
+/* Only the middle scrolls: the pointer and the buttons always show. */
+.gs-status-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 14px;
+}
+.gs-status-list section {
+  margin: 0;
+}
+.gs-status-from {
+  margin: 0 0 2px;
+  font-size: var(--pa-size-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #d9b26a;
+}
+.gs-status-sec {
+  margin: 10px 0 3px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa79f;
+}
+.gs-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+}
+.gs-status-note {
+  font-size: var(--pa-size-xs);
+  color: #7f8c85;
+}
+.gs-status-thing {
+  margin: 4px 0 6px;
+}
+.gs-status-thing b {
+  color: #fff;
+  font-weight: 600;
+}
+.gs-status-says {
+  margin: 2px 0 0;
+  font-size: var(--pa-size-xs);
+  color: #b9c4bd;
+}
+.gs-status-ring {
+  margin: 3px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--pa-size-xs);
+}
+.gs-status-lit {
+  color: #f0d79a;
+}
+.gs-status-off {
+  color: #6d7a72;
+}
+.gs-status-foot {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding: 0 14px;
+}
+.gs-status-foot .gs-win-btn {
+  padding: 6px 12px;
+  font-size: var(--pa-size-sm);
 }
 
 /* --- PHASE_09 W-00: one look for every game window ------------------------- */
@@ -2210,9 +2311,29 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   min-width: 170px;
 }
 .gs-win-peek-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-right: auto;
   font-size: var(--pa-size-xs);
   color: #7f8c85;
+}
+/* Amendment 18 -- Peek: hold to fade every window and see the table. */
+.gs-win-btn.gs-peek-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: var(--pa-size-sm);
+  touch-action: none;
+  user-select: none;
+}
+.gs-peek-eye {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 .gs-tray-actions .gs-win-peek-hint {
   margin: 0 0 auto;
@@ -3214,8 +3335,17 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #e3e8e4;
 }
 .gs-opening-buttons {
+  position: relative;
   display: flex;
   gap: 14px;
+}
+/* Amendment 18 -- Peek sits left of the answers, the answers stay centred. */
+.gs-opening-peek {
+  position: absolute;
+  right: calc(100% + 28px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 .gs-opening-button {
   min-width: 170px;

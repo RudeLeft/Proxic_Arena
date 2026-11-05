@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## Unreleased
+
+The status tray's list, and a Peek button (Phase 9).
+
+**The status tray** (the thin bar beside each player's plate: mana, counters, Monarch, the Ring, emblems, dungeons)
+- Long names are shortened in the row ("Liliana emblem", "Undercity · Secret Entrance"), so one emblem no longer hides behind a lone "+1". The Ring shows once, with how many times it has tempted you.
+- Clicking a chip or "+N" opens a list beside the tray, left of the right-hand column. It no longer covers the turn steps or the action button.
+- The list says what each thing does: Monarch and the initiative in plain words, an emblem's own words, the dungeon room you're in and where you can go next, and the Ring's four powers with the ones you've earned lit. Mana shows as symbols, and nothing is listed twice.
+- Esc, clicking anywhere else, or clicking the chip again closes it. Opening one player's list closes the other's.
+
+**Peek**
+- Every game window has a **Peek** button: press and hold it to see the table behind the window, let go and it comes back. Holding Space still works.
+- Peek and Space now fade every window: questions, Play or draw and the opening hand, the revealed cards, the graveyard / exile / library viewer, the card close-up and the status list. (During the countdown before a spell resolves, Space still means "resolve now"; use the Peek button then.)
+
 ## 1.44.0 — 2026-11-05
 
 Choosing targets, and cards you can't pay for (Phase 9).

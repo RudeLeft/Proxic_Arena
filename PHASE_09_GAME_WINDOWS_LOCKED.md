@@ -235,7 +235,8 @@ the tray from the bottom, the cards as pictures:
   the stack, caught mid-way by the screenshot: gone a moment later, not
   a fault.)
 
-Still open (2026-11-04): W-17 and W-21, then the exit gate. Two parts of
+Still open (2026-11-04): W-17 and W-21, then the exit gate. (2026-11-05: W-21
+and Peek decided and built, Amendment 18; W-17 left.) Two parts of
 built items are recorded as **not built** and need a decision at the
 exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
 3") and Amendment 3's "Pat is splitting the cards" line on the other
@@ -871,7 +872,7 @@ holding Space fades a window; there is no Peek button. (Corrected
 Space to see the table" -- but a player must use the keyboard to see
 behind a window.) Owner 2026-11-04: a
 visible Peek is designed with the remaining windows (W-21, W-17), on a
-canvas for approval.
+canvas for approval. (Built 2026-11-05: Amendment 18.)
 
 **As built (2026-11-04, a documentation check -- Amendment 14's energy
 words).** The dial says "You have 3." after the card's sentence, not
@@ -949,3 +950,62 @@ hears "not enough mana right now". Battlefield cards keep the old rule
 (the owner was asked about the hand). Evidence: `Board.test.tsx` (the
 rule), and the 15 e2e specs whose "cards I can afford" filter had been
 letting every card through, run one at a time.
+
+**Amendment 18 (2026-11-05, W-21 decided -- the status tray's lists,
+and Peek; canvas https://claude.ai/artifact/WbrE4wYiojHYU2XtWqQmkW).**
+*Today (a real game, both trays filled through the game's own snapshot
+fields):* one emblem with a long name shows as a lone "+1"; the list is
+a plain text box that opens over the action button (and, for "+6", over
+the turn steps too); mana reads as letters ("1 U mana"); the command
+zone is said twice; Esc and clicking elsewhere don't close it, and
+Space doesn't fade it; nothing says what an emblem, the Ring or a
+dungeon room does. Holding Space doesn't fade Play or draw / the
+opening hand, and there is no Peek button. The owner chose:
+
+- **The list says names and what they do.** Grouped (Mana, Counters,
+  Held, Command zone), each thing once, mana as the real symbols. A
+  plain line under each held marker (Monarch, the initiative, the
+  city's blessing) and command-zone item: an emblem's and a dungeon
+  room's words come from the game (the worker sends them; nothing is
+  typed per card); a dungeon names the room the marker is in and the
+  rooms it can go to next; the Ring shows its four powers with the ones
+  earned lit (rule 701.54c, fixed words).
+- **It opens beside the tray** it came from, just left of the
+  right-hand column, pointing at it; never over the turn steps, the
+  action button or a plate. Esc, clicking anywhere else or the chip
+  again closes it; opening one player's list closes the other's.
+- **Short names in the row** ("Liliana emblem", "Undercity · Secret
+  Entrance", "The Ring"); never a lone "+N" -- one thing always shows.
+- **A Peek button in every window**, where "Hold Space to see the
+  table" is today: press and hold to fade the window, let go and it is
+  back; Space still works. Space or Peek fades every window: questions,
+  Play or draw and the opening hand, the reveal tray, the graveyard /
+  exile / library viewer, the card close-up and these lists.
+- *As built (2026-11-05).* The worker sends `player.commandWords` beside
+  `command` (ViewerSnapshot.commandWords: an emblem's Forge card text
+  without markup; a dungeon's rooms from its room abilities -- name,
+  words, the rooms it leads to, the one the marker is in). The page's
+  tray is `StatusTray.tsx`; one list open on the page at a time; the
+  Ring shows once in the row ("The Ring ×2"); chips that open the list
+  are the held markers, the command-zone pieces and "+N" (counters and
+  mana are only listed). The list's middle scrolls, its Peek and Close
+  always show. Peek is one switch for the page (`setPeeking` in
+  GameWindow.tsx): holding Space or any Peek button fades every open
+  window. During spec 0035's countdown Space keeps its meaning, "resolve
+  now", and does not peek; the Peek button still does. The ability menu
+  (W-16) is not faded: it was not in the owner's list.
+- *Evidence:* Mechanics Lab `check-tracked-state.py` -- `emblem` (Karlov's
+  Crossbow's forecast and Chandra, Awakened Inferno's +2: each emblem's
+  words reach both players, plain, one entry per command-zone piece) and
+  `initiative` (the Undercity's nine rooms, Lost Well's words and
+  "Arena, Stash", the marker only in Lost Well, the last room leading
+  nowhere, public). Unit tests `StatusTray.test.tsx` (short names, never
+  a lone "+N" -- shown failing with that rule removed; the Ring once;
+  the list's words; Esc, click away, the chip, one at a time -- shown
+  failing with Esc broken; Space and Peek fade it). Browser
+  `match-status-list.spec.ts` in a real game: Play or draw / the opening
+  hand fades with Space and Peek; both lists beside their trays, clear of
+  the steps, the action button and both plates; their words; Esc, a
+  click on the table, one at a time; the graveyard viewer and the "Every
+  choice" tray fade with Space and Peek; screenshots in
+  test-results/seen/w21-*.png.

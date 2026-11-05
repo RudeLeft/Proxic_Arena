@@ -9,37 +9,91 @@
 // rules allow (the question's own business) and clicking away answers
 // nothing.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { Box, Geometry } from "./layout";
 import { ManaText } from "./ManaCost";
 
-/** Hold Space to fade the window and see the table (rule 6). */
+// Rule 6 (Amendment 18): holding Space, or holding any window's Peek
+// button, fades EVERY open window at once to show the table; letting go
+// brings them back. One switch for the whole page, so a Peek pressed in
+// one window and Space behave the same.
+let peeking = false;
+const peekWatchers = new Set<() => void>();
+export function setPeeking(on: boolean) {
+  if (on === peeking) return;
+  peeking = on;
+  for (const watcher of peekWatchers) watcher();
+}
+const watchPeek = (watcher: () => void) => {
+  peekWatchers.add(watcher);
+  return () => peekWatchers.delete(watcher);
+};
+
+/** Whether the windows are faded right now; `active` adds Space while this window is open. */
 export function usePeek(active: boolean): boolean {
-  const [peek, setPeek] = useState(false);
+  const peek = useSyncExternalStore(
+    watchPeek,
+    () => peeking,
+    () => false,
+  );
   useEffect(() => {
-    if (!active) {
-      setPeek(false);
-      return undefined;
-    }
+    if (!active) return undefined;
     const typing = (target: EventTarget | null) =>
       target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable]");
     const down = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || typing(event.target)) return;
+      // Spec 0035's countdown takes Space first ("resolve now"); the Peek
+      // button still works then.
+      if (event.code !== "Space" || event.defaultPrevented || typing(event.target)) return;
       event.preventDefault();
-      setPeek(true);
+      setPeeking(true);
     };
     const up = (event: KeyboardEvent) => {
-      if (event.code === "Space") setPeek(false);
+      if (event.code === "Space") setPeeking(false);
     };
+    const away = () => setPeeking(false);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
-    window.addEventListener("blur", () => setPeek(false));
+    window.addEventListener("blur", away);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", away);
+      // A window closing while held must not leave the next one faded.
+      setPeeking(false);
     };
   }, [active]);
-  return peek;
+  return active && peek;
+}
+
+/**
+ * The Peek button (Amendment 18): press and hold to fade every window and
+ * see the table, let go and they're back. Holding, not a click, so no
+ * question is ever left hidden.
+ */
+export function PeekButton({ className = "" }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      className={`gs-win-btn gs-peek-btn ${className}`.trim()}
+      aria-label="Peek: hold to see the table (or hold Space)"
+      title="Hold to see the table (or hold Space)"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setPeeking(true);
+      }}
+      onPointerUp={() => setPeeking(false)}
+      onPointerCancel={() => setPeeking(false)}
+      onLostPointerCapture={() => setPeeking(false)}
+      onClick={(event) => event.preventDefault()}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="gs-peek-eye">
+        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      Peek
+    </button>
+  );
 }
 
 const BUBBLE_W = 380;
@@ -101,7 +155,10 @@ export function Bubble({
       </div>
       {children}
       <div className="gs-win-actions">
-        <span className="gs-win-peek-hint">Hold Space to see the table</span>
+        <span className="gs-win-peek-hint">
+          <PeekButton />
+          <span className="gs-peek-or">or hold Space</span>
+        </span>
         {actions}
       </div>
     </div>
@@ -156,7 +213,10 @@ export function Tray({
         {children}
       </div>
       <div className="gs-win-actions gs-tray-actions">
-        <span className="gs-win-peek-hint">Hold Space to see the table</span>
+        <span className="gs-win-peek-hint">
+          <PeekButton />
+          <span className="gs-peek-or">or hold Space</span>
+        </span>
         {actions}
       </div>
     </div>

@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import type { SnapshotReveal } from "../match";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
+import { PeekButton, usePeek } from "./GameWindow";
 
 /** Where a revealed card went, as the tray says it. */
 export function wentWords(to: string | null | undefined): string | null {
@@ -54,9 +55,11 @@ export function RevealTray({
   artUrl: (art: string) => string;
   onClose: () => void;
 }) {
+  // Amendment 18 -- Space or Peek fades this window too.
+  const peek = usePeek(true);
   return (
     <div
-      className={`gs-reveal${atTop ? " gs-reveal-top" : ""}`}
+      className={`gs-reveal${atTop ? " gs-reveal-top" : ""}${peek ? " gs-win-peek" : ""}`}
       role="region"
       aria-label={reveal.said ?? reveal.title.replace(/:$/, "")}
       data-by={reveal.by || undefined}
@@ -77,6 +80,7 @@ export function RevealTray({
         ) : (
           <h2 className="gs-reveal-title">{reveal.title}</h2>
         )}
+        <PeekButton className="gs-reveal-peek" />
         <button
           type="button"
           className="pa-button pa-button-quiet gs-reveal-close"

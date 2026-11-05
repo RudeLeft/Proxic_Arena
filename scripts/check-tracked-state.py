@@ -18,7 +18,12 @@ command zone, and the card marks -- from both seats where it is public.
               mana value <= experience comes back to the battlefield
   initiative  White Plume Adventurer: the initiative; the Undercity in
               the command zone with the room its marker is in, the
-              next room chosen by the player (Lost Well: scry 2)
+              next room chosen by the player (Lost Well: scry 2); every
+              room's words and where it leads, sent to both players
+              (Phase 9 W-21)
+  emblem      Karlov's Crossbow's forecast and Chandra, Awakened
+              Inferno's +2: an emblem for each player, each with its
+              own words from the game, sent to both (Phase 9 W-21)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
@@ -360,7 +365,10 @@ def initiative():
 
     g.run(policy, until=until, max_turn=24)
     me, seen_by_2 = g.player(1, 1), g.player(2, 1)
+    words = next((w for w in me.get("commandWords") or [] if w.get("name") == "Undercity"), {})
+    rooms = {r.get("name"): r for r in words.get("rooms") or []}
     found = {"rooms": st["rooms"], "room_question": st["room_question"], "scry": st["scry"][:4],
+             "room_words": words,
              "designations": me.get("designations"), "opponent_sees": (seen_by_2.get("designations"),
                                                                        seen_by_2.get("command")),
              "stopped": g.stopped_badly()}
@@ -381,11 +389,88 @@ def initiative():
         problems.append("Lost Well's scry 2 was never asked")
     if seen_by_2.get("command") != me.get("command"):
         problems.append(f"the dungeon is public: the opponent sees {seen_by_2.get('command')}")
+    # Phase 9 W-21: each room's own words, where it leads, and the marker.
+    if len(rooms) != 9:
+        problems.append(f"the Undercity's nine rooms should be sent: {sorted(rooms)}")
+    well = rooms.get("Lost Well", {})
+    if "Scry 2" not in (well.get("says") or ""):
+        problems.append(f"Lost Well should say what it does: {well}")
+    if well.get("next") != ["Arena", "Stash"]:
+        problems.append(f"Lost Well leads to Arena and Stash: {well.get('next')}")
+    if [n for n, r in rooms.items() if r.get("here")] != ["Lost Well"]:
+        problems.append(f"the marker is in Lost Well, and only there: {[n for n, r in rooms.items() if r.get('here')]}")
+    if rooms.get("Throne of the Dead Three", {}).get("next") != []:
+        problems.append("the last room leads nowhere")
+    if seen_by_2.get("commandWords") != me.get("commandWords"):
+        problems.append("the dungeon's words are public: the opponent should see the same")
     return result(problems, f"the initiative and the dungeon shown to both players; rooms {st['rooms']}; "
-                            f"the next room chosen by the player; Lost Well's scry asked", found)
+                            f"the next room chosen by the player; Lost Well's scry asked; "
+                            f"every room's words, where it leads and the marker sent to both", found)
 
 
-SCENARIOS = {"marvel": marvel, "ring": ring, "meren": meren, "initiative": initiative}
+def emblem():
+    """Phase 9 W-21 (Amendment 18): an emblem's own words reach both players.
+    Karlov's Crossbow's forecast (in seat 1's upkeep) gives seat 1 an emblem
+    with a static ability; Chandra, Awakened Inferno's +2 gives seat 2 one
+    with a trigger."""
+    g = game("emblem", [("Mountain", 26), ("Karlov's Crossbow", 14), ("Chandra, Awakened Inferno", 20)])
+    st = {"forecast": 0, "plus": 0}
+
+    def policy(g, f):
+        if f["authorisedSeat"] == 2:
+            return seat2_bears(g, f)
+        if f.get("kind") != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        if st["forecast"] == 0:
+            o = pick(f, "remainder of the game")
+            if o:
+                st["forecast"] += 1
+                return o
+        if st["plus"] == 0 and g.mine(1, name="Chandra, Awakened Inferno"):
+            o = pick(f, "Each opponent gets an emblem")
+            if o:
+                st["plus"] += 1
+                return o
+        land = g.play_land(f)
+        if land:
+            return land
+        if not g.mine(1, name="Chandra, Awakened Inferno") and len(g.untapped_lands(1)) >= 6:
+            return cast(g, f, "Chandra, Awakened Inferno")
+        return None
+
+    def emblems(g, viewer, seat):
+        return [w for w in g.player(viewer, seat).get("commandWords") or [] if w.get("name", "").startswith("Emblem")]
+
+    def until(g):
+        return emblems(g, 1, 1) and emblems(g, 1, 2) and not g.state.get(1, {}).get("stack")
+
+    g.run(policy, until=until, max_turn=30)
+    mine, theirs = emblems(g, 1, 1), emblems(g, 1, 2)
+    found = {"seat1": mine, "seat2": theirs, "seat2_sees_seat1": emblems(g, 2, 1),
+             "command": (g.player(1, 1).get("command"), g.player(1, 2).get("command")),
+             "stopped": g.stopped_badly()}
+    if not mine or not theirs:
+        return "inconclusive", "both emblems never made", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    crossbow = next((w for w in mine if "Karlov" in w["name"]), {})
+    chandra = next((w for w in theirs if "Chandra" in w["name"]), {})
+    if "less" not in (crossbow.get("says") or ""):
+        problems.append(f"Karlov's Crossbow's emblem should say what it does: {crossbow}")
+    if "damage to you" not in (chandra.get("says") or ""):
+        problems.append(f"Chandra's emblem should say what it does: {chandra}")
+    for w in mine + theirs:
+        if "<" in (w.get("says") or "") or "CARDNAME" in (w.get("says") or ""):
+            problems.append(f"an emblem's words should be plain: {w}")
+    if found["seat2_sees_seat1"] != mine:
+        problems.append("an emblem is public: seat 2 should see seat 1's words")
+    if len(g.player(1, 1).get("command") or []) != len(g.player(1, 1).get("commandWords") or []):
+        problems.append("one entry of words for each thing in the command zone")
+    return result(problems, f"emblem words sent to both players: {crossbow.get('says')!r} / "
+                            f"{chandra.get('says')!r}", found)
+
+
+SCENARIOS = {"marvel": marvel, "ring": ring, "meren": meren, "initiative": initiative,
+             "emblem": emblem}
 
 if __name__ == "__main__":
     import json

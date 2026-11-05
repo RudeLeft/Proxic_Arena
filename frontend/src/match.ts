@@ -361,12 +361,27 @@ export interface SnapshotPlayer {
   counters: SnapshotCounter[];
   designations: string[];
   command: string[];
+  /**
+   * Phase 9 W-21 (Amendment 18) -- what each command-zone piece does, in
+   * the game's own words, one per `command` entry and in its order: an
+   * emblem's `says`; a dungeon's rooms. Empty from an older worker.
+   */
+  commandWords?: CommandWords[] | undefined;
   /** How many times the Ring has tempted this player; 0 for never. */
   ringTempted: number;
   /** Dungeons this player has completed, one entry each time. */
   dungeonsCompleted: string[];
   /** §7.61 B6 — floating mana by colour ({"R": 1}); empty when there is none. Public. */
   manaPool: Record<string, number>;
+}
+
+/** Phase 9 W-21 -- one command-zone piece, in the game's own words. */
+export interface CommandWords {
+  name: string;
+  /** An emblem's abilities. */
+  says?: string | undefined;
+  /** A dungeon's rooms, in its order: what each does, where it leads, the marker. */
+  rooms?: { name: string; says: string; next: string[]; here: boolean }[] | undefined;
 }
 
 /** Spec 0045 -- some counters, and what put them on. */
@@ -882,6 +897,7 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       counters: asCounters(row["counters"]),
       designations: asNotices(row["designations"]),
       command: asNotices(row["command"]),
+      commandWords: asCommandWords(row["commandWords"]),
       ringTempted: asNumber(row["ringTempted"]) ?? 0,
       dungeonsCompleted: asNotices(row["dungeonsCompleted"]),
       manaPool: asManaPool(row["manaPool"]),
@@ -1031,6 +1047,36 @@ function asDamage(value: unknown): DamageState | null {
     if (source && target && amount !== null) hits.push({ source, target, amount });
   }
   return { key, hits };
+}
+
+/** Phase 9 W-21 -- the command zone's words, keeping only well-formed entries. */
+function asCommandWords(value: unknown): CommandWords[] {
+  if (!Array.isArray(value)) return [];
+  const words: CommandWords[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    const name = asString(row["name"]);
+    if (!name) continue;
+    const rooms = Array.isArray(row["rooms"])
+      ? (row["rooms"] as unknown[]).flatMap((room) => {
+          if (typeof room !== "object" || room === null) return [];
+          const r = room as Record<string, unknown>;
+          const roomName = asString(r["name"]);
+          if (!roomName) return [];
+          return [
+            {
+              name: roomName,
+              says: asString(r["says"]) ?? "",
+              next: asNotices(r["next"]),
+              here: r["here"] === true,
+            },
+          ];
+        })
+      : undefined;
+    words.push({ name, says: asString(row["says"]) ?? undefined, rooms });
+  }
+  return words;
 }
 
 function asCounters(value: unknown): SnapshotCounter[] {

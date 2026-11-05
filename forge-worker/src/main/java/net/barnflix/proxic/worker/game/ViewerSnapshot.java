@@ -162,6 +162,7 @@ final class ViewerSnapshot {
                 entry.add("designations", designations);
             }
             JsonArray command = new JsonArray();
+            JsonArray commandWords = new JsonArray();
             for (Card card : player.getCardsIn(ZoneType.Command)) {
                 // Emblems, dungeons and real cards -- not Forge's own
                 // EFFECT pieces, which are how it keeps "Blight Mamba's
@@ -181,9 +182,13 @@ final class ViewerSnapshot {
                 // check-tracked-state.py, 2026-10-20).
                 String room = card.getType().isDungeon() ? card.getCurrentRoom() : null;
                 command.add(room == null || room.isBlank() ? card.getName() : card.getName() + " (room: " + room + ")");
+                commandWords.add(commandWords(card, room));
             }
             if (command.size() > 0) {
                 entry.add("command", command);
+                // Phase 9 W-21 (Amendment 18): what each one does, in the
+                // game's own words, one entry per `command` entry, in order.
+                entry.add("commandWords", commandWords);
             }
             // The Ring: how many times it has tempted this player,
             // which decides what the Ring-bearer has (Call of the
@@ -847,5 +852,59 @@ final class ViewerSnapshot {
             return "land";
         }
         return "other";
+    }
+
+    /**
+     * Phase 9 W-21 (Amendment 18) -- what a command-zone piece does, in
+     * Forge's own words, so the status tray's list can say it: an
+     * emblem's abilities (Forge's card text, as its own clients show
+     * it), or a dungeon's rooms -- each room's words and the rooms it
+     * leads to, with the one the venture marker is in marked. Nothing is
+     * typed here per card: a new set's emblem reads right without a
+     * change. The Ring says nothing here; its four abilities are the
+     * rules' (701.54c) and the page has them.
+     */
+    static JsonObject commandWords(Card card, String currentRoom) {
+        JsonObject words = new JsonObject();
+        words.addProperty("name", card.getName());
+        if (card.getType().isDungeon()) {
+            JsonArray rooms = new JsonArray();
+            for (forge.game.trigger.Trigger trigger : card.getTriggers()) {
+                forge.game.spellability.SpellAbility room = trigger.getOverridingAbility();
+                if (room == null || !room.hasParam("RoomName")) {
+                    continue;
+                }
+                JsonObject entry = new JsonObject();
+                entry.addProperty("name", room.getParam("RoomName"));
+                entry.addProperty("says", plain(room.getDescription()));
+                JsonArray next = new JsonArray();
+                if (room.hasParam("NextRoomName")) {
+                    for (String name : room.getParam("NextRoomName").split(",")) {
+                        next.add(name.trim());
+                    }
+                }
+                entry.add("next", next);
+                if (room.getParam("RoomName").equals(currentRoom)) {
+                    entry.addProperty("here", true);
+                }
+                rooms.add(entry);
+            }
+            words.add("rooms", rooms);
+        } else if (card != card.getController().getTheRing()) {
+            words.addProperty("says", plain(card.getAbilityText()));
+        }
+        return words;
+    }
+
+    /** Forge's card text without its markup: grey reminder tags, line breaks, CARDNAME. */
+    static String plain(String text) {
+        if (text == null) {
+            return "";
+        }
+        // CARDNAME is already the card's name in Forge's text.
+        return text.replaceAll("<[^>]+>", "")
+                .replace("\r\n", "\n")
+                .replaceAll("\n{2,}", "\n")
+                .trim();
     }
 }
