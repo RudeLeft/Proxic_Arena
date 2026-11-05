@@ -266,6 +266,33 @@ class DeckAuthorizationTest {
         assertFalse(auth.mayViewAsset(owner, UUID.randomUUID(), sha))
     }
 
+    /**
+     * Spec 0051 — a deck's art crop is one of its pictures, under the
+     * same rule as its art (2026-11-04: the check left crops out).
+     */
+    @Test
+    fun `an art crop is visible like the deck's art`() {
+        val mine = deck("With_Crop", owner)
+        val crop = "c".repeat(64)
+        withConnection { connection ->
+            connection.prepareStatement(
+                "INSERT INTO art_asset (content_sha256, byte_size) VALUES (?, 1) ON CONFLICT DO NOTHING",
+            ).use {
+                it.setString(1, crop)
+                it.executeUpdate()
+            }
+            connection.prepareStatement(
+                "INSERT INTO deck_crop_art (deck_id, face_name, art_sha256) VALUES (?, 'Mountain', ?)",
+            ).use {
+                it.setObject(1, mine)
+                it.setString(2, crop)
+                it.executeUpdate()
+            }
+        }
+        assertTrue(auth.mayViewAsset(owner, mine, crop), "the owner could not see their deck's crop")
+        assertFalse(auth.mayViewAsset(stranger, mine, crop), "a stranger saw a private deck's crop")
+    }
+
     /** §4.153 — another user's artwork, by direct reference. */
     @Test
     fun `a stranger cannot fetch artwork from a deck they cannot see`() {

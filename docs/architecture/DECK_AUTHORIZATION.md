@@ -96,7 +96,8 @@ PHASE 4 AMENDMENT 2. Two conditions, both required:
 ```text
 1. accessFor(user, deck).mayView()
 2. the asset is referenced by THAT deck: a deck_entry, a back face
-   (deck_face_art, spec 0008) or a token picture (deck_token, spec 0022)
+   (deck_face_art, spec 0008), a token picture (deck_token, spec 0022)
+   or an art crop (deck_crop_art, spec 0051; added 2026-11-04)
 ```
 
 The second is what the URL shape `/api/decks/{deckId}/assets/{sha}`

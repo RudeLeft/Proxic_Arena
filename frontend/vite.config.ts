@@ -2,7 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // PHASE_01 1.28: in development Vite proxies /api and /ws to Ktor, so
-// the browser talks to one origin and no CORS config is needed. In
+// the browser talks to one origin and no CORS config is needed. The Host
+// is passed through unchanged (no changeOrigin): the server accepts a
+// change whose Origin matches the Host it was sent to, and rewriting
+// Host to :8080 made every sign-in from :5173 a 403 BAD_ORIGIN
+// (2026-11-04). In
 // PRODUCTION Vite does not run at all -- Ktor serves the built static
 // files (1.27).
 export default defineConfig({
@@ -10,7 +14,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": { target: "http://localhost:8080", changeOrigin: true },
+      "/api": { target: "http://localhost:8080" },
       "/ws": { target: "ws://localhost:8080", ws: true },
     },
   },

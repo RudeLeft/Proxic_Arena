@@ -237,7 +237,7 @@ describe("the room", () => {
   it("ignores a close for a different room", () => {
     const state = apply([
       { type: "ROOM", room: room() },
-      { type: "ROOM_CLOSED", roomId: "r-other", reason: "EXPIRED" },
+      { type: "ROOM_CLOSED", roomId: "r-other", reason: "IDLE_30" },
     ]);
     expect(state.room?.roomId).toBe("r-1");
   });

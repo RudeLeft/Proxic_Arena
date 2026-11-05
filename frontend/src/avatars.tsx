@@ -44,7 +44,7 @@ export const RANK_WORDS: Record<Rank, string> = {
  *
  * Spec 0009 — with [status], a badge on its corner: a green dot online,
  * a yellow clock away, a grey cross offline. The shape changes with the
- * colour, and [statusLabel] says it in words ("away 7 minutes").
+ * colour, and [statusLabel] says it in words ("away 7 min").
  *
  * Spec 0011 — with [rank], a gold, silver, bronze or muddy ring inside
  * the same square, and a medal on the other corner (1, 2, 3 or a pile).

@@ -737,9 +737,7 @@ function closedBecause(reason: string | null): string {
       return "An administrator closed this room.";
     case "CLOSED_BY_HOST":
       return "The host closed the room.";
-    case "EXPIRED":
-      return "That room expired after a day of inactivity.";
-    // Spec 0054.
+    // Spec 0054 (it replaced the 24-hour EXPIRED, which nothing sends).
     case "HOST_AWAY":
       return "The host went offline, so the room closed.";
     case "AWAY":
