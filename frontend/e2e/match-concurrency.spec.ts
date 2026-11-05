@@ -283,12 +283,19 @@ test("three matches at once stay separate, and one crashing leaves the others pl
     // SIGKILL, so the worker gets no chance to say anything. What
     // the server sees is a pipe that closed.
     inContainer(`kill -9 ${pids[0]}`);
+    // The result banner's own line: the same words also sit in the
+    // waiting box and a screen-reader copy (three matches; first CI run
+    // of this spec, 2026-11-05).
     await expect(
-      matchPanel(all[0]!.host).getByText(/stopped before it finished/),
+      matchPanel(all[0]!.host)
+        .locator(".gs-over-why")
+        .getByText(/stopped before it finished/),
       "the crashed match tells its players it stopped",
     ).toBeVisible({ timeout: 60_000 });
     await expect(
-      matchPanel(all[0]!.guest).getByText(/stopped before it finished/),
+      matchPanel(all[0]!.guest)
+        .locator(".gs-over-why")
+        .getByText(/stopped before it finished/),
       "and the other player is told too",
     ).toBeVisible({ timeout: 60_000 });
     expect(["LAUNCHING", "RUNNING"]).not.toContain((await currentMatch(all[0]!.host))?.status);
@@ -416,10 +423,14 @@ test("a server restart during a match follows the documented policy", async ({ b
     expect(room.room?.status, "the room is given back").toBe("OPEN");
     expect(workers().length, "no worker outlives the restart").toBe(0);
 
-    // And what the player sees on coming back: the lobby, not a
-    // match that waits for ever.
+    // And what the player sees on coming back: their room in the lobby,
+    // not a match that waits for ever -- deck still chosen, readiness
+    // reset (RoomRecovery), so it asks for "I'm ready" before Start
+    // (the lobby's steps since spec 0016; this spec first ran in CI
+    // 2026-11-05 and still looked for a Start match button).
     await pair!.host.goto("/play");
-    await expect(pair!.host.getByRole("button", { name: "Start match" })).toBeVisible({
+    const roomCard = pair!.host.getByRole("article", { name: `${pair!.hostName}'s room` });
+    await expect(roomCard.getByRole("button", { name: "I'm ready" })).toBeVisible({
       timeout: 30_000,
     });
     await pair!.host.screenshot({ path: "test-results/seen/after-restart.png", fullPage: true });
