@@ -326,6 +326,18 @@ describe("problems", () => {
   });
 });
 
+describe("renamed by an administrator (spec 0041 Amendment 3)", () => {
+  it("is news once, and remembers the new name for your own account", () => {
+    const state = reduceLobby(EMPTY_LOBBY, { type: "RENAMED", displayName: "Patty" });
+    expect(state.news).toEqual(["An administrator changed your display name to Patty."]);
+    expect(state.renamedTo).toBe("Patty");
+  });
+
+  it("ignores a RENAMED with no name", () => {
+    expect(reduceLobby(EMPTY_LOBBY, { type: "RENAMED" })).toBe(EMPTY_LOBBY);
+  });
+});
+
 describe("robustness", () => {
   /**
    * A newer server must not blank an older client's page. Same

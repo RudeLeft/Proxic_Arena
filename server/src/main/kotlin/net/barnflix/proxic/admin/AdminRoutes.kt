@@ -95,6 +95,10 @@ class AdminServices(
     val reports: net.barnflix.proxic.report.Reports? = null,
     /** Spec 0048 — the Belt and records tab; none without a database. */
     val recordsDesk: AdminRecordsDesk? = null,
+    /** Spec 0041 Amendment 3 — renaming a player; none without a database. */
+    val renames: net.barnflix.proxic.auth.Renames? = null,
+    /** Spec 0041 Amendment 3 — a renamed player who is here is told at once. */
+    val renamed: suspend (UUID) -> Unit = {},
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -106,6 +110,8 @@ fun Route.adminRoutes(admin: AdminServices) {
         post("/accounts") { createAccount(admin) }
         put("/accounts/{userId}/status") { changeStatus(admin) }
         put("/accounts/{userId}/role") { changeRole(admin) }
+        // Spec 0041 Amendment 3 — the display name; never the username.
+        adminRenameRoutes(admin)
         // Spec 0026 — a reset link by email; there is no route that sets a password.
         adminResetRoutes(admin)
         // Spec 0027 — the Computers tab.

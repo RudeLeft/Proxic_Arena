@@ -297,6 +297,11 @@ export interface LobbyState {
   standings: Standings | null;
   /** Spec 0019 — the room whose decks are being checked for a Start, if any. */
   checking: string | null;
+  /**
+   * Spec 0041 Amendment 3 — the name an administrator just gave you, until
+   * the page has put it into your own account; null otherwise.
+   */
+  renamedTo: string | null;
 }
 
 export const EMPTY_LOBBY: LobbyState = {
@@ -320,6 +325,7 @@ export const EMPTY_LOBBY: LobbyState = {
   match: null,
   standings: null,
   checking: null,
+  renamedTo: null,
 };
 
 /**
@@ -617,6 +623,18 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         ...state,
         match: { matchId, status, failureCode, participants, outcome: null },
         notice: null,
+      };
+    }
+
+    // Spec 0041 Amendment 3 — an administrator changed your display name:
+    // a notice, once, and your own name follows.
+    case "RENAMED": {
+      const name = typeof message["displayName"] === "string" ? message["displayName"] : null;
+      if (!name) return state;
+      return {
+        ...state,
+        renamedTo: name,
+        news: [...state.news, `An administrator changed your display name to ${name}.`],
       };
     }
 

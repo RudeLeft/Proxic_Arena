@@ -98,6 +98,8 @@ fun Route.accountRoutes(
             AuthResult.SUCCESS,
             username = principal.user.username,
             userId = principal.user.userId,
+            // Spec 0041 Amendment 3: an administrator's rename says `by=<admin>`.
+            detail = "by=self",
         )
         changes.changed()
         call.respond(MeResponse(true, principal.user.copy(displayName = name).view()))

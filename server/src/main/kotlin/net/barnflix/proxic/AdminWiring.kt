@@ -82,6 +82,8 @@ internal fun adminServices(
             ),
         rooms = adminRooms,
         accountsChanged = { parts.lobby.accountChanges?.changed() },
+        renames = net.barnflix.proxic.auth.Renames(database.dataSource()),
+        renamed = { userId -> parts.lobby.accountChanges?.renamed(userId) },
         inviteDesk = inviteDesk(config, parts, mail),
         mailSettings = mail,
         resetDesk = reach.resets,

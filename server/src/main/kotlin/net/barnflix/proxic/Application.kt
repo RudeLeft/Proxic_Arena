@@ -679,6 +679,7 @@ private fun lobbyService(
     standings = net.barnflix.proxic.lobby.StandingsSource(database.dataSource())::standings,
     gameSeats = net.barnflix.proxic.lobby.GameSeats(database.dataSource())::of,
     chatted = net.barnflix.proxic.room.RoomIdle(database.dataSource())::chatted,
+    renameNotice = net.barnflix.proxic.auth.Renames(database.dataSource())::takeNotice,
 )
 
 /**

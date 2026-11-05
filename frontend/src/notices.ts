@@ -96,6 +96,10 @@ export function newsOf(text: string): NewsItem {
       line: "Your room is still open. Invite someone else from Players.",
     };
   }
+  // Spec 0041 Amendment 3 — renamed by an administrator: the one sentence.
+  if (/^An administrator changed your display name to /.test(text)) {
+    return { label: "Account", title: text };
+  }
   return { label: "Request to join", title, line: "You can ask again, or open your own room." };
 }
 

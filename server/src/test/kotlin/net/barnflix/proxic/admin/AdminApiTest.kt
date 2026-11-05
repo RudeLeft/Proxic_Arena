@@ -157,6 +157,8 @@ class AdminApiTest {
             "PUT" to "/api/admin/accounts/{id}/role",
             "POST" to "/api/admin/accounts/{id}/password-reset",
             "PUT" to "/api/admin/accounts/{id}/email",
+            // Spec 0041 Amendment 3 — renaming a player.
+            "PUT" to "/api/admin/accounts/{id}/display-name",
             "POST" to "/api/admin/accounts/{id}/sign-out",
             "GET" to "/api/admin/rooms",
             "POST" to "/api/admin/rooms/{room}/close",

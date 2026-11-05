@@ -66,6 +66,11 @@ describe("the words", () => {
     expect(newsOf("RudeLeft declined your request to join").line).toBe(
       "You can ask again, or open your own room.",
     );
+    // Spec 0041 Amendment 3 — a rename is its own news, in one sentence.
+    expect(newsOf("An administrator changed your display name to Patty.")).toEqual({
+      label: "Account",
+      title: "An administrator changed your display name to Patty.",
+    });
     expect(goneOf({ reason: "WITHDRAWN", fromDisplayName: "RudeLeft" })).toEqual({
       label: "Invitation",
       title: "RudeLeft withdrew the invitation",

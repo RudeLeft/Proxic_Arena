@@ -178,6 +178,66 @@ test("an administrator invites someone, who makes their own account; then sends 
   }
 });
 
+/**
+ * Spec 0041 Amendment 3 (owner 2026-11-04, canvas A/A) — an administrator
+ * renames a player from the Manage menu, in the email's small form; the
+ * player, signed in elsewhere, is told once and their own name follows.
+ */
+test("an administrator renames a player, who is told once", async ({ browser }) => {
+  const admin = await asAdmin(browser);
+  const playerContext = await browser.newContext();
+  const player = await playerContext.newPage();
+  await signInAs(player, secondUser, secondPassword);
+  const me = (await (await player.request.get("/api/auth/me")).json()) as {
+    user: { userId: string; displayName: string };
+  };
+  const was = me.user.displayName;
+  const to = `${was.slice(0, 8)} Two`.slice(0, 12);
+  await player.goto("/play");
+  try {
+    const row = admin
+      .getByRole("region", { name: "Accounts" })
+      .getByRole("listitem")
+      .filter({ has: admin.getByRole("button", { name: `Manage ${was}`, exact: true }) });
+    await manage(row);
+    await admin.screenshot({ path: "test-results/rename-manage-menu.png" });
+    await row.getByRole("menuitem", { name: `Change ${was}'s display name` }).click();
+    const field = row.getByLabel(`Display name for ${was}`);
+    await expect(field).toHaveValue(was);
+    // Required: blank cannot be saved (the box stops at 12 characters).
+    await field.fill("   ");
+    await expect(row.getByRole("button", { name: "Save" })).toBeDisabled();
+    await field.fill(to);
+    await expect(row.getByText(`still signs in as @${secondUser}`)).toBeVisible();
+    await admin.screenshot({ path: "test-results/rename-form.png" });
+    await row.getByRole("button", { name: "Save" }).click();
+    await expect(
+      admin.getByRole("status").filter({ hasText: `${was} is now ${to}.` }),
+    ).toBeVisible();
+    await expect(admin.getByRole("button", { name: `Manage ${to}`, exact: true })).toBeVisible();
+
+    // The player is told, once, and keeps signing in with their username.
+    await expect(
+      noticeCard(player, `An administrator changed your display name to ${to}.`),
+    ).toBeVisible();
+    await player.screenshot({ path: "test-results/rename-notice.png" });
+    const after = (await (await player.request.get("/api/auth/me")).json()) as {
+      user: { username: string; displayName: string };
+    };
+    expect(after.user.displayName).toBe(to);
+    expect(after.user.username.toLowerCase()).toBe(secondUser.toLowerCase());
+  } finally {
+    // Put the name back, through the same route.
+    const csrf = await csrfOf(admin);
+    await admin.request.put(`/api/admin/accounts/${me.user.userId}/display-name`, {
+      headers: { "X-CSRF-Token": csrf },
+      data: { displayName: was },
+    });
+    await playerContext.close();
+    await admin.context().close();
+  }
+});
+
 test("the last administrator is not offered Disable or Make player", async ({ browser }) => {
   const admin = await asAdmin(browser);
   try {

@@ -105,3 +105,21 @@ All taken 2026-10-30 (above).
    create only. The owner decided to build it; it goes through research,
    a canvas and approval like any feature, and this note is updated when
    it ships.
+
+3. **2026-11-04 (owner, canvas
+   https://claude.ai/artifact/4TM43ktBoJdqvsVZEzEWNV, choices A and A) --
+   admin rename BUILT.** Admin page › Accounts › Manage › "Change display
+   name…" opens the same small form as an email address: the current
+   name, the sign-up rule checked as you type (required, up to 12
+   characters), Save and Cancel, and "Shown to everyone in the lobby,
+   games and the Hall. Pat still signs in as @pat." Only the display name
+   changes, never the username. `PUT /api/admin/accounts/{userId}/display-name`
+   (admin + CSRF; 422 `INVALID_DISPLAY_NAME`, 404 `ACCOUNT_NOT_FOUND`),
+   recorded as admin action `DISPLAY_NAME_CHANGED` and auth event
+   `DISPLAY_NAME_CHANGED by=<admin>` (a player's own rename now says
+   `by=self`). Everybody's Players list changes at once. The player is
+   told once -- "An administrator changed your display name to Patty." --
+   as a top-right notice: at once when online, otherwise on their next
+   connect (V038 `app_user.renamed_notice`, lobby message `RENAMED`); an
+   administrator renaming themselves is not told. F-0041-B now holds for
+   Admin's rename too (`AdminRenameTest`, `admin.spec.ts`).

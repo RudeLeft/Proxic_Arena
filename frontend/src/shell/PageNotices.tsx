@@ -94,7 +94,7 @@ export function isGameRoute(pathname: string): boolean {
 
 export function PageNoticesProvider({ children }: { children: ReactNode }) {
   const { lobby, setLobby, send } = useLobbyConnection();
-  const { signOut } = useAuth();
+  const { signOut, state: auth, setUser } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const stale = useNewVersion();
@@ -128,6 +128,14 @@ export function PageNoticesProvider({ children }: { children: ReactNode }) {
       notice: roomNews ? null : previous.notice,
     }));
   }, [lobby.news, lobby.invitationGone, lobby.notice, setLobby]);
+
+  // Spec 0041 Amendment 3 — renamed by an administrator: your own account
+  // shows the new name at once (the notice itself came as news, above).
+  useEffect(() => {
+    if (lobby.renamedTo === null) return;
+    if (auth.status === "authenticated") setUser({ ...auth.user, displayName: lobby.renamedTo });
+    setLobby((previous) => ({ ...previous, renamedTo: null }));
+  }, [lobby.renamedTo, auth, setUser, setLobby]);
 
   const toLobby = useCallback(() => {
     if (pathname !== "/play") void navigate("/play");

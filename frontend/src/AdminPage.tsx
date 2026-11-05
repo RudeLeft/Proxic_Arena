@@ -29,6 +29,7 @@ import {
   recordUrl,
   sendPasswordReset,
   setAccountEmail,
+  setDisplayName,
   setRole,
   setStatus,
   signInsByPerson,
@@ -51,6 +52,7 @@ import { BeltRecordsPanel } from "./AdminRecords";
 import { Invitations } from "./AdminInvites";
 import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
+import { CheckRule, CheckedInput, MAX_DISPLAY_NAME, displayNameOk } from "./fieldChecks";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 /** How often the rooms, server and sign-ins re-read themselves. */
@@ -427,6 +429,7 @@ function AccountRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const emailId = useId();
   const email = account.email ?? null;
   const computers = account.computers ?? 0;
@@ -545,6 +548,20 @@ function AccountRow({
               >
                 Send password reset
               </button>
+              {/* Spec 0041 Amendment 3 (owner 2026-11-04) — the display name
+                  only; the username a player signs in with never changes. */}
+              <button
+                type="button"
+                role="menuitem"
+                aria-label={`Change ${name}'s display name`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setEditingEmail(false);
+                  setRenaming(true);
+                }}
+              >
+                Change display name…
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -553,6 +570,7 @@ function AccountRow({
                 }
                 onClick={() => {
                   setMenuOpen(false);
+                  setRenaming(false);
                   setEmailDraft(email ?? "");
                   setEditingEmail(true);
                 }}
@@ -635,6 +653,9 @@ function AccountRow({
           )}
         </div>
       </div>
+      {renaming && (
+        <RenameForm account={account} me={me} run={run} onDone={() => setRenaming(false)} />
+      )}
       {editingEmail && (
         <form
           className="pa-form pa-form-inline pa-admin-password"
@@ -669,6 +690,79 @@ function AccountRow({
         </form>
       )}
     </li>
+  );
+}
+
+/**
+ * Spec 0041 Amendment 3 — rename a player, in the same small form as an
+ * email address (owner 2026-11-04, canvas choice A): the sign-up rule,
+ * checked as you type. The player is told once, by the server.
+ */
+function RenameForm({
+  account,
+  me,
+  run,
+  onDone,
+}: {
+  account: AdminAccount;
+  me: string;
+  run: Run;
+  onDone: () => void;
+}) {
+  const { state, setUser } = useAuth();
+  const [draft, setDraft] = useState(account.displayName);
+  const fieldId = useId();
+  const ruleId = useId();
+  const ok = displayNameOk(draft);
+  const name = account.displayName;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const to = draft.trim();
+    const done = await run(
+      () => setDisplayName(account.userId, to),
+      () => `${name} is now ${to}.`,
+    );
+    if (!done) return;
+    // Your own row: the header follows at once (nobody else is told).
+    if (account.userId === me && state.status === "authenticated") {
+      setUser({ ...state.user, displayName: to });
+    }
+    onDone();
+  };
+
+  return (
+    <form
+      className="pa-form pa-form-inline pa-admin-password"
+      onSubmit={(event) => void submit(event)}
+    >
+      <label className="pa-visually-hidden" htmlFor={fieldId}>
+        Display name for {name}
+      </label>
+      <CheckedInput
+        id={fieldId}
+        ok={ok}
+        aria-describedby={ruleId}
+        autoComplete="off"
+        maxLength={MAX_DISPLAY_NAME}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        required
+      />
+      <button type="submit" className="pa-button" disabled={!ok}>
+        Save
+      </button>
+      <button type="button" className="pa-button pa-button-quiet" onClick={onDone}>
+        Cancel
+      </button>
+      <CheckRule id={ruleId} ok={ok}>
+        Required, up to {MAX_DISPLAY_NAME} characters
+      </CheckRule>
+      <p className="pa-help">
+        Shown to everyone in the lobby, games and the Hall. {name} still signs in as @
+        {account.username}.
+      </p>
+    </form>
   );
 }
 

@@ -212,6 +212,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `REACTION` | somebody reacted to a chat line (`lineId` is the line's `messageId`), or took it back (`on: false`) | everybody |
 | `ERROR` | a refusal | the asker |
 | `SESSION_ENDED` | your session was revoked | the connection |
+| `RENAMED` | an administrator changed your display name (`displayName`): told once, at once if you are here, else on your next connect (spec 0041 Amendment 3) | every tab of that user |
 
 `ROOM` is sent **once per member**, not once to all of them, because
 each member's copy names only their own deck.
@@ -295,7 +296,7 @@ reminder).
 | Situation | Answer |
 | --- | --- |
 | not signed in | `401` |
-| signed in, not a member | `404` — identical to a room that does not exist (with exceptions, below) |
+| signed in, not a member | `404` — identical to a room that does not exist |
 | member, not the host | `403 ROOM_HOST_REQUIRED` |
 | malformed id | `400` — no real id has that shape, so saying so leaks nothing |
 
@@ -304,14 +305,15 @@ every 404 into one shape, so `ROOM_NOT_FOUND` never reaches a client
 over HTTP. A socket refusal (an invitation accepted for a room that is
 gone) can still carry it in an `ERROR` frame.
 
-Not every refusal is that `404`, though. A host action (remove, close,
-player count, prepare) checks the host before membership, so a
-non-member gets `403 ROOM_HOST_REQUIRED`; and the routes that check the
-revision first (remove, player count, deck choice, ready and prepare)
-answer a non-member who sends a stale `expectedRoomRevision` with
-`409 ROOM_REVISION_STALE` before either. Either says the room exists.
-That reveals nothing new: since PHASE_07 §7.64 every room is on the
-lobby's room list for every signed-in player (spec 0016 kept it).
+Membership is checked first, on every change a non-member could try
+(leave, close, remove, player count, deck choice, ready, prepare,
+cancel): a non-member gets that `404` before the host check (`403`) or
+the revision check (`409`) could say the room exists. Owner 2026-11-04:
+until then a host action answered a non-member `403 ROOM_HOST_REQUIRED`
+and a stale `expectedRoomRevision` `409 ROOM_REVISION_STALE` first --
+harmless, since every room is on the lobby's room list (PHASE_07 §7.64,
+spec 0016), but not the promise above. Joining and asking to join are
+the calls a non-member is meant to make.
 
 ---
 

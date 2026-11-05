@@ -113,3 +113,12 @@ fun joinAskSentMessage(
             put("displayName", host.displayName)
         }
     }
+
+/**
+ * Spec 0041 Amendment 3 — to the player only: an administrator changed
+ * their display name. Sent once (at once, or on their next connect).
+ */
+fun renamedMessage(displayName: String): JsonObject =
+    envelope("RENAMED") {
+        put("displayName", displayName)
+    }

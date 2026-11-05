@@ -9,6 +9,7 @@ import {
   signInsByPerson,
   sizeText,
   setStatus,
+  setDisplayName,
   uptimeText,
   versionParts,
   workerText,
@@ -86,6 +87,25 @@ describe("admin actions", () => {
       ok: false,
       message: "RudeLeft is the only active administrator. Make somebody else one first.",
     });
+  });
+});
+
+describe("renaming a player (spec 0041 Amendment 3)", () => {
+  it("sends the display name to its own address, never the username", async () => {
+    const fetchFn = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ username: "pat", detail: "Pat is now Patty." }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+    const outcome = await setDisplayName("u-1", "Patty", fetchFn as unknown as typeof fetch);
+    expect(outcome.ok).toBe(true);
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(url).toBe("/api/admin/accounts/u-1/display-name");
+    expect(init?.method).toBe("PUT");
+    expect(JSON.parse(init?.body as string)).toEqual({ displayName: "Patty" });
   });
 });
 

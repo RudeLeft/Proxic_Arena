@@ -96,8 +96,9 @@ anyone else is told it does not exist (404). One place answers it,
 
 Account administration — create, list, disable, enable and revoke
 sessions — is in two places, the Admin page and `arena-admin`; changing
-a role (PHASE_07) is on the Admin page only (`arena-admin` has no role
-command). Setting a
+a role (PHASE_07), and since 2026-11-04 a player's display name (spec
+0041 Amendment 3, `PUT /api/admin/accounts/{userId}/display-name`), are
+on the Admin page only (`arena-admin` has neither command). Setting a
 password directly is `arena-admin set-password` only; the Admin page
 sends a reset link instead (spec 0026). `POST /api/admin/accounts`
 creates an account with a password, but no page calls it: the Admin

@@ -454,7 +454,8 @@ there is a single place to get this wrong, and every one is written:
 ```text
 LOGIN_SUCCESS     LOGIN_FAILURE     LOGIN_THROTTLED
 LOGOUT            LOGOUT_EVERYWHERE
-PASSWORD_CHANGED  DISPLAY_NAME_CHANGED
+PASSWORD_CHANGED  DISPLAY_NAME_CHANGED (detail by=self, or
+                   by=<admin username> from the Admin page, spec 0041)
 SESSION_REVOKED   (an administrator ends someone's sessions: the
                    Admin page's sign-out, arena-admin revoke-sessions)
 USER_CREATED      USER_DISABLED     USER_ENABLED

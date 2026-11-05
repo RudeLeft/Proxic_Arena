@@ -82,6 +82,11 @@ class LobbyService(
      * lobby keeps it open. True when its clock moved.
      */
     private val chatted: (UUID) -> Boolean = { false },
+    /**
+     * Spec 0041 Amendment 3 — the name an administrator gave this player
+     * that they have not been told yet, taken (told once); null with none.
+     */
+    private val renameNotice: (UUID) -> String? = { null },
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
 
@@ -111,6 +116,11 @@ class LobbyService(
         accountChanges?.onChange {
             hub.broadcast(playersMessage(accounts()))
             standings()?.let { hub.broadcast(standingsMessage(it)) }
+        }
+        // Spec 0041 Amendment 3 — renamed by an administrator while here:
+        // told at once. Not here: the notice waits for their next connect.
+        accountChanges?.onRenamed { userId ->
+            if (hub.entryFor(userId) != null) renameNotice(userId)?.let { hub.sendTo(userId, renamedMessage(it)) }
         }
     }
 
@@ -242,6 +252,8 @@ class LobbyService(
             hub.sendTo(user.userId, playersMessage(accounts()))
             hub.sendTo(user.userId, listed())
             standings()?.let { hub.sendTo(user.userId, standingsMessage(it)) }
+            // Spec 0041 Amendment 3 — renamed while away: told now, once.
+            renameNotice(user.userId)?.let { hub.sendTo(user.userId, renamedMessage(it)) }
 
             // ...and everybody learns about it, but only if the user was
             // not already here in another tab (§5.6).

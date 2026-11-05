@@ -273,6 +273,13 @@ export const sendPasswordReset = (userId: string, fetchFn: typeof fetch = fetch)
 export const setAccountEmail = (userId: string, email: string, fetchFn: typeof fetch = fetch) =>
   act(`/api/admin/accounts/${userId}/email`, "PUT", { email }, fetchFn);
 
+/** Spec 0041 Amendment 3 — a player's display name; never their username. */
+export const setDisplayName = (
+  userId: string,
+  displayName: string,
+  fetchFn: typeof fetch = fetch,
+) => act(`/api/admin/accounts/${userId}/display-name`, "PUT", { displayName }, fetchFn);
+
 export const signOutEverywhere = (userId: string, fetchFn: typeof fetch = fetch) =>
   act(`/api/admin/accounts/${userId}/sign-out`, "POST", undefined, fetchFn);
 

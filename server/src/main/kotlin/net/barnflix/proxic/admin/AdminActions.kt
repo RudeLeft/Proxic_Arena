@@ -41,6 +41,9 @@ enum class AdminAction {
     // Spec 0048 — the Belt and records tab.
     BELT_RESET,
     PURGE,
+
+    // Spec 0041 Amendment 3 — a player renamed from the Admin page.
+    DISPLAY_NAME_CHANGED,
 }
 
 class AdminActions(private val dataSource: DataSource) {
