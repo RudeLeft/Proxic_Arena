@@ -141,13 +141,32 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
           await clickNow(forest);
           continue;
         }
-        const creature = hand.filter({ hasText: CREATURES });
-        if ((await creature.count()) === 0) {
+        // A creature with no twin on this player's side first: a second copy
+        // joins its twin's pile and has no card of its own to land on, so
+        // that cast cannot count (CI, 2026-11-04: casting twins until the
+        // game ran out of time).
+        const onBoard = await page
+          .locator('.bf-cards button[data-zone^="viewer:"]:not([data-zone="viewer:hand"])')
+          .allInnerTexts();
+        const seen = (text: string) => onBoard.some((t) => t.startsWith(text.split("\n")[0]!));
+        const creatures = hand.filter({ hasText: CREATURES });
+        const names = await creatures.allInnerTexts();
+        const fresh = names.findIndex((name) => !seen(name));
+        const creature = fresh >= 0 ? creatures.nth(fresh) : creatures;
+        if ((await creatures.count()) === 0) {
           await clickNow(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
           continue;
         }
         // Cast it, and watch from the click that pays the last of it.
         await clickNow(creature);
+        // The cast shows a moment after the click: wait for it, or the
+        // paying loop below saw nothing to pay for and left at once, and
+        // a creature that did land was never counted (CI, 2026-11-04).
+        await page
+          .locator(".gs-cast")
+          .first()
+          .waitFor({ state: "attached", timeout: 5_000 })
+          .catch(() => undefined);
         let frames: Frame[] = [];
         const payDeadline = Date.now() + 20_000;
         while (Date.now() < payDeadline && (await page.locator(".gs-cast").count()) > 0) {
