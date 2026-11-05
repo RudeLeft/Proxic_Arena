@@ -254,6 +254,15 @@ from facts that have since expired. §5.93 is honoured rather than
 dodged: nothing checked in step 1 is trusted at step 3 without the
 revision agreeing.
 
+*Step 2, since 2026-11-05 (owner):* each DISTINCT deck is checked
+once -- two seats playing one shared deck get the same verdict, as the
+same deck in the same Forge always would -- and different decks are
+checked at the same time, at most two JVMs at once
+(`MatchSetupService.checkDecks`, `DeckChecksTest`). Each seat still
+gets its own problem, and a check that throws fails preparation as
+before. With a shared deck Start match pays for one Forge start, not
+two; with two decks, for the slower of the two, not their sum.
+
 ---
 
 ## What Phase 6 must do

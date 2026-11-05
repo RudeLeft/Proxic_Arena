@@ -62,7 +62,7 @@ class PasswordResetTest {
             runCatching { DockerClientFactory.instance().isDockerAvailable }.getOrDefault(false),
             "SKIPPED: Docker is not available (ADR 0001)",
         )
-        container = TestPostgres.fresh()
+        container = TestPostgres.fresh(migrated = false)
     }
 
     @AfterTest

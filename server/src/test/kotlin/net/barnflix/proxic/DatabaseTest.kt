@@ -40,7 +40,7 @@ class DatabaseTest {
         requireDocker()
         // Pinned tag, not `latest` (§1.5, §1.56).
         container =
-            TestPostgres.fresh()
+            TestPostgres.fresh(migrated = false)
     }
 
     @AfterTest

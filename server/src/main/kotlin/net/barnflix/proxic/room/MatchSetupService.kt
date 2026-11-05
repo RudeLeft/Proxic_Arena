@@ -4,6 +4,8 @@ import net.barnflix.proxic.deck.DeckAuthorization
 import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 // Preparing and cancelling a match — PHASE_05 §5.91–§5.117.
@@ -57,11 +59,7 @@ class MatchSetupService(
         if (checked !is FirstPass.Proceed) return (checked as FirstPass.Answer).result
 
         // Step 2 — slow, and outside every lock.
-        val problems =
-            checked.decks.mapNotNull { (userId, deckId) ->
-                val check = preflight.validate(deckId)
-                if (check.ok) null else SeatProblem(userId, check.verdict.name, check.detail)
-            }
+        val problems = checkDecks(preflight, checked.decks)
 
         if (problems.isNotEmpty()) {
             // §5.98 — the room stays OPEN, no setup is created, and
@@ -299,4 +297,45 @@ class MatchSetupService(
     }
 
     private fun refuse(error: RoomError): FirstPass = FirstPass.Answer(PrepareResult.Refused(error))
+}
+
+/** How many decks Forge checks at once at preparation (a JVM each, ~611 MB). */
+private const val PREFLIGHT_PARALLEL = 2
+
+/**
+ * Step 2's Forge check, seat by seat (owner 2026-11-05): each DISTINCT
+ * deck is checked once -- two seats playing one shared deck get the same
+ * verdict, as the same deck in the same Forge always would -- and
+ * different decks are checked at the same time, at most
+ * [PREFLIGHT_PARALLEL]. Each seat still gets its own problem. A check
+ * that throws fails preparation exactly as it did one at a time.
+ */
+internal fun checkDecks(
+    preflight: DeckPreflight,
+    decks: List<Pair<UUID, UUID>>,
+): List<SeatProblem> {
+    val distinct = decks.map { it.second }.distinct()
+    val verdicts: Map<UUID, DeckCheck> =
+        if (distinct.size <= 1) {
+            distinct.associateWith { preflight.validate(it) }
+        } else {
+            val pool = Executors.newFixedThreadPool(minOf(distinct.size, PREFLIGHT_PARALLEL))
+            try {
+                distinct
+                    .associateWith { deckId -> pool.submit<DeckCheck> { preflight.validate(deckId) } }
+                    .mapValues { (_, pending) ->
+                        try {
+                            pending.get()
+                        } catch (e: ExecutionException) {
+                            throw e.cause ?: e
+                        }
+                    }
+            } finally {
+                pool.shutdownNow()
+            }
+        }
+    return decks.mapNotNull { (userId, deckId) ->
+        val check = verdicts.getValue(deckId)
+        if (check.ok) null else SeatProblem(userId, check.verdict.name, check.detail)
+    }
 }

@@ -36,7 +36,7 @@ class DeckOwnershipMigrationTest {
             "SKIPPED: Docker is not available (ADR 0001)",
         )
         container =
-            TestPostgres.fresh()
+            TestPostgres.fresh(migrated = false)
     }
 
     @AfterTest
