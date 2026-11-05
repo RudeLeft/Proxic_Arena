@@ -30,6 +30,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -73,8 +74,10 @@ guest: ${(await matchPanel(guest).innerText()).slice(0, 600)}`;
     let quietSince = Date.now();
     let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline) {
       if ((await back.count()) > 0) break;
+      await watch.check();
 
       if (!sawFront && (await front.count()) > 0) {
         // The front, with its imported picture.

@@ -28,6 +28,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -108,7 +109,9 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
     await startAMatch(host, guest, deck);
     let landed = 0;
     const deadline = Date.now() + 780_000;
+    const game = watchGame([host, guest], () => ({ landed }));
     while (landed < 2 && Date.now() < deadline) {
+      await game.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

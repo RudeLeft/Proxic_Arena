@@ -25,6 +25,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 600_000 });
@@ -72,7 +73,9 @@ test("a card shows its art crop in its art window, to both players", async ({ br
 
     const lands = (viewer: "viewer" | "opponent", page = host) => boardCards(page, viewer);
     const deadline = Date.now() + 300_000;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && (await lands("viewer").count()) === 0) {
+      await watch.check();
       const live = (await isAsked(host)) ? host : (await isAsked(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);

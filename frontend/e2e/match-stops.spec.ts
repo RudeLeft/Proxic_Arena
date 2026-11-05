@@ -13,7 +13,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import { clearEverything, matchPanel, sharedDeck, startAMatch, watchGame } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -55,7 +55,9 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
     let skipSeen = 0;
     const deadline = Date.now() + 600_000;
     let lastAction = Date.now();
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && (await turnOf(host)) < 6) {
+      await watch.check();
       // A game nobody can act in is a finding, not a long wait.
       if (Date.now() - lastAction > 90_000) {
         await host.screenshot({ path: "test-results/seen/stops-stalled-host.png", fullPage: true });

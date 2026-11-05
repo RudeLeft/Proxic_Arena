@@ -26,6 +26,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 600_000 });
@@ -48,7 +49,9 @@ test("each printing of a card wears its own picture", async ({ browser }) => {
 
     // Keep, go first, play a land, until the host has a Mountain in play.
     const deadline = Date.now() + 300_000;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && (await boardCards(host, "viewer").count()) === 0) {
+      await watch.check();
       const live = (await isAsked(host)) ? host : (await isAsked(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);

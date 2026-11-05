@@ -27,6 +27,7 @@ import {
   question,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "sacrifice-deck.zip");
@@ -58,7 +59,9 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
     let sacrificed = 0;
     // Bounded by the clock, as every match loop here is.
     const deadline = Date.now() + 600_000;
+    const watch = watchGame([host, guest], () => ({ sacrificed }));
     while (sacrificed < 2 && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

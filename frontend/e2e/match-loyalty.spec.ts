@@ -38,6 +38,7 @@ import {
   isAsked,
   matchPanel,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -282,7 +283,9 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     const deadline = Date.now() + 600_000;
     let answered = 0;
 
+    const watch = watchGame([host, guest], () => [...seen]);
     while (Date.now() < deadline && seen.size < questions.length) {
+      await watch.check();
       // --- is one of the questions under test on screen? --------
       let handled = false;
       for (const question of questions) {

@@ -34,6 +34,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "numbers-deck.zip");
@@ -80,8 +81,10 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
         ...(await guest.locator("#gs-over-text").allTextContents()),
       ].join(" ");
 
+    const watch = watchGame([host, guest], () => [...seen.keys()]);
     while (seen.size < KINDS.length && Date.now() < deadline) {
       if (await ended()) break;
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

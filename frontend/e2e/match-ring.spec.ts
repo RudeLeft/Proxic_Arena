@@ -24,6 +24,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -86,8 +87,10 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
       ].join(" ");
 
     const deadline = Date.now() + 1_000_000;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && !(await everything())) {
       if (await ended()) break;
+      await watch.check();
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);

@@ -545,3 +545,72 @@ export async function sharedDeck(
   }
   return deckName;
 }
+
+/**
+ * Fail fast on a game that has ended or stopped moving (Faster CI Plan,
+ * step 2, 2026-11-05). A scripted game loop that misses the moment it
+ * waits for used to watch a finished or stuck table until its 10-20
+ * minute deadline, then fail with a bare "expected true"; dee3667,
+ * 87103a2, 6127e05 and 77119d7 each added this guard to one spec. Call
+ * `check()` at the top of every pass of the loop, after the loop's own
+ * "done" exits: it throws at once, saying how the game ended (or what the
+ * table showed when it stopped moving) and what the test had seen so far.
+ * It never clicks anything, so a passing run is unchanged.
+ */
+export function watchGame(
+  pages: Page[],
+  seen: () => unknown = () => "",
+  options: { allowEnd?: boolean; stuckMs?: number } = {},
+): { check: () => Promise<void> } {
+  const stuckMs = options.stuckMs ?? 120_000;
+  let last = "";
+  let since = Date.now();
+  const sofar = async () => {
+    const value = await seen();
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    return text ? `; seen so far: ${text}` : "";
+  };
+  return {
+    async check() {
+      const states: string[] = [];
+      const ends: string[] = [];
+      for (const page of pages) {
+        const state = await page
+          .evaluate(() => {
+            const count = (selector: string) => document.querySelectorAll(selector).length;
+            const text = (selector: string) =>
+              (document.querySelector(selector)?.textContent ?? "").trim().slice(0, 160);
+            return {
+              over: text("#gs-over-text"),
+              table: [
+                `turn ${text(".gs-turn-value")}`,
+                `step ${document.querySelector(".gs-steps")?.getAttribute("data-step") ?? ""}`,
+                `life ${[...document.querySelectorAll(".gs-life-n")].map((el) => el.textContent).join("/")}`,
+                `hand ${count('[data-zone="viewer:hand"]')}`,
+                `stack ${count('[data-zone="stack"]')}`,
+                `mine ${count('.bf-cards [data-zone^="viewer:"]:not([data-zone="viewer:hand"])')}`,
+                `theirs ${count('.bf-cards [data-zone^="opponent:"]:not([data-zone="opponent:hand"])')}`,
+                `asked ${count(".gs-question, .gs-your-move, .gs-combat, .gs-win, .gs-opening")}`,
+                `question "${text(".gs-question-title, .gs-win h2, .gs-your-move")}"`,
+              ].join(", "),
+            };
+          })
+          .catch(() => ({ over: "", table: "page closed" }));
+        if (state.over) ends.push(state.over);
+        states.push(state.table);
+      }
+      if (ends.length > 0 && !options.allowEnd) {
+        throw new Error(`the game ended before the test was done: "${ends[0]}"${await sofar()}`);
+      }
+      const now = states.join(" || ");
+      if (now !== last) {
+        last = now;
+        since = Date.now();
+      } else if (Date.now() - since > stuckMs) {
+        throw new Error(
+          `the game has not moved for ${Math.round(stuckMs / 1000)} s: ${now}${await sofar()}`,
+        );
+      }
+    },
+  };
+}

@@ -19,6 +19,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "ci-deck.zip");
@@ -92,7 +93,9 @@ test("a third player watches a game, read-only, and the players see it", async (
     const before = await turnOf(viewer);
     const end = Date.now() + 120_000;
     let asked = 0;
+    const game = watchGame([host, guest]);
     while (Date.now() < end && (await turnOf(viewer)) < before + 2) {
+      await game.check();
       await playOn(host, guest, 3_000);
       asked += await viewer.locator(".gs-win, .gs-question, button.gs-act").count();
       expect(await viewer.locator('[data-zone="viewer:hand"]').count()).toBe(0);

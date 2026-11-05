@@ -19,6 +19,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "swarm-deck.zip");
@@ -54,7 +55,9 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
     let attacked = false;
     let blocked: number | null = null;
     const deadline = Date.now() + 780_000;
+    const watch = watchGame([host, guest], () => ({ blocked }));
     while (blocked === null && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

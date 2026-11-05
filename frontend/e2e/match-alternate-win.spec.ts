@@ -24,6 +24,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -92,8 +93,10 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
     let answered = 0;
+    const watch = watchGame([host, guest], () => "", { allowEnd: true });
     while (Date.now() < deadline) {
       if ((await matchPanel(host).getByText(OVER).count()) > 0) break;
+      await watch.check();
 
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {

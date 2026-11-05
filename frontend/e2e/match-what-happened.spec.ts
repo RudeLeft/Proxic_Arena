@@ -25,6 +25,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "what-happened-deck.zip");
@@ -65,7 +66,9 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
   try {
     await startAMatch(host, guest, deck);
     const end = Date.now() + 720_000;
+    const watch = watchGame([host, guest], () => ({ counter, revealed, closeUp }));
     while (Date.now() < end && !(counter && revealed && closeUp)) {
+      await watch.check();
       for (const page of [host, guest]) {
         const other = page === host ? guest : host;
         // F-0045-D: Pridemate's trigger, held while the other player may

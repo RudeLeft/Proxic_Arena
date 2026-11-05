@@ -21,7 +21,14 @@ import { test, expect } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "surveil-deck.zip");
 const ROWS = ".gs-win.gs-tray:has(.gs-win-rows)";
@@ -59,7 +66,9 @@ test("surveil and scry show their cards to the player looking, and are answered 
       ) &&
       [...seen].some((s) => s.startsWith("arrangeForScry") || s.startsWith("willPutCardOnTop"));
 
+    const watch = watchGame([host, guest]);
     while (!done() && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

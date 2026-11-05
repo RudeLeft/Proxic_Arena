@@ -30,6 +30,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -66,8 +67,10 @@ test("under Mindslaver the controller answers for the other player and sees thei
     let used = false;
     let mulligans = 0;
     const deadline = Date.now() + 1_000_000;
+    const watch = watchGame([host, guest], () => ({ sawHandBefore, used }));
     while (Date.now() < deadline) {
       if ((await controlling.count()) > 0) break;
+      await watch.check();
       if (!used && (await theirHand.count()) > 0) sawHandBefore = true;
 
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;

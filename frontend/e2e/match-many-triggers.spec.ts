@@ -14,7 +14,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
 // The Goblin makers and what each costs, played only when affordable
@@ -104,8 +111,10 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         ...(await host.locator("#gs-over-text").allTextContents()),
         ...(await guest.locator("#gs-over-text").allTextContents()),
       ].join(" ");
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && !(await settled())) {
       if (await ended()) break;
+      await watch.check();
       if (cast && !died && (await goblins(host)) === 0) died = true;
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);

@@ -11,7 +11,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
 const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
@@ -59,7 +66,9 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   let ranOutFrom: number | null = null;
   let clickedFrom: number | null = null;
   const deadline = Date.now() + 780_000;
+  const watch = watchGame([host, guest], () => ({ ranOut, clicked, paused, hiddenTab }));
   while (!(ranOut && clicked && paused && hiddenTab) && Date.now() < deadline) {
+    await watch.check();
     const life = await opponentLife(host);
     if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
     if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];

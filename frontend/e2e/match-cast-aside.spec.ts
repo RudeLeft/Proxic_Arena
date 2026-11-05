@@ -25,6 +25,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -81,7 +82,9 @@ test("paying for a spell, the card being cast never covers a card to tap", async
     let withElves = 0;
     let shot = false;
     const deadline = Date.now() + 780_000;
+    const watch = watchGame([host, guest], () => ({ withElves }));
     while (withElves < 2 && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

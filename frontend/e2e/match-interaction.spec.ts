@@ -13,7 +13,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
 const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
@@ -45,7 +52,9 @@ test("a click with nothing asked selects and does not attack; a cancelled target
   let selected = false;
   let cancelled = false;
   const deadline = Date.now() + 480_000;
+  const watch = watchGame([host, guest], () => ({ selected, cancelled }));
   while (!(selected && cancelled) && Date.now() < deadline) {
+    await watch.check();
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);

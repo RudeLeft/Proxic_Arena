@@ -25,6 +25,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -79,7 +80,9 @@ test("attachments are drawn with what they modify, on either side of the table",
     let intent: "pacifism" | "goblin" | null = null;
     const deadline = Date.now() + 1_000_000;
     let answered = 0;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && !(await everything())) {
+      await watch.check();
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);

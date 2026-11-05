@@ -22,6 +22,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const castingPackage = join(process.cwd(), "..", "Test Deck", "casting-deck.zip");
@@ -71,7 +72,9 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
   try {
     await startAMatch(host, guest, deck);
     const end = Date.now() + 420_000;
+    const watch = watchGame([host, guest], () => ({ docked, optional }));
     while (Date.now() < end && !(docked && optional)) {
+      await watch.check();
       for (const page of [host, guest]) {
         const other = page === host ? guest : host;
         const k = await kind(page);

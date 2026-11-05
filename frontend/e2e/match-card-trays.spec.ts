@@ -26,7 +26,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import {
+  clearEverything,
+  clickNow,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "card-trays-deck.zip");
 const SPELLS =
@@ -75,7 +82,9 @@ test("the card trays: order, rows, a hidden zone, the split and the piles, answe
     const required = ["order", "rows", "hidden", "split", "piles"];
     const deadline = Date.now() + 780_000;
 
+    const watch = watchGame([host, guest], () => [...seen]);
     while (!required.every((k) => seen.has(k)) && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

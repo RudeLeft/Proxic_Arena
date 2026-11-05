@@ -171,10 +171,20 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     // the next question. Casting Staggershock makes Forge ask who
     // it hits, so the second decision is the TARGETING one -- the
     // piece this slice added.
-    const hadActions = (await actions.count()) > 0;
-    const firstLabel = hadActions ? await actions.first().textContent() : null;
+    //
+    // An action Forge marks "(not enough mana right now)" is still
+    // offered, but taking it is refused and the SAME question comes
+    // back, so the step under test never happens (CI 42059846581 clicked
+    // an unaffordable Bladetusk Boar and waited out the 120 s). Take the
+    // first one that can be paid for, or Pass.
+    const affordable = actions.filter({ hasNotText: "not enough mana right now" });
+    const hadActions = (await affordable.count()) > 0;
+    const firstLabel = hadActions ? await affordable.first().textContent() : null;
+    const inPlayBefore = await asked
+      .locator('.bf-cards button[data-object-id]:not([data-zone="viewer:hand"])')
+      .count();
     if (hadActions) {
-      await actions.first().click();
+      await affordable.first().click();
     } else {
       await matchPanel(asked).getByRole("button", { name: "Pass" }).click();
     }
@@ -191,10 +201,17 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
           const waitingHas = await matchPanel(waiting)
             .getByRole("heading", { name: /Your move/ })
             .count();
+          // A land played with nothing else to list: the card is on the
+          // table, so Forge took the answer.
+          const played =
+            (await asked
+              .locator('.bf-cards button[data-object-id]:not([data-zone="viewer:hand"])')
+              .count()) > inPlayBefore;
           // Either this player is asked something NEW, or
-          // priority has moved to the other one. Both mean the
-          // answer was taken; neither means it was ignored.
-          return (listed.length > 0 && listed[0] !== firstLabel) || waitingHas > 0;
+          // priority has moved to the other one, or the card went to
+          // the table. Each means the answer was taken; none means it
+          // was ignored.
+          return (listed.length > 0 && listed[0] !== firstLabel) || waitingHas > 0 || played;
         },
         { timeout: 120_000 },
       )

@@ -25,6 +25,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -48,7 +49,9 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
     let trays = 0;
     let onePointAsked = 0;
     const deadline = Date.now() + 780_000;
+    const watch = watchGame([host, guest], () => ({ trays }));
     while (trays < 1 && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);

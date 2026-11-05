@@ -30,6 +30,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -68,7 +69,9 @@ test("a stolen creature wears its owner's picture, and the graveyard shows pictu
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
 
     const deadline = Date.now() + 1_000_000;
+    const watch = watchGame([host, guest]);
     while (Date.now() < deadline && (await stolen.count()) === 0) {
+      await watch.check();
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
         await host.waitForTimeout(100);

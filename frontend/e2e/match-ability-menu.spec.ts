@@ -20,6 +20,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "loyalty-deck.zip");
@@ -74,7 +75,9 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
     const end = Date.now() + 420_000;
+    const watch = watchGame([host, guest], () => ({ greyed, whyNot }));
     while (Date.now() < end && !(greyed && whyNot)) {
+      await watch.check();
       for (const page of [host, guest]) {
         const panel = matchPanel(page);
         const priority =

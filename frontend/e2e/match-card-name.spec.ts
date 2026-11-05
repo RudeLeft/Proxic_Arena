@@ -39,6 +39,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -127,7 +128,9 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
     // match-loyalty.spec.ts for why not by a counter).
     const deadline = Date.now() + 600_000;
     let answered = 0;
+    const watch = watchGame([host, guest], () => seen);
     while (Date.now() < deadline && !(seen.any && seen.nonland)) {
+      await watch.check();
       const asked = (await matchPanel(host).getByRole("heading", { name: naming }).count())
         ? host
         : (await matchPanel(guest).getByRole("heading", { name: naming }).count())

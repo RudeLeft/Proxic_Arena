@@ -23,6 +23,7 @@ import {
   passButton,
   sharedDeck,
   startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -75,7 +76,9 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
     const sickOn = new Map<string, { page: Page; turn: string }>();
     const deadline = Date.now() + 780_000;
     const done = () => ["fly", "rest", "zz", "zz-gone"].every((k) => seen.has(k));
+    const watch = watchGame([host, guest]);
     while (!done() && Date.now() < deadline) {
+      await watch.check();
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
