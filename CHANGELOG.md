@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.44.0 — 2026-11-05
+
+Choosing targets, and cards you can't pay for (Phase 9).
+
+**For whoever runs the server**
+- Two database updates run by themselves on start; both are from 1.43.0, which was not published on its own (its notes follow). Nothing in 1.44.0 itself changes the database.
+
+**Choosing targets** (Arc Lightning, Forked Bolt, and any spell that takes "up to" several targets)
+- Once you have chosen enough targets, a gold **Done** appears ("Done · 2 targets"); press it to go on with the ones you chose.
+- Chosen targets wear a TARGET tag, and the question counts them: "2 chosen: RudeLeft, Hill Giant".
+- "Cancel Arc Lightning" (and Esc) now always cancels the spell and puts it back in your hand, however many targets you had chosen.
+- The question names the card where it used to say "CARDNAME".
+
+**Cards you can't pay for**
+- A card in your hand that you can't pay for right now is greyed out, without the gold glow. You can still click it.
+
 ## 1.43.0 — 2026-11-05
 
 An administrator can rename a player, and the last fixes from the documentation review.
