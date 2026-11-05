@@ -1240,6 +1240,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .bf-card.bf-unpayable {
   filter: saturate(0.5) brightness(0.8);
+  /* §7.54: dimmed, no glow, still clickable -- Forge has the last word. */
+  cursor: pointer;
 }
 /* Phase 9 W-14 -- selected to attack or block, not yet pointed: lifted,
    a solid bright ring (not the dashed "can choose" one), and a check in

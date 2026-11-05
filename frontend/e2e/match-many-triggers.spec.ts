@@ -18,7 +18,7 @@ import { clearEverything, clickNow, matchPanel, sharedDeck, startAMatch } from "
 
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
 // The Goblin makers and what each costs, played only when affordable
-// (the hand's filter cannot tell, see WIPES below).
+// (Mountains counted, as for WIPES below).
 const MAKERS: [name: string, mana: number][] = [
   ["Dragon Fodder", 2],
   ["Krenko's Command", 2],
@@ -28,9 +28,10 @@ const MAKERS: [name: string, mana: number][] = [
   ["Goblin Arsonist", 1],
 ];
 // What each wipe costs, cheapest first: it is cast only when this many
-// Mountains are untapped. The hand's "not enough mana" mark never shows on
-// a card that can be clicked (Board dims only cards that are not
-// choosable), so the hand filter below lets an unaffordable wipe through:
+// Mountains are untapped. Until 2026-11-05 the hand's "not enough mana"
+// mark never showed on a card that could be clicked, so the hand filter
+// below let an unaffordable wipe through (it now dims them, §7.54; the
+// count stays, as a second check):
 // CI 41978649343 clicked Sweltering Suns with 2 of 4 Mountains untapped,
 // the cast went back to the hand, and with "cast" already set the host
 // never tried again -- the Goblins lived for the rest of the game.

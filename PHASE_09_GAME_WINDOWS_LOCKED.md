@@ -936,3 +936,16 @@ Not built yet.**
   `match-interaction` (a cancelled target casts nothing),
   `match-many-triggers` (copy targets), `match-casting-dock`,
   `match-ability-menu` and `match` pass on the same build.
+
+**As built (2026-11-05, owner: "dimmed, no glow") -- a hand card you
+cannot pay for.** Phase 7's rule (§7.54) says a spell you can't pay for
+is shown dimmed and still clickable, but the board dimmed only cards
+that could NOT be clicked, and a hand card Forge offers always can, so
+the mark never showed: Sweltering Suns with one Mountain looked exactly
+like an affordable Goblin Arsonist. Now a hand card Forge says can't be
+paid for right now is greyed, loses the gold glow, keeps the pointer
+cursor and stays clickable (Forge has the last word); a screen reader
+hears "not enough mana right now". Battlefield cards keep the old rule
+(the owner was asked about the hand). Evidence: `Board.test.tsx` (the
+rule), and the 15 e2e specs whose "cards I can afford" filter had been
+letting every card through, run one at a time.

@@ -108,6 +108,46 @@ describe("Board", () => {
     }
   });
 
+  it("a hand card that can't be paid for is dimmed, does not glow, and stays clickable (§7.54)", () => {
+    const [cheap, dear] = board.hand;
+    const picked: string[] = [];
+    const container = render(
+      <Board
+        battlefield={board.battlefield}
+        hand={board.hand}
+        viewerSeat={board.viewerSeat}
+        artUrl={(art) => art}
+        choosable={new Set([cheap!.id, dear!.id])}
+        unpayable={new Set([dear!.id])}
+        onPick={(id) => picked.push(id)}
+      />,
+    ).container;
+    const cardOf = (id: string) =>
+      container.querySelector<HTMLButtonElement>(
+        `[data-zone="viewer:hand"][data-object-id="${id}"]`,
+      )!;
+    // The affordable one glows and carries no mark.
+    expect(cardOf(cheap!.id).classList.contains("bf-choosable")).toBe(true);
+    expect(cardOf(cheap!.id).hasAttribute("data-unpayable")).toBe(false);
+    // The unaffordable one: dimmed, no glow, said, still choosable.
+    const card = cardOf(dear!.id);
+    expect(card.classList.contains("bf-unpayable")).toBe(true);
+    expect(card.classList.contains("bf-choosable")).toBe(false);
+    expect(card.getAttribute("data-unpayable")).toBe("true");
+    expect(card.getAttribute("data-choosable")).toBe("true");
+    expect(card.getAttribute("aria-label")).toContain("not enough mana right now");
+    // The e2e filter "what I can afford" now leaves it out.
+    expect(
+      [
+        ...container.querySelectorAll(
+          '[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])',
+        ),
+      ].map((b) => (b as HTMLElement).dataset.objectId),
+    ).toEqual([cheap!.id]);
+    card.click();
+    expect(picked).toEqual([dear!.id]);
+  });
+
   it("the synthetic board is the same board every time for a seed", () => {
     expect(syntheticBoard(40, 30, 1)).toEqual(syntheticBoard(40, 30, 1));
     expect(syntheticBoard(40, 30, 2)).not.toEqual(syntheticBoard(40, 30, 1));

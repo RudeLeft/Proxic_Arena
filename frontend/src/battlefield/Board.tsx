@@ -687,17 +687,26 @@ export function Board({
   );
   const act = useMemo(() => {
     const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
-    return (ids: readonly string[]) => {
+    return (ids: readonly string[], inHand = false) => {
       const id = pickOf(ids);
       const canChoose = ids.some((one) => choosable?.has(one));
-      const dim = !canChoose && ids.some((one) => unpayable?.has(one));
+      // §7.54, owner 2026-11-05 ("dimmed, no glow"): a hand card Forge
+      // says cannot be paid for right now is dimmed and does not breathe,
+      // but stays clickable -- Forge has the last word. It used to be
+      // dimmed only when NOT choosable, which a hand card never is, so the
+      // mark never showed. Elsewhere on the board the old rule stands.
+      const dim = inHand
+        ? canChoose &&
+          ids.some((one) => unpayable?.has(one)) &&
+          !ids.some((one) => choosable?.has(one) && !unpayable?.has(one))
+        : !canChoose && ids.some((one) => unpayable?.has(one));
       const isSelected = ids.some((one) => one === selected);
       const isTargeted = ids.some((one) => targeted.has(one));
       const isChosen = ids.some((one) => chosenTargets?.has(one));
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       return {
-        className: `${canChoose ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}`,
+        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}`,
         words: [
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
@@ -963,7 +972,7 @@ export function Board({
       };
       const zoomed = pointed === card.id;
       const box = zoomed ? handZoomBox(rest, g) : rest;
-      const handAct = act([card.id]);
+      const handAct = act([card.id], true);
       const show = () => setPointed(card.id);
       const hide = () => setPointed((now) => (now === card.id ? null : now));
       out.push({
