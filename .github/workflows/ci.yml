@@ -18,10 +18,18 @@
 #
 # The long tiers run on several machines at once (owner, 2026-10-21:
 # "the checks take longer and longer"): server tests in three parts,
-# the Mechanics Lab in two, the browser suite in four. The repository
-# is public, so the extra machines cost nothing, and every half is
-# defined as "the rest" or by Playwright's own sharding -- a new test
+# the Mechanics Lab in three, the browser suite on seven. The repository
+# is public, so the extra machines cost nothing, and every part is
+# defined as "the rest" or dealt from the folder itself -- a new test
 # can never fall between them.
+#
+# 2026-11-05, owner's "Faster CI Plan" (nothing tests less): the game
+# specs are dealt over six machines by measured time, the rest on one;
+# the Lab starts its longest scenarios first, over three machines, with
+# its two timing benchmarks on their own; a push to main no longer
+# cancels the run in progress; and a push that changes only
+# documentation runs the checks alone (the image it would test is
+# unchanged -- docs are not in it).
 
 name: CI
 
@@ -31,9 +39,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+# On main a newer push waits for the run in progress instead of killing
+# it (eight nearly finished runs were thrown away in two days, 2026-11-05);
+# GitHub keeps only the newest waiting run, so a burst of pushes becomes
+# one follow-up run of the latest commit. Branches and pull requests still
+# cancel. Never a per-commit group: runs finishing out of order could
+# promote an older image.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -45,10 +59,40 @@ env:
   CANDIDATE_TAG: ci-${{ github.sha }}
 
 jobs:
+  # Does this push change anything the image or the slow suites could see?
+  # Compared with the last commit that passed everything -- the revision
+  # label on :latest -- not the previous push, so a code push whose run was
+  # folded into a later docs push is still tested. Anything uncertain
+  # (another event, no label, a label that is not an ancestor, any error)
+  # counts as code. docs/testing/ is read by the checks' ledger, Test Deck/
+  # is the Lab's corpus, ci/ and .github/ are the gate itself: never docs.
+  changes:
+    name: What changed
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Classify the push
+        id: classify
+        run: |
+          python3 -I ci/changes.py | tee -a "$GITHUB_OUTPUT"
+          grep -q 'code=true' "$GITHUB_OUTPUT"             && echo '### Full suite' >> "$GITHUB_STEP_SUMMARY"             || echo '### Documentation only: the checks alone' >> "$GITHUB_STEP_SUMMARY"
+
   build:
     name: Build the candidate image
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5.1.0
       - uses: docker/setup-buildx-action@v4.4.1
@@ -67,13 +111,21 @@ jobs:
           build-args: |
             PROXIC_BUILD_ID=${{ github.sha }}
             PROXIC_REVISION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # A registry cache, still mode=max so the Forge and worker stages
+          # stay cached: exporting to the GitHub Actions cache took up to
+          # 173 s of the critical path (2026-11-05). The old cache is still
+          # read until the registry one exists.
+          cache-from: |
+            type=registry,ref=${{ env.IMAGE }}:buildcache
+            type=gha
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
 
   checks:
     name: Static analysis and unit tests
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    # Every push, documentation included: it runs the Mechanics Lab ledger
+    # check and the question record, which read docs/testing/.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5.1.0
       - uses: actions/setup-java@v5.7.0
@@ -115,8 +167,11 @@ jobs:
   server-tests:
     name: Server tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-26.04
-    needs: build
-    timeout-minutes: 45
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    # About twice a normal run (5-6 min), so a sick machine fails in 15
+    # minutes, not 46 (run 42037203224).
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -169,17 +224,19 @@ jobs:
 
 
   mechanics-lab:
-    name: Mechanics Lab (${{ matrix.shard }}/2)
+    name: Mechanics Lab (${{ matrix.shard }}/3)
     runs-on: ubuntu-26.04
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
     # Its own job since 2026-10-20: fifteen scenario games after the
     # server suite ran the Server tests job into its 45-minute limit.
-    # Two machines since 2026-10-21: alternate scenarios on each.
-    timeout-minutes: 45
+    # Two machines since 2026-10-21, three since 2026-11-05: every third
+    # scenario on each, the longest dealt first so none starts last.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v5.1.0
       - uses: actions/setup-java@v5.7.0
@@ -236,14 +293,21 @@ jobs:
           traces="$RUNNER_TEMP/lab-traces"
           mkdir -p "$traces"
           export traces
+          # Longest first (measured in CI, 2026-11-05), so the long ones
+          # start at once instead of last: the job used to end with one
+          # scenario running alone for two minutes. Dealt round-robin, so
+          # each machine gets one of the longest. Every scenario is in this
+          # list exactly once; a new one goes anywhere in it.
           printf '%s\n' \
+              cost-kinds you-choose who-did-it numbers card-trays surveil sacrifice \
+              many-triggers what-happened combat-choices stops blocks shapes modes \
               agent-of-kotis panglacial-wurm card-name leyline karn multiface \
               mindslaver characteristics player-state mana-choice alternate-win \
-              attachments printings face-down costs modes shapes results \
-              tracked-state text-effects coin-flip board-data concede stops mana-cost blocks \
-              library-order mana-pool sacrifice surveil mulligan you-choose combat-choices unreachable cost-kinds dice unset \
-              many-triggers take-backs trigger-costs what-happened land-mana spectator card-trays who-did-it numbers \
-            | awk -v shard="$shard" 'NR % 2 == shard % 2' \
+              attachments printings face-down costs results \
+              tracked-state text-effects coin-flip board-data concede mana-cost \
+              library-order mana-pool mulligan unreachable dice unset \
+              take-backs trigger-costs land-mana spectator \
+            | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=600;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
@@ -254,15 +318,6 @@ jobs:
                fi;
                [ $s = 124 ] && echo "== $0 HUNG: no result in $((limit / 60)) minutes";
                echo "== $0 (exit $s)"; cat "$traces/$0.log"; exit $s'
-          # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
-          # stay playable. A benchmark: 110 s without the patch, ~41 s with it
-          # on a development machine; the CI budget is generous.
-          if [ "$shard" = 1 ]; then
-            timeout 900 python3 -I scripts/check-token-speed.py "$jar" "$res" 100
-          else
-            # §6.29: a player's pregame thinking time is not Forge's start budget.
-            python3 -I scripts/check-start-budget.py "$jar" "$res"
-          fi
           # P6-L, over every game above: no question reaches a seat before
           # the state it refers to.
           python3 -I scripts/check-snapshot-first.py "$traces"/*.jsonl
@@ -289,14 +344,59 @@ jobs:
           path: ${{ runner.temp }}/questions-asked-${{ matrix.shard }}.txt
           retention-days: 7
 
+  # The two Lab checks that time something run on their own machine, one
+  # after the other, never beside other games: a timing taken next to
+  # three busy scenarios measures the neighbours. They write no traces, so
+  # the trace checks above are unchanged (they used to follow a shard's
+  # scenarios; moved 2026-11-05).
+  lab-benchmarks:
+    name: Mechanics Lab timings
+    runs-on: ubuntu-26.04
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-java@v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Take the Forge worker and resources from the image
+        run: |
+          docker pull "$IMAGE:$CANDIDATE_TAG"
+          id=$(docker create "$IMAGE:$CANDIDATE_TAG")
+          mkdir -p forge-worker/target spikes/forge-phase0a/forge-upstream/forge-gui
+          docker cp "$id:/app/forge/forge-worker.jar" \
+            forge-worker/target/forge-worker-0.1.0.jar
+          docker cp "$id:/app/forge/res" \
+            spikes/forge-phase0a/forge-upstream/forge-gui/res
+          docker rm "$id" > /dev/null
+      - name: Timings
+        env:
+          res: spikes/forge-phase0a/forge-upstream/forge-gui/res
+          jar: forge-worker/target/forge-worker-0.1.0.jar
+        run: |
+          # forge_patches/0002: thousands of tokens at once (Krenko, Mob Boss)
+          # stay playable. A benchmark: 110 s without the patch, ~41 s with it
+          # on a development machine; the CI budget is generous.
+          timeout 900 python3 -I scripts/check-token-speed.py "$jar" "$res" 100
+          # §6.29: a player's pregame thinking time is not Forge's start budget.
+          python3 -I scripts/check-start-budget.py "$jar" "$res"
+
   # PHASE_08: a question the record says Proxic answers must have been
-  # asked in this run's Mechanics Lab games -- both halves of them. A
+  # asked in this run's Mechanics Lab games -- all three parts. A
   # scenario that stops reaching its question fails here, instead of
   # passing for a check that no longer checks anything.
   questions-asked:
     name: Every answered question was asked
     runs-on: ubuntu-26.04
-    needs: mechanics-lab
+    needs: [changes, mechanics-lab]
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5.1.0
@@ -308,16 +408,23 @@ jobs:
       - run: python3 -I scripts/check-questions-asked.py asked/*.txt
 
   browser-tests:
-    name: Browser tests (${{ matrix.shard }}/4)
+    name: Browser tests (${{ matrix.part }})
     runs-on: ubuntu-26.04
-    needs: build
-    timeout-minutes: 45
-    # Four machines, each with its own server and database, so the
-    # test accounts on one cannot trip over another's.
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    # About twice the slowest machine's normal run (~10 min after the
+    # 2026-11-05 split): a failure ends sooner than the old 45.
+    timeout-minutes: 25
+    # Seven machines, each with its own server and database, so the
+    # test accounts on one cannot trip over another's. "other" is every
+    # spec that is not a game spec; the game specs (match*.spec.ts) are
+    # dealt over six by measured time (ci/browser-shard.mjs). Playwright's
+    # own --shard split by count in file order, so one machine got every
+    # real game and decided every run (~24 of ~27 min, 2026-11-05).
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        part: [other, match 1/6, match 2/6, match 3/6, match 4/6, match 5/6, match 6/6]
     steps:
       - uses: actions/checkout@v5.1.0
       - uses: actions/setup-node@v5.0.0
@@ -526,8 +633,28 @@ jobs:
 
       - run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      # The browser itself is cached by Playwright's version; its system
+      # libraries are installed every time (they are not in the cache).
+      - name: Which Playwright
+        id: playwright
         working-directory: frontend
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6.1.0
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: frontend
+
+      # Every game spec dealt to exactly one machine, or this fails.
+      - name: The deal covers every game spec
+        if: matrix.part == 'other'
+        run: node ci/browser-shard.mjs --check 6
 
       - name: Run the browser suite
         working-directory: frontend
@@ -535,7 +662,22 @@ jobs:
           # The bundled Chromium; the msedge channel is a Windows
           # workaround and does not exist here.
           PROXIC_E2E_CHANNEL: bundled
-        run: npx playwright test --shard=${{ matrix.shard }}/4
+          PART: ${{ matrix.part }}
+        run: |
+          # The concurrency specs reach into the server container (a worker
+          # killed, memory read, the container restarted); they need its
+          # name. They had skipped in CI until 2026-11-05 (owner).
+          PROXIC_E2E_CONTAINER=$(docker compose -f ../docker-compose.yml -f ../docker-compose.ci.yml ps --format '{{.Name}}' arena-server)
+          export PROXIC_E2E_CONTAINER
+          echo "server container: $PROXIC_E2E_CONTAINER"
+          if [ "$PART" = other ]; then
+            npx playwright test --project=other
+          else
+            k=${PART#match }; k=${k%/6}
+            mapfile -t files < <(node ../ci/browser-shard.mjs "$k" 6)
+            printf 'game specs here:\n'; printf '  %s\n' "${files[@]}"
+            npx playwright test --project=match "${files[@]}"
+          fi
 
       - name: Server log, if anything failed
         # cancelled(): a shard stopped at its time limit leaves its evidence
@@ -546,7 +688,7 @@ jobs:
       - uses: actions/upload-artifact@v6.0.0
         if: failure() || cancelled()
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ strategy.job-index }}
           # test-results/ holds what a failure leaves -- screenshots, the
           # trace, the page at the moment it failed. The line reporter
           # writes no playwright-report/, so this uploaded nothing and a
@@ -559,10 +701,14 @@ jobs:
   publish:
     name: Promote to latest
     runs-on: ubuntu-26.04
-    needs: [build, checks, server-tests, mechanics-lab, questions-asked, browser-tests]
+    needs: [changes, build, checks, server-tests, mechanics-lab, lab-benchmarks, questions-asked, browser-tests]
     # Only main publishes. A pull request gets the full gate and
-    # changes nothing anyone can deploy.
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # changes nothing anyone can deploy. A documentation-only push tests
+    # no image, so it promotes none; success() keeps a skipped or failed
+    # need from ever reaching here.
+    if: >-
+      success() && needs.changes.outputs.code == 'true'
+      && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     timeout-minutes: 15
     steps:
       - uses: docker/login-action@v4.6.0

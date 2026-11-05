@@ -53,6 +53,23 @@ push to main
    -> Unraid: Check for Updates -> Update Stack
 ```
 
+**How the run is laid out** (owner's "Faster CI Plan", 2026-11-05;
+nothing tests less): the server tests on three machines, the Mechanics
+Lab on three (longest scenarios first) plus one for its two timing
+benchmarks, and the browser tests on seven: everything that is not a
+game spec on one, the game specs (`match*.spec.ts`) dealt over six by
+their measured time (`ci/browser-shard.mjs`, times in
+`ci/browser-durations.json`). A green run takes about 13-16 minutes.
+
+- **A push to main never cancels the run in progress.** It waits; a
+  burst of pushes becomes one follow-up run of the newest commit.
+- **A push that changes only documentation** (`.md` files and `docs/`,
+  never `docs/testing/`, `Test Deck/`, `ci/` or `.github/`) runs the
+  checks alone, about three minutes, and publishes nothing: the image
+  would be the same. It is compared with the last fully tested commit
+  (the revision on `:latest`), so a code change folded into it is still
+  tested; anything uncertain runs the full suite (`ci/changes.py`).
+
 **Nothing becomes `latest` until the tests pass.** Deploying is two
 clicks now, which makes a bad build as easy to ship as a good one —
 so the gate stands where the risk moved to.
@@ -168,7 +185,9 @@ Rare, and each has a plain cause.
 
 **"Check for Updates" says nothing changed.** Either the run is still
 going — the full gate takes about fifteen minutes — or it failed and
-nothing was published. The Actions tab on GitHub says which, and a
+nothing was published, or the push changed only documentation (the
+run says "Documentation only" and publishes nothing; the image is the
+same). The Actions tab on GitHub says which, and a
 failed run names the test that stopped it.
 
 That is the gate working. The alternative is a green button that
@@ -246,3 +265,21 @@ image and still getting a blank placeholder.
   `docker-compose.local.yml` adds the build back, because a
   developer wants the code in front of them rather than the last
   thing published.
+
+---
+
+## Making a release
+
+A release tags **the exact commit CI passed**, never "whatever main is
+now" (owner, 2026-11-05: ten of twenty releases had gone out before CI
+ran, and one sat green for nine hours waiting for a quiet main):
+
+```bash
+python3 -I scripts/release.py 1.44.0             # says what it would do
+python3 -I scripts/release.py 1.44.0 --publish   # creates the release
+```
+
+It finds the "Version 1.44.0" commit on main and refuses unless a CI
+run on exactly that commit finished with the full suite green ("Promote
+to latest" succeeded), then creates the GitHub release at that commit
+with the notes from `CHANGELOG.md`. Pushes made since do not matter.
