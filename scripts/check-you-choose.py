@@ -94,6 +94,7 @@ Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
 import json
+import re
 import os
 import sys
 
@@ -337,6 +338,7 @@ def venture():
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "chooseSingleCardFace":
             st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            st.setdefault("dungeons", (f.get("arrange") or {}).get("dungeons"))
             if st["picked"] is None:
                 st["picked"] = f["options"][-1].get("label")
             return f["options"][-1]["actionId"]
@@ -365,6 +367,15 @@ def venture():
         problems.append("the opponent was asked which dungeon")
     if len(st["asked"][0][1]) < 2:
         problems.append(f"only {st['asked'][0][1]} offered")
+    # Phase 9 Amendment 20: each dungeon offered comes with its rooms, in the
+    # game's own words (Lost Mine of Phandelver: seven, from Cave Entrance).
+    dungeons = {d.get("name"): d.get("rooms") or [] for d in st.get("dungeons") or []}
+    if sorted(dungeons) != sorted(st["asked"][0][1]):
+        problems.append(f"every dungeon offered comes with its rooms: {sorted(dungeons)}")
+    mine = dungeons.get("Lost Mine of Phandelver") or []
+    if len(mine) != 7 or mine[0].get("name") != "Cave Entrance" or mine[0].get("says") != "Scry 1." \
+            or mine[0].get("next") != ["Goblin Lair", "Mine Tunnels"]:
+        problems.append(f"Lost Mine of Phandelver's seven rooms, from Cave Entrance: {mine[:2]}")
     for seat, command in (st["after"] or {}).items():
         if not any(st["picked"] in str(c) for c in command or []):
             problems.append(f"picked {st['picked']!r}, but seat {seat} sees {command}")
@@ -665,6 +676,7 @@ def elspeth():
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "chooseCounterType":
             st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            st["prompt"] = f.get("prompt")
             st["picked"] = f["options"][-1].get("label")
             return f["options"][-1]["actionId"]
         if k == "chooseTargetsFor" and seat == 1 and st["used"]:
@@ -701,6 +713,9 @@ def elspeth():
     if not st["asked"]:
         return "inconclusive", "Elspeth's +1 never asked which kind of counter", found
     problems = []
+    # Phase 9 Amendment 20: the question names the creature without Forge's card number.
+    if re.search(r"\(\d+\)", st.get("prompt") or ""):
+        problems.append(f"the counter question shows a card number: {st.get('prompt')!r}")
     if any(seat != 1 for seat, _ in st["asked"]):
         problems.append("the opponent was asked about seat 1's counter")
     if len(st["asked"][0][1]) < 2:

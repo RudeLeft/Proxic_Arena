@@ -358,7 +358,8 @@ function Notice({ notice }: { notice: string | null }) {
 export function TableQuestionWindow(props: Common) {
   const { decision, question, board, busy, artUrl, onAnswer } = props;
   const source = sourceOf(board, decision);
-  const name = decision.about?.name ?? source?.name ?? null;
+  // Amendment 20: when the question doesn't say, the card resolving on the stack.
+  const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? null;
   const title = props.heading;
   return (
     <Bubble
@@ -411,7 +412,8 @@ export function ChoiceWindow(props: Common) {
   const { decision, question, board, busy, artUrl, onAnswer } = props;
   const [query, setQuery] = useState("");
   const source = sourceOf(board, decision);
-  const name = decision.about?.name ?? source?.name ?? null;
+  // Amendment 20: when the question doesn't say, the card resolving on the stack.
+  const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? null;
   const title = props.heading;
   const choices = question.listed;
   const shown = useMemo(() => {
@@ -721,7 +723,8 @@ export function NumberWindow(props: Common) {
   const layout = decision.arrange!.number!;
   const values = layout.values;
   const source = sourceOf(board, decision);
-  const name = decision.about?.name ?? source?.name ?? null;
+  // Amendment 20: when the question doesn't say, the card resolving on the stack.
+  const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? null;
   const me = board.players.find((p) => p.seat === board.seat);
   const energy = me?.counters.find((c) => c.name.toLowerCase() === "energy")?.count ?? null;
   const words = dialWords(decision, name, energy);
@@ -835,7 +838,8 @@ export function NameWindow(
   const { decision, board, busy, onAnswer, onSearch } = props;
   const layout = decision.arrange!.name!;
   const source = sourceOf(board, decision);
-  const name = decision.about?.name ?? source?.name ?? null;
+  // Amendment 20: when the question doesn't say, the card resolving on the stack.
+  const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? null;
   const [query, setQuery] = useState("");
   // The server trims and caps what it searches for; compare like with like.
   const asked = query.trim().slice(0, 64);

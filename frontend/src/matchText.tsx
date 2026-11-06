@@ -217,6 +217,9 @@ export function headingFor(kind: string): string {
       return "Name a card";
     case "chooseBinary":
       return "Call it";
+    // Phase 9 Amendment 20: tapping to help pay, never "Your move".
+    case "chooseCardsForConvokeOrImprovise":
+      return "Tap to help pay";
     case "chooseNumber":
       return "Choose a number";
     case "divideAsYouChoose":
@@ -452,8 +455,45 @@ export function hintFor(kind: string, options: number): string {
       return "Pick the cards to pay with. The line above says what happens if you do not pay.";
     case "chooseOptionalCosts":
       return "Pay it as you cast the spell, or choose No to cast it without.";
+    // Phase 9 Amendment 20: the kinds whose window already says it all --
+    // no filler line under them.
+    case "chooseBlockTarget":
+    case "chooseDefender":
+    case "chooseCardsPile":
+    case "chooseCardsForConvokeOrImprovise":
+    case "chooseCardsForSplice":
+    case "chooseCardsToDiscardUnlessType":
+    case "chooseCardsToRevealFromHand":
+    case "chooseContraptionsToCrank":
+    case "chooseDiceToReroll":
+    case "chooseFlipResult":
+    case "chooseKeywordForPump":
+    case "chooseRollSwapValue":
+    case "chooseRollToIgnore":
+    case "chooseRollToModify":
+    case "chooseRollToSwap":
+    case "chooseSector":
+    case "chooseSingleCardFace":
+    case "chooseSingleCardState":
+    case "chooseSingleReplacementEffect":
+    case "chooseSingleSpellForEffect":
+    case "chooseSpellAbilitiesForEffect":
+    case "chooseSpellAbilityToPlay":
+    case "chooseSprocket":
+    case "chooseTarget":
+    case "confirmAction":
+    case "confirmBidAction":
+    case "confirmPayment":
+    case "confirmReplacementEffect":
+    case "confirmStaticApplication":
+    case "confirmTrigger":
+    case "divideShield":
+    case "orderSimultaneousAbilities":
+    case "specifyManaCombo":
+      return "";
+    // A kind this page has never seen (§7.33): still a plain word.
     default:
-      return "These are the actions you can take.";
+      return "Choose one of these.";
   }
 }
 

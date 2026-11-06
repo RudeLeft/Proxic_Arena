@@ -1687,44 +1687,34 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
    across the table (drawn in Board's top slot), which dims behind it;
    the column is left clear. Gold
    for a win, silver otherwise. */
-/* Spec 0054 — the other player has been gone 10 minutes: across the top of
-   the table, clickable, with Keep waiting and End the game. */
-.gs-away {
-  position: absolute;
-  left: 50%;
-  top: calc(140px * var(--rail-scale, 1));
-  transform: translateX(-50%);
-  z-index: 30;
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  max-width: 560px;
-  padding: 18px 24px;
-  border: 1px solid #e8a87c;
-  border-radius: 10px;
-  background: rgb(14 18 22 / 94%);
-  box-shadow: 0 16px 40px rgb(0 0 0 / 60%);
-  text-align: center;
+/* Phase 9 W-26 (Amendment 20) -- the other player has been gone the away
+   time: a game window at the table's right edge, pointing at their plate
+   (the column's top, 26 to 225 in its units). */
+.gs-away-win {
+  right: 18px;
+  top: calc(40px * var(--rail-scale, 1));
+  width: 420px;
 }
-.gs-away p {
-  margin: 0;
+.gs-away-win .gs-away-pointer {
+  top: calc(60px * var(--rail-scale, 1));
 }
-.gs-away-title {
-  font-family: var(--pa-display);
-  font-size: var(--pa-size-xl);
-  font-weight: 700;
-  color: #f0e9dc;
+.gs-away-face {
+  display: grid;
+  place-items: center;
 }
-.gs-away-sub,
-.gs-away-note {
-  color: #c3ccd4;
-}
-.gs-away-buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 6px;
+/* On their plate, from the moment they drop. */
+.gs-seat-away {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid #8a6d2c;
+  border-radius: 99px;
+  background: #2a2210;
+  color: #f0cf84;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .gs-over {

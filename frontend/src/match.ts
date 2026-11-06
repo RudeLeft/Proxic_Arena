@@ -177,6 +177,8 @@ export interface DecisionArrange {
   binary?: string | null;
   /** Phase 9 W-17 -- the sprocket the crank marker moves to next turn. */
   crankNext?: number | null;
+  /** Phase 9 Amendment 20 -- the dungeons offered, each with its rooms (the game's words). */
+  dungeons?: { name: string; rooms: { name: string; says: string; next: string[] }[] }[] | null;
 }
 
 /**
@@ -1294,7 +1296,28 @@ function asArrange(value: unknown): DecisionArrange | null {
     dice: asDice(v["dice"]),
     binary: asString(v["binary"]),
     crankNext: asNumber(v["crankNext"]),
+    dungeons: asDungeons(v["dungeons"]),
   };
+}
+
+function asDungeons(value: unknown): NonNullable<DecisionArrange["dungeons"]> | null {
+  if (!Array.isArray(value)) return null;
+  const out = value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const e = entry as Record<string, unknown>;
+    const name = asString(e["name"]);
+    if (!name || !Array.isArray(e["rooms"])) return [];
+    const rooms = (e["rooms"] as unknown[]).flatMap((room) => {
+      if (typeof room !== "object" || room === null) return [];
+      const r = room as Record<string, unknown>;
+      const roomName = asString(r["name"]);
+      return roomName
+        ? [{ name: roomName, says: asString(r["says"]) ?? "", next: asNotices(r["next"]) }]
+        : [];
+    });
+    return [{ name, rooms }];
+  });
+  return out.length ? out : null;
 }
 
 function asDice(value: unknown): DiceLayout | null {

@@ -107,6 +107,7 @@ still see the board, and what Esc and clicking away do.
 | W-23 | **Warning and error banners** | Connection lost, an answer the game refused |
 | W-24 | **Game over** | The end of every game |
 | W-25 | **"Waiting for..." line** in the right-hand column | While the opponent decides |
+| W-26 | **The other player is away** ("Keep waiting" / "End the game") -- added by the audit, Amendment 20 | They have been gone the away time (spec 0054) |
 
 ### Around the game: out of scope (owner 2026-10-30)
 
@@ -1081,3 +1082,71 @@ players. The owner chose:
   lower the roll" with no coin words; two dice to ignore; Gamma lighting
   two cards; the sprockets; Crank with its picture. Screenshots in
   test-results/seen/w17-*.png.
+
+**Amendment 20 (2026-11-05, the Phase 9 audit -- canvas
+https://claude.ai/artifact/KoNehdQHnobQFsM7nt2Gwz).** The owner asked
+for a check that every window was accounted for. Every Mechanics Lab game
+was played (all 88 kinds of question the game asks, 170 shapes) and each
+real question shown in a real game page with its own board; every window
+the game screen draws was listed. Every question opens a window; every
+window is an item or out of scope -- except **the "player away" card**
+(spec 0054's "Pat has been gone 10 minutes... Keep waiting / End the
+game"), never listed. Rough edges in the general window, never designed:
+"These are the actions you can take" on 18 kinds; convoke titled "Your
+move"; two Leylines of the Void as identical choices told apart only by
+"(37)"/"(10)"; Herald of Leshrac's raw "card(s) ... -- or pass"; dungeon
+and room choices with no information and no card asking; Agent of
+Kotis's yes/no as a "Pay the cost" chip and Mages' Contest's as a list
+tray; "CHOOSE" where the card asking is known from the stack. The owner
+chose:
+
+- **W-26, the away card, as a game window beside the absent player's
+  plate**, with their picture, Keep waiting / End the game · you win,
+  and Peek; their plate shows "Away · N min" from the moment they drop.
+- **Identical choices are not asked:** when every option of a "which
+  applies first" question is word for word the same, the game takes one
+  and a message says so; asked as before when they differ at all.
+- **Dungeons show their rooms:** choosing a dungeon shows each one's
+  rooms in the game's own words; a room is named with what it does; the
+  card asking is named.
+- **Fixed with it:** no filler line anywhere; convoke and improvise get
+  their own title; Agent of Kotis and Mages' Contest use the yes/no
+  window; raw game words and card numbers become plain words; when the
+  question doesn't say which card asks, the card resolving on the stack
+  is named; the audit is kept as a test.
+- *As built (2026-11-05).* Worker: a "which applies first" question whose
+  options read the same without Forge's card numbers is not asked (the
+  first is taken) and the asked player is told once a turn per card
+  ("Leyline of the Void ×2: they do the same thing here, so the order
+  doesn't matter. You weren't asked."); replacement labels lose their
+  card numbers; Herald of Leshrac's cost reads "Select 1 land you don't
+  control to gain control. Or pass, and don't pay."; a room is labelled
+  "Forge — Put two +1/+1 counters..."; chooseSingleCardFace sends
+  `arrange.dungeons` (each dungeon's rooms from its card text). Page:
+  hintFor has a case (a line or none) for every asked kind, and the
+  §7.33 default for an unseen kind is "Choose one of these."; convoke and
+  improvise are "Tap to help pay"; confirmBidAction and a one-answer
+  optional confirm (Agent of Kotis) use the yes/no window, titled with
+  the game's question; the general windows name the card resolving on
+  the stack when the question doesn't; DungeonWindow (rooms, depth,
+  first and last room); AwayWindow.tsx beside the opponent's plate and
+  "Away · N min" on the plate from the moment they drop.
+- *Evidence:* Lab `check-leyline.py` (two identical Leylines: not asked,
+  the player told), `check-you-choose.py venture` (every dungeon offered
+  with its rooms; Lost Mine's seven from Cave Entrance),
+  `check-tracked-state.py initiative` (the rooms named), `check-shapes`
+  (a Siege's two different effects still asked -- the record's evidence
+  for chooseSingleReplacementEffect moved there), `cost-kinds`. Unit
+  `everyQuestion.test.ts` (every ASKS kind in the Phase 8 record has its
+  own title and never the unknown-kind line -- it found Fact or Fiction's
+  piles missing), `DiceWindows.test.tsx` (dungeon words and window, the
+  one-answer yes/no, Mages' Contest). Browser `match-away.spec.ts` (Away
+  on the plate at once, the window beside it, Peek and Space, Keep
+  waiting). The audit re-run over every Lab question after the fixes
+  (172 shapes, all 88 kinds, the new worker and page): no filler line,
+  no "Your move", no "card(s)"; it found one more -- "Select counter
+  type to add to Savannah Lions (11)" -- fixed (chooseCounterType's
+  prompt without card numbers; `check-you-choose.py elspeth` checks it).
+  The same audit found "Agent of Kotis" named in two comments and a test,
+  which `check-agent-of-kotis.py` forbids (no code names a card); they
+  were reworded.

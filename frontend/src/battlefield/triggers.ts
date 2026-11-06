@@ -30,7 +30,16 @@ export const CONFIRM_KINDS = new Set([
   "confirmPayment",
   "confirmReplacementEffect",
   "confirmStaticApplication",
+  // Phase 9 Amendment 20: Mages' Contest's "top the bid?" is a yes/no.
+  "confirmBidAction",
 ]);
+
+/**
+ * Phase 9 Amendment 20 -- the "no" of a yes/no question whose only answer
+ * is "do it" (a "Pay the cost" with no "no" beside it): a pass. The window hands
+ * this id back; the screen sends the pass.
+ */
+export const PASS_ANSWER = "__pass__";
 
 /** A target question for one of several copies of a trigger. */
 export function isCopyTarget(decision: Decision): boolean {
@@ -46,7 +55,13 @@ export function yesNo(decision: Decision): { yes: DecisionOption; no: DecisionOp
   if (!CONFIRM_KINDS.has(decision.kind)) return null;
   const yes = decision.options.find((o) => (o.label ?? "").startsWith("Yes"));
   const no = decision.options.find((o) => o !== yes);
-  return yes && no ? { yes, no } : null;
+  if (yes && no) return { yes, no };
+  // Amendment 20: one "do it" answer and a pass ("Exile it?" asked as a cost).
+  const only = decision.options.length === 1 ? decision.options[0] : undefined;
+  if (only && !decision.mandatory) {
+    return { yes: only, no: { actionId: PASS_ANSWER, label: "No" } as DecisionOption };
+  }
+  return null;
 }
 
 /**

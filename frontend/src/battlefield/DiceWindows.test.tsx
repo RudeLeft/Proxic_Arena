@@ -6,9 +6,13 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Decision, DiceLayout, Snapshot, SnapshotCard, SnapshotRoll } from "../match";
 import { cubeTurn } from "./Die3D";
+import { PASS_ANSWER, yesNo } from "./triggers";
 import {
   CrankWindow,
   DiceWindow,
+  DungeonWindow,
+  dungeonDepth,
+  dungeonWords,
   ROLL_LINGER_MS,
   RollsOverlay,
   SectorWindow,
@@ -321,5 +325,102 @@ describe("a roll on the stack (W-17)", () => {
     ).container;
     expect(c.querySelector("[data-roll]")).toBeNull();
     act(() => {});
+  });
+});
+
+describe("dungeons (Phase 9 Amendment 20)", () => {
+  const lostMine = {
+    name: "Lost Mine of Phandelver",
+    rooms: [
+      { name: "Cave Entrance", says: "Scry 1.", next: ["Goblin Lair", "Mine Tunnels"] },
+      {
+        name: "Goblin Lair",
+        says: "Create a 1/1 red Goblin creature token.",
+        next: ["Storeroom", "Dark Pool"],
+      },
+      {
+        name: "Mine Tunnels",
+        says: "Create a Treasure token.",
+        next: ["Dark Pool", "Fungi Cavern"],
+      },
+      {
+        name: "Storeroom",
+        says: "Put a +1/+1 counter on target creature.",
+        next: ["Temple of Dumathoin"],
+      },
+      {
+        name: "Dark Pool",
+        says: "Each opponent loses 1 life and you gain 1 life.",
+        next: ["Temple of Dumathoin"],
+      },
+      {
+        name: "Fungi Cavern",
+        says: "Target creature gets -4/-0 until your next turn.",
+        next: ["Temple of Dumathoin"],
+      },
+      { name: "Temple of Dumathoin", says: "Draw a card.", next: [] },
+    ],
+  };
+
+  it("says how many rooms, how deep, and the first and last room's words", () => {
+    expect(dungeonDepth(lostMine)).toBe(4);
+    expect(dungeonWords(lostMine)).toBe(
+      "7 rooms, 4 deep: Cave Entrance (scry 1) → … → Temple of Dumathoin (draw a card)",
+    );
+  });
+
+  it("shows each dungeon with its rooms, naming the card asking", () => {
+    const onAnswer = vi.fn();
+    const d = decision({
+      kind: "chooseSingleCardFace",
+      mandatory: true,
+      prompt: "Which dungeon do you want to venture into?",
+      options: [{ actionId: "chooseSingleCardFace:0", label: "Lost Mine of Phandelver" }],
+      arrange: { dungeons: [lostMine] },
+    });
+    const b = board({ stack: [{ id: "stack:1", name: "Nadaar, Selfless Paladin" }] as never });
+    const c = render(<DungeonWindow {...common(d, b, onAnswer)} />).container;
+    expect(c.textContent).toContain("Nadaar, Selfless Paladin");
+    expect(c.querySelector(".gs-place")!.textContent).toContain("7 rooms, 4 deep");
+    fireEvent.click(c.querySelector(".gs-place")!);
+    expect(onAnswer).toHaveBeenCalledWith("chooseSingleCardFace:0");
+  });
+});
+
+describe("a yes/no worded as one answer (Phase 9 Amendment 20)", () => {
+  it("a lone 'Pay the cost' and a pass are a yes and a no", () => {
+    const pair = yesNo(
+      decision({
+        kind: "confirmPayment",
+        prompt: "Exile Grizzly Bears?",
+        options: [{ actionId: "confirm:yes", label: "Pay the cost" }],
+      }),
+    );
+    expect(pair?.yes.actionId).toBe("confirm:yes");
+    expect(pair?.no.actionId).toBe(PASS_ANSWER);
+    // A mandatory one-answer question is not a yes/no.
+    expect(
+      yesNo(
+        decision({
+          kind: "confirmPayment",
+          mandatory: true,
+          options: [{ actionId: "confirm:yes", label: "Pay the cost" }],
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("Mages' Contest's bid is a yes/no", () => {
+    expect(
+      yesNo(
+        decision({
+          kind: "confirmBidAction",
+          options: [
+            { actionId: "y", label: "Yes: Mages' Contest: top the bid?" },
+            { actionId: "n", label: "No" },
+          ],
+        }),
+      ),
+    ).not.toBeNull();
   });
 });

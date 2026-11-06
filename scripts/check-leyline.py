@@ -23,6 +23,11 @@ off the protocol:
                exiled instead of reaching the graveyard (Forge's
                replacement, observed: hand down, graveyard still 0)
 
+  the same    Phase 9 Amendment 20: with two Leylines out, both would
+               exile the discard -- word for word the same effect, so
+               the order can't matter: nobody is asked which applies
+               first, and the player is told so
+
 A focused deck (Layer B): three Leylines to every Swamp, so an
 opening hand holds several -- the first version used half and half,
 and seat 1 was dealt exactly one, which cannot show "two, then stop". It is not Open Format -- the worker does
@@ -79,6 +84,8 @@ def respond(frame, action_id):
 
 state = {}
 found = {
+    "same_asked": [],               # which-replacement-first questions (Amendment 20: none)
+    "same_told": [],                # the "do the same thing" notices
     "asked": {1: [], 2: []},      # per seat: [(options, prompt)] for each question
     "chosen": [],                 # seat 1's picks, in order
     "pregame_kinds": [],          # every other decision kind before the first priority
@@ -118,6 +125,9 @@ for line in proc.stdout:
     if kind == "MATCH_SNAPSHOT":
         s = frame.get("state") or {}
         state[s.get("seat")] = s
+        for notice in s.get("notices") or []:
+            if "do the same thing" in notice and notice not in found["same_told"]:
+                found["same_told"].append(notice)
         if not started and s.get("stack"):
             found["pregame_stack"] = True
         if discarding is not None and s.get("seat") == 2:
@@ -140,7 +150,10 @@ for line in proc.stdout:
     options = frame.get("options", [])
     pick = None
 
-    if dkind == KIND:
+    if dkind == "chooseSingleReplacementEffect":
+        found["same_asked"].append([o.get("label") for o in options])
+        pick = options[0]["actionId"] if options else None
+    elif dkind == KIND:
         found["asked"][seat].append(([o.get("label") for o in options], frame.get("prompt")))
         # Up to two, always leaving one, so "stop" is a real answer.
         if seat == 1 and len(found["chosen"]) < 2 and len(options) > 1:
@@ -219,6 +232,12 @@ if acted:
 if discard["graveyard_after"] != discard["graveyard_before"]:
     problems.append(f"seat 2's discard reached its graveyard under seat 1's Leyline, before anyone "
                     f"acted -- is forge_patches/0001 applied? {discard}")
+# Phase 9 Amendment 20: two Leylines, the same effect -- not asked, told.
+if len(found["chosen"]) >= 2:
+    if found["same_asked"]:
+        problems.append(f"two identical Leylines: nobody should be asked which applies first: {found['same_asked']}")
+    if not found["same_told"]:
+        problems.append("two identical Leylines: the player is told the order doesn't matter")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)

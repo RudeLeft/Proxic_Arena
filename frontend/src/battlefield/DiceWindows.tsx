@@ -494,3 +494,77 @@ export function RollsOverlay({
     </>
   );
 }
+
+type Dungeon = NonNullable<NonNullable<Decision["arrange"]>["dungeons"]>[number];
+
+/** Amendment 20 -- how many rooms deep a dungeon is, along its longest way through. */
+export function dungeonDepth(dungeon: Dungeon): number {
+  const byName = new Map(dungeon.rooms.map((r) => [r.name, r]));
+  const deep = (name: string, seen: Set<string>): number => {
+    const room = byName.get(name);
+    if (!room || seen.has(name)) return 0;
+    const next = new Set(seen).add(name);
+    return 1 + Math.max(0, ...room.next.map((n) => deep(n, next)));
+  };
+  return dungeon.rooms[0] ? deep(dungeon.rooms[0].name, new Set()) : 0;
+}
+
+/** "Scry 1." -> "scry 1"; a long effect cut at its first sentence. */
+const effectWords = (says: string) => {
+  const first = says.split(/(?<=\.)\s/)[0] ?? says;
+  const short = first.length > 70 ? `${first.slice(0, 67).trimEnd()}…` : first;
+  return short.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase());
+};
+
+/** Amendment 20 -- a dungeon in a few words: its rooms, how deep, first and last room. */
+export function dungeonWords(dungeon: Dungeon): string {
+  const first = dungeon.rooms[0];
+  const last = dungeon.rooms[dungeon.rooms.length - 1];
+  if (!first || !last) return "";
+  return `${dungeon.rooms.length} rooms, ${dungeonDepth(dungeon)} deep: ${first.name} (${effectWords(first.says)}) → … → ${last.name} (${effectWords(last.says)})`;
+}
+
+/** Amendment 20 -- which dungeon to venture into: each with its rooms, in the game's words. */
+export function DungeonWindow(props: Common) {
+  const { decision, board, busy, artUrl, onAnswer } = props;
+  const dungeons = decision.arrange?.dungeons ?? [];
+  const source = sourceOf(board, decision);
+  const asking = board.stack[0]?.name ?? decision.about?.name ?? source?.name ?? "Venture";
+  const title = "Venture into which dungeon?";
+  return (
+    <Bubble
+      anchor={props.anchor}
+      geometry={props.geometry}
+      label={title}
+      from={asking}
+      title={title}
+      titleClass="gs-question-title"
+      kind={decision.kind}
+      picture={
+        source && !beingCast(board, decision, source) ? (
+          <Picture card={source} artUrl={artUrl} />
+        ) : null
+      }
+      actions={null}
+    >
+      <ul className="gs-win-list gs-places">
+        {decision.options.map((option) => {
+          const dungeon = dungeons.find((d) => d.name === option.label);
+          return (
+            <li key={option.actionId}>
+              <button
+                type="button"
+                className="gs-option gs-place"
+                disabled={busy}
+                onClick={() => onAnswer(option.actionId)}
+              >
+                <b>{option.label}</b>
+                {dungeon && <span>{dungeonWords(dungeon)}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Bubble>
+  );
+}

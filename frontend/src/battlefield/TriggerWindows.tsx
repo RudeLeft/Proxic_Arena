@@ -107,7 +107,11 @@ export function ConfirmWindow({
     (decision.kind === "confirmTrigger" || paying) && name ? copiesOnStack(board.stack, name) : 0;
   const top = name ? board.stack.find((s) => s.kind === "trigger" && s.name === name) : undefined;
   const source = name ? sourceOf(board, name) : null;
-  const title = confirmTitle(pair.yes.label ?? "Yes");
+  // Amendment 20: when the "yes" isn't worded as one ("Pay the cost"),
+  // the game's own question is the title ("Exile Grizzly Bears?").
+  const title = /^Yes/.test(pair.yes.label ?? "Yes")
+    ? confirmTitle(pair.yes.label ?? "Yes")
+    : (decision.prompt ?? confirmTitle(pair.yes.label ?? "Yes"));
   return (
     <Bubble
       anchor={anchor}

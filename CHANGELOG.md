@@ -24,6 +24,12 @@ The status tray's list, a Peek button, and dice (Phase 9).
 - Choosing a sector (Space Beleren) or a sprocket (Contraptions) shows what is in each one, and pointing at a choice lights those cards. A sprocket says when it cranks.
 - Cranking shows the Contraption's picture, with Crank and Don't crank.
 
+**The rest of the game's questions** (a check of every question the game can ask)
+- When the other player has been gone 10 minutes, the "End the game" choice is now a window beside their plate, like every other game window, with Peek. Their plate says "Away" from the moment they drop.
+- Two identical effects (two Leylines of the Void) no longer ask which applies first: it can't matter, so you're told instead.
+- Choosing a dungeon shows each dungeon's rooms; choosing a room names it.
+- Convoke says "Tap to help pay", not "Your move". Agent of Kotis and Mages' Contest ask with the usual yes/no window. No window says "These are the actions you can take" any more, and the game's raw words ("card(s)", "--", card numbers) are gone.
+
 ## 1.44.0 — 2026-11-05
 
 Choosing targets, and cards you can't pay for (Phase 9).

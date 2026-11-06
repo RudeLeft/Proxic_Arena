@@ -73,10 +73,12 @@ import {
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { StatusTray } from "./StatusTray";
+import { AwayWindow } from "./AwayWindow";
 import {
   CrankWindow,
   DICE_KINDS,
   DiceWindow,
+  DungeonWindow,
   ROLL_LINGER_MS,
   RollsOverlay,
   SectorWindow,
@@ -100,6 +102,7 @@ import {
   autoAnswer,
   endsCopies,
   isCopyTarget,
+  PASS_ANSWER,
   sameTrigger,
   stackWords,
   yesNo,
@@ -382,6 +385,11 @@ export function GameScreen({
     return () => window.clearInterval(timer);
   }, [goneSince]);
   const [keptWaiting, setKeptWaiting] = useState<number | null>(null);
+  // W-26 -- how long they have been gone, on their plate from the moment they drop.
+  const theirAway =
+    !watching && live && goneSince !== null
+      ? Math.max(0, Math.floor((awayNow - goneSince) / 60_000))
+      : null;
   const awayLong =
     !watching &&
     live &&
@@ -1187,6 +1195,10 @@ export function GameScreen({
     if (decision.kind === "chooseSprocket") {
       return <SprocketWindow key={decision.decisionId} {...common} onLight={lightCards} />;
     }
+    // Amendment 20 -- which dungeon: each with its rooms.
+    if (decision.kind === "chooseSingleCardFace" && decision.arrange?.dungeons) {
+      return <DungeonWindow key={decision.decisionId} {...common} />;
+    }
     if (decision.kind === "chooseContraptionsToCrank") {
       return <CrankWindow key={decision.decisionId} {...common} />;
     }
@@ -1224,7 +1236,7 @@ export function GameScreen({
           geometry={geometry}
           busy={busy}
           artUrl={artUrl}
-          onAnswer={answer}
+          onAnswer={(id) => answer(id === PASS_ANSWER ? null : id)}
           onYesToAll={(count, actionId) => {
             setCopies((previous) => ({
               name: decision.about?.name ?? "",
@@ -1232,7 +1244,7 @@ export function GameScreen({
               yesLeft: count - 1,
               noLeft: 0,
             }));
-            answer(actionId);
+            answer(actionId === PASS_ANSWER ? null : actionId);
           }}
           onSkipAll={(count, actionId) => {
             setCopies((previous) => ({
@@ -1241,7 +1253,7 @@ export function GameScreen({
               yesLeft: 0,
               noLeft: count - 1,
             }));
-            answer(actionId);
+            answer(actionId === PASS_ANSWER ? null : actionId);
           }}
         />
       );
@@ -1351,45 +1363,31 @@ export function GameScreen({
                 )}
                 <NoticeStack notices={tableNotices} place="table" />
                 {awayLong && !finished && (
-                  <div className="gs-away" role="alert">
-                    <p className="gs-away-title">
-                      {theirName} has been gone {game.awayMinutes}{" "}
-                      {game.awayMinutes === 1 ? "minute" : "minutes"}.
-                    </p>
-                    <p className="gs-away-sub">
-                      Ending the game counts as {theirName} conceding: you win.
-                    </p>
-                    {awayEndText(game.awayEnd, theirName, game.awayMinutes) && (
-                      <p className="gs-away-note">
-                        {awayEndText(game.awayEnd, theirName, game.awayMinutes)}
-                      </p>
-                    )}
-                    <div className="gs-away-buttons">
-                      <button
-                        type="button"
-                        className="pa-button pa-button-quiet"
-                        onClick={() => setKeptWaiting(goneSince)}
-                      >
-                        Keep waiting
-                      </button>
-                      <button
-                        type="button"
-                        className="pa-button pa-button-brass"
-                        disabled={game.awayEnd === "SENT"}
-                        onClick={() => {
-                          setGame((previous) => ({ ...previous, awayEnd: null }));
-                          socketRef.current?.endForAway();
-                        }}
-                      >
-                        End the game
-                      </button>
-                    </div>
-                  </div>
+                  // W-26 (Amendment 20): a game window beside their plate.
+                  <AwayWindow
+                    name={theirName}
+                    face={
+                      <Avatar
+                        avatar={theirId ? avatarOf(lobby, theirId) : null}
+                        size={48}
+                        rank={theirId ? rankOf(lobby, theirId) : undefined}
+                      />
+                    }
+                    minutes={game.awayMinutes}
+                    note={awayEndText(game.awayEnd, theirName, game.awayMinutes)}
+                    sent={game.awayEnd === "SENT"}
+                    onWait={() => setKeptWaiting(goneSince)}
+                    onEnd={() => {
+                      setGame((previous) => ({ ...previous, awayEnd: null }));
+                      socketRef.current?.endForAway();
+                    }}
+                  />
                 )}
               </>
             }
             rail={
               <Rail
+                theirAway={theirAway}
                 board={board}
                 question={question}
                 aim={aimAt}
@@ -1886,6 +1884,7 @@ function SeatBlock({
   board,
   mine,
   deciding = false,
+  away = null,
   question,
   aim = null,
   busy,
@@ -1895,6 +1894,8 @@ function SeatBlock({
   player: SnapshotPlayer;
   board: Snapshot;
   mine: boolean;
+  /** W-26 -- minutes this player has been gone, or null. */
+  away?: number | null;
   /** W-25 — it is this player's move and you are waiting: the plate glows. */
   deciding?: boolean;
   question: Question | null;
@@ -1947,6 +1948,7 @@ function SeatBlock({
         <span className="gs-seat-who">
           {/* Spec 0041: 12 characters in full, smaller if need be. */}
           <FitName className="gs-seat-name" name={player.name} />
+          {away !== null && <span className="gs-seat-away">Away · {away} min</span>}
           {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
           {board.spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
           {/* Under the name: who may act (the dot) and the Belt, so the
@@ -2132,6 +2134,7 @@ function useLastAsked(asking: { seat: number | null } | null): number | null {
 }
 
 function Rail({
+  theirAway = null,
   board,
   question,
   aim = null,
@@ -2157,6 +2160,8 @@ function Rail({
   question: Question | null;
   /** W-14 -- what the selected creatures can be pointed at. */
   aim?: ReadonlySet<string> | null;
+  /** W-26 -- minutes the other player has been gone, or null. */
+  theirAway?: number | null;
   /** Amendment 12 -- the seat whose action the open tray reports: it glows. */
   actingSeat?: number | null;
   mySeat: number;
@@ -2210,6 +2215,7 @@ function Rail({
           player={them}
           board={board}
           mine={false}
+          away={theirAway ?? null}
           deciding={waiting?.seat === them.seat || actingSeat === them.seat}
           question={question}
           aim={aim}

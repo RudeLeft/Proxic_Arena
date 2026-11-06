@@ -1337,10 +1337,14 @@ public final class MatchController extends GeneratedControllerBase {
         if (possible.size() == 1) {
             return first;
         }
-        String firstText = String.valueOf(first);
+        // Phase 9 Amendment 20: "the same" means the same words, without
+        // Forge's card numbers -- two Leylines of the Void read "Leyline of
+        // the Void (37) - ..." and "(10) - ...", and were asked.
+        String firstText = withoutCardNumbers(String.valueOf(first));
         boolean allTheSame = possible.stream()
-                .allMatch(effect -> effect == first || firstText.equals(String.valueOf(effect)));
+                .allMatch(effect -> effect == first || firstText.equals(withoutCardNumbers(String.valueOf(effect))));
         if (allTheSame) {
+            sameNotAsked(first, possible.size());
             return first;
         }
 
@@ -1350,7 +1354,7 @@ public final class MatchController extends GeneratedControllerBase {
         for (forge.game.replacement.ReplacementEffect effect : possible) {
             String id = "replacement:" + byId.size();
             byId.put(id, effect);
-            labels.put(id, String.valueOf(effect));
+            labels.put(id, withoutCardNumbers(String.valueOf(effect)));
         }
 
         try {
@@ -1372,6 +1376,35 @@ public final class MatchController extends GeneratedControllerBase {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return first;
+        }
+    }
+
+    /** "Leyline of the Void (37) - If a card..." -> "Leyline of the Void - If a card...". */
+    static String withoutCardNumbers(String text) {
+        return text == null ? "" : text.replaceAll(" \\(\\d+\\)", "");
+    }
+
+    /** Phase 9 Amendment 20 -- the names already said "not asked" this turn. */
+    private final java.util.Set<String> sameSaid = new java.util.HashSet<>();
+
+    private int sameSaidTurn = -1;
+
+    /**
+     * Phase 9 Amendment 20 -- identical choices are not asked; the player is
+     * told once a turn per card name, so a sweeper with two Leylines out
+     * says it once, not for every creature.
+     */
+    private void sameNotAsked(forge.game.replacement.ReplacementEffect effect, int count) {
+        forge.game.card.Card host0 = effect.getHostCard();
+        String name = host0 == null ? "These effects" : host0.getName();
+        int turn = player.getGame().getPhaseHandler().getTurn();
+        if (turn != sameSaidTurn) {
+            sameSaid.clear();
+            sameSaidTurn = turn;
+        }
+        if (sameSaid.add(name)) {
+            host.note(actedForSeat, name + " ×" + count + ": they do the same thing here, so the order"
+                    + " doesn't matter. You weren't asked.");
         }
     }
 
@@ -1435,7 +1468,8 @@ public final class MatchController extends GeneratedControllerBase {
                             "chooseCounterType",
                             new java.util.ArrayList<>(byId.keySet()),
                             true,
-                            prompt,
+                            // Phase 9 Amendment 20: without Forge's card numbers.
+                            withoutCardNumbers(prompt),
                             pending -> host.publishDecision(pending, labels));
             forge.game.card.CounterType chosen = byId.get(choice);
             // Mandatory, so the gate refused a pass. A miss means
@@ -2077,7 +2111,9 @@ public final class MatchController extends GeneratedControllerBase {
         // Forge's template leaves "%d" for its own screen to fill, and names
         // cards with their ids ("Coral Atoll (7)"): filled, and taken out.
         String what = prompt == null || prompt.isBlank() ? "Choose cards to pay with"
-                : prompt.replaceAll(" \\(\\d+\\)", "").replace("( ", "(").replace(" )", ")");
+                : prompt.replaceAll(" \\(\\d+\\)", "").replace("( ", "(").replace(" )", ")")
+                        // Phase 9 Amendment 20: Forge's "card(s)" as plain words.
+                        .replace(" card(s)", amount == 1 ? "" : " cards");
         boolean saysOr = what.contains("(or:");
         java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
         options.forEach(left::add);
@@ -2095,7 +2131,7 @@ public final class MatchController extends GeneratedControllerBase {
             try {
                 String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseCardsForCost",
                         new java.util.ArrayList<>(byId.keySet()), !isOptional,
-                        line + count + (isOptional && !saysOr ? " -- or pass, and do not pay." : ""),
+                        line + count + (isOptional && !saysOr ? " Or pass, and don't pay." : ""),
                         pending -> host.publishDecision(pending, labels));
                 forge.game.card.Card picked = byId.get(choice);
                 if (picked == null) {
@@ -2387,7 +2423,20 @@ public final class MatchController extends GeneratedControllerBase {
         }
         java.util.List<String> names = new java.util.ArrayList<>();
         faces.forEach(face -> names.add(face.getName()));
-        int picked = askIndex("chooseSingleCardFace", names, true, message);
+        // Phase 9 Amendment 20: a dungeon's rooms, in the game's own words,
+        // so the choice says what each dungeon is.
+        com.google.gson.JsonArray dungeons = new com.google.gson.JsonArray();
+        for (forge.card.ICardFace face : faces) {
+            com.google.gson.JsonObject one = dungeonRooms(face.getName(), face.getOracleText());
+            if (one != null) {
+                dungeons.add(one);
+            }
+        }
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        if (dungeons.size() == faces.size()) {
+            how.add("dungeons", dungeons);
+        }
+        int picked = arranged(how, () -> askIndex("chooseSingleCardFace", names, true, message));
         return faces.get(Math.max(picked, 0));
     }
 
@@ -3246,9 +3295,53 @@ public final class MatchController extends GeneratedControllerBase {
         java.util.List<String> texts = new java.util.ArrayList<>();
         for (SpellAbility spell : spells) {
             String text = spell.getDescription();
-            texts.add(text == null || text.isBlank() ? spell.toString() : text);
+            text = text == null || text.isBlank() ? spell.toString() : text;
+            // Phase 9 Amendment 20: a dungeon room, named ("Forge -- Put two...").
+            if (spell.hasParam("RoomName") && !text.startsWith(spell.getParam("RoomName"))) {
+                text = spell.getParam("RoomName") + " \u2014 " + text;
+            }
+            texts.add(text);
         }
         return texts;
+    }
+
+    /**
+     * Phase 9 Amendment 20 -- a dungeon's rooms from its card text ("Cave
+     * Entrance -- Scry 1. (Leads to: Goblin Lair, Mine Tunnels)" a line
+     * each): name, words, where it leads. Null when the text isn't a
+     * dungeon's.
+     */
+    static com.google.gson.JsonObject dungeonRooms(String name, String oracle) {
+        if (oracle == null || oracle.isBlank()) {
+            return null;
+        }
+        com.google.gson.JsonArray rooms = new com.google.gson.JsonArray();
+        java.util.regex.Pattern room = java.util.regex.Pattern.compile(
+                "^(.+?) \u2014 (.+?)(?: \\(Leads to: (.+)\\))?$");
+        for (String line : oracle.split("\\r?\\n|\\\\n")) {
+            java.util.regex.Matcher m = room.matcher(line.trim());
+            if (!m.matches()) {
+                continue;
+            }
+            com.google.gson.JsonObject one = new com.google.gson.JsonObject();
+            one.addProperty("name", m.group(1).trim());
+            one.addProperty("says", m.group(2).trim());
+            com.google.gson.JsonArray next = new com.google.gson.JsonArray();
+            if (m.group(3) != null) {
+                for (String to : m.group(3).split(",")) {
+                    next.add(to.trim());
+                }
+            }
+            one.add("next", next);
+            rooms.add(one);
+        }
+        if (rooms.size() == 0) {
+            return null;
+        }
+        com.google.gson.JsonObject dungeon = new com.google.gson.JsonObject();
+        dungeon.addProperty("name", name);
+        dungeon.add("rooms", rooms);
+        return dungeon;
     }
 
     /**
