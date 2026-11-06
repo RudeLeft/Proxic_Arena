@@ -136,8 +136,10 @@ def destroy():
 
 
 def sacrifice():
-    g = game("sacrifice", [("Swamp", 26), ("Walking Corpse", 20), ("Innocent Blood", 14)],
-             [("Forest", 30), ("Grizzly Bears", 30)])
+    # Plenty of each: CI 2026-11-06 twice ran out of turns before both sides
+    # had a creature and seat 1 an Innocent Blood.
+    g = game("sacrifice", [("Swamp", 22), ("Walking Corpse", 20), ("Innocent Blood", 18)],
+             [("Forest", 24), ("Grizzly Bears", 36)])
     w = Watch(g)
     st = {"cast": False}
 
@@ -155,7 +157,11 @@ def sacrifice():
                 return None
             mine = [c for c in g.mine(1) if c.get("name") == "Walking Corpse"]
             theirs = [c for c in g.mine(2) if c.get("name") == "Grizzly Bears"]
-            if not st["cast"] and mine and theirs:
+            # Again until a sacrifice is seen: a cast with no Swamp left
+            # untapped is cancelled (CI 2026-11-06 cast it once, after the
+            # Corpse had used the mana, and never again).
+            sacrificed = any(m.get("why") == "sacrificed" for m in w.moves(1))
+            if not sacrificed and mine and theirs and g.untapped_lands(1, name="Swamp"):
                 o = g.option(f, name="Innocent Blood", zone="hand", land=False)
                 if o:
                     st["cast"] = True
@@ -170,7 +176,7 @@ def sacrifice():
         return st["cast"] and all(
             len([m for m in w.moves(seat) if m.get("why") == "sacrificed"]) >= 2 for seat in (1, 2))
 
-    g.run(policy, until=until, max_turn=30)
+    g.run(policy, until=until, max_turn=40)
     w.see()
     gone = {seat: [m for m in w.moves(seat) if m["from"]["zone"] == "battlefield"] for seat in (1, 2)}
     found = {"stopped": g.stopped_badly(), "left": gone}

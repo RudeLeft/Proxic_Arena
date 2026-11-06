@@ -32,7 +32,15 @@ import {
   type Box,
   type RowId,
 } from "../src/battlefield/layout";
-import { LIFE_R, MOVE_MS, anchors, handZoomBox, placement } from "../src/battlefield/motion";
+import {
+  LIFE_R,
+  MOVE_MS,
+  SWEEP_MS,
+  fateMs,
+  anchors,
+  handZoomBox,
+  placement,
+} from "../src/battlefield/motion";
 import { STACK_READ_SCALE, stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
 
 type Point = [number, number];
@@ -343,7 +351,10 @@ test("after every change the board moves, then settles exactly where layout() sa
   const start = syntheticBoard(40, 30, 1);
   await page.goto("/dev/board?permanents=40&faces=30&seed=1");
   await page.locator(".bf-slot").first().waitFor();
-  const settled = MOVE_MS + 250;
+  // The longest a change takes: a card leaving the table first shows it
+  // was defeated or exiled (Phase 10 A-04/A-05), after a wipe's flash
+  // (A-07), then Glides.
+  const settled = MOVE_MS + Math.max(fateMs("defeated"), fateMs("exiled")) + SWEEP_MS + 250;
 
   let moved = 0;
   const steps = 16;

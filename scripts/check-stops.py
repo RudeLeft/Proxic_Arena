@@ -474,7 +474,9 @@ def stack_answer(name, seat2, offered, needs=()):
                 return bolt
         return None
 
-    g.run(policy, until=lambda g: st["cast"] is not None and g.turn > st["cast"], max_turn=14)
+    # 20 turns: CI 2026-11-06 twice ran out at 14 before seat 2 had cast
+    # its Ashnod's Altar (one game never drew any of the ten).
+    g.run(policy, until=lambda g: st["cast"] is not None and g.turn > st["cast"], max_turn=20)
     found = {"Bolt cast on turn": st["cast"], "seat 2 asked with the Bolt on the stack": st["asked"],
              "stopped": g.stopped_badly()}
     if st["cast"] is None:
