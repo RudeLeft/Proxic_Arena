@@ -308,3 +308,58 @@ slide it to its new row first and the pull then jumped it back -- seen
 in the check, at a tenth of the speed, on both screens, and fixed.
 Verified on the rebuilt stack with Control Magic, both seats. 792 page
 tests (Board: the line, the class, the lean, landing exactly).
+
+## Amendment 9 — A-17 decided: Chained on, side tabs, fanning past 4 (owner, 2026-11-06)
+
+Canvases: the three styles (https://claude.ai/artifact/Py2k5gBqtstfVciN4juRWT),
+Chained on up close with four tag places
+(https://claude.ai/artifact/7Q42VMX3hCWPRueU2bBX6J), and side tabs at real
+size with room and limits (https://claude.ai/artifact/5RCZLLVHLCsQN6ghd4jnTE).
+
+1. **Chained on**: a gold chain pulls the attached card onto its creature;
+   it shrinks into its tab, which glows, and the creature pulses (the gold
+   of A-08's pull). Moving Equipment and a creature dying use the same
+   tabs: off the tab and away.
+2. **The tag becomes a side tab** -- a narrow tab the full height of the
+   card on its right edge, reading along it (names up to ~28 letters at
+   1920x1080) -- replacing the strip across the top of the card.
+3. **Cards beside it glide over to make room**: a creature's slot is
+   wider by one tab width (today's tag height, 0.12 of the card's height)
+   per attached card. The owner asked for this so tabs never collide with
+   other cards.
+4. **Past 4 on one creature the tabs fan over each other**, in the room
+   of four, each a sliver; pointing at one shows it.
+
+Research (the owner asked whether the side runs out of room): a card is
+97 x 136 at 1920x1080 and a busy row packs them 4 px apart; one tab is
+16 px. Real decks: 1-2 attached is common, 3-4 in Aura and Equipment
+decks, 5-8 rare. The Mechanics Lab never had more than 2 on one
+creature. Length is never short (the tab is the card's height); width is
+what runs out, hence the sliding and the fan.
+
+## Amendment 10 — A-17 built (2026-11-06, as built)
+
+- **Side tabs** (`.bf-tags`/`.bf-tag`): each attached card is a button on
+  the host's right edge, the card's height, `TAB_W` wide, reading along
+  it; past `TAB_FAN` they fan (`tabAt`), a pointed-at tab comes to the
+  front. `layout()` widens the host's pitch by `tabRoom(n)`, so the
+  cards beside it glide over (A-00); the layout contract has the rule
+  (BATTLEFIELD_LAYOUT_CONTRACT.md §7a).
+- **Chained on**, in five cases, each with the gold chain of A-08
+  (260 ms) and the pull (560 ms, wider bow), the tab appearing with a
+  glow as its card lands and the host pulsing gold: Equipment on the
+  table equipped (its card into the tab); an Aura resolving (from the
+  stack into the tab); Equipment moved (from one host's tab to the
+  other's). Off the tab: Equipment left behind by a host that went
+  glides from its tab to its own place; an Aura leaving with its host
+  shatters from its tab (A-04).
+- A chain line now goes when its own fade ends (on the animation clock),
+  not on a timer: the check, run at a tenth of the speed, showed the
+  timer removing the line before the card had set off. A-08's line
+  shares it.
+- Verified on the rebuilt stack, Lab attachments game at a tenth of the
+  speed: Pacifism flies from the stack into the Bears' new tab as the
+  row makes room; Bonesplitter is chained from the table onto the
+  Raging Goblin, then from the Goblin to a Bears. 798 page tests (Board:
+  equip, re-equip, an Aura and Equipment coming off; layout: one tab per
+  card, the fan's room, tab places); battlefield.spec passes.

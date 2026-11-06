@@ -5,7 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  FAN_EXTRA,
   GROW_SHOW,
+  TAB_W,
+  tabAt,
+  tabRoom,
   SHOW_MIN,
   TAPPED_TILT,
   kindOf,
@@ -658,6 +662,54 @@ describe("attachments (§7.52a L7, PHASE 7 AMENDMENT 4)", () => {
     expect(out.slots).toHaveLength(1);
     expect(out.slots[0]!.attached).toEqual([splitter.id]);
     expect(out.boxes.get(splitter.id)).toEqual(out.boxes.get(goblin.id));
+  });
+
+  // Phase 10 A-17 (owner 2026-11-06, Amendment 9): side tabs need room.
+  function row(attachedToSecond: number) {
+    const cards = [0, 1, 2].map((i) => card({ seat: 1, name: `Creature ${i}` }));
+    const gear = Array.from({ length: attachedToSecond }, (_, i) =>
+      card({
+        seat: 1,
+        name: `Equipment ${i}`,
+        kind: "other",
+        types: "Artifact — Equipment",
+        attachedTo: cards[1]!.id,
+        power: null,
+        toughness: null,
+      }),
+    );
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [...cards, ...gear] }, vp);
+    const x = (c: LayoutCard) => out.boxes.get(c.id)!.x;
+    const s = out.boxes.get(cards[0]!.id)!.scale;
+    return {
+      before: x(cards[1]!) - x(cards[0]!),
+      after: x(cards[2]!) - x(cards[1]!),
+      tab: out.geometry.cardH * TAB_W * s,
+    };
+  }
+
+  it("a host's tabs push the next card over by one tab each", () => {
+    for (const n of [1, 2, 4]) {
+      const { before, after, tab } = row(n);
+      expect(after - before).toBeCloseTo(n * tab, 6);
+    }
+  });
+
+  it("past four, the tabs fan in the room of four (plus a little): the row stops growing", () => {
+    const four = row(4);
+    for (const n of [5, 8, 12]) {
+      const { before, after, tab } = row(n);
+      expect(after - before).toBeCloseTo(4 * tab + (FAN_EXTRA / TAB_W) * tab, 6);
+      expect(after - before).toBeLessThan(four.after - four.before + tab);
+    }
+  });
+
+  it("each tab's place: side by side up to four, then fanned, first to last", () => {
+    expect([0, 1, 2, 3].map((i) => tabAt(i, 4))).toEqual([0, TAB_W, 2 * TAB_W, 3 * TAB_W]);
+    const fan = [0, 1, 2, 3, 4, 5].map((i) => tabAt(i, 6));
+    expect(fan[0]).toBe(0);
+    expect(fan.at(-1)! + TAB_W).toBeCloseTo(tabRoom(6), 9);
+    for (let i = 1; i < fan.length; i++) expect(fan[i]!).toBeGreaterThan(fan[i - 1]!);
   });
 
   it("sit on the host's side of the table whoever controls them", () => {

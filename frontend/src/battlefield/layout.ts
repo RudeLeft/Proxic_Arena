@@ -58,6 +58,29 @@ const HAND_PITCH = 0.78; // of card width
 /** Spec 0040: 5 degrees (was 15), so a tapped card fits its line and
  * nothing of it is cut. */
 export const TAPPED_TILT = 5;
+/**
+ * Phase 10 A-17 (owner 2026-11-06, Amendment 9): an attached card is a TAB
+ * on its host's right edge, the card's full height, this wide (of the card's
+ * height: the old name tag's height). The host's slot is wider by its tabs,
+ * so the cards beside it make room; past TAB_FAN the tabs fan over each
+ * other in the room of TAB_FAN, plus FAN_EXTRA.
+ */
+export const TAB_W = 0.12;
+export const TAB_FAN = 4;
+export const FAN_EXTRA = 0.045;
+
+/** The room n tabs take beside their host, as a share of the card's height. */
+export function tabRoom(n: number): number {
+  if (n <= 0) return 0;
+  return n <= TAB_FAN ? n * TAB_W : TAB_FAN * TAB_W + FAN_EXTRA;
+}
+
+/** Where the i-th of n tabs starts, from the host's right edge, as a share
+ * of the card's height (they fan past TAB_FAN). */
+export function tabAt(i: number, n: number): number {
+  if (n <= TAB_FAN) return i * TAB_W;
+  return (i * (tabRoom(n) - TAB_W)) / (n - 1);
+}
 
 /** Where a tapped card and a hand card rotate about, as CSS
  * transform-origin percentages of the card box. */
@@ -389,6 +412,8 @@ function planLine(
   s: number,
   g: Geometry,
   centred: boolean,
+  /** Phase 10 A-17: each slot's tab room at full size, in pixels. */
+  extra: readonly number[] = [],
 ): LinePlan {
   const n = tapped.length;
   if (n === 0) return { xs: [], showing: 1 };
@@ -398,9 +423,14 @@ function planLine(
   const reach: number[] = [];
   let offset = 0;
   for (let i = 0; i < n; i++) {
-    if (i > 0) offset += g.referencePitch * s + (tapped[i - 1] ? R : 0) + (tapped[i] ? L : 0);
+    if (i > 0)
+      offset +=
+        g.referencePitch * s +
+        (extra[i - 1] ?? 0) * s +
+        (tapped[i - 1] ? R : 0) +
+        (tapped[i] ? L : 0);
     at.push(offset);
-    reach.push(w + (tapped[i] ? R : 0));
+    reach.push(w + (extra[i] ?? 0) * s + (tapped[i] ? R : 0));
   }
   const lead = tapped[0] ? L : 0;
   const avail = x1 - x0;
@@ -444,6 +474,7 @@ function planSide(
   kinds: ReadonlyMap<Kind, readonly boolean[]>,
   s: number,
   g: Geometry,
+  extras: ReadonlyMap<Kind, readonly number[]> = new Map(),
 ): SidePlan {
   const half = g.halves[side];
   const lineH = g.lineH * s;
@@ -464,6 +495,7 @@ function planSide(
         s,
         g,
         k !== "land",
+        part.map((i) => extras.get(k)?.[i] ?? 0),
       ),
     }));
   const showingOf = (k: Kind, n: number) => Math.min(...plansOf(k, n).map((p) => p.plan.showing));
@@ -505,10 +537,11 @@ function sizeSide(
   kinds: ReadonlyMap<Kind, readonly boolean[]>,
   g: Geometry,
   previous: number | undefined,
+  extras: ReadonlyMap<Kind, readonly number[]> = new Map(),
 ): SidePlan & { overcrowded: boolean } {
   let plan: SidePlan | null = null;
   for (const s of SIZE_STEPS) {
-    plan = planSide(side, kinds, s, g);
+    plan = planSide(side, kinds, s, g, extras);
     const needed = previous !== undefined && s > previous + 1e-9 ? GROW_SHOW : SHOW_MIN;
     if (plan.showing >= needed - 1e-9) return { ...plan, overcrowded: false };
   }
@@ -616,7 +649,14 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     const tapped = new Map(
       [...kinds].map(([kind, list]) => [kind, list.map((members) => members[0]!.tapped)]),
     );
-    const plan = sizeSide(side, tapped, g, input.previousScale?.[side]);
+    // Phase 10 A-17: a host's tabs need room beside it.
+    const extras = new Map(
+      [...kinds].map(([kind, list]) => [
+        kind,
+        list.map((members) => g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0)),
+      ]),
+    );
+    const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras);
     scales[side] = plan.scale;
     if (plan.overcrowded) overcrowded.push(side);
     const w = g.cardW * plan.scale;
@@ -647,8 +687,9 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           boxes.set(member.id, box);
           rowOf.set(member.id, rowId);
         }
-        // An Aura or Equipment is drawn as a name tag on its host
-        // (PHASE 7 AMENDMENT 4), so it is where its host is.
+        // An Aura or Equipment is drawn as a tab on its host (PHASE 7
+        // AMENDMENT 4; a side tab since Phase 10 A-17), so it is where its
+        // host is.
         for (const card of attachedCards) {
           boxes.set(card.id, box);
           rowOf.set(card.id, rowId);

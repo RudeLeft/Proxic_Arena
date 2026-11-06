@@ -531,27 +531,31 @@
 
 /* --- Auras and Equipment: name tags on the host (AMENDMENT 4) ------------ */
 
+/* Phase 10 A-17 (owner 2026-11-06): attached cards are tabs on the host's
+   right edge, the card's height, reading along it; layout() makes the room
+   (TAB_W each, fanning past TAB_FAN: each tab's left is set inline). */
 .bf-tags {
   position: absolute;
-  left: calc(var(--card-h) * 0.03);
-  right: calc(var(--card-h) * 0.03);
-  top: calc(var(--card-h) * 0.155);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: calc(var(--card-h) * 0.015);
+  left: 100%;
+  top: 0;
+  height: 100%;
+  width: 0;
   pointer-events: none;
 }
 .bf-tag {
+  position: absolute;
+  top: 1.5%;
+  height: 97%;
+  width: calc(var(--card-h) * 0.12);
+  writing-mode: vertical-rl;
   display: inline-flex;
   align-items: center;
   gap: 0.25em;
-  max-width: 100%;
-  height: calc(var(--card-h) * 0.12);
   margin: 0;
-  padding: 0 0.4em 0 0.25em;
+  padding: 0.35em 0;
   border: 1px solid color-mix(in srgb, var(--bar-text) 45%, transparent);
-  border-radius: 0.3em;
+  border-left: none;
+  border-radius: 0 0.35em 0.35em 0;
   background: var(--bar);
   color: var(--bar-text);
   font: inherit;
@@ -559,9 +563,58 @@
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+  overflow: hidden;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 50%);
+  box-shadow: 1px 0 3px rgb(0 0 0 / 50%);
+}
+/* Phase 10 A-17 -- Chained on: the tab shows as its card lands on it (after
+   the chain, 260 ms, and the pull, 560 ms), with a glow; the host pulses. */
+.bf-tag.bf-tab-arrive {
+  animation: bf-tab-arrive 1240ms ease-out both;
+}
+@keyframes bf-tab-arrive {
+  0%,
+  66% {
+    opacity: 0;
+    box-shadow: 0 0 0 0 rgb(241 195 106 / 0%);
+  }
+  75% {
+    opacity: 1;
+    box-shadow: 0 0 12px 4px rgb(241 195 106 / 90%);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 1px 0 3px rgb(0 0 0 / 50%);
+  }
+}
+.bf-clink > .bf-card {
+  animation: bf-clink 1240ms ease-out both;
+}
+@keyframes bf-clink {
+  0%,
+  66% {
+    box-shadow: 0 0 0 0 rgb(241 195 106 / 0%);
+  }
+  76% {
+    box-shadow:
+      0 0 0 2px rgb(241 195 106 / 95%),
+      0 0 18px 4px rgb(241 195 106 / 85%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(241 195 106 / 0%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-tag.bf-tab-arrive,
+  .bf-clink > .bf-card {
+    animation: none;
+  }
+}
+/* A fanned tab pointed at comes to the front, whole. */
+.bf-tag:hover,
+.bf-tag:focus-visible {
+  z-index: 99 !important;
 }
 .bf-tag-glyph {
   flex: none;

@@ -2,7 +2,7 @@
 
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board, stackCaption } from "./Board";
+import { Board, stackCaption, type BoardCard } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, layout } from "./layout";
 import { centreOf } from "./effects";
@@ -354,6 +354,88 @@ describe("Board movement", () => {
     // It leans into the turn mid-flight.
     const middle = String(pull.frames[10]!.transform);
     expect(middle).not.toContain("rotate(0deg)");
+  });
+
+  // Phase 10 A-17 (owner 2026-11-06, Amendment 9): Chained on, side tabs.
+  function board(cards: BoardCard[], n: number) {
+    const step = applyChanges(start, n, 1);
+    return (
+      <Board
+        battlefield={cards}
+        hand={step.board.hand}
+        viewerSeat={step.board.viewerSeat}
+        artUrl={same}
+        arrivals={new Map()}
+        departures={new Map()}
+      />
+    );
+  }
+  function equipScene() {
+    const n = stepWhere(/dies$/) - 1;
+    const cards = applyChanges(start, n, 1).board.battlefield;
+    const mine = cards.filter(
+      (card) =>
+        card.kind === "creature" && card.seat === applyChanges(start, n, 1).board.viewerSeat,
+    );
+    const gear: BoardCard = {
+      ...mine[0]!,
+      id: "card:9001",
+      name: "Bonesplitter",
+      kind: "other",
+      types: "Artifact — Equipment",
+      power: null,
+      toughness: null,
+      attachedTo: null,
+      tapped: false,
+    };
+    return { n, cards, a: mine[0]!, b: mine[1]!, gear };
+  }
+
+  it("equipping: the card is chained into a tab on the creature's side, which then shows", () => {
+    const { n, cards, a, gear } = equipScene();
+    const view = render(board([...cards, gear], n));
+    view.rerender(board([...cards, { ...gear, attachedTo: a.id }], n));
+    const ghost = view.container.querySelector(`[data-ghost-of="${gear.id}"]`)!;
+    expect(ghost.getAttribute("data-chained")).toBe("true");
+    expect(view.container.querySelectorAll(".bf-tethers path")).toHaveLength(1);
+    const tab = view.container.querySelector(`.bf-tag[data-object-id="${gear.id}"]`)!;
+    expect(tab.classList.contains("bf-tab-arrive")).toBe(true);
+    expect(tab.closest(".bf-slot")!.classList.contains("bf-clink")).toBe(true);
+    const call = calls.find((c) => c.element === ghost)!;
+    expect(String(call.frames.at(-1)!.transform)).toContain("scale(0.2");
+  });
+
+  it("re-equipping: the tab is chained from one creature to the other", () => {
+    const { n, cards, a, b, gear } = equipScene();
+    const view = render(board([...cards, { ...gear, attachedTo: a.id }], n));
+    view.rerender(board([...cards, { ...gear, attachedTo: b.id }], n));
+    const ghost = view.container.querySelector(`[data-ghost-of="${gear.id}"]`)!;
+    expect(ghost.getAttribute("data-chained")).toBe("true");
+    const tab = view.container.querySelector(`.bf-tag[data-object-id="${gear.id}"]`)!;
+    expect(tab.getAttribute("data-attached-to")).toBe(b.id);
+    expect(tab.classList.contains("bf-tab-arrive")).toBe(true);
+  });
+
+  it("an Aura leaving with its creature shatters from its tab; Equipment left behind comes off the tab", () => {
+    const { n, cards, a, gear } = equipScene();
+    const aura: BoardCard = {
+      ...gear,
+      id: "card:9002",
+      name: "Pacifism",
+      types: "Enchantment — Aura",
+    };
+    const view = render(
+      board([...cards, { ...gear, attachedTo: a.id }, { ...aura, attachedTo: a.id }], n),
+    );
+    calls.length = 0;
+    view.rerender(board([...cards.filter((c) => c.id !== a.id), gear], n));
+    const auraGhost = view.container.querySelector(`[data-ghost-of="${aura.id}"]`)!;
+    expect(auraGhost.getAttribute("data-fate")).toBe("defeated");
+    const gearSlot = view.container
+      .querySelector(`[data-object-id="${gear.id}"]`)!
+      .closest(".bf-slot")!;
+    const call = calls.find((c) => c.element === gearSlot)!;
+    expect(String(call.frames[0]!.transform)).toContain("scale(0.2");
   });
 
   it("one creature dying is not a wipe: no flash", () => {

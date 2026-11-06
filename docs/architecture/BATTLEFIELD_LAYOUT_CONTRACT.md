@@ -264,6 +264,25 @@ As originally asked:
 
 ---
 
+## 7a. Amendment — attached cards are side tabs (Phase 10 A-17, owner 2026-11-06)
+
+An Aura or Equipment on a permanent is no longer a name tag across the
+host's picture: it is a **tab on the host's right edge**, the card's full
+height, `TAB_W` = 0.12 of the card's height wide (the old tag's height),
+reading along it. The host's slot is **wider by its tabs**: in a line, the
+distance to the next slot grows by `tabRoom(n)` (n tabs, each `TAB_W`;
+past `TAB_FAN` = 4 they fan over each other in 4 tabs' room plus
+`FAN_EXTRA` = 0.045), at the line's scale, so tabs never sit under the
+next card while the line has room; when it doesn't, the squeeze of §3
+applies to the wider pitches as to any. The cards beside a host glide
+over to make room (Phase 10 A-00). `layout.ts` `tabRoom`, `tabAt`;
+`layout.test.ts` "attachments". Owner's reasons and the measurements
+(97 x 136 cards at 1920x1080, 4 px apart on a busy line; 1-2 attached
+common, 3-4 in Aura and Equipment decks, 5-8 rare) are in
+`PHASE_10_ANIMATION_LOCKED.md`, Amendment 9.
+
+---
+
 ## 8. Provenance
 
 Derived by measurement from

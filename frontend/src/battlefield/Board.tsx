@@ -48,6 +48,8 @@ import {
   OPPONENT_HAND_ORIGIN,
   TAPPED_ORIGIN,
   layout,
+  tabAt,
+  TAB_W,
   type Box,
   type Geometry,
   type LayoutCard,
@@ -558,6 +560,32 @@ interface Ghost extends Drawn {
   zIndex?: number;
   /** Phase 10 A-04/A-05: defeated (to a graveyard) or exiled, shown first. */
   fate?: Fate | undefined;
+  /** Phase 10 A-17: pulled on a gold chain into (or out of) a tab. */
+  chained?: boolean;
+}
+
+/** Phase 10 A-08/A-17 -- a safety net: a chain line still there this long after it began is removed. */
+const TETHERS_GONE_MS = 30_000;
+
+/** Phase 10 A-17 -- a card shrunk into its tab is drawn this small (of a card). */
+const TAB_CARD = 0.22;
+
+/** Where an attached card's tab is: a small card's box, centred on the tab. */
+function tabBox(host: Box, i: number, n: number, g: Geometry): Box {
+  const s = host.scale;
+  const cx = host.x + host.w + (tabAt(i, n) + TAB_W / 2) * g.cardH * s;
+  const cy = host.y + host.h / 2;
+  const scale = TAB_CARD * s;
+  const w = g.cardW * scale;
+  const h = g.cardH * scale;
+  return { x: cx - w / 2, y: cy - h / 2, w, h, scale, rotation: 0, z: host.z + 1 };
+}
+
+/** An attached card's tab, and the card as it would be drawn leaving it. */
+interface Tab {
+  box: Box;
+  host: string;
+  drawn: Drawn;
 }
 
 /** A burst, a damage number or a resolving spell's spark, on its way out. */
@@ -680,6 +708,8 @@ export function Board({
     stack: { s: StackView; box: Box }[];
     /** The hand card pointed at then: its rise is a settle, not a Glide. */
     pointed: string | null;
+    /** Phase 10 A-17 -- every attached card's tab then. */
+    tabs: Map<string, Tab>;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -960,17 +990,23 @@ export function Board({
               </span>
             )}
             {attached.length > 0 && (
-              // Auras and Equipment as name tags across the host's picture
-              // (AMENDMENT 4). Each is its own button, with its own id, so
-              // it can be targeted and inspected like any permanent.
-              <div className="bf-tags">
-                {attached.map((card) => {
+              // Auras and Equipment as tabs on the host's right edge (Phase
+              // 10 A-17, owner 2026-11-06; name tags across its picture
+              // before, AMENDMENT 4), fanning past TAB_FAN. Each is its own
+              // button, with its own id, so it can be targeted and inspected
+              // like any permanent.
+              <div className="bf-tags" data-tabs={attached.length}>
+                {attached.map((card, index) => {
                   const tagLook = lookOf(card.kind, card.types);
                   const tagAct = act([card.id]);
                   return (
                     <button
                       key={card.id}
                       type="button"
+                      style={{
+                        left: `calc(var(--card-h) * ${tabAt(index, attached.length)})`,
+                        zIndex: attached.length - index,
+                      }}
                       className={`bf-tag bf-look-${tagLook}${tagAct.className}`}
                       {...tagAct.data}
                       {...tagAct.handlers}
@@ -1278,6 +1314,33 @@ export function Board({
       for (const id of item.ids) now.set(id, { box: item.box, origin: item.origin });
       drawn.set(item.id, item.drawn);
     }
+    // Phase 10 A-17 -- every attached card's tab, now.
+    const tabs = new Map<string, Tab>();
+    for (const slot of result.slots) {
+      slot.attached.forEach((id, i) => {
+        const card = byId.get(id);
+        if (!card) return;
+        tabs.set(id, {
+          box: tabBox(slot.box, i, slot.attached.length, g),
+          host: slot.ids[0]!,
+          drawn: {
+            name: card.name,
+            look: lookOf(card.kind, card.types),
+            type: shortType(card.types),
+            pt: "",
+            art: card.art ? artUrl(card.art) : null,
+            crop: card.crop ? artUrl(card.crop) : null,
+            faceDown: card.faceDown,
+            known: card.known,
+            side: card.seat === viewerSeat ? "viewer" : "opponent",
+            table: true,
+          },
+        });
+      });
+    }
+    const centre = (box: Box) => ({ x: box.x + box.w / 2, y: box.y + box.h / 2 });
+    const chains: { key: string; from: Point; to: Point }[] = [];
+    const arriving: string[] = [];
     const before = previous.current;
     const resized =
       before !== null && (before.viewport.width !== g.width || before.viewport.height !== g.height);
@@ -1302,13 +1365,17 @@ export function Board({
         // pile it left, the hand), or else from its zone in the rail.
         const was = before.at.get(item.id);
         const fromStack = was ? undefined : before.stack.find((e) => e.s.card === item.id);
+        // A-17: off its tab (Equipment left behind by a host that went).
+        const offTab = before.tabs.get(item.id);
         // Phase 10 A-00: Glide, from wherever it was drawn.
-        const fromBox = was
-          ? was.box
-          : fromStack
-            ? fromStack.box
-            : boxAt(where[arrivals?.get(item.id) ?? "stack"], g);
-        const fromOrigin = was ? was.origin : item.origin;
+        const fromBox = offTab
+          ? offTab.box
+          : was
+            ? was.box
+            : fromStack
+              ? fromStack.box
+              : boxAt(where[arrivals?.get(item.id) ?? "stack"], g);
+        const fromOrigin = was && !offTab ? was.origin : item.origin;
         glide(
           element,
           glideFrames(fromBox, item.box, g.cardW, g.cardH, fromOrigin, item.origin, {
@@ -1379,7 +1446,7 @@ export function Board({
         timers.current.push(
           window.setTimeout(
             () => setTethers((list) => list.filter((t) => !pulls.includes(t))),
-            TETHER_MS + PULL_MS + 100,
+            TETHERS_GONE_MS,
           ),
         );
       }
@@ -1407,6 +1474,27 @@ export function Board({
               : dest.endsWith(":exile")
                 ? "exiled"
                 : undefined;
+        // A-17: equipped -- chained into its tab on the host.
+        const into = tabs.get(id);
+        if (into && !before.tabs.has(id)) {
+          chains.push({
+            key: `chain:${id}:${performance.now()}`,
+            from: centre(at.box),
+            to: centre(into.box),
+          });
+          arriving.push(id);
+          leaving.push({
+            ...d,
+            id,
+            ...at,
+            to: into.box,
+            toOrigin: at.origin,
+            fade: false,
+            delay: TETHER_MS,
+            chained: true,
+          });
+          continue;
+        }
         leaving.push(
           joined
             ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false, delay }
@@ -1421,6 +1509,49 @@ export function Board({
                 fate,
               },
         );
+      }
+      // A-17: a tab that moved to another host (Equipment re-equipped) is
+      // chained across; one whose card left the table (an Aura with its
+      // creature) goes as any permanent leaving does, from its tab.
+      for (const [id, was] of before.tabs) {
+        const nowTab = tabs.get(id);
+        if (nowTab && nowTab.host !== was.host) {
+          chains.push({
+            key: `chain:${id}:${performance.now()}`,
+            from: centre(was.box),
+            to: centre(nowTab.box),
+          });
+          arriving.push(id);
+          leaving.push({
+            ...was.drawn,
+            id,
+            box: was.box,
+            origin: { x: 0.5, y: 0.5 },
+            to: nowTab.box,
+            toOrigin: { x: 0.5, y: 0.5 },
+            fade: false,
+            delay: TETHER_MS,
+            chained: true,
+          });
+          continue;
+        }
+        if (nowTab || now.has(id)) continue;
+        const dest = departures?.get(id) ?? `${was.drawn.side}:graveyard`;
+        leaving.push({
+          ...was.drawn,
+          id,
+          box: was.box,
+          origin: { x: 0.5, y: 0.5 },
+          to: boxAt(where[dest], g),
+          toOrigin: { x: 0.5, y: 0.5 },
+          fade: true,
+          delay: 0,
+          fate: dest.endsWith(":graveyard")
+            ? "defeated"
+            : dest.endsWith(":exile")
+              ? "exiled"
+              : undefined,
+        });
       }
       // A-07: several leaving the table at once is a board wipe -- a pale
       // flash sweeps the table first, then they all go together.
@@ -1439,6 +1570,29 @@ export function Board({
       const gone: Ghost[] = [];
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id)) continue;
+        // A-17: an Aura resolving onto its creature is chained into its tab.
+        const ontoTab = s.card ? tabs.get(s.card) : undefined;
+        if (s.card && ontoTab && !before.tabs.has(s.card)) {
+          chains.push({
+            key: `chain:${s.card}:${performance.now()}`,
+            from: centre(box),
+            to: centre(ontoTab.box),
+          });
+          arriving.push(s.card);
+          gone.push({
+            ...ontoTab.drawn,
+            id: s.id,
+            box,
+            origin: { x: 0, y: 0 },
+            to: ontoTab.box,
+            toOrigin: { x: 0, y: 0 },
+            fade: false,
+            delay: TETHER_MS,
+            chained: true,
+            zIndex: Z_LINES - 50,
+          });
+          continue;
+        }
         if (s.card && now.has(s.card)) continue;
         const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
         const centreBox = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
@@ -1495,6 +1649,30 @@ export function Board({
         });
       }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
+      if (chains.length > 0) {
+        setTethers((list) => [...list, ...chains]);
+        timers.current.push(
+          window.setTimeout(
+            () => setTethers((list) => list.filter((t) => !chains.includes(t))),
+            TETHERS_GONE_MS,
+          ),
+        );
+      }
+      // The tab shows as its card lands, with a glow; the host pulses.
+      for (const id of arriving) {
+        const tab = cardsRef.current?.querySelector<HTMLElement>(`.bf-tag[data-object-id="${id}"]`);
+        if (tab) {
+          tab.classList.remove("bf-tab-arrive");
+          void tab.offsetWidth;
+          tab.classList.add("bf-tab-arrive");
+        }
+        const host = tab?.closest<HTMLElement>(".bf-slot");
+        if (host) {
+          host.classList.remove("bf-clink");
+          void host.offsetWidth;
+          host.classList.add("bf-clink");
+        }
+      }
       if (sparks.length > 0) {
         setEffects((list) => [...list, ...sparks]);
         timers.current.push(
@@ -1509,6 +1687,7 @@ export function Board({
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     previous.current = {
       pointed,
+      tabs,
       viewport: { width: g.width, height: g.height },
       at: now,
       drawn,
@@ -1518,6 +1697,7 @@ export function Board({
   }, [
     items,
     result,
+    byId,
     arrivals,
     departures,
     stack,
@@ -2007,6 +2187,13 @@ export function Board({
             {tethers.map((t) => (
               <path
                 key={t.key}
+                // Gone when its own fade ends -- on the animation clock, so
+                // a hurry or a slowed clock keeps the line and the card it
+                // pulls together.
+                onAnimationEnd={(event) => {
+                  if (event.animationName === "bf-tether-fade")
+                    setTethers((list) => list.filter((x) => x.key !== t.key));
+                }}
                 pathLength={1}
                 d={`M${t.from.x} ${t.from.y} Q ${(t.from.x + t.to.x) / 2} ${Math.min(t.from.y, t.to.y) - g.cardH * 0.6} ${t.to.x} ${t.to.y}`}
               />
@@ -2064,12 +2251,20 @@ function GhostCard({
       : null;
     const animation = element.animate(
       fated?.frames ??
-        glideFrames(ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin, {
-          from: 1,
-          to: ghost.fade ? 0.15 : 1,
-        }),
+        glideFrames(
+          ghost.box,
+          ghost.to,
+          cardW,
+          cardH,
+          ghost.origin,
+          ghost.toOrigin,
+          { from: 1, to: ghost.fade ? 0.15 : 1 },
+          null,
+          // A-17: pulled along its chain.
+          ghost.chained ? { arc: PULL_ARC } : {},
+        ),
       {
-        duration: fated?.duration ?? MOVE_MS,
+        duration: fated?.duration ?? (ghost.chained ? PULL_MS : MOVE_MS),
         easing: "linear",
         delay: ghost.delay,
         fill: "both",
@@ -2092,6 +2287,7 @@ function GhostCard({
       aria-hidden="true"
       data-ghost-of={ghost.id}
       data-fate={ghost.fate}
+      data-chained={ghost.chained ? "true" : undefined}
       style={{
         width: cardW,
         height: cardH,
