@@ -34,6 +34,13 @@ The status tray's list, a Peek button, and dice (Phase 9).
 - Cards that choose several modes (Cryptic Command, Collective Brutality, Season of Weaving) show every mode in one window: tick the ones you want ("Choose two · 1 of 2"), change your mind, then Done. Escalate says what each extra mode costs. "Choose one" cards are still one click.
 - While the other player splits Fact or Fiction, your screen says "Splitting the cards" (and "Choosing a pile", "Choosing blockers" and so on), and no longer says they "may respond" when they're making a choice for your spell.
 
+**Every window, checked again**
+- When the game refuses an answer (it moved on before the click arrived), every window now says so. Many used to show nothing, so the click just seemed to do nothing.
+- Answering for the other player (Mindslaver) is now said in every window: "Playing for seat 2 (Bob)".
+- Spectators see what the players are doing ("Splitting the cards") instead of a guess.
+- A wide card tray no longer slides under the gear, Report and "List choices" buttons.
+- The ability menu fades with Peek and Space, like every other window.
+
 ## 1.44.0 — 2026-11-05
 
 Choosing targets, and cards you can't pay for (Phase 9).

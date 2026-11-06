@@ -1201,3 +1201,46 @@ owner chose:
   passes when they run out -- its answers caught on the socket; the
   waiting line "Splitting the cards"). Screenshots
   test-results/seen/a21-*.png.
+
+**Amendment 22 (2026-11-06, the second Phase 9 audit).** The owner asked
+for another comb through Phase 9 and the game before the exit gate. This
+time: every state the game screen shows besides questions (the
+connection cards, loading, a stopped game, two tabs, game over, away,
+reveals), the other player's waiting line for every question, the
+spectator's page, and -- for one real question of every kind in the real
+page -- what happens when the game refuses the answer, and what a player
+answering for another seat (Mindslaver) sees. Found: in 31 kinds (the
+yes/no window, the number dial, every card tray, Play or draw and the
+opening hand, the dice, sector, sprocket, crank, dungeon and modes
+windows) a refused answer showed nothing (W-23 had decided refusals stay
+inside their window, but only the general windows drew one) and
+"Playing for seat N" never showed; spectators were never told who is
+asked, so their line guessed; a wide tray slid under "List choices" and
+the corner buttons; the ability menu didn't fade with Peek. The owner
+chose: fix them all now (they follow decisions already made), and fade
+the ability menu too.
+
+- *As built (2026-11-06).* The refusal and "Playing for seat N (name)"
+  are drawn by the frame every window shares (GameWindow.tsx
+  `WindowFacts` / `WindowFactLines`, given once by the game screen; the
+  bubble, the tray and the opening hand draw it), so a window built
+  later can't leave them out; the general windows no longer draw their
+  own copy, and a window whose title already says "Playing for seat"
+  isn't told twice. Spectators get every MATCH_ASKING (with its word) as
+  the players do. A tray that would reach under the corner buttons rises
+  just above them (it measures itself; sideways only, so it stays put).
+  The ability menu fades with Space and Peek.
+- *Evidence:* the audit re-run in the real page: 87 kinds, every one now
+  shows the refusal and "Playing for seat N" (was 31 missing each).
+  Unit `DiceWindows.test.tsx` (the frame's two lines in a window with
+  no words of its own; nothing when there is nothing to say). Server
+  `MatchDecisionsTest` (spectators are told who is asked). Browser:
+  `match-mindslaver`, `match-card-trays`, `match-ability-menu`,
+  `match-numbers`, `match-status-list` (the "Every choice" tray clear of
+  the corner buttons), `match-many-triggers`, `match-modes-doing`.
+- *Checked and fine:* the connection cards (blue "Reconnecting", red
+  "no longer connected" with Reload); the loading screen; a game that
+  stops (the result banner says so); two tabs (only the tab in front
+  counts down); the other player's waiting line for every asked kind
+  (its own word, "Making a choice for your/their <card>", or the
+  pregame line); game over, away, reveal and rolls.

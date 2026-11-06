@@ -219,7 +219,7 @@ decision.arrange.modes     Phase 9 Amendment 21, chooseModeForAbility: {num,
 MATCH_ASKING.doing        Phase 9 Amendment 21: a fixed word for what the
                           asked seat is doing ("Splitting the cards"...;
                           "Choosing"; absent for priority), never the
-                          question itself
+                          question itself; sent to spectators too
 player.commandWords       Phase 9 W-21: one entry per `command` entry, in
                           its order -- {name, says} for an emblem (Forge's
                           card text, markup removed), {name, rooms: [{name,

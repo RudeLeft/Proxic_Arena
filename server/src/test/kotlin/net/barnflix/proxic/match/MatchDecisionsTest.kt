@@ -82,7 +82,17 @@ class MatchDecisionsTest {
             ) {
                 asked += "${name(userId)}/ASKING:${seat ?: "nobody"}"
             }
+
+            override suspend fun spectate(
+                matchId: UUID,
+                message: kotlinx.serialization.json.JsonObject,
+            ) {
+                spectated += message
+            }
         }
+
+    /** Phase 9 Amendment 22 — every frame sent to spectators. */
+    private val spectated = mutableListOf<kotlinx.serialization.json.JsonObject>()
 
     /** Spec 0002 — every MATCH_ASKING, in order. */
     private val asked = mutableListOf<String>()
@@ -284,6 +294,17 @@ class MatchDecisionsTest {
         decisions.handle(live(), WorkerEvent.Decision(question(1, authorised = 2, actedFor = 1)))
 
         assertEquals(listOf("alice/ASKING:2", "bob/ASKING:2"), asked)
+    }
+
+    /** Phase 9 Amendment 22 — spectators learn who is asked too, as it changes. */
+    @Test
+    fun `spectators are told who is asked`() {
+        val decisions = MatchDecisions(announcer)
+
+        decisions.handle(live(), WorkerEvent.Decision(question(1, authorised = 2)))
+
+        val asking = spectated.filter { it["type"].toString().trim('"') == "MATCH_ASKING" }
+        assertEquals(listOf("2"), asking.map { it["seat"].toString() })
     }
 
     /** The message itself: a seat, or an explicit null -- and nothing about the question. */

@@ -3625,3 +3625,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-mode-words {
   flex: 1;
 }
+/* Amendment 22 -- answering for another seat (Mindslaver), in every window. */
+.gs-win-acting {
+  color: #f0cf84;
+  font-weight: 600;
+}

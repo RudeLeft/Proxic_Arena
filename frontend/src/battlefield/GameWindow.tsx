@@ -9,7 +9,16 @@
 // rules allow (the question's own business) and clicking away answers
 // nothing.
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import type { Box, Geometry } from "./layout";
 import { ManaText } from "./ManaCost";
 
@@ -28,6 +37,37 @@ const watchPeek = (watcher: () => void) => {
   peekWatchers.add(watcher);
   return () => peekWatchers.delete(watcher);
 };
+
+/**
+ * Phase 9 second audit (Amendment 22) -- what every question window shows,
+ * whichever window it is: the game's refusal of the last answer (W-23:
+ * "refusals stay inside their question window") and, under Mindslaver,
+ * that the answer is for another seat. Given once, by the game screen,
+ * around the window; the frame (Bubble, Tray, the opening hand) draws it,
+ * so a window built later can't leave it out.
+ */
+export const WindowFacts = createContext<{ notice: string | null; actingFor: string | null }>({
+  notice: null,
+  actingFor: null,
+});
+
+/** The refusal and the acting-for line, as the frames draw them. */
+export function WindowFactLines({ title }: { title?: string }) {
+  const { notice, actingFor } = useContext(WindowFacts);
+  return (
+    <>
+      {/* Not when the window's own title already says it (the general window). */}
+      {actingFor && !(title ?? "").startsWith("Playing for seat") && (
+        <p className="gs-win-prompt gs-win-acting">{actingFor}</p>
+      )}
+      {notice && (
+        <p className="gs-win-prompt gs-win-notice" role="alert">
+          <ManaText text={notice} />
+        </p>
+      )}
+    </>
+  );
+}
 
 /** Whether the windows are faded right now; `active` adds Space while this window is open. */
 export function usePeek(active: boolean): boolean {
@@ -154,6 +194,7 @@ export function Bubble({
         </div>
       </div>
       {children}
+      <WindowFactLines title={title} />
       <div className="gs-win-actions">
         <span className="gs-win-peek-hint">
           <PeekButton />
@@ -192,13 +233,31 @@ export function Tray({
   // on the table, never wider than the room left of the stack.
   const centre = geometry.play.x + geometry.play.w * 0.45;
   const maxWidth = geometry.play.w * 0.82;
+  // Amendment 22: a wide tray reached under the corner buttons (gear,
+  // Report, List choices), which stay on top (rule 5): it then rises
+  // just above them instead.
+  const self = useRef<HTMLDivElement | null>(null);
+  const [lift, setLift] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const tray = self.current?.getBoundingClientRect();
+    const frame = (self.current?.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    const dock = document.querySelector(".gs-dock-anchor")?.getBoundingClientRect();
+    if (!tray || !frame || !dock || dock.width === 0) return;
+    // Sideways only: lifted, it no longer overlaps upwards, and must stay lifted.
+    const under = tray.left < dock.right;
+    const to = under ? Math.round(frame.bottom - dock.top + 8) : null;
+    setLift((now) => (now === to ? now : to));
+    // Again whenever the table's size or the tray's contents change; the
+    // equality above stops a loop.
+  }, [geometry, children]);
   return (
     <div
+      ref={self}
       className={`gs-win gs-tray${peek ? " gs-win-peek" : ""}`}
       role="dialog"
       data-kind={kind}
       aria-label={label}
-      style={{ left: centre, maxWidth }}
+      style={{ left: centre, maxWidth, ...(lift !== null ? { bottom: lift } : {}) }}
     >
       <div className="gs-win-words gs-tray-body">
         <span className="gs-win-from">{from}</span>
@@ -211,6 +270,7 @@ export function Tray({
           </p>
         )}
         {children}
+        <WindowFactLines title={title} />
       </div>
       <div className="gs-win-actions gs-tray-actions">
         <span className="gs-win-peek-hint">

@@ -86,7 +86,7 @@ import {
   SprocketWindow,
   binaryTitle,
 } from "./DiceWindows";
-import { PeekButton, usePeek } from "./GameWindow";
+import { PeekButton, usePeek, WindowFacts } from "./GameWindow";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import {
   DamageTray,
@@ -1549,7 +1549,22 @@ export function GameScreen({
                       onClose={() => setClosedReveal(reveal.key)}
                     />
                   )}
-                  {gameWindow(geometry)}
+                  {/* Amendment 22: every window shows a refusal, and who it answers for. */}
+                  <WindowFacts.Provider
+                    value={{
+                      notice: game.notice,
+                      actingFor:
+                        decision && mine && decision.actedForSeat !== mine.seatNumber
+                          ? `Playing for seat ${decision.actedForSeat}${
+                              board?.players.find((p) => p.seat === decision.actedForSeat)?.name
+                                ? ` (${board.players.find((p) => p.seat === decision.actedForSeat)!.name})`
+                                : ""
+                            }`
+                          : null,
+                    }}
+                  >
+                    {gameWindow(geometry)}
+                  </WindowFacts.Provider>
                   {handOrder.map((id, i) => {
                     const box = at(id);
                     return box ? (
@@ -2884,6 +2899,8 @@ function ActionPopup({
   onInspect: () => void;
   onClose: () => void;
 }) {
+  // Amendment 22: Space or Peek fades the ability menu too (owner 2026-11-06).
+  const peek = usePeek(true);
   const first = useRef<HTMLButtonElement | null>(null);
   useEffect(() => first.current?.focus({ preventScroll: true }), []);
   // Centred on the card, but never past the board's edges (owner
@@ -2907,7 +2924,7 @@ function ActionPopup({
     );
   return (
     <div
-      className="gs-popup"
+      className={`gs-popup${peek ? " gs-win-peek" : ""}`}
       role="dialog"
       aria-label={`${name}: what it can do`}
       style={style}

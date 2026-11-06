@@ -34,6 +34,7 @@ class MatchDecisions(
             is WorkerEvent.Answered ->
                 if (live.answered(event.decisionId)) {
                     everyone(live) { user -> announcer.asking(live.match.matchId, user, null) }
+                    tell { announcer.spectate(live.match.matchId, askingMessage(null)) }
                 }
 
             // Spec 0047 — seat 0 is the PUBLIC view, built by the worker
@@ -171,6 +172,8 @@ class MatchDecisions(
         everyone(live) { other ->
             announcer.asking(live.match.matchId, other, request.authorisedSeat, doingWord(request))
         }
+        // Phase 9 Amendment 22: spectators too -- public, as for the players.
+        tell { announcer.spectate(live.match.matchId, askingMessage(request.authorisedSeat, doingWord(request))) }
     }
 
     /** Say something to every participant, once each. */

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Decision, DiceLayout, Snapshot, SnapshotCard, SnapshotRoll } from "../match";
 import { cubeTurn } from "./Die3D";
 import { PASS_ANSWER, yesNo } from "./triggers";
+import { WindowFacts } from "./GameWindow";
 import {
   CrankWindow,
   DiceWindow,
@@ -538,3 +539,36 @@ describe("several modes, ticked then Done (Phase 9 Amendment 21)", () => {
 function ModesFree({ d, onDone }: { d: Decision; onDone: (labels: string[]) => void }) {
   return <ModesWindow {...common(d, board())} onDone={onDone} />;
 }
+
+describe("every window shows a refusal and who it answers for (Phase 9 Amendment 22)", () => {
+  const ignore = decision({
+    kind: "chooseRollToIgnore",
+    mandatory: true,
+    options: [
+      { actionId: "i:0", label: "Roll: 4" },
+      { actionId: "i:1", label: "Roll: 5" },
+    ],
+    arrange: { dice: dice({ how: "ignore", rolls: [4, 5] }) },
+  });
+
+  it("in a window that has no words of its own for either", () => {
+    const c = render(
+      <WindowFacts.Provider
+        value={{
+          notice: "The game moved on before that arrived.",
+          actingFor: "Playing for seat 2 (Bob)",
+        }}
+      >
+        <DiceWindow {...common(ignore, board())} />
+      </WindowFacts.Provider>,
+    ).container;
+    expect(c.querySelector('[role="alert"]')!.textContent).toContain("The game moved on");
+    expect(c.querySelector(".gs-win-acting")!.textContent).toBe("Playing for seat 2 (Bob)");
+  });
+
+  it("nothing when there is nothing to say", () => {
+    const c = render(<DiceWindow {...common(ignore, board())} />).container;
+    expect(c.querySelector('[role="alert"]')).toBeNull();
+    expect(c.querySelector(".gs-win-acting")).toBeNull();
+  });
+});

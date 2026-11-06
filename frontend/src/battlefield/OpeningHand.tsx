@@ -7,7 +7,7 @@
 import { useState } from "react";
 import type { Decision, Snapshot, SnapshotCard } from "../match";
 import { headingFor } from "../matchText";
-import { PeekButton, usePeek } from "./GameWindow";
+import { PeekButton, usePeek, WindowFactLines } from "./GameWindow";
 
 /** The questions this window answers. */
 export const OPENING_KINDS = new Set([
@@ -188,6 +188,7 @@ export function OpeningHand({
           {title}
         </p>
         <p className="gs-opening-line">{line}</p>
+        <WindowFactLines />
       </div>
       {kind !== "chooseStartingPlayer" && (
         <ul className="gs-opening-hand">

@@ -342,14 +342,6 @@ export interface Common {
   onAnswer: (actionId: string | null) => void;
 }
 
-function Notice({ notice }: { notice: string | null }) {
-  return notice ? (
-    <p className="gs-win-prompt gs-win-notice" role="alert">
-      <ManaText text={notice} />
-    </p>
-  ) : null;
-}
-
 /**
  * W-01 — the answer is a click on the table: a bubble beside the card
  * asking, saying what to click; the few choices the table cannot show
@@ -398,7 +390,6 @@ export function TableQuestionWindow(props: Common) {
           ))}
         </ul>
       )}
-      <Notice notice={props.notice} />
     </Bubble>
   );
 }
@@ -520,7 +511,6 @@ export function ChoiceWindow(props: Common) {
             <ManaText text={hint} />
           </p>
         )}
-        <Notice notice={props.notice} />
       </Bubble>
     );
   }
@@ -580,7 +570,6 @@ export function ChoiceWindow(props: Common) {
           <ManaText text={hint} />
         </p>
       )}
-      <Notice notice={props.notice} />
     </Tray>
   );
 }
@@ -655,7 +644,6 @@ export function ListTray(props: Common & { onClose: () => void }) {
           </div>
         ))}
       </div>
-      <Notice notice={props.notice} />
     </Tray>
   );
 }
@@ -912,7 +900,6 @@ export function NameWindow(
           it down.
         </p>
       )}
-      <Notice notice={props.notice} />
     </Bubble>
   );
 }
