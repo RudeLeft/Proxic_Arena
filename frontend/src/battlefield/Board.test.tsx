@@ -438,6 +438,28 @@ describe("Board movement", () => {
     expect(String(call.frames[0]!.transform)).toContain("scale(0.2");
   });
 
+  it("a card that transforms lifts, flips and settles: its old face turns away, the new one round", () => {
+    const { n, cards, a } = equipScene();
+    const view = render(board(cards, n));
+    calls.length = 0;
+    view.rerender(
+      board(
+        cards.map((c) => (c.id === a.id ? { ...c, name: "Insectile Aberration" } : c)),
+        n,
+      ),
+    );
+    const ghost = view.container.querySelector(`[data-ghost-of="${a.id}"]`)!;
+    expect(ghost.getAttribute("data-flip")).toBe("true");
+    expect(ghost.textContent).toContain(a.name);
+    const slot = view.container.querySelector(`[data-object-id="${a.id}"]`)!.closest(".bf-slot")!;
+    const inner = slot.querySelector(":scope > .bf-card")!;
+    const turnRound = calls.find((c) => c.element === inner)!;
+    expect(String(turnRound.frames[0]!.transform)).toContain("rotateY(-90deg)");
+    expect(String(turnRound.frames.at(-1)!.transform)).toContain("rotateY(0deg)");
+    const turnAway = calls.find((c) => c.element === ghost.querySelector(":scope > .bf-card"))!;
+    expect(String(turnAway.frames.at(-1)!.transform)).toContain("rotateY(90deg)");
+  });
+
   it("one creature dying is not a wipe: no flash", () => {
     const n = stepWhere(/dies$/);
     const view = render(at(n - 1));

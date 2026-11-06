@@ -363,3 +363,27 @@ what runs out, hence the sliding and the fan.
   Raging Goblin, then from the Goblin to a Bears. 798 page tests (Board:
   equip, re-equip, an Aura and Equipment coming off; layout: one tab per
   card, the fan's room, tab places); battlefield.spec passes.
+
+## Amendment 11 — A-09 decided: Lift, flip, settle (owner, 2026-11-06)
+
+On the canvas https://claude.ai/artifact/4AV97gbgHdGL7gvzqxFvzo (Flip over,
+Flash and change, Lift flip settle; Delver transforming, night falling on
+three cards, a creature turned face up): **C · Lift, flip, settle** -- the
+card lifts off the table, flips over in the air with a glow in its
+colour, and settles back (three-quarters of a second). Several at once
+flip together.
+
+## Amendment 12 — A-09 built (2026-11-06, as built)
+
+A permanent whose name or face-down state changed while it stayed on the
+table -- transformed, day/night, turned face up (or down) -- flips:
+its old face is drawn as a ghost (`flip`) that lifts 16% of the card's
+height, grows 14% with a gold glow and turns edge-on (to 47.5% of
+760 ms) and is gone; the card itself, already its new face, appears
+edge-on at that moment, turns round, and settles back on the table
+(`motion.ts` `flipFrames`, run on the `.bf-card`, so its place on the
+table still Glides if it also moved). Several at once flip together.
+Verified on the rebuilt stack at a tenth of the speed: Delver of Secrets
+to Insectile Aberration, Reckless Stormseeker to Storm-Charged Slasher
+at nightfall, a face-down Willbender turned face up. 800 page tests.
+Merge (A-10: meld, mutate) still needs Mechanics Lab games first.

@@ -8,6 +8,7 @@ import {
   anchors,
   fateFrames,
   fateMs,
+  flipFrames,
   glideFrames,
   handZoomBox,
   hurry,
@@ -293,4 +294,21 @@ describe("defeated and exiled (Phase 10 A-04, A-05)", () => {
       for (const f of frames) expect(names(f)).toBe(names(frames[0]!));
     });
   }
+});
+
+describe("Lift, flip, settle (Phase 10 A-09)", () => {
+  it("the old face lifts and turns edge-on, then is gone; the new one turns round and settles", () => {
+    const out = flipFrames(136, "out");
+    const into = flipFrames(136, "in");
+    expect(out[0]!["opacity"]).toBe(1);
+    expect(out.at(-1)!["opacity"]).toBe(0);
+    expect(into[0]!["opacity"]).toBe(0);
+    expect(into.at(-1)!["opacity"]).toBe(1);
+    // Edge-on at the same moment, so one hands over to the other.
+    const edgeOut = out.find((f) => String(f["transform"]).includes("rotateY(90deg)"))!["offset"];
+    const shown = into.find((f) => f["opacity"] === 1)!["offset"];
+    expect(Number(shown)).toBeCloseTo(Number(edgeOut) + 0.005, 6);
+    // It ends where it started: on the table, its own size.
+    expect(String(into.at(-1)!["transform"])).toContain("translateY(0px) scale(1)");
+  });
 });

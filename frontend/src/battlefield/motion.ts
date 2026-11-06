@@ -183,6 +183,46 @@ export function glideFrames(
   return frames;
 }
 
+// --- A card changing form (Phase 10 A-09) --------------------------------------
+
+/**
+ * "C · Lift, flip, settle" (owner 2026-11-06, Amendment 11): a card that
+ * transforms, changes with day and night, or is turned face up lifts off
+ * the table, flips over in the air with a glow, and settles back. The old
+ * face (a ghost) lifts and turns edge-on; the card itself, already its new
+ * face, turns round from edge-on and settles.
+ */
+export const FLIP_MS = 760;
+const FLIP_LIFT = 0.16; // of the card's height
+const FLIP_GROW = 1.14;
+const EDGE = 0.475; // when it is edge-on
+const UNGLOWED = "drop-shadow(0px 0px 0px rgba(241, 195, 106, 0))";
+const GLOWED = "drop-shadow(0px 0px 14px rgba(241, 195, 106, 0.9))";
+
+/** The keyframes for one half of a flip, run on the card itself (`.bf-card`),
+ * linear over FLIP_MS: "out" -- the old face; "in" -- the new face. */
+export function flipFrames(cardH: number, half: "out" | "in"): Keyframe[] {
+  const up = -FLIP_LIFT * cardH;
+  const pose = (y: number, s: number, turn: number) =>
+    `translateY(${y}px) scale(${s}) perspective(${cardH * 4}px) rotateY(${turn}deg)`;
+  if (half === "out") {
+    return [
+      { offset: 0, transform: pose(0, 1, 0), filter: UNGLOWED, opacity: 1 },
+      { offset: 0.25, transform: pose(up, FLIP_GROW, 0), filter: GLOWED, opacity: 1 },
+      { offset: EDGE, transform: pose(up, FLIP_GROW, 90), filter: GLOWED, opacity: 1 },
+      { offset: EDGE + 0.005, transform: pose(up, FLIP_GROW, 90), filter: GLOWED, opacity: 0 },
+      { offset: 1, transform: pose(up, FLIP_GROW, 90), filter: GLOWED, opacity: 0 },
+    ];
+  }
+  return [
+    { offset: 0, transform: pose(up, FLIP_GROW, -90), filter: GLOWED, opacity: 0 },
+    { offset: EDGE, transform: pose(up, FLIP_GROW, -90), filter: GLOWED, opacity: 0 },
+    { offset: EDGE + 0.005, transform: pose(up, FLIP_GROW, -90), filter: GLOWED, opacity: 1 },
+    { offset: 0.7, transform: pose(up, FLIP_GROW, 0), filter: GLOWED, opacity: 1 },
+    { offset: 1, transform: pose(0, 1, 0), filter: UNGLOWED, opacity: 1 },
+  ];
+}
+
 // --- A creature changing sides (Phase 10 A-08) ---------------------------------
 
 /**

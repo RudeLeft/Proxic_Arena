@@ -68,6 +68,8 @@ import {
   hurry,
   placedNow,
   fateFrames,
+  flipFrames,
+  FLIP_MS,
   PULL_ARC,
   PULL_LEAN,
   PULL_MS,
@@ -562,6 +564,8 @@ interface Ghost extends Drawn {
   fate?: Fate | undefined;
   /** Phase 10 A-17: pulled on a gold chain into (or out of) a tab. */
   chained?: boolean;
+  /** Phase 10 A-09: the old face of a card that changed form, flipping away in place. */
+  flip?: boolean;
 }
 
 /** Phase 10 A-08/A-17 -- a safety net: a chain line still there this long after it began is removed. */
@@ -1386,6 +1390,7 @@ export function Board({
       }
       const stackNow = new Set((stack ?? []).map((s) => s.id));
       const pulls: { key: string; from: Point; to: Point }[] = [];
+      const flips: Ghost[] = [];
       // Phase 10 A-00 -- the same card, somewhere new (a tap, a row
       // re-centring, a stolen creature crossing the table): Glide there,
       // not the old straight CSS slide. A pointed-at hand card rising is
@@ -1394,6 +1399,38 @@ export function Board({
         if (!before.mounted.has(item.id)) continue;
         const was = before.at.get(item.id);
         if (!was) continue;
+        // A-09: a card that changed form -- transformed, day or night, turned
+        // face up -- lifts, flips over in the air and settles: its old face a
+        // ghost turning away, the card itself turning round.
+        const oldFace = before.drawn.get(item.id);
+        if (
+          item.drawn.table &&
+          oldFace &&
+          (oldFace.name !== item.drawn.name || oldFace.faceDown !== item.drawn.faceDown)
+        ) {
+          const card = elements.current
+            .get(item.id)
+            ?.querySelector<HTMLElement>(":scope > .bf-card");
+          if (card && typeof card.animate === "function") {
+            card.animate(flipFrames(g.cardH * item.box.scale, "in"), {
+              duration: FLIP_MS,
+              easing: "linear",
+              fill: "backwards",
+            });
+            flips.push({
+              ...oldFace,
+              id: item.id,
+              box: was.box,
+              origin: was.origin,
+              to: was.box,
+              toOrigin: was.origin,
+              fade: false,
+              delay: 0,
+              flip: true,
+              zIndex: was.box.z + 1,
+            });
+          }
+        }
         const same =
           Math.abs(was.box.x - item.box.x) < 0.5 &&
           Math.abs(was.box.y - item.box.y) < 0.5 &&
@@ -1441,6 +1478,7 @@ export function Board({
           glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start),
         );
       }
+      if (flips.length > 0) setGhosts((list) => [...list, ...flips]);
       if (pulls.length > 0) {
         setTethers((list) => [...list, ...pulls]);
         timers.current.push(
@@ -2244,6 +2282,24 @@ function GhostCard({
       done();
       return;
     }
+    // A-09: the old face flips away where it is.
+    if (ghost.flip) {
+      const card = element.querySelector<HTMLElement>(":scope > .bf-card");
+      if (!card) {
+        done();
+        return;
+      }
+      const turn = card.animate(flipFrames(cardH * ghost.box.scale, "out"), {
+        duration: FLIP_MS,
+        easing: "linear",
+        fill: "both",
+      });
+      turn.onfinish = done;
+      return () => {
+        turn.onfinish = null;
+        turn.cancel();
+      };
+    }
     // Phase 10 A-00: Glide to where it went -- first showing it was
     // defeated or exiled (A-04, A-05), in the same animation.
     const fated = ghost.fate
@@ -2288,6 +2344,7 @@ function GhostCard({
       data-ghost-of={ghost.id}
       data-fate={ghost.fate}
       data-chained={ghost.chained ? "true" : undefined}
+      data-flip={ghost.flip ? "true" : undefined}
       style={{
         width: cardW,
         height: cardH,
