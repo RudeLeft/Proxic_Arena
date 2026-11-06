@@ -387,3 +387,11 @@ Verified on the rebuilt stack at a tenth of the speed: Delver of Secrets
 to Insectile Aberration, Reckless Stormseeker to Storm-Charged Slasher
 at nightfall, a face-down Willbender turned face up. 800 page tests.
 Merge (A-10: meld, mutate) still needs Mechanics Lab games first.
+
+## Note — the owner on attacking and blocking (2026-11-06)
+
+For A-11, A-12 and A-13 (owner, while playing): attacks and blocks "feel
+too fast and chaotic": cards seem to pop on top of each other, then
+disappear into their graveyard. Those items' canvases start from this
+(today: blockers jump onto their attacker -- Amendment 1, finding 9; the
+swoop, burst and number of Phase 7 Amendment 7; deaths now Shatter).
