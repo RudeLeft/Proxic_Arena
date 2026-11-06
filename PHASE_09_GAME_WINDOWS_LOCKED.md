@@ -238,7 +238,8 @@ the tray from the bottom, the cards as pictures:
 
 Still open (2026-11-04): W-17 and W-21, then the exit gate. (2026-11-05: W-21
 and Peek decided and built, Amendment 18; W-17 decided and built,
-Amendment 19: every item is done, the exit gate is next.) Two parts of
+Amendment 19; 2026-11-06: the two parts below built, Amendment 21 --
+every item is done, the exit gate is next.) Two parts of
 built items are recorded as **not built** and need a decision at the
 exit gate: Amendment 2's modes counted in one go ("Choose three, 2 of
 3") and Amendment 3's "Pat is splitting the cards" line on the other
@@ -329,7 +330,8 @@ in the bubble, the act button really cancels; recommended), option C
 - *Not built: modes counted in one go* ("Choose three, 2 of 3"). The game
   asks for modes one at a time and does not say how many are left; the
   page would have to guess. Modes stay one at a time, each in the bubble,
-  until the worker sends the count (a later item).
+  until the worker sends the count (a later item). (Built 2026-11-06:
+  Amendment 21.)
 - *W-03:* the tray lists every option grouped by its card, the card's
   picture beside them, dimmed when it can't be paid now ("not enough mana
   right now"). Copies of one card offering the same choices (five
@@ -387,7 +389,7 @@ in the bubble, the act button really cancels; recommended), option C
 - *Not built:* a line on the other player's screen saying "Pat is
   splitting the cards". While one player splits or chooses, the other
   sees the five cards in the reveal tray and the rail's "Waiting for
-  Pat", as for every question.
+  Pat", as for every question. (Built 2026-11-06: Amendment 21.)
 - *Evidence:* `scripts/check-card-trays.py` (Mechanics Lab: nine cards,
   what each question carries), `frontend/e2e/match-card-trays.spec.ts`
   (a real game: every tray clicked through, nothing asked twice) with
@@ -894,7 +896,7 @@ above is the design before spec 0043.
 
 **Amendment 17 (2026-11-05, stopping at enough targets decided -- a
 W-01 follow-up; canvas https://claude.ai/artifact/1id2phFCuGHxMDcph86pDd).
-Not built yet.**
+Built in 1.44.0** (this heading said "Not built yet" until 2026-11-06).
 
 - *Today:* see "Also open (2026-11-05)" above.
 - *Decided (owner: option B, with all three extras):*
@@ -1150,3 +1152,52 @@ chose:
   The same audit found "Agent of Kotis" named in two comments and a test,
   which `check-agent-of-kotis.py` forbids (no code names a card); they
   were reworded.
+
+**Amendment 21 (2026-11-06, the last two "not built" parts -- canvas
+https://claude.ai/artifact/R6F25JUGJDyQuaKofS6on6).** *Today (real Lab
+questions in the real page):* Cryptic Command's two modes are two
+windows that never say "choose two", nor what was already chosen; while
+one player splits Fact or Fiction the caster's column says "Bob's move ·
+May respond to your Fact or Fiction" (wrong: he is splitting), and while
+the caster picks a pile the other's says only "Main 1 · their turn". The
+owner chose:
+
+- **Modes: tick them, then Done** (Amendment 2's "modes counted in one
+  go"). One window with every mode, "Choose two · 1 of 2"; ticks can be
+  undone before Done; modes that can't be added any more dim (the count
+  reached, a paw-print budget spent); escalate says what each extra mode
+  costs; modes that may repeat take a count. The game is answered one
+  mode at a time behind the window. The worker sends the count, the
+  least, the budget and each mode's paw prints.
+- **The other player's screen says what they're doing** (Amendment 3's
+  "Pat is splitting the cards"): "Splitting the cards", "Choosing a
+  pile", and the same for other choices everyone can see; otherwise
+  "Making a choice for your <card>" -- never "May respond" when they
+  aren't being given a chance to respond.
+- *As built (2026-11-06).* Worker: every mode question carries
+  `arrange.modes` (num, min, repeat, the paw-print budget and spent, the
+  modes chosen so far, each offered mode's paws, escalate's cost from
+  the card's keyword in Forge's words). Page: ModesWindow when a card
+  chooses more than one mode (or a paw-print budget) -- "choose one"
+  stays one click; Done hands the screen the ticked modes in the window's
+  order, and the screen answers each mode question from them, then a
+  pass for "no more"; the plan survives the costs asked between modes
+  and ends at the next priority question. Server: MATCH_ASKING carries
+  `doing`, a word from a fixed list chosen from the question's shape
+  (AskingWords.kt: "Splitting the cards", "Choosing a pile", "Choosing
+  attackers/blockers", "Choosing a sector", "Choosing a dungeon", else
+  "Choosing"; none for priority) -- never the question's words, options
+  or kind. Page: the waiting line uses it ("Making a choice for your
+  Fact or Fiction" for a plain "Choosing").
+- *Evidence:* Lab `check-modes.py` (escalate: 3 in all, 1 at least,
+  "Discard" its cost; Cryptic Command: 2 and 2, the second question
+  names the first mode; Season of Weaving: the budget 5, the spent, each
+  mode's paws). Server `AskingWordsTest` (the words; the message holds
+  the seat and the word and nothing of the question). Unit
+  `DiceWindows.test.tsx` (counting, dimming at the count, untick, Done's
+  order; titles), `stops.test.ts` (the line's words; "May respond" only
+  without a word). Browser `match-modes-doing.spec.ts` (a real page:
+  tick two, Done, the page answers the next question from the ticks and
+  passes when they run out -- its answers caught on the socket; the
+  waiting line "Splitting the cards"). Screenshots
+  test-results/seen/a21-*.png.

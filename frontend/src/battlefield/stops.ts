@@ -185,7 +185,7 @@ export const STEPS: { label: string; phases: string[] }[] = [
 export function waitingLine(
   board: Snapshot,
   mySeat: number,
-  asking: { seat: number | null } | null,
+  asking: { seat: number | null; doing?: string | null } | null,
   lastAsked: number | null,
   resolving: boolean,
 ): { word: string; sub: string; seat: number | null } {
@@ -205,13 +205,14 @@ export function waitingLine(
   // milliseconds, so the line stays on whoever was last asked.
   const seat = asking.seat ?? lastAsked;
   if (seat === null || seat === mySeat) return moment;
-  return movesLine(board, mySeat, seat);
+  return movesLine(board, mySeat, seat, asking.seat === seat ? (asking.doing ?? null) : null);
 }
 
 function movesLine(
   board: Snapshot,
   mySeat: number,
   seat: number | null,
+  doing: string | null = null,
 ): { word: string; sub: string; seat: number | null } {
   const player = board.players.find((p) => p.seat === seat);
   const name = player?.name;
@@ -227,9 +228,28 @@ function movesLine(
   return {
     word: name ? `${name}’s move` : "The other player’s move",
     sub:
-      seat === null ? "" : (pregame ?? whatTheyDo(board, mySeat, seat) ?? stepLine(board, mySeat)),
+      seat === null
+        ? ""
+        : (pregame ??
+          doingLine(board, mySeat, doing) ??
+          whatTheyDo(board, mySeat, seat) ??
+          stepLine(board, mySeat)),
     seat,
   };
+}
+
+/**
+ * Phase 9 Amendment 21 -- the server's word for what they are doing: its
+ * own words for a choice everyone can see ("Splitting the cards"); for any
+ * other choice, the spell it is for -- never "May respond", which is for
+ * when they are being given the chance to.
+ */
+function doingLine(board: Snapshot, mySeat: number, doing: string | null): string | null {
+  if (!doing) return null;
+  if (doing !== "Choosing") return doing;
+  const top = board.stack[0];
+  if (!top) return "Making a choice";
+  return `Making a choice for ${top.controller === mySeat ? "your" : "their"} ${top.name}`;
 }
 
 /** W-25 — the step, and whose turn it is: "Main 1 · their turn". */

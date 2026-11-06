@@ -3574,3 +3574,54 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-crank-card:hover:not(:disabled) {
   border-color: #d9b26a;
 }
+/* Phase 9 Amendment 21 -- several modes, ticked then Done. */
+.gs-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #3a4a42;
+  border-radius: 10px;
+  background: #1b2420;
+  color: #e3e8e4;
+  font: inherit;
+  font-size: var(--pa-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.gs-mode-on {
+  border-color: #d9b26a;
+  background: #2a2210;
+}
+.gs-mode-off {
+  opacity: 0.45;
+  cursor: default;
+}
+.gs-mode-tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #6b7a72;
+  border-radius: 4px;
+  font-size: var(--pa-size-xs);
+}
+.gs-mode-on .gs-mode-tick {
+  border-color: #d9b26a;
+  background: #d9b26a;
+  color: #1a1408;
+}
+.gs-mode-words {
+  flex: 1;
+}

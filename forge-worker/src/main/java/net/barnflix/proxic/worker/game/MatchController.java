@@ -1559,6 +1559,10 @@ public final class MatchController extends GeneratedControllerBase {
                             + ", or pass to take no more.";
 
             forge.game.spellability.AbilitySub picked;
+            // Phase 9 Amendment 21: how many, so the window can count and
+            // the player can tick them all at once.
+            com.google.gson.JsonObject before = host.arrange();
+            host.arranging(modesLayout(sa, remaining, chosen, min, num, allowRepeat, spentPawprint));
             try {
                 String choice =
                         host.gate().ask(
@@ -1579,6 +1583,8 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 picked = null;
+            } finally {
+                host.arranging(before);
             }
 
             if (picked == null) {
@@ -4159,6 +4165,48 @@ public final class MatchController extends GeneratedControllerBase {
     private static final int REVEAL_LIMIT = 12;
 
     /** What one mode costs out of a Pawprint budget. */
+    /**
+     * Phase 9 Amendment 21 -- a mode question's count: how many modes in
+     * all (`num`; for paw prints, the budget), how many at least, how many
+     * chosen so far and which, whether a mode may be taken again, each
+     * offered mode's paw prints, and the escalate cost (each mode beyond
+     * the first) in Forge's own words.
+     */
+    private com.google.gson.JsonObject modesLayout(SpellAbility sa,
+            List<forge.game.spellability.AbilitySub> offered,
+            List<forge.game.spellability.AbilitySub> chosen, int min, int num, boolean allowRepeat,
+            int spentPawprint) {
+        com.google.gson.JsonObject modes = new com.google.gson.JsonObject();
+        boolean paws = sa.hasParam("Pawprint");
+        modes.addProperty("num", num);
+        modes.addProperty("min", min);
+        modes.addProperty("repeat", allowRepeat);
+        if (paws) {
+            modes.addProperty("budget", num);
+            modes.addProperty("spent", spentPawprint);
+        }
+        com.google.gson.JsonArray picked = new com.google.gson.JsonArray();
+        chosen.forEach(mode -> picked.add(mode.toUnsuppressedString()));
+        modes.add("chosen", picked);
+        com.google.gson.JsonArray costs = new com.google.gson.JsonArray();
+        offered.forEach(mode -> costs.add(paws ? pawprintOf(mode) : 0));
+        modes.add("paws", costs);
+        for (forge.game.keyword.KeywordInterface keyword : sa.getHostCard().getKeywords()) {
+            String original = keyword.getOriginal();
+            if (original != null && original.startsWith("Escalate:")) {
+                try {
+                    modes.addProperty("escalate", new forge.game.cost.Cost(
+                            original.substring("Escalate:".length()), true).toSimpleString());
+                } catch (RuntimeException e) {
+                    // A cost Forge can't word: the window just doesn't say it.
+                }
+            }
+        }
+        com.google.gson.JsonObject layout = new com.google.gson.JsonObject();
+        layout.add("modes", modes);
+        return layout;
+    }
+
     private static int pawprintOf(forge.game.spellability.AbilitySub mode) {
         String paw = mode.getParam("Pawprint");
         if (paw == null) {

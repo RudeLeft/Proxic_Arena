@@ -294,5 +294,6 @@ fun askingFor(
     matchId: UUID,
 ): JsonObject? {
     val running = runtime.liveMatch(matchId) ?: return null
-    return askingMessage(running.pending()?.authorisedSeat)
+    val pending = running.pending()
+    return askingMessage(pending?.authorisedSeat, pending?.let(::doingWord))
 }

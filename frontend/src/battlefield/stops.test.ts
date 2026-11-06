@@ -248,6 +248,17 @@ describe("waitingLine", () => {
     expect(sub(at("MAIN1", 1, [], [{ name: "Shock", controller: 1 }]))).toBe(
       "May respond to your Shock",
     );
+    // Phase 9 Amendment 21: the server's word for what they are doing wins,
+    // and a choice that isn't priority is never "May respond".
+    const doing = (b: Snapshot, word: string | null) =>
+      waitingLine(b, 1, { seat: 2, doing: word }, 2, false).sub;
+    const fof = at("MAIN1", 1, [], [{ name: "Fact or Fiction", controller: 1 }]);
+    expect(doing(fof, "Splitting the cards")).toBe("Splitting the cards");
+    expect(doing(fof, "Choosing")).toBe("Making a choice for your Fact or Fiction");
+    expect(doing(at("MAIN1", 2, [], [{ name: "Ponder", controller: 2 }]), "Choosing")).toBe(
+      "Making a choice for their Ponder",
+    );
+    expect(doing(fof, null)).toBe("May respond to your Fact or Fiction");
   });
 
   it("guesses from priority as before when the server has never said", () => {

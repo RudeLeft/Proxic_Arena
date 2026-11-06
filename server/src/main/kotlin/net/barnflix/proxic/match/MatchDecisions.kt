@@ -168,7 +168,9 @@ class MatchDecisions(
         // Spec 0002 -- and everyone learns WHO is asked, so nobody's
         // screen guesses it from priority: the AUTHORISED seat, the
         // one actually deciding (under Mindslaver, the controller).
-        everyone(live) { other -> announcer.asking(live.match.matchId, other, request.authorisedSeat) }
+        everyone(live) { other ->
+            announcer.asking(live.match.matchId, other, request.authorisedSeat, doingWord(request))
+        }
     }
 
     /** Say something to every participant, once each. */

@@ -11,6 +11,8 @@ import {
   CrankWindow,
   DiceWindow,
   DungeonWindow,
+  ModesWindow,
+  modesTitle,
   dungeonDepth,
   dungeonWords,
   ROLL_LINGER_MS,
@@ -424,3 +426,115 @@ describe("a yes/no worded as one answer (Phase 9 Amendment 20)", () => {
     ).not.toBeNull();
   });
 });
+
+describe("several modes, ticked then Done (Phase 9 Amendment 21)", () => {
+  const cryptic = (over: Record<string, unknown> = {}) =>
+    decision({
+      kind: "chooseModeForAbility",
+      mandatory: true,
+      prompt: "Choose a mode for Cryptic Command.",
+      options: [
+        { actionId: "mode:0", label: "Counter target spell." },
+        { actionId: "mode:1", label: "Return target permanent to its owner's hand." },
+        { actionId: "mode:2", label: "Tap all creatures your opponents control." },
+        { actionId: "mode:3", label: "Draw a card." },
+      ],
+      arrange: {
+        modes: {
+          num: 2,
+          min: 2,
+          repeat: false,
+          budget: null,
+          spent: null,
+          chosen: [],
+          paws: [0, 0, 0, 0],
+          escalate: null,
+        },
+      },
+      ...over,
+    });
+
+  it("counts, dims what can't be added, and gives the modes in order on Done", () => {
+    const onDone = vi.fn();
+    const c = render(<ModesFree d={cryptic()} onDone={onDone} />).container;
+    const title = () => c.querySelector(".gs-win-title")!.textContent;
+    const modes = () => [...c.querySelectorAll<HTMLButtonElement>(".gs-mode")];
+    const done = () => c.querySelector<HTMLButtonElement>(".gs-modes-done")!;
+    expect(title()).toBe("Choose two · 0 of 2");
+    expect(done().disabled).toBe(true);
+    fireEvent.click(modes()[3]!);
+    fireEvent.click(modes()[1]!);
+    expect(title()).toBe("Choose two · 2 of 2");
+    // The count is reached: the others dim and can't be added.
+    expect(modes()[0]!.disabled).toBe(true);
+    // A tick taken back.
+    fireEvent.click(modes()[3]!);
+    expect(title()).toBe("Choose two · 1 of 2");
+    fireEvent.click(modes()[2]!);
+    fireEvent.click(done());
+    expect(onDone).toHaveBeenCalledWith([
+      "Return target permanent to its owner's hand.",
+      "Tap all creatures your opponents control.",
+    ]);
+  });
+
+  it("escalate says what each extra mode costs; a paw-print budget counts paws", () => {
+    expect(
+      modesTitle(
+        {
+          num: 3,
+          min: 1,
+          repeat: false,
+          budget: null,
+          spent: null,
+          chosen: [],
+          paws: [],
+          escalate: "Discard a card",
+        },
+        1,
+        0,
+      ),
+    ).toBe("Choose one to three · 1 chosen");
+    expect(
+      modesTitle(
+        {
+          num: 5,
+          min: 0,
+          repeat: true,
+          budget: 5,
+          spent: 0,
+          chosen: [],
+          paws: [1, 2, 3],
+          escalate: null,
+        },
+        2,
+        3,
+      ),
+    ).toBe("Choose modes · 3 of 5 paw prints");
+    const c = render(
+      <ModesFree
+        d={cryptic({
+          arrange: {
+            modes: {
+              num: 3,
+              min: 1,
+              repeat: false,
+              budget: null,
+              spent: null,
+              chosen: [],
+              paws: [],
+              escalate: "Discard a card",
+            },
+          },
+        })}
+        onDone={vi.fn()}
+      />,
+    ).container;
+    expect(c.textContent).toContain("Each mode after the first costs: Discard a card");
+  });
+});
+
+/** The modes window with the shared test props. */
+function ModesFree({ d, onDone }: { d: Decision; onDone: (labels: string[]) => void }) {
+  return <ModesWindow {...common(d, board())} onDone={onDone} />;
+}

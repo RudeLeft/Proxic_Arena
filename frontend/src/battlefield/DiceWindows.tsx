@@ -13,7 +13,7 @@
 // The game's own facts come in `decision.arrange` (dice, crankNext,
 // binary); the answers are always the game's own options.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard, SnapshotRoll } from "../match";
 import { Die3D } from "./Die3D";
 import { Bubble } from "./GameWindow";
@@ -561,6 +561,148 @@ export function DungeonWindow(props: Common) {
                 <b>{option.label}</b>
                 {dungeon && <span>{dungeonWords(dungeon)}</span>}
               </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Bubble>
+  );
+}
+
+const NUMBER_WORDS = ["none", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+const say = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
+/** Amendment 21 -- the title of a modes window: what to choose, and how far along. */
+export function modesTitle(
+  modes: NonNullable<NonNullable<Decision["arrange"]>["modes"]>,
+  count: number,
+  used: number,
+): string {
+  if (modes.budget != null) return `Choose modes · ${used} of ${modes.budget} paw prints`;
+  if (modes.min === modes.num) return `Choose ${say(modes.num)} · ${count} of ${modes.num}`;
+  const from = modes.min <= 0 ? "up to" : `${say(modes.min)} to`;
+  return `Choose ${from} ${say(modes.num)} · ${count} chosen`;
+}
+
+/**
+ * Phase 9 Amendment 21 (owner: tick them, then Done) -- a card that
+ * chooses several modes: every mode in one window, ticked (or counted,
+ * when a mode may be taken again), "Choose two · 1 of 2"; modes that can't
+ * be added any more dim; Done gives the screen the modes in order, which
+ * answers the game's one-mode-at-a-time questions from them.
+ */
+export function ModesWindow(props: Common & { onDone: (labels: string[]) => void }) {
+  const { decision, board, busy, artUrl, onDone } = props;
+  const modes = decision.arrange!.modes!;
+  const [ticked, setTicked] = useState<Record<string, number>>({});
+  const source = sourceOf(board, decision);
+  const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? "Modes";
+  const paws = (i: number) => modes.paws[i] ?? 0;
+  const already = modes.chosen.length;
+  const count = already + Object.values(ticked).reduce((a, b) => a + b, 0);
+  const used =
+    (modes.spent ?? 0) +
+    decision.options.reduce((sum, o, i) => sum + (ticked[o.label ?? ""] ?? 0) * paws(i), 0);
+  const canAdd = (i: number) =>
+    modes.budget != null ? used + paws(i) <= modes.budget : count < modes.num;
+  const title = modesTitle(modes, count, used);
+  const enough = count >= modes.min && count > 0;
+  const plan = () =>
+    decision.options.flatMap(
+      (o) => Array(ticked[o.label ?? ""] ?? 0).fill(o.label ?? "") as string[],
+    );
+  return (
+    <Bubble
+      anchor={props.anchor}
+      geometry={props.geometry}
+      label={title}
+      from={name}
+      title={title}
+      titleClass="gs-question-title"
+      kind={decision.kind}
+      picture={
+        source && !beingCast(board, decision, source) ? (
+          <Picture card={source} artUrl={artUrl} />
+        ) : null
+      }
+      actions={
+        <button
+          type="button"
+          className="gs-win-btn gs-win-btn-main gs-modes-done"
+          disabled={busy || !enough}
+          onClick={() => onDone(plan())}
+        >
+          {enough ? "Done" : `Pick ${Math.max(1, modes.min - count)} more`}
+        </button>
+      }
+    >
+      {modes.chosen.length > 0 && (
+        <p className="gs-win-prompt">Chosen: {modes.chosen.join(" · ")}</p>
+      )}
+      {modes.escalate && (
+        <p className="gs-win-prompt">
+          Each mode after the first costs: <ManaText text={modes.escalate} />
+        </p>
+      )}
+      <ul className="gs-win-list gs-modes">
+        {decision.options.map((o, i) => {
+          const label = o.label ?? o.actionId;
+          const n = ticked[label] ?? 0;
+          const open = canAdd(i);
+          const set = (to: number) => setTicked((t) => ({ ...t, [label]: Math.max(0, to) }));
+          return (
+            <li key={o.actionId}>
+              {modes.repeat ? (
+                <div
+                  className={`gs-mode${n ? " gs-mode-on" : ""}${!open && !n ? " gs-mode-off" : ""}`}
+                >
+                  <span className="gs-mode-words">
+                    <ManaText text={label} />
+                    {paws(i) > 0 && (
+                      <small>
+                        {" "}
+                        · {paws(i)} paw {paws(i) === 1 ? "print" : "prints"}
+                      </small>
+                    )}
+                  </span>
+                  <span className="gs-win-stepper">
+                    <button
+                      type="button"
+                      className="gs-win-chip-btn"
+                      aria-label={`One less: ${label}`}
+                      disabled={busy || n === 0}
+                      onClick={() => set(n - 1)}
+                    >
+                      −
+                    </button>
+                    <b>{n}</b>
+                    <button
+                      type="button"
+                      className="gs-win-chip-btn"
+                      aria-label={`One more: ${label}`}
+                      disabled={busy || !open}
+                      onClick={() => set(n + 1)}
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`gs-option gs-mode${n ? " gs-mode-on" : ""}${!open && !n ? " gs-mode-off" : ""}`}
+                  aria-pressed={n > 0}
+                  disabled={busy || (!open && !n)}
+                  onClick={() => set(n ? 0 : 1)}
+                >
+                  <span className="gs-mode-tick" aria-hidden="true">
+                    {n ? "✓" : ""}
+                  </span>
+                  <span className="gs-mode-words">
+                    <ManaText text={label} />
+                  </span>
+                </button>
+              )}
             </li>
           );
         })}

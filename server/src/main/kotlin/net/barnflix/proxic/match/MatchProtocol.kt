@@ -376,6 +376,7 @@ interface DecisionAnnouncer {
         matchId: java.util.UUID,
         userId: java.util.UUID,
         seat: Int?,
+        doing: String? = null,
     ) = Unit
 
     companion object {

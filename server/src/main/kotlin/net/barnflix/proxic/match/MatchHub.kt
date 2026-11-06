@@ -169,8 +169,9 @@ class MatchHub : DecisionAnnouncer {
         matchId: UUID,
         userId: UUID,
         seat: Int?,
+        doing: String?,
     ) {
-        sendTo(matchId, userId, askingMessage(seat))
+        sendTo(matchId, userId, askingMessage(seat, doing))
     }
 }
 
@@ -308,12 +309,17 @@ fun clearedMessage(): JsonObject = envelope("DECISION_CLEARED") { }
 
 /**
  * Spec 0002 — the seat being asked, or `null`: nobody, the rules engine
- * is working. A seat number and nothing else; the question itself goes
- * only to the player it is for.
+ * is working. A seat number, and (Phase 9 Amendment 21) a fixed word for
+ * what they are doing ([doingWord]); the question itself goes only to the
+ * player it is for.
  */
-fun askingMessage(seat: Int?): JsonObject =
+fun askingMessage(
+    seat: Int?,
+    doing: String? = null,
+): JsonObject =
     envelope("MATCH_ASKING") {
         if (seat == null) put("seat", kotlinx.serialization.json.JsonNull) else put("seat", seat)
+        if (seat != null && doing != null) put("doing", doing)
     }
 
 /** §6.110 — the greeting, before any decision. */

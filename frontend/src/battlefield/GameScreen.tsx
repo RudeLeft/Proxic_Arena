@@ -79,6 +79,7 @@ import {
   DICE_KINDS,
   DiceWindow,
   DungeonWindow,
+  ModesWindow,
   ROLL_LINGER_MS,
   RollsOverlay,
   SectorWindow,
@@ -478,6 +479,11 @@ export function GameScreen({
   // target again, yes again, the rest of an order they clicked. Once per
   // question; a question of another card ends them.
   const [orderQueue, setOrderQueue] = useState<string[]>([]);
+  // Phase 9 Amendment 21 -- the modes ticked in one window, still to give
+  // the game's one-mode-at-a-time questions; [] then means "no more".
+  // Kept across the other questions casting asks between them (a cost);
+  // the next priority question ends it.
+  const [modeQueue, setModeQueue] = useState<string[] | null>(null);
   // Phase 9 W-15 -- the cards still to put back, or to begin in play
   // (then no more), clicked at once and asked one at a time.
   const [openingQueue, setOpeningQueue] = useState<{
@@ -730,6 +736,18 @@ export function GameScreen({
         return;
       }
     }
+    if (decision.kind === "chooseModeForAbility" && modeQueue !== null) {
+      if (modeQueue.length === 0) {
+        setModeQueue(null);
+        if (!decision.mandatory) answer(null);
+        return;
+      }
+      const next = decision.options.find((o) => o.label === modeQueue[0]);
+      setModeQueue(next ? modeQueue.slice(1) : null);
+      if (next) answer(next.actionId);
+      return;
+    }
+    if (decision.kind === "chooseSpellAbilityToPlay" && modeQueue !== null) setModeQueue(null);
     if (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) {
       const next = decision.options.find((o) => o.label === orderQueue[0]);
       setOrderQueue(next ? orderQueue.slice(1) : []);
@@ -742,13 +760,18 @@ export function GameScreen({
       setCopies(afterAuto(decision, copies));
       answer(auto);
     }
-  }, [decision, copies, orderQueue, openingQueue, plan, handOrder, answer]);
+  }, [decision, copies, orderQueue, modeQueue, openingQueue, plan, handOrder, answer]);
   // W-14 -- the plan the page is answering combat from (below).
   const planRef = useRef<CombatPlan | null>(null);
   const answeredForYou =
     !!decision &&
     (autoAnswer(decision, copies) !== null ||
       (decision.kind === "orderSimultaneousAbilities" && orderQueue.length > 0) ||
+      (decision.kind === "chooseModeForAbility" &&
+        modeQueue !== null &&
+        (modeQueue.length === 0
+          ? !decision.mandatory
+          : decision.options.some((o) => o.label === modeQueue[0]))) ||
       (!!openingQueue && decision.kind === openingQueue.kind) ||
       (plan.length > 0 && stepAnswer(plan[0]!, decision) !== undefined) ||
       (handOrder.length > 0 &&
@@ -1194,6 +1217,28 @@ export function GameScreen({
     }
     if (decision.kind === "chooseSprocket") {
       return <SprocketWindow key={decision.decisionId} {...common} onLight={lightCards} />;
+    }
+    // Amendment 21 -- several modes: tick them, then Done.
+    // "Choose one" stays one click (the general window).
+    const modes = decision.arrange?.modes;
+    if (
+      decision.kind === "chooseModeForAbility" &&
+      modes &&
+      (modes.num > 1 || modes.budget != null)
+    ) {
+      return (
+        <ModesWindow
+          key={decision.decisionId}
+          {...common}
+          onDone={(labels) => {
+            const [first, ...rest] = labels;
+            const now = decision.options.find((o) => o.label === first);
+            if (!now) return;
+            setModeQueue(rest);
+            answer(now.actionId);
+          }}
+        />
+      );
     }
     // Amendment 20 -- which dungeon: each with its rooms.
     if (decision.kind === "chooseSingleCardFace" && decision.arrange?.dungeons) {

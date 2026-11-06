@@ -78,6 +78,7 @@ class MatchDecisionsTest {
                 matchId: UUID,
                 userId: UUID,
                 seat: Int?,
+                doing: String?,
             ) {
                 asked += "${name(userId)}/ASKING:${seat ?: "nobody"}"
             }

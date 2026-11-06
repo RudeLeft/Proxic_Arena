@@ -13,6 +13,11 @@ board.
   spree      Three Steps Ahead: two modes, each with its own extra cost
   pawprint   Season of Weaving: modes within a five-pawprint budget
 
+Phase 9 Amendment 21: every mode question also says how many modes in
+all, how many at least, which are chosen so far, each mode's paw prints
+and the budget spent, and escalate's cost -- so the window can count
+("Choose two · 1 of 2") and the player can tick them all at once.
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
 """
@@ -70,6 +75,25 @@ def result(problems, ok, found):
 # --- the scenarios ----------------------------------------------------------
 
 
+def counted(st, num, least, first_pick, escalate=None, budget=None):
+    """Phase 9 Amendment 21: the mode questions carry their count."""
+    arr = [a for a in st.get("arr") or [] if a]
+    problems = []
+    if len(arr) < 2:
+        return [f"each mode question carries its count: {st.get('arr')}"]
+    one, two = arr[0], arr[1]
+    if one.get("num") != num or one.get("min") != least or one.get("chosen") != []:
+        problems.append(f"the first question: {num} in all, {least} at least, none chosen: {one}")
+    if len(two.get("chosen") or []) != 1 or first_pick not in two["chosen"][0]:
+        problems.append(f"the second question names the mode chosen ({first_pick}): {two.get('chosen')}")
+    if escalate is not None and escalate not in (one.get("escalate") or ""):
+        problems.append(f"escalate's cost in the game's words ({escalate}): {one.get('escalate')}")
+    if budget is not None and (one.get("budget") != budget or two.get("spent", 0) < 1
+                               or not all(p >= 1 for p in one.get("paws") or [0])):
+        problems.append(f"the paw-print budget {budget}, spent so far, each mode's paws: {one} / {two}")
+    return problems
+
+
 def escalate():
     g = game("escalate", [("Swamp", 24), ("Collective Brutality", 36)])
     st = {"cast": False, "modes": [], "before": None}
@@ -91,6 +115,7 @@ def escalate():
                 return o
             return None
         if kind == "chooseModeForAbility" and st["cast"]:
+            st.setdefault("arr", []).append((f.get("arrange") or {}).get("modes"))
             for text in ("-2/-2", "loses 2 life"):
                 if text not in st["modes"]:
                     o = pick(f, text)
@@ -119,6 +144,7 @@ def escalate():
         problems.append(found["stopped"])
     if len(st["modes"]) != 2:
         problems.append(f"two modes should have been chosen: {st['modes']}")
+    problems += counted(st, 3, 1, "-2/-2", escalate="Discard")
     if not found["bears_dead"]:
         problems.append("the creature did not die to -2/-2")
     if (b.get("me"), b.get("them")) != (a["me"] - 2, a["them"] + 2):
@@ -150,6 +176,7 @@ def cryptic():
                 return o
             return None
         if kind == "chooseModeForAbility" and st["cast"]:
+            st.setdefault("arr", []).append((f.get("arrange") or {}).get("modes"))
             for text in ("Return target permanent", "Draw a card"):
                 if text not in st["modes"]:
                     o = pick(f, text)
@@ -173,6 +200,7 @@ def cryptic():
     problems = [found["stopped"]] if found["stopped"] else []
     if len(st["modes"]) != 2:
         problems.append(f"two modes should have been chosen: {st['modes']}")
+    problems += counted(st, 2, 2, "Return target permanent")
     if a["bears"] != b["bears"] - 1 or a["their_hand"] != b["their_hand"] + 1:
         problems.append(f"the creature was not returned to its owner's hand: {b} -> {a}")
     if a["hand"] != b["hand"]:  # -1 the spell, +1 drawn
@@ -299,6 +327,7 @@ def pawprint():
                 return o
             return None
         if kind == "chooseModeForAbility" and st["cast"]:
+            st.setdefault("arr", []).append((f.get("arrange") or {}).get("modes"))
             draw = pick(f, "Draw a card")
             if st["chosen"] >= 5:
                 st["offered_after_budget"] = [o["label"][:40] for o in f["options"]]
@@ -319,6 +348,7 @@ def pawprint():
     problems = [found["stopped"]] if found["stopped"] else []
     if st["chosen"] != 5:
         problems.append(f"five one-pawprint draws should fit the budget: {st['chosen']}")
+    problems += counted(st, 5, 0, "Draw a card", budget=5)
     if st["offered_after_budget"]:
         problems.append(f"a mode was offered with the budget spent: {st['offered_after_budget']}")
     if found["after_hand"] - b.get("hand", 0) != 4:  # -1 spell, +5 drawn

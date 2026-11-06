@@ -30,6 +30,10 @@ The status tray's list, a Peek button, and dice (Phase 9).
 - Choosing a dungeon shows each dungeon's rooms; choosing a room names it.
 - Convoke says "Tap to help pay", not "Your move". Agent of Kotis and Mages' Contest ask with the usual yes/no window. No window says "These are the actions you can take" any more, and the game's raw words ("card(s)", "--", card numbers) are gone.
 
+**Modes and waiting**
+- Cards that choose several modes (Cryptic Command, Collective Brutality, Season of Weaving) show every mode in one window: tick the ones you want ("Choose two · 1 of 2"), change your mind, then Done. Escalate says what each extra mode costs. "Choose one" cards are still one click.
+- While the other player splits Fact or Fiction, your screen says "Splitting the cards" (and "Choosing a pile", "Choosing blockers" and so on), and no longer says they "may respond" when they're making a choice for your spell.
+
 ## 1.44.0 — 2026-11-05
 
 Choosing targets, and cards you can't pay for (Phase 9).

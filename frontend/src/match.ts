@@ -177,6 +177,17 @@ export interface DecisionArrange {
   binary?: string | null;
   /** Phase 9 W-17 -- the sprocket the crank marker moves to next turn. */
   crankNext?: number | null;
+  /** Phase 9 Amendment 21 -- a mode question's count (see ModesWindow). */
+  modes?: {
+    num: number;
+    min: number;
+    repeat: boolean;
+    budget: number | null;
+    spent: number | null;
+    chosen: string[];
+    paws: number[];
+    escalate: string | null;
+  } | null;
   /** Phase 9 Amendment 20 -- the dungeons offered, each with its rooms (the game's words). */
   dungeons?: { name: string; rooms: { name: string; says: string; next: string[] }[] }[] | null;
 }
@@ -589,7 +600,8 @@ export interface MatchState {
    * said (an older server never does, and the screen then guesses from
    * priority as it used to).
    */
-  asking: { seat: number | null } | null;
+  /** Phase 9 Amendment 21 -- `doing`: the server's word for what they are doing ("Splitting the cards"). */
+  asking: { seat: number | null; doing?: string | null } | null;
   /** Spec 0047 -- how many people are watching (players are told). */
   watching: number;
   /**
@@ -711,7 +723,10 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       const seat = message["seat"];
       if (seat === null) return { ...state, asking: { seat: null } };
       const asked = asNumber(seat);
-      return asked === null ? state : { ...state, asking: { seat: asked } };
+      const doing = asString(message["doing"]);
+      return asked === null
+        ? state
+        : { ...state, asking: doing ? { seat: asked, doing } : { seat: asked } };
     }
 
     case "DECISION_OPTIONS": {
@@ -1297,6 +1312,25 @@ function asArrange(value: unknown): DecisionArrange | null {
     binary: asString(v["binary"]),
     crankNext: asNumber(v["crankNext"]),
     dungeons: asDungeons(v["dungeons"]),
+    modes: asModes(v["modes"]),
+  };
+}
+
+function asModes(value: unknown): NonNullable<DecisionArrange["modes"]> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const num = asNumber(v["num"]);
+  if (num === null) return null;
+  const nums = (x: unknown) => (Array.isArray(x) ? x.map((n) => asNumber(n) ?? 0) : []);
+  return {
+    num,
+    min: asNumber(v["min"]) ?? 1,
+    repeat: v["repeat"] === true,
+    budget: asNumber(v["budget"]),
+    spent: asNumber(v["spent"]),
+    chosen: asNotices(v["chosen"]),
+    paws: nums(v["paws"]),
+    escalate: asString(v["escalate"]),
   };
 }
 
