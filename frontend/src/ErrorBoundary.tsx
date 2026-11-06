@@ -43,23 +43,26 @@ export class ErrorBoundary extends Component<Props, State> {
     if (error === null) return this.props.children;
     if (this.props.fallback) return this.props.fallback(error, this.reset);
 
+    // Owner 2026-11-06: a player is told what happened in general words,
+    // never the error itself or how the server is run (the page had shown
+    // the raw message and "check ... docker compose logs arena-server").
+    // The details are in the browser console (above) for whoever runs it.
     return (
       <main>
         <h1>PROXIC ARENA</h1>
         <section className="panel">
-          <p>Something in the page failed to render.</p>
-          {/* The message, not the stack: a stack trace in the UI is
-              noise to a player and a small information leak. The
-              stack is in the browser console for whoever needs it. */}
-          <p className="hint">{error.message}</p>
+          <p>Something went wrong on this page.</p>
+          <p className="hint">
+            This can happen when Proxic Arena is updated while the page is open. Reloading the page
+            usually fixes it; your decks and games are kept.
+          </p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Reload the page
+          </button>{" "}
           <button type="button" onClick={this.reset}>
             Try again
           </button>
         </section>
-        <p className="verdict">
-          If this persists, check the browser console and{" "}
-          <code>docker compose logs arena-server</code>.
-        </p>
       </main>
     );
   }

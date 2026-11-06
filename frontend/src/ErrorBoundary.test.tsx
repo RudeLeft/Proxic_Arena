@@ -35,8 +35,12 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByText(/failed to render/i)).toBeDefined();
-    expect(screen.getByText("component exploded")).toBeDefined();
+    expect(screen.getByText(/something went wrong/i)).toBeDefined();
+    // Owner 2026-11-06: general words only -- never the error itself, nor
+    // how the server is run.
+    expect(screen.queryByText(/component exploded/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/docker|console|arena-server/i);
+    expect(screen.getByRole("button", { name: "Reload the page" })).toBeDefined();
     // The heading proves the page is still a page, not an empty body.
     expect(screen.getByRole("heading", { name: "PROXIC ARENA" })).toBeDefined();
   });
@@ -60,7 +64,7 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText("all fine")).toBeDefined();
-    expect(screen.queryByText(/failed to render/i)).toBeNull();
+    expect(screen.queryByText(/something went wrong/i)).toBeNull();
   });
 
   it("recovers when the cause is gone", () => {
