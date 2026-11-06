@@ -10,6 +10,7 @@
 // descendant's render error.
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { looksLikeUpdate, reloadForUpdate } from "./updateReload";
 
 interface Props {
   children: ReactNode;
@@ -34,6 +35,8 @@ export class ErrorBoundary extends Component<Props, State> {
     // wrong page, which is worse — at least the white page was
     // obviously broken.
     console.error("render error:", error, info.componentStack);
+    // A part of the page an update replaced: reload once for the new one.
+    if (looksLikeUpdate(error)) reloadForUpdate();
   }
 
   private reset = () => this.setState({ error: null });

@@ -7,10 +7,13 @@ import { AuthProvider } from "./AuthContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AppRoutes } from "./routes";
 import { installReportLog } from "./reportLog";
+import { installUpdateReload } from "./updateReload";
 import "./styles.css";
 
 // Spec 0039 — the page's own log, for a report: from the first moment.
 installReportLog();
+// A page open across an update reloads itself, once (owner 2026-11-06).
+installUpdateReload();
 
 const host = document.getElementById("root");
 if (!host) {
