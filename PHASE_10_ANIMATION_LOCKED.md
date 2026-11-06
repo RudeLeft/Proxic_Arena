@@ -141,3 +141,45 @@ headless mode drops frames by itself (BATTLEFIELD_RENDERING.md §6).
 
 Every item decided and built with its recording; the jump check passing
 on every Lab game; the owner plays and accepts (P10-O).
+
+---
+
+## Amendment 1 — A-01, the jump audit (2026-11-06, as built)
+
+Every Mechanics Lab game (219 traces, both seats; 17,577 changes on the
+table) was replayed into the real game page in a headed browser at
+1920x1080. A recorder noted every drawn card's position and opacity on
+every frame (whatever element drew it: on the table, in a hand, being
+cast, its flight, its stack entry, a leaving ghost), 0 dropped frames.
+Each card was followed as one thing, checked against what the game's
+own boards say happened, and each kind of finding was confirmed by eye
+at one-tenth speed (Chrome DevTools animation rate). Owner report with
+the slow-motion frames: https://claude.ai/artifact/3Td3kZMJtcAgK8cKbYSXmQ
+
+Smooth today: paying for a spell and its flight to the stack; a
+permanent resolving onto the table; drawing; a land played where none of
+its kind is; tapping.
+
+Findings (times seen, each player's screen counted):
+
+| # | Finding | Seen | Item |
+|---|---|---|---|
+| 1 | A stolen creature jumps to the other side in one frame; on the loser's screen the Aura flies to the empty stack instead of the creature | the Lab's steal, both screens | A-08 |
+| 2 | Auras appear attached; Equipment's label jumps between creatures | 3 of 3 | A-17 |
+| 3 | Back to a hand: gone from the table, later appears in the hand | 2 of 6 | A-14 |
+| 4 | Transform, day/night, turning face up: the picture swaps, no flip | 23 of 31 | A-09 |
+| 5 | Died, destroyed, sacrificed, exiled: the same faint 0.25 s slide; a board wipe in one blink; a card leaving a pile not shown | every one; 22 from piles | A-04..A-07 |
+| 6 | A card joining a pile (lands, a second token) only changes the number | about 1,090 | A-02, A-15 |
+| 7 | The other player's spell fades in at the middle, not from their hand; cancelled, it vanishes and reappears by the stack | 1,278; 703 | A-21 |
+| 8 | Triggers and abilities pop onto the stack full size | about 280 | A-21 |
+| 9 | A blocker jumps onto the attacker | blocks | A-12 |
+| 10 | Mill, exile from a graveyard, lands back into a library: not shown | about 130 | A-06, A-14 |
+| 11 | The page guesses destinations (a library or a hidden hand is drawn as exile); the game knows and doesn't send it | -- | A-00 |
+| 12 | Not in the Lab: meld, mutate; only 2 board wipes | -- | A-07, A-10 need Lab games |
+
+Not a finding: starting your own cast appears in the middle in the
+replay because nothing is clicked; in a real game it rises from the
+clicked card (checked live in A-02).
+
+The recorder and analyser are scratch tools today; turning them into the
+kept "nothing jumps" check is part of A-00.
