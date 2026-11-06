@@ -71,6 +71,11 @@ the nine phases proved is in `docs/history/phases/`; what changed in
 each release is `CHANGELOG.md`; what is next, and how new features are
 specified and approved, is `ROADMAP.md`.
 
+**Phase 9 is complete** (`docs/history/phases/phase-09/`, 1.45.0): every
+window, popup and prompt in a game reviewed one at a time with the owner
+-- each with a canvas and a decision -- then built, checked twice and
+played.
+
 **Phase 8 is complete** (`docs/history/phases/phase-08/`): a complete,
 generated record of every question Forge can put to a player, a CI gate
 so none can be skipped, a real-game proof for each, and every one built.

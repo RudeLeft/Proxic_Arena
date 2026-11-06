@@ -97,7 +97,7 @@ All taken 2026-10-30 (above).
    the payment is titled "Pay the mana". A card being cast is not also
    drawn on the stack while it is in the air, and a trigger being paid
    for shows what is still owed under its words. See
-   `PHASE_09_GAME_WINDOWS_LOCKED.md`.
+   `docs/history/phases/phase-09/PHASE_09_GAME_WINDOWS_LOCKED.md`.
 
 3. **As built (Phase 9 W-14, 2026-11-03).** "Click to take back" is not
    written on each creature: the round button's second line says it

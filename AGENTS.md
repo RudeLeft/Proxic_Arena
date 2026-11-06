@@ -61,12 +61,10 @@ Update this line when one is approved or done.
 **Phases:** large work may still be a phase, locked and closed at an exit
 gate as Phases 1–8 were; its document lives at the top level while
 active and moves to `docs/history/phases/` at its close. Phase 8 (every
-Forge question, answered and proven) closed 2026-10-24.
-
-**Phase 9 is LOCKED and ACTIVE** (2026-10-30):
-`PHASE_09_GAME_WINDOWS_LOCKED.md` — every window, popup and prompt in a
-game, one item at a time, each with a canvas and the owner's decision
-before it is built; built in groups.
+Forge question, answered and proven) closed 2026-10-24. Phase 9 (every
+window, popup and prompt in a game) closed 2026-11-06 with version
+1.45.0 (`docs/history/phases/phase-09/PHASE_09_EXIT_GATE.md`). No phase
+is active.
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,

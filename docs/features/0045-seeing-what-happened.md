@@ -91,4 +91,4 @@ Forge decides.
    them) is headed by the player who did it and the card ("Pat · Goblin
    Ringleader"), with the whole action in one sentence, instead of "Goblin
    Ringleader revealed:"; the player who made the choices is not shown it
-   again. See `PHASE_09_GAME_WINDOWS_LOCKED.md`.
+   again. See `docs/history/phases/phase-09/PHASE_09_GAME_WINDOWS_LOCKED.md`.

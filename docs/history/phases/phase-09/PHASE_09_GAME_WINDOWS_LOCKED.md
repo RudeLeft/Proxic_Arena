@@ -1,6 +1,8 @@
 # Phase 9 — Every window, popup and prompt in a game
 
-**Status:** LOCKED and ACTIVE 2026-10-30 (owner: "Lock it, build group 1").
+**Status:** COMPLETE 2026-11-06 (owner: "I accept phase 9"; version
+1.45.0; exit gate `PHASE_09_EXIT_GATE.md`). Locked 2026-10-30 (owner:
+"Lock it, build group 1").
 Changes from here are dated amendments (PHASE-002). Items not yet decided
 still each get their canvas and the owner's decision before they are built.
 **Owner's brief (2026-10-30):** the "List choices" box at the bottom left,
