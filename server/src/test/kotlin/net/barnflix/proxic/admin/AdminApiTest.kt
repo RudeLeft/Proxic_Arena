@@ -180,6 +180,9 @@ class AdminApiTest {
             "POST" to "/api/admin/belt/reset",
             "POST" to "/api/admin/purge/preview",
             "POST" to "/api/admin/purge",
+            // Spec 0056 — "Update waiting".
+            "GET" to "/api/admin/update-waiting",
+            "POST" to "/api/admin/update-waiting",
         )
 
     @Test

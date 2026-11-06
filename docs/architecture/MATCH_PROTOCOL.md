@@ -125,6 +125,9 @@ DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
 CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER
                         (and the worker's NO_GAME, NO_SEAT)
+SERVER_STOPPING         spec 0056: the server is stopping under this game (an
+                        update); it ends as FAILED_RUNTIME / SERVER_RESTARTED
+                        with no result. No other fields: the page has the words
 AWAY_END_ACCEPTED       spec 0054: the other player's concession went to Forge
 AWAY_END_REFUSED        reason: NOT_AWAY (back, or not gone long enough),
                         NOT_A_PLAYER, UNREACHABLE

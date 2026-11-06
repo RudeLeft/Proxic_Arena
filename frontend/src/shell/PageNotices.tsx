@@ -30,6 +30,7 @@ import {
   newsOf,
   questionArrived,
   questionKey,
+  updateNoticeFor,
   versionWaits,
   type NewsItem,
   type Notice,
@@ -253,6 +254,9 @@ export function PageNoticesProvider({ children }: { children: ReactNode }) {
         fadeMs: NEWS_MS,
       });
     }
+    // Spec 0056 — in a game while the owner waits to update: said, and kept.
+    const update = updateNoticeFor(lobby.updateWaiting, inGame);
+    if (update) list.push(update);
     // A new version during a game waits until the game is over.
     if (stale && !versionClosed && !inGame) {
       list.push({
@@ -272,6 +276,7 @@ export function PageNoticesProvider({ children }: { children: ReactNode }) {
     lobby.askedBy,
     lobby.setupProblem,
     lobby.notice,
+    lobby.updateWaiting,
     reconnecting,
     asideInvite,
     asideAsk,

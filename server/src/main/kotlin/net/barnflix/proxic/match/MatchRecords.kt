@@ -158,6 +158,22 @@ internal class MatchRecords(private val dataSource: DataSource) {
      * result with a termination. Returns whether this call was
      * the one that ended it.
      */
+    fun recordServerStopped(
+        matchId: UUID,
+        at: Instant,
+    ): Boolean =
+        dataSource.connection.use { connection ->
+            // Spec 0056 — the restart's own code (MatchRecovery), and no summary: no result.
+            connection.prepareStatement(
+                "UPDATE match SET status = 'FAILED_RUNTIME', failure_code = 'SERVER_RESTARTED', ended_at = ? " +
+                    "WHERE match_id = ? AND status IN ('LAUNCHING', 'RUNNING')",
+            ).use {
+                it.setTimestamp(1, java.sql.Timestamp.from(at))
+                it.setObject(2, matchId)
+                it.executeUpdate() == 1
+            }
+        }
+
     fun recordTerminated(
         matchId: UUID,
         at: Instant,

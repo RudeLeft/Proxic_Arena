@@ -80,6 +80,27 @@ export function NameSearch({
 }
 
 /**
+ * Spec 0056 — a game the server stopped under (an update, a restart): told
+ * plainly, never as a result and never as a plain "game over". The
+ * owner-approved words, for the banner (title and line) and in full.
+ */
+export const SERVER_UPDATE_TITLE = "The server is being updated";
+export const SERVER_UPDATE_LINE =
+  "This game couldn't be finished before the update. It isn't counted as a win or a loss. Your room is still here.";
+export const SERVER_UPDATE_WORDS = `${SERVER_UPDATE_TITLE}. ${SERVER_UPDATE_LINE}`;
+
+/**
+ * Spec 0056 — this game ended because the server stopped: the server said
+ * so on the game's socket ([stopping]), or the match ended SERVER_RESTARTED
+ * (at the stop, or found by the next start's recovery).
+ */
+export function serverWasUpdated(match: MatchView, stopping = false): boolean {
+  return (
+    stopping || (match.status === "FAILED_RUNTIME" && match.failureCode === "SERVER_RESTARTED")
+  );
+}
+
+/**
  * §6.149 — FORGE decided this, and the page only reads it.
  *
  * Nothing here looks at life totals, connections or who left.
@@ -88,6 +109,7 @@ export function NameSearch({
  * participant list the page already holds.
  */
 export function resultText(match: MatchView, mySeat: number | null): string {
+  if (serverWasUpdated(match)) return SERVER_UPDATE_WORDS;
   if (match.status === "FAILED_RUNTIME" || match.outcome?.kind === "FAILED") {
     // §6.154 — not a loss for anybody. A match that stopped is a
     // fault, and recording a winner for it would be a lie.

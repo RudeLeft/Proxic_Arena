@@ -277,11 +277,32 @@ class MatchRuntime(
     /** PHASE_07 §7.67 — how many games this server is playing right now. */
     val runningCount: Int get() = live.values.count { it.worker?.isAlive() == true }
 
-    /** Stop everything. Called when the application stops. */
-    fun stopAll() {
-        live.keys.toList().forEach { matchId ->
-            live.remove(matchId)?.worker?.stop()
+    /**
+     * Spec 0056 — the games being played on this server now (a game still
+     * starting counts: an update would end it too), for the Admin page.
+     */
+    val games: List<LiveMatch> get() = live.values.sortedBy { it.match.matchId }
+
+    /**
+     * Stop everything. Called when the application stops.
+     *
+     * Spec 0056 — a game still being played is not simply cut off. Its
+     * players are told first ([tell]: their pages say the server is being
+     * updated), then it ends as FAILED_RUNTIME / SERVER_RESTARTED with no
+     * result and its room is given back -- what MatchRecovery would write at
+     * the next start, but now, while the players can still hear it. Taken
+     * out of [live] before its worker stops, so the worker's own "stopped"
+     * is a second ending and changes nothing. Returns how many there were.
+     */
+    fun stopAll(tell: suspend (Match) -> Unit = {}): Int {
+        val stopping = live.keys.toList().mapNotNull { live.remove(it) }
+        stopping.forEach { running ->
+            runCatching { kotlinx.coroutines.runBlocking { tell(running.match) } }
+                .onFailure { log.warn("match ${running.match.matchId}: its players were not told of the stop", it) }
+            endings.serverStopped(running.match)
+            running.worker.stop()
         }
+        return stopping.size
     }
 }
 

@@ -37,6 +37,8 @@ internal class AdminParts(
     val rooms: net.barnflix.proxic.room.RoomService,
     val runtime: net.barnflix.proxic.match.MatchRuntime,
     val lobby: net.barnflix.proxic.lobby.LobbyService,
+    /** Spec 0056 — the one switch the lobby and the launcher also read. */
+    val updateWaiting: net.barnflix.proxic.admin.UpdateWaiting = net.barnflix.proxic.admin.UpdateWaiting(),
 )
 
 /**
@@ -84,6 +86,18 @@ internal fun adminServices(
         accountsChanged = { parts.lobby.accountChanges?.changed() },
         renames = net.barnflix.proxic.auth.Renames(database.dataSource()),
         renamed = { userId -> parts.lobby.accountChanges?.renamed(userId) },
+        // Spec 0056 — the switch, and the games it waits for.
+        updateWaiting = parts.updateWaiting,
+        runningGames = {
+            parts.runtime.games.map { game ->
+                net.barnflix.proxic.admin.RunningGameView(
+                    matchId = game.match.matchId.toString(),
+                    players =
+                        game.match.participants.sortedBy { it.seatNumber }.joinToString(" vs ") { it.displayName },
+                    turn = game.turn,
+                )
+            }
+        },
         inviteDesk = inviteDesk(config, parts, mail),
         mailSettings = mail,
         resetDesk = reach.resets,

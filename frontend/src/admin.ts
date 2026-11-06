@@ -186,6 +186,64 @@ async function act(
   return { ok: false, message: answer?.detail ?? "That did not work." };
 }
 
+// --- update waiting (spec 0056) ------------------------------------------------------
+
+/** Spec 0056 — a game being played now: who, and the turn once the board has said. */
+export interface RunningGame {
+  matchId: string;
+  players: string;
+  turn?: number | null;
+}
+
+export interface UpdateWaitingState {
+  on: boolean;
+  games: RunningGame[];
+}
+
+/** Spec 0056 — when no game is running (owner-approved words). */
+export const SAFE_TO_UPDATE = "No games running: safe to update now.";
+
+/** "RudeLeft vs Pat · turn 9", or without the turn before the board has said. */
+export function runningGameText(game: RunningGame): string {
+  return typeof game.turn === "number" && game.turn > 0
+    ? `${game.players} · turn ${game.turn}`
+    : game.players;
+}
+
+function asUpdateWaiting(body: Record<string, unknown>): UpdateWaitingState {
+  return {
+    on: body["on"] === true,
+    games: Array.isArray(body["games"]) ? (body["games"] as RunningGame[]) : [],
+  };
+}
+
+export const fetchUpdateWaiting = (fetchFn: typeof fetch = fetch) =>
+  read("/api/admin/update-waiting", asUpdateWaiting, fetchFn);
+
+/** Switch "Update waiting" on or off; the new state, or why not. */
+export async function setUpdateWaiting(
+  on: boolean,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ ok: true; state: UpdateWaitingState } | { ok: false; message: string }> {
+  let response: Response;
+  try {
+    response = await apiFetch(
+      "/api/admin/update-waiting",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ on }),
+      },
+      fetchFn,
+    );
+  } catch {
+    return { ok: false, message: "The server could not be reached." };
+  }
+  const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (response.ok && body) return { ok: true, state: asUpdateWaiting(body) };
+  return { ok: false, message: (body?.["detail"] as string | undefined) ?? "That did not work." };
+}
+
 // --- invitations (spec 0014) -------------------------------------------------------
 
 export interface Invite {

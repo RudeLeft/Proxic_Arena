@@ -44,6 +44,10 @@ enum class AdminAction {
 
     // Spec 0041 Amendment 3 — a player renamed from the Admin page.
     DISPLAY_NAME_CHANGED,
+
+    // Spec 0056 — "Update waiting" switched on or off.
+    UPDATE_WAITING_ON,
+    UPDATE_WAITING_OFF,
 }
 
 class AdminActions(private val dataSource: DataSource) {

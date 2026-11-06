@@ -50,6 +50,7 @@ import { ComputersPanel } from "./AdminComputers";
 import { EmailPanel } from "./AdminEmail";
 import { BeltRecordsPanel } from "./AdminRecords";
 import { Invitations } from "./AdminInvites";
+import { UpdateWaitingPanel } from "./AdminUpdate";
 import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { CheckRule, CheckedInput, MAX_DISPLAY_NAME, displayNameOk } from "./fieldChecks";
@@ -292,7 +293,13 @@ export default function AdminPage() {
           {tab === "records" && (
             <BeltRecordsPanel accounts={accounts ?? []} onChanged={() => void refresh()} />
           )}
-          {tab === "server" && <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />}
+          {tab === "server" && (
+            <>
+              <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />
+              {/* Spec 0056 — an update waits for games to finish. */}
+              <UpdateWaitingPanel />
+            </>
+          )}
         </div>
       </div>
     </main>

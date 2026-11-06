@@ -37,6 +37,8 @@ class MatchLauncher(
     private val dataSource: DataSource,
     private val deckAuthorization: DeckAuthorization,
     private val clock: () -> Instant = Instant::now,
+    /** Spec 0056 — "Update waiting" is on: no new game starts. */
+    private val updateWaiting: () -> Boolean = { false },
 ) {
     /**
      * §6.10, §6.11 — the host claims a prepared setup.
@@ -60,6 +62,10 @@ class MatchLauncher(
             if (setup.hostUserId != requesterId) {
                 return@inTransaction refuse(LaunchError.HostRequired)
             }
+
+            // Spec 0056 — before the claim, so the setup stays as it was
+            // and the room can start once the update is done.
+            if (updateWaiting()) return@inTransaction refuse(LaunchError.UpdateWaiting)
 
             when (setup.status) {
                 "CONSUMED" -> return@inTransaction refuse(LaunchError.AlreadyLaunched)

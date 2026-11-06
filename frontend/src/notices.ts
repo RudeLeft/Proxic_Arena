@@ -141,6 +141,27 @@ export function versionWaits(pathname: string, matchStatus: string | null): bool
   );
 }
 
+/**
+ * Spec 0056 — the owner is waiting to update: a player in a game is told,
+ * and the card stays (no ×, no fade) until the update stops waiting. Its
+ * words are the owner-approved sentence, as a title and its line.
+ */
+export function updateWaitingNotice(): Notice {
+  return {
+    key: "update-waiting",
+    tone: "blue",
+    label: "Update",
+    title: "An update is waiting",
+    line: "Finish your game as usual; no new games will start until the update is done.",
+    actions: [],
+  };
+}
+
+/** Spec 0056 — the card, only for a player in a game while the update waits. */
+export function updateNoticeFor(updateWaiting: boolean, inGame: boolean): Notice | null {
+  return updateWaiting && inGame ? updateWaitingNotice() : null;
+}
+
 /** The questions waiting, as a key: an invitation's room, a request's asker. */
 export function questionKey(inviteRoom: string | null, askedBy: string | null): string {
   return `${inviteRoom ?? ""}|${askedBy ?? ""}`;

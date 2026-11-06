@@ -41,6 +41,7 @@ import {
   type RoomFailure,
   type RoomResult,
   type RoomView,
+  updateReason,
 } from "./lobby";
 import {
   avatarOf,
@@ -900,7 +901,9 @@ function YourRoom({
   const other = room.members.find((m) => m.userId !== me) ?? null;
   // A room left prepared but not started (a tab that died between the
   // two steps) starts from here too: Start match then only launches.
-  const canStart = iHost && room.everyoneReady && !busy && !starting;
+  // Spec 0056 — and not while an update waits: the room says why.
+  const updating = updateReason(lobby, room);
+  const canStart = iHost && room.everyoneReady && !busy && !starting && !updating;
   const decks = [
     ...library.mine.map((deck) => ({ deck, shared: false })),
     ...library.sharedWithMe.map((deck) => ({ deck, shared: true })),
@@ -923,13 +926,15 @@ function YourRoom({
 
   // Spec 0016 (4) — the Start button says what it is waiting for.
   // What you can do yourself comes first.
-  const waitingFor = !full
-    ? "Waiting for a second player"
-    : !readyDone
-      ? "Waiting for you to be ready"
-      : other && !other.ready
-        ? `Waiting for ${other.displayName} to be ready`
-        : "Waiting for the host";
+  const waitingFor = updating
+    ? "Waiting for the update"
+    : !full
+      ? "Waiting for a second player"
+      : !readyDone
+        ? "Waiting for you to be ready"
+        : other && !other.ready
+          ? `Waiting for ${other.displayName} to be ready`
+          : "Waiting for the host";
   // Spec 0019 — the other player sees the check too, from the moment Start is pressed.
   const checking = preparing || starting || lobby.checking === room.roomId;
 
@@ -962,6 +967,13 @@ function YourRoom({
           >
             Keep it open
           </button>
+        </div>
+      )}
+
+      {updating && (
+        // Spec 0056 — rooms stay open and chat works; a new game waits.
+        <div className="pa-room-warning" role="status">
+          <span>{updating}</span>
         </div>
       )}
 
@@ -1152,7 +1164,7 @@ function YourRoom({
                   <svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16">
                     <path d="M4 2h8M4 14h8M5 2c0 4 6 4 6 6s-6 2-6 6M11 2c0 4-6 4-6 6s6 2 6 6" />
                   </svg>
-                  {iHost && room.everyoneReady ? "Start match" : waitingFor}
+                  {iHost && room.everyoneReady && !updating ? "Start match" : waitingFor}
                 </span>
               )}
             </li>

@@ -486,7 +486,10 @@ private fun Route.databaseRoutes(
             net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
         )
     val lobbyHub = net.barnflix.proxic.lobby.LobbyHub()
-    val lobby = lobbyService(database, roomService, lobbyHub, accountChanges)
+    // Spec 0056 — "Update waiting", off at every start: the lobby tells
+    // everybody, the launcher refuses new games, the Admin page switches it.
+    val updateWaiting = net.barnflix.proxic.admin.UpdateWaiting()
+    val lobby = lobbyService(database, roomService, lobbyHub, accountChanges, updateWaiting)
     // PHASE_06 §6.107-§6.109 — where a decision reaches a
     // human, and the runtime that publishes into it. Both live
     // out here with the other sockets rather than inside
@@ -505,7 +508,7 @@ private fun Route.databaseRoutes(
             roomAnnouncer = lobby,
             decisions = matchHub,
         )
-    net.barnflix.proxic.match.stopMatchesWithServer(this, matchRuntime)
+    net.barnflix.proxic.match.stopMatchesWithServer(this, matchRuntime, matchHub) // spec 0056: told first
 
     userSocket(sessions, config, lobby)
 
@@ -607,7 +610,11 @@ private fun Route.databaseRoutes(
         // started yet: the record exists in LAUNCHING so a worker
         // that fails has somewhere to say so.
         matchRoutes(
-            MatchLauncher(database.dataSource(), DeckAuthorization(database.dataSource())),
+            MatchLauncher(
+                database.dataSource(),
+                DeckAuthorization(database.dataSource()),
+                updateWaiting = { updateWaiting.on },
+            ),
             net.barnflix.proxic.match.MatchStore(database.dataSource()),
             matchRuntime,
             rooms = roomService,
@@ -619,7 +626,7 @@ private fun Route.databaseRoutes(
         )
 
         // PHASE_07 §7.67 — the Admin page's API, administrators only.
-        val parts = AdminParts(sessions, accounts, signIns, roomService, matchRuntime, lobby)
+        val parts = AdminParts(sessions, accounts, signIns, roomService, matchRuntime, lobby, updateWaiting)
         adminRoutes(adminServices(config, database, health, parts))
 
         // §5.37, §5.94 — the server says which presets
@@ -671,6 +678,7 @@ private fun lobbyService(
     roomService: net.barnflix.proxic.room.RoomService,
     hub: net.barnflix.proxic.lobby.LobbyHub,
     accountChanges: net.barnflix.proxic.auth.AccountChanges,
+    updateWaiting: net.barnflix.proxic.admin.UpdateWaiting,
 ) = net.barnflix.proxic.lobby.LobbyService(
     hub,
     roomService,
@@ -680,6 +688,7 @@ private fun lobbyService(
     gameSeats = net.barnflix.proxic.lobby.GameSeats(database.dataSource())::of,
     chatted = net.barnflix.proxic.room.RoomIdle(database.dataSource())::chatted,
     renameNotice = net.barnflix.proxic.auth.Renames(database.dataSource())::takeNotice,
+    updateWaiting = updateWaiting,
 )
 
 /**

@@ -281,6 +281,8 @@ class UserSocketTest {
                 "PLAYERS",
                 // Spec 0011 — the Hall of Champions, on connect.
                 "STANDINGS",
+                // Spec 0056 — whether an update waits, on connect.
+                "UPDATE_WAITING",
                 "INVITED",
                 "INVITATION_SENT",
                 "INVITATION_ENDED",

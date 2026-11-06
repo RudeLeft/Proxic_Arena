@@ -53,7 +53,7 @@ class MatchStore(private val dataSource: DataSource) {
     ): Match? {
         val header =
             connection.prepareStatement(
-                "SELECT setup_id, room_id, status, preset_id FROM match WHERE match_id = ?",
+                "SELECT setup_id, room_id, status, preset_id, failure_code FROM match WHERE match_id = ?",
             ).use { statement ->
                 statement.setObject(1, matchId)
                 statement.executeQuery().use { rows ->
@@ -65,6 +65,7 @@ class MatchStore(private val dataSource: DataSource) {
                             roomId = rows.getObject(2, UUID::class.java),
                             status = MatchStatus.valueOf(rows.getString(3)),
                             presetId = rows.getString(4),
+                            failureCode = rows.getString(5),
                         )
                     }
                 }
@@ -77,6 +78,7 @@ class MatchStore(private val dataSource: DataSource) {
             status = header.status,
             presetId = header.presetId,
             participants = participantsOf(connection, matchId),
+            failureCode = header.failureCode,
         )
     }
 
@@ -85,6 +87,7 @@ class MatchStore(private val dataSource: DataSource) {
         val roomId: UUID,
         val status: MatchStatus,
         val presetId: String,
+        val failureCode: String?,
     )
 
     private fun participantsOf(

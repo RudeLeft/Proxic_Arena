@@ -151,3 +151,14 @@ fun matchMessage(
             }
         }
     }
+
+/**
+ * Spec 0056 — "Update waiting" is on (or off again), to everybody: a room
+ * cannot start a game while it is on and says why, and a player in a game
+ * sees a notice that stays until it is off. Sent on every connect, on or off.
+ * The words are the page's; this carries only the state.
+ */
+fun updateWaitingMessage(on: Boolean): JsonObject =
+    envelope("UPDATE_WAITING") {
+        put("on", on)
+    }

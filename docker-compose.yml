@@ -90,6 +90,10 @@ services:
     # for.
     image: ghcr.io/rudeleft/proxic_arena:latest
     restart: unless-stopped
+    # Spec 0056 — time to tell the players of any game still being played
+    # that the server is being updated, before the stop is forced. Docker's
+    # default was 10 seconds; the override files inherit this.
+    stop_grace_period: 30s
     labels:
       <<: *unraid-icon
     depends_on:

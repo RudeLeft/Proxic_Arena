@@ -1,5 +1,7 @@
 package net.barnflix.proxic.match
 
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
@@ -103,6 +105,14 @@ class LiveMatch(
     ) {
         snapshots[seat] = state
     }
+
+    /** Spec 0056 — the turn the game is on, from the latest board any seat was sent; null before one. */
+    val turn: Int?
+        get() =
+            snapshots.values.firstNotNullOfOrNull { state ->
+                (state as? kotlinx.serialization.json.JsonObject)?.get("turn")
+                    ?.let { runCatching { it.jsonPrimitive.intOrNull }.getOrNull() }
+            }
 
     /** Spec 0047 — the latest public view, for a spectator who just arrived. */
     val publicSnapshot: kotlinx.serialization.json.JsonObject?

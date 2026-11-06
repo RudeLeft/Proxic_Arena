@@ -99,6 +99,10 @@ class AdminServices(
     val renames: net.barnflix.proxic.auth.Renames? = null,
     /** Spec 0041 Amendment 3 — a renamed player who is here is told at once. */
     val renamed: suspend (UUID) -> Unit = {},
+    /** Spec 0056 — "Update waiting": the switch (in memory; off at every start). */
+    val updateWaiting: UpdateWaiting = UpdateWaiting(),
+    /** Spec 0056 — the games this server is playing now. */
+    val runningGames: () -> List<RunningGameView> = { emptyList() },
 )
 
 fun Route.adminRoutes(admin: AdminServices) {
@@ -130,6 +134,9 @@ fun Route.adminRoutes(admin: AdminServices) {
         adminReportRoutes(admin)
         // Spec 0048 — the Belt and records tab.
         adminPurgeRoutes(admin)
+
+        // Spec 0056 — an update waits for games to finish.
+        adminUpdateRoutes(admin)
 
         get("/server") {
             call.asAdmin(admin) ?: return@get

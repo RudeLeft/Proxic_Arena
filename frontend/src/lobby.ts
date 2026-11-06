@@ -302,6 +302,11 @@ export interface LobbyState {
    * the page has put it into your own account; null otherwise.
    */
   renamedTo: string | null;
+  /**
+   * Spec 0056 — the owner has switched on "Update waiting": no new game
+   * starts (the room says why) and a game being played shows a notice.
+   */
+  updateWaiting: boolean;
 }
 
 export const EMPTY_LOBBY: LobbyState = {
@@ -326,7 +331,17 @@ export const EMPTY_LOBBY: LobbyState = {
   standings: null,
   checking: null,
   renamedTo: null,
+  updateWaiting: false,
 };
+
+/** Spec 0056 — why a room cannot start a game while an update waits (owner-approved words). */
+export const UPDATE_WAITING_ROOM =
+  "An update is coming. New games can start again once it's done (usually a few minutes).";
+
+/** Spec 0056 — what a room waiting in the lobby says while an update waits; null otherwise. */
+export function updateReason(state: LobbyState, room: RoomView): string | null {
+  return state.updateWaiting && room.status !== "IN_MATCH" ? UPDATE_WAITING_ROOM : null;
+}
 
 /**
  * Apply one server message.
@@ -637,6 +652,13 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
         news: [...state.news, `An administrator changed your display name to ${name}.`],
       };
     }
+
+    // Spec 0056 — "Update waiting" switched on or off, to every page; said
+    // again on connect while it is on.
+    case "UPDATE_WAITING":
+      return typeof message["on"] === "boolean"
+        ? { ...state, updateWaiting: message["on"] }
+        : state;
 
     case "SESSION_ENDED":
       // Phase 3 §3.81 -- the session was ended (signed out elsewhere,

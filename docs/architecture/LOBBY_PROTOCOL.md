@@ -212,6 +212,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `REACTION` | somebody reacted to a chat line (`lineId` is the line's `messageId`), or took it back (`on: false`) | everybody |
 | `ERROR` | a refusal | the asker |
 | `SESSION_ENDED` | your session was revoked | the connection |
+| `UPDATE_WAITING` | `on`: whether the owner's "Update waiting" is on (spec 0056) -- while it is, no new game starts and the room says why; a player in a game sees a notice until it is off. Sent on every connect, and to everybody when it changes | every connection |
 | `RENAMED` | an administrator changed your display name (`displayName`): told once, at once if you are here, else on your next connect (spec 0041 Amendment 3) | every tab of that user |
 
 `ROOM` is sent **once per member**, not once to all of them, because

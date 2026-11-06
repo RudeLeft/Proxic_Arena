@@ -616,6 +616,11 @@ export interface MatchState {
    * game" is offered: the server's setting, from the greeting.
    */
   awayMinutes: number;
+  /**
+   * Spec 0056 — the server said it is stopping under this game (an update):
+   * the game cannot be finished, and the screen says so plainly.
+   */
+  serverStopping?: boolean;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -642,6 +647,10 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
   const type = typeof message["type"] === "string" ? message["type"] : "";
 
   switch (type) {
+    // Spec 0056 — no words come with it: the screen has them.
+    case "SERVER_STOPPING":
+      return { ...state, serverStopping: true, decision: null, awaiting: null };
+
     case "MATCH_HELLO": {
       const seat = asNumber(message["seat"]);
       if (seat === null) return state;

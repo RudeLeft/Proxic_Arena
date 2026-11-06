@@ -139,6 +139,20 @@ branch). `MatchRecovery` runs at startup: every `LAUNCHING` or
 SERVER_RESTARTED`, its room is released, and no worker survives.
 Observed on a real restart under a running match (P6-AZ).
 
+**Spec 0056 — a stop says so first.** When the server is stopped with
+games still being played (an update, a restart), Ktor's
+`ApplicationStopPreparing` (raised before any connection closes) runs
+`MatchRuntime.stopAll(tell)`: each game's players and spectators get
+`SERVER_STOPPING` on the match socket, the match is written
+`FAILED_RUNTIME` / `SERVER_RESTARTED` with no result, its room is given
+back (the lobby's `MATCH` message carries the code), and only then is its
+worker stopped. The page says "The server is being updated...", never a
+result. Docker allows 30 seconds for this (`stop_grace_period`).
+`MatchRecovery` still cleans up whatever a hard kill leaves. Before an
+update the owner can switch on **Update waiting** (Admin, Server tab):
+no new game starts (`UPDATE_WAITING` from `POST /api/matches`) until it
+is off or the server restarts (it is held in memory, off at start).
+
 ## Abandon
 
 `POST /api/matches/{id}/abandon`, **any participant** -- the trapped case

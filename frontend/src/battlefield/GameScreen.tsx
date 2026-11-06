@@ -53,6 +53,10 @@ import {
   matchUrl,
   optionalCostTitle,
   resultText,
+  SERVER_UPDATE_LINE,
+  SERVER_UPDATE_TITLE,
+  SERVER_UPDATE_WORDS,
+  serverWasUpdated,
   targetWords,
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
@@ -165,7 +169,11 @@ export function GameScreen({
   // LAUNCHING counts as live: the mulligans come before the match row
   // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
-  const finished = match.outcome !== null || match.status === "FAILED_RUNTIME";
+  // Spec 0056 — the server stopped under the game (an update): over, and
+  // said plainly, from the server's word on this socket or the match's end.
+  const updated = serverWasUpdated(match, game.serverStopping === true);
+  const finished = match.outcome !== null || match.status === "FAILED_RUNTIME" || updated;
+  const sentence = updated ? SERVER_UPDATE_WORDS : resultText(match, mine?.seatNumber ?? null);
   // W-24 — the result banner put away, to look at how the game ended.
   const [resultAside, setResultAside] = useState(false);
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
@@ -287,15 +295,10 @@ export function GameScreen({
   // player to their room, which is open again with both still seated.
   const over: GameOver | null = finished
     ? {
-        ...(board
-          ? gameOverWords(
-              board,
-              board.spectator ? -1 : board.seat,
-              match.outcome,
-              match.status === "FAILED_RUNTIME",
-            )
-          : { word: "Game over", sub: resultText(match, mine?.seatNumber ?? null), turn: "" }),
-        won: Boolean(board && !board.spectator && match.outcome?.winningSeat === board.seat),
+        ...endingWords(match, board, updated, sentence),
+        won: Boolean(
+          !updated && board && !board.spectator && match.outcome?.winningSeat === board.seat,
+        ),
         aside: resultAside,
         leaveWord: watching ? "Back to the lobby" : "Back to the room",
         onShow: () => setResultAside(false),
@@ -1409,7 +1412,7 @@ export function GameScreen({
                 {over && !over.aside && (
                   <ResultBanner
                     over={over}
-                    sentence={resultText(match, mine?.seatNumber ?? null)}
+                    sentence={sentence}
                     onLeave={onLeave}
                     onAside={() => setResultAside(true)}
                   />
@@ -1634,7 +1637,9 @@ export function GameScreen({
             stays clean. Still said to a screen reader. */}
           <p className="gs-status pa-visually-hidden" role="status">
             {finished
-              ? "Game over."
+              ? updated
+                ? SERVER_UPDATE_WORDS
+                : "Game over."
               : match.status === "LAUNCHING"
                 ? game.decision
                   ? "Setting up the game. It needs an answer from you."
@@ -1729,12 +1734,7 @@ export function GameScreen({
 
         {/* A game that ended before the table was drawn: the result alone. */}
         {over && !over.aside && !drawn && (
-          <ResultBanner
-            over={over}
-            sentence={resultText(match, mine?.seatNumber ?? null)}
-            onLeave={onLeave}
-            onAside={null}
-          />
+          <ResultBanner over={over} sentence={sentence} onLeave={onLeave} onAside={null} />
         )}
 
         {drawn && !watching && (
@@ -1939,6 +1939,27 @@ export function libraryWarning(count: number): "low" | "empty" | null {
 }
 
 /** Spec 0045 -- the warning in words; `whose` is null for your own library. */
+/**
+ * W-24 — the banner's words for a finished game. Spec 0056: a game the
+ * server stopped under says so plainly, never a result and never "Game
+ * over"; otherwise Forge's result, from the board when there is one.
+ */
+export function endingWords(
+  match: MatchView,
+  board: Snapshot | null,
+  updated: boolean,
+  sentence: string,
+): { word: string; sub: string; turn: string } {
+  if (updated) return { word: SERVER_UPDATE_TITLE, sub: SERVER_UPDATE_LINE, turn: "" };
+  if (!board) return { word: "Game over", sub: sentence, turn: "" };
+  return gameOverWords(
+    board,
+    board.spectator ? -1 : board.seat,
+    match.outcome,
+    match.status === "FAILED_RUNTIME",
+  );
+}
+
 export function libraryWords(count: number, whose: string | null): string | null {
   const next = whose === null ? "your next draw" : `${whose}’s next draw`;
   if (count === 0) return `Empty: ${next} loses the game`;

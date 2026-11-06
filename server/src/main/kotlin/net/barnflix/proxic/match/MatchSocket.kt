@@ -1,7 +1,6 @@
 package net.barnflix.proxic.match
 
 import io.ktor.server.routing.Route
-import io.ktor.server.routing.application
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
@@ -268,17 +267,4 @@ private fun handle(
 
 private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
     if (this is kotlinx.serialization.json.JsonNull) null else content
-
-/**
- * §6.162 — a stopping server takes its match workers with it. Each is
- * ~611 MB; leaving them behind would outlive the thing that knows they
- * exist.
- */
-fun stopMatchesWithServer(
-    route: Route,
-    matchRuntime: MatchRuntime,
-) {
-    route.application.environment.monitor.subscribe(io.ktor.server.application.ApplicationStopped) {
-        matchRuntime.stopAll()
-    }
-}
+// §6.162's stopMatchesWithServer lives in ServerStopping.kt (spec 0056).

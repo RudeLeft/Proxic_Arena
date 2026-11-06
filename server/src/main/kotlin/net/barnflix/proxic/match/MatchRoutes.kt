@@ -61,6 +61,8 @@ data class MatchView(
     val status: String,
     val presetId: String,
     val participants: List<MatchParticipantView>,
+    /** Why it stopped, when it failed: spec 0056's SERVER_RESTARTED is said as the update. */
+    val failureCode: String? = null,
 )
 
 @Serializable
@@ -86,6 +88,7 @@ private fun Match.viewFor(viewerId: UUID): MatchView =
                     deckName = participant.deckName.takeIf { participant.userId == viewerId },
                 )
             },
+        failureCode = failureCode,
     )
 
 fun Route.matchRoutes(
@@ -279,6 +282,8 @@ private suspend fun Handler.respondRefusal(error: LaunchError) {
             // The request was well formed and the world disagrees.
             LaunchError.AlreadyLaunched,
             LaunchError.SetupNotReady,
+            // Spec 0056 — not now; once the update is done.
+            LaunchError.UpdateWaiting,
             -> HttpStatusCode.Conflict
 
             // Understood, and cannot be carried out as asked.

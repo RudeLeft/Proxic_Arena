@@ -35,6 +35,8 @@ data class Match(
     val status: MatchStatus,
     val presetId: String,
     val participants: List<MatchParticipant>,
+    /** Why it stopped, when it failed (spec 0056: SERVER_RESTARTED is said as the update). */
+    val failureCode: String? = null,
 )
 
 /**
@@ -92,6 +94,16 @@ sealed interface LaunchError {
      */
     data class RevalidationFailed(override val detail: String) : LaunchError {
         override val code = "LAUNCH_REVALIDATION_FAILED"
+    }
+
+    /**
+     * Spec 0056 — the owner has switched on "Update waiting": the games
+     * being played finish, and no new one starts until the update is done.
+     * The lobby's own words (owner-approved).
+     */
+    data object UpdateWaiting : LaunchError {
+        override val code = "UPDATE_WAITING"
+        override val detail = "An update is coming. New games can start again once it's done (usually a few minutes)."
     }
 }
 

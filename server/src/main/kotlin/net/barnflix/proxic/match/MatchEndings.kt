@@ -120,6 +120,23 @@ internal class MatchEndings(
     }
 
     /**
+     * Spec 0056 — the server is stopping under a game (an update, a
+     * restart). NOT a result: FAILED_RUNTIME with SERVER_RESTARTED and no
+     * summary, exactly as MatchRecovery writes at the next start, and the
+     * room given back. Never allowed to throw: the server is going anyway.
+     */
+    fun serverStopped(match: Match) {
+        val recorded =
+            runCatching { records.recordServerStopped(match.matchId, clock()) }
+                .onFailure { log.warn("match ${match.matchId}: the stop was not recorded", it) }
+                .getOrDefault(false)
+        if (!recorded) return
+        log.warn("match ${match.matchId}: FAILED_RUNTIME SERVER_RESTARTED -- the server stopped under it")
+        runCatching { giveTheRoomBack(match.copy(status = MatchStatus.FAILED_RUNTIME), SERVER_RESTARTED, null) }
+            .onFailure { log.warn("match ${match.matchId}: the room was not given back at the stop", it) }
+    }
+
+    /**
      * §6.15 — a start that never became a game.
      *
      * Without this a failed start BRICKS the room: the claim

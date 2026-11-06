@@ -87,6 +87,8 @@ class LobbyService(
      * that they have not been told yet, taken (told once); null with none.
      */
     private val renameNotice: (UUID) -> String? = { null },
+    /** Spec 0056 — "Update waiting": everybody hears it change; a newcomer hears it is on. */
+    private val updateWaiting: net.barnflix.proxic.admin.UpdateWaiting? = null,
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
 
@@ -122,6 +124,9 @@ class LobbyService(
         accountChanges?.onRenamed { userId ->
             if (hub.entryFor(userId) != null) renameNotice(userId)?.let { hub.sendTo(userId, renamedMessage(it)) }
         }
+        // Spec 0056 — switched on or off: every open page, the lobby's and
+        // the game's (the game page keeps this socket), at once.
+        updateWaiting?.onChange { on -> hub.broadcast(updateWaitingMessage(on)) }
     }
 
     /**
@@ -251,6 +256,9 @@ class LobbyService(
             hub.sendTo(user.userId, presenceMessage(hub.online()))
             hub.sendTo(user.userId, playersMessage(accounts()))
             hub.sendTo(user.userId, listed())
+            // Spec 0056 — whether an update waits, on or off: a page that
+            // reconnects after the update hears it is over.
+            updateWaiting?.let { hub.sendTo(user.userId, updateWaitingMessage(it.on)) }
             standings()?.let { hub.sendTo(user.userId, standingsMessage(it)) }
             // Spec 0041 Amendment 3 — renamed while away: told now, once.
             renameNotice(user.userId)?.let { hub.sendTo(user.userId, renamedMessage(it)) }
