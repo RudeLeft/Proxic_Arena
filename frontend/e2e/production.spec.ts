@@ -326,6 +326,13 @@ test("one real game on the live site, both players, start to finish", async ({ b
       const panel = matchPanel(live);
       const heading = (await panel.locator(".gs-question-title").allTextContents()).join(" ");
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
+      // Spec 0055: a target window's title is its action ("Deal 3 damage"),
+      // so a target question is known by its kind.
+      const kinds = (
+        await panel
+          .locator("[data-kind]")
+          .evaluateAll((els) => els.map((el) => el.getAttribute("data-kind")))
+      ).join(" ");
       const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (test: (label: string) => boolean) => labels.findIndex(test);
@@ -350,7 +357,10 @@ test("one real game on the live site, both players, start to finish", async ({ b
           );
           if (pick >= 0) tried.add(`${me}|${turn}|${labels[pick]}`);
         }
-      } else if (/Choose a target|Choose what to attack/.test(heading)) {
+      } else if (
+        /chooseTargetsFor/.test(kinds) ||
+        /Choose a target|Choose what to attack/.test(heading)
+      ) {
         pick = find((label) => label === them);
         if (pick < 0) pick = find((label) => label !== me);
         if (pick < 0 && labels.length) pick = 0;

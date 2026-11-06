@@ -141,7 +141,8 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         }
 
         // W-06: the first copy's target, "Same target for all" ticked.
-        const target = page.getByRole("dialog", { name: /: choose a target$/ });
+        // Spec 0055: "Boggart Shenanigans: Deal 1 damage, choose a target".
+        const target = page.getByRole("dialog", { name: /choose a target$/ });
         if ((await target.count()) > 0) {
           await page.screenshot({ path: `${SEEN}/copy-target.png` });
           const same = target.getByRole("checkbox", { name: /^Same target for all \d+$/ });

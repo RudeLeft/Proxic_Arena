@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard } from "../match";
-import { hintFor } from "../matchText";
+import { hintFor, targetWords } from "../matchText";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { CardFace, figure, lookOf, shortType } from "./Board";
 import { Bubble, Tray } from "./GameWindow";
@@ -353,6 +353,14 @@ export function TableQuestionWindow(props: Common) {
   // Amendment 20: when the question doesn't say, the card resolving on the stack.
   const name = decision.about?.name ?? source?.name ?? board.stack[0]?.name ?? null;
   const title = props.heading;
+  // Spec 0055: a target window says what the card will do, and what to click.
+  const words = decision.kind === "chooseTargetsFor" ? targetWords(decision.prompt, name) : null;
+  const decline =
+    words?.decline &&
+    decision.arrange?.targets?.cancel &&
+    decision.arrange.targets.chosen.length === 0
+      ? { word: words.decline, id: decision.arrange.targets.cancel }
+      : null;
   return (
     <Bubble
       anchor={props.anchor}
@@ -370,18 +378,28 @@ export function TableQuestionWindow(props: Common) {
       actions={
         <>
           <DoneButton decision={decision} busy={busy} onAnswer={onAnswer} />
+          {decline && (
+            <button
+              type="button"
+              className="gs-win-btn gs-win-decline"
+              disabled={busy}
+              onClick={() => onAnswer(decline.id)}
+            >
+              {decline.word}
+            </button>
+          )}
           <PassButton word={props.passWord} busy={busy} onPass={() => onAnswer(null)} />
         </>
       }
     >
-      {decision.prompt && (
+      {(words?.said ?? decision.prompt) && (
         <p className="gs-win-prompt gs-question-prompt decision-prompt">
-          <ManaText text={decision.prompt} />
+          <ManaText text={words?.said ?? decision.prompt ?? ""} />
         </p>
       )}
       <ChosenLine decision={decision} board={board} />
       <p className="gs-win-prompt">
-        <ManaText text={plainHint(decision.kind, decision.options.length)} />
+        <ManaText text={words?.hint ?? plainHint(decision.kind, decision.options.length)} />
       </p>
       {question.listed.length > 0 && (
         <ul className="gs-win-list">
@@ -411,15 +429,20 @@ export function ChoiceWindow(props: Common) {
     const q = query.trim().toLowerCase();
     return q ? choices.filter((o) => (o.label ?? "").toLowerCase().includes(q)) : choices;
   }, [choices, query]);
+  // Spec 0055: a target list says what the card will do, and what to pick.
+  const words = decision.kind === "chooseTargetsFor" ? targetWords(decision.prompt, name) : null;
   // The game's hint ("not cast, nothing paid"), and the table as the
   // other way to answer when it can.
   const hint = [
+    words?.hint,
     // W-17: the coin words belong to a coin call alone.
     decision.kind === "chooseBinary" &&
     decision.arrange?.binary &&
     decision.arrange.binary !== "HeadsOrTails"
       ? ""
-      : plainHint(decision.kind, decision.options.length),
+      : words
+        ? ""
+        : plainHint(decision.kind, decision.options.length),
     question.onBoard.size > 0 ? "Or click a highlighted card or player on the table." : "",
   ]
     .filter(Boolean)
@@ -466,9 +489,9 @@ export function ChoiceWindow(props: Common) {
         }
         actions={pass}
       >
-        {decision.prompt && (
+        {(words?.said ?? decision.prompt) && (
           <p className="gs-win-prompt gs-question-prompt decision-prompt">
-            <ManaText text={decision.prompt} />
+            <ManaText text={words?.said ?? decision.prompt ?? ""} />
           </p>
         )}
         {colours ? (

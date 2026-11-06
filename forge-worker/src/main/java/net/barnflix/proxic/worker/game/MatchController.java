@@ -776,6 +776,15 @@ public final class MatchController extends GeneratedControllerBase {
             return null;
         }
         String description = ability.getDescription() == null ? "" : ability.getDescription().trim();
+        // Spec 0055 (owner 2026-11-06): a trigger's own words are its
+        // trigger description, not its ability's (empty for most: Boggart
+        // Shenanigans' target window said only "Choose a target").
+        if (ability.isTrigger() && ability.getTrigger() != null) {
+            String said = triggerEffect(ability.getTrigger().toString(), ability.getHostCard().getName());
+            if (!said.isEmpty()) {
+                return said;
+            }
+        }
         String cost = "";
         String effect = description;
         int colon = description.indexOf(": ");
@@ -793,12 +802,76 @@ public final class MatchController extends GeneratedControllerBase {
         // Amendment 17: Forge's "CARDNAME" is the card's own name. A
         // sentence that now starts with it needs no "Name: " before it.
         String name = ability.getHostCard().getName();
-        effect = effect.replace("CARDNAME", name);
+        effect = plainSubject(effect.replace("CARDNAME", name), name);
         String prompt = effect.startsWith(name) ? effect : name + ": " + effect;
         if (!cost.isEmpty() && choosesForCost(ability)) {
             prompt += " Next, you'll pay its cost: " + Character.toLowerCase(cost.charAt(0)) + cost.substring(1) + ".";
         }
         return prompt;
+    }
+
+    /**
+     * Spec 0055 -- a trigger's effect, from its trigger description, as a
+     * sentence about the card: "Whenever another Goblin you control is put
+     * into a graveyard from the battlefield, you may have CARDNAME deal 1
+     * damage to target player or planeswalker." becomes "Boggart Shenanigans
+     * may deal 1 damage to target player or planeswalker." Empty when there
+     * is nothing to say.
+     */
+    static String triggerEffect(String description, String name) {
+        if (description == null) {
+            return "";
+        }
+        String text = description.trim();
+        // The condition goes: "When ..., ", "Whenever ..., ", "At ..., ".
+        if (text.matches("(?s)^(When|Whenever|At)\\b.*")) {
+            int comma = text.indexOf(", ");
+            if (comma < 0) {
+                return "";
+            }
+            text = text.substring(comma + 2).trim();
+        }
+        int stop = text.indexOf(". ");
+        if (stop > 0) {
+            text = text.substring(0, stop + 1);
+        }
+        text = text.replace("CARDNAME", name);
+        text = text.replaceFirst("^you may have " + java.util.regex.Pattern.quote(name) + " ", name + " may ");
+        text = plainSubject(text, name);
+        if (text.isEmpty()) {
+            return "";
+        }
+        text = Character.toUpperCase(text.charAt(0)) + text.substring(1);
+        return text.endsWith(".") ? text : text + ".";
+    }
+
+    /** "It deals 1 damage" -- Forge's "It" for the card itself -- becomes its name. */
+    static String plainSubject(String text, String name) {
+        return text.replaceFirst("^(It|it) ", java.util.regex.Matcher.quoteReplacement(name) + " ");
+    }
+
+    /**
+     * Spec 0055 -- a target's name for the list, never Forge's internal
+     * number ("Glistener Elf (46)"); the same name twice is told apart by
+     * order: "Storm-Charged Slasher (first)", "(second)".
+     */
+    static java.util.List<String> targetLabels(java.util.List<String> names) {
+        java.util.Map<String, Integer> total = new java.util.HashMap<>();
+        for (String n : names) {
+            total.merge(n, 1, Integer::sum);
+        }
+        String[] order = {"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"};
+        java.util.Map<String, Integer> seen = new java.util.HashMap<>();
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String n : names) {
+            if (total.get(n) == 1) {
+                out.add(n);
+                continue;
+            }
+            int k = seen.merge(n, 1, Integer::sum);
+            out.add(n + " (" + (k <= order.length ? order[k - 1] : String.valueOf(k)) + ")");
+        }
+        return out;
     }
 
     /** A cost the player will choose cards for (return, sacrifice, discard, exile, tap others). */
@@ -910,6 +983,7 @@ public final class MatchController extends GeneratedControllerBase {
                     new java.util.LinkedHashMap<>();
             java.util.LinkedHashMap<String, String> labels =
                     new java.util.LinkedHashMap<>();
+            java.util.List<String> names = new java.util.ArrayList<>();
             for (forge.game.GameEntity candidate : candidates) {
                 // §6.46 — TYPED ids. A card id and a player id
                 // share a number space, and a bare integer cannot
@@ -918,7 +992,14 @@ public final class MatchController extends GeneratedControllerBase {
                         ? "target:card:" + card.getId()
                         : "target:player:" + candidate.getId();
                 byId.put(id, candidate);
-                labels.put(id, candidate.toString());
+                // Spec 0055: the card's name, not Forge's "Name (46)".
+                names.add(candidate instanceof forge.game.card.Card card
+                        ? ViewerSnapshot.nameFor(card, player.getView()) : candidate.toString());
+            }
+            java.util.List<String> shown = targetLabels(names);
+            int at = 0;
+            for (String id : byId.keySet()) {
+                labels.put(id, shown.get(at++));
             }
             onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
             // Phase 9 Amendment 17 -- backing out is its own answer, last

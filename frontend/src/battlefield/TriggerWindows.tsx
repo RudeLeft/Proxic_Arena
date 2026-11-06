@@ -9,6 +9,7 @@ import { SharpCard, closeUpOf } from "../closeUp";
 import { Bubble, Tray } from "./GameWindow";
 import type { Box, Geometry } from "./layout";
 import { ManaText } from "./ManaCost";
+import { targetWords } from "../matchText";
 import {
   abilityWords,
   confirmTitle,
@@ -238,19 +239,38 @@ export function CopyTargetWindow({
   const about = decision.about!;
   const source = sourceOf(board, about.name);
   const first = (about.copy ?? 1) === 1;
+  // Spec 0055: what the card will do, and what to click.
+  const words = targetWords(decision.prompt, about.name);
+  const cancel = decision.arrange?.targets?.cancel ?? null;
   return (
     <Bubble
       anchor={anchor}
       geometry={geometry}
-      label={`${about.name}: choose a target`}
+      label={`${about.name}: ${words?.title ? `${words.title}, ` : ""}choose a target`}
       from={`${about.name} · trigger ${about.copy} of ${about.copies}`}
-      title="Choose a target"
+      title={words?.title ?? "Choose a target"}
       picture={<Picture card={source.card} name={about.name} art={source.art} artUrl={artUrl} />}
-      actions={null}
+      actions={
+        words?.decline && cancel ? (
+          <button
+            type="button"
+            className="gs-win-btn gs-win-decline"
+            disabled={busy}
+            onClick={() => onAnswer(cancel)}
+          >
+            {words.decline}
+          </button>
+        ) : null
+      }
     >
-      {decision.prompt && (
+      {(words?.said ?? decision.prompt) && (
         <p className="gs-win-prompt">
-          <ManaText text={decision.prompt} />
+          <ManaText text={words?.said ?? decision.prompt ?? ""} />
+        </p>
+      )}
+      {words && (
+        <p className="gs-win-prompt">
+          <ManaText text={words.hint} />
         </p>
       )}
       <div className="gs-win-chips">

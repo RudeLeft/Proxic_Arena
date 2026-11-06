@@ -53,6 +53,7 @@ import {
   matchUrl,
   optionalCostTitle,
   resultText,
+  targetWords,
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
@@ -1164,7 +1165,14 @@ export function GameScreen({
           ? `Playing for seat ${decision.actedForSeat}`
           : decision.kind === "chooseOptionalCosts"
             ? optionalCostTitle(decision)
-            : (binaryTitle(decision) ?? targetsTitle(decision, headingFor(decision.kind))),
+            : (binaryTitle(decision) ??
+              targetsTitle(
+                decision,
+                // Spec 0055: the action ("Deal 1 damage"), when the card's words say.
+                (decision.kind === "chooseTargetsFor"
+                  ? targetWords(decision.prompt, decision.about?.name ?? null)?.title
+                  : null) ?? headingFor(decision.kind),
+              )),
       passWord: passWordFor(decision, question, listOpen),
       artUrl,
       onAnswer: answer,

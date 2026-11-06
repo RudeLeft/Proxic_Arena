@@ -536,3 +536,91 @@ export function cancelWords(about: DecisionAbout | null): { word: string; sub: s
       return { word: "Cancel", sub: `Nothing is done with ${about.name}` };
   }
 }
+
+/**
+ * Spec 0055 (owner 2026-11-06, "A · Say what it does") -- a target window
+ * says what the card will do, from the card's own words the game sends:
+ * the title is the action ("Deal 1 damage"), then the sentence made plain
+ * ("Boggart Shenanigans may deal 1 damage to a player or planeswalker."),
+ * then what to click; a "may" can be declined in words ("Don't deal 1
+ * damage"). Null without words to go on (the window keeps "Choose a
+ * target").
+ */
+export interface TargetWords {
+  title: string | null;
+  said: string;
+  hint: string;
+  decline: string | null;
+}
+
+const TITLE_MOST = 40;
+const NOUN_END =
+  /\s(?:gets?|gains?|deals?|reveals?|loses?|until|to|and|can't|becomes?|has|have|with|that|this|from|on|in|for)\b|[.,;]|$/;
+
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** "target creature" -> "a creature", "two target creatures" -> "two creatures". */
+export function plainTargets(text: string): string {
+  return text
+    .replace(/\b(one|two|three|four|five|X|\d+|up to \w+) target /gi, "$1 ")
+    .replace(/\btarget (?=[aeiou])/gi, (m) => (m[0] === "T" ? "An " : "an "))
+    .replace(/\btarget (?=\w)/gi, (m) => (m[0] === "T" ? "A " : "a "));
+}
+
+export function targetWords(prompt: string | null, name: string | null): TargetWords | null {
+  if (!prompt) return null;
+  let sentence = prompt.trim();
+  // The worker's "Mogg Fanatic: It deals ..." form: the name, then the effect.
+  if (name && sentence.startsWith(`${name}: `)) sentence = sentence.slice(name.length + 2);
+  if (name) sentence = sentence.replace(/^(It|it) /, `${name} `);
+  if (!/\btarget\b/i.test(sentence)) return null;
+
+  // What to click: the words after the first "target" (or "any target").
+  let hint: string;
+  if (/\bany target\b/i.test(sentence)) {
+    hint = "Click any creature, player or planeswalker.";
+  } else {
+    const after = sentence.slice(sentence.search(/\btarget\b/i) + "target ".length);
+    const noun = after.slice(0, after.search(NOUN_END)).trim();
+    const count = /\b(two|three|four|five|\d+|up to \w+) target\b/i.exec(sentence)?.[1];
+    hint = noun
+      ? `Click ${count ? count.toLowerCase() : /^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}.`
+      : "Click a highlighted card or player.";
+  }
+
+  const said = capital(plainTargets(sentence));
+
+  // The action: the sentence after the card's name ("may" set aside), its
+  // verb made an instruction, cut before "to ..." or "until ...".
+  let action = said;
+  let optional = false;
+  if (name && action.startsWith(`${name} `)) {
+    action = action.slice(name.length + 1);
+    if (action.startsWith("may ")) {
+      optional = true;
+      action = action.slice(4);
+    }
+    action = action.replace(/^(\w+?)(e?s)\b/, (whole, stem: string, end: string) =>
+      /^(deal|destroy|return|exile|gain|get|lose|tap|untap|sacrifice|counter|draw|put|create|fight|attach)$/i.test(
+        stem + (end === "es" ? "e" : ""),
+      )
+        ? stem + (end === "es" && !/^(gain|get|deal|draw|put)/i.test(stem) ? "e" : "")
+        : whole,
+    );
+  }
+  optional ||= /\bmay\b/i.test(said);
+  action = action.replace(/\.$/, "");
+  for (const cut of [" until ", " to "]) {
+    const at = action.indexOf(cut);
+    if (at > 0 && action.slice(0, at).trim().includes(" ")) action = action.slice(0, at);
+  }
+  const title = action.length > 0 && action.length <= TITLE_MOST ? capital(action) : null;
+  return {
+    title,
+    said,
+    hint,
+    decline: optional && title ? `Don't ${title.charAt(0).toLowerCase()}${title.slice(1)}` : null,
+  };
+}
