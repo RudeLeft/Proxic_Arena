@@ -1,9 +1,8 @@
 # Phase 9 Exit Gate
 
-**Status: WAITING FOR THE OWNER (P9-O).** Every item is decided and built,
+**Status: WAITING FOR THE OWNER (P9-O).** 1.45.0 is out. Every item is decided and built,
 two audits are done and their findings fixed, CI is green on `02b33ae`.
-What is left: one decision (Esc, below), a release so the owner can play
-it on the live site, and the owner playing and accepting.
+What is left: the owner playing 1.45.0 on the live site and accepting.
 
 Phase 9 (`PHASE_09_GAME_WINDOWS_LOCKED.md`, locked 2026-10-30): every
 window, popup and prompt in a game -- each with today's real screenshot,
@@ -97,8 +96,8 @@ in 1.44.0.
 ## Still to do
 
 1. ~~The owner decides Esc~~ -- decided 2026-11-06: as it is.
-2. A release (1.45.0) with everything since 1.44.0, so the owner can
-   play it on the live site.
+2. ~~A release (1.45.0)~~ -- released 2026-11-06 at `ac3a163`, CI run
+   42152368857 green with the full suite.
 3. **P9-O:** the owner plays real games on the live site and accepts.
 
 On acceptance: this paper and `PHASE_09_GAME_WINDOWS_LOCKED.md` move to
