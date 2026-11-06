@@ -126,6 +126,110 @@
   --bar-text: var(--bf-artifact-text);
   --bar: var(--bf-artifact-bar);
 }
+/* Phase 10 A-04 -- defeated (Shatter): a red flash, then cracks drawn
+   across the card while it darkens and tilts (the ghost's animation). */
+.bf-fate-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgb(255 60 40);
+  opacity: 0;
+  animation: bf-fate-flash 380ms ease-out var(--fx-delay, 0ms) both;
+}
+@keyframes bf-fate-flash {
+  25% {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.bf-fate-cracks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke: #ffd2c4;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.bf-fate-cracks path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bf-fate-crack 220ms ease-out calc(var(--fx-delay, 0ms) + 220ms) both;
+}
+.bf-fate-cracks path:nth-child(2) {
+  animation-delay: calc(var(--fx-delay, 0ms) + 250ms);
+}
+.bf-fate-cracks path:nth-child(3) {
+  animation-delay: calc(var(--fx-delay, 0ms) + 280ms);
+}
+.bf-fate-cracks path:nth-child(4) {
+  animation-delay: calc(var(--fx-delay, 0ms) + 310ms);
+}
+.bf-fate-cracks path:nth-child(5) {
+  animation-delay: calc(var(--fx-delay, 0ms) + 340ms);
+}
+@keyframes bf-fate-crack {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* Phase 10 A-05 -- exiled (Banished): pale light rising off the card. */
+.bf-motes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.bf-mote {
+  position: absolute;
+  width: calc(var(--card-h) * 0.035);
+  height: calc(var(--card-h) * 0.035);
+  border-radius: 50%;
+  background: #cfe6ff;
+  box-shadow: 0 0 6px #bfe0ff;
+  opacity: 0;
+  animation: bf-mote 800ms ease-out calc(var(--fx-delay, 0ms) + var(--late, 0ms)) both;
+}
+@keyframes bf-mote {
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    translate: 0 calc(-1 * var(--rise));
+    scale: 0.4;
+  }
+}
+/* Phase 10 A-07 -- a board wipe: a pale flash sweeps the table first. */
+.bf-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4500;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 250 235 / 55%) 50%, transparent 70%);
+  animation: bf-sweep var(--sweep-ms, 220ms) ease-in-out both;
+}
+@keyframes bf-sweep {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-fate-flash,
+  .bf-fate-cracks,
+  .bf-motes,
+  .bf-sweep {
+    display: none;
+  }
+}
+
 /* Phase 10 A-00 -- Glide: a card in flight is lifted off the table. */
 .bf-moving .bf-card {
   box-shadow: 0 calc(var(--card-h) * 0.1) calc(var(--card-h) * 0.22) rgb(0 0 0 / 55%);

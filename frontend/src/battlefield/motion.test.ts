@@ -4,7 +4,10 @@ import {
   GLIDE_LIFT,
   HAND_ZOOM,
   HURRY_MS,
+  MOVE_MS,
   anchors,
+  fateFrames,
+  fateMs,
   glideFrames,
   handZoomBox,
   hurry,
@@ -261,4 +264,33 @@ describe("hurry: the player acts while cards move", () => {
     expect(almost.playbackRate).toBe(1); // 50 ms left: already quicker than a hurry
     expect(glow.playbackRate).toBe(1);
   });
+});
+
+describe("defeated and exiled (Phase 10 A-04, A-05)", () => {
+  const card = (x: number, y: number, scale = 1): Box => ({
+    x,
+    y,
+    w: 100 * scale,
+    h: 140 * scale,
+    scale,
+    rotation: 0,
+    z: 0,
+  });
+  const origin = { x: 0.5, y: 0.5 };
+  for (const fate of ["defeated", "exiled"] as const) {
+    it(`${fate}: the fate shows first, then one Glide, landing exactly`, () => {
+      const to = card(1700, 900, 0.3);
+      const { frames, duration } = fateFrames(fate, card(500, 300), to, 100, 140, origin, origin);
+      expect(duration).toBe(fateMs(fate) + MOVE_MS);
+      const offsets = frames.map((f) => Number(f["offset"]));
+      expect(offsets[0]).toBe(0);
+      expect(offsets.at(-1)).toBe(1);
+      for (let i = 1; i < offsets.length; i++) expect(offsets[i]!).toBeGreaterThan(offsets[i - 1]!);
+      expect(frames.at(-1)!["transform"]).toBe(placement(to, 100, 140, origin).transform);
+      expect(frames.at(-1)!["opacity"]).toBeCloseTo(0.15, 5);
+      // Every frame names the same filters, so the browser can blend them.
+      const names = (f: Keyframe) => String(f["filter"]).replace(/\([^)]*\)/g, "()");
+      for (const f of frames) expect(names(f)).toBe(names(frames[0]!));
+    });
+  }
 });

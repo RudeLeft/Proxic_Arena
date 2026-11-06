@@ -65,6 +65,10 @@ import {
   glideFrames,
   hurry,
   placedNow,
+  fateFrames,
+  SWEEP_MS,
+  WIPE_AT,
+  type Fate,
   placement,
   type AnchorId,
   type Point,
@@ -502,6 +506,8 @@ interface Drawn {
   /** The cost before the name: a hand card's right side is under the next card. */
   costFirst?: boolean;
   side: "viewer" | "opponent";
+  /** A permanent on the table (not a hand card): it can be defeated or exiled. */
+  table?: boolean;
 }
 
 /**
@@ -538,6 +544,8 @@ interface Ghost extends Drawn {
     | { low: string; high: string; kind: string; does: string | null; whose: string }
     | undefined;
   zIndex?: number;
+  /** Phase 10 A-04/A-05: defeated (to a graveyard) or exiled, shown first. */
+  fate?: Fate | undefined;
 }
 
 /** A burst, a damage number or a resolving spell's spark, on its way out. */
@@ -637,6 +645,8 @@ export function Board({
   // except while something is to be chosen on the table under it.
   const stackScale = asking ? STACK_SCALE : STACK_READ_SCALE;
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
+  /** Phase 10 A-07: the board wipe's flash, keyed by when it began. */
+  const [sweep, setSweep] = useState<number | null>(null);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
   const timers = useRef<number[]>([]);
@@ -832,6 +842,7 @@ export function Board({
         faceDown: lead.faceDown,
         known: lead.known,
         side,
+        table: true,
       };
       out.push({
         id: lead.id,
@@ -1330,6 +1341,17 @@ export function Board({
         const hit = wave.current;
         const delay =
           hit && hit.targets.has(id) ? Math.max(0, hit.impactAt - performance.now()) + 150 : 0;
+        const dest = departures?.get(id) ?? `${d.side}:graveyard`;
+        // Phase 10 A-04/A-05 (owner 2026-11-06): a permanent leaving the
+        // table for a graveyard was defeated (Shatter); for exile, banished.
+        const fate: Fate | undefined =
+          joined || !d.table
+            ? undefined
+            : dest.endsWith(":graveyard")
+              ? "defeated"
+              : dest.endsWith(":exile")
+                ? "exiled"
+                : undefined;
         leaving.push(
           joined
             ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false, delay }
@@ -1337,12 +1359,19 @@ export function Board({
                 ...d,
                 id,
                 ...at,
-                to: boxAt(where[departures?.get(id) ?? `${d.side}:graveyard`], g),
+                to: boxAt(where[dest], g),
                 toOrigin: at.origin,
                 fade: true,
                 delay,
+                fate,
               },
         );
+      }
+      // A-07: several leaving the table at once is a board wipe -- a pale
+      // flash sweeps the table first, then they all go together.
+      if (leaving.filter((ghost) => ghost.fate).length >= WIPE_AT) {
+        setSweep(performance.now());
+        for (const ghost of leaving) if (ghost.fate) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
       }
       if (leaving.length > 0) setGhosts((list) => [...list, ...leaving]);
 
@@ -1908,6 +1937,15 @@ export function Board({
             ),
           )}
         </div>
+        {sweep !== null && (
+          // A-07: a board wipe's flash across the table.
+          <div
+            key={sweep}
+            className="bf-sweep"
+            style={{ ["--sweep-ms" as string]: `${SWEEP_MS}ms` }}
+            onAnimationEnd={() => setSweep(null)}
+          />
+        )}
         {ghosts.map((ghost) => (
           <GhostCard
             key={`ghost:${ghost.id}`}
@@ -1943,13 +1981,23 @@ function GhostCard({
       done();
       return;
     }
-    // Phase 10 A-00: Glide to where it went.
+    // Phase 10 A-00: Glide to where it went -- first showing it was
+    // defeated or exiled (A-04, A-05), in the same animation.
+    const fated = ghost.fate
+      ? fateFrames(ghost.fate, ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin)
+      : null;
     const animation = element.animate(
-      glideFrames(ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin, {
-        from: 1,
-        to: ghost.fade ? 0.15 : 1,
-      }),
-      { duration: MOVE_MS, easing: "linear", delay: ghost.delay, fill: "both" },
+      fated?.frames ??
+        glideFrames(ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin, {
+          from: 1,
+          to: ghost.fade ? 0.15 : 1,
+        }),
+      {
+        duration: fated?.duration ?? MOVE_MS,
+        easing: "linear",
+        delay: ghost.delay,
+        fill: "both",
+      },
     );
     element.classList.add("bf-moving");
     animation.onfinish = done;
@@ -1967,12 +2015,14 @@ function GhostCard({
       className="bf-slot bf-ghost"
       aria-hidden="true"
       data-ghost-of={ghost.id}
+      data-fate={ghost.fate}
       style={{
         width: cardW,
         height: cardH,
         ...from,
         zIndex: ghost.zIndex ?? ghost.box.z + 2000,
         ...(ghost.stack ? { ["--stack-scale" as string]: String(ghost.box.scale) } : {}),
+        ...(ghost.fate ? { ["--fx-delay" as string]: `${ghost.delay}ms` } : {}),
       }}
     >
       {ghost.stack ? (
@@ -1996,8 +2046,57 @@ function GhostCard({
       ) : (
         <div className={`bf-card bf-look-${ghost.look}`}>
           <CardFace {...ghost} />
+          {ghost.fate && <FateMarks fate={ghost.fate} />}
         </div>
       )}
+      {ghost.fate === "exiled" && <Motes />}
     </div>
+  );
+}
+
+/**
+ * Phase 10 A-04 -- Shatter's red flash and cracks, drawn on the card; its
+ * shake, darkening and tilt are the ghost's own animation (fateFrames).
+ * A-05's light is the ghost's filter; its rising motes are Motes.
+ */
+function FateMarks({ fate }: { fate: Fate }) {
+  if (fate !== "defeated") return null;
+  return (
+    <>
+      <span className="bf-fate-flash" />
+      <svg className="bf-fate-cracks" viewBox="0 0 100 140" preserveAspectRatio="none">
+        <path pathLength={1} d="M50 62 L31 31 L23 8" />
+        <path pathLength={1} d="M50 62 L73 40 L92 31" />
+        <path pathLength={1} d="M50 62 L42 96 L31 134" />
+        <path pathLength={1} d="M50 62 L77 88 L83 124" />
+        <path pathLength={1} d="M50 62 L12 73" />
+      </svg>
+    </>
+  );
+}
+
+/** A-05 -- the pale light rising off an exiled card: fixed places, so a test can count them. */
+const MOTES = Array.from({ length: 14 }, (_, i) => ({
+  x: 8 + ((i * 37) % 84),
+  y: 20 + ((i * 53) % 70),
+  rise: 40 + ((i * 29) % 45),
+  late: (i * 47) % 160,
+}));
+function Motes() {
+  return (
+    <span className="bf-motes" aria-hidden="true">
+      {MOTES.map((m, i) => (
+        <span
+          key={i}
+          className="bf-mote"
+          style={{
+            left: `${m.x}%`,
+            top: `${m.y}%`,
+            ["--rise" as string]: `${m.rise}%`,
+            ["--late" as string]: `${m.late}ms`,
+          }}
+        />
+      ))}
+    </span>
   );
 }

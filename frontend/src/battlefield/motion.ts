@@ -180,6 +180,84 @@ export function glideFrames(
   return frames;
 }
 
+// --- Defeated and exiled (Phase 10 A-04, A-05, A-07) ---------------------------
+
+/**
+ * How a card leaves the table (owner 2026-11-06, Amendment 5):
+ * "defeated" -- destroyed, died or sacrificed, to a graveyard: A · Shatter,
+ * a red flash and a shake, it cracks and darkens, then Glides there;
+ * "exiled" -- A · Banished: pale light rises, it brightens and lifts, then
+ * Glides to exile still glowing.
+ */
+export type Fate = "defeated" | "exiled";
+/** Shatter: the shake, then the crack and darken. */
+export const SHAKE_MS = 220;
+export const CRACK_MS = 300;
+/** Banished: the light rising. */
+export const BANISH_MS = 520;
+/** A board wipe: the flash across the table before they all go. */
+export const SWEEP_MS = 220;
+/** This many leaving the table at once is a board wipe (the flash). */
+export const WIPE_AT = 3;
+
+/** How long the fate shows before the card sets off. */
+export function fateMs(fate: Fate): number {
+  return fate === "defeated" ? SHAKE_MS + CRACK_MS : BANISH_MS;
+}
+
+const SHATTERED = "brightness(0.55) grayscale(0.6) drop-shadow(0px 0px 0px rgba(191, 224, 255, 0))";
+const WHOLE = "brightness(1) grayscale(0) drop-shadow(0px 0px 0px rgba(191, 224, 255, 0))";
+const BANISHED =
+  "brightness(1.9) grayscale(0.5) drop-shadow(0px 0px 14px rgba(191, 224, 255, 0.85))";
+
+/**
+ * One animation for the whole leaving -- the fate, then the Glide -- so a
+ * click hurries all of it (A-00). Run linear over the returned duration;
+ * the last frame is exactly `placement(to, ..., toOrigin)`.
+ */
+export function fateFrames(
+  fate: Fate,
+  from: Box,
+  to: Box,
+  cardW: number,
+  cardH: number,
+  origin: { x: number; y: number },
+  toOrigin: { x: number; y: number },
+): { frames: Keyframe[]; duration: number } {
+  const a = parts(from, cardW, cardH, origin);
+  const lead = fateMs(fate);
+  const duration = lead + MOVE_MS;
+  const at = (ms: number) => ms / duration;
+  const pose = (p: Placed, filter: string, ms: number): Keyframe => ({
+    offset: at(ms),
+    transform: `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s})`,
+    filter,
+    opacity: 1,
+  });
+  const frames: Keyframe[] = [];
+  let off: Placed;
+  let filter: string;
+  if (fate === "defeated") {
+    // A shake: a few pixels each way, then still.
+    [0, -5, 5, -4, 3, 0].forEach((dx, i, all) =>
+      frames.push(pose({ ...a, x: a.x + dx }, WHOLE, (SHAKE_MS * i) / (all.length - 1))),
+    );
+    off = { ...a, y: a.y + 4, r: a.r - 6 };
+    filter = SHATTERED;
+  } else {
+    frames.push(pose(a, WHOLE, 0));
+    off = { ...a, y: a.y - 18, s: a.s * 1.08 };
+    filter = BANISHED;
+  }
+  frames.push(pose(off, filter, lead));
+  // Then Glide, from that pose, fading as it reaches its pile.
+  const trip = glideFrames(from, to, cardW, cardH, origin, toOrigin, { from: 1, to: 0.15 }, off);
+  for (const frame of trip.slice(1)) {
+    frames.push({ ...frame, offset: at(lead + Number(frame["offset"]) * MOVE_MS), filter });
+  }
+  return { frames, duration };
+}
+
 /**
  * Phase 10 A-00 -- the player acted: everything still moving in `root`
  * finishes in HURRY_MS. Endless animations (a breathing glow) are left

@@ -250,3 +250,38 @@ drawn going to exile); a Murdered creature arcs to the graveyard. Still
 flagged, and theirs to fix: Auras and Equipment (A-17), piles (A-02,
 A-15), the other player's casts and triggers (A-21). 785 page tests,
 4 board browser specs, the Lab's attachments and to-library checks pass.
+
+## Amendment 5 — A-04, A-05, A-07 decided (owner, 2026-11-06)
+
+On the canvas https://claude.ai/artifact/8xg5doNQpWQ6Nov6TVjR3h (three
+defeated looks, three exile looks, a five-creature wipe with and without a
+flash):
+
+1. **Defeated: A · Shatter** -- a red flash and a shake, the card cracks
+   and darkens, then Glides to the graveyard (about a second).
+2. **Exiled: A · Banished** -- pale blue-white light rises around it, it
+   brightens and lifts, then Glides to exile still glowing.
+3. **Sacrificed looks the same as defeated** (A-06's sacrifice part).
+4. **A board wipe: a pale flash sweeps the table first** (a fifth of a
+   second), then every creature at once.
+
+## Amendment 6 — A-04, A-05, A-06 (sacrifice), A-07 built (2026-11-06, as built)
+
+- A permanent leaving the table for a **graveyard** -- destroyed, died,
+  sacrificed, or any other way -- is **defeated** (Shatter): a red flash
+  and a 220 ms shake, cracks drawn across it as it darkens and tilts
+  (300 ms), then the Glide to the graveyard. For **exile**: **Banished**
+  -- light motes rise, it brightens and lifts with a pale glow (520 ms),
+  then Glides to exile still glowing. Each is ONE animation with its
+  Glide (`motion.ts` `fateFrames`), so a click hurries all of it; the
+  flash, cracks and motes are CSS on the leaving card. A hand card
+  discarded, a land joining a pile, a resolved spell: unchanged.
+- **A board wipe** -- three or more permanents leaving the table in one
+  update (`WIPE_AT`) -- sweeps a pale flash across the table (220 ms);
+  then they all go together.
+- "Reduce motion" hides the flash, cracks and motes.
+- Seen on the rebuilt local stack at a tenth of the speed: Murder's
+  Bears flashes red, cracks, darkens and tilts, then glides off; an
+  exiled Bears glows and lifts with motes; Divine Reckoning's two dead
+  creatures shatter together. 791 page tests (Board: defeated, exiled,
+  the wipe's flash and 220 ms wait, no flash for one).

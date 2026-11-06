@@ -6,6 +6,7 @@ import { Board, stackCaption } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, layout } from "./layout";
 import { centreOf } from "./effects";
+import type { AnchorId } from "./motion";
 
 /**
  * The drawn board — PHASE_07 §7.42 and §7.45, BATTLEFIELD_RENDERING.md §7
@@ -258,6 +259,76 @@ describe("Board movement", () => {
     expect(call, "the new card was not animated").toBeTruthy();
     expect(call!.frames[0]!.opacity).toBe(0.2);
     expect(String(call!.frames[0]!.transform)).toContain("scale(0.3)");
+  });
+
+  // Phase 10 A-04, A-05, A-07 (owner 2026-11-06, Amendment 5).
+  function without(n: number, ids: string[], departures: Map<string, AnchorId>) {
+    const step = applyChanges(start, n, 1);
+    return (
+      <Board
+        battlefield={step.board.battlefield.filter((card) => !ids.includes(card.id))}
+        hand={step.board.hand}
+        viewerSeat={step.board.viewerSeat}
+        artUrl={same}
+        arrivals={new Map()}
+        departures={departures}
+      />
+    );
+  }
+  const tableIds = (n: number) =>
+    applyChanges(start, n, 1)
+      .board.battlefield.filter((card) => card.kind === "creature")
+      .map((card) => card.id);
+
+  it("a destroyed creature shatters (flash, cracks, darkened), then glides to the graveyard", () => {
+    const n = stepWhere(/dies$/);
+    const view = render(at(n - 1));
+    view.rerender(at(n));
+    const [id] = [...applyChanges(start, n, 1).departures.keys()];
+    const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+    expect(ghost.getAttribute("data-fate")).toBe("defeated");
+    expect(ghost.querySelector(".bf-fate-flash")).toBeTruthy();
+    expect(ghost.querySelectorAll(".bf-fate-cracks path")).toHaveLength(5);
+    const call = calls.find((c) => c.element === ghost)!;
+    expect(String(call.frames[0]!.filter)).toContain("brightness(1)");
+    expect(String(call.frames.at(-1)!.filter)).toContain("brightness(0.55)");
+    expect(String(call.frames.at(-1)!.transform)).toContain("scale(0.3)");
+    // A shake before anything else: the card moves sideways and back.
+    expect(call.frames[1]!.transform).not.toBe(call.frames[0]!.transform);
+  });
+
+  it("an exiled creature is banished (light, motes), not shattered", () => {
+    const n = stepWhere(/dies$/) - 1;
+    const view = render(at(n));
+    const [id] = tableIds(n);
+    view.rerender(without(n, [id!], new Map([[id!, "opponent:exile"]])));
+    const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+    expect(ghost.getAttribute("data-fate")).toBe("exiled");
+    expect(ghost.querySelector(".bf-fate-cracks")).toBeNull();
+    expect(ghost.querySelectorAll(".bf-mote")).toHaveLength(14);
+    const call = calls.find((c) => c.element === ghost)!;
+    expect(String(call.frames.at(-1)!.filter)).toContain("drop-shadow(0px 0px 14px");
+  });
+
+  it("three or more leaving at once is a board wipe: the table flashes, then they all go", () => {
+    const n = stepWhere(/dies$/) - 1;
+    const view = render(at(n));
+    const ids = tableIds(n).slice(0, 3);
+    expect(ids).toHaveLength(3);
+    view.rerender(without(n, ids, new Map()));
+    expect(view.container.querySelector(".bf-sweep")).toBeTruthy();
+    for (const id of ids) {
+      const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+      expect(ghost.getAttribute("data-fate")).toBe("defeated");
+      expect((ghost as HTMLElement).style.getPropertyValue("--fx-delay")).toBe("220ms");
+    }
+  });
+
+  it("one creature dying is not a wipe: no flash", () => {
+    const n = stepWhere(/dies$/);
+    const view = render(at(n - 1));
+    view.rerender(at(n));
+    expect(view.container.querySelector(".bf-sweep")).toBeNull();
   });
 
   it("a card that dies leaves as a ghost to the graveyard, then is gone", () => {
