@@ -127,8 +127,12 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
             '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
           );
           const listed = panel.locator(".gs-question li button, .gs-win li button");
+          // "Discard a card" at the end of a turn with eight in hand: the
+          // hand card is the answer (CI 2026-11-06 waited on it for 120 s).
+          const discard = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
           if ((await listed.count()) > 0) await clickNow(listed);
           else if ((await mana.count()) > 0) await clickNow(mana);
+          else if ((await discard.count()) > 0) await clickNow(discard.first());
           else await clickNow(passButton(page));
           continue;
         }
