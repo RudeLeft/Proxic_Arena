@@ -204,6 +204,74 @@
     scale: 0.4;
   }
 }
+/* Phase 10 A-08 -- Pulled across: a gold line from the spell to the
+   creature, which is pulled along it gold-edged and lands with a pulse. */
+.bf-tethers {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 4400;
+  overflow: visible;
+}
+.bf-tethers path {
+  fill: none;
+  stroke: #f1c36a;
+  stroke-width: calc(var(--card-h) * 0.028);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 4px rgb(241 195 106 / 70%));
+  animation:
+    bf-tether-draw var(--tether-ms, 260ms) ease-out both,
+    bf-tether-fade var(--pull-ms, 560ms) ease-in var(--tether-ms, 260ms) both;
+}
+@keyframes bf-tether-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes bf-tether-fade {
+  from {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+.bf-pulled .bf-card {
+  animation: bf-pulled 1240ms ease-out both;
+}
+@keyframes bf-pulled {
+  0% {
+    box-shadow: 0 0 0 0 rgb(241 195 106 / 0%);
+  }
+  20%,
+  66% {
+    box-shadow:
+      0 0 0 2px rgb(241 195 106 / 95%),
+      0 0 10px 1px rgb(241 195 106 / 80%);
+  }
+  80% {
+    box-shadow:
+      0 0 0 2px rgb(241 195 106 / 95%),
+      0 0 22px 6px rgb(241 195 106 / 85%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(241 195 106 / 0%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-tethers {
+    display: none;
+  }
+  .bf-pulled .bf-card {
+    animation: none;
+  }
+}
+
 /* Phase 10 A-07 -- a board wipe: a pale flash sweeps the table first. */
 .bf-sweep {
   position: absolute;

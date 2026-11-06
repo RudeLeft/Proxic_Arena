@@ -144,6 +144,8 @@ export function glideFrames(
   toOrigin: { x: number; y: number } = origin,
   opacity: { from: number; to: number } | null = null,
   start: Placed | null = null,
+  /** A-08's pull: a wider bow, and a lean into the turn (degrees). */
+  shape: { arc?: number; lean?: number } = {},
 ): Keyframe[] {
   const a = start ?? parts(from, cardW, cardH, origin);
   const b = parts(to, cardW, cardH, toOrigin);
@@ -163,12 +165,13 @@ export function glideFrames(
   for (let k = 0; k <= GLIDE_STEPS; k++) {
     const t = k / GLIDE_STEPS;
     const e = k === GLIDE_STEPS ? 1 : glideEase(t);
-    const bow = Math.sin(Math.PI * e) * GLIDE_ARC * distance;
+    const bow = Math.sin(Math.PI * e) * (shape.arc ?? GLIDE_ARC) * distance;
+    const lean = (shape.lean ?? 0) * Math.sin(Math.PI * e) * Math.sign(dx || 1);
     // The ends are exact: the card starts and lands precisely in place.
     const at = k === 0 ? a : k === GLIDE_STEPS ? b : null;
     const x = at ? at.x : a.x + dx * e + nx * bow;
     const y = at ? at.y : a.y + dy * e + ny * bow;
-    const r = at ? at.r : a.r + (b.r - a.r) * e;
+    const r = at ? at.r : a.r + (b.r - a.r) * e + lean;
     const s = at ? at.s : (a.s + (b.s - a.s) * e) * (1 + lift * Math.sin(Math.PI * e));
     const frame: Keyframe = {
       offset: t,
@@ -179,6 +182,20 @@ export function glideFrames(
   }
   return frames;
 }
+
+// --- A creature changing sides (Phase 10 A-08) ---------------------------------
+
+/**
+ * "C · Pulled across" (owner 2026-11-06, Amendment 7): a gold line reaches
+ * from the spell that took it (or, given back, its new controller's side)
+ * to the creature, which is pulled along a wider bow, leaning into the
+ * turn, gold-edged, and lands with a gold pulse.
+ */
+export const TETHER_MS = 260;
+export const PULL_MS = 560;
+export const PULL_ARC = 0.22;
+export const PULL_LEAN = 9;
+export const PULSE_MS = 420;
 
 // --- Defeated and exiled (Phase 10 A-04, A-05, A-07) ---------------------------
 

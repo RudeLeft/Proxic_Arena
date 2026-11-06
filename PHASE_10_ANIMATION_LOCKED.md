@@ -285,3 +285,26 @@ flash):
   exiled Bears glows and lifts with motes; Divine Reckoning's two dead
   creatures shatter together. 791 page tests (Board: defeated, exiled,
   the wipe's flash and 220 ms wait, no flash for one).
+
+## Amendment 7 — A-08 decided: Pulled across (owner, 2026-11-06)
+
+On the canvas https://claude.ai/artifact/YLksXzsCAnhposMXihkQC1 (Glide only,
+Changes colour, Pulled across; taken and given back): **C · Pulled across**
+-- a gold line reaches from the spell that took it (or, given back, from
+its new controller's side) to the creature, which is pulled along a wider
+arc leaning into the turn, gold-edged, and lands with a gold pulse.
+
+## Amendment 8 — A-08 built (2026-11-06, as built)
+
+A permanent whose controller changed (taken or given back) is pulled
+across: a gold line (`.bf-tethers`) draws from the spell that took it --
+the stack entry that left this update targeting it -- or, with none (given
+back at end of turn), from its new controller's plate, to the creature
+(260 ms); the creature, gold-edged, is pulled along a bow of 22% of the
+distance, leaning up to 9 degrees into the turn (560 ms), and lands with
+a gold pulse. While the line draws it is HELD where it was: a delayed
+Glide now fills backwards, because the first build let the CSS settle
+slide it to its new row first and the pull then jumped it back -- seen
+in the check, at a tenth of the speed, on both screens, and fixed.
+Verified on the rebuilt stack with Control Magic, both seats. 792 page
+tests (Board: the line, the class, the lean, landing exactly).

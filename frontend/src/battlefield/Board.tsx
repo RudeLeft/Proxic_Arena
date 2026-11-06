@@ -66,6 +66,10 @@ import {
   hurry,
   placedNow,
   fateFrames,
+  PULL_ARC,
+  PULL_LEAN,
+  PULL_MS,
+  TETHER_MS,
   SWEEP_MS,
   WIPE_AT,
   type Fate,
@@ -514,8 +518,16 @@ interface Drawn {
  * Phase 10 A-00 -- run one Glide on a card's element: linear over MOVE_MS
  * (the easing is in the frames), lifted (a deeper shadow) while it travels.
  */
-function glide(element: HTMLElement, frames: Keyframe[], delay = 0) {
-  const animation = element.animate(frames, { duration: MOVE_MS, easing: "linear", delay });
+function glide(element: HTMLElement, frames: Keyframe[], delay = 0, duration = MOVE_MS) {
+  // Held at its first frame while it waits (a stolen creature, while its
+  // gold line draws): otherwise the CSS settle would slide it there first
+  // and the Glide would start by jumping it back (seen in A-08's check).
+  const animation = element.animate(frames, {
+    duration,
+    easing: "linear",
+    delay,
+    fill: delay > 0 ? "backwards" : "none",
+  });
   element.classList.add("bf-moving");
   const landed = () => element.classList.remove("bf-moving");
   animation.onfinish = landed;
@@ -647,6 +659,8 @@ export function Board({
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   /** Phase 10 A-07: the board wipe's flash, keyed by when it began. */
   const [sweep, setSweep] = useState<number | null>(null);
+  /** Phase 10 A-08: the gold lines pulling stolen creatures across. */
+  const [tethers, setTethers] = useState<{ key: string; from: Point; to: Point }[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
   const timers = useRef<number[]>([]);
@@ -1303,6 +1317,8 @@ export function Board({
           }),
         );
       }
+      const stackNow = new Set((stack ?? []).map((s) => s.id));
+      const pulls: { key: string; from: Point; to: Point }[] = [];
       // Phase 10 A-00 -- the same card, somewhere new (a tap, a row
       // re-centring, a stolen creature crossing the table): Glide there,
       // not the old straight CSS slide. A pointed-at hand card rising is
@@ -1323,9 +1339,48 @@ export function Board({
         const moving = element.getAnimations?.().some((a) => a.playState === "running") ?? false;
         const start = moving ? placedNow(element) : null;
         if (moving) for (const a of element.getAnimations()) a.cancel();
+        // A-08: a permanent that changed sides is pulled across.
+        const was_ = before.drawn.get(item.id);
+        if (item.drawn.table && was_ && was_.side !== item.drawn.side) {
+          const taker = before.stack.find(
+            (entry) =>
+              !stackNow.has(entry.s.id) &&
+              entry.s.targets.some((t) => "object" in t && item.ids.includes(t.object)),
+          );
+          const from = taker
+            ? { x: taker.box.x + taker.box.w / 2, y: taker.box.y + taker.box.h / 2 }
+            : where[`${item.drawn.side}:life`];
+          pulls.push({
+            key: `${item.id}:${performance.now()}`,
+            from,
+            to: centreOf(was.box, was.origin),
+          });
+          glide(
+            element,
+            glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start, {
+              arc: PULL_ARC,
+              lean: PULL_LEAN,
+            }),
+            TETHER_MS,
+            PULL_MS,
+          );
+          element.classList.remove("bf-pulled");
+          void element.offsetWidth;
+          element.classList.add("bf-pulled");
+          continue;
+        }
         glide(
           element,
           glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start),
+        );
+      }
+      if (pulls.length > 0) {
+        setTethers((list) => [...list, ...pulls]);
+        timers.current.push(
+          window.setTimeout(
+            () => setTethers((list) => list.filter((t) => !pulls.includes(t))),
+            TETHER_MS + PULL_MS + 100,
+          ),
         );
       }
       // A card that no longer has an element of its own leaves as a ghost:
@@ -1937,6 +1992,27 @@ export function Board({
             ),
           )}
         </div>
+        {tethers.length > 0 && (
+          // A-08: the gold line a stolen creature is pulled along.
+          <svg
+            className="bf-tethers"
+            width={g.width}
+            height={g.height}
+            style={{
+              ["--tether-ms" as string]: `${TETHER_MS}ms`,
+              ["--pull-ms" as string]: `${PULL_MS}ms`,
+            }}
+            aria-hidden="true"
+          >
+            {tethers.map((t) => (
+              <path
+                key={t.key}
+                pathLength={1}
+                d={`M${t.from.x} ${t.from.y} Q ${(t.from.x + t.to.x) / 2} ${Math.min(t.from.y, t.to.y) - g.cardH * 0.6} ${t.to.x} ${t.to.y}`}
+              />
+            ))}
+          </svg>
+        )}
         {sweep !== null && (
           // A-07: a board wipe's flash across the table.
           <div

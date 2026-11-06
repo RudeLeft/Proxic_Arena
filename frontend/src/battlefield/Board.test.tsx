@@ -324,6 +324,38 @@ describe("Board movement", () => {
     }
   });
 
+  it("a creature that changes sides is pulled across: a gold line, a wider arc, a pulse", () => {
+    const n = stepWhere(/dies$/) - 1;
+    const step = applyChanges(start, n, 1);
+    const view = render(at(n));
+    const stolen = step.board.battlefield.find(
+      (card) => card.kind === "creature" && card.seat !== step.board.viewerSeat,
+    )!;
+    calls.length = 0;
+    view.rerender(
+      <Board
+        battlefield={step.board.battlefield.map((card) =>
+          card.id === stolen.id ? { ...card, seat: step.board.viewerSeat } : card,
+        )}
+        hand={step.board.hand}
+        viewerSeat={step.board.viewerSeat}
+        artUrl={same}
+        arrivals={new Map()}
+        departures={new Map()}
+      />,
+    );
+    const slot = view.container
+      .querySelector(`[data-object-id="${stolen.id}"]`)!
+      .closest(".bf-slot")!;
+    expect(slot.classList.contains("bf-pulled")).toBe(true);
+    expect(view.container.querySelectorAll(".bf-tethers path")).toHaveLength(1);
+    const pull = calls.find((c) => c.element === slot)!;
+    expect(String(pull.frames.at(-1)!.transform)).toBe((slot as HTMLElement).style.transform);
+    // It leans into the turn mid-flight.
+    const middle = String(pull.frames[10]!.transform);
+    expect(middle).not.toContain("rotate(0deg)");
+  });
+
   it("one creature dying is not a wipe: no flash", () => {
     const n = stepWhere(/dies$/);
     const view = render(at(n - 1));
