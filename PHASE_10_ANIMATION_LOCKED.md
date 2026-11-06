@@ -183,3 +183,13 @@ clicked card (checked live in A-02).
 
 The recorder and analyser are scratch tools today; turning them into the
 kept "nothing jumps" check is part of A-00.
+
+## Amendment 2 — the order (owner, 2026-11-06)
+
+After the audit: **A-00 first** (one motion style, the game's move
+record), **then dying, exile and board wipes** (A-04, A-05, A-06,
+A-07), then stolen creatures (A-08), Auras and Equipment (A-17),
+transform and merge (A-09, A-10), attacking and blocking (A-11, A-12),
+then the rest. Several things at once (a board wipe of five): the A-00
+canvas plays it both ways -- one after another, and all together -- and
+the owner chooses there.
