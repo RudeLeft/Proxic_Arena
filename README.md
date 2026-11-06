@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.44.0 (2026-11-05).** The main build was completed in 1.1.0,
+**Version 1.45.0 (2026-11-06).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -59,7 +59,9 @@ number into a dial and splits damage in one window; 1.41.0 names a card
 by clicking it on the table; 1.42.0 fixes what a full review of the
 documentation against the code turned up; 1.43.0 lets an administrator
 rename a player and finishes those fixes; 1.44.0 lets you stop choosing
-targets when you have enough and dims hand cards you can't pay for.
+targets when you have enough and dims hand cards you can't pay for;
+1.45.0 finishes Phase 9: every game window reviewed, with Peek, 3D dice,
+the status tray's lists and the away window.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

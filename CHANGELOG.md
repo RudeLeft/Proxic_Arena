@@ -3,9 +3,12 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
-## Unreleased
+## 1.45.0 — 2026-11-06
 
-The status tray's list, a Peek button, and dice (Phase 9).
+The rest of Phase 9: every game window reviewed. The status tray's list, Peek, 3D dice, the away window, modes in one window, and two checks of every window.
+
+**For whoever runs the server**
+- Nothing to do beyond updating: no database changes in this version.
 
 **The status tray** (the thin bar beside each player's plate: mana, counters, Monarch, the Ring, emblems, dungeons)
 - Long names are shortened in the row ("Liliana emblem", "Undercity · Secret Entrance"), so one emblem no longer hides behind a lone "+1". The Ring shows once, with how many times it has tempted you.
