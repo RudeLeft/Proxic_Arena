@@ -137,6 +137,30 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
 
   const arrivals = new Map<string, AnchorId>();
   const departures = new Map<string, AnchorId>();
+  // Phase 10 A-00 -- where each card came from and went, as the game moved
+  // it. The comparisons below stay only for an older worker, or a move the
+  // game did not report: they guessed, and a card put into a library was
+  // drawn going to exile.
+  const anchorOf = (place: { zone: string; seat: number | null }): AnchorId | null => {
+    if (place.zone === "stack") return "stack";
+    if (place.seat === null) return null;
+    return ["hand", "library", "graveyard", "exile"].includes(place.zone)
+      ? (`${side(place.seat)}:${place.zone}` as AnchorId)
+      : null;
+  };
+  const cameFrom = new Map<string, AnchorId>();
+  const wentTo = new Map<string, AnchorId>();
+  for (const move of snapshot.moves ?? []) {
+    if (!move.card) continue;
+    if (move.to.zone === "battlefield" && !cameFrom.has(move.card)) {
+      const from = anchorOf(move.from);
+      if (from) cameFrom.set(move.card, from);
+    }
+    if (move.from.zone === "battlefield") {
+      const to = anchorOf(move.to);
+      if (to) wentTo.set(move.card, to);
+    }
+  }
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -144,6 +168,13 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     const wasInExile = new Set(previous.exile.map((c) => c.id));
     for (const card of snapshot.battlefield) {
       if (wasOnBoard.has(card.id)) continue;
+      const from = cameFrom.get(card.id);
+      if (from) {
+        // From the stack is the board's own default (it flies from its
+        // place there).
+        if (from !== "stack") arrivals.set(card.id, from);
+        continue;
+      }
       // A land played comes from the hand; reanimation from the
       // graveyard; anything else through the stack (the default).
       if (wasInHand.has(card.id)) arrivals.set(card.id, `${side(card.seat)}:hand`);
@@ -163,6 +194,11 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       if (onBoard.has(card.id)) continue;
       // Into a hand the board can see: it is drawn there and simply moves.
       if (inHands.has(card.id)) continue;
+      const to = wentTo.get(card.id);
+      if (to) {
+        departures.set(card.id, to);
+        continue;
+      }
       if (inGraveyard.has(card.id)) continue; // the default
       if (inExile.has(card.id)) {
         departures.set(card.id, `${side(card.seat)}:exile`);

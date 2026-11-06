@@ -189,6 +189,8 @@ public final class GameHost {
         // §7.61 B13 -- damage as Forge dealt it, for the board's impact
         // and numbers (PHASE 7 AMENDMENT 4).
         created.subscribeToEvents(new DamageLog());
+        // Phase 10 A-00 -- every card's move, where from, where to, why.
+        created.subscribeToEvents(new MoveLog());
 
         // NOTHING installs controllers here, deliberately. Forge
         // builds its own Player objects during createGame through
@@ -670,6 +672,57 @@ public final class GameHost {
         }
     }
 
+    /**
+     * Phase 10 A-00 -- the cards moved since the last snapshot round, as
+     * Forge moved them (Moves). Sent with the round's snapshots, each seat
+     * told only what it may see, then cleared.
+     */
+    private final java.util.List<Moves.Move> movesMade =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** Sacrificed cards: Forge says so just BEFORE it moves them. */
+    private final java.util.Set<Integer> sacrificing =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private final class MoveLog {
+        @com.google.common.eventbus.Subscribe
+        public void on(forge.game.event.GameEvent event) {
+            if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
+                sacrificing.add(sacrificed.card().getId());
+            } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
+                forge.game.card.CardView card = moved.card();
+                String from = Moves.zoneName(moved.from() == null ? null : moved.from().zoneType());
+                String to = Moves.zoneName(moved.to() == null ? null : moved.to().zoneType());
+                String why = null;
+                if ("battlefield".equals(from)) {
+                    // Forge marks a destroyed card (and one put into the
+                    // graveyard by the rules, and a sacrificed one) before
+                    // moving it.
+                    if (sacrificing.remove(card.getId())) {
+                        why = "sacrificed";
+                    } else if (card.wasDestroyed()) {
+                        why = "destroyed";
+                    }
+                }
+                movesMade.add(new Moves.Move(card.getId(), from, seatOfZone(moved.from()), to,
+                        seatOfZone(moved.to()), card.isFaceDown(), why));
+            }
+        }
+    }
+
+    /** The Arena seat whose zone this is (a battlefield, a hand...). */
+    private Integer seatOfZone(forge.game.zone.ZoneView zone) {
+        Game current = game;
+        if (zone == null || zone.player() == null || current == null) {
+            return null;
+        }
+        for (Player player : current.getRegisteredPlayers()) {
+            if (player.getId() == zone.player().getId()) {
+                return seatOf.get(player.getOriginalLobbyPlayer());
+            }
+        }
+        return null;
+    }
+
     /** Forge's event bus calls this; Guava finds it by the annotation. */
     private final class EpochCounter {
         @com.google.common.eventbus.Subscribe
@@ -708,6 +761,13 @@ public final class GameHost {
                 damageDealt.clear();
             }
         }
+        // Phase 10 A-00: this round's moves, each seat its own view of them.
+        java.util.List<Moves.Move> moved;
+        synchronized (movesMade) {
+            moved = java.util.List.copyOf(movesMade);
+            movesMade.clear();
+        }
+        sacrificing.clear();
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone
         // and showed the winner alone. Measured, P6-AP.
@@ -735,6 +795,9 @@ public final class GameHost {
                 snapshot.add("damage", damage.deepCopy());
             }
             snapshot.add("rolls", rollsSoFar());
+            if (!moved.isEmpty()) {
+                snapshot.add("moves", Moves.forViewer(moved, seat));
+            }
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {
@@ -751,6 +814,9 @@ public final class GameHost {
                 everyone.add("damage", damage.deepCopy());
             }
             everyone.add("rolls", rollsSoFar());
+            if (!moved.isEmpty()) {
+                everyone.add("moves", Moves.forViewer(moved, null));
+            }
             try {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);
             } catch (RuntimeException e) {

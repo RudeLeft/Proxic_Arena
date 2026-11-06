@@ -271,7 +271,7 @@ describe("Board movement", () => {
     expect(ghost.getAttribute("aria-hidden")).toBe("true");
     expect(ghost.querySelector("button")).toBeNull();
     const call = calls.find((c) => c.element === ghost)!;
-    expect(String(call.frames[1]!.transform)).toContain("scale(0.3)");
+    expect(String(call.frames.at(-1)!.transform)).toContain("scale(0.3)");
     act(() => call.animation.onfinish!());
     expect(view.container.querySelector(`[data-ghost-of="${id}"]`)).toBeNull();
   });
@@ -284,21 +284,26 @@ describe("Board movement", () => {
     view.rerender(at(n));
     const own = view.container.querySelector(`[data-object-id="${id}"]`);
     if (own) {
-      // Its own spot: the same element, left to its CSS transition.
+      // Its own spot: the same element, which Glides there (Phase 10
+      // A-00), landing exactly where the layout puts it.
       expect(own.closest(".bf-slot")).toBe(before);
-      expect(calls.filter((c) => c.element === before)).toHaveLength(0);
+      const glides = calls.filter((c) => c.element === before);
+      expect(glides).toHaveLength(1);
+      expect(String(glides[0]!.frames.at(-1)!.transform)).toBe(
+        (before as HTMLElement).style.transform,
+      );
     } else {
       // Joined a pile: a ghost travels into the pile's spot, unfaded.
       const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
       expect(ghost).toBeTruthy();
       const call = calls.find((c) => c.element === ghost)!;
-      expect(call.frames[1]!.opacity).toBe(1);
+      expect(call.frames.at(-1)!.opacity).toBe(1);
       const joined = layout(applyChanges(start, n, 1).board, size).slots.find((slot) =>
         slot.ids.includes(id),
       )!;
       const pile = view.container.querySelector(`[data-object-id="${joined.ids[0]}"]`)!;
       expect(pile.getAttribute("data-pile")).toBe(String(joined.ids.length));
-      expect(String(call.frames[1]!.transform)).toBe(
+      expect(String(call.frames.at(-1)!.transform)).toBe(
         (pile.closest(".bf-slot") as HTMLElement).style.transform,
       );
     }

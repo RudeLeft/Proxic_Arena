@@ -193,3 +193,60 @@ transform and merge (A-09, A-10), attacking and blocking (A-11, A-12),
 then the rest. Several things at once (a board wipe of five): the A-00
 canvas plays it both ways -- one after another, and all together -- and
 the owner chooses there.
+
+## Amendment 3 — A-00 decided: Glide, together, speed up (owner, 2026-11-06)
+
+On the A-00 canvas (https://claude.ai/artifact/4KkTYRBafnKTguWCywgFSF;
+Today, A · Glide and B · Snappy side by side, a five-creature wipe both
+ways, a "click now" button):
+
+1. **Every card moves with A · Glide**: 450 ms, a gentle arc (bulging up
+   by about a seventh of the distance), the card lifting about 8% with a
+   deeper shadow mid-flight, easing in and out (cubic-bezier 0.4, 0, 0.2,
+   1). This replaces the 250 ms straight move of Phase 7 Amendment 6.
+2. **Several at once go all together** (a board wipe: every creature at
+   the same moment).
+3. **Clicking while things move**: what is moving finishes in a tenth of
+   a second (as shown), never snaps.
+
+Also part of A-00 (no look to decide): the game sends each move -- where
+from, where to, why -- so the page stops guessing (Amendment 1, finding
+11); hidden cards stay hidden.
+
+## Amendment 4 — A-00 built (2026-11-06, as built)
+
+- **The game's move record.** The worker records every zone change
+  Forge makes (`GameEventCardChangeZone`), with why a card left the
+  battlefield -- "sacrificed" (Forge announces it just before the move)
+  or "destroyed" (Forge marks the card first; this includes dying to
+  damage or 0 toughness) -- and sends each seat its own view with the
+  round's snapshots as `moves` (protocol/README.md). A seat is told
+  which card moved only when it can see the card at one end; the other
+  player's draw is "a card, library to hand". `Moves.java`,
+  `MovesTest`; Lab `check-moves.py` (Murder: destroyed, to both seats;
+  Innocent Blood: sacrificed, never destroyed; ~400 moves: no hidden
+  card named, every visible one named), in CI's Lab list.
+- **The page stops guessing.** `fromSnapshot.ts` takes arrivals and
+  departures from `moves` (a library, a hand, a graveyard, exile, on
+  either side); the old comparison stays for an older worker.
+- **A · Glide everywhere on the table** (`motion.ts` `glideFrames`):
+  450 ms, an upward bow of 14% of the distance, a lift of up to 8%
+  (less for a short hop) with a deeper shadow, eased in and out. Used
+  for a card arriving, a card leaving (ghosts), and -- new -- a card that
+  stays on the table but moves (a stolen creature crossing, a row
+  re-centring, a tap turning in place). A card interrupted mid-Glide by
+  a newer board sets off again from where it is. CSS keeps only quick
+  settles (a pointed-at hand card rising: 250 ms).
+- **Clicking while things move** (`hurry`): a click or key makes what is
+  moving on the board finish in 100 ms; looping glows are untouched.
+- **Kept check.** `frontend/tools/jumps/jumps.spec.ts` (its own config,
+  `playwright.jumps.config.ts`, never in the browser suite) and
+  `scripts/check-jumps.py`.
+
+Verified on the rebuilt local stack with fresh Lab games: the stolen
+Grizzly Bears now arcs across the table (it jumped in one frame); a
+creature returned to the other player's hand heads to that hand (it was
+drawn going to exile); a Murdered creature arcs to the graveyard. Still
+flagged, and theirs to fix: Auras and Equipment (A-17), piles (A-02,
+A-15), the other player's casts and triggers (A-21). 785 page tests,
+4 board browser specs, the Lab's attachments and to-library checks pass.

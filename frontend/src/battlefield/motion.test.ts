@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { HAND_ORIGIN, TAPPED_ORIGIN, geometry, layout, type Box } from "./layout";
-import { HAND_ZOOM, anchors, handZoomBox } from "./motion";
+import {
+  GLIDE_LIFT,
+  HAND_ZOOM,
+  HURRY_MS,
+  anchors,
+  glideFrames,
+  handZoomBox,
+  hurry,
+  placement,
+} from "./motion";
 import { applyChanges, syntheticBoard } from "./fixture";
 import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
 
@@ -162,5 +171,94 @@ describe("synthetic changes (the dev page's Next change)", () => {
       }
       before = step.board;
     }
+  });
+});
+
+// Phase 10 A-00 -- "A · Glide" (owner 2026-11-06, Amendment 3).
+describe("Glide", () => {
+  const box = (x: number, y: number, scale = 1, rotation = 0): Box => ({
+    x,
+    y,
+    w: 100 * scale,
+    h: 140 * scale,
+    scale,
+    rotation,
+    z: 0,
+  });
+  const origin = { x: 0.5, y: 0.5 };
+  const numbers = (t: unknown) =>
+    String(t)
+      .replace("translate3d", "translate")
+      .match(/-?\d+(\.\d+)?/g)!
+      .map(Number);
+
+  it("starts where the card is and lands exactly where the layout puts it", () => {
+    const from = box(100, 600, 0.3);
+    const to = box(500, 300, 1, 90);
+    const frames = glideFrames(from, to, 100, 140, origin);
+    expect(frames[0]!["transform"]).toBe(placement(from, 100, 140, origin).transform);
+    expect(frames.at(-1)!["transform"]).toBe(placement(to, 100, 140, origin).transform);
+    expect(frames.at(-1)!["offset"]).toBe(1);
+  });
+
+  it("bows upward: halfway, the card is above the straight line", () => {
+    const frames = glideFrames(box(0, 400), box(800, 400), 100, 140, origin);
+    const middle = numbers(frames[10]!["transform"]);
+    expect(middle[1]!).toBeLessThan(400 - 0.1 * 800 * 0.9);
+  });
+
+  it("lifts on a journey, hardly at all on a short hop", () => {
+    // The highest point of the lift, wherever it falls in time.
+    const scaleAt = (frames: Keyframe[]) =>
+      Math.max(...frames.map((f) => numbers(f["transform"]).at(-1)!));
+    expect(scaleAt(glideFrames(box(0, 400), box(800, 400), 100, 140, origin))).toBeCloseTo(
+      1 + GLIDE_LIFT,
+      2,
+    );
+    expect(scaleAt(glideFrames(box(0, 400), box(20, 400), 100, 140, origin))).toBeLessThan(1.01);
+  });
+
+  it("fades as asked, landing at the end value", () => {
+    const frames = glideFrames(box(0, 0), box(300, 0), 100, 140, origin, origin, {
+      from: 1,
+      to: 0.15,
+    });
+    expect(frames[0]!["opacity"]).toBe(1);
+    expect(frames.at(-1)!["opacity"]).toBeCloseTo(0.15, 5);
+  });
+
+  it("a tap turns in place: no bow, no lift", () => {
+    const frames = glideFrames(box(200, 200), box(200, 200, 1, 90), 100, 140, origin);
+    for (const frame of frames) {
+      const [x, y] = numbers(frame["transform"]);
+      expect(x).toBeCloseTo(200, 5);
+      expect(y).toBeCloseTo(200, 5);
+    }
+  });
+});
+
+describe("hurry: the player acts while cards move", () => {
+  const fake = (endTime: number, currentTime: number, iterations = 1, playState = "running") => {
+    const animation = {
+      playState,
+      currentTime,
+      playbackRate: 1,
+      effect: { getComputedTiming: () => ({ endTime, iterations }) },
+      updatePlaybackRate(rate: number) {
+        this.playbackRate = rate;
+      },
+    };
+    return animation;
+  };
+
+  it("finishes what is moving in a tenth of a second, and leaves endless glows alone", () => {
+    const long = fake(450, 50);
+    const almost = fake(450, 400);
+    const glow = fake(Infinity, 900, Infinity);
+    const root = { getAnimations: () => [long, almost, glow] } as unknown as Element;
+    hurry(root);
+    expect(long.playbackRate).toBeCloseTo(400 / HURRY_MS, 5);
+    expect(almost.playbackRate).toBe(1); // 50 ms left: already quicker than a hurry
+    expect(glow.playbackRate).toBe(1);
   });
 });

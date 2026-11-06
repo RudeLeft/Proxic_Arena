@@ -59,8 +59,12 @@ import {
   boxAt,
   handZoomBox,
   LIFE_R,
-  MOVE_EASING,
   MOVE_MS,
+  SETTLE_EASING,
+  SETTLE_MS,
+  glideFrames,
+  hurry,
+  placedNow,
   placement,
   type AnchorId,
   type Point,
@@ -500,6 +504,19 @@ interface Drawn {
   side: "viewer" | "opponent";
 }
 
+/**
+ * Phase 10 A-00 -- run one Glide on a card's element: linear over MOVE_MS
+ * (the easing is in the frames), lifted (a deeper shadow) while it travels.
+ */
+function glide(element: HTMLElement, frames: Keyframe[], delay = 0) {
+  const animation = element.animate(frames, { duration: MOVE_MS, easing: "linear", delay });
+  element.classList.add("bf-moving");
+  const landed = () => element.classList.remove("bf-moving");
+  animation.onfinish = landed;
+  animation.oncancel = landed;
+  return animation;
+}
+
 interface Ghost extends Drawn {
   id: string;
   box: Box;
@@ -637,6 +654,8 @@ export function Board({
     mounted: Set<string>;
     /** Spec 0028 — the stack as it was drawn: each object and its card's box. */
     stack: { s: StackView; box: Box }[];
+    /** The hand card pointed at then: its rise is a settle, not a Glide. */
+    pointed: string | null;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -1258,23 +1277,44 @@ export function Board({
         // pile it left, the hand), or else from its zone in the rail.
         const was = before.at.get(item.id);
         const fromStack = was ? undefined : before.stack.find((e) => e.s.card === item.id);
-        const from = was
-          ? placement(was.box, g.cardW, g.cardH, was.origin).transform
+        // Phase 10 A-00: Glide, from wherever it was drawn.
+        const fromBox = was
+          ? was.box
           : fromStack
-            ? placement(fromStack.box, g.cardW, g.cardH, item.origin).transform
-            : placement(
-                boxAt(where[arrivals?.get(item.id) ?? "stack"], g),
-                g.cardW,
-                g.cardH,
-                item.origin,
-              ).transform;
-        const to = placement(item.box, g.cardW, g.cardH, item.origin).transform;
-        element.animate(
-          [
-            { transform: from, opacity: was ? 1 : 0.2 },
-            { transform: to, opacity: 1 },
-          ],
-          { duration: MOVE_MS, easing: MOVE_EASING },
+            ? fromStack.box
+            : boxAt(where[arrivals?.get(item.id) ?? "stack"], g);
+        const fromOrigin = was ? was.origin : item.origin;
+        glide(
+          element,
+          glideFrames(fromBox, item.box, g.cardW, g.cardH, fromOrigin, item.origin, {
+            from: was ? 1 : 0.2,
+            to: 1,
+          }),
+        );
+      }
+      // Phase 10 A-00 -- the same card, somewhere new (a tap, a row
+      // re-centring, a stolen creature crossing the table): Glide there,
+      // not the old straight CSS slide. A pointed-at hand card rising is
+      // not a journey: its quick CSS settle stays.
+      for (const item of items) {
+        if (!before.mounted.has(item.id)) continue;
+        const was = before.at.get(item.id);
+        if (!was) continue;
+        const same =
+          Math.abs(was.box.x - item.box.x) < 0.5 &&
+          Math.abs(was.box.y - item.box.y) < 0.5 &&
+          Math.abs(was.box.scale - item.box.scale) < 0.001 &&
+          was.box.rotation === item.box.rotation;
+        if (same || item.id === pointed || before.pointed === item.id) continue;
+        const element = elements.current.get(item.id);
+        if (!element || typeof element.animate !== "function") continue;
+        // Still gliding from the last board: set off from where it is now.
+        const moving = element.getAnimations?.().some((a) => a.playState === "running") ?? false;
+        const start = moving ? placedNow(element) : null;
+        if (moving) for (const a of element.getAnimations()) a.cancel();
+        glide(
+          element,
+          glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start),
         );
       }
       // A card that no longer has an element of its own leaves as a ghost:
@@ -1384,13 +1424,40 @@ export function Board({
 
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     previous.current = {
+      pointed,
       viewport: { width: g.width, height: g.height },
       at: now,
       drawn,
       mounted: new Set(items.map((item) => item.id)),
       stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
-  }, [items, result, arrivals, departures, stack, viewerSeat, artUrl, flyingOnto, stackScale]);
+  }, [
+    items,
+    result,
+    arrivals,
+    departures,
+    stack,
+    viewerSeat,
+    artUrl,
+    flyingOnto,
+    stackScale,
+    pointed,
+  ]);
+
+  // Phase 10 A-00 (owner, at lock and on the canvas): the player acts while
+  // cards move -- a click, a key -- and what is moving finishes in a tenth
+  // of a second. Never a snap, never a wait.
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return undefined;
+    const now = () => hurry(root);
+    document.addEventListener("pointerdown", now, true);
+    document.addEventListener("keydown", now, true);
+    return () => {
+      document.removeEventListener("pointerdown", now, true);
+      document.removeEventListener("keydown", now, true);
+    };
+  }, []);
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
@@ -1532,8 +1599,10 @@ export function Board({
         className={`bf-cards${asking ? " bf-asking" : ""}`}
         style={{
           ["--card-h" as string]: `${g.cardH}px`,
-          ["--move-ms" as string]: `${MOVE_MS}ms`,
-          ["--move-easing" as string]: MOVE_EASING,
+          // CSS settles only what is not a journey (a hand card rising);
+          // journeys are Glide, run by glide().
+          ["--move-ms" as string]: `${SETTLE_MS}ms`,
+          ["--move-easing" as string]: SETTLE_EASING,
         }}
       >
         {items.map((item) => (
@@ -1874,16 +1943,15 @@ function GhostCard({
       done();
       return;
     }
+    // Phase 10 A-00: Glide to where it went.
     const animation = element.animate(
-      [
-        { transform: from.transform, opacity: 1 },
-        {
-          transform: placement(ghost.to, cardW, cardH, ghost.toOrigin).transform,
-          opacity: ghost.fade ? 0.15 : 1,
-        },
-      ],
-      { duration: MOVE_MS, easing: MOVE_EASING, delay: ghost.delay, fill: "both" },
+      glideFrames(ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin, {
+        from: 1,
+        to: ghost.fade ? 0.15 : 1,
+      }),
+      { duration: MOVE_MS, easing: "linear", delay: ghost.delay, fill: "both" },
     );
+    element.classList.add("bf-moving");
     animation.onfinish = done;
     // Unmounting (or StrictMode's rehearsal) stops it without finishing it.
     return () => {

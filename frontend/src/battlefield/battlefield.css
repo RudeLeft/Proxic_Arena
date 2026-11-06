@@ -126,6 +126,10 @@
   --bar-text: var(--bf-artifact-text);
   --bar: var(--bf-artifact-bar);
 }
+/* Phase 10 A-00 -- Glide: a card in flight is lifted off the table. */
+.bf-moving .bf-card {
+  box-shadow: 0 calc(var(--card-h) * 0.1) calc(var(--card-h) * 0.22) rgb(0 0 0 / 55%);
+}
 .bf-card {
   position: absolute;
   inset: 0;

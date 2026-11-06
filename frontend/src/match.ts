@@ -521,6 +521,13 @@ export interface Snapshot {
   battlefield: SnapshotCard[];
   /** Phase 9 W-17 -- the dice rolled lately (public); absent from an older worker. */
   rolls?: SnapshotRoll[] | undefined;
+  /**
+   * Phase 10 A-00 -- the cards moved since the last board, as the game
+   * moved them: where from, where to, why. Empty from an older worker (the
+   * board then compares boards, as before). A move this viewer can't see
+   * at either end carries no card.
+   */
+  moves?: SnapshotMove[] | undefined;
   hand: SnapshotCard[];
   /**
    * §6.37, §6.38 — other players' hand cards that FORGE says this
@@ -872,6 +879,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     notices: asNotices(row["notices"]),
     battlefield: asCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
+    moves: asMoves(row["moves"]),
     hand: asCards(row["hand"]),
     otherHands: asCards(row["otherHands"]),
     casting: asCards(row["casting"]),
@@ -1383,6 +1391,37 @@ function asDice(value: unknown): DiceLayout | null {
 }
 
 /** Phase 9 W-17 -- the dice rolled lately, as the worker keeps them. */
+/** Phase 10 A-00 -- one card's move, as the game made it. */
+export interface SnapshotMove {
+  /** "card:N"; absent when this viewer can't see the card at either end. */
+  card: string | null;
+  from: { zone: string; seat: number | null };
+  to: { zone: string; seat: number | null };
+  /** Why it left the battlefield, when the game says. */
+  why: "destroyed" | "sacrificed" | null;
+}
+
+function asMoves(value: unknown): SnapshotMove[] {
+  if (!Array.isArray(value)) return [];
+  const place = (v: unknown) => {
+    const p = (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+    return { zone: asString(p["zone"]) ?? "other", seat: asNumber(p["seat"]) };
+  };
+  return value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const e = entry as Record<string, unknown>;
+    const why = asString(e["why"]);
+    return [
+      {
+        card: asString(e["card"]),
+        from: place(e["from"]),
+        to: place(e["to"]),
+        why: why === "destroyed" || why === "sacrificed" ? why : null,
+      },
+    ];
+  });
+}
+
 function asRolls(value: unknown): SnapshotRoll[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {

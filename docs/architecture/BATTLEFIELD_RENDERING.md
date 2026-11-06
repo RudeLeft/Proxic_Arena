@@ -312,7 +312,7 @@ tree and the one-line assertions. That trade is to be made with numbers.
 | 1 | `layout()` and its Vitest property suite | verified maths before a pixel exists |
 | 2 | static DOM board from a seeded fixture, data attributes from the first commit | something an agent can read and the owner can see |
 | 3 | the tier-2 Playwright bridge | proves step 2 obeys step 1 |
-| 4 | transforms, enter/exit transitions (PHASE 7 AMENDMENT 6: 250 ms; cards travel from and to their rail zones; the hand card zooms) | now it moves |
+| 4 | transforms, enter/exit transitions (PHASE 7 AMENDMENT 6: 250 ms; cards travel from and to their rail zones; the hand card zooms). *Phase 10 A-00 (2026-11-06):* every journey is "A · Glide" -- 450 ms along a gentle upward arc, lifted mid-flight (motion.ts `glideFrames`, run by the Web Animations API, a card that stays on the table included); CSS transitions keep only the quick settles (a hand card rising); a click or key makes what is moving finish in 100 ms (`hurry`); destinations come from the game's `moves` | now it moves |
 | 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`; as built the game draws attack, block, target and spec 0028's source line, and the chain -- attach -- line only on `/dev/board`) | now it points and glows |
 | 6 | density route, benchmarks against §6 | the PixiJS decision, with data |
 | 7 | this document's acceptance rows green; Phase 7 gate updated | make it official |

@@ -204,6 +204,15 @@ player.dungeonsCompleted  one dungeon name per completion
 player.command            a dungeon carries its room:
                           "Undercity (room: Lost Well)"; "The Ring"
                           once the Ring has tempted the player
+moves                     Phase 10 A-00: the cards moved since the last
+                          round, as Forge moved them: [{card?, from {zone,
+                          seat?}, to {zone, seat?}, why?}]; zone is
+                          battlefield|hand|library|graveyard|exile|stack|
+                          command|merged|other|nowhere (a new token); why is
+                          "destroyed" or "sacrificed" for a card leaving the
+                          battlefield. `card` only when this viewer can see
+                          the card at one end (never the other player's
+                          draw); absent when nothing moved
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}

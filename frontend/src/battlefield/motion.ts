@@ -9,10 +9,30 @@
 
 import type { Box, Geometry, Side } from "./layout";
 
-/** How long a move takes (owner decision 2026-10-20, AMENDMENT 6). */
-export const MOVE_MS = 250;
-/** The curve: quick to start, gentle to land. */
-export const MOVE_EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
+/**
+ * How long a move takes: Phase 10 A-00, "A · Glide" (owner 2026-11-06,
+ * Amendment 3) -- 450 ms, a gentle arc, the card lifting as it travels.
+ * It replaced Phase 7 Amendment 6's 250 ms straight line.
+ */
+export const MOVE_MS = 450;
+/** Glide's curve: eases in and out. */
+export const MOVE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
+/** How far the path bows upward, as a share of the distance travelled. */
+export const GLIDE_ARC = 0.14;
+/** How much bigger a card is mid-flight (a long move; less for a short one). */
+export const GLIDE_LIFT = 0.08;
+/**
+ * The quick settle for what is not a journey -- a pointed-at hand card
+ * rising, the stack re-ordering (CSS transitions).
+ */
+export const SETTLE_MS = 250;
+export const SETTLE_EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
+/**
+ * Phase 10 (owner 2026-10-30 at lock, shown on the A-00 canvas): when the
+ * player acts while things move, what is moving finishes in this long --
+ * never snaps.
+ */
+export const HURRY_MS = 100;
 /** How small a card is at a rail zone, as it arrives there or leaves it. */
 export const AT_ZONE_SCALE = 0.3;
 /** A pointed-at hand card is drawn this much larger (AMENDMENT 6). */
@@ -39,6 +59,142 @@ export function placement(
     transformOrigin: `${ox}px ${oy}px`,
     transform: `translate3d(${tx}px, ${ty}px, 0) rotate(${box.rotation}deg) scale(${box.scale})`,
   };
+}
+
+// --- Glide (Phase 10 A-00) ----------------------------------------------------
+
+/** A CSS cubic-bezier as a function of progress (0..1 -> 0..1). */
+export function cubicBezier(p1x: number, p1y: number, p2x: number, p2y: number) {
+  const cx = 3 * p1x;
+  const bx = 3 * (p2x - p1x) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * p1y;
+  const by = 3 * (p2y - p1y) - cy;
+  const ay = 1 - cy - by;
+  const x = (t: number) => ((ax * t + bx) * t + cx) * t;
+  const dx = (t: number) => (3 * ax * t + 2 * bx) * t + cx;
+  const y = (t: number) => ((ay * t + by) * t + cy) * t;
+  return (progress: number) => {
+    let t = progress;
+    for (let i = 0; i < 8; i++) {
+      const error = x(t) - progress;
+      const slope = dx(t);
+      if (Math.abs(error) < 1e-5 || Math.abs(slope) < 1e-6) break;
+      t -= error / slope;
+    }
+    return y(Math.min(1, Math.max(0, t)));
+  };
+}
+
+const glideEase = cubicBezier(0.4, 0, 0.2, 1);
+/** Samples per move: enough that the arc reads as a curve, not a polygon. */
+const GLIDE_STEPS = 20;
+
+/** A placement's numbers: translation, rotation, scale. */
+export interface Placed {
+  x: number;
+  y: number;
+  r: number;
+  s: number;
+}
+
+/**
+ * Where an element is drawn right now, mid-animation included (null when
+ * the browser can't say). A card interrupted mid-Glide by a newer board
+ * sets off again from here, not from where it was heading.
+ */
+export function placedNow(element: Element): Placed | null {
+  if (typeof getComputedStyle !== "function" || typeof DOMMatrixReadOnly !== "function")
+    return null;
+  const transform = getComputedStyle(element).transform;
+  if (!transform || transform === "none") return null;
+  try {
+    const m = new DOMMatrixReadOnly(transform);
+    return { x: m.e, y: m.f, r: (Math.atan2(m.b, m.a) * 180) / Math.PI, s: Math.hypot(m.a, m.b) };
+  } catch {
+    return null;
+  }
+}
+
+function parts(box: Box, cardW: number, cardH: number, origin: { x: number; y: number }) {
+  const ox = origin.x * cardW;
+  const oy = origin.y * cardH;
+  return {
+    x: box.x - ox * (1 - box.scale),
+    y: box.y - oy * (1 - box.scale),
+    r: box.rotation,
+    s: box.scale,
+  };
+}
+
+/**
+ * The keyframes of one Glide move (Phase 10 A-00): from where a card is
+ * drawn to where it goes, along a gentle upward arc, lifting mid-flight,
+ * eased in and out. Run them with a linear timing over MOVE_MS: the easing
+ * is in the samples, so the arc and the speed stay together. The last frame
+ * is exactly `placement(to, ..., toOrigin)`, so the card lands where the
+ * layout puts it.
+ */
+export function glideFrames(
+  from: Box,
+  to: Box,
+  cardW: number,
+  cardH: number,
+  origin: { x: number; y: number },
+  toOrigin: { x: number; y: number } = origin,
+  opacity: { from: number; to: number } | null = null,
+  start: Placed | null = null,
+): Keyframe[] {
+  const a = start ?? parts(from, cardW, cardH, origin);
+  const b = parts(to, cardW, cardH, toOrigin);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const distance = Math.hypot(dx, dy);
+  // Perpendicular to the path, pointing up the screen.
+  let nx = distance ? -dy / distance : 0;
+  let ny = distance ? dx / distance : 0;
+  if (ny > 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  // A short hop (a row re-centring) barely lifts; a journey lifts fully.
+  const lift = GLIDE_LIFT * Math.min(1, distance / (cardH * 2));
+  const frames: Keyframe[] = [];
+  for (let k = 0; k <= GLIDE_STEPS; k++) {
+    const t = k / GLIDE_STEPS;
+    const e = k === GLIDE_STEPS ? 1 : glideEase(t);
+    const bow = Math.sin(Math.PI * e) * GLIDE_ARC * distance;
+    // The ends are exact: the card starts and lands precisely in place.
+    const at = k === 0 ? a : k === GLIDE_STEPS ? b : null;
+    const x = at ? at.x : a.x + dx * e + nx * bow;
+    const y = at ? at.y : a.y + dy * e + ny * bow;
+    const r = at ? at.r : a.r + (b.r - a.r) * e;
+    const s = at ? at.s : (a.s + (b.s - a.s) * e) * (1 + lift * Math.sin(Math.PI * e));
+    const frame: Keyframe = {
+      offset: t,
+      transform: `translate3d(${x}px, ${y}px, 0) rotate(${r}deg) scale(${s})`,
+    };
+    if (opacity) frame["opacity"] = opacity.from + (opacity.to - opacity.from) * e;
+    frames.push(frame);
+  }
+  return frames;
+}
+
+/**
+ * Phase 10 A-00 -- the player acted: everything still moving in `root`
+ * finishes in HURRY_MS. Endless animations (a breathing glow) are left
+ * alone.
+ */
+export function hurry(root: Element) {
+  if (typeof root.getAnimations !== "function") return;
+  for (const animation of root.getAnimations({ subtree: true })) {
+    const timing = animation.effect?.getComputedTiming();
+    if (!timing || timing.iterations === Infinity || animation.playState !== "running") continue;
+    const end = Number(timing.endTime ?? 0);
+    const now = Number(animation.currentTime ?? 0);
+    const left = (end - now) / Math.abs(animation.playbackRate || 1);
+    if (left > HURRY_MS) animation.updatePlaybackRate(animation.playbackRate * (left / HURRY_MS));
+  }
 }
 
 // --- the rail's zones (from the canvas, AMENDMENT 6) --------------------------
