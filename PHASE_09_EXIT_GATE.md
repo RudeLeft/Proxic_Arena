@@ -89,11 +89,14 @@ in 1.44.0.
   reroll, scry's top or bottom, modes, X, kicker, convoke, crank...)
   there is no Cancel on the act button, and Esc does nothing: the
   window's own button ("No", "Keep the 4", "Don't crank") declines. Rule
-  7 says "Esc backs out wherever the rules allow it".
+  7 says "Esc backs out wherever the rules allow it". **Owner
+  2026-11-06: keep it as it is** -- Esc only cancels what you started; a
+  stray Esc never declines a trigger or skips a choice; declining is
+  always a click.
 
 ## Still to do
 
-1. The owner decides Esc (above); built if it changes anything.
+1. ~~The owner decides Esc~~ -- decided 2026-11-06: as it is.
 2. A release (1.45.0) with everything since 1.44.0, so the owner can
    play it on the live site.
 3. **P9-O:** the owner plays real games on the live site and accepts.

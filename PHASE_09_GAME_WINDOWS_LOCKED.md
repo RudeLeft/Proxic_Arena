@@ -1244,3 +1244,11 @@ the ability menu too.
   counts down); the other player's waiting line for every asked kind
   (its own word, "Making a choice for your/their <card>", or the
   pregame line); game over, away, reveal and rolls.
+
+**Rule 7, as decided at the exit gate (owner 2026-11-06).** Esc backs
+out of what the player started -- casting or activating, its targets,
+its payment: exactly the act button's Cancel. It never answers a
+question, and never declines one that may be declined: that is the
+window's own button, a click ("No", "Keep the 4", "Don't crank"). Found
+by the exit gate's keyboard walk (every kind of question): Esc never
+answered a must-answer question; on a target it cancels the spell.
