@@ -58,7 +58,7 @@ export function ManaCost({
   style,
 }: {
   cost: string;
-  /** Lower or higher than printed, right now: the symbols carry a green or red edge. */
+  /** Lower or higher than printed, right now: said in words; a higher cost carries a red edge (spec 0058). */
   change?: "down" | "up" | null;
   style?: CSSProperties;
 }) {
@@ -68,7 +68,9 @@ export function ManaCost({
     change === "down" ? `, less than printed` : change === "up" ? `, more than printed` : "";
   return (
     <span
-      className={`bf-cost${change ? ` bf-cost-${change}` : ""}`}
+      // Spec 0058, item 2: no ring for a lower cost (still said in words);
+      // a higher one (Thalia's tax) keeps its red edge.
+      className={`bf-cost${change === "up" ? " bf-cost-up" : ""}`}
       role="img"
       aria-label={`Costs ${cost}${words}`}
       style={style}

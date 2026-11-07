@@ -366,6 +366,122 @@ public final class MatchController extends GeneratedControllerBase {
      */
     private static final ThreadLocal<Boolean> CHECKING = ThreadLocal.withInitial(() -> false);
 
+    /**
+     * Spec 0058, item 2 -- what a card in [player]'s hand would cost to
+     * cast right now, when that is not its printed cost: Forge's own
+     * reckoning, the same test-mode call the "what will you play" costs
+     * use (above), for the card's ordinary cast. Returns {cost, why} or
+     * null when it costs what it says. Nothing here decides anything.
+     *
+     * `why` is plain words: "Costs {1} less: Goblin Warchief". The cards
+     * named are those whose cost-changing static abilities Forge itself
+     * says apply to this spell (CostAdjustment.checkRequirement, see
+     * COST_APPLIES); when that cannot be asked the change is stated
+     * without names. An X cost is skipped: test mode reads X as 0.
+     */
+    static com.google.gson.JsonObject currentCost(forge.game.card.Card card, Player player) {
+        SpellAbility sa = card.getFirstSpellAbility();
+        forge.card.mana.ManaCost printed = card.getManaCost();
+        if (sa == null || !sa.isSpell() || sa.getPayCosts() == null || printed == null || printed.isNoCost()
+                || printed.getShardCount(forge.card.mana.ManaCostShard.X) > 0) {
+            return null;
+        }
+        boolean wasChecking = CHECKING.get();
+        CHECKING.set(true);
+        try {
+            if (sa.getActivatingPlayer() != player) {
+                // As Forge's own "what can be played" does for every card.
+                sa.setActivatingPlayer(player);
+            }
+            forge.card.mana.ManaCost now = forge.ai.ComputerUtilMana.calculateManaCost(
+                    sa.getPayCosts(), sa, player, true, 0, false).toManaCost();
+            if (now.toString().equals(printed.toString())) {
+                return null;
+            }
+            com.google.gson.JsonObject out = new com.google.gson.JsonObject();
+            out.addProperty("cost", now.toString());
+            int less = printed.getCMC() - now.getCMC();
+            boolean onlyGeneric = printed.getGenericCost() - now.getGenericCost() == less;
+            String change = less > 0
+                    ? (onlyGeneric ? "Costs {" + less + "} less" : "Costs less")
+                    : less < 0
+                            ? (onlyGeneric ? "Costs {" + -less + "} more" : "Costs more")
+                            : "Costs something different";
+            java.util.List<String> by = costChangers(sa, player, less > 0);
+            out.addProperty("why", by.isEmpty() ? change : change + ": " + String.join(", ", by));
+            return out;
+        } catch (RuntimeException e) {
+            System.err.println("proxic: current cost failed for " + card + ": " + e);
+            return null;
+        } finally {
+            CHECKING.set(wasChecking);
+        }
+    }
+
+    /**
+     * VEND-004 -- reflective: forge.game.cost.CostAdjustment's private
+     * static {@code checkRequirement(SpellAbility, StaticAbility)}, the
+     * test Forge applies before a ReduceCost or RaiseCost ability changes
+     * a spell's cost. Why: to NAME the cards changing a cost (spec 0058,
+     * item 2) by Forge's own test rather than a rival one. If Forge
+     * renames or changes it, this is null and the words say the change
+     * without names ("Costs {1} less") -- nothing else depends on it.
+     * Covered by scripts/check-costs.py's "warchief" scenario (the names)
+     * and TargetWordsTest.forgeStillHasTheCostTest (that it is found).
+     */
+    static final java.lang.reflect.Method COST_APPLIES = costApplies();
+
+    private static java.lang.reflect.Method costApplies() {
+        try {
+            java.lang.reflect.Method m = forge.game.cost.CostAdjustment.class.getDeclaredMethod(
+                    "checkRequirement", SpellAbility.class, forge.game.staticability.StaticAbility.class);
+            m.setAccessible(true);
+            return m;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            System.err.println("proxic: CostAdjustment.checkRequirement not found; cost changes go unnamed: " + e);
+            return null;
+        }
+    }
+
+    /** Spec 0058, item 2 -- the cards whose cost changes Forge applies to [sa], in table order. */
+    private static java.util.List<String> costChangers(SpellAbility sa, Player player, boolean reducing) {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        if (COST_APPLIES == null) {
+            return names;
+        }
+        forge.game.Game game = player.getGame();
+        forge.game.staticability.StaticAbilityMode mode = reducing
+                ? forge.game.staticability.StaticAbilityMode.ReduceCost
+                : forge.game.staticability.StaticAbilityMode.RaiseCost;
+        // The zones CostAdjustment reads, in its order.
+        java.util.List<forge.game.card.Card> sources = new java.util.ArrayList<>();
+        for (forge.game.zone.ZoneType zone : java.util.List.of(forge.game.zone.ZoneType.Battlefield,
+                forge.game.zone.ZoneType.Stack, forge.game.zone.ZoneType.Command)) {
+            game.getCardsIn(zone).forEach(sources::add);
+        }
+        if (!sources.contains(sa.getHostCard())) {
+            sources.add(sa.getHostCard()); // "this spell costs {1} less if ..."
+        }
+        for (forge.game.card.Card source : sources) {
+            for (forge.game.staticability.StaticAbility st : source.getStaticAbilities()) {
+                if (!st.checkMode(mode)) {
+                    continue;
+                }
+                try {
+                    if (Boolean.TRUE.equals(COST_APPLIES.invoke(null, sa, st))) {
+                        String name = ViewerSnapshot.nameFor(source, player.getView());
+                        if (!names.contains(name)) {
+                            names.add(name);
+                        }
+                    }
+                } catch (ReflectiveOperationException | RuntimeException e) {
+                    return new java.util.ArrayList<>(); // unnamed rather than half-named
+                }
+            }
+        }
+        return names;
+    }
+
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         // THE RUNNING MILESTONE. Reaching this means the game is
@@ -787,7 +903,10 @@ public final class MatchController extends GeneratedControllerBase {
         if (ability.isTrigger() && ability.getTrigger() != null) {
             String said = triggerEffect(ability.getTrigger().toString(), ability.getHostCard().getName());
             if (!said.isEmpty()) {
-                return said;
+                // Spec 0058, item 3: "deal 3 damage ... (3 Goblins on the
+                // battlefield)", the X counted now (and again on resolving).
+                Integer x = countedX(ability);
+                return x == null ? said : PlainWords.countedX(said, x, false);
             }
         }
         String cost = "";
@@ -809,6 +928,10 @@ public final class MatchController extends GeneratedControllerBase {
         String name = ability.getHostCard().getName();
         effect = plainSubject(effect.replace("CARDNAME", name), name);
         String prompt = effect.startsWith(name) ? effect : name + ": " + effect;
+        Integer x = countedX(ability);
+        if (x != null) {
+            prompt = PlainWords.countedX(prompt, x, false); // Spec 0058, item 3
+        }
         if (!cost.isEmpty() && choosesForCost(ability)) {
             prompt += " Next, you'll pay its cost: " + Character.toLowerCase(cost.charAt(0)) + cost.substring(1) + ".";
         }
@@ -842,12 +965,74 @@ public final class MatchController extends GeneratedControllerBase {
         }
         text = text.replace("CARDNAME", name);
         text = text.replaceFirst("^you may have " + java.util.regex.Pattern.quote(name) + " ", name + " may ");
+        // Spec 0058, item 3: Gempalm Incinerator's "you may have it deal ...".
+        text = text.replaceFirst("^you may have it ", java.util.regex.Matcher.quoteReplacement(name) + " may ");
         text = plainSubject(text, name);
         if (text.isEmpty()) {
             return "";
         }
         text = Character.toUpperCase(text.charAt(0)) + text.substring(1);
         return text.endsWith(".") ? text : text + ".";
+    }
+
+    /**
+     * Spec 0058, item 3 -- the X of an ability that is a count the game can
+     * make right now ("SVar:X:Count$Valid Goblin", the Gempalms and the
+     * like), worked out by Forge (AbilityUtils.calculateAmount); null when
+     * the ability has no X, or its X is paid, chosen, or read off what
+     * caused it or what it targets -- those are not known in advance.
+     * Shown only: the rules count it again when it resolves.
+     */
+    static Integer countedX(SpellAbility ability) {
+        for (SpellAbility part = ability; part != null; part = part.getSubAbility()) {
+            if (!part.hasSVar("X")) {
+                continue;
+            }
+            String how = part.getSVar("X");
+            if (how == null || !how.startsWith("Count$") || how.contains("xPaid") || how.contains("Triggered")
+                    || how.contains("Remembered") || how.contains("Targeted") || how.contains("Chosen")
+                    || how.contains("Imprinted") || how.contains("Paid")) {
+                return null;
+            }
+            try {
+                return forge.game.ability.AbilityUtils.calculateAmount(part.getHostCard(), "X", part);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Spec 0058, item 3 -- what cycling a card also does, when it has a
+     * "when you cycle this" trigger whose X the game can count now: the
+     * trigger's effect after "then", X filled in ("deal 3 damage to a
+     * creature (3 Goblins)"). Null otherwise.
+     */
+    static String whenCycled(forge.game.card.Card card) {
+        for (forge.game.trigger.Trigger trigger : card.getTriggers()) {
+            if (trigger.getMode() != forge.game.trigger.TriggerType.Cycled
+                    || !"Card.Self".equals(trigger.getParamOrDefault("ValidCard", ""))) {
+                continue;
+            }
+            SpellAbility effect;
+            try {
+                effect = trigger.ensureAbility();
+            } catch (RuntimeException e) {
+                continue;
+            }
+            Integer x = countedX(effect);
+            if (x == null) {
+                continue;
+            }
+            String said = triggerEffect(trigger.toString(), card.getName());
+            String counted = PlainWords.countedX(said, x, true);
+            if (said.isEmpty() || counted.equals(said)) {
+                continue;
+            }
+            return PlainWords.thenWords(counted, card.getName());
+        }
+        return null;
     }
 
     /** "It deals 1 damage" -- Forge's "It" for the card itself -- becomes its name. */
@@ -1037,6 +1222,11 @@ public final class MatchController extends GeneratedControllerBase {
                 if (CANCEL_TARGETS.equals(choice)) {
                     // Back out, however many are chosen: Forge reads
                     // false as the player changing their mind.
+                    // Spec 0058, item 1: and it is the player's own "no",
+                    // so the loop guard keeps the card on offer (before,
+                    // only a null answer counted, and a Cancel here hid
+                    // the card until the game changed).
+                    host.gate().notePlayerBackedOut();
                     return false;
                 }
                 if (DecisionGate.PASS.equals(choice)) {
@@ -4358,10 +4548,24 @@ public final class MatchController extends GeneratedControllerBase {
             java.util.LinkedHashMap<String, SpellAbility> byId =
                     new java.util.LinkedHashMap<>();
             java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
+            // Spec 0058, item 8 -- each trigger's OWN card, for a mutated
+            // creature: which of its cards printed the ability, and whether
+            // that card is on top or underneath, with the ability's words.
+            com.google.gson.JsonObject sources = new com.google.gson.JsonObject();
             for (SpellAbility ability : remaining) {
                 String id = "trigger:" + byId.size() + ":card:" + ability.getHostCard().getId();
                 byId.put(id, ability);
                 labels.put(id, describe(ability));
+                com.google.gson.JsonObject source = mergedSource(ability);
+                if (source != null) {
+                    sources.add(id, source);
+                }
+            }
+            com.google.gson.JsonObject before = host.arrange();
+            if (sources.size() > 0) {
+                com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+                how.add("sources", sources);
+                host.arranging(how);
             }
             try {
                 String choice =
@@ -4381,10 +4585,66 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
+            } finally {
+                host.arranging(before);
             }
         }
         ordered.addAll(remaining);
         return ordered;
+    }
+
+    /**
+     * Spec 0058, item 8 -- for an ability of a mutated creature, the card
+     * among its merged cards that printed it: {card, name, place ("top" or
+     * "underneath"), says (the ability's effect, "Destroy an artifact or
+     * enchantment an opponent controls.")}. Null for anything else.
+     *
+     * Forge copies each merged card's abilities onto the creature
+     * (CardFactory.getMutatedCloneStates -> CardState.addAbilitiesFrom),
+     * and a copied trait keeps the CardState it came from
+     * (CardTraitBase.copyHelper), so getOriginalHost() is the merged card
+     * that printed it. Failing that, the merged card with a trigger of the
+     * same mode and the same words.
+     */
+    static com.google.gson.JsonObject mergedSource(SpellAbility ability) {
+        forge.game.card.Card host = ability.getHostCard();
+        if (host == null || !host.hasMergedCard() || host.getMergedCards().size() < 2) {
+            return null;
+        }
+        forge.game.trigger.Trigger trigger = ability.isTrigger() ? ability.getTrigger() : null;
+        java.util.List<forge.game.card.Card> parts = new java.util.ArrayList<>();
+        host.getMergedCards().forEach(parts::add);
+        forge.game.card.Card origin = trigger != null ? trigger.getOriginalHost() : ability.getOriginalHost();
+        if (origin == null || !parts.contains(origin)) {
+            origin = null;
+            String words = trigger == null ? null : trigger.getParamOrDefault("TriggerDescription", "");
+            for (forge.game.card.Card part : parts) {
+                if (trigger == null || origin != null) {
+                    break;
+                }
+                for (forge.game.trigger.Trigger own : part.getState(part.getCurrentStateName()).getTriggers()) {
+                    if (own.getMode() == trigger.getMode()
+                            && words.equals(own.getParamOrDefault("TriggerDescription", ""))) {
+                        origin = part;
+                        break;
+                    }
+                }
+            }
+        }
+        if (origin == null) {
+            return null;
+        }
+        com.google.gson.JsonObject out = new com.google.gson.JsonObject();
+        out.addProperty("card", "card:" + origin.getId());
+        String name = ViewerSnapshot.ownName(origin, null);
+        out.addProperty("name", name);
+        out.addProperty("place", origin == parts.get(0) ? "top" : "underneath");
+        String effect = trigger == null ? "" : triggerEffect(trigger.toString(), name);
+        String says = PlainWords.capital(PlainWords.thenWords(effect, name));
+        if (!says.isEmpty()) {
+            out.addProperty("says", says + ".");
+        }
+        return out;
     }
 
     /** An ability's description without the cause Forge ends it with: "[Zone Changer: ...]". */
@@ -5037,6 +5297,13 @@ public final class MatchController extends GeneratedControllerBase {
                         String effect = PlainWords.effectWords(
                                 sa.getParamOrDefault("SpellDescription", String.valueOf(sa.getDescription())),
                                 card.getName());
+                        // Spec 0058, item 3: "..., then deal 3 damage to a
+                        // creature (3 Goblins)" -- the Gempalms' cycle trigger.
+                        String then = "cycling".equals(way) || "landcycling".equals(way) ? whenCycled(card) : null;
+                        if (then != null && !effect.isBlank()) {
+                            String e = effect.trim();
+                            effect = (e.endsWith(".") ? e.substring(0, e.length() - 1) : e) + ", then " + then + ".";
+                        }
                         use.addProperty("line", PlainWords.discardLine(card.getName(), effect, card.isLand()));
                     }
                 }

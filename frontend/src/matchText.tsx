@@ -577,7 +577,7 @@ export interface TargetWords {
 
 const TITLE_MOST = 40;
 const NOUN_END =
-  /\s(?:gets?|gains?|deals?|reveals?|loses?|until|to|and|can't|becomes?|has|have|with|that|this|from|on|in|for)\b|[.,;]|$/;
+  /\s(?:gets?|gains?|deals?|reveals?|loses?|until|to|and|can't|becomes?|has|have|with|that|this|from|on|in|for)\b|\s?\(|[.,;]|$/;
 
 function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);

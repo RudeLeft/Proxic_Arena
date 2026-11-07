@@ -1287,6 +1287,51 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   outline: 3px solid #9ccbff;
   outline-offset: 1px;
 }
+/* Spec 0058, item 5 -- the act button held for a moment between questions:
+ * shown as it was, not clickable (its question is gone). */
+.gs-act-held {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+/* Spec 0058, item 4 -- by a clicked card with nothing to do: a short note
+ * that fades after about two seconds (the ring stays, owner). */
+.gs-nothing-note {
+  position: absolute;
+  z-index: 40;
+  transform: translate(-50%, -100%);
+  max-width: 260px;
+  padding: 5px 10px;
+  border: 1px solid #9ccbff;
+  border-radius: 8px;
+  background: rgb(10 13 17 / 92%);
+  color: #e8e2d4;
+  font-size: var(--pa-size-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: gs-nothing-note 2.7s ease forwards;
+}
+@keyframes gs-nothing-note {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-nothing-note {
+    animation-timing-function: steps(1, end);
+  }
+}
 .bf-card.bf-unpayable {
   filter: saturate(0.5) brightness(0.8);
   /* §7.54: dimmed, no glow, still clickable -- Forge has the last word. */
@@ -1415,6 +1460,18 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-inspect-types {
   color: #8a8f98;
+}
+/* Spec 0058, item 2 -- why a card costs what it does now. */
+.gs-inspect-costwhy {
+  color: #b9e3a8;
+}
+/* Spec 0058, item 8 -- the cards of a mutated creature. */
+.gs-inspect-merged {
+  color: #d8d3c8;
+}
+.gs-inspect-merged-note {
+  color: #8a8f98;
+  font-size: var(--pa-size-sm);
 }
 /* Spec 0045 -- a stack object's facts, label beside words. */
 .gs-inspect-facts {
@@ -2908,6 +2965,15 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   gap: 6px;
 }
 /* Shown, not chosen: a picture, not a button. */
+/* Spec 0058, item 8 -- a mutated creature's trigger: its card and its words. */
+.gs-win-tile-says {
+  font-size: var(--pa-size-sm);
+  line-height: 1.35;
+  color: #e8e2d4;
+}
+.gs-win-tile-says b {
+  color: #f1c36a;
+}
 .gs-win-damage-one .gs-win-tile {
   cursor: default;
 }
@@ -3204,6 +3270,23 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #1d1d1d;
   font-weight: 700;
   font-size: var(--pa-size-sm);
+}
+/* Spec 0058, item 6 -- the spark from the land that paid, to its pip. */
+.gs-cast-spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* Spec 0058, item 6 -- one grey pip per point of generic mana. */
+.gs-cast-pip-generic {
+  display: inline-block;
+  background: #cfc9be;
 }
 .gs-cast-pip-paid {
   opacity: 1;

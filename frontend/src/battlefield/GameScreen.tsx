@@ -20,6 +20,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import logo from "../assets/logo-header.webp";
 import libraryArt from "../assets/zones/library.webp";
@@ -72,6 +73,10 @@ import {
   docks,
   heldSpot,
   owingSymbols,
+  keepPaying,
+  emberColour,
+  type Paying,
+  type Spark,
   type Floating,
 } from "./CastingCard";
 import {
@@ -128,7 +133,7 @@ import { NoticeStack } from "../NoticeStack";
 import { GAME_MESSAGE_MS, inArrival, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead, pictureUrl } from "../closeUp";
-import { ManaCost, ManaText, costChange, withSymbols } from "./ManaCost";
+import { ManaCost, ManaText, costChange, manaSymbols, withSymbols } from "./ManaCost";
 import {
   combatPart,
   gameOverWords,
@@ -330,18 +335,19 @@ export function GameScreen({
   );
   const choosable = useMemo(() => new Set(question?.onBoard.keys() ?? []), [question]);
   const chosenTargets = useMemo(() => new Set(question?.chosen ?? []), [question]);
-  // Owner 2026-10-21: what each hand card's cast costs right now -- Forge
-  // says, on the options of the question you are asked; the first spell
-  // option of a card is its ordinary cast.
+  // Owner 2026-10-21: what each hand card's cast costs right now.
+  // Spec 0058, item 2: from every snapshot of your hand (`costNow`), not only
+  // the options of a "what will you play" question -- so the cost stays
+  // reduced while you pay, target, wait, and on the other player's turn.
   const handCosts = useMemo(() => {
     const costs = new Map<string, string>();
-    for (const option of decision?.options ?? []) {
-      if (option.cost && option.objectId && !costs.has(option.objectId)) {
-        costs.set(option.objectId, option.cost);
-      }
-    }
+    for (const card of board?.hand ?? []) if (card.costNow) costs.set(card.id, card.costNow);
     return costs;
-  }, [decision]);
+  }, [board]);
+  // Spec 0058, item 2 -- and the card being cast keeps the cost it had in
+  // the hand until the game says what is being paid (items 6-7).
+  const lastHandCosts = useRef(new Map<string, string>());
+  for (const [id, cost] of handCosts) lastHandCosts.current.set(id, cost);
   const unpayable = useMemo(() => {
     const dim = new Set<string>();
     for (const [id, options] of question?.onBoard ?? []) {
@@ -356,6 +362,9 @@ export function GameScreen({
   // briefly, beside it -- not a window.
   // Phase 9 W-16: in the ability panel, until clicked away (it faded).
   const [why, setWhy] = useState<{ objectId: string; text: string } | null>(null);
+  // Spec 0058, item 4 -- a click that only selects (the blue ring): a note
+  // by the card that fades. `n` counts clicks, so each one shows it again.
+  const [nothing, setNothing] = useState<{ objectId: string; n: number } | null>(null);
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{
     seat: number;
@@ -450,6 +459,8 @@ export function GameScreen({
     if (decision && isCopyTarget(decision) && decision.about?.copy === 1) setSameTarget(true);
   }, [decision]);
 
+  // Spec 0058, item 6 -- the card that last paid mana, and a count of payments.
+  const paidFrom = useRef<{ id: string | null; n: number }>({ id: null, n: 0 });
   const answer = useCallback(
     (actionId: string | null) => {
       if (!decision) return;
@@ -466,6 +477,12 @@ export function GameScreen({
       ) {
         const card = decision.options.find((o) => o.actionId === actionId)?.objectId;
         if (card) setHandOrder((list) => [...list, card]);
+      }
+      // Spec 0058, item 6 -- the land just tapped to pay: a spark flies
+      // from it to the pip it lights.
+      if (actionId && decision.kind === "applyManaToCost") {
+        const land = decision.options.find((o) => o.actionId === actionId)?.objectId;
+        if (land?.startsWith("card:")) paidFrom.current = { id: land, n: paidFrom.current.n + 1 };
       }
       // The first copy's target, however it was chosen (bubble or board).
       if (actionId && isCopyTarget(decision) && (decision.about?.copy ?? 1) === 1) {
@@ -530,6 +547,27 @@ export function GameScreen({
       ? optionalSource
       : null;
   const casting = board?.casting[0] ?? optionalFromHand;
+  // Spec 0058, items 6-7 -- the cost under the card being cast: the cost
+  // being PAID (the first payment question's "still owing": mutate's
+  // {2}{B/G}{B/G}, an evoke or a reduced cost), and the last "still owing"
+  // kept between payment questions, so nothing flashes back to unpaid.
+  // Before the first payment (a target is asked first), the cost it had in
+  // the hand, reduced or not.
+  const paying = useRef<Paying | null>(null);
+  paying.current = keepPaying(
+    paying.current,
+    casting?.id ?? null,
+    decision?.kind === "applyManaToCost"
+      ? owingSymbols(
+          decision.owing,
+          decision.options.map((o) => o.label),
+        )
+      : null,
+  );
+  const castCost =
+    paying.current?.cost ??
+    (casting ? manaSymbols(lastHandCosts.current.get(casting.id) ?? casting.manaCost) : null);
+  const castOwing = paying.current?.owing ?? null;
   /** Where the card being cast was last drawn: its flight starts there. */
   const floating = useRef<Floating | null>(null);
   // Spec 0057, item 1 -- between questions it stays where it was (heldSpot).
@@ -917,6 +955,13 @@ export function GameScreen({
       // (AMENDMENT 12). Right-click is the close look (§7.30).
       setSelected(objectId);
       setOffer(result.kind === "offer" ? result.options : null);
+      // Spec 0058, item 4 -- and says so, briefly, when nothing else will
+      // (no reason to show, no greyed abilities).
+      setNothing(
+        result.kind === "select" && !reason && (decision?.notNow?.[objectId]?.length ?? 0) === 0
+          ? (previous) => ({ objectId, n: (previous?.n ?? 0) + 1 })
+          : null,
+      );
     },
     [question, answer, decision, marked, aimAt, board],
   );
@@ -1515,6 +1560,9 @@ export function GameScreen({
                 over={over}
                 onLeave={onLeave}
                 watching={game.watching}
+                placing={
+                  placingTriggers(decision) ? (answeredForYou ? "answering" : "asking") : null
+                }
               />
             }
             overlay={(at, geometry) => {
@@ -1537,12 +1585,11 @@ export function GameScreen({
                       card={casting}
                       geometry={geometry}
                       from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
-                      owing={
-                        decision?.kind === "applyManaToCost"
-                          ? owingSymbols(
-                              decision.owing,
-                              decision.options.map((o) => o.label),
-                            )
+                      owing={castOwing}
+                      cost={castCost}
+                      spark={
+                        paidFrom.current.id
+                          ? sparkOf(paidFrom.current.id, at(paidFrom.current.id), board)
                           : null
                       }
                       artUrl={artUrl}
@@ -1609,6 +1656,15 @@ export function GameScreen({
                       </span>
                     ) : null;
                   })}
+                  {nothing &&
+                    nothing.objectId === selected &&
+                    !offer &&
+                    (() => {
+                      const box = at(selected);
+                      return box ? (
+                        <NothingNote key={nothing.n} box={box} onDone={() => setNothing(null)} />
+                      ) : null;
+                    })()}
                   {selected && (offer || why || (decision?.notNow?.[selected]?.length ?? 0) > 0) ? (
                     // Phase 9 W-16: one panel -- what it can do, cost first;
                     // what it can't do now, greyed with why; or, for a card
@@ -1744,7 +1800,7 @@ export function GameScreen({
           <Inspect
             card={cardOf(board, inspecting)}
             name={objectName(inspecting)}
-            costNow={handCosts.get(inspecting) ?? null}
+            costNow={cardOf(board, inspecting)?.costNow ?? null}
             artUrl={pictureUrl}
             board={board}
             mySeat={board.spectator ? -1 : board.seat}
@@ -2232,6 +2288,89 @@ function useResolving(asking: { seat: number | null } | null): boolean {
   return nobody && quiet;
 }
 
+/** Spec 0058, item 6 -- where a payment's spark starts, and its colour (the land's mana). */
+function sparkOf(id: string, box: Box | null, board: Snapshot | null): Spark | null {
+  if (!box) return null;
+  const land = board ? cardOf(board, id) : null;
+  const made = land?.makes?.length === 1 ? `{${land.makes[0]}}` : null;
+  return { box, colour: emberColour(made) };
+}
+
+/** Spec 0058, item 5 -- how long the act button holds its last state when nothing is asked. */
+export const STEADY_MS = 400;
+/** Spec 0058, item 5 -- while triggers go on the stack, the gaps between their questions. */
+export const PLACING_QUIET_MS = 1500;
+const PLACING_KINDS = new Set(["chooseTargetsFor", "confirmTrigger", "chooseModeForAbility"]);
+
+/**
+ * Spec 0058, item 5 -- a question asked while the game puts triggers on the
+ * stack: their order, or a trigger's target, "use it?" or mode (each is
+ * chosen as it goes on the stack, rule 603.3d).
+ */
+export function placingTriggers(decision: Decision | null): boolean {
+  if (!decision) return false;
+  if (decision.kind === "orderSimultaneousAbilities") return true;
+  return PLACING_KINDS.has(decision.kind) && decision.about?.kind === "trigger";
+}
+
+/**
+ * Spec 0058, item 5 -- the act button, steady. Each trigger going on the
+ * stack is its own question; between them nothing is asked for a moment,
+ * and the button cycled through several labels in a second and a half.
+ * So: while [placing] (a trigger question the page answers itself), and in
+ * the quiet after one, it says "One moment · Putting triggers on the stack";
+ * any other quiet moment shows the last button, unclickable, for
+ * [STEADY_MS] -- then what is true now.
+ */
+export function useSteadyAct(
+  act: ReactNode,
+  quiet: boolean,
+  placing: "answering" | "asking" | null,
+): ReactNode {
+  const live = useRef<ReactNode>(null);
+  const wasPlacing = useRef(false);
+  const [since, setSince] = useState<number | null>(null);
+  const [, setTick] = useState(0);
+  if (!quiet) {
+    live.current = act;
+    wasPlacing.current = placing !== null;
+  }
+  useEffect(() => {
+    if (!quiet) {
+      setSince(null);
+      return undefined;
+    }
+    setSince(Date.now());
+    const timer = setTimeout(
+      () => setTick((n) => n + 1),
+      wasPlacing.current ? PLACING_QUIET_MS : STEADY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [quiet]);
+  const placingNode = (
+    <div className="gs-waiting gs-waiting-placing" role="status">
+      <Coin emblem="wait" />
+      <span className="gs-act-text">
+        <span className="gs-waiting-word">One moment</span>
+        <span className="gs-waiting-sub">Putting triggers on the stack</span>
+      </span>
+    </div>
+  );
+  // A trigger question the page answers itself: no button of its own.
+  if (!quiet) return placing === "answering" ? placingNode : act;
+  const held = since === null ? 0 : Date.now() - since;
+  if (wasPlacing.current && held < PLACING_QUIET_MS) return placingNode;
+  if (live.current && held < STEADY_MS) {
+    return (
+      // A disabled fieldset: every button in it is disabled, clicked or not.
+      <fieldset className="gs-act-held" disabled aria-hidden="true">
+        {live.current}
+      </fieldset>
+    );
+  }
+  return act;
+}
+
 /** Spec 0002 — the last seat the server said was asked. */
 function useLastAsked(asking: { seat: number | null } | null): number | null {
   const [last, setLast] = useState<number | null>(null);
@@ -2264,6 +2403,7 @@ function Rail({
   over,
   onLeave,
   watching = 0,
+  placing = null,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -2302,6 +2442,11 @@ function Rail({
   onLeave: () => void;
   /** Spec 0047 — how many people are watching. */
   watching?: number;
+  /**
+   * Spec 0058, item 5 -- the game is putting triggers on the stack: a
+   * question about one the page answers itself, or the gap after one.
+   */
+  placing?: "answering" | "asking" | null;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -2315,6 +2460,200 @@ function Rail({
     !over && !combat && !cancel && !myPriority && !question
       ? waitingLine(board, board.spectator ? -1 : mySeat, asking, lastAsked, resolving)
       : null;
+  const act = over?.aside ? (
+    // W-24 — the banner put away to look at the board: this leaves.
+    <div className="gs-act-group">
+      <button type="button" className="gs-act gs-act-leave" onClick={onLeave}>
+        <Coin emblem="leave" />
+        <span className="gs-act-text">
+          <span className="gs-act-word">{over.leaveWord}</span>
+          <span className="gs-act-sub">{over.word}</span>
+        </span>
+      </button>
+      {/* In "All attack"'s place, above the button. */}
+      <ul className="gs-combat-options">
+        <li>
+          <button type="button" className="gs-act-all" onClick={over.onShow}>
+            Show the result
+          </button>
+        </li>
+      </ul>
+    </div>
+  ) : over ? (
+    <div className="gs-waiting" role="status">
+      <Coin emblem="flag" />
+      <span className="gs-act-text">
+        <span className="gs-waiting-word">{over.word}</span>
+        {(over.sub || over.turn) && <span className="gs-waiting-sub">{over.sub || over.turn}</span>}
+      </span>
+    </div>
+  ) : combat ? (
+    // Owner 2026-10-22: combat on the act button, as MTG Arena has it --
+    // no bar over the table. It says what pressing it does, and counts.
+    <div className="gs-combat" data-kind={combat.kind}>
+      <h2 className="gs-question-title pa-visually-hidden">{combat.heading}</h2>
+      {combat.notice && (
+        <p className="gs-combat-notice" role="alert">
+          {combat.notice}
+        </p>
+      )}
+      {combat.onAll && (
+        <ul className="gs-combat-options">
+          <li>
+            <button type="button" className="gs-act-all" disabled={busy} onClick={combat.onAll}>
+              All attack
+            </button>
+          </li>
+        </ul>
+      )}
+      {combat.marked > 0 ? (
+        // W-14 (owner: the button locked) -- selected but not pointed:
+        // nothing moves on until they are pointed or unselected.
+        <button
+          type="button"
+          className="gs-act gs-act-combat gs-act-waiting"
+          disabled
+          aria-label={`${combat.marked} selected. Click what they ${combat.kind === "declareAttackers" ? "attack" : "block"}, or press Escape to unselect them.`}
+        >
+          <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
+          <span className="gs-act-text">
+            <span className="gs-act-word">{combat.marked} selected</span>
+            <span className="gs-act-sub">
+              Click what they {combat.kind === "declareAttackers" ? "attack" : "block"} · Esc
+              unselects
+            </span>
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="gs-act gs-act-combat"
+          disabled={busy || !combat.canPass}
+          onClick={() => onAnswer(null)}
+          aria-label={`Pass: ${combat.word}. ${combat.sub}`}
+        >
+          <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
+          <span className="gs-act-text">
+            <span className="gs-act-word">{combat.word}</span>
+            <span className="gs-act-sub">{combat.sub}</span>
+          </span>
+        </button>
+      )}
+    </div>
+  ) : cancel ? (
+    // Owner 2026-10-22: a misclick must be undoable where every other
+    // answer is -- the act button. Esc does the same.
+    <button
+      type="button"
+      className="gs-act gs-act-cancel"
+      disabled={busy}
+      onClick={() => onAnswer(cancel.answer)}
+      aria-label={`${cancel.word}: ${cancel.sub}`}
+    >
+      <Coin emblem="cancel" />
+      <span className="gs-act-text">
+        <span className="gs-act-word">{cancel.word}</span>
+        <span className="gs-act-sub">{cancel.sub} · Esc</span>
+      </span>
+    </button>
+  ) : myPriority && countdown !== null ? (
+    // Spec 0005: your own spell or trigger is on top. It resolves when
+    // the countdown runs out; clicking here resolves it now (spec 0035:
+    // an ordinary Pass). Clicking a card you could play still pauses.
+    <div className="gs-act-group">
+      <button
+        type="button"
+        className="gs-act gs-act-window"
+        disabled={busy}
+        onClick={() => onAnswer(null)}
+        aria-label={`Pass: Resolve ${top?.name ?? "it"} now, or in ${countdown}.`}
+      >
+        {/* Keyed: a new spell on top starts its ring again. */}
+        <Coin key={top?.id} emblem="resolve" seconds={countdown} />
+        <span className="gs-act-text">
+          <span className="gs-act-word">Resolves in {countdown}</span>
+          <span className="gs-act-sub">
+            {top ? `Your ${top.name}` : "Yours"} · click to resolve now
+          </span>
+        </span>
+      </button>
+      {/* Amendment 13 (item 1) -- the circle pauses the countdown. Its own
+              button over the coin: the words beside it still resolve now. */}
+      {onPauseWindow && (
+        <button
+          type="button"
+          className="gs-act-pause"
+          aria-label="Pause the countdown"
+          onClick={onPauseWindow}
+        />
+      )}
+      {/* Spec 0043: pass until the stack is empty -- asked again if
+              anything new is added to it. */}
+      {board.stack.length > 1 && (
+        <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
+          Let it all resolve
+        </button>
+      )}
+    </div>
+  ) : myPriority && windowPaused ? (
+    // Amendment 13 (item 1) -- paused: nothing resolves until you say.
+    <button
+      type="button"
+      className="gs-act gs-act-window"
+      disabled={busy}
+      onClick={() => onAnswer(null)}
+      aria-label={`Pass: Resolve ${top?.name ?? "it"}. Paused.`}
+    >
+      <Coin emblem="play" />
+      <span className="gs-act-text">
+        <span className="gs-act-word">Paused</span>
+        <span className="gs-act-sub">Resolve when you're ready</span>
+      </span>
+    </button>
+  ) : myPriority ? (
+    <div className="gs-act-group">
+      {/* The same pass whatever it says (§7.53 extra): the words say
+              what happens next, as MTG Arena's button does. Named "Pass"
+              for a screen reader, whatever it shows. */}
+      <button
+        type="button"
+        className="gs-act"
+        disabled={busy}
+        onClick={onPass}
+        aria-label={`Pass: ${words.word}. ${words.sub}`}
+      >
+        <Coin emblem={passEmblem(words.word)} />
+        <span className="gs-act-text">
+          <span className="gs-act-word">{words.word}</span>
+          <span className="gs-act-sub">{words.sub}</span>
+        </span>
+      </button>
+      {board.stack.length > 1 && (
+        <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
+          Let it all resolve
+        </button>
+      )}
+    </div>
+  ) : waiting ? (
+    <div className="gs-waiting" role="status">
+      {/* W-25: whose move, in plain letters, and what they are doing. */}
+      <Coin emblem="wait" />
+      <span className="gs-act-text">
+        <span className="gs-waiting-name">{waiting.word}</span>
+        {waiting.sub && <span className="gs-waiting-sub">{waiting.sub}</span>}
+      </span>
+    </div>
+  ) : (
+    <div className="gs-waiting gs-waiting-question" role="status">
+      <Coin emblem="ask" />
+      <span className="gs-act-text">
+        <span className="gs-waiting-word">Your answer</span>
+        <span className="gs-waiting-sub">Your choice is above the board</span>
+      </span>
+    </div>
+  );
+  // Spec 0058, item 5 -- nothing asked of you: the last button, for a moment.
+  const steadyAct = useSteadyAct(act, waiting !== null && !over, placing);
   return (
     <div className="gs-rail">
       {them && <StatusTray player={them} side="opponent" />}
@@ -2337,201 +2676,9 @@ function Rail({
       <StepLadder board={board} mySeat={mySeat} watching={watching} />
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
-          on the board (owner 2026-10-22: the column's Stack box is gone). */}
-      {over?.aside ? (
-        // W-24 — the banner put away to look at the board: this leaves.
-        <div className="gs-act-group">
-          <button type="button" className="gs-act gs-act-leave" onClick={onLeave}>
-            <Coin emblem="leave" />
-            <span className="gs-act-text">
-              <span className="gs-act-word">{over.leaveWord}</span>
-              <span className="gs-act-sub">{over.word}</span>
-            </span>
-          </button>
-          {/* In "All attack"'s place, above the button. */}
-          <ul className="gs-combat-options">
-            <li>
-              <button type="button" className="gs-act-all" onClick={over.onShow}>
-                Show the result
-              </button>
-            </li>
-          </ul>
-        </div>
-      ) : over ? (
-        <div className="gs-waiting" role="status">
-          <Coin emblem="flag" />
-          <span className="gs-act-text">
-            <span className="gs-waiting-word">{over.word}</span>
-            {(over.sub || over.turn) && (
-              <span className="gs-waiting-sub">{over.sub || over.turn}</span>
-            )}
-          </span>
-        </div>
-      ) : combat ? (
-        // Owner 2026-10-22: combat on the act button, as MTG Arena has it --
-        // no bar over the table. It says what pressing it does, and counts.
-        <div className="gs-combat" data-kind={combat.kind}>
-          <h2 className="gs-question-title pa-visually-hidden">{combat.heading}</h2>
-          {combat.notice && (
-            <p className="gs-combat-notice" role="alert">
-              {combat.notice}
-            </p>
-          )}
-          {combat.onAll && (
-            <ul className="gs-combat-options">
-              <li>
-                <button type="button" className="gs-act-all" disabled={busy} onClick={combat.onAll}>
-                  All attack
-                </button>
-              </li>
-            </ul>
-          )}
-          {combat.marked > 0 ? (
-            // W-14 (owner: the button locked) -- selected but not pointed:
-            // nothing moves on until they are pointed or unselected.
-            <button
-              type="button"
-              className="gs-act gs-act-combat gs-act-waiting"
-              disabled
-              aria-label={`${combat.marked} selected. Click what they ${combat.kind === "declareAttackers" ? "attack" : "block"}, or press Escape to unselect them.`}
-            >
-              <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
-              <span className="gs-act-text">
-                <span className="gs-act-word">{combat.marked} selected</span>
-                <span className="gs-act-sub">
-                  Click what they {combat.kind === "declareAttackers" ? "attack" : "block"} · Esc
-                  unselects
-                </span>
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="gs-act gs-act-combat"
-              disabled={busy || !combat.canPass}
-              onClick={() => onAnswer(null)}
-              aria-label={`Pass: ${combat.word}. ${combat.sub}`}
-            >
-              <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
-              <span className="gs-act-text">
-                <span className="gs-act-word">{combat.word}</span>
-                <span className="gs-act-sub">{combat.sub}</span>
-              </span>
-            </button>
-          )}
-        </div>
-      ) : cancel ? (
-        // Owner 2026-10-22: a misclick must be undoable where every other
-        // answer is -- the act button. Esc does the same.
-        <button
-          type="button"
-          className="gs-act gs-act-cancel"
-          disabled={busy}
-          onClick={() => onAnswer(cancel.answer)}
-          aria-label={`${cancel.word}: ${cancel.sub}`}
-        >
-          <Coin emblem="cancel" />
-          <span className="gs-act-text">
-            <span className="gs-act-word">{cancel.word}</span>
-            <span className="gs-act-sub">{cancel.sub} · Esc</span>
-          </span>
-        </button>
-      ) : myPriority && countdown !== null ? (
-        // Spec 0005: your own spell or trigger is on top. It resolves when
-        // the countdown runs out; clicking here resolves it now (spec 0035:
-        // an ordinary Pass). Clicking a card you could play still pauses.
-        <div className="gs-act-group">
-          <button
-            type="button"
-            className="gs-act gs-act-window"
-            disabled={busy}
-            onClick={() => onAnswer(null)}
-            aria-label={`Pass: Resolve ${top?.name ?? "it"} now, or in ${countdown}.`}
-          >
-            {/* Keyed: a new spell on top starts its ring again. */}
-            <Coin key={top?.id} emblem="resolve" seconds={countdown} />
-            <span className="gs-act-text">
-              <span className="gs-act-word">Resolves in {countdown}</span>
-              <span className="gs-act-sub">
-                {top ? `Your ${top.name}` : "Yours"} · click to resolve now
-              </span>
-            </span>
-          </button>
-          {/* Amendment 13 (item 1) -- the circle pauses the countdown. Its own
-              button over the coin: the words beside it still resolve now. */}
-          {onPauseWindow && (
-            <button
-              type="button"
-              className="gs-act-pause"
-              aria-label="Pause the countdown"
-              onClick={onPauseWindow}
-            />
-          )}
-          {/* Spec 0043: pass until the stack is empty -- asked again if
-              anything new is added to it. */}
-          {board.stack.length > 1 && (
-            <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
-              Let it all resolve
-            </button>
-          )}
-        </div>
-      ) : myPriority && windowPaused ? (
-        // Amendment 13 (item 1) -- paused: nothing resolves until you say.
-        <button
-          type="button"
-          className="gs-act gs-act-window"
-          disabled={busy}
-          onClick={() => onAnswer(null)}
-          aria-label={`Pass: Resolve ${top?.name ?? "it"}. Paused.`}
-        >
-          <Coin emblem="play" />
-          <span className="gs-act-text">
-            <span className="gs-act-word">Paused</span>
-            <span className="gs-act-sub">Resolve when you're ready</span>
-          </span>
-        </button>
-      ) : myPriority ? (
-        <div className="gs-act-group">
-          {/* The same pass whatever it says (§7.53 extra): the words say
-              what happens next, as MTG Arena's button does. Named "Pass"
-              for a screen reader, whatever it shows. */}
-          <button
-            type="button"
-            className="gs-act"
-            disabled={busy}
-            onClick={onPass}
-            aria-label={`Pass: ${words.word}. ${words.sub}`}
-          >
-            <Coin emblem={passEmblem(words.word)} />
-            <span className="gs-act-text">
-              <span className="gs-act-word">{words.word}</span>
-              <span className="gs-act-sub">{words.sub}</span>
-            </span>
-          </button>
-          {board.stack.length > 1 && (
-            <button type="button" className="gs-act-all" disabled={busy} onClick={onResolveAll}>
-              Let it all resolve
-            </button>
-          )}
-        </div>
-      ) : waiting ? (
-        <div className="gs-waiting" role="status">
-          {/* W-25: whose move, in plain letters, and what they are doing. */}
-          <Coin emblem="wait" />
-          <span className="gs-act-text">
-            <span className="gs-waiting-name">{waiting.word}</span>
-            {waiting.sub && <span className="gs-waiting-sub">{waiting.sub}</span>}
-          </span>
-        </div>
-      ) : (
-        <div className="gs-waiting gs-waiting-question" role="status">
-          <Coin emblem="ask" />
-          <span className="gs-act-text">
-            <span className="gs-waiting-word">Your answer</span>
-            <span className="gs-waiting-sub">Your choice is above the board</span>
-          </span>
-        </div>
-      )}
+          on the board (owner 2026-10-22: the column's Stack box is gone).
+          Spec 0058, item 5: held steady between questions. */}
+      {steadyAct}
 
       {me && (
         <SeatBlock
@@ -3133,6 +3280,23 @@ export function ActionPopup({
   );
 }
 
+/**
+ * Spec 0058, item 4 -- the note by a clicked card that has nothing to do
+ * right now (it keeps its blue ring); it fades after about two seconds.
+ */
+export function NothingNote({ box, onDone }: { box: Box; onDone: () => void }) {
+  return (
+    <p
+      className="gs-nothing-note"
+      role="status"
+      style={{ left: Math.max(box.x + box.w / 2, 140), top: box.y - 8 }}
+      onAnimationEnd={onDone}
+    >
+      Nothing to do with this card right now
+    </p>
+  );
+}
+
 /** Spec 0057, item 5 -- the card's play first, then the rest in the game's order. */
 export function playFirst(options: DecisionOption[]): DecisionOption[] {
   const plays = (o: DecisionOption) => o.use?.kind === "land" || o.use?.kind === "spell";
@@ -3205,6 +3369,12 @@ export function Inspect({
           {card && !hidden && (
             <>
               <p className="gs-inspect-types">{card.types}</p>
+              {/* Spec 0058, item 2 -- why it costs what it does now. */}
+              {card.costWhy && (
+                <p className="gs-inspect-costwhy">
+                  <ManaText text={card.costWhy} />
+                </p>
+              )}
               {card.power !== null && card.toughness !== null && (
                 <p className="gs-inspect-pt">
                   {/* Phase 9 W-19: as printed, then as it is now. */}
@@ -3218,6 +3388,18 @@ export function Inspect({
                 </p>
               )}
               {card.keywords.length > 0 && <p>{withSymbols(card.keywords.join(", "))}</p>}
+              {/* Spec 0058, item 8 -- a mutated creature: the cards in it, top first. */}
+              {card.merged && card.merged.length > 1 && (
+                <>
+                  <p className="gs-inspect-merged">
+                    <b>Cards in this creature:</b>{" "}
+                    {card.merged.map((p, i) => (i === 0 ? `${p.name} (top)` : p.name)).join(", ")}
+                  </p>
+                  <p className="gs-inspect-merged-note">
+                    A mutated creature has every ability of its cards.
+                  </p>
+                </>
+              )}
               <InspectFacts card={card} board={board} mySeat={mySeat} />
               {/* Spec 0045: each kind of counter, and where the last came from. */}
               {counterWords(card).map((words) => (

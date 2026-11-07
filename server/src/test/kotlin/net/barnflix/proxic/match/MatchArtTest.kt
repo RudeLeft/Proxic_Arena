@@ -86,6 +86,23 @@ class MatchArtTest {
         assertTrue(art.mayFetch(alice, plains))
     }
 
+    /** Spec 0058, item 8 -- each card of a mutated creature wears its own picture. */
+    @Test
+    fun `the cards of a mutated creature each carry their art`() {
+        val art = art()
+        val pile =
+            """{"id":"card:1","seat":1,"owner":1,"name":"Lightning Bolt","known":true,"merged":[""" +
+                """{"id":"card:1","name":"Lightning Bolt","known":true,"seat":1,"owner":1},""" +
+                """{"id":"card:2","name":"Plains","known":true,"seat":1,"owner":1}]}"""
+
+        val seen = art.annotate(snapshot(pile), bob)
+        val parts = seen["battlefield"]!!.jsonArray[0].jsonObject["merged"]!!.jsonArray
+
+        assertEquals(bolt, parts[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertEquals(plains, parts[1].jsonObject["art"]?.jsonPrimitive?.content)
+        assertTrue(art.mayFetch(bob, plains), "shown in the pile, so fetchable")
+    }
+
     /**
      * PHASE_07 (owner 2026-10-21) — a spell on the stack is drawn as its
      * card: it wears the caster's art, and that is what authorises it. A

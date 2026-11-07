@@ -297,6 +297,21 @@ card.sector               Un-sets: a creature's sector (Alpha, Beta, Gamma), for
                           every viewer -- set while a "space sculptor" is out
 card.sprocket             Un-sets: the sprocket (1-3) a Contraption is on, for
                           every viewer
+card.costNow,             spec 0058, item 2: on a card in the viewer's OWN
+card.costWhy              hand, on every snapshot, when casting it costs
+                          something other than printed right now -- Forge's
+                          own test-mode reckoning ("{1}{R}") and why
+                          ("Costs {1} less: Goblin Warchief"; the cards are
+                          those whose cost changes Forge applies; unnamed
+                          if that cannot be asked). Not for an X cost
+card.merged               spec 0058, item 8: a mutated creature's cards, top
+                          first: [{id, name (its own), known, seat, owner,
+                          printing?, token?, art?}] -- public; each wears
+                          its own picture
+decision.arrange.sources  spec 0058, item 8, on orderSimultaneousAbilities
+                          for a mutated creature: by option id, {card (one
+                          of its `merged`), name, place "top"|"underneath",
+                          says (the ability's effect)}
 ```
 
 Value notices use Forge's own wording, per viewer: "Krark, the

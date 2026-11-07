@@ -32,7 +32,10 @@ describe("mana costs", () => {
     const { container, getByRole } = render(<ManaCost cost="{R}" change="down" />);
     expect(container.querySelectorAll("img.bf-pip")).toHaveLength(1);
     expect(getByRole("img").getAttribute("aria-label")).toBe("Costs {R}, less than printed");
-    expect(container.querySelector(".bf-cost-down")).not.toBeNull();
+    // Spec 0058, item 2: no ring for a lower cost; a higher one keeps its edge.
+    expect(container.querySelector(".bf-cost-down")).toBeNull();
+    const up = render(<ManaCost cost="{2}{R}" change="up" />).container;
+    expect(up.querySelector(".bf-cost-up")).not.toBeNull();
   });
 });
 

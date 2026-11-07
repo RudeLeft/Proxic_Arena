@@ -96,4 +96,23 @@ class PlainWordsTest {
                 PlainWords.revealWhy("Wren's Run Vanquisher", true, "{1}{G}", null));
         assertEquals("to pay for Kindred Dominance", PlainWords.revealWhy("Kindred Dominance", false, null, null));
     }
+    // --- spec 0058, item 3: Gempalm Incinerator's X, counted --------------------------
+
+    @Test
+    void aCountedXIsFilledInAndSaysWhatWasCounted() {
+        String said = MatchController.triggerEffect("When you cycle CARDNAME, you may have it deal X damage to target "
+                + "creature, where X is the number of Goblins on the battlefield.", "Gempalm Incinerator");
+        assertEquals("Gempalm Incinerator may deal X damage to target creature, where X is the number of Goblins "
+                + "on the battlefield.", said);
+        assertEquals("Gempalm Incinerator may deal 3 damage to target creature (3 Goblins on the battlefield).",
+                PlainWords.countedX(said, 3, false));
+        assertEquals("Gempalm Incinerator may deal 1 damage to target creature (1 Goblin).",
+                PlainWords.countedX(said, 1, true));
+        assertEquals("deal 3 damage to a creature (3 Goblins)",
+                PlainWords.thenWords(PlainWords.countedX(said, 3, true), "Gempalm Incinerator"));
+        // Nothing says what X counts: unchanged. A mana {X} is never touched.
+        assertEquals("Deal X damage.", PlainWords.countedX("Deal X damage.", 3, false));
+        assertEquals("Pay {X}: it gets +2/+2 (2 Elves you control).",
+                PlainWords.countedX("Pay {X}: it gets +X/+X, where X is the number of Elves you control.", 2, false));
+    }
 }

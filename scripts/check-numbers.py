@@ -24,6 +24,11 @@ question; these games read it off the protocol and check the board after:
            cancel backs out (Arc Lightning back in hand, Bob's life and
            the lands untouched); cast again, a pass after Bob is "no
            more": Bob takes all 3.
+  gempalm  spec 0058, item 3: with three Goblins out, Gempalm Incinerator's
+           cycle option says "... draw a card, then deal 3 damage to a
+           creature (3 Goblins)", its target window "Gempalm Incinerator
+           may deal 3 damage to target creature (3 Goblins on the
+           battlefield)."; the Ogre dies.
   energy   Harnessed Lightning: chooseNumber names its card (about) and
            carries the card's sentence ("... deals that much damage ...");
            pay all 3 -- the Ogre dies.
@@ -384,8 +389,69 @@ def harnessed():
     return outcome(problems, "Harnessed Lightning: named, its sentence, 3 energy paid, the Ogre died", found)
 
 
+def gempalm():
+    """Spec 0058, item 3: Gempalm Incinerator's X, counted, in the menu and the target window."""
+    g = game("gempalm", [("Mountain", 22), ("Goblin Piker", 20), ("Gempalm Incinerator", 18)])
+    st = {"goblins": None, "line": None, "prompt": None, "cycled": False, "ogre": None, "done": False}
+
+    def goblins(g):
+        return len([c for c in g.zone(1, "battlefield") if "Goblin" in (c.get("types") or "")])
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 2 and k == "chooseSpellAbilityToPlay":
+            return g.play_land(f) or cast(g, f, "Gray Ogre")
+        if seat != 1:
+            return DEFAULT
+        if k == "chooseSpellAbilityToPlay" and not g.state.get(1, {}).get("stack"):
+            land = g.play_land(f)
+            if land:
+                return land
+            ogres = g.zone(1, "battlefield", owner=2, name="Gray Ogre")
+            n = goblins(g)
+            cycle = next((o for o in f["options"] if (o.get("use") or {}).get("kind") == "cycling"
+                          and o.get("payable") is not False), None)
+            if not st["cycled"] and n >= 3 and ogres and cycle:
+                st["goblins"], st["line"], st["cycled"] = n, cycle["use"].get("line"), True
+                return cycle["actionId"]
+            if n < 3:
+                return cast(g, f, "Goblin Piker")
+            return None
+        if k == "confirmTrigger" and st["cycled"]:
+            return next((o["actionId"] for o in f["options"] if o["actionId"].endswith("yes")),
+                        f["options"][0]["actionId"] if f["options"] else None)
+        if k == "chooseTargetsFor" and st["cycled"] and st["prompt"] is None:
+            st["prompt"] = f.get("prompt")
+            o = next((o for o in f["options"] if (o.get("label") or "").startswith("Gray Ogre")), None)
+            st["ogre"] = o and card_of(o["actionId"])
+            st["done"] = True
+            return o["actionId"] if o else DEFAULT
+        return DEFAULT
+
+    def until(g):
+        return st["done"] and not g.state.get(1, {}).get("stack") and st["ogre"] is not None             and not any(c["id"] == st["ogre"] for c in g.zone(1, "battlefield"))
+
+    g.run(policy, until=until, max_turn=20)
+    found = {k: st[k] for k in st} | {"stopped": g.stopped_badly()}
+    if not st["cycled"]:
+        return "inconclusive", "never had three Goblins, an Ogre and Gempalm Incinerator to cycle", found
+    n = st["goblins"]
+    problems = []
+    want_line = (f"Discard Gempalm Incinerator and draw a card, then deal {n} damage to a creature "
+                 f"({n} Goblins). You won't cast it.")
+    if st["line"] != want_line:
+        problems.append(f"the cycle option says the damage: {st['line']!r} (want {want_line!r})")
+    want_prompt = f"Gempalm Incinerator may deal {n} damage to target creature ({n} Goblins on the battlefield)."
+    if st["prompt"] != want_prompt:
+        problems.append(f"the target window says the damage: {st['prompt']!r} (want {want_prompt!r})")
+    if st["ogre"] is None or not until(g):
+        problems.append("the Ogre should have died")
+    return outcome(problems, f"Gempalm Incinerator with {n} Goblins: 'deal {n} damage ... ({n} Goblins)' in the "
+                   "cycle option and the target window; the Ogre died", found)
+
+
 SCENARIOS = {"x": fireball, "kicker": chalice, "split": arc_lightning, "targets": targets,
-             "energy": harnessed}
+             "energy": harnessed, "gempalm": gempalm}
 
 if __name__ == "__main__":
     codes = []

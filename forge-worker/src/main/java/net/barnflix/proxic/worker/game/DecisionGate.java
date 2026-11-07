@@ -321,4 +321,14 @@ public final class DecisionGate {
     public long playerPasses() {
         return playerPasses.get();
     }
+
+    /**
+     * Spec 0058, item 1: a "no" given as a named answer rather than a
+     * pass -- Cancel while choosing targets answers "target:cancel".
+     * The player backed out, exactly as a pass on a payment does, so
+     * the loop guard must not hold the card back.
+     */
+    public void notePlayerBackedOut() {
+        playerPasses.incrementAndGet();
+    }
 }

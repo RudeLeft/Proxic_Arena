@@ -21,6 +21,13 @@ by them: each half must be offered under its own name at its own cost.
              `into` the Bears (Phase 10 A-10)
   mutate-under  the same, Gemrazer put UNDER (the controller's "which is
              the top" answered with the Bears): still named Grizzly Bears
+  mutate-two  spec 0058, items 7-8: Glowstone Recluse mutated over Grizzly
+             Bears, then Trumpeting Gnarr over both: its payment owes the
+             mutate cost {3}{G/U}{G/U}; the "which first" question carries
+             arrange.sources naming each trigger's own card (Gnarr, top;
+             the Recluse, underneath) and its words; the creature's
+             `merged` lists its three cards, top first. The mutate
+             scenarios also check `merged` for both seats.
   meld       Graf Rats + Midnight Scavengers meld at the beginning of
              combat: the Rats' id is now Chittering Host; both seats told
              the Scavengers went battlefield -> exile `into` the Rats
@@ -467,11 +474,100 @@ def mutate(under=False):
     others = [e for seat in (1, 2) for e in st["into"].get(seat, []) if e[0] != st["gem"]]
     if others:
         problems.append(f"only Gemrazer merged into anything: {others}")
+    # Spec 0058, item 8: the creature lists its cards, top first, for both seats.
+    want_parts = [(st["host"], "Grizzly Bears"), (st["gem"], "Gemrazer")]
+    if not under:
+        want_parts.reverse()
+    for seat in (1, 2):
+        pile = g.card(seat, st["host"]) or {}
+        parts = [(p.get("id"), p.get("name")) for p in pile.get("merged") or []]
+        found[f"merged{seat}"] = parts
+        if parts != want_parts:
+            problems.append(f"seat {seat}: the creature's cards, top first, should be {want_parts}: {parts}")
     if under:
         return result(problems, "mutated UNDER the Bears: one creature, still Grizzly Bears; both seats told "
                       "Gemrazer went stack -> merged into it", found)
     return result(problems, "mutated onto a creature: still one creature, now Gemrazer's 4/4; both seats told "
                   "Gemrazer went stack -> merged into it", found)
+
+
+def mutate_two():
+    """Spec 0058, items 7 and 8: two mutate triggers at once, each named by its own card."""
+    g = game("mutate-two", [("Forest", 30), ("Grizzly Bears", 10), ("Glowstone Recluse", 10),
+                            ("Trumpeting Gnarr", 10)])
+    st = {"host": None, "glow": None, "gnarr": None, "stage": 0, "order": None, "owing": None, "into": {},
+          "top": []}
+    seat2 = seat2_plays("Grizzly Bears")
+
+    def policy(g, f):
+        if f["authorisedSeat"] == 2:
+            return seat2(g, f)
+        kind = f.get("kind")
+        if kind == "chooseSpellAbilityToPlay" and calm(g):
+            land = g.play_land(f)
+            if land:
+                return land
+            bears = g.mine(1, name="Grizzly Bears")
+            if st["host"] is None:
+                if not bears:
+                    return g.option(f, name="Grizzly Bears", zone="hand", land=False)
+                st["host"] = bears[0]["id"]
+            untapped = len(g.untapped_lands(1))
+            if st["stage"] == 0 and untapped >= 4:
+                o = starts(f, "Glowstone Recluse · {3}{G}")
+                if o:
+                    st["stage"], st["glow"] = 1, card_of(o)
+                    return o
+            if st["stage"] == 2 and untapped >= 5:
+                o = starts(f, "Trumpeting Gnarr · {3}{G/U}{G/U}")
+                if o:
+                    st["stage"], st["gnarr"] = 3, card_of(o)
+                    return o
+            return None
+        if kind == "chooseTargetsFor" and st["stage"] in (1, 3):
+            return next((o["actionId"] for o in f["options"] if st["host"] in o["actionId"]), DEFAULT)
+        if kind == "applyManaToCost" and st["stage"] == 3 and st["owing"] is None:
+            st["owing"] = f.get("owing")
+        # Which card is the top: the one mutating, each time.
+        ids = {o.get("objectId") for o in f.get("options", [])}
+        new = st["glow"] if st["stage"] == 1 else st["gnarr"]
+        if kind == "chooseSingleEntityForEffect" and st["stage"] in (1, 3) and new in ids:
+            st["top"].append(new)
+            if st["stage"] == 1:
+                st["stage"] = 2
+            return next(o["actionId"] for o in f["options"] if o.get("objectId") == new)
+        if kind == "orderSimultaneousAbilities" and st["order"] is None:
+            st["order"] = {"options": [(o["actionId"], o.get("label")) for o in f["options"]],
+                           "sources": (f.get("arrange") or {}).get("sources")}
+        return DEFAULT
+
+    def until(g):
+        merges_seen(g, st)
+        return st["order"] is not None and calm(g) and len(g.mine(1, name="Beast Token")) >= 1             or (st["stage"] == 3 and g.turn > 30)
+
+    g.run(policy, until=until, max_turn=30)
+    pile = g.card(1, st["host"]) if st["host"] else None
+    found = {k: st[k] for k in ("host", "glow", "gnarr", "stage", "order", "owing", "top")} | {
+        "pile": pile and {k: pile.get(k) for k in ("name", "merged", "counters")}, "stopped": g.stopped_badly()}
+    if st["stage"] < 3:
+        return "inconclusive", "never mutated twice onto one creature", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if st["owing"] != "{3}{G/U}{G/U}":
+        problems.append(f"item 7: the mutate cost is the cost being paid, hybrid and all: {st['owing']}")
+    sources = (st["order"] or {}).get("sources") or {}
+    said = sorted((v.get("card"), v.get("name"), v.get("place"), v.get("says")) for v in sources.values())
+    want = sorted([(st["gnarr"], "Trumpeting Gnarr", "top", "Create a 3/3 green Beast creature token."),
+                   (st["glow"], "Glowstone Recluse", "underneath", "Put two +1/+1 counters on it.")])
+    if st["order"] is None:
+        problems.append("the two mutate triggers were never an order question")
+    elif said != want or set(sources) != {a for a, _ in st["order"]["options"]}:
+        problems.append(f"item 8: each trigger named by its own card, top or underneath: {said} (want {want})")
+    parts = [p.get("name") for p in (pile or {}).get("merged") or []]
+    if parts != ["Trumpeting Gnarr", "Glowstone Recluse", "Grizzly Bears"]:
+        problems.append(f"item 8: the creature's cards, top first: {parts}")
+    return result(problems, "Trumpeting Gnarr mutated onto Glowstone Recluse over Grizzly Bears: paid "
+                  "{3}{G/U}{G/U}; the order window names Gnarr (top) and the Recluse (underneath), each "
+                  "with its words; the creature lists its three cards", found)
 
 
 def meld():
@@ -722,7 +818,7 @@ def daybound():
 
 
 SCENARIOS = {"adventure": adventure, "split": split, "aftermath": aftermath, "fuse": fuse, "rooms": rooms,
-             "mutate": mutate, "mutate-under": lambda: mutate(under=True), "meld": meld, "battle": battle, "prepare": prepare, "daybound": daybound}
+             "mutate": mutate, "mutate-under": lambda: mutate(under=True), "mutate-two": mutate_two, "meld": meld, "battle": battle, "prepare": prepare, "daybound": daybound}
 
 if __name__ == "__main__":
     import json

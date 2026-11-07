@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /** Spec 0055: a target question says what it is for, in plain words. */
 class TargetWordsTest {
@@ -40,5 +41,16 @@ class TargetWordsTest {
     void targetsAreNamesAndTwinsAreToldApartByOrder() {
         assertEquals(List.of("Glistener Elf", "Storm-Charged Slasher (first)", "Storm-Charged Slasher (second)", "Bob"),
                 MatchController.targetLabels(List.of("Glistener Elf", "Storm-Charged Slasher", "Storm-Charged Slasher", "Bob")));
+    }
+
+    /**
+     * Spec 0058, item 2 (VEND-004): the reflective call that names the cards
+     * changing a cost -- CostAdjustment.checkRequirement(SpellAbility,
+     * StaticAbility) -- still exists in this Forge. If a Forge update removes
+     * it, costs still show, unnamed; this fails so somebody notices.
+     */
+    @Test
+    void forgeStillHasTheCostTest() {
+        assertNotNull(MatchController.COST_APPLIES);
     }
 }

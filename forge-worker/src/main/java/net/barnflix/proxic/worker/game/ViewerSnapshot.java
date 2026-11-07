@@ -442,6 +442,24 @@ final class ViewerSnapshot {
         return real == null || real.isEmpty() ? "Face-down" : real + " (face down)";
     }
 
+    /**
+     * Spec 0058, item 8 -- one card of a mutated pile by ITS OWN name. The
+     * pile's permanent wears the top card's state (Forge's clone state), so
+     * its current name is the top card's: the bottom Grizzly Bears read
+     * "Gemrazer" (found by check-shapes.py). Its original state is its own.
+     */
+    static String ownName(Card part, PlayerView viewer) {
+        if (part.isFaceDown()) {
+            return nameFor(part, viewer);
+        }
+        forge.game.card.CardState own = part.getOriginalState(part.getCurrentStateName());
+        if (own == null) {
+            own = part.getState(forge.card.CardStateName.Original);
+        }
+        String name = own == null ? null : own.getName();
+        return name == null || name.isEmpty() ? nameFor(part, viewer) : name;
+    }
+
     /** The order a land's pill lists its mana in. */
     private static final java.util.List<String> MANA_ORDER = java.util.List.of("W", "U", "B", "R", "G", "C");
 
@@ -834,6 +852,31 @@ final class ViewerSnapshot {
         CardView attachedTo = view.getAttachedTo();
         if (attachedTo != null) {
             entry.addProperty("attachedTo", "card:" + attachedTo.getId());
+        }
+
+        // Spec 0058, item 8 -- the cards of a mutated creature, top first
+        // (Forge's getMergedCards order). Public: a mutated pile's cards are
+        // face up on the table. Only reached for a card this viewer may
+        // identify (above). Each carries what a picture is found by.
+        if (card.hasMergedCard() && card.getMergedCards().size() > 1) {
+            JsonArray merged = new JsonArray();
+            for (Card part : card.getMergedCards()) {
+                JsonObject one = new JsonObject();
+                one.addProperty("id", "card:" + part.getId());
+                one.addProperty("name", ownName(part, viewer));
+                one.addProperty("known", true);
+                one.addProperty("seat", seatOf.getOrDefault(part.getController(), 0));
+                one.addProperty("owner", seatOf.getOrDefault(part.getOwner(), 0));
+                forge.item.IPaperCard partPaper = part.getPaperCard();
+                if (partPaper != null && partPaper.getEdition() != null && !partPaper.getEdition().isEmpty()) {
+                    one.addProperty("printing", partPaper.getEdition() + "/" + partPaper.getCollectorNumber());
+                }
+                if (part.isToken()) {
+                    one.addProperty("token", true);
+                }
+                merged.add(one);
+            }
+            entry.add("merged", merged);
         }
         return entry;
     }

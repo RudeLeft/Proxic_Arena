@@ -14,6 +14,15 @@ describe("target window words", () => {
     expect(w.decline).toBe("Don't deal 1 damage");
   });
 
+  it("Spec 0058 item 3: a counted X in brackets stays out of what to click", () => {
+    const w = targetWords(
+      "Gempalm Incinerator may deal 3 damage to target creature (3 Goblins on the battlefield).",
+      "Gempalm Incinerator",
+    )!;
+    expect(w.title).toBe("Deal 3 damage");
+    expect(w.hint).toBe("Click a creature.");
+  });
+
   it("a spell: no decline, any target", () => {
     const w = targetWords("Lightning Bolt deals 3 damage to any target.", "Lightning Bolt")!;
     expect(w.title).toBe("Deal 3 damage");

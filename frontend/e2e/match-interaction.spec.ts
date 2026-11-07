@@ -133,6 +133,16 @@ test("a click with nothing asked selects and does not attack; a cancelled target
             "nothing was cast: no card on the stack",
           ).toHaveCount(0);
           expect(await opponentLife(page), "nobody took damage").toBe(life);
+          // Spec 0058, item 1 -- and it can be cast again at once: the same
+          // card is offered (choosable, gold) at the next "your move". The
+          // Cancel was the player's "no", not a cast that went nowhere.
+          await expect(
+            page
+              .locator('[data-zone="viewer:hand"][data-choosable="true"]')
+              .filter({ hasText: name }),
+            "the cancelled card can be cast again",
+          ).not.toHaveCount(0, { timeout: 15_000 });
+          await page.screenshot({ path: "test-results/seen/0058-cancelled-castable.png" });
           cancelled = true;
           break;
         }

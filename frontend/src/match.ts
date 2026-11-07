@@ -207,6 +207,28 @@ export interface DecisionArrange {
   } | null;
   /** Phase 9 Amendment 20 -- the dungeons offered, each with its rooms (the game's words). */
   dungeons?: { name: string; rooms: { name: string; says: string; next: string[] }[] }[] | null;
+  /**
+   * Spec 0058, item 8 -- "which resolves first?" for a mutated creature:
+   * by option id, the card among its cards that printed that trigger, on
+   * top or underneath, and the ability's words.
+   */
+  sources?: Record<string, TriggerSource> | null;
+}
+
+/** Spec 0058, item 8 -- the card of a mutated creature a trigger came from. */
+export interface TriggerSource {
+  /** "card:N", one of the creature's `merged` cards. */
+  card: string;
+  name: string;
+  place: "top" | "underneath";
+  says: string | null;
+}
+
+/** Spec 0058, item 8 -- one card of a mutated creature (public). */
+export interface MergedCard {
+  id: string;
+  name: string;
+  art: string | null;
 }
 
 /**
@@ -409,6 +431,15 @@ export interface SnapshotCard {
   exiledBy?: string | undefined;
   /** Phase 9 W-18 -- in exile: this viewer may play it from there. */
   playable?: boolean | undefined;
+  /**
+   * Spec 0058, item 2 -- in your own hand: what casting it costs right now,
+   * when that is not its printed cost (Goblin Warchief's {1} less), and why
+   * ("Costs {1} less: Goblin Warchief"). Forge's own reckoning.
+   */
+  costNow?: string | undefined;
+  costWhy?: string | undefined;
+  /** Spec 0058, item 8 -- a mutated creature's cards, top first. */
+  merged?: MergedCard[] | undefined;
 }
 
 export interface SnapshotPlayer {
@@ -1105,9 +1136,40 @@ function asCards(value: unknown): SnapshotCard[] {
       baseToughness: asNumber(row["baseToughness"]) ?? undefined,
       exiledBy: asString(row["exiledBy"]) ?? undefined,
       playable: row["playable"] === true ? true : undefined,
+      costNow: asString(row["costNow"]) ?? undefined,
+      costWhy: asString(row["costWhy"]) ?? undefined,
+      merged: asMerged(row["merged"]),
     });
   }
   return cards;
+}
+
+/** Spec 0058, item 8 -- a mutated creature's cards; undefined for anything else. */
+function asMerged(value: unknown): MergedCard[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const parts = value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const r = entry as Record<string, unknown>;
+    const id = asString(r["id"]);
+    const name = asString(r["name"]);
+    return id && name ? [{ id, name, art: asHash(r["art"]) }] : [];
+  });
+  return parts.length > 1 ? parts : undefined;
+}
+
+/** Spec 0058, item 8 -- each trigger's own card, by option id. */
+function asSources(value: unknown): Record<string, TriggerSource> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const out: Record<string, TriggerSource> = {};
+  for (const [id, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const r = entry as Record<string, unknown>;
+    const card = asString(r["card"]);
+    const name = asString(r["name"]);
+    const place = r["place"] === "top" ? "top" : r["place"] === "underneath" ? "underneath" : null;
+    if (card && name && place) out[id] = { card, name, place, says: asString(r["says"]) };
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function asManaPool(value: unknown): Record<string, number> {
@@ -1413,6 +1475,7 @@ function asArrange(value: unknown): DecisionArrange | null {
     crankNext: asNumber(v["crankNext"]),
     dungeons: asDungeons(v["dungeons"]),
     modes: asModes(v["modes"]),
+    sources: asSources(v["sources"]),
   };
 }
 

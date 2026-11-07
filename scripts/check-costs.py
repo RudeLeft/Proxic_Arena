@@ -13,6 +13,11 @@ fact that a question was asked.
   convoke        Venerated Loxodon: creatures tapped pay, then get counters
   improvise      Reverse Engineer: artifacts tapped pay generic mana
   affinity       Thoughtcast: artifacts reduce the cost, nothing tapped
+  warchief       spec 0058, item 2: with Goblin Warchief out, a Goblin Piker
+                 in hand carries costNow {R} and costWhy "Costs {1} less:
+                 Goblin Warchief" on its owner's snapshots -- on their own
+                 turn and the other player's -- and none before; never on
+                 the other seat's; then it is cast for {R}
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
@@ -404,8 +409,68 @@ def affinity():
         ("ok", "{4}{U} cost {U} with four artifacts out, none tapped; two cards drawn", found)
 
 
+def warchief():
+    """Spec 0058, item 2: a reduced cost rides on every snapshot of the owner's hand."""
+    g = game("warchief", [("Mountain", 24), ("Goblin Warchief", 18), ("Goblin Piker", 18)])
+    st = {"before": None, "mine": None, "theirs_turn": None, "leak": False, "cast": None}
+
+    def pikers(seat=1):
+        return [c for c in g.zone(1, "hand") if c.get("name") == "Goblin Piker"] if seat == 1 else []
+
+    def policy(g, f):
+        seat, kind = f["authorisedSeat"], f.get("kind")
+        chiefs = g.mine(1, name="Goblin Warchief")
+        # Hidden information: seat 2 never sees seat 1's hand, costs or not.
+        if any(c.get("costNow") for c in (g.state.get(2, {}).get("otherHands") or [])):
+            st["leak"] = True
+        if seat == 2:
+            if chiefs and pikers() and st["theirs_turn"] is None and g.state.get(1, {}).get("activeSeat") == 2:
+                st["theirs_turn"] = pikers()[0]
+            return seat2_bears(g, f)
+        if kind != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        if not chiefs and pikers() and st["before"] is None:
+            st["before"] = pikers()[0]
+        if chiefs and pikers() and st["mine"] is None:
+            st["mine"] = pikers()[0]
+        land = g.play_land(f)
+        if land:
+            return land
+        if not chiefs and len(g.untapped_lands(1)) >= 3:
+            o = cast(g, f, "Goblin Warchief")
+            if o:
+                return o
+        if chiefs and st["theirs_turn"] is not None and st["cast"] is None:
+            o = cast(g, f, "Goblin Piker")
+            if o and len(g.untapped_lands(1)) >= 1:
+                st["cast"] = card_of(o)
+                return o
+        return None
+
+    def until(g):
+        return st["cast"] and any(c["id"] == st["cast"] for c in g.mine(1, name="Goblin Piker"))
+
+    g.run(policy, until=until, max_turn=24)
+    found = {k: st[k] for k in st} | {"stopped": g.stopped_badly()}
+    if st["mine"] is None or st["theirs_turn"] is None:
+        return "inconclusive", "never had a Goblin Warchief out and a Goblin Piker in hand", found
+    problems = []
+    for when in ("mine", "theirs_turn"):
+        c = st[when]
+        if c.get("costNow") != "{R}" or c.get("costWhy") != "Costs {1} less: Goblin Warchief":
+            problems.append(f"{when}: Piker should cost {{R}} because of the Warchief: {c}")
+    if st["before"] is not None and st["before"].get("costNow"):
+        problems.append(f"before the Warchief the Piker costs what it says: {st['before']}")
+    if st["leak"]:
+        problems.append("seat 2 was sent a cost for a card in seat 1's hand")
+    if st["cast"] is None or not until(g):
+        problems.append("the Piker was not cast for {R}")
+    return ("wrong", "; ".join(problems), found) if problems else \
+        ("ok", "Goblin Piker: costNow {R}, 'Costs {1} less: Goblin Warchief' on both turns; cast for {R}", found)
+
+
 SCENARIOS = {"dismember": dismember, "force-of-will": force_of_will, "delve": delve,
-             "convoke": convoke, "improvise": improvise, "affinity": affinity}
+             "convoke": convoke, "improvise": improvise, "affinity": affinity, "warchief": warchief}
 
 if __name__ == "__main__":
     import json

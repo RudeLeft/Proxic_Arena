@@ -95,6 +95,7 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
     let copies = 0;
     let yesToAll = 0;
     let lifeBefore = NaN;
+    let actPage: Page | null = null;
     const deadline = Date.now() + 780_000;
     // After "Yes to all", both players go on passing priority (each may
     // respond between the triggers) until every copy has hit, or the
@@ -160,6 +161,27 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
           if (yesToAll > 0) throw new Error("asked yes again after Yes to all");
           await page.screenshot({ path: `${SEEN}/yes-to-all.png` });
           yesToAll = Number((await all.textContent())?.match(/\d+/)?.[0] ?? 0);
+          // Spec 0058, item 5 -- from here the page answers the copies: the
+          // act button's words, every one shown, are recorded as they change.
+          await page.evaluate(() => {
+            const seen: string[] = [];
+            (window as unknown as { actWords: string[] }).actWords = seen;
+            const rail = document.querySelector(".gs-rail");
+            const look = () => {
+              const el = rail?.querySelector(".gs-act, .gs-waiting");
+              const words = el?.textContent?.trim() ?? "";
+              if (words && seen[seen.length - 1] !== words) seen.push(words);
+            };
+            look();
+            if (rail) {
+              new MutationObserver(look).observe(rail, {
+                subtree: true,
+                childList: true,
+                characterData: true,
+              });
+            }
+          });
+          actPage = page;
           await clickNow(all);
           continue;
         }
@@ -263,6 +285,16 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
     // The page answered the rest: every copy hit the opponent (or killed them).
     expect(await settled(), "every copy dealt 1 after one Yes to all").toBe(true);
     await host.screenshot({ path: `${SEEN}/after-yes-to-all.png` });
+    // Spec 0058, item 5 -- while the copies went on the stack the button
+    // said so, rather than cycling through each question's own words.
+    const words = actPage
+      ? await actPage.evaluate(() => (window as unknown as { actWords?: string[] }).actWords ?? [])
+      : [];
+    console.log(`act button after Yes to all: ${JSON.stringify(words)}`);
+    expect(
+      words.some((w) => w.includes("Putting triggers on the stack")),
+      `the button said "Putting triggers on the stack": ${JSON.stringify(words)}`,
+    ).toBe(true);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);

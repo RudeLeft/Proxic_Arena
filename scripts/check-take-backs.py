@@ -9,6 +9,12 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
                 the same card, and casting it then puts it on the
                 battlefield. Before spec 0042 the worker's loop guard held
                 a cancelled card back until priority passed.
+  retarget      spec 0058, item 1: seat 1 casts a Shock and presses Cancel
+                at its target question ("target:cancel", not a pass): the
+                very next "your move" still offers the same Shock, and
+                cast again at Bob it deals 2. Before 0058 that Cancel was
+                not counted as the player's "no" and the loop guard hid
+                the card until the game changed.
   attack-one    seat 1's ONE ready Grizzly Bears attacks, is taken back
                 (unattack), attacks again, then seat 1 passes: the Bears
                 attacks and seat 2 loses 2. Before spec 0042 the first
@@ -103,6 +109,68 @@ def recast():
     elif not st["landed"]:
         problems.append("cast again after Cancel, the Hill Giant did not reach the battlefield")
     return outcome(problems, "cancelled at its payment, the Hill Giant was offered at once and cast", found)
+
+
+def retarget():
+    """Spec 0058, item 1: Cancel while choosing targets, then cast it again."""
+    g = game("retarget", [("Mountain", 30), ("Shock", 30)])
+    st = {"card": None, "cancelled": False, "offered_after": None, "cast": False, "life": None,
+          "after": None, "targeted": False}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat != 1:
+            return DEFAULT
+        if k == "chooseTargetsFor" and st["card"]:
+            if not st["cancelled"]:
+                st["cancelled"] = True
+                # The target question's own Cancel answer, not a pass.
+                return ((f.get("arrange") or {}).get("targets") or {}).get("cancel") or "target:cancel"
+            bob = next((o["actionId"] for o in f["options"] if o.get("label") == "Bob"), None)
+            if bob and not st["targeted"]:
+                st["targeted"] = True
+                return bob
+            return None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            if st["cancelled"] and st["offered_after"] is None:
+                ids = [card_of(o["actionId"]) for o in f["options"]]
+                st["offered_after"] = st["card"] in ids
+                if st["offered_after"]:
+                    st["cast"] = True
+                    st["life"] = (g.player(1, 2) or {}).get("life")
+                    return next(o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["card"])
+            if st["card"] is None:
+                land = g.play_land(f)
+                if land:
+                    return land
+                o = g.option(f, name="Shock", zone="hand", land=False)
+                if payable(f, o):
+                    st["card"] = card_of(o)
+                    return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        # The stack is also empty while the spell is being paid for: done
+        # when Bob's life moves, or a turn later (then the check says so).
+        if st["cast"] and st["targeted"]:
+            st.setdefault("turn", g.turn)
+            life = (g.player(1, 2) or {}).get("life")
+            if life != st["life"] or g.turn > st["turn"]:
+                st["after"] = life
+        return st["after"] is not None or st["offered_after"] is False
+
+    g.run(policy, until=until, max_turn=16)
+    found = {k: st[k] for k in st} | {"stopped": g.stopped_badly()}
+    if not st["cancelled"]:
+        return "inconclusive", "a Shock was never cast", found
+    problems = []
+    if not st["offered_after"]:
+        problems.append("the Shock cancelled at its target was not offered at the next question")
+    elif st["after"] is None or st["life"] - st["after"] != 2:
+        problems.append(f"cast again after Cancel, Shock did not hit Bob for 2: {st['life']} -> {st['after']}")
+    return outcome(problems, "cancelled at its target, the Shock was offered at once and cast again (Bob -2)",
+                   found)
 
 
 def attack_one():
@@ -221,7 +289,7 @@ def block_one():
     return outcome(problems, "one Bears: blocked, taken back, blocked again; confirmed, no damage", found)
 
 
-SCENARIOS = {"recast": recast, "attack-one": attack_one, "block-one": block_one}
+SCENARIOS = {"recast": recast, "retarget": retarget, "attack-one": attack_one, "block-one": block_one}
 
 if __name__ == "__main__":
     codes = []

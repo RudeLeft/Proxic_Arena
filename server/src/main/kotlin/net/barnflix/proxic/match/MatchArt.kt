@@ -98,7 +98,7 @@ class MatchArt(
 
         fun cards(value: kotlinx.serialization.json.JsonElement?): JsonArray? =
             (value as? JsonArray)?.let { cards ->
-                JsonArray(cards.map { card(it.jsonObject, allowed) })
+                JsonArray(cards.map { withParts(card(it.jsonObject, allowed), allowed) })
             }
 
         fun zone(key: String): JsonArray? = cards(state[key])
@@ -142,6 +142,24 @@ class MatchArt(
     ): List<JsonObject> {
         val allowed = shown.computeIfAbsent(viewerSeat) { ConcurrentHashMap.newKeySet() }
         return cards.map { card(it, allowed) }
+    }
+
+    /**
+     * Spec 0058, item 8 -- a mutated creature's cards (`merged`, top first)
+     * each wear their own picture, as any card on the table does: the order
+     * window shows the card that printed each trigger. The worker sends the
+     * list only for a creature this viewer may identify.
+     */
+    private fun withParts(
+        entry: JsonObject,
+        allowed: MutableSet<String>,
+    ): JsonObject {
+        val parts = entry["merged"] as? JsonArray ?: return entry
+        return buildJsonObject {
+            entry.forEach { (key, value) ->
+                put(key, if (key == "merged") JsonArray(parts.map { card(it.jsonObject, allowed) }) else value)
+            }
+        }
     }
 
     private fun card(

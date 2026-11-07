@@ -1015,6 +1015,7 @@ public final class GameHost {
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
+            addHandCosts(snapshot, player);
             snapshot.add("rolls", rollsSoFar());
             if (!moved.isEmpty()) {
                 snapshot.add("moves", Moves.forViewer(moved, seat));
@@ -1042,6 +1043,52 @@ public final class GameHost {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);
             } catch (RuntimeException e) {
                 System.err.println("proxic: public snapshot not delivered: " + e);
+            }
+        }
+    }
+
+    /**
+     * Spec 0058, item 2 -- each card in the viewer's OWN hand that costs
+     * something other than printed right now carries `costNow` ("{1}{R}")
+     * and `costWhy` ("Costs {1} less: Goblin Warchief"), on every
+     * snapshot, not only with "what will you play". Only the viewer's own
+     * hand: it is already theirs to see (HID-001), and the spectator view
+     * has no hand. Worked out only on the game thread, because Forge's
+     * test-mode cost check briefly sets a card's cast-from zone; a
+     * snapshot sent from elsewhere (a spectator joining) reuses the last.
+     */
+    private final java.util.Map<Integer, com.google.gson.JsonObject> handCosts =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private void addHandCosts(com.google.gson.JsonObject snapshot, Player player) {
+        if (!snapshot.has("hand") || !snapshot.get("hand").isJsonArray()) {
+            return;
+        }
+        boolean onGameThread = Thread.currentThread() == gameThread;
+        java.util.Map<String, forge.game.card.Card> byId = new java.util.HashMap<>();
+        for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
+            byId.put("card:" + card.getId(), card);
+        }
+        for (com.google.gson.JsonElement element : snapshot.getAsJsonArray("hand")) {
+            com.google.gson.JsonObject entry = element.getAsJsonObject();
+            forge.game.card.Card card = entry.has("id") ? byId.get(entry.get("id").getAsString()) : null;
+            if (card == null || !entry.has("manaCost")) {
+                continue;
+            }
+            com.google.gson.JsonObject now;
+            if (onGameThread) {
+                now = MatchController.currentCost(card, player);
+                if (now == null) {
+                    handCosts.remove(card.getId());
+                } else {
+                    handCosts.put(card.getId(), now);
+                }
+            } else {
+                now = handCosts.get(card.getId());
+            }
+            if (now != null) {
+                entry.addProperty("costNow", now.get("cost").getAsString());
+                entry.addProperty("costWhy", now.get("why").getAsString());
             }
         }
     }

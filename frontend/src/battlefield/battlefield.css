@@ -1447,11 +1447,8 @@ img.bf-makes-pip {
   font-size: 0.6em;
   font-weight: 700;
 }
-.bf-cost-down {
-  box-shadow:
-    0 0 0 2px #7fd26a,
-    0 0 8px rgb(127 210 106 / 70%);
-}
+/* Spec 0058, item 2: a lower cost has no ring -- the lower cost itself is
+ * the news, and the close-up says why. A higher one keeps its red edge. */
 .bf-cost-up {
   box-shadow:
     0 0 0 2px #ff6b5e,

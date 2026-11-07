@@ -400,8 +400,19 @@ export function OrderTray({
       <div className="gs-win-tiles">
         {groups.map((group) => {
           const o = group.options[0]!;
-          const card = o.objectId ? cardOfAny(board, o.objectId) : null;
-          const name = card?.name ?? (o.label ?? "").split(/ [·—] /)[0] ?? "";
+          const permanent = o.objectId ? cardOfAny(board, o.objectId) : null;
+          // Spec 0058, item 8 -- a mutated creature's trigger: named and
+          // pictured as the card that printed it, on top or underneath.
+          const source = decision.arrange?.sources?.[o.actionId] ?? null;
+          const part = source ? permanent?.merged?.find((p) => p.id === source.card) : undefined;
+          const card =
+            source && permanent
+              ? { ...permanent, name: source.name, art: part?.art ?? null, crop: null }
+              : permanent;
+          const name = source
+            ? `${source.name} (${source.place})`
+            : (card?.name ?? (o.label ?? "").split(/ [·—] /)[0] ?? "");
+          const words = source?.says ?? abilityWords(o.label ?? "", permanent?.name ?? name);
           const at = order.indexOf(group.key);
           const many = group.options.length > 1 ? ` ×${group.options.length}` : "";
           return (
@@ -415,12 +426,13 @@ export function OrderTray({
             >
               {at >= 0 && <span className="gs-win-tile-num">{at + 1}</span>}
               {many && <span className="gs-win-tile-many">{many.trim()}</span>}
-              <BigCard
-                card={card}
-                name={name}
-                words={abilityWords(o.label ?? "", name)}
-                artUrl={artUrl}
-              />
+              <BigCard card={card} name={name} words={words} artUrl={artUrl} />
+              {source && (
+                // Item 8: its card and its ability, always in words.
+                <span className="gs-win-tile-says">
+                  <b>{name}</b> <ManaText text={words} />
+                </span>
+              )}
             </button>
           );
         })}

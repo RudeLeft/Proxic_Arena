@@ -147,6 +147,14 @@ export interface Floating {
  * fly back to the hand from there -- a jump (Phase 10 P10-R1). Null when
  * a question is being asked: then it goes where that question puts it.
  */
+/** Spec 0058, item 6 -- how long a payment's spark takes from the land to its pip. */
+export const SPARK_MS = 420;
+
+/** Spec 0058, item 6 -- the first pip lit now that was not before ([before] is "*" for lit), or -1. */
+export function litIndex(pips: readonly { paid: boolean }[], before: string): number {
+  return pips.findIndex((p, i) => p.paid && before[i] !== "*");
+}
+
 export function heldSpot(
   floating: Floating | null,
   castingId: string | null,
@@ -175,33 +183,80 @@ export function emberColour(manaCost: string | null): string {
 }
 
 /**
- * The cost as it is being paid: each printed symbol, lit once paid. A
- * generic symbol shows what of it is still owed ("{2}" with one paid
- * shows 1). `owing` is Forge's own "still owing" -- null when nothing is
- * being paid yet (a target is asked first).
+ * The cost as it is being paid, one pip per mana, each lit once paid.
+ *
+ * Spec 0058, item 6: generic mana is one grey pip per point ({2} is two),
+ * lit from the left as Forge's "still owing" counts it down -- it was one
+ * number that turned from 2 into 1. Item 7: `cost` is the cost actually
+ * being paid (the first payment question's "still owing": mutate's
+ * {2}{B/G}{B/G}, ninjutsu, evoke, an X announced), not the printed one; a
+ * symbol of each kind lights from the left too. `owing` is null when
+ * nothing is being paid yet (a target is asked first).
  */
 export function costPips(
-  manaCost: string | null,
+  cost: string | readonly string[] | null,
   owing: readonly string[] | null,
-): { symbol: string; paid: boolean }[] {
-  const printed = manaSymbols(manaCost);
-  if (owing === null) return printed.map((symbol) => ({ symbol, paid: false }));
-  const left = [...owing];
-  const generic = left.filter((s) => /^\d+$/.test(s)).reduce((n, s) => n + Number(s), 0);
-  let genericLeft = generic;
-  return printed.map((symbol) => {
-    if (/^\d+$/.test(symbol)) {
-      const owed = Math.min(Number(symbol), genericLeft);
-      genericLeft -= owed;
-      return owed === 0 ? { symbol, paid: true } : { symbol: String(owed), paid: false };
-    }
-    const at = left.indexOf(symbol);
-    if (at >= 0) {
-      left.splice(at, 1);
-      return { symbol, paid: false };
-    }
-    return { symbol, paid: true };
+): { symbol: string; paid: boolean; generic?: true }[] {
+  const symbols = typeof cost === "string" || cost === null ? manaSymbols(cost) : [...cost];
+  // Generic as single points: "2" -> two pips.
+  const pips = symbols.flatMap((symbol): { symbol: string; generic: boolean }[] =>
+    /^\d+$/.test(symbol)
+      ? Array.from({ length: Number(symbol) }, () => ({ symbol: "1", generic: true }))
+      : [{ symbol, generic: false }],
+  );
+  const shape = (symbol: string, generic: boolean, paid: boolean) =>
+    generic ? { symbol, paid, generic: true as const } : { symbol, paid };
+  if (owing === null) return pips.map((p) => shape(p.symbol, p.generic, false));
+  // How many of each are still owed; the rest of that kind are paid.
+  const owed = new Map<string, number>();
+  for (const symbol of owing) {
+    const key = /^\d+$/.test(symbol) ? "generic" : symbol;
+    owed.set(key, (owed.get(key) ?? 0) + (/^\d+$/.test(symbol) ? Number(symbol) : 1));
+  }
+  const total = new Map<string, number>();
+  for (const p of pips) {
+    const key = p.generic ? "generic" : p.symbol;
+    total.set(key, (total.get(key) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  return pips.map((p) => {
+    const key = p.generic ? "generic" : p.symbol;
+    const at = seen.get(key) ?? 0;
+    seen.set(key, at + 1);
+    const paidOfKind = Math.max(0, (total.get(key) ?? 0) - (owed.get(key) ?? 0));
+    return shape(p.symbol, p.generic, at < paidOfKind);
   });
+}
+
+/** Spec 0058, item 6 -- the card that just paid (its place on the table) and its mana's colour. */
+export interface Spark {
+  box: Box;
+  colour: string;
+}
+
+/** Spec 0058, items 6-7 -- a cast being paid: the cost being paid, and what is still owed. */
+export interface Paying {
+  id: string;
+  cost: string[];
+  owing: string[];
+}
+
+/**
+ * Spec 0058, items 6-7 -- the next [Paying] for the card being cast
+ * ([castingId]): the first payment question's "still owing" is the cost
+ * being paid; each later one replaces what is owed; between questions
+ * ([owingNow] null) the last is kept, so nothing flashes back to unpaid.
+ * Another card, or none, starts again.
+ */
+export function keepPaying(
+  previous: Paying | null,
+  castingId: string | null,
+  owingNow: readonly string[] | null,
+): Paying | null {
+  const same = castingId !== null && previous?.id === castingId ? previous : null;
+  if (castingId === null || owingNow === null) return same;
+  if (same && same.owing.join() === owingNow.join()) return same;
+  return { id: castingId, cost: same?.cost ?? [...owingNow], owing: [...owingNow] };
 }
 
 /**
@@ -303,6 +358,8 @@ export function CastingCard({
   geometry,
   from,
   owing,
+  cost = null,
+  spark = null,
   artUrl,
   docked = false,
   hiddenBy = null,
@@ -314,8 +371,12 @@ export function CastingCard({
   from: Box | null;
   /** Item 4 -- where it floats (castingSpot); the middle when not given. */
   at?: Box | null;
-  /** Forge's "still owing", while it is being paid for. */
+  /** Forge's "still owing", while it is being paid for (spec 0058: the last one, kept). */
   owing: string[] | null;
+  /** Spec 0058, item 7 -- the cost being paid, as symbols; the printed cost when not known yet. */
+  cost?: readonly string[] | null;
+  /** Spec 0058, item 6 -- the land that last paid: a spark flies from it to the pip it lit. */
+  spark?: Spark | null;
   artUrl: (art: string) => string;
   /** Spec 0044: beside the stack, while a question needs the table. */
   docked?: boolean;
@@ -341,7 +402,47 @@ export function CastingCard({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it arrives
   }, [card.id]);
-  const pips = hidden ? [] : costPips(card.manaCost, owing);
+  const pips = hidden ? [] : costPips(cost ?? card.manaCost, owing);
+  // Spec 0058, item 6 -- each pip that lights gets a small spark from the
+  // land that paid it (the canvas's "small spark from the land").
+  const litNow = pips.map((p) => (p.paid ? "*" : "o")).join("");
+  const litBefore = useRef(litNow);
+  useLayoutEffect(() => {
+    const was = litBefore.current;
+    litBefore.current = litNow;
+    const el = ref.current;
+    const at = litIndex(pips, was);
+    if (!el || !spark || at < 0 || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const pip = el.querySelectorAll<HTMLElement>(".gs-cast-pip")[at];
+    if (!pip) return;
+    const rect = el.getBoundingClientRect();
+    const scale = rect.width > 0 && box.w > 0 ? rect.width / box.w : 1;
+    const p = pip.getBoundingClientRect();
+    const x1 = (p.left + p.width / 2 - rect.left) / scale;
+    const y1 = (p.top + p.height / 2 - rect.top) / scale;
+    const x0 = spark.box.x + spark.box.w / 2 - box.x;
+    const y0 = spark.box.y + spark.box.h / 2 - box.y;
+    const dot = document.createElement("span");
+    dot.className = "gs-cast-spark";
+    dot.style.background = spark.colour;
+    dot.style.boxShadow = `0 0 10px 3px ${spark.colour}`;
+    el.appendChild(dot);
+    const flight = dot.animate(
+      [
+        { transform: `translate(${x0}px, ${y0}px)`, opacity: 1 },
+        {
+          transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px)`,
+          opacity: 1,
+          offset: 0.5,
+        },
+        { transform: `translate(${x1}px, ${y1}px)`, opacity: 0.9 },
+      ],
+      { duration: SPARK_MS, easing: "ease-in-out" },
+    );
+    flight.onfinish = () => dot.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per payment
+  }, [litNow]);
   return (
     <div
       ref={ref}
@@ -365,6 +466,17 @@ export function CastingCard({
       {pips.length > 0 && (
         <div className="gs-cast-cost" aria-label={owing ? "Paying its cost" : "Its cost"}>
           {pips.map((pip, i) => {
+            // Spec 0058, item 6 -- a point of generic mana: a plain grey pip.
+            if (pip.generic) {
+              return (
+                <span
+                  key={i}
+                  className={`gs-cast-pip gs-cast-pip-generic${pip.paid ? " gs-cast-pip-paid" : ""}`}
+                  role="img"
+                  aria-label={pip.paid ? "1 generic paid" : "1 generic"}
+                />
+              );
+            }
             const url = symbolUrl(pip.symbol);
             return url ? (
               <img

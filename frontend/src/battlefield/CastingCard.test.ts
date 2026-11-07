@@ -14,23 +14,16 @@ describe("the cost under the card being cast", () => {
     expect(stillOwing(["Choose a target"])).toBeNull();
   });
 
-  it("lights each symbol once paid, and counts down a generic one", () => {
-    expect(costPips("{2}{W}", null)).toEqual([
-      { symbol: "2", paid: false },
-      { symbol: "W", paid: false },
-    ]);
+  it("lights each symbol once paid; generic mana one pip per point (spec 0058, item 6)", () => {
+    const g = (paid: boolean) => ({ symbol: "1", paid, generic: true });
+    expect(costPips("{2}{W}", null)).toEqual([g(false), g(false), { symbol: "W", paid: false }]);
     expect(costPips("{2}{W}", ["1", "W"])).toEqual([
-      { symbol: "1", paid: false },
+      g(true),
+      g(false),
       { symbol: "W", paid: false },
     ]);
-    expect(costPips("{2}{W}", ["2"])).toEqual([
-      { symbol: "2", paid: false },
-      { symbol: "W", paid: true },
-    ]);
-    expect(costPips("{2}{W}", [])).toEqual([
-      { symbol: "2", paid: true },
-      { symbol: "W", paid: true },
-    ]);
+    expect(costPips("{2}{W}", ["2"])).toEqual([g(false), g(false), { symbol: "W", paid: true }]);
+    expect(costPips("{2}{W}", [])).toEqual([g(true), g(true), { symbol: "W", paid: true }]);
   });
 });
 

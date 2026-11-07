@@ -282,6 +282,55 @@ public final class PlainWords {
         return line + " " + lost;
     }
 
+    private static final Pattern WHERE_X = Pattern.compile(",? where X is the number of ([^.]+?)\\s*(\\.|$)");
+    private static final Pattern BARE_X = Pattern.compile("(?<![{\\w])X(?![}\\w])");
+
+    /**
+     * Spec 0058, item 3 -- an X the game has counted, filled in: "deal X
+     * damage to target creature, where X is the number of Goblins on the
+     * battlefield." with 3 becomes "deal 3 damage to target creature (3
+     * Goblins on the battlefield)." -- or, {@code brief}, "(3 Goblins)".
+     * Text without "where X is the number of ..." comes back unchanged:
+     * then nothing says what was counted.
+     */
+    static String countedX(String text, int x, boolean brief) {
+        if (text == null) {
+            return null;
+        }
+        Matcher m = WHERE_X.matcher(text);
+        if (!m.find()) {
+            return text;
+        }
+        String what = m.group(1).trim();
+        if (brief) {
+            what = what.replaceFirst("\\s+on the battlefield$", "");
+        }
+        if (x == 1) {
+            // "1 Goblin", "1 card in your hand": the first word, singular.
+            what = what.replaceFirst("^(\\w+?)s\\b", "$1");
+        }
+        String before = BARE_X.matcher(text.substring(0, m.start())).replaceAll(String.valueOf(x));
+        return before + " (" + x + " " + what + ")" + m.group(2) + text.substring(m.end());
+    }
+
+    /**
+     * Spec 0058, item 3 -- an effect after "then", as the discard line says
+     * it: "Gempalm Incinerator may deal 3 damage to target creature (3
+     * Goblins)." becomes "deal 3 damage to a creature (3 Goblins)".
+     */
+    static String thenWords(String effect, String cardName) {
+        String t = effect == null ? "" : effect.trim();
+        if (cardName != null) {
+            t = t.replaceFirst("^" + Pattern.quote(cardName) + "\\s+(may\\s+)?", "");
+        }
+        t = t.replaceFirst("^(you may have it|you may|it)\\s+", "");
+        t = t.replaceAll("(?<!any )\\btarget (?=[aeiouAEIOU])", "an ").replaceAll("(?<!any )\\btarget ", "a ");
+        if (t.endsWith(".")) {
+            t = t.substring(0, t.length() - 1);
+        }
+        return lower(t);
+    }
+
     /**
      * Spec 0057, item 5 -- the title of the option that discards the card:
      * "Cycle it instead", "Swampcycle it instead", "Channel instead".
