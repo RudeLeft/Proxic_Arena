@@ -3,6 +3,39 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.46.0 — 2026-11-06
+
+Nothing on the battlefield jumps (the start of Phase 10), updates that wait for games to finish, and fixes to the game's windows and words.
+
+**For whoever runs the server**
+- No database changes.
+- New on the Admin page: **Update waiting**. Switch it on before you update: no new game can start, players in a game see a notice that an update is coming, and the page lists the games still running. When it says "safe to update", update. Switch it off if you change your mind.
+- If the server is stopped while a game is still being played, its players are told "The server is being updated" (no win or loss) instead of the game simply ending. The server now gets 30 seconds to say so before it is stopped (`stop_grace_period: 30s` in docker-compose.yml; add it to your own setup if you don't use that file).
+- This update itself still ends games in progress: the server you are running now doesn't have Update waiting yet.
+
+**Cards move instead of jumping**
+- Every card glides to where it goes: played, drawn, cast, returned to hand, or put into the graveyard. Several cards moving at once move together.
+- A destroyed or sacrificed creature shatters before it goes to the graveyard; an exiled one is banished in a flash of light. When three or more leave at once (a board wipe), a flash crosses the table first.
+- A creature that is stolen is pulled across the table on a gold line.
+- Auras and Equipment hang off the side of the card they're on, like tabs, and are chained on when they attach. The cards beside it slide over to make room; past four, the tabs fan out.
+- A card that transforms (day and night, Delver, a face-down card turned up) lifts, flips and settles.
+- Waiting is never required: click anywhere and the movement hurries to its end.
+
+**Windows that say what they do**
+- A target question says what will happen: "Deal 1 damage. Boggart Shenanigans may deal 1 damage to a player or planeswalker. Click a player or planeswalker." Triggered abilities used to show only "Choose a target". A "may" has its own button to say no ("Don't deal 1 damage"), and target lists no longer show numbers after card names.
+- A window about a card sits by that card: above a card in your hand, beside a card on the table. Questions about spells on the stack stay by the stack.
+- A cost you choose to pay (Elvish Eulogist) shows what the ability does, with **Cancel** and the cost's own action (**Sacrifice**, **Discard**, **Tap**, **Pay 2 life**...).
+- Alternative costs say what they are: "Exile two green cards from your hand instead of paying {5}{G}{G}" (Allosaurus Rider). Words like "Card.Green" never appear.
+- When a card in your hand can be played or thrown away for something (cycling, landcycling, channel: Forgotten Cave, Krosan Tusker, Boseiju and 411 more), playing it is the gold main choice; the other is red and says what you lose ("Discard Forgotten Cave and draw a card. You won't have it as a land.").
+- A card revealed to pay a cost tells the other player who revealed it and why: "Pat revealed Llanowar Elves from their hand, to cast Wren's Run Vanquisher for {1}{G} instead of {4}{G}".
+- "Still to pay" on a spell or ability on the stack is about two and a half times bigger.
+- Every window with Peek also says "or hold Space", and Peek no longer sits against the Close button.
+- A card picked from your hand no longer makes the spell you're casting move aside, and cancelling a spell sends it back to your hand from where it is.
+
+**Errors**
+- If something goes wrong, the error screen says so in general words, with a **Reload the page** button, and no server details.
+- A page left open across an update reloads itself once instead of showing an error.
+
 ## 1.45.0 — 2026-11-06
 
 The rest of Phase 9: every game window reviewed. The status tray's list, Peek, 3D dice, the away window, modes in one window, and two checks of every window.
