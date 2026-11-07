@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.50.0 — 2026-11-07
+
+Player pictures that fix themselves, and a wider players list.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Player pictures**
+- A player's picture could stay a broken-image icon after a server update: a picture the page asked for during the few seconds the server was restarting failed once and was never asked for again. Now a picture that fails shows the default picture for a moment and tries again by itself (and at once when the page reconnects), so it appears without reloading.
+- The server no longer lets a failed picture be kept by a cache, so one player's broken load can never be passed on to others.
+
+**The lobby**
+- The players list is wider and grows with the screen (about 384 px on a 1920-wide screen), so names up to 12 letters and "Away 6 min · in the lobby" are no longer cut off.
+
 ## 1.49.0 — 2026-11-07
 
 Cards going back to a hand or a library, tidier attacks, and fixes from playing.
