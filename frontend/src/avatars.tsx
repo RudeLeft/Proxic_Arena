@@ -6,6 +6,7 @@
 // everybody in the Players list; this module only turns a name
 // ("avatar-07") into a picture.
 
+import { useEffect, useState } from "react";
 import defaultAvatar from "./assets/avatars/default.svg";
 import type { PresenceKind, Rank } from "./lobbyView";
 
@@ -28,6 +29,90 @@ export const AVATARS: string[] = [...byName.keys()].sort(
 /** The picture for [avatar], or the default when there is none (or it is unknown). */
 export function avatarUrl(avatar: string | null | undefined): string {
   return (avatar && byName.get(avatar)) || defaultAvatar;
+}
+
+// Spec 0060 — a picture that fails to load tries again by itself.
+//
+// An update restarts the server; a picture the page asks for while it is
+// down (a row appearing, Offline opened) fails, and an <img> never asks
+// again: it stayed a broken-image icon after the server was back. Now the
+// default picture shows while it waits, and a copy of the address with a
+// throwaway "?r=n" is tried in the background -- at these waits, and at
+// once when the page reconnects, comes back online or is looked at again.
+// The real picture only goes back on screen once it has loaded.
+
+/** Waits before each try, in milliseconds; the last one repeats. */
+export const AVATAR_RETRY_MS: readonly number[] = [1000, 2000, 4000, 8000, 30_000];
+
+/** Said on window when the page's live connection is back (shell/LobbyConnection). */
+export const PAGE_RECONNECTED = "proxic:reconnected";
+
+/** What to show for [url]: itself, the default while it is being retried, then the retry that worked. */
+function useRecoveringSrc(url: string): { src: string; onError: () => void } {
+  // The address that last failed, and the one that loaded in its place.
+  const [failed, setFailed] = useState<string | null>(null);
+  const [recovered, setRecovered] = useState<{ of: string; src: string } | null>(null);
+  const waiting = failed === url;
+
+  useEffect(() => {
+    if (!waiting) return undefined;
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let probe: HTMLImageElement | null = null;
+    let stopped = false;
+
+    const schedule = () => {
+      const wait = AVATAR_RETRY_MS[Math.min(attempt, AVATAR_RETRY_MS.length - 1)] ?? 30_000;
+      timer = setTimeout(tryNow, wait);
+    };
+    function tryNow() {
+      if (stopped) return;
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      if (probe) {
+        probe.onload = probe.onerror = null;
+      }
+      attempt += 1;
+      const src = `${url}${url.includes("?") ? "&" : "?"}r=${attempt}`;
+      const image = new Image();
+      probe = image;
+      image.onload = () => {
+        if (stopped || probe !== image) return;
+        setRecovered({ of: url, src });
+        setFailed(null);
+      };
+      image.onerror = () => {
+        if (stopped || probe !== image) return;
+        schedule();
+      };
+      image.src = src;
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tryNow();
+    };
+    schedule();
+    window.addEventListener("online", tryNow);
+    window.addEventListener(PAGE_RECONNECTED, tryNow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      if (timer !== null) clearTimeout(timer);
+      if (probe) probe.onload = probe.onerror = null;
+      window.removeEventListener("online", tryNow);
+      window.removeEventListener(PAGE_RECONNECTED, tryNow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [waiting, url]);
+
+  const shown = recovered?.of === url ? recovered.src : url;
+  return {
+    src: waiting ? defaultAvatar : shown,
+    // A picture built into the page (the default, or one small enough to
+    // be inlined) cannot fail for the network; nothing to retry.
+    onError: () => {
+      if (!url.startsWith("data:") && url !== defaultAvatar) setFailed(url);
+    },
+  };
 }
 
 /** Spec 0011 — what each place's medal says, for a screen reader. */
@@ -64,10 +149,12 @@ export function Avatar({
   statusLabel?: string;
   rank?: Rank | undefined;
 }) {
+  const { src, onError } = useRecoveringSrc(avatarUrl(avatar));
   const picture = (
     <img
       className="pa-avatar"
-      src={avatarUrl(avatar)}
+      src={src}
+      onError={onError}
       width={size}
       height={size}
       alt={label ?? ""}

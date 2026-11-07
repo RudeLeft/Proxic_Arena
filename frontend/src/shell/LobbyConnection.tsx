@@ -20,6 +20,7 @@ import {
 } from "react";
 import { EMPTY_LOBBY, catchUp, connectLobby, type LobbySocket, type LobbyState } from "../lobby";
 import { watchActivity } from "../activity";
+import { PAGE_RECONNECTED } from "../avatars";
 
 interface LobbyConnectionValue {
   lobby: LobbyState;
@@ -51,6 +52,8 @@ export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
       onReopen: () => {
         if (away) opened.send({ type: "ACTIVITY", away: true });
         void catchUp(setLobbyState, () => latest.current);
+        // Spec 0060 -- pictures that failed while it was away try again now.
+        window.dispatchEvent(new Event(PAGE_RECONNECTED));
       },
     });
     socket.current = opened;

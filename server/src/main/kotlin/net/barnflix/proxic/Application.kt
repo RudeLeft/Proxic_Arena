@@ -368,6 +368,8 @@ private fun Application.installRoutes(
                 // index.html here answers a script request with HTML,
                 // and the browser reports it as a syntax error in the
                 // bundle -- a stale cached page looks like a code bug.
+                // Spec 0060: it says no-store (installSignedInGate), so no
+                // browser or cache keeps the failure.
                 call.respond(
                     HttpStatusCode.NotFound,
                     ErrorResponse("NOT_FOUND", "No such asset.", call.callId),

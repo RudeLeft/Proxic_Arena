@@ -722,3 +722,66 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
   }
   await page.screenshot({ path: "test-results/seen/hall-2560.png" });
 });
+
+test("spec 0060: a 12-letter name and its away line fit the players column, which grows with the screen", async ({
+  browser,
+}) => {
+  // F-0060-C. The guest takes a 12-letter name (DisplayNames.MAX) for the
+  // run, and gets their own back afterwards. Two capitals and wide lower
+  // case, like a real name; twelve capital Ms (about 8 px more than the
+  // room at 1920) still end in "...", as before.
+  const longName = "MightyWombat";
+  await twoPlayers(browser, async (host, guest) => {
+    const csrf =
+      (await guest.context().cookies()).find((c) => c.name === "proxicarena_csrf")?.value ?? "";
+    const me = (await (await guest.request.get("/api/auth/me")).json()) as {
+      user: { displayName: string };
+    };
+    const rename = (displayName: string) =>
+      guest.request.post("/api/auth/display-name", {
+        headers: { "X-CSRF-Token": csrf },
+        data: { displayName },
+      });
+    expect((await rename(longName)).ok()).toBe(true);
+    try {
+      const row = playerRow(host, longName);
+      await expect(row).toBeVisible();
+      const seen: Record<string, number> = {};
+      for (const [width, height, column] of [
+        [1920, 1080, 365],
+        [1920, 947, 365],
+        [2560, 1440, 380],
+      ] as const) {
+        await host.setViewportSize({ width, height });
+        const at = `${width}x${height}`;
+        // TEST-007: the column really is the size this screen should give.
+        const box = await players(host).boundingBox();
+        expect(Math.abs(box!.width - column), `${at} column ${box!.width}`).toBeLessThanOrEqual(2);
+        seen[at] = Math.round(box!.width);
+        const fit = await row.evaluate((li) => {
+          const name = li.querySelector(".pa-player-name") as HTMLElement;
+          const where = li.querySelector(".pa-player-where > span") as HTMLElement;
+          const room = (li.querySelector(".pa-player-text") as HTMLElement).clientWidth;
+          const ctx = document.createElement("canvas").getContext("2d")!;
+          const cs = getComputedStyle(where);
+          ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+          return {
+            nameCut: name.scrollWidth > name.clientWidth,
+            room,
+            away: Math.ceil(ctx.measureText("Away 60 min · in the lobby").width),
+          };
+        });
+        expect(fit.nameCut, `${at}: the name is cut`).toBe(false);
+        expect(
+          fit.away,
+          `${at}: the away line needs ${fit.away} of ${fit.room}`,
+        ).toBeLessThanOrEqual(fit.room);
+      }
+      expect(seen["1920x1080"]).not.toBe(seen["2560x1440"]);
+      await host.setViewportSize({ width: 1920, height: 1080 });
+      await host.screenshot({ path: "test-results/seen/lobby-long-name-1920.png" });
+    } finally {
+      await rename(me.user.displayName);
+    }
+  });
+});

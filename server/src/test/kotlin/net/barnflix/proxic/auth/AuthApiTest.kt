@@ -542,6 +542,43 @@ class AuthApiTest {
             assertEquals(HttpStatusCode.NotFound, hidden.status)
         }
 
+    /**
+     * Spec 0060 F-0060-B -- an answer under /assets that is not a success is
+     * never kept: not the gate's refusal, not a missing file (signed in or
+     * not). A kept failure outlived an update's restart. A signed-in page's
+     * missing file used to say "immutable" for a year.
+     */
+    @Test
+    fun `a failed built file is never kept`() =
+        testApplication {
+            seedUser()
+            val dir = builtFrontend()
+            application { module(config().copy(staticRoot = dir.path)) }
+
+            val refused = client.get("/assets/lobby.js")
+            assertEquals(HttpStatusCode.NotFound, refused.status)
+            assertEquals(listOf("no-store"), refused.headers.getAll(HttpHeaders.CacheControl))
+            val gone = client.get("/assets/no-such-file.webp")
+            assertEquals(HttpStatusCode.NotFound, gone.status)
+            assertEquals(listOf("no-store"), gone.headers.getAll(HttpHeaders.CacheControl))
+
+            val cookie = "$SESSION_COOKIE=${login().cookie(SESSION_COOKIE)!!}"
+            val missing = client.get("/assets/no-such-file.webp") { header(HttpHeaders.Cookie, cookie) }
+            assertEquals(HttpStatusCode.NotFound, missing.status)
+            assertEquals(listOf("no-store"), missing.headers.getAll(HttpHeaders.CacheControl))
+            // A success is still kept, by the browser only, once.
+            val found = client.get("/assets/lobby.js") { header(HttpHeaders.Cookie, cookie) }
+            assertEquals(HttpStatusCode.OK, found.status)
+            assertEquals(
+                listOf("private, max-age=31536000, immutable"),
+                found.headers.getAll(HttpHeaders.CacheControl),
+            )
+            // The sign-in screen's own files are as before: no header.
+            val open = client.get("/assets/entry.js")
+            assertEquals(HttpStatusCode.OK, open.status)
+            assertEquals(null, open.headers[HttpHeaders.CacheControl])
+        }
+
     // --- logout-all (§3.34) -----------------------------------------
 
     /**

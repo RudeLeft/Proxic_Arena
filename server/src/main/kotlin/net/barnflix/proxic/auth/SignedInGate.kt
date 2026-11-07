@@ -3,6 +3,8 @@ package net.barnflix.proxic.auth
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
+import io.ktor.http.isSuccess
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationCallPipeline
@@ -10,7 +12,9 @@ import io.ktor.server.application.call
 import io.ktor.server.application.log
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
+import io.ktor.server.response.ApplicationSendPipeline
 import io.ktor.server.response.respond
+import io.ktor.util.AttributeKey
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -151,16 +155,38 @@ fun Application.installSignedInGate(
                         call.respond(HttpStatusCode.NotFound, ErrorResponse("NOT_FOUND", "No such page.", null))
                         finish()
                     } else {
-                        // Kept by the browser, never by Cloudflare: a shared
-                        // copy would hand a signed-in page to a stranger.
-                        call.response.headers.append(
-                            HttpHeaders.CacheControl,
-                            "private, max-age=31536000, immutable",
-                        )
+                        call.attributes.put(SIGNED_IN_ASSET, true)
                     }
                 }
             }
             else -> Unit
         }
     }
+
+    keepOnlySuccesses()
 }
+
+/**
+ * Spec 0060 -- how long an answer under /assets may be kept, decided by
+ * the answer itself, once. A signed-in file: by the browser, for ever,
+ * never by Cloudflare (a shared copy would hand a signed-in page to a
+ * stranger). Anything that is not a success -- a refusal, a missing file,
+ * an error -- by nobody: an update's restart made one picture fail, and a
+ * kept failure would outlive the restart. A 404 sent to a signed-in page
+ * used to say "immutable" for a year.
+ */
+private fun Application.keepOnlySuccesses() {
+    sendPipeline.intercept(ApplicationSendPipeline.After) { subject ->
+        if (!call.request.path().startsWith("/assets/")) return@intercept
+        if (call.response.headers.contains(HttpHeaders.CacheControl)) return@intercept
+        val status = (subject as? OutgoingContent)?.status ?: call.response.status() ?: HttpStatusCode.OK
+        when {
+            !status.isSuccess() -> call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+            call.attributes.getOrNull(SIGNED_IN_ASSET) == true ->
+                call.response.headers.append(HttpHeaders.CacheControl, "private, max-age=31536000, immutable")
+        }
+    }
+}
+
+/** A built file the gate let through because the caller is signed in. */
+private val SIGNED_IN_ASSET = AttributeKey<Boolean>("proxic.signedInAsset")

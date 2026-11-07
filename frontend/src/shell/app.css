@@ -1257,7 +1257,10 @@
  * the older room classes above. */
 .pa-lobby .pa-lobby-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  /* Spec 0060: the players column grows with the screen -- 365 px at 1920,
+   * never under 300 or over 380 -- so a 12-letter name and "Away 6 min ·
+   * in the lobby" fit beside the picture and the Invite button. */
+  grid-template-columns: clamp(300px, 19vw, 380px) minmax(0, 1fr) 340px;
   grid-template-areas: "players main chat";
   align-items: start;
   gap: 20px;
@@ -2170,7 +2173,7 @@
 /* Narrower: chat goes under the room. */
 @media (max-width: 1100px) {
   .pa-lobby .pa-lobby-layout {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 300px minmax(0, 1fr);
     grid-template-areas:
       "players main"
       "players chat";
