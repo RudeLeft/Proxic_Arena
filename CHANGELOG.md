@@ -3,6 +3,18 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.47.0 — 2026-11-06
+
+Merging cards burst into one (Phase 10).
+
+**For whoever runs the server**
+- No database changes. Use **Update waiting** on the Admin page before you update: switch it on, wait for "safe to update", then update.
+
+**Meld and mutate** (Graf Rats and Midnight Scavengers, Gemrazer, Insatiable Hemophage, Boneyard Lurker...)
+- When two cards become one, the table dims, the two cards are pulled together and slam, a white flash with rays, sparks and a ring of light bursts out, and the merged card rises out of the light and settles. A click hurries it, like every other movement.
+- A meld no longer looks like one card going to exile while the other changes; a mutating spell no longer vanishes from the stack. It flies from the stack onto the creature.
+- Afterwards it is one card, as before. A creature mutated underneath keeps its name.
+
 ## 1.46.0 — 2026-11-06
 
 Nothing on the battlefield jumps (the start of Phase 10), updates that wait for games to finish, and fixes to the game's windows and words.
