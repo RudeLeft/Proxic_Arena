@@ -3,6 +3,23 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.48.0 — 2026-11-06
+
+Combat, one fight at a time (Phase 10).
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Attacking and blocking**
+- Attacking creatures move to the front of their side with a red glow. A blocker moves to stand facing the creature it blocks, side by side with any other blockers. Nothing lands on top of another card any more.
+- On a very crowded table, cards get one size smaller during combat so every line still fits.
+
+**Combat damage**
+- Each fight plays on its own: the rest of the table dims and a line names the fight ("the Hill Giant against your two Grizzly Bears"). The creatures rear back and lunge, slashes rip across each one that is hit, and the damage numbers appear on them. Then the creatures that died shatter, and the survivors go back to their places.
+- A creature nobody blocked slashes across its player's life; if that's you, the edges of the screen flash red.
+- First strike plays as its own round first. Trample's extra damage goes on to the player. Lifelink shows the life gained.
+- A click hurries it to the end, as with every other movement.
+
 ## 1.47.0 — 2026-11-06
 
 Merging cards burst into one (Phase 10).
