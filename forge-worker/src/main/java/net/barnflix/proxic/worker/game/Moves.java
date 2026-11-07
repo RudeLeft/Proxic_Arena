@@ -41,10 +41,57 @@ final class Moves {
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
     record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-            Integer into) {
+            Integer into, String where) {
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null);
+        }
+
+        Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
+                Integer into) {
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null);
+        }
+
+        Move withWhere(String place) {
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place);
+        }
+    }
+
+    /**
+     * Phase 10 A-14 (Amendment 17) -- where in a library a card landed, as
+     * Forge put it there: "top" (index 0 of Forge's library list, which is
+     * its top) or "bottom" (the last index), read from Forge's own library
+     * at the moment Forge reports the move (the event bus is synchronous,
+     * after the card was added). Anywhere else ("third from the top") is
+     * null: said as nothing rather than as a wrong place.
+     */
+    static String libraryPlace(int index, int size) {
+        if (index < 0 || size <= 0) {
+            return null;
+        }
+        if (index == 0) {
+            return "top";
+        }
+        return index == size - 1 ? "bottom" : null;
+    }
+
+    /**
+     * Phase 10 A-14 -- Forge shuffled `seat`'s library: every card that went
+     * into that library this round is now "shuffled" in (Chaos Warp's
+     * card, a tutor's shuffle after a card was put back). Its place is no
+     * longer known to anyone, so a top or bottom said earlier is replaced.
+     */
+    static void shuffled(List<Move> moves, Integer seat) {
+        if (seat == null) {
+            return;
+        }
+        synchronized (moves) {
+            for (int i = 0; i < moves.size(); i++) {
+                Move move = moves.get(i);
+                if ("library".equals(move.to()) && seat.equals(move.toSeat())) {
+                    moves.set(i, move.withWhere("shuffled"));
+                }
+            }
         }
     }
 
@@ -67,7 +114,7 @@ final class Moves {
                     || ("battlefield".equals(move.from()) && "exile".equals(move.to()));
             out.add(host != null && merging && host != move.card()
                     ? new Move(move.card(), move.from(), move.fromSeat(), move.to(), move.toSeat(),
-                            move.faceDown(), move.why(), host)
+                            move.faceDown(), move.why(), host, move.where())
                     : move);
         }
         return out;
@@ -121,6 +168,14 @@ final class Moves {
             }
             if (named && move.into() != null) {
                 entry.addProperty("into", "card:" + move.into());
+            }
+            // Phase 10 A-14: where in the library it went. Public, as the
+            // move into a library is (Griptide puts it on top for both
+            // players to see; the other player's Brainstorm puts two cards
+            // on top, which both players see too): sent with or without
+            // the card. "shuffled" says only that -- never a position.
+            if ("library".equals(move.to()) && move.where() != null) {
+                entry.addProperty("where", move.where());
             }
             out.add(entry);
         }

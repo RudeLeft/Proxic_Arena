@@ -2,10 +2,18 @@
 
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board, stackCaption, type BoardCard, type Merge, type StackView } from "./Board";
+import {
+  Board,
+  returnTag,
+  stackCaption,
+  type BoardCard,
+  type Merge,
+  type Return,
+  type StackView,
+} from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, inCombat, layout } from "./layout";
-import { placement, type AnchorId } from "./motion";
+import { placement, RETURN_MS, type AnchorId } from "./motion";
 
 /**
  * The drawn board — PHASE_07 §7.42 and §7.45, BATTLEFIELD_RENDERING.md §7
@@ -1157,5 +1165,326 @@ describe("the line under the stack", () => {
     expect(stackCaption([{ by: "RudeLeft", kind: "spell", name: "Shock", seat: 1 }], 1, 1, 4)).toBe(
       "Next: your Shock",
     );
+  });
+});
+
+/**
+ * Phase 10 A-14 (owner 2026-11-06, Amendment 17): D · Lift and glide -- back
+ * to a hand, onto or into a library, shuffled in; the tag at the destination.
+ */
+describe("Board: back to a hand or a library (A-14)", () => {
+  const size = { width: 1920, height: 1080 };
+  const calls: {
+    element: Element;
+    frames: Keyframe[];
+    options: KeyframeAnimationOptions;
+    animation: { onfinish: (() => void) | null };
+  }[] = [];
+  let still = false;
+  beforeEach(() => {
+    calls.length = 0;
+    still = false;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(size.width);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(size.height);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("matchMedia", () => ({ matches: still }));
+    (HTMLElement.prototype as unknown as { animate: unknown }).animate = function (
+      this: Element,
+      frames: Keyframe[],
+      options: KeyframeAnimationOptions,
+    ) {
+      const animation = { onfinish: null as (() => void) | null, cancel() {} };
+      calls.push({ element: this, frames, options, animation });
+      return animation;
+    };
+  });
+  afterEach(() => {
+    delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const start = syntheticBoard(24, 30, 2);
+  const viewer = start.viewerSeat;
+  // A creature alone in its slot, on each side (a pile member has no element of its own).
+  const alone = (seat: number, not: string[] = []) => {
+    const out = layout(start, size);
+    const slot = out.slots.find((s) => {
+      const c = start.battlefield.find((card) => card.id === s.ids[0]);
+      return (
+        s.ids.length === 1 &&
+        c?.kind === "creature" &&
+        c.seat === seat &&
+        s.attached.length === 0 &&
+        !not.includes(c.id)
+      );
+    });
+    return start.battlefield.find((card) => card.id === slot!.ids[0])!;
+  };
+  const mine = alone(viewer);
+  const theirs = alone(viewer === 1 ? 2 : 1);
+  const backs = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ id: `hidden-hand:${theirs.seat}:${i}`, shown: null }));
+  function draw(
+    battlefield: BoardCard[],
+    extra: {
+      hand?: typeof start.hand;
+      opponentHand?: ReturnType<typeof backs>;
+      returns?: Map<string, Return>;
+      stack?: StackView[];
+    } = {},
+  ) {
+    return (
+      <Board
+        battlefield={battlefield}
+        hand={extra.hand ?? start.hand}
+        opponentHand={extra.opponentHand ?? backs(3)}
+        opponentName="Bob"
+        viewerSeat={viewer}
+        artUrl={(art) => art}
+        arrivals={new Map()}
+        departures={new Map()}
+        returns={extra.returns ?? new Map()}
+        stack={extra.stack ?? []}
+      />
+    );
+  }
+  const without = (...ids: string[]) => start.battlefield.filter((card) => !ids.includes(card.id));
+  const slotOf = (container: HTMLElement, id: string) =>
+    container.querySelector(`[data-object-id="${id}"]`)!.closest(".bf-slot") as HTMLElement;
+  const tags = (container: HTMLElement) =>
+    [...container.querySelectorAll("[data-return-tag]")].map((t) => t.textContent);
+
+  it("back to your hand: the same card lifts and glides into its place there -- no pop", () => {
+    const view = render(draw(start.battlefield));
+    const was = slotOf(view.container, mine.id);
+    const from = was.style.transform;
+    calls.length = 0;
+    const hand = [
+      ...start.hand,
+      {
+        id: mine.id,
+        name: mine.name,
+        kind: mine.kind,
+        types: mine.types,
+        power: mine.power,
+        toughness: mine.toughness,
+        art: mine.art,
+      },
+    ];
+    view.rerender(
+      draw(without(mine.id), {
+        hand,
+        returns: new Map([[mine.id, { zone: "hand", side: "viewer", where: null, hidden: false }]]),
+      }),
+    );
+    const card = view.container.querySelector(
+      `[data-zone="viewer:hand"][data-object-id="${mine.id}"]`,
+    )!;
+    const slot = card.closest(".bf-slot") as HTMLElement;
+    expect(slot).toBe(was); // one element all the way: nothing appears or vanishes
+    expect(view.container.querySelector(`[data-ghost-of="${mine.id}"]`)).toBeNull();
+    const lift = calls.filter((c) => c.element === slot);
+    expect(lift).toHaveLength(1);
+    expect(lift[0]!.options.duration).toBe(RETURN_MS);
+    expect(String(lift[0]!.frames[0]!.transform)).toBe(from);
+    expect(String(lift[0]!.frames.at(-1)!.transform)).toBe(slot.style.transform);
+    expect(lift[0]!.frames.every((f) => f.opacity === 1)).toBe(true);
+    expect(tags(view.container)).toEqual(["Back to your hand"]);
+    const tag = view.container.querySelector("[data-return-tag]")!;
+    const tagRun = calls.find((c) => c.element === tag)!;
+    expect(tagRun.options.delay).toBe(RETURN_MS); // once it has landed
+  });
+
+  it("back to the other player's hand: it turns face down on the way, becoming their new card back", () => {
+    const view = render(draw(start.battlefield));
+    const from = slotOf(view.container, theirs.id).style.transform;
+    calls.length = 0;
+    view.rerender(
+      draw(without(theirs.id), {
+        opponentHand: backs(4),
+        returns: new Map([
+          [theirs.id, { zone: "hand", side: "opponent", where: null, hidden: true }],
+        ]),
+      }),
+    );
+    const ghost = view.container.querySelector(`[data-ghost-of="${theirs.id}"]`)!;
+    expect(ghost.getAttribute("data-return")).toBe("hand");
+    expect(ghost.getAttribute("data-fate")).toBeNull(); // not defeated, not exiled
+    expect(ghost.querySelector(".bf-return-back")).toBeNull(); // its new back takes over
+    const out = calls.find((c) => c.element === ghost)!;
+    const back = slotOf(view.container, `hidden-hand:${theirs.seat}:3`);
+    const into = calls.filter((c) => c.element === back);
+    // Never the old faint glide in from the stack for that back: only this.
+    expect(into).toHaveLength(1);
+    // The same path from where it was to the new back's place; one fades as the other appears.
+    expect(String(out.frames[0]!.transform)).toBe(from);
+    expect(String(into[0]!.frames[0]!.transform)).toBe(from);
+    expect(String(into[0]!.frames.at(-1)!.transform)).toBe(back.style.transform);
+    expect(String(out.frames.at(-1)!.transform)).toBe(back.style.transform);
+    expect(out.frames.at(-1)!.opacity).toBe(0);
+    expect(into[0]!.frames[0]!.opacity).toBe(0);
+    expect(into[0]!.frames.at(-1)!.opacity).toBe(1);
+    expect(into[0]!.options.duration).toBe(RETURN_MS);
+    expect(tags(view.container)).toEqual(["Back to Bob's hand"]);
+  });
+
+  it("on top of a library: face down on the way, sinking into the pile, the tag beside it", () => {
+    const view = render(draw(start.battlefield));
+    calls.length = 0;
+    view.rerender(
+      draw(without(theirs.id), {
+        returns: new Map([
+          [theirs.id, { zone: "library", side: "opponent", where: "top", hidden: true }],
+        ]),
+      }),
+    );
+    const ghost = view.container.querySelector(`[data-ghost-of="${theirs.id}"]`)!;
+    expect(ghost.getAttribute("data-return")).toBe("library");
+    const run = calls.find((c) => c.element === ghost)!;
+    expect(run.options.duration).toBe(RETURN_MS);
+    expect(String(run.frames.at(-1)!.transform)).toContain("scale(0.3)");
+    expect(run.frames.at(-1)!.opacity).toBe(0);
+    const back = ghost.querySelector(".bf-return-back")!;
+    const turn = calls.find((c) => c.element === back)!;
+    expect(turn.frames[0]!.opacity).toBe(0);
+    expect(turn.frames.at(-1)!.opacity).toBe(1);
+    expect(tags(view.container)).toEqual(["On top of Bob's library"]);
+    expect(view.container.querySelector("[data-riffle]")).toBeNull();
+  });
+
+  it("shuffled in: the library riffles, then the tag; several to one place, one tag", () => {
+    const other = alone(viewer, [mine.id]);
+    const view = render(draw(start.battlefield));
+    calls.length = 0;
+    view.rerender(
+      draw(without(mine.id, other.id), {
+        returns: new Map([
+          [mine.id, { zone: "library", side: "viewer", where: "shuffled", hidden: true }],
+          [other.id, { zone: "library", side: "viewer", where: "shuffled", hidden: true }],
+        ]),
+      }),
+    );
+    expect(view.container.querySelectorAll('[data-return="library"]')).toHaveLength(2);
+    const riffles = [...view.container.querySelectorAll("[data-riffle]")];
+    expect(riffles).toHaveLength(6);
+    const delays = riffles.map((r) => calls.find((c) => c.element === r)!.options.delay!);
+    expect(delays[0]).toBe(RETURN_MS);
+    expect(delays[5]! - delays[0]!).toBe(250);
+    // Unseen until each starts: not held at rest on the pile while the card flies.
+    for (const r of riffles) {
+      expect(calls.find((c) => c.element === r)!.options.fill).toBe("forwards");
+      expect((r as HTMLElement).style.opacity).toBe("0");
+    }
+    expect(tags(view.container)).toEqual(["Shuffled into your library"]);
+    const tag = view.container.querySelector("[data-return-tag]")!;
+    expect(calls.find((c) => c.element === tag)!.options.delay).toBe(RETURN_MS + 700 + 250);
+  });
+
+  it("out of a pile: each card going back leaves as its own ghost from the pile", () => {
+    // Two identical creatures, one pile (spec 0003); both go to the bottom.
+    const plain: BoardCard = {
+      ...theirs,
+      id: "card:9399",
+      name: "Grizzly Bears",
+      attacking: false,
+      blocking: false,
+      tapped: false,
+      faceDown: false,
+      known: true,
+      attachedTo: null,
+    };
+    const twin: BoardCard = { ...plain, id: "card:9400" };
+    const third: BoardCard = { ...plain, id: "card:9401" };
+    const piled = [...start.battlefield, plain, twin, third];
+    const pile = layout({ ...start, battlefield: piled }, size).slots.find((s) =>
+      s.ids.includes(twin.id),
+    )!;
+    expect(pile.ids.length).toBeGreaterThan(2); // really a pile
+    const members = pile.ids.filter((id) => id !== pile.ids[0]);
+    const view = render(draw(piled));
+    calls.length = 0;
+    view.rerender(
+      draw(
+        piled.filter((c) => !members.includes(c.id)),
+        {
+          returns: new Map(
+            members.map((id) => [
+              id,
+              { zone: "library", side: "opponent", where: "bottom", hidden: true },
+            ]),
+          ),
+        },
+      ),
+    );
+    for (const id of members) {
+      const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+      expect(ghost, `no ghost for ${id}`).toBeTruthy();
+      expect(ghost.getAttribute("data-return")).toBe("library");
+    }
+    expect(tags(view.container)).toEqual(["On the bottom of Bob's library"]);
+  });
+
+  it("the bottom of a library, and a spell sent back from the stack (no spark, no graveyard)", () => {
+    const spell: StackView = {
+      id: "stack:12",
+      name: "Grizzly Bears",
+      kind: "spell",
+      source: null,
+      card: "card:9300",
+      seat: theirs.seat,
+      targets: [{ object: mine.id }],
+    };
+    const view = render(draw(start.battlefield, { stack: [spell] }));
+    calls.length = 0;
+    view.rerender(
+      draw(start.battlefield, {
+        returns: new Map([
+          ["card:9300", { zone: "library", side: "opponent", where: "bottom", hidden: true }],
+        ]),
+      }),
+    );
+    const ghost = view.container.querySelector('[data-ghost-of="stack:12"]')!;
+    expect(ghost.getAttribute("data-return")).toBe("library");
+    expect(ghost.querySelector(".bf-return-back")).toBeTruthy();
+    expect(view.container.querySelector(".bf-spark")).toBeNull();
+    const run = calls.find((c) => c.element === ghost)!;
+    expect(run.options.delay).toBe(0); // it did not resolve: no glow first
+    expect(run.options.duration).toBe(RETURN_MS);
+    expect(tags(view.container)).toEqual(["On the bottom of Bob's library"]);
+  });
+
+  it("the tag's words, for both seats", () => {
+    const r = (zone: "hand" | "library", side: "viewer" | "opponent", where: Return["where"]) =>
+      returnTag({ zone, side, where, hidden: true }, "Bob");
+    expect(r("hand", "viewer", null)).toBe("Back to your hand");
+    expect(r("hand", "opponent", null)).toBe("Back to Bob's hand");
+    expect(r("library", "opponent", "top")).toBe("On top of Bob's library");
+    expect(r("library", "viewer", "top")).toBe("On top of your library");
+    expect(r("library", "opponent", "bottom")).toBe("On the bottom of Bob's library");
+    expect(r("library", "opponent", "shuffled")).toBe("Shuffled into Bob's library");
+    expect(r("library", "viewer", null)).toBe("Into your library");
+  });
+
+  it("with reduced motion asked for: no lift, no tag, no riffle", () => {
+    still = true;
+    const view = render(draw(start.battlefield));
+    view.rerender(
+      draw(without(theirs.id), {
+        returns: new Map([
+          [theirs.id, { zone: "library", side: "opponent", where: "shuffled", hidden: true }],
+        ]),
+      }),
+    );
+    expect(calls).toHaveLength(0);
+    expect(
+      view.container.querySelector("[data-return-tag], [data-riffle], [data-ghost-of]"),
+    ).toBeNull();
   });
 });

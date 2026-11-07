@@ -17,6 +17,17 @@ import {
   MERGE_RISE_SCALE,
   mergeFrames,
   placement,
+  RETURN_ARC,
+  RETURN_GLIDE_MS,
+  RETURN_GROW,
+  RETURN_MS,
+  RETURN_RISE,
+  RETURN_RISE_MS,
+  RIFFLE_MS,
+  returnBackFrames,
+  returnFrames,
+  returnTagFrames,
+  riffleFrames,
 } from "./motion";
 import { applyChanges, syntheticBoard } from "./fixture";
 import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
@@ -400,5 +411,119 @@ describe("Fusion burst (Phase 10 A-10)", () => {
     };
     hurry({ getAnimations: () => [run] } as unknown as Element);
     expect((MERGE_MS - 200) / rate).toBeCloseTo(HURRY_MS, 6);
+  });
+});
+
+describe("Lift and glide (Phase 10 A-14)", () => {
+  const box = (x: number, y: number, scale = 1, rotation = 0): Box => ({
+    x,
+    y,
+    w: 100 * scale,
+    h: 140 * scale,
+    scale,
+    rotation,
+    z: 0,
+  });
+  const origin = { x: 0.5, y: 0.5 };
+  const numbers = (t: unknown) =>
+    String(t)
+      .replace("translate3d", "translate")
+      .match(/-?\d+(\.\d+)?/g)!
+      .map(Number);
+  const at = (frames: Keyframe[], ms: number) =>
+    frames.find((f) => Math.abs(Number(f["offset"]) - ms / RETURN_MS) < 1e-9)!;
+
+  it("is the canvas's numbers: 180 ms up, 520 ms across", () => {
+    expect(RETURN_RISE_MS).toBe(180);
+    expect(RETURN_GLIDE_MS).toBe(520);
+    expect(RETURN_MS).toBe(700);
+    expect(RETURN_GROW).toBe(1.05);
+    expect(RIFFLE_MS).toBe(700);
+  });
+
+  it("starts exactly where the card is and lands exactly where the layout puts it", () => {
+    const from = box(300, 500);
+    const to = box(800, 950, 0.75, 4);
+    const frames = returnFrames(from, to, 100, 140, origin, { x: 0.5, y: 1 });
+    expect(frames[0]!["transform"]).toBe(placement(from, 100, 140, origin).transform);
+    expect(frames[0]!["offset"]).toBe(0);
+    expect(frames.at(-1)!["transform"]).toBe(placement(to, 100, 140, { x: 0.5, y: 1 }).transform);
+    expect(frames.at(-1)!["offset"]).toBe(1);
+    expect(frames.at(-1)!["opacity"]).toBe(1); // whole: a card of that hand
+    // Offsets only ever go forward.
+    for (let i = 1; i < frames.length; i++)
+      expect(Number(frames[i]!["offset"])).toBeGreaterThan(Number(frames[i - 1]!["offset"]));
+  });
+
+  it("first rises a little and grows to 1.05, with the gold glow, then arcs above the straight line", () => {
+    const frames = returnFrames(box(0, 500), box(800, 500), 100, 140, origin);
+    const top = numbers(at(frames, RETURN_RISE_MS)["transform"]);
+    expect(top[0]).toBeCloseTo(0, 6);
+    expect(top[1]).toBeCloseTo(500 - RETURN_RISE * 140, 6);
+    expect(top.at(-1)).toBeCloseTo(RETURN_GROW, 6);
+    expect(String(at(frames, RETURN_RISE_MS)["filter"])).toContain("rgba(241, 195, 106");
+    expect(String(frames.at(-1)!["filter"])).toContain("0px 0px 0px"); // glow gone as it lands
+    const middle = numbers(at(frames, RETURN_RISE_MS + RETURN_GLIDE_MS / 2)["transform"]);
+    // Halfway down from the rise to its place, and the arc above that.
+    expect(middle[1]!).toBeCloseTo(500 - (RETURN_RISE * 140) / 2 - RETURN_ARC * 140, 6);
+  });
+
+  it("into a library it sinks into the pile; into a hidden hand the card fades out as its back fades in", () => {
+    const from = box(0, 500);
+    const to = box(1700, 60, 0.3);
+    const sink = returnFrames(from, to, 100, 140, origin, origin, "sink");
+    expect(sink.at(-1)!["opacity"]).toBe(0);
+    expect(at(sink, RETURN_RISE_MS + RETURN_GLIDE_MS / 2)["opacity"]).toBe(1);
+    const out = returnFrames(from, to, 100, 140, origin, origin, "out");
+    const inn = returnFrames(from, to, 100, 140, origin, origin, "in");
+    expect(out.length).toBe(inn.length);
+    out.forEach((frame, i) => {
+      // The same path, and between them always one whole card.
+      expect(frame["transform"]).toBe(inn[i]!["transform"]);
+      expect(Number(frame["opacity"]) + Number(inn[i]!["opacity"])).toBeCloseTo(1, 9);
+    });
+    expect(out[0]!["opacity"]).toBe(1);
+    expect(inn[0]!["opacity"]).toBe(0);
+    expect(inn.at(-1)!["opacity"]).toBe(1);
+    // The turn is on the way, not at either end: still face up at 40% of the glide.
+    expect(at(inn, RETURN_RISE_MS + RETURN_GLIDE_MS * (6 / 16))["opacity"]).toBe(0);
+  });
+
+  it("the card back over its face turns down between 45% and 55% of the glide", () => {
+    const frames = returnBackFrames();
+    expect(frames[0]!["opacity"]).toBe(0);
+    expect(frames[1]!["offset"]).toBeCloseTo((180 + 0.45 * 520) / 700, 9);
+    expect(frames[1]!["opacity"]).toBe(0);
+    expect(frames[2]!["offset"]).toBeCloseTo((180 + 0.55 * 520) / 700, 9);
+    expect(frames.at(-1)!["opacity"]).toBe(1);
+  });
+
+  it("a riffle fans each back out and back to rest; the tag pops in and goes", () => {
+    for (let i = 0; i < 6; i++) {
+      const frames = riffleFrames(i, 0.7);
+      expect(frames[0]!["transform"]).toBe(frames.at(-1)!["transform"]);
+      expect(String(frames[1]!["transform"])).not.toBe(frames[0]!["transform"]);
+    }
+    expect(numbers(riffleFrames(0, 1)[1]!["transform"]).slice(2, 4)).toEqual([-14, -10]);
+    const tag = returnTagFrames("translate(-50%, -100%)");
+    expect(tag[0]!["opacity"]).toBe(0);
+    expect(tag[1]!["opacity"]).toBe(1);
+    expect(tag.at(-1)!["opacity"]).toBe(0);
+    expect(String(tag[1]!["transform"])).toContain("translate(-50%, -100%)");
+  });
+
+  it("a hurry finishes it in a tenth of a second, like every other movement", () => {
+    let rate = 1;
+    const run = {
+      playState: "running",
+      currentTime: 100,
+      playbackRate: 1,
+      effect: { getComputedTiming: () => ({ endTime: RETURN_MS, iterations: 1 }) },
+      updatePlaybackRate(r: number) {
+        rate = r;
+      },
+    };
+    hurry({ getAnimations: () => [run] } as unknown as Element);
+    expect((RETURN_MS - 100) / rate).toBeCloseTo(HURRY_MS, 6);
   });
 });

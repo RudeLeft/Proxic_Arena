@@ -177,3 +177,99 @@ describe("where a card went (Phase 10 A-00)", () => {
     expect(boardFromSnapshot(elsewhere, before).merges.size).toBe(0);
   });
 });
+
+describe("back to a hand, onto or into a library (Phase 10 A-14)", () => {
+  it("reads whose, and top, bottom or shuffled, from the game's record; never guessed", () => {
+    const after = snapshot(2, {
+      battlefield: [],
+      hand: [card("card:9", 1, "Walking Corpse")],
+      moves: [
+        {
+          card: "card:7",
+          from: { zone: "battlefield", seat: 2 },
+          to: { zone: "library", seat: 2 },
+          where: "top",
+        },
+        {
+          card: "card:8",
+          from: { zone: "battlefield", seat: 2 },
+          to: { zone: "library", seat: 2 },
+          where: "shuffled",
+        },
+        { card: "card:9", from: { zone: "battlefield", seat: 1 }, to: { zone: "hand", seat: 1 } },
+      ],
+    });
+    const board = boardFromSnapshot(after, before);
+    expect(board.returns.get("card:7")).toEqual({
+      zone: "library",
+      side: "opponent",
+      where: "top",
+      hidden: true,
+    });
+    expect(board.returns.get("card:8")?.where).toBe("shuffled");
+    // Your own hand: seen there, so not hidden.
+    expect(board.returns.get("card:9")).toEqual({
+      zone: "hand",
+      side: "viewer",
+      where: null,
+      hidden: false,
+    });
+  });
+
+  it("the other player's hand is hidden; a spell sent back from the stack counts; a draw does not", () => {
+    const after = snapshot(2, {
+      battlefield: [],
+      moves: [
+        { card: "card:7", from: { zone: "battlefield", seat: 2 }, to: { zone: "hand", seat: 2 } },
+        {
+          card: "card:63",
+          from: { zone: "stack" },
+          to: { zone: "library", seat: 2 },
+          where: "bottom",
+        },
+        // Not from the table or the stack: not this item's.
+        { card: "card:40", from: { zone: "library", seat: 1 }, to: { zone: "hand", seat: 1 } },
+        { card: "card:41", from: { zone: "graveyard", seat: 1 }, to: { zone: "library", seat: 1 } },
+        // Unnamed (the other player's own hand to library): nothing to draw.
+        { from: { zone: "hand", seat: 2 }, to: { zone: "library", seat: 2 }, where: "top" },
+      ],
+    });
+    const board = boardFromSnapshot(after, before);
+    expect(board.returns.get("card:7")).toEqual({
+      zone: "hand",
+      side: "opponent",
+      where: null,
+      hidden: true,
+    });
+    expect(board.returns.get("card:63")).toEqual({
+      zone: "library",
+      side: "opponent",
+      where: "bottom",
+      hidden: true,
+    });
+    expect([...board.returns.keys()].sort()).toEqual(["card:63", "card:7"]);
+  });
+
+  it("an older worker's move into a library, with no `where`, is a return to that library", () => {
+    const after = snapshot(2, {
+      battlefield: [],
+      moves: [
+        {
+          card: "card:7",
+          from: { zone: "battlefield", seat: 2 },
+          to: { zone: "library", seat: 2 },
+        },
+        {
+          card: "card:8",
+          from: { zone: "battlefield", seat: 2 },
+          to: { zone: "graveyard", seat: 2 },
+          where: "top",
+        },
+      ],
+    });
+    const board = boardFromSnapshot(after, before);
+    expect(board.returns.get("card:7")?.where).toBeNull();
+    expect(board.returns.has("card:8")).toBe(false);
+    expect(after.moves?.[1]?.where).toBe("top"); // read as sent; only a library's is used
+  });
+});

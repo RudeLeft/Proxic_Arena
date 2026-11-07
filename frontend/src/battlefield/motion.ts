@@ -448,6 +448,171 @@ export function fateFrames(
   return { frames, duration };
 }
 
+// --- Back to a hand, onto or into a library (Phase 10 A-14) --------------------
+
+/**
+ * "D · Lift and glide" (owner 2026-11-06, Amendment 17), as the canvas's
+ * `lift()` plays it: the card rises a little (RETURN_RISE of its height,
+ * growing to RETURN_GROW) with a soft gold glow over RETURN_RISE_MS, then
+ * glides on a gentle arc (RETURN_ARC of its height above the straight
+ * line) to where it goes and settles there over RETURN_GLIDE_MS. Going
+ * somewhere hidden (a library, the other player's hand) it turns face down
+ * on the way (returnBackFrames). The canvas's distances are in its
+ * 134-pixel-high card's pixels, scaled to the card.
+ */
+export const RETURN_RISE_MS = 180;
+export const RETURN_GLIDE_MS = 520;
+/** The whole of it: one animation, so a click hurries all of it. */
+export const RETURN_MS = RETURN_RISE_MS + RETURN_GLIDE_MS;
+export const RETURN_RISE = 12 / 134;
+export const RETURN_GROW = 1.05;
+export const RETURN_ARC = 50 / 134;
+/** The face turns down between these shares of the glide (the canvas's 45%-55%). */
+const RETURN_TURN = [0.45, 0.55] as const;
+/** The gold glow: up by this long into it (the canvas's 30% of 900 ms), gone as it lands. */
+const RETURN_GLOW_PEAK_MS = 270;
+/** Into a library, it fades into the pile over the glide's last share. */
+const RETURN_SINK = 0.15;
+/** Shuffled in: the library riffles -- this many backs fan out and back, a beat apart. */
+export const RIFFLE_MS = 700;
+export const RIFFLE_BEAT_MS = 50;
+export const RIFFLE_CARDS = 6;
+/** The tag at the destination ("On top of Bob's library"): in, held, out. */
+export const RETURN_TAG_MS = 1800;
+
+const riseEaseOut = cubicBezier(0, 0, 0.58, 1);
+const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+const RETURN_STEPS = 16;
+const returnGlow = (ms: number) => {
+  const g =
+    ms <= RETURN_GLOW_PEAK_MS
+      ? ms / RETURN_GLOW_PEAK_MS
+      : (RETURN_MS - ms) / (RETURN_MS - RETURN_GLOW_PEAK_MS);
+  const a = Math.max(0, Math.min(1, g));
+  return `drop-shadow(0px 0px ${12 * a}px rgba(241, 195, 106, ${0.7 * a}))`;
+};
+
+/**
+ * The keyframes of one return, run linear over RETURN_MS on the card's
+ * element: rise, then the arc. The first frame is exactly where the card
+ * was (or `start`, where it is drawn mid-move); the last is exactly
+ * `placement(to, ..., toOrigin)` -- it lands where the layout puts it (a
+ * card of that hand) or on the library pile. `sink`: fade into the pile at
+ * the end (a library), otherwise it lands whole.
+ */
+export function returnFrames(
+  from: Box,
+  to: Box,
+  cardW: number,
+  cardH: number,
+  origin: { x: number; y: number },
+  toOrigin: { x: number; y: number } = origin,
+  /**
+   * How it is seen on the way: "whole"; "sink" -- fading into a library
+   * pile at the end; "out" / "in" -- the two halves of turning face down
+   * into the other player's hidden hand: the card fading out, and the
+   * hand's new card back fading in on the same path, over the turn.
+   */
+  seen: "whole" | "sink" | "out" | "in" = "whole",
+  start: Placed | null = null,
+): Keyframe[] {
+  const a = start ?? parts(from, cardW, cardH, origin);
+  const b = parts(to, cardW, cardH, toOrigin);
+  const top: Placed = { ...a, y: a.y - RETURN_RISE * cardH * a.s, s: a.s * RETURN_GROW };
+  const arc = RETURN_ARC * cardH * a.s;
+  const frames: Keyframe[] = [];
+  const pose = (p: Placed, ms: number, opacity: number): Keyframe => ({
+    offset: ms / RETURN_MS,
+    transform: `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s})`,
+    filter: returnGlow(ms),
+    opacity,
+  });
+  for (let k = 0; k <= RETURN_STEPS; k++) {
+    const e = riseEaseOut(k / RETURN_STEPS);
+    const p =
+      k === 0
+        ? a
+        : k === RETURN_STEPS
+          ? top
+          : {
+              x: a.x + (top.x - a.x) * e,
+              y: a.y + (top.y - a.y) * e,
+              r: a.r,
+              s: a.s + (top.s - a.s) * e,
+            };
+    frames.push(pose(p, (k / RETURN_STEPS) * RETURN_RISE_MS, seen === "in" ? 0 : 1));
+  }
+  for (let k = 1; k <= RETURN_STEPS; k++) {
+    const t = k / RETURN_STEPS;
+    const e = easeInOutQuad(t);
+    const p: Placed =
+      k === RETURN_STEPS
+        ? b
+        : {
+            x: top.x + (b.x - top.x) * e,
+            y: top.y + (b.y - top.y) * e - Math.sin(Math.PI * e) * arc,
+            r: top.r + (b.r - top.r) * e,
+            s: top.s + (b.s - top.s) * e,
+          };
+    const turned = Math.max(
+      0,
+      Math.min(1, (t - RETURN_TURN[0]) / (RETURN_TURN[1] - RETURN_TURN[0])),
+    );
+    const opacity =
+      seen === "sink"
+        ? t > 1 - RETURN_SINK
+          ? (1 - t) / RETURN_SINK
+          : 1
+        : seen === "out"
+          ? 1 - turned
+          : seen === "in"
+            ? turned
+            : 1;
+    frames.push(pose(p, RETURN_RISE_MS + t * RETURN_GLIDE_MS, opacity));
+  }
+  return frames;
+}
+
+/**
+ * The card back drawn over a returning card's face, run linear over
+ * RETURN_MS: unseen through the rise and the first part of the glide, then
+ * turned down (the canvas's fade between 45% and 55% of the glide).
+ */
+export function returnBackFrames(): Keyframe[] {
+  const at = (share: number) => (RETURN_RISE_MS + share * RETURN_GLIDE_MS) / RETURN_MS;
+  return [
+    { offset: 0, opacity: 0 },
+    { offset: at(RETURN_TURN[0]), opacity: 0 },
+    { offset: at(RETURN_TURN[1]), opacity: 1 },
+    { offset: 1, opacity: 1 },
+  ];
+}
+
+/** One back of a riffling library (the canvas's `riffle()`), `k` its size against the canvas's 56-pixel pile. */
+export function riffleFrames(i: number, k: number): Keyframe[] {
+  const dx = (i % 2 ? 1 : -1) * (14 + i * 3) * k;
+  const dy = -(10 + i * 3) * k;
+  return [
+    { offset: 0, opacity: 1, transform: "translate(-50%, -50%) translate(0px, 0px) rotate(0deg)" },
+    {
+      offset: 0.4,
+      opacity: 1,
+      transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px) rotate(${dx / 2 / k}deg)`,
+    },
+    { offset: 1, opacity: 1, transform: "translate(-50%, -50%) translate(0px, 0px) rotate(0deg)" },
+  ];
+}
+
+/** The tag's keyframes (the canvas's): it pops in, holds, and fades. `base` places it. */
+export function returnTagFrames(base: string): Keyframe[] {
+  return [
+    { offset: 0, opacity: 0, transform: `${base} translateY(8px) scale(0.8)` },
+    { offset: 0.2, opacity: 1, transform: `${base} translateY(0px) scale(1.08)` },
+    { offset: 0.85, opacity: 1, transform: `${base} translateY(0px) scale(1)` },
+    { offset: 1, opacity: 0, transform: `${base} translateY(0px) scale(1)` },
+  ];
+}
+
 /**
  * Phase 10 A-00 -- the player acted: everything still moving in `root`
  * finishes in HURRY_MS. Endless animations (a breathing glow) are left

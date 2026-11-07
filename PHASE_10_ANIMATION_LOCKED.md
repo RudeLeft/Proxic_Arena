@@ -698,3 +698,118 @@ and tuck; sent as files): the owner chose **D · Lift and glide**:
 - A small tag at the destination says what happened: "Back to your hand",
   "Back to Bob's hand", "On top of Bob's library", "On the bottom of ...",
   "Shuffled into ...". Both players see the same; a click hurries it.
+
+## Amendment 18 — A-14 built (2026-11-06, as built)
+
+- **The game says where in the library (the data).** A move into a
+  library now carries `where`: "top" or "bottom" -- the card's index in
+  Forge's own library list (index 0 is its top) read as Forge reports the
+  move (Forge adds the card, then fires `GameEventCardChangeZone` on the
+  same thread), anywhere else nothing -- or "shuffled": when Forge shuffles
+  that library later in the same round (`GameEventShuffle`), every card
+  that went into it this round is marked shuffled in, replacing any place
+  (Chaos Warp: Forge moves the card, then shuffles). `Moves.libraryPlace`,
+  `Moves.shuffled`, `GameHost.libraryPlace`. A card's place in a library
+  is public as it is put there (Griptide; the other player's Brainstorm),
+  so `where` travels with or without the card; after a shuffle only the
+  word "shuffled" is sent, never a position. No server change: the
+  snapshot passes through.
+- **Why the probe's Chaos Warp made no library move**: the probe's stop
+  ("all three spells chosen and the stack empty") fired on the snapshot
+  right after Chaos Warp was chosen, before Forge asked for its target, so
+  it never resolved (read from its trace). Left to the default answer, its
+  target question's first option is the caster's own Mountain, so the real
+  scenario names the Bears.
+- **D · Lift and glide** (`motion.ts` `returnFrames`, the canvas's `lift()`
+  in its own numbers, scaled to the card): the card rises `RETURN_RISE`
+  (12 of the canvas card's 134 pixels) growing to `RETURN_GROW` 1.05 with a
+  soft gold glow (`RETURN_RISE_MS` 180 ms, eased out), then glides on an
+  arc `RETURN_ARC` (50/134 of its height) above the straight line, eased
+  in and out, its size easing to its destination's (`RETURN_GLIDE_MS`
+  520 ms; `RETURN_MS` 700 in all, one animation, first and last frames
+  exact, so a click hurries all of it to 100 ms).
+  - **Into a hand you can see** (yours, or a card shown to you) it is the
+    same element all the way, landing exactly as the hand's card -- nothing
+    appears or vanishes (out of a pile, the hand's new element flies the
+    same path; from the stack, from its stack spot).
+  - **Out of a pile** (Hallowed Burial's Bears from a pile of five) a card
+    has no element of its own; each going back leaves as its own ghost
+    from the pile, in the pile's look (the first jump-check run showed the
+    pile members "not shown at all": only the count changed).
+  - **Into the other player's hidden hand** it turns face down on the way:
+    the hand's NEW card back flies the same path, fading in over 45-55% of
+    the glide as the card fades out (the canvas's turn), and lands as a
+    card of that hand; the old faint glide in from the stack is not played
+    for that back.
+  - **Onto or into a library** a card back turns down over its face at the
+    same moment (`returnBackFrames`) and it sinks into that player's
+    library pile on the plate (the last 15% of the glide).
+  - **Shuffled in**: as it lands, the library riffles -- six backs fan out
+    and back over the pile, `RIFFLE_BEAT_MS` 50 ms apart (`RIFFLE_MS`
+    700 ms, the canvas's numbers).
+  - **The tag** (`returnTag`): "Back to your hand", "Back to Bob's hand",
+    "On top of / On the bottom of / Shuffled into your | Bob's library" --
+    and "Into ... library" when the game names no place (somewhere in the
+    middle, or an older worker). A gold pill as the canvas's, over your
+    hand, under theirs, or to the left of the plate's library; it shows as
+    the card lands (after the riffle when shuffled), pops in, holds and
+    fades (`RETURN_TAG_MS` 1800 ms). One tag per destination however many
+    cards went there (Hallowed Burial's seven).
+  - Not defeated or exiled (no Shatter, no Banished), and a spell sent back
+    from the stack does not resolve first: no glow, no spark, straight off
+    its stack spot. "Reduce motion" turns all of it off (no lift, no tag,
+    no riffle). Both seats see the same, the other player's hand hidden.
+- **Sources covered**: the battlefield and the stack (Memory Lapse puts the
+  spell on top; Remand-style to a hand). Not done: a card from a
+  graveyard or exile back to a hand or library -- those piles are tiles on
+  the plate, not cards on the table (A-06's piles). A Hallowed Burial is
+  not given A-07's wipe flash (that is for cards defeated or exiled).
+- **The Lab** (`check-moves.py`, already in CI's Lab list; ~27 s for all
+  eight games): new `bounce` (Unsummon: Bob's Bears to his hand, no
+  `where`), `top` (Griptide: "top"), `bottom` (Hallowed Burial with
+  Alice's Savannah Lions and Bob's Bears out: each to its OWNER's library,
+  "bottom"), `shuffled` (Chaos Warp: "shuffled") and `lapse` (Memory Lapse
+  on Bob's Bears spell: stack -> top of his library); each asserts both
+  seats were told the same, the card named. Run against the worker
+  without `where`, `top` and `shuffled` fail (`bounce` passes, needing no
+  new data); with it all eight pass, `hidden` over 744 moves.
+  `MovesTest` (two new: top and bottom from Forge's list order, `where`
+  sent to every viewer and only into a library, a shuffle replacing it on
+  that seat's library only).
+- Page tests: `motion.test.ts` (the canvas's numbers; first and last
+  frames exact; the rise to 1.05 with the glow, the arc; the sink; the
+  card and its new back crossing on one path, always one whole card; the
+  back's turn window; the riffle and tag; hurry), `fromSnapshot.test.ts`
+  (top / shuffled / your hand seen / their hand hidden / from the stack;
+  draws, graveyard moves and unnamed moves left out; an older worker's
+  library move), Board (your hand: one element, no ghost, landing exactly,
+  the tag after it lands; their hand: the back takes over on the same
+  path; top: face down, sinking, the tag; shuffled: six riffling backs
+  50 ms apart and unseen until each starts, then the tag, one tag for two
+  cards; three out of a pile, each its own ghost; a spell from the stack
+  to the bottom: no spark, no glow first; the words for both seats;
+  reduce motion) -- the movement ones fail with the return wiring (or the
+  pile pass) removed. 881 page tests.
+
+Filmed on the rebuilt local stack (the jump tool's slow-motion clips of
+the five new Lab games, both seats between them): Unsummon on the other
+player's Bears -- it lifts with the gold glow, arcs to the top, turns into
+a card back half-way and lands as the newest card of their hand, "Back to
+Bob's hand" under it; on the owner's own screen it lifts and glides into
+its hand as itself, "Back to your hand" over it. Griptide and Memory Lapse
+(off the stack): lift, face down in flight, sinking into Bob's library on
+his plate, "On top of Bob's library" beside it. Chaos Warp: the card lands
+on the library, six backs fan out and back, then "Shuffled into your
+library". Hallowed Burial: Alice's Lions and every one of Bob's Bears (out
+of their piles too) to their own libraries, one "On the bottom of ..."
+tag each. The film showed a fault the tests had not: the riffle's backs
+sat at rest on the library for the whole flight (held by their delayed
+animation's first frame); they are now unseen until each starts, and a
+page test pins it. The jump check over those games: no finding on any
+return board that was replayed (the first run flagged the Bears leaving
+from inside a pile as "not shown at all" -- fixed by the pile pass;
+seat 2's recording ends one board before Hallowed Burial, so its four
+are counted unseen there); its other findings are the other player's
+casts (A-21), as before.
+
+Shown to the owner (Unsummon, Griptide, Chaos Warp clips) and approved, 2026-11-07.

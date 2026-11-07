@@ -10,7 +10,16 @@ carries `moves`: where from, where to, and why a card left the battlefield.
              battlefield, to its owner's graveyard, why "destroyed".
   sacrifice  Innocent Blood (each player sacrifices a creature): both
              leave as "sacrificed", never "destroyed".
-  hidden     over every snapshot of both games: a move the seat can't see
+  bounce     Unsummon on Bob's Grizzly Bears: both seats told it went from
+             his battlefield to his hand, with no `where` (Phase 10 A-14).
+  top        Griptide on the Bears: to his library, `where` "top", both seats.
+  bottom     Hallowed Burial with a Savannah Lions of Alice's and Bob's
+             Bears out: each to its OWNER's library, `where` "bottom".
+  shuffled   Chaos Warp on the Bears: to his library, `where` "shuffled"
+             (Forge moves it, then shuffles: the shuffle replaces any place).
+  lapse      Memory Lapse on Bob's Bears spell: from the STACK to the top of
+             his library.
+  hidden     over every snapshot of all the games: a move the seat can't see
              at either end (the other player drawing) never names the card;
              one it can see always does; a seat's own draws are named.
 
@@ -193,6 +202,111 @@ def sacrifice():
     return result(problems, "Innocent Blood: the Corpse and the Bears leave as 'sacrificed', to both seats", found)
 
 
+# --- back to a hand, onto / into a library (Phase 10 A-14) ---------------------
+
+
+def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
+    """Seat 1 casts `spell` (needing `mana` untapped lands) at Bob's Grizzly
+    Bears -- on the battlefield, or, with `respond`, as a spell on the stack.
+    `mine`: a creature Alice casts first. `wants`: {owner seat: (zone,
+    where)} for each creature card that must be told moved, to both seats."""
+    g = game(name, seat1, [("Forest", 30), ("Grizzly Bears", 30)])
+    w = Watch(g)
+    st = {"cast": False, "targets": set()}
+
+    def bears_on_stack(g):
+        return [c for c in (g.state.get(1) or {}).get("stack") or [] if c.get("name") == "Grizzly Bears"]
+
+    def policy(g, f):
+        w.see()
+        kind = f.get("kind")
+        seat = f["authorisedSeat"]
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if seat == 2:
+                return g.option(f, name="Grizzly Bears", zone="hand", land=False)
+            if st["cast"]:
+                return None
+            lands = len(g.untapped_lands(1))
+            if mine and not g.mine(1, name=mine):
+                if (g.state.get(1) or {}).get("stack"):
+                    return None
+                return g.option(f, name=mine, zone="hand", land=False)
+            ready = bears_on_stack(g) if respond else \
+                [c for c in g.mine(2) if c.get("name") == "Grizzly Bears"] and not (g.state.get(1) or {}).get("stack")
+            if ready and lands >= mana:
+                o = g.option(f, name=spell, zone="hand", land=False)
+                if o:
+                    st["cast"] = True
+                    return o
+            return None
+        if kind == "chooseTargetsFor" and seat == 1:
+            o = next((o for o in f["options"] if "Grizzly Bears" in (o.get("label") or "")), None)
+            if o:
+                st["targets"].add(o.get("objectId"))
+                return o["actionId"]
+        return DEFAULT
+
+    def told(seat):
+        return [m for m in w.moves(seat) if m["to"]["zone"] in ("hand", "library")
+                and m["from"]["zone"] in ("battlefield", "stack")]
+
+    def until(g):
+        w.see()
+        return st["cast"] and all(len({m["to"].get("seat") for m in told(seat)}) >= len(wants) for seat in (1, 2)) \
+            and not (g.state.get(1) or {}).get("stack")
+
+    g.run(policy, until=until, max_turn=30)
+    w.see()
+    found = {"cast": st["cast"], "targets": sorted(st["targets"]), "stopped": g.stopped_badly(),
+             "seat1": told(1), "seat2": told(2)}
+    if not st["cast"] or not found["seat1"]:
+        return "inconclusive", f"never cast {spell} with its creature(s) there", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    for seat in (1, 2):
+        # A set: Hallowed Burial takes every Bears Bob has out.
+        got = sorted({(m["to"].get("seat"), m["to"]["zone"], m.get("where")) for m in found[f"seat{seat}"]})
+        want = sorted((owner, zone, where) for owner, (zone, where) in wants.items())
+        if got != want:
+            problems.append(f"seat {seat} should be told {want}: {found[f'seat{seat}']}")
+        if any("card" not in m for m in found[f"seat{seat}"]):
+            problems.append(f"seat {seat}: a card that left the table or the stack is named")
+        # A stack entry's id is not its card's (stack:N): the spell is the
+        # one Bears spell anyway.
+        if st["targets"] and not respond and not {m.get("card") for m in found[f"seat{seat}"]} & st["targets"]:
+            problems.append(f"seat {seat}: the targeted card is not the one told moved")
+        from_zone = "stack" if respond else "battlefield"
+        if any(m["from"]["zone"] != from_zone for m in found[f"seat{seat}"]):
+            problems.append(f"seat {seat}: should move from the {from_zone}")
+    return result(problems, f"{spell}: both seats told {sorted(wants.items())}", found)
+
+
+def bounce():
+    return sends_back("bounce", [("Island", 30), ("Unsummon", 30)], "Unsummon", 1, {2: ("hand", None)})
+
+
+def top():
+    return sends_back("top", [("Island", 30), ("Griptide", 30)], "Griptide", 4, {2: ("library", "top")})
+
+
+def bottom():
+    return sends_back("bottom", [("Plains", 26), ("Savannah Lions", 14), ("Hallowed Burial", 20)],
+                      "Hallowed Burial", 5, {1: ("library", "bottom"), 2: ("library", "bottom")},
+                      mine="Savannah Lions")
+
+
+def shuffled():
+    return sends_back("shuffled", [("Mountain", 30), ("Chaos Warp", 30)], "Chaos Warp", 3,
+                      {2: ("library", "shuffled")})
+
+
+def lapse():
+    return sends_back("lapse", [("Island", 30), ("Memory Lapse", 30)], "Memory Lapse", 2,
+                      {2: ("library", "top")}, respond=True)
+
+
 # --- hidden -------------------------------------------------------------------
 
 
@@ -234,7 +348,8 @@ def hidden():
                   found)
 
 
-SCENARIOS = {"destroy": destroy, "sacrifice": sacrifice, "hidden": hidden}
+SCENARIOS = {"destroy": destroy, "sacrifice": sacrifice, "bounce": bounce, "top": top, "bottom": bottom,
+             "shuffled": shuffled, "lapse": lapse, "hidden": hidden}
 
 if __name__ == "__main__":
     worst = 0

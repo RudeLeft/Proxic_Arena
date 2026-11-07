@@ -1600,3 +1600,39 @@ img.bf-makes-pip {
     translate: calc(var(--card-h) * 0.07) calc(var(--card-h) * -0.15);
   }
 }
+
+/* Phase 10 A-14 (Amendment 17, D · Lift and glide): a card going back to a
+ * hand or a library. The back that turns down over its face on the way;
+ * the gold tag at the destination; a riffling library's backs. Each runs on
+ * the board's animation clock (a click hurries it); "reduce motion" never
+ * creates them. */
+.bf-return-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.bf-return-tag {
+  position: absolute;
+  font-weight: 700;
+  font-size: calc(var(--card-h) * 0.082);
+  line-height: 1.3;
+  color: #141414;
+  background: #f1c36a;
+  border-radius: calc(var(--card-h) * 0.045);
+  padding: 0.15em 0.6em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 45%);
+}
+.bf-return-riffle {
+  position: absolute;
+  border-radius: calc(var(--card-h) * 0.03);
+  pointer-events: none;
+  box-shadow: 1px 1px 3px rgb(0 0 0 / 50%);
+}

@@ -1497,6 +1497,13 @@ export interface SnapshotMove {
    * with a named card.
    */
   into?: string | null;
+  /**
+   * Phase 10 A-14 -- where in the library a card went: "top", "bottom", or
+   * "shuffled" in (its place then unknown to anyone). Only on a move into a
+   * library, and only when the game knows (null: somewhere else, or an
+   * older worker).
+   */
+  where?: "top" | "bottom" | "shuffled" | null;
 }
 
 function asMoves(value: unknown): SnapshotMove[] {
@@ -1509,6 +1516,7 @@ function asMoves(value: unknown): SnapshotMove[] {
     if (typeof entry !== "object" || entry === null) return [];
     const e = entry as Record<string, unknown>;
     const why = asString(e["why"]);
+    const where = asString(e["where"]);
     return [
       {
         card: asString(e["card"]),
@@ -1516,6 +1524,7 @@ function asMoves(value: unknown): SnapshotMove[] {
         to: place(e["to"]),
         why: why === "destroyed" || why === "sacrificed" ? why : null,
         into: asString(e["into"]),
+        where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
       },
     ];
   });

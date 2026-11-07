@@ -206,7 +206,7 @@ player.command            a dungeon carries its room:
                           once the Ring has tempted the player
 moves                     Phase 10 A-00: the cards moved since the last
                           round, as Forge moved them: [{card?, from {zone,
-                          seat?}, to {zone, seat?}, why?, into?}]; zone is
+                          seat?}, to {zone, seat?}, why?, into?, where?}]; zone is
                           battlefield|hand|library|graveyard|exile|stack|
                           command|merged|other|nowhere (a new token); why is
                           "destroyed" or "sacrificed" for a card leaving the
@@ -215,7 +215,14 @@ moves                     Phase 10 A-00: the cards moved since the last
                           draw); absent when nothing moved. Phase 10 A-10:
                           into "card:N" -- the permanent this card merged
                           into (a meld partner to exile, a mutating spell
-                          to merged), from Forge's state; only with `card`
+                          to merged), from Forge's state; only with `card`.
+                          Phase 10 A-14: where "top"|"bottom"|"shuffled" --
+                          on a move into a library, where Forge put it (its
+                          index in Forge's library as the move is reported;
+                          "shuffled" when Forge shuffled that library later
+                          in the same round, replacing any place); absent
+                          when it went elsewhere in it. Public, so sent with
+                          or without `card`
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}

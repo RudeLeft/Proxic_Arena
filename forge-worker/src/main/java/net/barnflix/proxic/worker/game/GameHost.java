@@ -829,6 +829,10 @@ public final class GameHost {
         public void on(forge.game.event.GameEvent event) {
             if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
                 sacrificing.add(sacrificed.card().getId());
+            } else if (event instanceof forge.game.event.GameEventShuffle shuffle && shuffle.player() != null) {
+                // Phase 10 A-14: Forge shuffled a library after cards went
+                // into it this round (Chaos Warp: moved, then shuffled).
+                Moves.shuffled(movesMade, seatOfPlayer(shuffle.player()));
             } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
                 forge.game.card.CardView card = moved.card();
                 String from = Moves.zoneName(moved.from() == null ? null : moved.from().zoneType());
@@ -844,8 +848,12 @@ public final class GameHost {
                         why = "destroyed";
                     }
                 }
-                movesMade.add(new Moves.Move(card.getId(), from, seatOfZone(moved.from()), to,
-                        seatOfZone(moved.to()), card.isFaceDown(), why));
+                Moves.Move move = new Moves.Move(card.getId(), from, seatOfZone(moved.from()), to,
+                        seatOfZone(moved.to()), card.isFaceDown(), why);
+                if ("library".equals(to)) {
+                    move = move.withWhere(libraryPlace(moved.to(), card.getId()));
+                }
+                movesMade.add(move);
             }
         }
     }
@@ -881,13 +889,44 @@ public final class GameHost {
 
     /** The Arena seat whose zone this is (a battlefield, a hand...). */
     private Integer seatOfZone(forge.game.zone.ZoneView zone) {
+        return zone == null ? null : seatOfPlayer(zone.player());
+    }
+
+    /** The Arena seat of this Forge player. */
+    private Integer seatOfPlayer(forge.game.player.PlayerView view) {
+        Player player = playerOf(view);
+        return player == null ? null : seatOf.get(player.getOriginalLobbyPlayer());
+    }
+
+    private Player playerOf(forge.game.player.PlayerView view) {
         Game current = game;
-        if (zone == null || zone.player() == null || current == null) {
+        if (view == null || current == null) {
             return null;
         }
         for (Player player : current.getRegisteredPlayers()) {
-            if (player.getId() == zone.player().getId()) {
-                return seatOf.get(player.getOriginalLobbyPlayer());
+            if (player.getId() == view.getId()) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Phase 10 A-14 -- "top" or "bottom": where the card is in the library
+     * Forge just put it in, read from that library as Forge reports the
+     * move (the card is already in it: GameAction adds it, then fires the
+     * event, on the same thread). Null anywhere else, or if not found.
+     */
+    private String libraryPlace(forge.game.zone.ZoneView zone, int cardId) {
+        Player owner = zone == null ? null : playerOf(zone.player());
+        if (owner == null) {
+            return null;
+        }
+        forge.game.card.CardCollectionView library =
+                owner.getZone(forge.game.zone.ZoneType.Library).getCards(false);
+        for (int i = 0; i < library.size(); i++) {
+            if (library.get(i).getId() == cardId) {
+                return Moves.libraryPlace(i, library.size());
             }
         }
         return null;

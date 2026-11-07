@@ -99,6 +99,42 @@ class MovesTest {
     }
 
     @Test
+    void aLibrarysTopAndBottomAsForgeListsThem() {
+        // Phase 10 A-14: Forge's library list is top first.
+        assertEquals("top", Moves.libraryPlace(0, 40));
+        assertEquals("top", Moves.libraryPlace(0, 1));
+        assertEquals("bottom", Moves.libraryPlace(39, 40));
+        assertEquals(null, Moves.libraryPlace(2, 40), "third from the top is not said as top or bottom");
+        assertEquals(null, Moves.libraryPlace(-1, 40));
+    }
+
+    @Test
+    void whereInTheLibraryIsSentToEveryoneAndAShuffleReplacesIt() {
+        java.util.List<Moves.Move> moves = new java.util.ArrayList<>(List.of(
+                new Moves.Move(7, "battlefield", 2, "library", 2, false, null).withWhere("top"),
+                new Moves.Move(8, "hand", 1, "library", 1, false, null).withWhere("bottom"),
+                new Moves.Move(9, "battlefield", 2, "hand", 2, false, null)));
+        for (Integer viewer : new Integer[] {1, 2, null}) {
+            JsonArray seen = Moves.forViewer(moves, viewer);
+            assertEquals("top", seen.get(0).getAsJsonObject().get("where").getAsString());
+            // From seat 1's hand: seat 2 is not told the card, but is told it
+            // went to the bottom, as anyone at the table would see.
+            assertEquals("bottom", seen.get(1).getAsJsonObject().get("where").getAsString());
+            assertEquals(viewer != null && viewer == 1, seen.get(1).getAsJsonObject().has("card"));
+            assertFalse(seen.get(2).getAsJsonObject().has("where"), "only a move into a library says where");
+        }
+        // Seat 2's library shuffled: its new card is "shuffled", seat 1's untouched.
+        Moves.shuffled(moves, 2);
+        JsonArray after = Moves.forViewer(moves, 1);
+        assertEquals("shuffled", after.get(0).getAsJsonObject().get("where").getAsString());
+        assertEquals("bottom", after.get(1).getAsJsonObject().get("where").getAsString());
+        // A where never sneaks onto a move that is not into a library.
+        assertFalse(Moves.forViewer(List.of(
+                new Moves.Move(3, "library", 2, "hand", 2, false, null).withWhere("top")), 1)
+                .get(0).getAsJsonObject().has("where"));
+    }
+
+    @Test
     void zoneNames() {
         assertEquals("nowhere", Moves.zoneName(null));
         assertEquals("graveyard", Moves.zoneName(forge.game.zone.ZoneType.Graveyard));

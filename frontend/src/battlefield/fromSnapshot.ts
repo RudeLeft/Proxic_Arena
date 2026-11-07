@@ -19,6 +19,7 @@ import type {
   DamageWave,
   Merge,
   OpponentHandCard,
+  Return,
   StackView,
 } from "./Board";
 import type { AnchorId } from "./motion";
@@ -37,6 +38,8 @@ export interface BoardData {
   departures: Map<string, AnchorId>;
   /** Phase 10 A-10 -- each permanent that cards merged into this update, and those cards. */
   merges: Map<string, Merge>;
+  /** Phase 10 A-14 -- each card that went back to a hand or onto/into a library, from the table or the stack. */
+  returns: Map<string, Return>;
 }
 
 function toBoardCard(card: SnapshotCard): BoardCard {
@@ -175,6 +178,24 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     if (!merge.partners.includes(move.card)) merge.partners.push(move.card);
     merges.set(move.into, merge);
   }
+  // Phase 10 A-14 -- back to a hand, onto or into a library, as the game
+  // says: whose, where in the library (top, bottom, shuffled in), and
+  // whether this viewer can see it there. Only from the table or the stack,
+  // whose cards the board draws; a named card only (the record names a card
+  // the viewer saw at one end).
+  const returns = new Map<string, Return>();
+  const seenInHands = new Set([...snapshot.hand, ...snapshot.otherHands].map((c) => c.id));
+  for (const move of snapshot.moves ?? []) {
+    if (!move.card || move.to.seat === null) continue;
+    if (move.from.zone !== "battlefield" && move.from.zone !== "stack") continue;
+    if (move.to.zone !== "hand" && move.to.zone !== "library") continue;
+    returns.set(move.card, {
+      zone: move.to.zone,
+      side: side(move.to.seat),
+      where: move.to.zone === "library" ? (move.where ?? null) : null,
+      hidden: move.to.zone === "library" || !seenInHands.has(move.card),
+    });
+  }
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -238,5 +259,6 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     arrivals,
     departures,
     merges,
+    returns,
   };
 }

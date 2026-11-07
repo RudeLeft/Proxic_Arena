@@ -1398,6 +1398,7 @@ export function GameScreen({
             arrivals={data.arrivals}
             departures={data.departures}
             merges={data.merges}
+            returns={data.returns}
             flyingOnto={flyingOnto}
             hiddenStack={hiddenStack}
             stackOwing={

@@ -86,6 +86,16 @@ import {
   MERGE_RING_MS,
   mergeFrames,
   type MergeKind,
+  AT_ZONE_SCALE,
+  RETURN_MS,
+  RETURN_TAG_MS,
+  RIFFLE_BEAT_MS,
+  RIFFLE_CARDS,
+  RIFFLE_MS,
+  returnBackFrames,
+  returnFrames,
+  returnTagFrames,
+  riffleFrames,
   type Placed,
   placement,
   type AnchorId,
@@ -254,6 +264,31 @@ export interface Merge {
   partners: string[];
 }
 
+/**
+ * Phase 10 A-14 -- a card that went back to a hand, or onto or into a
+ * library, from the table or the stack, as the game's move record says:
+ * whose hand or library (`side`), where in the library (`where`, when the
+ * game says), and whether this viewer can see it there (`hidden`: a library,
+ * or the other player's hand).
+ */
+export interface Return {
+  zone: "hand" | "library";
+  side: Side;
+  where: "top" | "bottom" | "shuffled" | null;
+  hidden: boolean;
+}
+
+/** Phase 10 A-14 -- the tag at the destination, in a player's words. */
+export function returnTag(ret: Return, opponentName: string): string {
+  const whose = ret.side === "viewer" ? "your" : `${opponentName}'s`;
+  if (ret.zone === "hand") return `Back to ${whose} hand`;
+  if (ret.where === "top") return `On top of ${whose} library`;
+  if (ret.where === "bottom") return `On the bottom of ${whose} library`;
+  if (ret.where === "shuffled") return `Shuffled into ${whose} library`;
+  // Somewhere else in it ("third from the top"), or an older worker.
+  return `Into ${whose} library`;
+}
+
 export interface BoardProps {
   battlefield: readonly BoardCard[];
   hand: readonly BoardHandCard[];
@@ -282,6 +317,8 @@ export interface BoardProps {
   departures?: ReadonlyMap<string, AnchorId>;
   /** Phase 10 A-10 -- each permanent that cards merged into this update (the game says which). */
   merges?: ReadonlyMap<string, Merge>;
+  /** Phase 10 A-14 -- each card that went back to a hand or a library this update (the game says). */
+  returns?: ReadonlyMap<string, Return>;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -609,7 +646,30 @@ interface Ghost extends Drawn {
   merge?: { part: "partner" | "old"; colour: string; start: Placed | null };
   /** Phase 10 A-13: a card that died in a fight -- its moves in the fight, on its card. */
   fight?: { frames: Keyframe[]; duration: number; delay: number };
+  /**
+   * Phase 10 A-14: going back to a hand or a library (Lift and glide):
+   * `seen` as returnFrames takes it; `back` -- a card back turns down over
+   * its face on the way (into a library, or a hidden hand with no new card
+   * to hand over to).
+   */
+  returning?: { zone: "hand" | "library"; seen: "sink" | "out"; back: boolean };
 }
+
+/** Phase 10 A-14 -- a tag at a destination, or one back of a riffling library: gone when its animation ends. */
+interface ReturnMark {
+  key: string;
+  kind: "tag" | "riffle";
+  style: CSSProperties;
+  frames: Keyframe[];
+  duration: number;
+  delay: number;
+  text?: string;
+  /** The card it is about ("card:N"), for tests and the jump check. */
+  of: string;
+}
+
+/** Phase 10 A-14 -- tags and riffles above everything on the table and the hand. */
+const Z_RETURN_MARK = 9000;
 
 /**
  * Phase 10 A-11, A-12 (owner 2026-11-06, Amendment 15): an attacker steps
@@ -755,6 +815,7 @@ export function Board({
   arrivals,
   departures,
   merges,
+  returns,
   flyingOnto = null,
   hiddenStack = null,
   quietStack,
@@ -797,6 +858,8 @@ export function Board({
   const [tethers, setTethers] = useState<{ key: string; from: Point; to: Point }[]>([]);
   /** Phase 10 A-10: the merges' bursts. */
   const [fusions, setFusions] = useState<Fusion[]>([]);
+  /** Phase 10 A-14: the tags at destinations and the riffling libraries. */
+  const [returnMarks, setReturnMarks] = useState<ReturnMark[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string } | null>(null);
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
@@ -1737,12 +1800,111 @@ export function Board({
     }
 
     if (before && !resized && !still) {
+      // Phase 10 A-14 (owner 2026-11-06, Amendment 17): back to a hand, onto
+      // or into a library -- "D · Lift and glide". The tag at the
+      // destination (and, shuffled in, the riffle) once it has landed: one
+      // per destination, however many cards went there together.
+      const returning: ReturnMark[] = [];
+      const tagged = new Set<string>();
+      const markReturn = (id: string, ret: Return, landing: Box, origin: Point, delay: number) => {
+        const key = `${ret.zone}:${ret.side}:${ret.where ?? ""}`;
+        if (tagged.has(key)) return;
+        tagged.add(key);
+        const stamp = `${key}:${id}:${performance.now()}`;
+        let land = delay + RETURN_MS;
+        if (ret.zone === "library") {
+          const pile = where[`${ret.side}:library`];
+          if (ret.where === "shuffled") {
+            const w = g.cardW * AT_ZONE_SCALE;
+            const h = g.cardH * AT_ZONE_SCALE;
+            for (let i = 0; i < RIFFLE_CARDS; i++) {
+              returning.push({
+                key: `riffle:${stamp}:${i}`,
+                kind: "riffle",
+                style: { left: pile.x, top: pile.y, width: w, height: h },
+                frames: riffleFrames(i, h / 56),
+                duration: RIFFLE_MS,
+                delay: land + i * RIFFLE_BEAT_MS,
+                of: id,
+              });
+            }
+            land += RIFFLE_MS + (RIFFLE_CARDS - 1) * RIFFLE_BEAT_MS;
+          }
+          returning.push({
+            key: `tag:${stamp}`,
+            kind: "tag",
+            // To the left of the plate's library, as the canvas puts it.
+            style: { left: g.rail.x - g.cardH * 0.06, top: pile.y },
+            frames: returnTagFrames("translate(-100%, -50%)"),
+            duration: RETURN_TAG_MS,
+            delay: land,
+            text: returnTag(ret, opponentName),
+            of: id,
+          });
+          return;
+        }
+        // Over the viewer's hand, under the other player's (it hangs from the top).
+        const hand = where[`${ret.side}:hand`];
+        const mine = ret.side === "viewer";
+        returning.push({
+          key: `tag:${stamp}`,
+          kind: "tag",
+          style: {
+            left: centreOf(landing, origin).x,
+            top: mine
+              ? hand.y - g.cardH / 2 - g.cardH * 0.06
+              : hand.y + g.cardH / 2 + g.cardH * 0.06,
+          },
+          frames: returnTagFrames(mine ? "translate(-50%, -100%)" : "translate(-50%, 0%)"),
+          duration: RETURN_TAG_MS,
+          delay: land,
+          text: returnTag(ret, opponentName),
+          of: id,
+        });
+      };
+      // A card going into the other player's hidden hand becomes the hand's
+      // new card back on the way: the back flies the same path, fading in as
+      // the card fades out, so it lands as a card of that hand (no pop).
+      // Each such card, in the record's order, to each new back.
+      const newBacks = items.filter(
+        (item) => !before.mounted.has(item.id) && item.id.startsWith("hidden-hand:"),
+      );
+      const handOver = new Map<string, Item>();
+      const flights = new Map<string, { from: Box; origin: Point; delay: number }>();
+      for (const [id, ret] of returns ?? []) {
+        if (ret.zone !== "hand" || !ret.hidden || newBacks.length === 0) continue;
+        // On the table as itself, or in a pile (its look is the pile's).
+        const look = before.drawn.get(before.itemOf.get(id) ?? id);
+        const onTable = look?.table ? before.at.get(id) : undefined;
+        const onStack = onTable ? undefined : before.stack.find((e) => e.s.card === id);
+        if (!onTable && !onStack) continue;
+        const back = newBacks.shift()!;
+        const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
+        handOver.set(id, back);
+        flights.set(
+          back.id,
+          onTable
+            ? { from: onTable.box, origin: onTable.origin, delay: Math.max(hold, struck) }
+            : { from: onStack!.box, origin: { x: 0, y: 0 }, delay: hold },
+        );
+      }
       for (const item of items) {
         if (before.mounted.has(item.id)) continue; // the same element: CSS glides it
         // The cast card is flying onto it: it appears where that lands.
         if (item.id === flyingOnto && item.ids.length === 1) continue;
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
+        // A-14: the other player's new card back, taking over a card going there.
+        const flight = flights.get(item.id);
+        if (flight) {
+          glide(
+            element,
+            returnFrames(flight.from, item.box, g.cardW, g.cardH, flight.origin, item.origin, "in"),
+            flight.delay,
+            RETURN_MS,
+          );
+          continue;
+        }
         // A new element: from wherever the object was drawn before (a
         // pile it left, the hand), or else from its zone in the rail.
         const was = before.at.get(item.id);
@@ -1758,6 +1920,19 @@ export function Board({
               ? fromStack.box
               : boxAt(where[arrivals?.get(item.id) ?? "stack"], g);
         const fromOrigin = was && !offTab ? was.origin : item.origin;
+        // A-14: back to a hand it can be seen in, from the table (out of a
+        // pile) or the stack (a spell returned): it lifts and glides there.
+        const back = returns?.get(item.id);
+        if (back?.zone === "hand" && (was || fromStack) && !offTab) {
+          glide(
+            element,
+            returnFrames(fromBox, item.box, g.cardW, g.cardH, fromOrigin, item.origin),
+            hold,
+            RETURN_MS,
+          );
+          markReturn(item.id, back, item.box, item.origin, hold);
+          continue;
+        }
         const { delay, duration } = pace(item.id);
         glide(
           element,
@@ -1933,6 +2108,29 @@ export function Board({
         const start = moving ? placedNow(element) : null;
         // A fight's moves are on its card, not its place: they play on.
         if (moving) for (const a of element.getAnimations()) if (a.id !== "fight") a.cancel();
+        // A-14: off the table and back into a hand it can be seen in (yours,
+        // or a card shown to you): the same card lifts and glides into its
+        // place there -- a card of that hand, no pop.
+        const goingBack = returns?.get(item.id);
+        if (goingBack?.zone === "hand" && before.drawn.get(item.id)?.table && !item.drawn.table) {
+          glide(
+            element,
+            returnFrames(
+              was.box,
+              item.box,
+              g.cardW,
+              g.cardH,
+              was.origin,
+              item.origin,
+              "whole",
+              start,
+            ),
+            hold,
+            RETURN_MS,
+          );
+          markReturn(item.id, goingBack, item.box, item.origin, hold);
+          continue;
+        }
         // A-08: a permanent that changed sides is pulled across.
         const was_ = before.drawn.get(item.id);
         if (item.drawn.table && was_ && was_.side !== item.drawn.side) {
@@ -1995,6 +2193,29 @@ export function Board({
       // gone from the board, toward its zone in the rail.
       const leaving: Ghost[] = [];
       const elementsNow = new Set(items.map((item) => item.id));
+      // A-14: one card going back to a hidden hand or a library, as a ghost.
+      const returnGhost = (
+        id: string,
+        ret: Return,
+        d: Drawn,
+        at: { box: Box; origin: Point },
+        delay: number,
+      ) => {
+        const back = handOver.get(id);
+        const to = back ? back.box : boxAt(where[`${ret.side}:${ret.zone}`], g);
+        const toOrigin = back ? back.origin : at.origin;
+        leaving.push({
+          ...d,
+          id,
+          ...at,
+          to,
+          toOrigin,
+          fade: false,
+          delay,
+          returning: { zone: ret.zone, seen: back ? "out" : "sink", back: !back && ret.hidden },
+        });
+        markReturn(id, ret, to, toOrigin, delay);
+      };
       for (const [id, d] of before.drawn) {
         if (elementsNow.has(id) || merged.has(id)) continue;
         const at = before.at.get(id);
@@ -2011,6 +2232,15 @@ export function Board({
           ? { frames: fought.frames, duration: fought.duration, delay: fought.delay - elapsed }
           : undefined;
         const dest = departures?.get(id) ?? `${d.side}:graveyard`;
+        // A-14: back into the other player's hidden hand, or onto or into a
+        // library: it lifts and glides there, turning face down on the way
+        // -- handing over to the hand's new card back, or sinking into the
+        // library pile.
+        const ret = returns?.get(id);
+        if (ret && d.table && !joined) {
+          returnGhost(id, ret, d, at, delay);
+          continue;
+        }
         // Phase 10 A-04/A-05 (owner 2026-11-06): a permanent leaving the
         // table for a graveyard was defeated (Shatter); for exile, banished.
         const fate: Fate | undefined =
@@ -2057,6 +2287,18 @@ export function Board({
                 ...(fight ? { fight, zIndex: Z_FIGHT + 1 } : {}),
               },
         );
+      }
+      // A-14: a card going back out of a pile (Hallowed Burial's Bears from
+      // a pile of five) has no element of its own -- only the pile's count
+      // changed. Each leaves as its own ghost from the pile, in its look.
+      for (const [id, ret] of returns ?? []) {
+        if (before.drawn.has(id) || now.has(id) || merged.has(id)) continue;
+        const lead = before.itemOf.get(id);
+        const look = lead ? before.drawn.get(lead) : undefined;
+        const at = before.at.get(id);
+        if (!look?.table || !at) continue;
+        const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
+        returnGhost(id, ret, look, at, Math.max(hold, struck));
       }
       // A-17: a tab that moved to another host (Equipment re-equipped) is
       // chained across; one whose card left the table (an Aura with its
@@ -2144,7 +2386,19 @@ export function Board({
         if (s.card && now.has(s.card)) continue;
         const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
         const centreBox = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
-        for (const t of s.targets) {
+        // A-14: a spell sent back -- onto a library (Memory Lapse), into the
+        // other player's hidden hand -- did not resolve: no spark, no glow
+        // first; it lifts off the stack and glides there, turning face down.
+        const ret = s.card ? returns?.get(s.card) : undefined;
+        const handBack = s.card ? handOver.get(s.card) : undefined;
+        const retTo = ret
+          ? handBack
+            ? handBack.box
+            : boxAt(where[`${ret.side}:${ret.zone}`], g)
+          : null;
+        const retOrigin = handBack ? handBack.origin : { x: 0, y: 0 };
+        if (ret && retTo) markReturn(s.card!, ret, retTo, retOrigin, hold);
+        for (const t of ret ? [] : s.targets) {
           const at =
             "player" in t
               ? where[`${t.player === viewerSeat ? "viewer" : "opponent"}:life`]
@@ -2180,10 +2434,19 @@ export function Board({
           id: s.id,
           box,
           origin: { x: 0, y: 0 },
-          to: into ? into.box : boxAt(where[`${side}:graveyard`], g),
-          toOrigin: into ? into.origin : { x: 0, y: 0 },
-          fade: true,
-          delay: RESOLVE_MS + hold,
+          to: retTo ?? (into ? into.box : boxAt(where[`${side}:graveyard`], g)),
+          toOrigin: ret ? retOrigin : into ? into.origin : { x: 0, y: 0 },
+          fade: !ret,
+          delay: ret ? hold : RESOLVE_MS + hold,
+          ...(ret
+            ? {
+                returning: {
+                  zone: ret.zone,
+                  seen: handBack ? ("out" as const) : ("sink" as const),
+                  back: !handBack && ret.hidden,
+                },
+              }
+            : {}),
           stack: whole
             ? {
                 low: artUrl(s.art!),
@@ -2197,6 +2460,7 @@ export function Board({
         });
       }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
+      if (returning.length > 0) setReturnMarks((list) => [...list, ...returning]);
       if (chains.length > 0) {
         setTethers((list) => [...list, ...chains]);
         timers.current.push(
@@ -2263,6 +2527,8 @@ export function Board({
     arrivals,
     departures,
     merges,
+    returns,
+    opponentName,
     stack,
     viewerSeat,
     artUrl,
@@ -2850,6 +3116,13 @@ export function Board({
             done={() => setGhosts((list) => list.filter((x) => x !== ghost))}
           />
         ))}
+        {returnMarks.map((m) => (
+          <ReturnMarkView
+            key={m.key}
+            mark={m}
+            done={() => setReturnMarks((list) => list.filter((x) => x.key !== m.key))}
+          />
+        ))}
       </div>
     </div>
   );
@@ -2920,8 +3193,21 @@ function GhostCard({
     const fated = ghost.fate
       ? fateFrames(ghost.fate, ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin)
       : null;
+    // A-14: Lift and glide, back to a hand or a library.
+    const returned = ghost.returning
+      ? returnFrames(
+          ghost.box,
+          ghost.to,
+          cardW,
+          cardH,
+          ghost.origin,
+          ghost.toOrigin,
+          ghost.returning.seen,
+        )
+      : null;
     const animation = element.animate(
       fated?.frames ??
+        returned ??
         glideFrames(
           ghost.box,
           ghost.to,
@@ -2935,7 +3221,7 @@ function GhostCard({
           ghost.chained ? { arc: PULL_ARC } : {},
         ),
       {
-        duration: fated?.duration ?? (ghost.chained ? PULL_MS : MOVE_MS),
+        duration: fated?.duration ?? (returned ? RETURN_MS : ghost.chained ? PULL_MS : MOVE_MS),
         easing: "linear",
         delay: ghost.delay,
         fill: "both",
@@ -2954,11 +3240,25 @@ function GhostCard({
             id: "fight",
           })
         : null;
+    // A-14: turning face down on the way, a card back over its face.
+    const back = ghost.returning?.back
+      ? element.querySelector<HTMLElement>(".bf-return-back")
+      : null;
+    const turned =
+      back && typeof back.animate === "function"
+        ? back.animate(returnBackFrames(), {
+            duration: RETURN_MS,
+            delay: ghost.delay,
+            easing: "linear",
+            fill: "both",
+          })
+        : null;
     // Unmounting (or StrictMode's rehearsal) stops it without finishing it.
     return () => {
       animation.onfinish = null;
       animation.cancel();
       fought?.cancel();
+      turned?.cancel();
     };
     // Runs once: a ghost goes where it was sent when it appeared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2974,6 +3274,7 @@ function GhostCard({
       data-flip={ghost.flip ? "true" : undefined}
       data-merge={ghost.merge?.part}
       data-fought={ghost.fight ? "true" : undefined}
+      data-return={ghost.returning?.zone}
       style={{
         width: cardW,
         height: cardH,
@@ -2992,6 +3293,7 @@ function GhostCard({
             alt=""
             className="bf-stack-whole"
           />
+          {ghost.returning?.back && <ReturnBack />}
           {ghost.stack.kind !== "Spell" && ghost.stack.does && (
             <span className="bf-stack-words">
               <b>{ghost.stack.kind}</b>
@@ -3005,6 +3307,7 @@ function GhostCard({
         <div className={`bf-card bf-look-${ghost.look}`}>
           <CardFace {...ghost} />
           {ghost.fate && <FateMarks fate={ghost.fate} />}
+          {ghost.returning?.back && <ReturnBack />}
         </div>
       )}
       {ghost.fate === "exiled" && <Motes />}
@@ -3049,6 +3352,66 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
     >
       {mark.text}
     </div>
+  );
+}
+
+/** Phase 10 A-14 -- the card back that turns down over a returning card's face. */
+function ReturnBack() {
+  return <img className="bf-return-back" src={cardBack} alt="" draggable={false} />;
+}
+
+/**
+ * Phase 10 A-14 -- a tag at a destination ("On top of Bob's library"), or one
+ * back of a riffling library. Its animation is on the board's clock (a click
+ * hurries it); it is gone when its animation ends.
+ */
+function ReturnMarkView({ mark, done }: { mark: ReturnMark; done: () => void }) {
+  const ref = useRef<HTMLDivElement & HTMLImageElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element || typeof element.animate !== "function") {
+      done();
+      return;
+    }
+    const animation = element.animate(mark.frames, {
+      duration: mark.duration,
+      delay: mark.delay,
+      easing: "linear",
+      // Unseen (its own opacity 0) until it starts: "both" held a riffle's
+      // backs at rest on the library through the card's whole flight (seen
+      // in the film of the Lab's Chaos Warp).
+      fill: "forwards",
+    });
+    animation.onfinish = done;
+    return () => {
+      animation.onfinish = null;
+      animation.cancel();
+    };
+    // Runs once: a mark plays what it was given when it appeared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const style = { ...mark.style, opacity: 0, zIndex: Z_RETURN_MARK };
+  return mark.kind === "tag" ? (
+    <div
+      ref={ref}
+      className="bf-return-tag"
+      data-return-tag={mark.of}
+      aria-hidden="true"
+      style={style}
+    >
+      {mark.text}
+    </div>
+  ) : (
+    <img
+      ref={ref}
+      className="bf-return-riffle"
+      data-riffle={mark.of}
+      src={cardBack}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={style}
+    />
   );
 }
 
