@@ -386,6 +386,18 @@ public final class MatchController extends GeneratedControllerBase {
                 || printed.getShardCount(forge.card.mana.ManaCostShard.X) > 0) {
             return null;
         }
+        // Not while a cost is already being checked: a check can ask a
+        // question, which sends a snapshot, which would check again -- a
+        // convoke card in hand did that until the stack overflowed (Lab
+        // costs convoke/improvise/delve, 2026-11-07). And not for costs paid
+        // partly by chosen cards (convoke, improvise, delve): what they cost
+        // depends on the choice, so there is no one cost to show.
+        if (CHECKING.get()
+                || card.hasKeyword(forge.game.keyword.Keyword.CONVOKE)
+                || card.hasKeyword(forge.game.keyword.Keyword.IMPROVISE)
+                || card.hasKeyword(forge.game.keyword.Keyword.DELVE)) {
+            return null;
+        }
         boolean wasChecking = CHECKING.get();
         CHECKING.set(true);
         try {
