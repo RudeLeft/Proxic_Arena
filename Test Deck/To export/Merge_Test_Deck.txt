@@ -1,0 +1,19 @@
+// Merge_Test_Deck
+
+// Meld: Graf Rats + Midnight Scavengers become Chittering Host at the beginning of combat on your turn
+4 Graf Rats
+4 Midnight Scavengers
+
+// Mutate: onto a non-Human creature, on top or underneath
+4 Gemrazer
+4 Insatiable Hemophage
+4 Boneyard Lurker
+4 Dirge Bat
+
+// Non-Human creatures to mutate onto
+4 Llanowar Elves
+4 Elvish Mystic
+4 Grizzly Bears
+
+14 Swamp
+10 Forest
