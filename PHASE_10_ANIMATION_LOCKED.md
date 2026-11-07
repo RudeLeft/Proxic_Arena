@@ -486,3 +486,37 @@ games): the Rats and the Scavengers pulled together and burst into
 Chittering Host (both seats); Gemrazer flying from the stack, shrinking
 onto the Bears and bursting into Gemrazer 4/4; underneath, the same burst
 and the Bears stay Grizzly Bears 2/2. Shown to the owner and approved.
+
+## Amendment 15 — A-11, A-12, A-13 decided: one fight at a time, Claw slash (owner, 2026-11-06)
+
+Today, filmed in the Lab's double-block game at a tenth of the speed: a
+blocker leaps onto its attacker in about 0.15 s and covers it entirely;
+at damage the pile shakes, flashes red, cracks and flies off within about
+0.6 s -- the owner's "too fast and chaotic ... pop on top of each other".
+
+Canvas 1 (calm: A Face-off, B One fight at a time, C Stay in place with
+lines): the owner chose **B** and asked for it to be more aggressive.
+Canvas 2 (B1 Charge and impact, B2 Claw slash, B3 Fire clash; sent as
+files): the owner chose **B2 · Claw slash**. Together:
+
+- **Attacking (A-11):** each attacker glows red, wears ATTACKING and
+  steps forward across its side of the table (about 0.6 s, the next one
+  a beat later).
+- **Blocking (A-12):** each blocker glows blue, wears BLOCKING and glides
+  up to stand facing its attacker -- two blockers side by side under it --
+  never on top of it, nothing covered (about 0.65 s each).
+- **Damage (A-13), one fight at a time:** each fight in turn (an attacker
+  and its blockers, then each unblocked attacker against the player it
+  attacks) is played with the rest of the table dimmed and a caption
+  ("Damage · the Hill Giant against your two Bears"). The fighters rear
+  back and lunge so they meet edge to edge (never overlapping); each hit
+  rips three glowing red slash marks across the card it strikes, with a
+  red flash on that card, sparks and a small shake, and knocks it back;
+  the damage numbers slash in above each card. An unblocked attacker
+  lunges at the player's plate: slash marks across the plate, a red edge
+  around the screen, the life total drops. The fighters step back; after
+  a beat the dead shatter (A-04) and survivors return to their places.
+- Both players see the same; a click hurries all of it (Amendment 3).
+  First strike, trample, deathtouch and lifelink are the fights' details
+  for the build (trample: the excess slashes the player; lifelink: the
+  controller's life rises as the slash lands).
