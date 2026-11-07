@@ -111,6 +111,27 @@ class WorkerFramesTest {
         assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
     }
 
+    /** Spec 0057, item 5 -- what an option does with a play-or-discard card reaches the browser. */
+    @Test
+    fun `an option's use reaches the browser untouched`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"4","actedForSeat":1,"authorisedSeat":1,"kind":"chooseSpellAbilityToPlay",
+                     "stateVersion":"2","options":[
+                       {"actionId":"action:2:card:7","label":"Cave","objectId":"card:7",
+                        "use":{"kind":"cycling","title":"Cycle it instead","cost":"{R}"}},
+                       {"actionId":"mode:0","label":"Mode"}]}
+                    """.trimIndent(),
+                ),
+            )!!
+        val sent = decisionMessage(request).toString()
+        val use = "\"use\":{\"kind\":\"cycling\",\"title\":\"Cycle it instead\",\"cost\":\"{R}\"}"
+        assertTrue(sent.contains(use), sent)
+        assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
+    }
+
     /** PHASE_07 B7 (owner 2026-10-21) -- why a card cannot act now reaches the player. */
     @Test
     fun `reasons a card cannot act reach the browser, and only string pairs`() {

@@ -118,14 +118,43 @@ const ASIDE_STEPS = 8;
  * Spec 0044 -- the question needs the table: something on it to click
  * other than the spell itself. Paying does not: the lands are under the
  * hand, and the card in the middle is what is being paid for.
+ *
+ * Spec 0057, item 1 -- nor do cards to pick from the HAND (Allosaurus
+ * Rider's two green cards): the middle never covers the hand, so the card
+ * stays where it is.
  */
 export function docks(
   decision: Decision | null,
   question: Question | null,
   castingId: string,
+  inHand: (id: string) => boolean = () => false,
 ): boolean {
   if (!decision || !question || decision.kind === "applyManaToCost") return false;
-  return [...question.onBoard.keys()].some((id) => id !== castingId);
+  return [...question.onBoard.keys()].some((id) => id !== castingId && !inHand(id));
+}
+
+/** Where the card being cast was last drawn, and whether it was beside the stack. */
+export interface Floating {
+  id: string;
+  box: Box;
+  docked: boolean;
+}
+
+/**
+ * Spec 0057, item 1 -- between questions (the last one answered, or none
+ * asked yet) the card being cast stays exactly where it was drawn: it used
+ * to slide back to the middle as a cancelled question went away, and then
+ * fly back to the hand from there -- a jump (Phase 10 P10-R1). Null when
+ * a question is being asked: then it goes where that question puts it.
+ */
+export function heldSpot(
+  floating: Floating | null,
+  castingId: string | null,
+  decision: Decision | null,
+  awaiting: number | null,
+): Floating | null {
+  if (!floating || !castingId || floating.id !== castingId) return null;
+  return !decision || awaiting === decision.decisionId ? floating : null;
 }
 
 /** The sparks' colour: the card's one colour, gold for several or none. */

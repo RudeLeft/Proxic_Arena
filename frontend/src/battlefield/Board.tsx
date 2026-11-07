@@ -2026,7 +2026,8 @@ export function Board({
                   under its words, as on a card being cast. */}
               {i === 0 && stackOwing && stackOwing.length > 0 && (
                 <span className="bf-stack-owe" aria-label={`Still to pay: ${stackOwing.join(" ")}`}>
-                  <span className="bf-stack-owe-word">To pay</span>
+                  {/* Spec 0057, item 4 -- bigger, and plainer. */}
+                  <span className="bf-stack-owe-word">Still to pay</span>
                   <ManaText text={stackOwing.map((m) => `{${m}}`).join("")} />
                 </span>
               )}

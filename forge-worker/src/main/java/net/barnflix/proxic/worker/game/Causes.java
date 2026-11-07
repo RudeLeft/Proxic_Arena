@@ -50,12 +50,24 @@ final class Causes {
         /** Where each card went, fixed once the revealing effect finished. */
         java.util.Map<Integer, String> settled;
 
-        Reveal(long key, String title, java.util.List<Integer> cards) {
+        /** Spec 0057, item 7 -- who revealed them and why, for a reveal paid as a cost. */
+        final Told told;
+
+        Reveal(long key, String title, java.util.List<Integer> cards, Told told) {
             this.key = key;
             this.title = title;
             this.cards = cards;
+            this.told = told;
         }
     }
+
+    /**
+     * Spec 0057, item 7 -- a reveal with its sentence: the seat that
+     * revealed, the card it was for, "Pat revealed Llanowar Elves from their
+     * hand", and why ("to cast Wren's Run Vanquisher for {1}{G} instead of
+     * {4}{G}"). The page shows it as a report (Phase 9 Amendment 12).
+     */
+    record Told(int by, String source, String said, String why) {}
 
     private final java.util.Map<Integer, Reveal> reveals = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicLong revealKeys = new java.util.concurrent.atomic.AtomicLong();
@@ -238,12 +250,16 @@ final class Causes {
      * the card resolving -- or, outside a resolution, Forge's own words.
      */
     void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords) {
+        revealed(seat, cardIds, forgeWords, null);
+    }
+
+    void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Told told) {
         if (cardIds.isEmpty()) {
             return;
         }
         String by = resolvingName();
-        String title = by != null ? by + " revealed:" : forgeWords;
-        reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds)));
+        String title = told != null ? told.said() : by != null ? by + " revealed:" : forgeWords;
+        reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told));
     }
 
     /** The revealing effect finished: where each card went is now fixed. */
@@ -310,6 +326,14 @@ final class Causes {
         // Amendment 12 -- the newer of a reveal and a report is the one shown.
         out.addProperty("stamp", reveal.key);
         out.addProperty("title", reveal.title);
+        if (reveal.told != null) {
+            out.addProperty("by", reveal.told.by());
+            out.addProperty("source", reveal.told.source());
+            out.addProperty("said", reveal.told.said());
+            if (reveal.told.why() != null) {
+                out.addProperty("why", reveal.told.why());
+            }
+        }
         JsonArray cards = new JsonArray();
         int n = 0;
         for (int id : reveal.cards) {

@@ -43,6 +43,23 @@ export interface DecisionOption {
   cost: string | null;
   /** Phase 9 W-12 -- a named card's type line ("Creature — Goblin Scout"). */
   types?: string | null;
+  /**
+   * Spec 0057, item 5 -- for a card that can be played or discarded for
+   * something: what this option does with it, in the game's words.
+   */
+  use?: OptionUse | null;
+}
+
+/** Spec 0057, item 5 -- an option of a play-or-discard card. */
+export interface OptionUse {
+  /** "land" | "spell" (the play) or "cycling" | "landcycling" | "channel" (discards it). */
+  kind: string;
+  /** "Play it as your land", "Cast it", "Cycle it instead"… */
+  title: string;
+  /** What it means: "It comes in tapped.", "Discard Forgotten Cave and draw a card. …" */
+  line: string | null;
+  /** Its mana, when it has one ("{R}"). */
+  cost: string | null;
 }
 
 /** A target, as the server names it: an object id, or a player's seat. */
@@ -285,6 +302,12 @@ export interface DecisionAbout {
    */
   copy: number | null;
   copies: number | null;
+  /** Spec 0057, item 6 -- the card itself ("card:N"), on the battlefield or in your hand. */
+  card?: string | null;
+  /** Spec 0057, item 3 -- a cost you chose to pay: its action ("Sacrifice"). */
+  act?: string | null;
+  /** Spec 0057, item 3 -- what the ability does. */
+  effect?: string | null;
 }
 
 /** What one search matched: the best few, and how many there were. */
@@ -452,6 +475,8 @@ export interface SnapshotReveal {
   source?: string;
   /** Amendment 12 -- the whole action in this reader's words. */
   said?: string;
+  /** Spec 0057, item 7 -- why, for a reveal paid as a cost ("to cast … for {1}{G} instead of {4}{G}"). */
+  why?: string;
 }
 
 /** One object on the stack — §7.61 B2, B3. */
@@ -908,11 +933,22 @@ function asReveal(value: unknown): SnapshotReveal | null {
   const key = asString(row["key"]);
   const cards = asCards(row["cards"]);
   if (!key || cards.length === 0) return null;
+  const said = asString(row["said"]);
+  const why = asString(row["why"]);
   return {
     key,
     title: asString(row["title"]) ?? "Revealed:",
     cards,
     stamp: asNumber(row["stamp"]) ?? 0,
+    // Spec 0057, item 7 -- a reveal paid as a cost: who, the card, why.
+    ...(said
+      ? {
+          said,
+          by: asNumber(row["by"]) ?? 0,
+          source: asString(row["source"]) ?? "",
+          ...(why ? { why } : {}),
+        }
+      : {}),
   };
 }
 
@@ -1468,6 +1504,10 @@ function asAbout(value: unknown): DecisionAbout | null {
     from: pairs["from"] ?? null,
     copy: count("copy"),
     copies: count("copies"),
+    // Spec 0057, items 3 and 6 -- only when the game sent them.
+    ...(pairs["card"] ? { card: pairs["card"] } : {}),
+    ...(pairs["act"] ? { act: pairs["act"] } : {}),
+    ...(pairs["effect"] ? { effect: pairs["effect"] } : {}),
   };
 }
 
@@ -1498,9 +1538,19 @@ function asOptions(value: unknown): DecisionOption[] {
       payable: row["payable"] !== false,
       cost: asString(row["cost"]),
       types: asString(row["types"]),
+      use: asUse(row["use"]),
     });
   }
   return options;
+}
+
+function asUse(value: unknown): OptionUse | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const kind = asString(row["kind"]);
+  const title = asString(row["title"]);
+  if (!kind || !title) return null;
+  return { kind, title, line: asString(row["line"]), cost: asString(row["cost"]) };
 }
 
 function asNumber(value: unknown): number | null {

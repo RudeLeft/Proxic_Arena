@@ -136,13 +136,147 @@ export function PeekButton({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * Spec 0057, item 2 -- the Peek footer's left half, the same in every
+ * window: Peek, then "or hold Space" (under it, in a narrow window).
+ */
+export function PeekHint() {
+  return (
+    <span className="gs-win-peek-hint">
+      <PeekButton />
+      <span className="gs-peek-or">or hold Space</span>
+    </span>
+  );
+}
+
+/**
+ * Spec 0057, item 2 -- a window's footer: the Peek hint on the left, the
+ * window's own buttons on the right, a clear gap between.
+ */
+export function PeekFoot({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={`gs-peek-foot ${className}`.trim()}>
+      <PeekHint />
+      {children && <span className="gs-peek-foot-buttons">{children}</span>}
+    </div>
+  );
+}
+
 const BUBBLE_W = 380;
 const GAP = 18;
+/** About how tall a quick question is, for choosing where it fits. */
+export const BUBBLE_H = 240;
+
+/**
+ * Spec 0057, item 6 -- which side of the card asking a bubble sits on:
+ * left of it (the stack's top card, as before), right of it, or above it
+ * (a card in the hand).
+ */
+export type BubbleSide = "left" | "right" | "above";
+
+/** Where a bubble points: a card's box, and the side the bubble takes. */
+export type Anchor = Box & { side?: BubbleSide };
+
+/** A bubble's width on this table. */
+export function bubbleWidth(geometry: Geometry): number {
+  return Math.min(BUBBLE_W, geometry.play.w * 0.34);
+}
+
+/** Where a bubble pointing at `anchor` is drawn: its left, top, and (for "above") its bottom edge. */
+export function bubbleSpot(
+  anchor: Anchor,
+  geometry: Geometry,
+): { left: number; top: number; above: boolean } {
+  const width = bubbleWidth(geometry);
+  const side = anchor.side ?? "left";
+  if (side === "above") {
+    const left = Math.min(
+      Math.max(anchor.x + anchor.w / 2 - width / 2, geometry.play.x + geometry.inset),
+      geometry.play.x + geometry.play.w - geometry.inset - width,
+    );
+    return { left, top: anchor.y - GAP, above: true };
+  }
+  const left =
+    side === "right" ? anchor.x + anchor.w + GAP : Math.max(geometry.inset, anchor.x - GAP - width);
+  const top = Math.min(Math.max(anchor.y - 8, geometry.inset), geometry.height * 0.6);
+  return { left, top, above: false };
+}
+
+/** The box a bubble at `anchor` takes, at about its usual height. */
+export function bubbleBox(anchor: Anchor, geometry: Geometry, height = BUBBLE_H) {
+  const spot = bubbleSpot(anchor, geometry);
+  const w = bubbleWidth(geometry);
+  return { x: spot.left, y: spot.above ? spot.top - height : spot.top, w, h: height };
+}
+
+function overlapping(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * Spec 0057, item 6 (owner A, "by the card asking") -- a window about a
+ * card in the hand sits above it; about a card on the battlefield, beside
+ * it, on the side with room. Never over the stack (nor the act button
+ * under it), never over a card the question needs clicked (`avoid`), never
+ * off the table: if no place by the card is clear, `fallback` (by the
+ * stack, as before).
+ */
+export function anchorByCard({
+  card,
+  inHand,
+  geometry,
+  stack,
+  avoid,
+  fallback,
+}: {
+  card: Box | null;
+  inHand: boolean;
+  geometry: Geometry;
+  /** The stack's top spot: windows stay left of it. */
+  stack: Box;
+  avoid: readonly Box[];
+  fallback: Anchor;
+}): Anchor {
+  if (!card) return fallback;
+  const right = Math.min(stack.x, geometry.play.x + geometry.play.w) - geometry.inset;
+  const fits = (anchor: Anchor) => {
+    const box = bubbleBox(anchor, geometry);
+    return (
+      box.x >= geometry.play.x + geometry.inset &&
+      box.x + box.w <= right &&
+      box.y >= geometry.inset &&
+      box.y + box.h <= geometry.height - geometry.inset &&
+      !overlapping(box, stack) &&
+      !avoid.some((b) => overlapping(box, b))
+    );
+  };
+  const sides: BubbleSide[] = inHand
+    ? ["above"]
+    : // The side with more room first.
+      right - (card.x + card.w) >= card.x - geometry.play.x
+      ? ["right", "left"]
+      : ["left", "right"];
+  for (const side of sides) {
+    const anchor: Anchor = { ...card, side };
+    if (fits(anchor)) return anchor;
+  }
+  return fallback;
+}
 
 /**
  * A quick question, beside the card asking: to the left of `anchor` (the
  * stack's top card, or where it will be), its pointer at the card's top,
- * kept on the table.
+ * kept on the table. Spec 0057, item 6: or right of a card, or above one
+ * in the hand (`anchor.side`), pointing at it.
  */
 export function Bubble({
   anchor,
@@ -156,7 +290,7 @@ export function Bubble({
   children,
   actions,
 }: {
-  anchor: Box;
+  anchor: Anchor;
   geometry: Geometry;
   /** What a screen reader calls the window. */
   label: string;
@@ -172,16 +306,30 @@ export function Bubble({
   actions: ReactNode;
 }) {
   const peek = usePeek(true);
-  const width = Math.min(BUBBLE_W, geometry.play.w * 0.34);
-  const left = Math.max(geometry.inset, anchor.x - GAP - width);
-  const top = Math.min(Math.max(anchor.y - 8, geometry.inset), geometry.height * 0.6);
+  const width = bubbleWidth(geometry);
+  const { left, top, above } = bubbleSpot(anchor, geometry);
+  const side = anchor.side ?? "left";
   return (
     <div
-      className={`gs-win gs-bubble${peek ? " gs-win-peek" : ""}`}
+      className={`gs-win gs-bubble gs-bubble-${side}${peek ? " gs-win-peek" : ""}`}
       role="dialog"
       data-kind={kind}
+      data-side={side}
       aria-label={label}
-      style={{ left, top, width }}
+      style={{
+        left,
+        top,
+        width,
+        ...(above ? { transform: "translateY(-100%)" } : {}),
+        ...(side === "above"
+          ? {
+              ["--gs-pointer-x" as string]: `${Math.min(
+                Math.max(anchor.x + anchor.w / 2 - left, 24),
+                width - 24,
+              )}px`,
+            }
+          : {}),
+      }}
     >
       <span className="gs-bubble-pointer" aria-hidden="true" />
       <div className="gs-win-head">
@@ -196,10 +344,7 @@ export function Bubble({
       {children}
       <WindowFactLines title={title} />
       <div className="gs-win-actions">
-        <span className="gs-win-peek-hint">
-          <PeekButton />
-          <span className="gs-peek-or">or hold Space</span>
-        </span>
+        <PeekHint />
         {actions}
       </div>
     </div>
@@ -273,10 +418,7 @@ export function Tray({
         <WindowFactLines title={title} />
       </div>
       <div className="gs-win-actions gs-tray-actions">
-        <span className="gs-win-peek-hint">
-          <PeekButton />
-          <span className="gs-peek-or">or hold Space</span>
-        </span>
+        <PeekHint />
         {actions}
       </div>
     </div>

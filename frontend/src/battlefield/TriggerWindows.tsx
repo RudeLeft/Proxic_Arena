@@ -104,8 +104,14 @@ export function ConfirmWindow({
   const name = decision.about?.name ?? "";
   // Spec 0043: a trigger's own cost ("you may pay {2}{R}") asked first.
   const paying = decision.kind === "confirmPayment";
+  // Spec 0057, item 3 -- a cost the player chose to pay (Elvish Eulogist's
+  // "Sacrifice Elvish Eulogist?"): the line is what the ability does, the
+  // buttons "Cancel" and the cost's own action. The game says both.
+  const act = paying ? (decision.about?.act ?? null) : null;
   const copies =
-    (decision.kind === "confirmTrigger" || paying) && name ? copiesOnStack(board.stack, name) : 0;
+    !act && (decision.kind === "confirmTrigger" || paying) && name
+      ? copiesOnStack(board.stack, name)
+      : 0;
   const top = name ? board.stack.find((s) => s.kind === "trigger" && s.name === name) : undefined;
   const source = name ? sourceOf(board, name) : null;
   // Amendment 20: when the "yes" isn't worded as one ("Pay the cost"),
@@ -124,7 +130,26 @@ export function ConfirmWindow({
         source ? <Picture card={source.card} name={name} art={source.art} artUrl={artUrl} /> : null
       }
       actions={
-        paying ? (
+        act ? (
+          <>
+            <button
+              type="button"
+              className="gs-win-btn gs-win-btn-quiet"
+              disabled={busy}
+              onClick={() => onAnswer(pair.no.actionId)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="gs-win-btn gs-win-btn-main gs-cost-act"
+              disabled={busy}
+              onClick={() => onAnswer(pair.yes.actionId)}
+            >
+              <ManaText text={act} />
+            </button>
+          </>
+        ) : paying ? (
           <>
             <button
               type="button"
@@ -201,11 +226,17 @@ export function ConfirmWindow({
           At {top.targets.map((t) => targetName(board, t)).join(" and ")}
         </span>
       )}
-      {decision.prompt && (
-        <p className="gs-win-prompt">
-          <ManaText text={decision.prompt} />
-        </p>
-      )}
+      {act
+        ? decision.about?.effect && (
+            <p className="gs-win-prompt gs-cost-effect">
+              <ManaText text={decision.about.effect} />
+            </p>
+          )
+        : decision.prompt && (
+            <p className="gs-win-prompt">
+              <ManaText text={decision.prompt} />
+            </p>
+          )}
     </Bubble>
   );
 }

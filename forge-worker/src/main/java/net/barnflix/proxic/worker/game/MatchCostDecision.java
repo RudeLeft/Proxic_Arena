@@ -422,6 +422,16 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
      */
     @Override
     public PaymentDecision visit(forge.game.cost.CostReveal cost) {
+        PaymentDecision decided = revealing(cost);
+        // Spec 0057, item 7 -- Forge reveals these to the other players next;
+        // their controllers say who revealed what, and for what.
+        if (decided != null && !decided.cards.isEmpty()) {
+            host.payingByReveal(decided.cards, player, ability);
+        }
+        return decided;
+    }
+
+    private PaymentDecision revealing(forge.game.cost.CostReveal cost) {
         if (cost.payCostFromSource()) {
             return PaymentDecision.card(source);
         }
@@ -1375,14 +1385,28 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         return picked == null ? null : PaymentDecision.card(picked);
     }
 
-    /** A yes/no the player actually answers. */
+    /**
+     * A yes/no the player actually answers.
+     *
+     * Spec 0057, item 3 -- by the card, with what the ability does as its
+     * line and the cost's own action as the yes ("Sacrifice"); the pass is
+     * the page's "Cancel".
+     */
     private boolean confirm(String prompt) {
+        String act = PlainWords.costAct(prompt);
+        host.offerSubject(ability);
+        Card card = ability == null ? null : ability.getHostCard();
+        host.offerCostChoice(act, ability == null || ability.isSpell() ? null
+                : PlainWords.effectWords(ability.getParamOrDefault("SpellDescription",
+                        String.valueOf(ability.getDescription())), card == null ? null : card.getName()));
         try {
             String choice =
                     host.gate().ask(
                             actedForSeat, authorisedSeat, "confirmPayment",
                             java.util.List.of("confirm:yes"), false, prompt,
                             pending -> host.publishDecision(
+                                    // The option keeps its label (the scripted
+                                    // games read it); the button says about.act.
                                     pending, java.util.Map.of("confirm:yes", "Pay the cost")));
             return "confirm:yes".equals(choice);
         } catch (InterruptedException e) {

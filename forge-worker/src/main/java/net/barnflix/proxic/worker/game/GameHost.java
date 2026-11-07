@@ -354,6 +354,8 @@ public final class GameHost {
         if (text == null || text.isBlank()) {
             return;
         }
+        // Spec 0057, item 1 -- never Forge's script shorthand.
+        text = PlainWords.humanise(text);
         java.util.Deque<String> queue =
                 notices.computeIfAbsent(seat, key -> new java.util.ArrayDeque<>());
         synchronized (queue) {
@@ -402,9 +404,14 @@ public final class GameHost {
 
     /** Spec 0045 -- Forge showed this seat these cards (MatchController#reveal). */
     void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords) {
+        revealed(seat, cardIds, forgeWords, null);
+    }
+
+    /** Spec 0057, item 7 -- the same, with who revealed them and why (a cost). */
+    void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Causes.Told told) {
         Causes now = causes;
         if (now != null) {
-            now.revealed(seat, cardIds, forgeWords);
+            now.revealed(seat, cardIds, forgeWords, told);
         }
     }
 
@@ -957,6 +964,40 @@ public final class GameHost {
         return costs.get(actionId);
     }
 
+    /** Spec 0057, item 5 -- what each option of a play-or-discard card does with it. Same lifetime. */
+    private volatile java.util.Map<String, com.google.gson.JsonObject> uses = java.util.Map.of();
+
+    void offerUses(java.util.Map<String, com.google.gson.JsonObject> byId) {
+        uses = byId;
+    }
+
+    public com.google.gson.JsonObject useOf(String actionId) {
+        return uses.get(actionId);
+    }
+
+    /**
+     * Spec 0057, item 7 -- a reveal about to be made as a COST: the cards the
+     * payer chose, who pays, and for what. Forge shows them to the other
+     * players right after (CostReveal), and their controllers word that
+     * reveal from this. Cleared with the next question.
+     */
+    record CostReveal(java.util.Set<Integer> cards, Player payer, forge.game.spellability.SpellAbility ability) {}
+
+    private volatile CostReveal costReveal;
+
+    void payingByReveal(Iterable<forge.game.card.Card> cards, Player payer,
+            forge.game.spellability.SpellAbility ability) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        cards.forEach(card -> ids.add(card.getId()));
+        costReveal = ids.isEmpty() ? null : new CostReveal(ids, payer, ability);
+    }
+
+    /** The cost reveal these cards are, or null. */
+    CostReveal costRevealOf(java.util.Collection<Integer> cardIds) {
+        CostReveal now = costReveal;
+        return now != null && !cardIds.isEmpty() && now.cards().containsAll(cardIds) ? now : null;
+    }
+
     /** B7, owner 2026-10-21 -- why each of the player's cards that is NOT
      *  offered cannot act now, by object id ("card:N"). Same lifetime as
      *  the two above: set before the ask, cleared after it is published. */
@@ -1021,6 +1062,13 @@ public final class GameHost {
         com.google.gson.JsonObject about = new com.google.gson.JsonObject();
         about.addProperty("name", viewer == null ? card.getName() : ViewerSnapshot.nameFor(card, viewer));
         about.addProperty("kind", sa.isSpell() ? "spell" : sa.isTrigger() ? "trigger" : "ability");
+        // Spec 0057, item 6 -- WHICH card, so the window can sit by it: a
+        // card on the battlefield (public), or the asker's own in hand.
+        forge.game.zone.ZoneType zone = card.getZone() == null ? null : card.getZone().getZoneType();
+        if (zone == forge.game.zone.ZoneType.Battlefield
+                || (viewer == null && zone == forge.game.zone.ZoneType.Hand)) {
+            about.addProperty("card", "card:" + card.getId());
+        }
         if (sa.isSpell()) {
             forge.game.zone.Zone from = card.getCastFrom();
             about.addProperty("from", from == null
@@ -1037,7 +1085,29 @@ public final class GameHost {
         com.google.gson.JsonObject about = new com.google.gson.JsonObject();
         about.addProperty("name", card.getName());
         about.addProperty("kind", "card");
+        // Spec 0057, item 6 -- the card the player is playing (getAbilityToPlay):
+        // their own, on the battlefield or in their hand.
+        forge.game.zone.ZoneType zone = card.getZone() == null ? null : card.getZone().getZoneType();
+        if (zone == forge.game.zone.ZoneType.Battlefield || zone == forge.game.zone.ZoneType.Hand) {
+            about.addProperty("card", "card:" + card.getId());
+        }
         subject = about;
+    }
+
+    /**
+     * Spec 0057, item 3 -- a cost the player chooses to pay: the button's
+     * word ("Sacrifice") and what the ability does, for the window's line.
+     * Set after offerSubject.
+     */
+    void offerCostChoice(String act, String effect) {
+        com.google.gson.JsonObject about = subject;
+        if (about == null) {
+            return;
+        }
+        about.addProperty("act", act);
+        if (effect != null && !effect.isBlank()) {
+            about.addProperty("effect", effect);
+        }
     }
 
     /**
@@ -1171,6 +1241,8 @@ public final class GameHost {
         publisher.accept(pending, labels);
         unpayable = java.util.Set.of(); // only for the question it was set for
         costs = java.util.Map.of();
+        uses = java.util.Map.of();
+        costReveal = null;
         unavailable = java.util.Map.of();
         notNow = java.util.Map.of();
         owing = null;

@@ -1151,6 +1151,55 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-sm);
   color: #e8a87c;
 }
+/* Spec 0057, item 5 -- a card that can be played or thrown away for
+   something: the play is the main choice, gold like a main button; the
+   one that discards the card is red-tinted and says what is lost. */
+.gs-option.gs-ab-use {
+  /* No cost column: the words take the whole width (2026-11-06: in the
+     ability grid's 52px cost column they wrapped one word a line). */
+  grid-template-columns: 1fr;
+}
+.gs-ab-use .gs-ab-words {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.gs-ab-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.gs-ab-line {
+  font-size: var(--pa-size-sm);
+  line-height: 1.35;
+}
+.gs-option.gs-ab-play {
+  border: 1px solid #e0b25e;
+  background: linear-gradient(180deg, #e8c172, #c9973f);
+  color: #1b1408;
+}
+.gs-option.gs-ab-play:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f0cd83, #d6a44b);
+}
+.gs-ab-play .gs-ab-line {
+  color: #3a2a10;
+}
+.gs-option.gs-ab-discard {
+  border: 1px solid #b4524a;
+  background: rgb(120 32 28 / 32%);
+  color: #f3d6d2;
+}
+.gs-option.gs-ab-discard:hover:not(:disabled) {
+  background: rgb(150 40 34 / 45%);
+}
+.gs-ab-discard .gs-ab-title {
+  color: #ffb3a8;
+}
+.gs-ab-discard .gs-ab-line {
+  color: #e8c4bf;
+}
 .gs-popup-count {
   display: block;
   margin-top: 3px;
@@ -2228,6 +2277,20 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   background: #121a17;
   transform: rotate(45deg);
 }
+/* Spec 0057, item 6 -- right of a card on the table: pointing left. */
+.gs-bubble-right .gs-bubble-pointer {
+  right: auto;
+  left: -9px;
+  transform: rotate(-135deg);
+}
+/* Above a card in the hand: pointing down at it. */
+.gs-bubble-above .gs-bubble-pointer {
+  top: auto;
+  right: auto;
+  bottom: -9px;
+  left: calc(var(--gs-pointer-x, 50%) - 8px);
+  transform: rotate(135deg);
+}
 .gs-tray {
   bottom: 12px;
   align-items: stretch;
@@ -2302,11 +2365,36 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-win-peek-hint {
   display: inline-flex;
+  /* Spec 0057, item 2 -- in a narrow window "or hold Space" goes under Peek. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   margin-right: auto;
   font-size: var(--pa-size-xs);
   color: #7f8c85;
+}
+/* Spec 0057, item 2 -- every window's footer: Peek and its hint on the left,
+   the window's buttons on the right, never touching. */
+.gs-peek-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin-top: 12px;
+}
+.gs-peek-foot .gs-win-peek-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.gs-peek-foot-buttons {
+  display: inline-flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+.gs-peek-foot .pa-button {
+  margin-top: 0;
 }
 /* Amendment 18 -- Peek: hold to fade every window and see the table. */
 .gs-win-btn.gs-peek-btn {
@@ -2499,6 +2587,12 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   letter-spacing: var(--pa-track-button);
   text-transform: uppercase;
   color: #8fb0ff;
+}
+/* Spec 0057, item 7 -- why a card was revealed (a cost). */
+.gs-reveal-why {
+  margin: 4px 0 0;
+  font-size: var(--pa-size-md);
+  color: #c6cfca;
 }
 .gs-reveal-said {
   font-size: var(--pa-size-lg);

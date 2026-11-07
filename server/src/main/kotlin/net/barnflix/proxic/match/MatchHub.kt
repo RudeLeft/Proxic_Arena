@@ -238,6 +238,8 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
                         if (!option.payable) put("payable", false)
                         option.cost?.let { put("cost", it) }
                         option.types?.let { put("types", it) }
+                        // Spec 0057, item 5 -- play it, or discard it for something.
+                        option.use?.let { put("use", it) }
                     },
                 )
             }
@@ -267,6 +269,8 @@ fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
                         if (!option.payable) put("payable", false)
                         option.cost?.let { put("cost", it) }
                         option.types?.let { put("types", it) }
+                        // Spec 0057, item 5 -- play it, or discard it for something.
+                        option.use?.let { put("use", it) }
                     },
                 )
             }

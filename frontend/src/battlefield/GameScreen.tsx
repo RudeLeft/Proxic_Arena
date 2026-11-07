@@ -65,7 +65,15 @@ import { clickOn, questionOf, type Question } from "./interaction";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
-import { CastingCard, CastingFlight, castingSpot, docks, owingSymbols } from "./CastingCard";
+import {
+  CastingCard,
+  CastingFlight,
+  castingSpot,
+  docks,
+  heldSpot,
+  owingSymbols,
+  type Floating,
+} from "./CastingCard";
 import {
   ChoiceWindow,
   ListTray,
@@ -91,7 +99,7 @@ import {
   SprocketWindow,
   binaryTitle,
 } from "./DiceWindows";
-import { PeekButton, usePeek, WindowFacts } from "./GameWindow";
+import { anchorByCard, PeekFoot, usePeek, WindowFacts, type Anchor } from "./GameWindow";
 import { ConfirmWindow, CopyTargetWindow, OrderTray } from "./TriggerWindows";
 import {
   DamageTray,
@@ -522,16 +530,22 @@ export function GameScreen({
       ? optionalSource
       : null;
   const casting = board?.casting[0] ?? optionalFromHand;
-  const castingDocked =
-    !!casting && casting.seat === board?.seat && docks(decision, question, casting.id);
+  /** Where the card being cast was last drawn: its flight starts there. */
+  const floating = useRef<Floating | null>(null);
+  // Spec 0057, item 1 -- between questions it stays where it was (heldSpot).
+  const heldCast = heldSpot(floating.current, casting?.id ?? null, decision, game.awaiting);
+  const castingDocked = heldCast
+    ? heldCast.docked
+    : !!casting &&
+      casting.seat === board?.seat &&
+      docks(decision, question, casting.id, (id) => !!board?.hand.some((c) => c.id === id));
   // Owner 2026-11-01 (item 4) -- out of the way of anything to click under
   // it while it is cast; once moved aside for a spell it stays there (no
   // jumping back as each elf is tapped).
   const aside = useRef<{ id: string; box: Box } | null>(null);
-  /** Where the card being cast was last drawn: its flight starts there. */
-  const floating = useRef<{ id: string; box: Box } | null>(null);
   const castingAt = (geometry: Geometry): Box | null => {
     if (!casting) return null;
+    if (heldCast) return heldCast.box;
     const at = atRef.current;
     const clickable =
       question && at && casting.seat === board?.seat
@@ -541,13 +555,13 @@ export function GameScreen({
             .filter((b): b is Box => b !== null)
         : [];
     const spot = castingSpot(geometry, castingDocked, clickable);
-    floating.current = { id: casting.id, box: spot };
+    floating.current = { id: casting.id, box: spot, docked: castingDocked };
     if (castingDocked) return spot;
     const middle = castingSpot(geometry, false, []);
     const moved = spot.x !== middle.x || spot.y !== middle.y;
     if (moved) aside.current = { id: casting.id, box: spot };
     const now = aside.current?.id === casting.id ? aside.current.box : spot;
-    floating.current = { id: casting.id, box: now };
+    floating.current = { id: casting.id, box: now, docked: false };
     return now;
   };
   const castingHiddenBy =
@@ -1153,8 +1167,12 @@ export function GameScreen({
   const gameWindow = (geometry: Geometry) => {
     if (!decision || !question || !board || answeredForYou) return null;
     // Spec 0042: beside the card being cast, when one is.
-    const anchor =
-      castingAt(geometry) ?? stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    // Spec 0057, item 6: else by the card asking, in the hand (above it) or
+    // on the battlefield (beside it); else by the stack.
+    const stackSpot = stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
+    const anchor: Anchor =
+      castingAt(geometry) ??
+      askingCardAnchor(decision, question, board, geometry, stackSpot, atRef.current);
     const common = {
       decision,
       question,
@@ -2897,13 +2915,47 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
 }
 
 /**
+ * Spec 0057, item 6 (owner A) -- where a question's window sits: by the card
+ * it is about when that card is in the hand or on the battlefield (the game
+ * names it: `about.card`, for an ability or a card being played -- a
+ * trigger or a spell is on the stack, and stays by it); otherwise by the
+ * stack. Clear of whatever the question needs clicked.
+ */
+export function askingCardAnchor(
+  decision: Decision,
+  question: Question | null,
+  board: Snapshot,
+  geometry: Geometry,
+  stackSpot: Box,
+  at: ((objectId: string) => Box | null) | null,
+): Anchor {
+  const about = decision.about;
+  const id = about?.card && (about.kind === "ability" || about.kind === "card") ? about.card : null;
+  const inHand = !!id && board.hand.some((c) => c.id === id);
+  const onField = !!id && board.battlefield.some((c) => c.id === id);
+  if (!id || (!inHand && !onField) || !at) return stackSpot;
+  const avoid = [...(question?.onBoard.keys() ?? [])]
+    .filter((other) => other !== id)
+    .map((other) => at(other))
+    .filter((b): b is Box => b !== null);
+  return anchorByCard({
+    card: at(id),
+    inHand,
+    geometry,
+    stack: stackSpot,
+    avoid,
+    fallback: stackSpot,
+  });
+}
+
+/**
  * Phase 9 W-16 (owner 2026-11-03, option A) -- what a card can do: its
  * picture and name once; each ability with its cost first and large (a
  * green +1, a red -3, mana), then its words; the abilities it can't use
  * now greyed with why; and for a card that can't be played, the reason.
  * Each choice keeps the game's whole line for a screen reader.
  */
-function ActionPopup({
+export function ActionPopup({
   box,
   name,
   card,
@@ -2977,7 +3029,48 @@ function ActionPopup({
       )}
       {(options.length > 0 || notNow.length > 0) && (
         <ul className="gs-popup-actions">
-          {options.map((o, i) => {
+          {playFirst(options).map((o, i) => {
+            const use = o.use ?? null;
+            if (use) {
+              // Spec 0057, item 5 -- play it (gold, the main choice), or
+              // throw it away for something (red: says what is lost).
+              const plays = use.kind === "land" || use.kind === "spell";
+              const price = use.cost ?? (plays ? o.cost : null);
+              return (
+                <li key={o.actionId}>
+                  <button
+                    ref={i === 0 ? first : undefined}
+                    type="button"
+                    className={`gs-option gs-ab gs-ab-use ${plays ? "gs-ab-play" : "gs-ab-discard"}${
+                      o.payable ? "" : " gs-option-unpayable"
+                    }`}
+                    data-use={use.kind}
+                    aria-label={`${use.title}${price ? ` ${price}` : ""}${use.line ? `. ${use.line}` : ""}${
+                      o.payable ? "" : ", not enough mana right now"
+                    }`}
+                    disabled={busy}
+                    onClick={() => onChoose(o.actionId)}
+                  >
+                    <span className="gs-ab-words">
+                      <span className="gs-ab-said gs-ab-title">
+                        <ManaText text={plays || !price ? use.title : `${use.title}: ${price}`} />
+                        {plays && price && (
+                          <span className="gs-ab-use-cost">
+                            <ManaText text={price} />
+                          </span>
+                        )}
+                      </span>
+                      {use.line && (
+                        <span className="gs-ab-line">
+                          <ManaText text={use.line} />
+                        </span>
+                      )}
+                      {!o.payable && <em className="gs-ab-why">Not enough mana right now</em>}
+                    </span>
+                  </button>
+                </li>
+              );
+            }
             const parts = abilityParts(o.label ?? o.actionId, name);
             return (
               <li key={o.actionId}>
@@ -3038,9 +3131,15 @@ function ActionPopup({
   );
 }
 
+/** Spec 0057, item 5 -- the card's play first, then the rest in the game's order. */
+export function playFirst(options: DecisionOption[]): DecisionOption[] {
+  const plays = (o: DecisionOption) => o.use?.kind === "land" || o.use?.kind === "spell";
+  return [...options.filter(plays), ...options.filter((o) => !plays(o))];
+}
+
 // --- looking at things --------------------------------------------------------------------
 
-function Inspect({
+export function Inspect({
   card,
   name,
   costNow,
@@ -3127,10 +3226,17 @@ function Inspect({
               <InspectChips card={card} />
             </>
           )}
-          <PeekButton className="gs-inspect-peek" />
-          <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
-            Close
-          </button>
+          {/* Spec 0057, item 2 -- Peek and "or hold Space" left, Close right. */}
+          <PeekFoot className="gs-inspect-foot">
+            <button
+              ref={close}
+              type="button"
+              className="pa-button pa-button-quiet"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </PeekFoot>
         </div>
       </div>
     </div>
@@ -3201,7 +3307,7 @@ function InspectChips({ card }: { card: SnapshotCard }) {
  * beside what it does, why it triggered, what it targets, whose it is,
  * its place in the order and how many copies of it wait together.
  */
-function StackInspect({
+export function StackInspect({
   board,
   id,
   mySeat,
@@ -3299,10 +3405,17 @@ function StackInspect({
               </>
             )}
           </dl>
-          <PeekButton className="gs-inspect-peek" />
-          <button ref={close} type="button" className="pa-button pa-button-quiet" onClick={onClose}>
-            Close
-          </button>
+          {/* Spec 0057, item 2 -- Peek and "or hold Space" left, Close right. */}
+          <PeekFoot className="gs-inspect-foot">
+            <button
+              ref={close}
+              type="button"
+              className="pa-button pa-button-quiet"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </PeekFoot>
         </div>
       </div>
     </div>
@@ -3323,7 +3436,7 @@ function ordinalWord(n: number): string {
  * is there (what exiled it, a suspend's time counters) and whether you may
  * play it from there. A card opens its close-up, on top.
  */
-function ZoneViewer({
+export function ZoneViewer({
   board,
   seat,
   zone,
@@ -3392,7 +3505,6 @@ function ZoneViewer({
           <span className="gs-ztray-count">
             {count === 0 ? "empty" : `${count} card${count === 1 ? "" : "s"} · newest first`}
           </span>
-          <PeekButton className="gs-ztray-peek" />
           <button
             ref={close}
             type="button"
@@ -3456,6 +3568,8 @@ function ZoneViewer({
             );
           })}
         </ul>
+        {/* Spec 0057, item 2 -- Peek and "or hold Space", clear of the close. */}
+        <PeekFoot className="gs-ztray-foot" />
       </div>
     </div>
   );

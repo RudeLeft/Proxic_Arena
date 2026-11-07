@@ -325,7 +325,8 @@ final class ViewerSnapshot {
                     && !(source.getView().canBeShownTo(viewing) && source.getView().canFaceDownBeShownTo(viewing));
             // Forge's own wording -- unless it is about a face-down card
             // this viewer may not identify: it starts with the card's name.
-            entry.addProperty("description", hidden ? "Face-down spell" : String.valueOf(instance));
+            // Spec 0057, item 1: no script shorthand ("Card.Green") reaches a player.
+            entry.addProperty("description", hidden ? "Face-down spell" : PlainWords.humanise(String.valueOf(instance)));
             // §7.61 B2 -- the stack as cards: what it is, whose it is, and
             // where it came from, the name as this viewer may know it.
             if (source != null) {

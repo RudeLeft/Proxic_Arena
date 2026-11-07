@@ -521,6 +521,11 @@ public final class MatchController extends GeneratedControllerBase {
             }
         }
         host.offerCosts(costs);
+        // Spec 0057, item 5 -- a card in hand that can be played OR thrown
+        // away for something (cycling, landcycling, channel): which option is
+        // which, so the menu can make the play the main choice and mark the
+        // one that discards the card.
+        host.offerUses(usesFor(byId));
 
         // B7 (owner 2026-10-21) -- a card in hand with nothing offered:
         // why, read off Forge's facts, for when the player clicks it.
@@ -4892,6 +4897,15 @@ public final class MatchController extends GeneratedControllerBase {
         // name is empty, which left its controller choosing between
         // options that began " — {1}{U} — Morph".
         String name = spellName(sa);
+        // Spec 0057, item 1 -- an alternative cost (Allosaurus Rider) said
+        // once, as the card's reminder says it: "Exile two green cards from
+        // your hand instead of paying {5}{G}{G}". Forge's own line called it
+        // an ADDITIONAL cost, in its script shorthand ("Card.Green"), then
+        // repeated it in brackets.
+        String instead = alternativeCostLine(sa);
+        if (instead != null) {
+            return name + " · " + instead;
+        }
         String cost = costOf(sa);
         String what = String.valueOf(sa).trim();
 
@@ -4916,6 +4930,154 @@ public final class MatchController extends GeneratedControllerBase {
             label.append(" · ").append(what);
         }
         return label.toString();
+    }
+
+    /**
+     * Spec 0057, item 1 -- a spell cast for an alternative cost a static
+     * ability grants ("You may exile two green cards from your hand rather
+     * than pay this spell's mana cost"): its cost's own parts, then what
+     * they replace. Null for any other option.
+     */
+    static String alternativeCostLine(SpellAbility sa) {
+        if (sa == null || !sa.isSpell() || sa.getPayCosts() == null) {
+            return null;
+        }
+        String described = String.valueOf(sa.getDescription());
+        boolean alternative = sa.isOptionalCostPaid(forge.game.spellability.OptionalCost.AltCost)
+                || described.contains(" instead of its mana cost)");
+        if (!alternative) {
+            return null;
+        }
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        String host = sa.getHostCard() == null ? "" : sa.getHostCard().getName();
+        for (forge.game.cost.CostPart part : sa.getPayCosts().getCostParts()) {
+            if (part instanceof forge.game.cost.CostPartMana mana) {
+                forge.card.mana.ManaCost m = mana.getMana();
+                if (m == null || m.isNoCost() || m.isZero()) {
+                    continue;
+                }
+                parts.add(m.toString());
+            } else {
+                parts.add(forge.util.TextUtil.fastReplace(part.toString(), "CARDNAME", host));
+            }
+        }
+        forge.card.mana.ManaCost printed = sa.getCardState() != null
+                ? sa.getCardState().getManaCost()
+                : sa.getHostCard() == null ? null : sa.getHostCard().getManaCost();
+        return PlainWords.insteadOf(parts, printed == null || printed.isNoCost() ? "" : printed.toString());
+    }
+
+    /**
+     * Spec 0057, item 5 -- for each card in hand with an option that DISCARDS
+     * it (cycling, landcycling, a channel-style ability from the hand), what
+     * each of its options is: "land" (its land play), "spell" (its ordinary
+     * cast), or the discarding kind, with the words the menu shows. Read off
+     * Forge's own ability (its keyword, its zone, its cost), never the card's
+     * text. Cards without such a choice get nothing: their menu is as before.
+     */
+    private java.util.Map<String, com.google.gson.JsonObject> usesFor(
+            java.util.Map<String, SpellAbility> byId) {
+        java.util.Map<Integer, java.util.List<String>> byCard = new java.util.HashMap<>();
+        java.util.Map<String, String> ways = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, SpellAbility> option : byId.entrySet()) {
+            SpellAbility sa = option.getValue();
+            forge.game.card.Card card = sa.getHostCard();
+            if (card == null || !card.isInZone(forge.game.zone.ZoneType.Hand)) {
+                continue;
+            }
+            byCard.computeIfAbsent(card.getId(), k -> new java.util.ArrayList<>()).add(option.getKey());
+            ways.put(option.getKey(), wayOf(sa));
+        }
+        java.util.Map<String, com.google.gson.JsonObject> uses = new java.util.HashMap<>();
+        for (java.util.List<String> ids : byCard.values()) {
+            boolean discards = ids.stream().map(ways::get)
+                    .anyMatch(w -> "cycling".equals(w) || "landcycling".equals(w) || "channel".equals(w));
+            if (!discards) {
+                continue;
+            }
+            for (String id : ids) {
+                String way = ways.get(id);
+                if (way == null) {
+                    continue;
+                }
+                SpellAbility sa = byId.get(id);
+                forge.game.card.Card card = sa.getHostCard();
+                com.google.gson.JsonObject use = new com.google.gson.JsonObject();
+                use.addProperty("kind", way);
+                switch (way) {
+                    case "land" -> {
+                        use.addProperty("title", "Play it as your land");
+                        if (entersTapped(card)) {
+                            use.addProperty("line", "It comes in tapped.");
+                        }
+                    }
+                    case "spell" -> {
+                        use.addProperty("title", "Cast it");
+                        String types = card.getType() == null ? "" : card.getType().toString();
+                        if (!types.isBlank()) {
+                            use.addProperty("line", types);
+                        }
+                        String cost = costOf(sa);
+                        if (!cost.isBlank()) {
+                            use.addProperty("cost", cost);
+                        }
+                    }
+                    default -> {
+                        String keyword = "landcycling".equals(way)
+                                ? sa.getParamOrDefault("PrecostDesc", "")
+                                : "channel".equals(way) ? sa.getParamOrDefault("PrecostDesc", "") : "Cycling";
+                        use.addProperty("title", PlainWords.discardTitle(way, keyword));
+                        forge.game.cost.Cost costs = sa.getPayCosts();
+                        if (costs != null && costs.hasManaCost()) {
+                            String mana = costs.getTotalMana().toString().trim();
+                            if (!mana.isEmpty() && !"{0}".equals(mana)) {
+                                use.addProperty("cost", mana);
+                            }
+                        }
+                        String effect = PlainWords.effectWords(
+                                sa.getParamOrDefault("SpellDescription", String.valueOf(sa.getDescription())),
+                                card.getName());
+                        use.addProperty("line", PlainWords.discardLine(card.getName(), effect, card.isLand()));
+                    }
+                }
+                uses.put(id, use);
+            }
+        }
+        return uses;
+    }
+
+    /** Spec 0057, item 5 -- what an option of a card in hand does with it; null for anything else. */
+    private static String wayOf(SpellAbility sa) {
+        if (sa.isLandAbility()) {
+            return "land";
+        }
+        if (sa.isKeyword(forge.game.keyword.Keyword.TYPECYCLING)) {
+            return "landcycling";
+        }
+        if (sa.isKeyword(forge.game.keyword.Keyword.CYCLING)) {
+            return "cycling";
+        }
+        if (sa.isActivatedAbility() && sa.getPayCosts() != null) {
+            for (forge.game.cost.CostPart part : sa.getPayCosts().getCostParts()) {
+                if (part instanceof forge.game.cost.CostDiscard && part.payCostFromSource()) {
+                    return "channel";
+                }
+            }
+        }
+        if (sa.isSpell() && sa.isBasicSpell() && alternativeCostLine(sa) == null) {
+            return "spell";
+        }
+        return null;
+    }
+
+    /** Forge's own test for a tapped land (its AI's): "CARDNAME enters tapped." */
+    private static boolean entersTapped(forge.game.card.Card card) {
+        for (forge.game.replacement.ReplacementEffect repl : card.getReplacementEffects()) {
+            if ("CARDNAME enters tapped.".equals(repl.getParamOrDefault("Description", ""))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Questions that start with a verb read on after "Yes, ": "Yes, pay {2} for Rhystic Study". */
@@ -5122,11 +5284,65 @@ public final class MatchController extends GeneratedControllerBase {
                     ? "Looking at " + where
                     : (addSuffix ? message + " " + where : message);
             text = said + ": " + String.join(", ", names);
+            // Spec 0057, item 7 -- a reveal paid as a cost (Wren's Run
+            // Vanquisher's Elf): who, what and why, as a report.
+            GameHost.CostReveal paid = own ? null : host.costRevealOf(ids);
+            Causes.Told told = paid == null ? null : toldOf(paid, names, zone);
             // Spec 0045 -- the cards themselves, face up in a tray,
             // for this seat alone (Forge told this controller).
-            host.revealed(actedForSeat, ids, said);
+            host.revealed(actedForSeat, ids, said, told);
         }
         host.note(actedForSeat, text);
+    }
+
+    /**
+     * Spec 0057, item 7 -- the sentence for a reveal paid as a cost: "Pat
+     * revealed Llanowar Elves from their hand" and "to cast Wren's Run
+     * Vanquisher for {1}{G} instead of {4}{G}" -- the other way to pay, for
+     * a card whose additional cost is "reveal ... or pay {3}" -- else "to pay
+     * for" the card. Only the cards Forge revealed are named.
+     */
+    private Causes.Told toldOf(GameHost.CostReveal paid, java.util.List<String> names,
+            forge.game.zone.ZoneType zone) {
+        SpellAbility sa = paid.ability();
+        forge.game.card.Card spell = sa == null ? null : sa.getHostCard();
+        if (spell == null) {
+            return null;
+        }
+        String where = zone == null ? "hand" : zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
+        String said = PlainWords.revealSaid(paid.payer().getName(), names, where);
+        String paidPrice = null;
+        String instead = null;
+        if (sa.isSpell() && sa.getPayCosts() != null && sa.getPayCosts().hasManaCost()) {
+            paidPrice = sa.getPayCosts().getTotalMana().toString();
+            forge.card.mana.ManaCost printed = sa.getCardState() != null
+                    ? sa.getCardState().getManaCost() : spell.getManaCost();
+            for (forge.game.keyword.KeywordInterface inst : spell.getKeywords()) {
+                String keyword = inst.getOriginal();
+                if (!keyword.startsWith("AlternateAdditionalCost")) {
+                    continue;
+                }
+                for (String other : keyword.split(":", 2)[1].split(":")) {
+                    if (other.contains("Reveal")) {
+                        continue;
+                    }
+                    try {
+                        forge.game.cost.Cost alt = new forge.game.cost.Cost(other, false);
+                        if (alt.isOnlyManaCost()) {
+                            instead = forge.card.mana.ManaCost.combine(printed, alt.getTotalMana()).toString();
+                        }
+                    } catch (RuntimeException e) {
+                        instead = null;
+                    }
+                }
+            }
+        }
+        String why = PlainWords.revealWhy(spell.getName(), sa.isSpell(), paidPrice, instead);
+        return new Causes.Told(seatOfPlayer(paid.payer()), spell.getName(), said, why);
+    }
+
+    private int seatOfPlayer(Player p) {
+        return host.seatOf(p.getOriginalLobbyPlayer());
     }
 
     /**

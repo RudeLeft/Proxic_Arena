@@ -26,6 +26,12 @@ data class DecisionOption(
     val cost: String? = null,
     /** Phase 9 W-12 -- a named card's type line ("Creature — Goblin Scout"); null otherwise. */
     val types: String? = null,
+    /**
+     * Spec 0057, item 5 -- for a card that can be played or discarded for
+     * something (cycling, landcycling, channel): what this option does with
+     * it, and its words. Passed through untouched, like [objectId].
+     */
+    val use: JsonObject? = null,
 )
 
 /**

@@ -12,7 +12,8 @@ import type { ReactNode } from "react";
 import type { SnapshotReveal } from "../match";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
-import { PeekButton, usePeek } from "./GameWindow";
+import { ManaText } from "./ManaCost";
+import { PeekFoot, usePeek } from "./GameWindow";
 
 /** Where a revealed card went, as the tray says it. */
 export function wentWords(to: string | null | undefined): string | null {
@@ -75,19 +76,17 @@ export function RevealTray({
                 {who?.name ?? "A player"} · {reveal.source}
               </span>
               <h2 className="gs-reveal-title gs-reveal-said">{reveal.said}</h2>
+              {/* Spec 0057, item 7 -- why: a reveal paid as a cost. */}
+              {reveal.why && (
+                <p className="gs-reveal-why">
+                  <ManaText text={reveal.why} />
+                </p>
+              )}
             </div>
           </div>
         ) : (
           <h2 className="gs-reveal-title">{reveal.title}</h2>
         )}
-        <PeekButton className="gs-reveal-peek" />
-        <button
-          type="button"
-          className="pa-button pa-button-quiet gs-reveal-close"
-          onClick={onClose}
-        >
-          Close
-        </button>
       </div>
       <ul className="gs-reveal-cards">
         {reveal.cards.map((card) => (
@@ -105,6 +104,17 @@ export function RevealTray({
           </li>
         ))}
       </ul>
+      {/* Spec 0057, item 2 -- the question windows' footer: Peek and "or hold
+        Space" on the left, Close on the right. */}
+      <PeekFoot className="gs-reveal-foot">
+        <button
+          type="button"
+          className="pa-button pa-button-quiet gs-reveal-close"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </PeekFoot>
     </div>
   );
 }

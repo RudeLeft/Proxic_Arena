@@ -304,7 +304,8 @@ public final class WorkerMain {
                         ask.addProperty("mandatory", pending.mandatory());
                         // Forge's own wording, when it has any.
                         if (pending.prompt() != null && !pending.prompt().isBlank()) {
-                            ask.addProperty("prompt", pending.prompt());
+                            // Spec 0057, item 1 -- never Forge's script shorthand.
+                            ask.addProperty("prompt", net.barnflix.proxic.worker.game.PlainWords.humanise(pending.prompt()));
                         }
                         JsonArray options = new JsonArray();
                         if (pending.searchable()) {
@@ -328,7 +329,8 @@ public final class WorkerMain {
                         for (String id : pending.options()) {
                             JsonObject option = new JsonObject();
                             option.addProperty("actionId", id);
-                            option.addProperty("label", labels.get(id));
+                            option.addProperty("label",
+                                    net.barnflix.proxic.worker.game.PlainWords.humanise(labels.get(id)));
                             // §7.61 B5 -- what this option is about.
                             String object = GAME.objectIdOf(id);
                             if (object != null) {
@@ -343,6 +345,12 @@ public final class WorkerMain {
                             String cost = GAME.costOf(id);
                             if (cost != null) {
                                 option.addProperty("cost", cost);
+                            }
+                            // Spec 0057, item 5 -- what this option does with a
+                            // card that can be played or discarded for something.
+                            JsonObject use = GAME.useOf(id);
+                            if (use != null) {
+                                option.add("use", use);
                             }
                             options.add(option);
                         }
@@ -362,7 +370,8 @@ public final class WorkerMain {
                                 JsonArray rows = new JsonArray();
                                 for (String[] row : list) {
                                     JsonObject one = new JsonObject();
-                                    one.addProperty("label", row[0]);
+                                    one.addProperty("label",
+                                            net.barnflix.proxic.worker.game.PlainWords.humanise(row[0]));
                                     one.addProperty("why", row[1]);
                                     rows.add(one);
                                 }

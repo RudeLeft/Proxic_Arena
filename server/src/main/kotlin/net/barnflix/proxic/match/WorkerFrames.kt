@@ -92,6 +92,7 @@ private fun readOptions(value: JsonElement?): List<DecisionOption> =
             payable = option["payable"]?.jsonPrimitive?.contentOrNull != "false",
             cost = option["cost"]?.jsonPrimitive?.contentOrNull,
             types = option["types"]?.jsonPrimitive?.contentOrNull,
+            use = option["use"] as? JsonObject,
         )
     }
 

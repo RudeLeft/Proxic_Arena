@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import type { CommandWords, Snapshot } from "../match";
-import { PeekButton, usePeek } from "./GameWindow";
+import { PeekFoot, usePeek } from "./GameWindow";
 import { ManaText, symbolUrl } from "./ManaCost";
 
 type Player = Snapshot["players"][number];
@@ -322,12 +322,12 @@ function StatusList({
           </section>
         )}
       </div>
-      <div className="gs-status-foot">
-        <PeekButton />
+      {/* Spec 0057, item 2 -- Peek and "or hold Space" left, Close right. */}
+      <PeekFoot className="gs-status-foot">
         <button type="button" className="gs-win-btn gs-win-btn-quiet" onClick={onClose}>
           Close
         </button>
-      </div>
+      </PeekFoot>
     </div>
   );
 }

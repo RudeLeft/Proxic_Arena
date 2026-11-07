@@ -755,6 +755,9 @@
 }
 /* Amendment 13 (item 8) -- the mana still due for the trigger or ability
    being paid for, at the bottom of its stack card, scaled with it. */
+/* Spec 0057, item 4 (owner A) -- about 2.5x the first pill (its symbols were
+   6% of the card's height, ~8 px at 1920x1080), "Still to pay", a bright gold
+   edge; still at the bottom of the card. */
 .bf-stack-owe {
   position: absolute;
   left: 50%;
@@ -762,22 +765,35 @@
   transform: translateX(-50%);
   z-index: 2;
   display: flex;
+  /* The words over the symbols: at this size both don't fit across a card. */
+  flex-direction: column;
   align-items: center;
-  gap: calc(var(--card-h) * 0.015);
-  padding: calc(var(--card-h) * 0.01) calc(var(--card-h) * 0.03);
-  border-radius: 999px;
-  background: rgb(13 17 23 / 88%);
-  box-shadow: 0 0 0 1px #e0a44a;
+  gap: calc(var(--card-h) * 0.01);
+  box-sizing: border-box;
+  max-width: 96%;
+  padding: calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.06);
+  border-radius: calc(var(--card-h) * 0.05);
+  background: rgb(13 17 23 / 92%);
+  box-shadow:
+    0 0 0 2px #ffd36b,
+    0 0 calc(var(--card-h) * 0.06) rgb(255 211 107 / 55%);
   white-space: nowrap;
   font-family: var(--pa-display, "Barlow Condensed", sans-serif);
   font-weight: 700;
-  font-size: calc(var(--card-h) * 0.045);
-  color: #f0dcb6;
+  font-size: calc(var(--card-h) * 0.09);
+  line-height: 1.1;
+  color: #ffe7b0;
+}
+.bf-stack-owe .bf-mana-inline > span[aria-hidden] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--card-h) * 0.01);
 }
 .bf-stack-owe .mana,
 .bf-stack-owe img {
-  width: calc(var(--card-h) * 0.06);
-  height: calc(var(--card-h) * 0.06);
+  width: calc(var(--card-h) * 0.15);
+  height: calc(var(--card-h) * 0.15);
 }
 /* The number and caster stay their usual size beside a readable card. */
 .bf-stack-tag {
