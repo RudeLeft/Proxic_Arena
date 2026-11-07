@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.48.0 (2026-11-06).** The main build was completed in 1.1.0,
+**Version 1.49.0 (2026-11-07).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -65,7 +65,9 @@ the status tray's lists and the away window; 1.46.0 starts Phase 10
 (cards glide, shatter, get pulled across and flip instead of jumping),
 lets a server update wait for games to finish, and brings the owner's
 fixes to the game's windows and words; 1.47.0 makes merging cards (meld
-and mutate) burst into one; 1.48.0 plays combat one fight at a time.
+and mutate) burst into one; 1.48.0 plays combat one fight at a time;
+1.49.0 brings cards back to a hand or library with a glide, attack badges,
+and the owner's fixes to costs, cancelling, triggers and mutate.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

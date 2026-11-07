@@ -3,6 +3,34 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.49.0 — 2026-11-07
+
+Cards going back to a hand or a library, tidier attacks, and fixes from playing.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Back to a hand, into a library** (Unsummon, Griptide, Chaos Warp, Memory Lapse...)
+- The card lifts a little with a soft glow and glides to the hand or library. Going somewhere hidden, it turns face down on the way; a shuffled library riffles.
+- A small tag says where it went: "Back to your hand", "On top of Bob's library", "On the bottom of...", "Shuffled into...".
+
+**Attacking**
+- No more long arrows across the table. Each attacking creature wears a small badge showing what it attacks (the player's picture, or a planeswalker mark). Point at an attacker (or tap it on a touch screen) to see its arrow.
+
+**The table**
+- In combat, cards no longer shrink on a small table: an artifact or enchantment shares the land line (lands from one end, the others from the other) before anything gets smaller. Cards shrink only when they'd otherwise overlap.
+- Your lands sit closer to your hand.
+
+**Fixes from playing**
+- A card you start casting and cancel while choosing targets can be cast again. (Before, it got a blue ring and did nothing.)
+- A card that costs less (Goblin Warchief making Goblins cheaper) shows its real cost everywhere: in your hand, the close-up and while you cast it, with no green circle. The close-up says why: "Costs {1} less: Goblin Warchief".
+- Gempalm Incinerator and similar cards count for you: "then deal 3 damage to a creature (3 Goblins)", and the target window says "Deal 3 damage".
+- Clicking a card that has nothing to do right now shows a short note saying so, beside its blue ring.
+- The action button no longer flickers while several triggers go on the stack; it says "Putting triggers on the stack".
+- Paying mana: a {2} shows as two pips that light up one by one, and nothing flashes back to unpaid between taps.
+- The card being cast shows the cost you're actually paying: mutate's half-black, half-green symbols, ninjutsu, flashback, X and so on. More mana symbols have pictures.
+- Mutate is easier to follow: when its triggers go on the stack, each is named by its own card, "(top)" or "(underneath)", with what it does, and the close-up lists the cards in the creature.
+
 ## 1.48.0 — 2026-11-06
 
 Combat, one fight at a time (Phase 10).
