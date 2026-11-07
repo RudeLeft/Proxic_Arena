@@ -1260,7 +1260,7 @@
   /* Spec 0060: the players column grows with the screen -- 365 px at 1920,
    * never under 300 or over 380 -- so a 12-letter name and "Away 6 min ·
    * in the lobby" fit beside the picture and the Invite button. */
-  grid-template-columns: clamp(300px, 19vw, 380px) minmax(0, 1fr) 340px;
+  grid-template-columns: clamp(300px, 20vw, 400px) minmax(0, 1fr) 340px;
   grid-template-areas: "players main chat";
   align-items: start;
   gap: 20px;

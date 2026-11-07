@@ -748,9 +748,9 @@ test("spec 0060: a 12-letter name and its away line fit the players column, whic
       await expect(row).toBeVisible();
       const seen: Record<string, number> = {};
       for (const [width, height, column] of [
-        [1920, 1080, 365],
-        [1920, 947, 365],
-        [2560, 1440, 380],
+        [1920, 1080, 384],
+        [1920, 947, 384],
+        [2560, 1440, 400],
       ] as const) {
         await host.setViewportSize({ width, height });
         const at = `${width}x${height}`;

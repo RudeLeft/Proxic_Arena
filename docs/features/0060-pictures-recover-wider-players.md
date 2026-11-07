@@ -85,3 +85,9 @@ about 160 px.
    in the lobby" fits. Known limit: beside the Invite button the name has
    about 170 px at 1920; twelve capital Ms need about 178 px and still end
    in "...". Ordinary 12-letter names fit.
+
+**Amendment 2 — a little wider (2026-11-07).** CI's Linux browser draws
+the status line wider than Windows: "Away 60 min · in the lobby" needed
+174 px of the 169 px the name area had at 1920 (F-0060-C failed). The
+column is now `clamp(300px, 20vw, 400px)`: about 384 px at 1920, 400 px at
+2560 and up, never under 300 px; the test's sizes follow.
