@@ -417,3 +417,72 @@ too fast and chaotic": cards seem to pop on top of each other, then
 disappear into their graveyard. Those items' canvases start from this
 (today: blockers jump onto their attacker -- Amendment 1, finding 9; the
 swoop, burst and number of Phase 7 Amendment 7; deaths now Shatter).
+
+## Amendment 14 — A-10 built (2026-11-06, as built)
+
+- **The game says what merged into what.** A move whose card merged into a
+  permanent carries `into` ("card:N"): a meld partner going battlefield ->
+  exile, a mutating spell going stack -> merged (on top or underneath).
+  The worker reads it from Forge's own state as each round is sent --
+  the melded card's `getMeldedWith`, a mutated creature's `getMergedCards`
+  -- because Forge exiles a meld's partner before it records the meld, so
+  the move itself cannot know (`Moves.withInto`, `GameHost.mergedInto`).
+  Only a move INTO a merge is marked, so a partner moving on later (the
+  melded card leaving play) is not taken for a new one. Hidden cards stay
+  hidden: the host is a permanent on the table, which both players see,
+  and `into` travels only with a card the viewer is already told about.
+  The page no longer guesses from "renamed, and a card went to exile";
+  with no `into` (an older worker) it does what it did before. No server
+  change: the snapshot passes through as it is.
+- **B · Fusion burst** (`motion.ts` `mergeFrames`, the canvas's `burst()`
+  in its own numbers, scaled to the card): the table dims (black, to
+  `MERGE_DIM` 0.45, under the merging cards, over the table but not the
+  hand); the merged card's old face and the partner -- from its place on
+  the table (meld) or on the stack, as it looked there (mutate) -- wind
+  up away from each other and are pulled together (`MERGE_PULL_MS`
+  560 ms, the canvas's curve) to 18 canvas pixels either side of the
+  merged card's spot and slam; there a white flash with rays
+  (`MERGE_FLASH_MS` 800 ms), 30 sparks and a ring (`MERGE_RING_MS`
+  600 ms) in the merge's colour; the merged card, its new face, appears
+  three times as bright with a glow, shakes and rises to
+  `MERGE_RISE_SCALE` 1.18 and settles exactly where the layout puts it
+  (`MERGE_RISE_MS` 760 ms; `MERGE_MS` 1320 ms in all, the sparks ending
+  by about 1.36 s). Every card part runs the full `MERGE_MS`, so a click
+  hurries them together (100 ms); the flash, ring and sparks are CSS
+  delayed to the slam and hurried with them. Colour: a meld purple
+  (185 147 232), a mutate green (110 220 150) -- the canvas's; the board
+  has no helper for a card's colours, so the merge's kind decides. Meld,
+  mutate on top and mutate underneath look the same. Afterwards it is one
+  card, nothing more.
+- The merged card is NOT also flipped (A-09), its partner does NOT also
+  Glide to exile (A-05) or resolve from the stack with a spark (spec
+  0028), and a merge plays once per board (pointing at a card redraws
+  the board; it does not merge again). "Reduce motion" turns it off.
+- Found in the Lab: mutating **underneath** keeps the creature's name
+  AND its power and toughness (Grizzly Bears stays 2/2, gaining
+  Gemrazer's reach and trample -- the rules, Forge's answer); the canvas
+  showed 4/4. Nothing on the table changes but the abilities, so today
+  the page showed only the spell vanishing from the stack; now it plays
+  the burst.
+- **The Lab** (`check-shapes.py`, in CI's Lab list): `mutate` (on top:
+  Gemrazer 4/4) and new `mutate-under` (Forge's "which is the top"
+  answered with the Bears by the options' ids: still Grizzly Bears) each
+  assert both seats were told Gemrazer went stack -> merged `into` the
+  Bears, and nothing else merged; new `meld` (Graf Rats + Midnight
+  Scavengers, Swamps against Islands): the Rats' id is Chittering Host,
+  both seats told the Scavengers went battlefield -> exile `into` it, the
+  Rats' own out-and-back marked with nothing. Run against a worker
+  without `withInto`, all three fail (and pass with it); `check-moves`
+  still passes (232 moves, no hidden card named). `MovesTest` (two new);
+  page tests: the merge read from the record and never guessed
+  (`fromSnapshot`), the frames (first and last exact, the slam the same
+  moment in all three parts, hurry), and on the Board: the meld (no flip,
+  the partner not exiled, the burst, one card afterwards), the mutate (no
+  resolving spark), underneath, played once. 844 page tests.
+
+Verified on the rebuilt stack at a tenth of the speed (the jump tool's
+slow-motion clips of the Lab's `meld`, `mutate` and `mutate-under`
+games): the Rats and the Scavengers pulled together and burst into
+Chittering Host (both seats); Gemrazer flying from the stack, shrinking
+onto the Bears and bursting into Gemrazer 4/4; underneath, the same burst
+and the Bears stay Grizzly Bears 2/2. Shown to the owner and approved.

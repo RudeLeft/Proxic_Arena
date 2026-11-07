@@ -1444,6 +1444,12 @@ export interface SnapshotMove {
   to: { zone: string; seat: number | null };
   /** Why it left the battlefield, when the game says. */
   why: "destroyed" | "sacrificed" | null;
+  /**
+   * Phase 10 A-10 -- the permanent this card merged into ("card:N"): a meld
+   * partner going to exile, a mutating card going to the merged zone. Only
+   * with a named card.
+   */
+  into?: string | null;
 }
 
 function asMoves(value: unknown): SnapshotMove[] {
@@ -1462,6 +1468,7 @@ function asMoves(value: unknown): SnapshotMove[] {
         from: place(e["from"]),
         to: place(e["to"]),
         why: why === "destroyed" || why === "sacrificed" ? why : null,
+        into: asString(e["into"]),
       },
     ];
   });

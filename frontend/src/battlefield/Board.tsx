@@ -77,6 +77,15 @@ import {
   SWEEP_MS,
   WIPE_AT,
   type Fate,
+  MERGE_COLOUR,
+  MERGE_DIM,
+  MERGE_FLASH_MS,
+  MERGE_MS,
+  MERGE_PULL_MS,
+  MERGE_RING_MS,
+  mergeFrames,
+  type MergeKind,
+  type Placed,
   placement,
   type AnchorId,
   type Point,
@@ -222,6 +231,16 @@ export interface DamageWave {
   hits: readonly { source: string; target: TargetRef; amount: number }[];
 }
 
+/**
+ * Phase 10 A-10 -- cards that merged into a permanent this update: a meld
+ * (its partner left the table for exile) or a mutate (from the stack), as
+ * the game's move record says (`into`).
+ */
+export interface Merge {
+  kind: MergeKind;
+  partners: string[];
+}
+
 export interface BoardProps {
   battlefield: readonly BoardCard[];
   hand: readonly BoardHandCard[];
@@ -248,6 +267,8 @@ export interface BoardProps {
    * graveyard). A card that moved to the hand needs nothing: it is still
    * drawn, and simply moves. */
   departures?: ReadonlyMap<string, AnchorId>;
+  /** Phase 10 A-10 -- each permanent that cards merged into this update (the game says which). */
+  merges?: ReadonlyMap<string, Merge>;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -566,7 +587,41 @@ interface Ghost extends Drawn {
   chained?: boolean;
   /** Phase 10 A-09: the old face of a card that changed form, flipping away in place. */
   flip?: boolean;
+  /**
+   * Phase 10 A-10: part of a merge -- the card merging in ("partner") or
+   * the merged card's old face ("old") -- pulled to the merge's spot (`to`)
+   * and gone at the slam; `colour` is the merge's, `start` where the card
+   * was drawn when it set off.
+   */
+  merge?: { part: "partner" | "old"; colour: string; start: Placed | null };
 }
+
+/** Phase 10 A-10 -- a merge's dimming, flash, sparks and ring, at the merged card. */
+interface Fusion {
+  key: string;
+  kind: MergeKind;
+  at: Point;
+  /** The merged card's width: the burst is sized by it. */
+  size: number;
+}
+
+/** Above every table card (riders reach ~4000) and a board wipe's flash; below the lines and the hand. */
+const Z_MERGE_DIM = 4550;
+const Z_MERGE = 4600;
+const Z_MERGE_FX = 4700;
+
+/** A-10 -- the burst's sparks: fixed, so a test can count them (the canvas's are random). */
+const MERGE_SPARKS = Array.from({ length: 30 }, (_, i) => {
+  const angle = (i / 30) * Math.PI * 2 + ((i * 7) % 5) * 0.08;
+  // In card widths, as the canvas's 190 pixels at a 110-pixel card.
+  const reach = (190 / 110) * (0.6 + ((i * 13) % 10) * 0.06);
+  return {
+    dx: Math.cos(angle) * reach,
+    dy: Math.sin(angle) * reach + 20 / 110,
+    ms: Math.round(MERGE_FLASH_MS * (0.7 + ((i * 11) % 7) * 0.05)),
+    white: i % 3 === 0,
+  };
+});
 
 /** Phase 10 A-08/A-17 -- a safety net: a chain line still there this long after it began is removed. */
 const TETHERS_GONE_MS = 30_000;
@@ -653,6 +708,7 @@ export function Board({
   artUrl,
   arrivals,
   departures,
+  merges,
   flyingOnto = null,
   hiddenStack = null,
   quietStack,
@@ -693,6 +749,8 @@ export function Board({
   const [sweep, setSweep] = useState<number | null>(null);
   /** Phase 10 A-08: the gold lines pulling stolen creatures across. */
   const [tethers, setTethers] = useState<{ key: string; from: Point; to: Point }[]>([]);
+  /** Phase 10 A-10: the merges' bursts. */
+  const [fusions, setFusions] = useState<Fusion[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
   const timers = useRef<number[]>([]);
@@ -703,6 +761,8 @@ export function Board({
     [],
   );
   const elements = useRef(new Map<string, HTMLDivElement>());
+  /** Phase 10 A-10: the merges already played (each board's are played once). */
+  const playedMerges = useRef<ReadonlyMap<string, Merge> | undefined>(undefined);
   const previous = useRef<{
     viewport: Viewport;
     at: Map<string, { box: Box; origin: { x: number; y: number } }>;
@@ -1391,6 +1451,10 @@ export function Board({
       const stackNow = new Set((stack ?? []).map((s) => s.id));
       const pulls: { key: string; from: Point; to: Point }[] = [];
       const flips: Ghost[] = [];
+      // Phase 10 A-10 -- the cards merged into a permanent this update, each
+      // played by its merge (not a Glide to exile, not a stack card resolving).
+      const merged = new Set<string>();
+      const fused: Fusion[] = [];
       // Phase 10 A-00 -- the same card, somewhere new (a tap, a row
       // re-centring, a stolen creature crossing the table): Glide there,
       // not the old straight CSS slide. A pointed-at hand card rising is
@@ -1399,6 +1463,108 @@ export function Board({
         if (!before.mounted.has(item.id)) continue;
         const was = before.at.get(item.id);
         if (!was) continue;
+        // A-10 (owner 2026-11-06, Amendment 13): two cards become one -- the
+        // table dims, both are pulled together and slam at the merged card's
+        // spot, a flash with sparks and a ring, and the merged card rises
+        // out of the light and settles. Its new face is NOT also flipped
+        // (A-09), and its partner does not also Glide to exile or resolve.
+        // Once per board: pointing at a card re-runs this, and must not merge again.
+        const merge = merges !== playedMerges.current ? merges?.get(item.id) : undefined;
+        const oldLook = before.drawn.get(item.id);
+        const host = elements.current.get(item.id);
+        if (merge && item.drawn.table && oldLook && host && typeof host.animate === "function") {
+          const colour = MERGE_COLOUR[merge.kind];
+          const moving = host.getAnimations?.().some((a) => a.playState === "running") ?? false;
+          const start = moving ? placedNow(host) : null;
+          if (moving) for (const a of host.getAnimations()) a.cancel();
+          // Above the dimmed table while it runs; its own place after.
+          host.style.zIndex = String(Z_MERGE + 1);
+          const run = host.animate(
+            mergeFrames("new", was.box, item.box, g.cardW, g.cardH, item.origin, colour, start),
+            { duration: MERGE_MS, easing: "linear" },
+          );
+          const settled = () => {
+            host.style.zIndex = host.dataset["z"] ?? "";
+          };
+          run.onfinish = settled;
+          run.oncancel = settled;
+          // Its old face, pulled in from where it was, gone at the slam.
+          flips.push({
+            ...oldLook,
+            id: `merge:${item.id}`,
+            box: was.box,
+            origin: item.origin,
+            to: item.box,
+            toOrigin: item.origin,
+            fade: false,
+            delay: 0,
+            zIndex: Z_MERGE,
+            merge: { part: "old", colour, start },
+          });
+          for (const partner of merge.partners) {
+            const onTable = before.at.get(partner);
+            const looks = before.drawn.get(partner);
+            const onStack = before.stack.find((e) => e.s.card === partner);
+            if (onTable && looks) {
+              // A meld partner, from its place on the table.
+              flips.push({
+                ...looks,
+                id: partner,
+                ...onTable,
+                to: item.box,
+                toOrigin: onTable.origin,
+                fade: false,
+                delay: 0,
+                zIndex: Z_MERGE - 1,
+                merge: { part: "partner", colour, start: null },
+              });
+            } else if (onStack) {
+              // A mutating spell, from its place on the stack, as it looked there.
+              const s = onStack.s;
+              const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
+              const whole =
+                onStack.box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+              flips.push({
+                name: s.name,
+                look: "artifact",
+                type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                pt: "",
+                art: s.art ? artUrl(s.art) : null,
+                crop: s.crop ? artUrl(s.crop) : null,
+                faceDown: s.name === "Face-down",
+                known: false,
+                cost: s.manaCost ?? null,
+                side,
+                id: s.id,
+                box: onStack.box,
+                origin: { x: 0, y: 0 },
+                to: item.box,
+                toOrigin: { x: 0, y: 0 },
+                fade: false,
+                delay: 0,
+                stack: whole
+                  ? {
+                      low: artUrl(s.art!),
+                      high: closeUpOf(artUrl(s.art!)),
+                      kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                      does: s.does ?? null,
+                      whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+                    }
+                  : undefined,
+                zIndex: Z_MERGE - 1,
+                merge: { part: "partner", colour, start: null },
+              });
+            }
+            merged.add(partner);
+          }
+          fused.push({
+            key: `merge:${item.id}:${performance.now()}`,
+            kind: merge.kind,
+            at: centreOf(item.box, item.origin),
+            size: g.cardW * item.box.scale,
+          });
+          continue;
+        }
         // A-09: a card that changed form -- transformed, day or night, turned
         // face up -- lifts, flips over in the air and settles: its old face a
         // ghost turning away, the card itself turning round.
@@ -1479,6 +1645,15 @@ export function Board({
         );
       }
       if (flips.length > 0) setGhosts((list) => [...list, ...flips]);
+      if (fused.length > 0) {
+        setFusions((list) => [...list, ...fused]);
+        timers.current.push(
+          window.setTimeout(
+            () => setFusions((list) => list.filter((f) => !fused.includes(f))),
+            TETHERS_GONE_MS,
+          ),
+        );
+      }
       if (pulls.length > 0) {
         setTethers((list) => [...list, ...pulls]);
         timers.current.push(
@@ -1494,7 +1669,7 @@ export function Board({
       const leaving: Ghost[] = [];
       const elementsNow = new Set(items.map((item) => item.id));
       for (const [id, d] of before.drawn) {
-        if (elementsNow.has(id)) continue;
+        if (elementsNow.has(id) || merged.has(id)) continue;
         const at = before.at.get(id);
         if (!at) continue;
         const joined = now.get(id);
@@ -1607,7 +1782,7 @@ export function Board({
       const sparks: Effect[] = [];
       const gone: Ghost[] = [];
       for (const { s, box } of before.stack) {
-        if (stillThere.has(s.id)) continue;
+        if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
         const ontoTab = s.card ? tabs.get(s.card) : undefined;
         if (s.card && ontoTab && !before.tabs.has(s.card)) {
@@ -1723,6 +1898,7 @@ export function Board({
     }
 
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
+    playedMerges.current = merges;
     previous.current = {
       pointed,
       tabs,
@@ -1738,6 +1914,7 @@ export function Board({
     byId,
     arrivals,
     departures,
+    merges,
     stack,
     viewerSeat,
     artUrl,
@@ -2248,6 +2425,51 @@ export function Board({
             onAnimationEnd={() => setSweep(null)}
           />
         )}
+        {fusions.map((f) => (
+          // A-10: the table dims; at the slam, a white flash with rays,
+          // sparks and a ring in the merge's colour (CSS, delayed to the slam).
+          <div
+            key={f.key}
+            className="bf-merge"
+            data-merge={f.kind}
+            aria-hidden="true"
+            style={{
+              ["--merge-ms" as string]: `${MERGE_MS}ms`,
+              ["--merge-slam" as string]: `${MERGE_PULL_MS}ms`,
+              ["--merge-flash-ms" as string]: `${MERGE_FLASH_MS}ms`,
+              ["--merge-ring-ms" as string]: `${MERGE_RING_MS}ms`,
+              ["--merge-dim" as string]: String(MERGE_DIM),
+              ["--merge-colour" as string]: MERGE_COLOUR[f.kind],
+              ["--merge-w" as string]: `${f.size}px`,
+            }}
+            // Gone when its flash, the last of it, ends -- on the animation
+            // clock, so a hurry or a slowed clock keeps it all together.
+            onAnimationEnd={(event) => {
+              if (event.animationName === "bf-merge-flash")
+                setFusions((list) => list.filter((x) => x.key !== f.key));
+            }}
+          >
+            <span className="bf-merge-dim" style={{ zIndex: Z_MERGE_DIM }} />
+            <span
+              className="bf-merge-burst"
+              style={{ left: f.at.x, top: f.at.y, zIndex: Z_MERGE_FX }}
+            >
+              <span className="bf-merge-flash" />
+              <span className="bf-merge-ring" />
+              {MERGE_SPARKS.map((s, i) => (
+                <span
+                  key={i}
+                  className={`bf-merge-spark${s.white ? " bf-merge-spark-white" : ""}`}
+                  style={{
+                    ["--dx" as string]: `${s.dx * f.size}px`,
+                    ["--dy" as string]: `${s.dy * f.size}px`,
+                    ["--spark-ms" as string]: `${s.ms}ms`,
+                  }}
+                />
+              ))}
+            </span>
+          </div>
+        ))}
         {ghosts.map((ghost) => (
           <GhostCard
             key={`ghost:${ghost.id}`}
@@ -2301,6 +2523,27 @@ function GhostCard({
         turn.cancel();
       };
     }
+    // A-10: pulled into the merge, gone at the slam.
+    if (ghost.merge) {
+      const pulled = element.animate(
+        mergeFrames(
+          ghost.merge.part,
+          ghost.box,
+          ghost.to,
+          cardW,
+          cardH,
+          ghost.origin,
+          ghost.merge.colour,
+          ghost.merge.start,
+        ),
+        { duration: MERGE_MS, easing: "linear", fill: "both" },
+      );
+      pulled.onfinish = done;
+      return () => {
+        pulled.onfinish = null;
+        pulled.cancel();
+      };
+    }
     // Phase 10 A-00: Glide to where it went -- first showing it was
     // defeated or exiled (A-04, A-05), in the same animation.
     const fated = ghost.fate
@@ -2346,6 +2589,7 @@ function GhostCard({
       data-fate={ghost.fate}
       data-chained={ghost.chained ? "true" : undefined}
       data-flip={ghost.flip ? "true" : undefined}
+      data-merge={ghost.merge?.part}
       style={{
         width: cardW,
         height: cardH,

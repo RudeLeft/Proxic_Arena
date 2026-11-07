@@ -64,6 +64,41 @@ class MovesTest {
     }
 
     @Test
+    void aMeldPartnerAndAMutatingCardSayWhatTheyMergedInto() {
+        // Phase 10 A-10, as the Lab measured it: Midnight Scavengers (28)
+        // exiled and Graf Rats (12) out and back as Chittering Host;
+        // Gemrazer (24) from the stack into the merged zone over card 30.
+        List<Moves.Move> moves = Moves.withInto(List.of(
+                new Moves.Move(12, "battlefield", 2, "exile", 2, false, null),
+                new Moves.Move(28, "battlefield", 2, "exile", 2, false, null),
+                new Moves.Move(12, "exile", 2, "battlefield", 2, false, null),
+                new Moves.Move(24, "stack", 1, "merged", 1, false, null)),
+                java.util.Map.of(28, 12, 24, 30));
+        for (Integer viewer : new Integer[] {1, 2, null}) {
+            JsonArray seen = Moves.forViewer(moves, viewer);
+            assertFalse(seen.get(0).getAsJsonObject().has("into"), "the host itself merged into nothing");
+            assertEquals("card:12", seen.get(1).getAsJsonObject().get("into").getAsString());
+            assertFalse(seen.get(2).getAsJsonObject().has("into"));
+            assertEquals("card:30", seen.get(3).getAsJsonObject().get("into").getAsString());
+        }
+    }
+
+    @Test
+    void onlyAMoveIntoTheMergeIsMarked() {
+        // The melded permanent leaving play later: its partner goes from
+        // exile to the graveyard -- not a new merge.
+        List<Moves.Move> later = Moves.withInto(
+                List.of(new Moves.Move(28, "exile", 2, "graveyard", 2, false, null)),
+                java.util.Map.of(28, 12));
+        assertFalse(only(Moves.forViewer(later, 1)).has("into"));
+        // And `into` never travels without its card.
+        List<Moves.Move> hidden = List.of(new Moves.Move(5, "library", 2, "exile", 2, true, null, 12));
+        JsonObject unseen = only(Moves.forViewer(hidden, 1));
+        assertFalse(unseen.has("card"));
+        assertFalse(unseen.has("into"));
+    }
+
+    @Test
     void zoneNames() {
         assertEquals("nowhere", Moves.zoneName(null));
         assertEquals("graveyard", Moves.zoneName(forge.game.zone.ZoneType.Graveyard));

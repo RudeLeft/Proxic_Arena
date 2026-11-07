@@ -716,6 +716,35 @@ public final class GameHost {
         }
     }
 
+    /**
+     * Phase 10 A-10 -- each card that is part of a permanent on the
+     * battlefield, mapped to that permanent: a melded permanent's partner
+     * (Forge's `getMeldedWith`, set by MeldEffect before the melded card
+     * returns), and a mutated permanent's other cards (`getMergedCards`,
+     * set by MutateEffect, over or under). Read as the round is sent, so
+     * the merge has finished whatever order Forge fired its moves in (a
+     * meld's partner is exiled before Forge records the meld).
+     */
+    private static java.util.Map<Integer, Integer> mergedInto(Game current) {
+        java.util.Map<Integer, Integer> hostOf = new java.util.HashMap<>();
+        for (Player player : current.getRegisteredPlayers()) {
+            for (forge.game.card.Card permanent : player.getCardsIn(forge.game.zone.ZoneType.Battlefield)) {
+                forge.game.card.Card partner = permanent.getMeldedWith();
+                if (partner != null) {
+                    hostOf.put(partner.getId(), permanent.getId());
+                }
+                if (permanent.hasMergedCard()) {
+                    for (forge.game.card.Card part : permanent.getMergedCards()) {
+                        if (part.getId() != permanent.getId()) {
+                            hostOf.put(part.getId(), permanent.getId());
+                        }
+                    }
+                }
+            }
+        }
+        return hostOf;
+    }
+
     /** The Arena seat whose zone this is (a battlefield, a hand...). */
     private Integer seatOfZone(forge.game.zone.ZoneView zone) {
         Game current = game;
@@ -774,6 +803,8 @@ public final class GameHost {
             moved = java.util.List.copyOf(movesMade);
             movesMade.clear();
         }
+        // Phase 10 A-10: what merged into what, from Forge's own state.
+        moved = Moves.withInto(moved, mergedInto(current));
         sacrificing.clear();
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone

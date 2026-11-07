@@ -3,7 +3,9 @@ package net.barnflix.proxic.worker.game;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Phase 10 A-00 (Amendments 1 and 3) -- every card that changed zone since
@@ -20,6 +22,17 @@ import java.util.List;
  * the card: just "a card went from their library to their hand", enough to
  * draw a card back travelling. (A mill ends in a public graveyard, so it is
  * named.)
+ *
+ * Phase 10 A-10 (Amendment 13): a card that MERGED into another this round
+ * -- melded (Graf Rats with Midnight Scavengers: the Scavengers exiled, the
+ * Rats back as Chittering Host) or mutated (Gemrazer from the stack into
+ * the merged zone, over or under Grizzly Bears) -- carries `into`, the
+ * permanent it is now part of, as Forge's own state has it (the host's
+ * melded-with card, or its merged cards). The page plays one fusion
+ * instead of guessing from a rename and a card going to exile. The host is
+ * a permanent on the battlefield, which every viewer sees, and `into`
+ * travels only with a named card, so it tells nobody anything the board
+ * does not already show.
  */
 final class Moves {
 
@@ -27,7 +40,37 @@ final class Moves {
     }
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
-    record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
+    record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
+            Integer into) {
+
+        Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null);
+        }
+    }
+
+    /**
+     * Phase 10 A-10 -- each move that merged its card into a permanent,
+     * given `into`. `hostOf` maps a card id to the permanent it is part of
+     * now (Forge's state as the round is sent). Only a move INTO a merge
+     * qualifies -- mutating (to the merged zone), or a meld partner leaving
+     * the battlefield for exile -- so a partner moving on later (the melded
+     * permanent leaving play) is never taken for a new merge.
+     */
+    static List<Move> withInto(List<Move> moves, Map<Integer, Integer> hostOf) {
+        if (hostOf.isEmpty()) {
+            return moves;
+        }
+        List<Move> out = new ArrayList<>(moves.size());
+        for (Move move : moves) {
+            Integer host = hostOf.get(move.card());
+            boolean merging = "merged".equals(move.to())
+                    || ("battlefield".equals(move.from()) && "exile".equals(move.to()));
+            out.add(host != null && merging && host != move.card()
+                    ? new Move(move.card(), move.from(), move.fromSeat(), move.to(), move.toSeat(),
+                            move.faceDown(), move.why(), host)
+                    : move);
+        }
+        return out;
     }
 
     /** Forge's zone type, as the protocol names it. */
@@ -75,6 +118,9 @@ final class Moves {
             entry.add("to", place(move.to(), move.toSeat()));
             if (named && move.why() != null) {
                 entry.addProperty("why", move.why());
+            }
+            if (named && move.into() != null) {
+                entry.addProperty("into", "card:" + move.into());
             }
             out.add(entry);
         }

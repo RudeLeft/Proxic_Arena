@@ -12,6 +12,10 @@ import {
   glideFrames,
   handZoomBox,
   hurry,
+  MERGE_MS,
+  MERGE_PULL_MS,
+  MERGE_RISE_SCALE,
+  mergeFrames,
   placement,
 } from "./motion";
 import { applyChanges, syntheticBoard } from "./fixture";
@@ -310,5 +314,92 @@ describe("Lift, flip, settle (Phase 10 A-09)", () => {
     expect(Number(shown)).toBeCloseTo(Number(edgeOut) + 0.005, 6);
     // It ends where it started: on the table, its own size.
     expect(String(into.at(-1)!["transform"])).toContain("translateY(0px) scale(1)");
+  });
+});
+
+describe("Fusion burst (Phase 10 A-10)", () => {
+  const card = (x: number, y: number, scale = 1): Box => ({
+    x,
+    y,
+    w: 110 * scale,
+    h: 154 * scale,
+    scale,
+    rotation: 0,
+    z: 0,
+  });
+  const origin = { x: 0.5, y: 0.5 };
+  const colour = "185 147 232";
+  const host = card(330, 200);
+  const partner = card(500, 200);
+  const scaleOf = (f: Keyframe) => Number(/scale\(([^)]+)\)/.exec(String(f["transform"]))![1]);
+  const slamAt = (frames: Keyframe[], seen: number) =>
+    Number(frames.find((f) => f["opacity"] === seen)!["offset"]) * MERGE_MS;
+
+  it("the merged card: unseen until the slam, rises to 1.18, and lands exactly where the layout puts it", () => {
+    const frames = mergeFrames("new", host, host, 110, 154, origin, colour);
+    expect(frames[0]!["offset"]).toBe(0);
+    expect(frames.at(-1)!["offset"]).toBe(1);
+    for (let i = 1; i < frames.length; i++)
+      expect(Number(frames[i]!["offset"])).toBeGreaterThan(Number(frames[i - 1]!["offset"]));
+    expect(frames[0]!["transform"]).toBe(placement(host, 110, 154, origin).transform);
+    expect(frames[0]!["opacity"]).toBe(0);
+    expect(frames.at(-1)!["transform"]).toBe(placement(host, 110, 154, origin).transform);
+    expect(frames.at(-1)!["opacity"]).toBe(1);
+    expect(String(frames.at(-1)!["filter"])).toContain("brightness(1)");
+    // Seen from the slam, which comes after the pull.
+    expect(slamAt(frames, 1)).toBeCloseTo(MERGE_PULL_MS + 1, 6);
+    // Out of the light: three times as bright at the slam, glowing in the merge's colour.
+    const slam = frames.find((f) => f["opacity"] === 1)!;
+    expect(String(slam["filter"])).toContain("brightness(3)");
+    const peak = Math.max(...frames.map(scaleOf));
+    expect(peak).toBeGreaterThan(MERGE_RISE_SCALE - 0.03);
+    expect(peak).toBeLessThanOrEqual(MERGE_RISE_SCALE + 1e-9);
+    expect(frames.some((f) => String(f["filter"]).includes(`rgb(${colour}`))).toBe(true);
+  });
+
+  it("the partner and the old face: pulled in with a wind-up away, gone at the slam, either side of the spot", () => {
+    const coming = mergeFrames("partner", partner, host, 110, 154, origin, colour);
+    const old = mergeFrames("old", host, host, 110, 154, origin, colour);
+    for (const frames of [coming, old]) {
+      expect(frames[0]!["opacity"]).toBe(1);
+      expect(frames.at(-1)!["opacity"]).toBe(0);
+      expect(slamAt(frames, 0)).toBeCloseTo(MERGE_PULL_MS + 1, 6);
+    }
+    expect(coming[0]!["transform"]).toBe(placement(partner, 110, 154, origin).transform);
+    expect(old[0]!["transform"]).toBe(placement(host, 110, 154, origin).transform);
+    const xOf = (f: Keyframe) =>
+      Number(/translate3d\(([-\d.e]+)px/.exec(String(f["transform"]))![1]);
+    const hostX = xOf(placement(host, 110, 154, origin));
+    // The wind-up: the partner first moves AWAY from the spot (right), and up.
+    expect(xOf(coming[3]!)).toBeGreaterThan(xOf(coming[0]!));
+    // The slam: 18 canvas pixels right of the spot, the old face 18 left.
+    const atSlam = (frames: Keyframe[]) => frames.find((f) => f["opacity"] === 0)!;
+    expect(xOf(atSlam(coming)) - hostX).toBeCloseTo(18, 6);
+    expect(xOf(atSlam(old)) - hostX).toBeCloseTo(-18, 6);
+  });
+
+  it("every part runs the same length, so a hurry keeps them together", () => {
+    const parts = (["partner", "old", "new"] as const).map((part) =>
+      mergeFrames(part, partner, host, 110, 154, origin, colour),
+    );
+    for (const frames of parts) expect(frames.at(-1)!["offset"]).toBe(1);
+    // The slam is the same moment in all three.
+    const slams = parts.map((frames, i) => slamAt(frames, i === 2 ? 1 : 0));
+    expect(new Set(slams).size).toBe(1);
+  });
+
+  it("a hurry finishes a merge in a tenth of a second, like every other movement", () => {
+    let rate = 1;
+    const run = {
+      playState: "running",
+      currentTime: 200,
+      playbackRate: 1,
+      effect: { getComputedTiming: () => ({ endTime: MERGE_MS, iterations: 1 }) },
+      updatePlaybackRate(r: number) {
+        rate = r;
+      },
+    };
+    hurry({ getAnimations: () => [run] } as unknown as Element);
+    expect((MERGE_MS - 200) / rate).toBeCloseTo(HURRY_MS, 6);
   });
 });

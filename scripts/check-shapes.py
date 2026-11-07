@@ -16,6 +16,14 @@ by them: each half must be offered under its own name at its own cost.
              artifact and an enchantment
   rooms      Bottomless Pool // Locker Room and Dollmaker's Shop //
              Porcelain Gallery: cast one door, unlock the other
+  mutate     Gemrazer mutated ON TOP of Grizzly Bears: one creature, now
+             Gemrazer's 4/4; both seats told Gemrazer went stack -> merged
+             `into` the Bears (Phase 10 A-10)
+  mutate-under  the same, Gemrazer put UNDER (the controller's "which is
+             the top" answered with the Bears): still named Grizzly Bears
+  meld       Graf Rats + Midnight Scavengers meld at the beginning of
+             combat: the Rats' id is now Chittering Host; both seats told
+             the Scavengers went battlefield -> exile `into` the Rats
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
@@ -376,9 +384,23 @@ def rooms():
     return result(problems, "each Room cast by one door at its own cost, and the other unlocked for its own cost", found)
 
 
-def mutate():
-    g = game("mutate", [("Forest", 30), ("Grizzly Bears", 15), ("Gemrazer", 15)])
-    st = {"cast": False, "host": None, "before": None}
+def merges_seen(g, st):
+    """Phase 10 A-10 -- every move with `into`, as each seat was told it."""
+    for seat in (1, 2):
+        for m in g.state.get(seat, {}).get("moves") or []:
+            if m.get("into"):
+                entry = (m.get("card"), m["from"].get("zone"), m["to"].get("zone"), m["into"])
+                if entry not in st["into"].setdefault(seat, []):
+                    st["into"][seat].append(entry)
+
+
+def told_both(st, entry):
+    return all(entry in st["into"].get(seat, []) for seat in (1, 2))
+
+
+def mutate(under=False):
+    g = game("mutate-under" if under else "mutate", [("Forest", 30), ("Grizzly Bears", 15), ("Gemrazer", 15)])
+    st = {"cast": False, "host": None, "before": None, "gem": None, "top": None, "into": {}}
     seat2 = seat2_plays("Grizzly Bears")
 
     def policy(g, f):
@@ -395,34 +417,114 @@ def mutate():
             if not st["cast"] and len(g.untapped_lands(1)) >= 3:
                 o = starts(f, "Gemrazer · {1}{G}{G}")
                 if o:
-                    st["cast"], st["host"] = True, bears[0]["id"]
+                    st["cast"], st["host"], st["gem"] = True, bears[0]["id"], card_of(o)
                     st["before"] = {"creatures": len([c for c in g.mine(1) if c.get("kind") == "creature"])}
                     return o
             return None
         if kind == "chooseTargetsFor" and st["cast"]:
             return next((o["actionId"] for o in f["options"] if st["host"] and st["host"] in o["actionId"]),
                         f["options"][0]["actionId"] if f["options"] else None)
+        # Forge asks the controller which card is the top: the two cards
+        # themselves are the options (by id, not by the prompt's words).
+        ids = {o.get("objectId") for o in f.get("options", [])}
+        if kind == "chooseSingleEntityForEffect" and st["cast"] and ids == {st["host"], st["gem"]}:
+            st["top"] = st["host"] if under else st["gem"]
+            return next(o["actionId"] for o in f["options"] if o.get("objectId") == st["top"])
         return DEFAULT
 
     def until(g):
-        return st["cast"] and calm(g) and any(c.get("name") == "Gemrazer" for c in g.mine(1))
+        merges_seen(g, st)
+        host = g.card(1, st["host"]) if st["host"] else None
+        # Merged: the spell is off the stack and nowhere a seat can see, the
+        # creature still there. Stop once both seats were told -- or, never
+        # told, by the next turn (the check then says so).
+        if st["cast"] and calm(g) and calm(g, 2) and host is not None and g.card(1, st["gem"]) is None:
+            st.setdefault("at", g.turn)
+        return "at" in st and (told_both(st, (st["gem"], "stack", "merged", st["host"])) or g.turn > st["at"])
 
     g.run(policy, until=until, max_turn=24)
     creatures = [c for c in g.mine(1) if c.get("kind") == "creature"]
-    found = {"cast": st["cast"], "host": st["host"], "before": st["before"],
+    found = {"cast": st["cast"], "host": st["host"], "gem": st["gem"], "top": st["top"], "before": st["before"],
              "creatures": [{k: c.get(k) for k in ("id", "name", "power", "toughness", "keywords")} for c in creatures],
-             "stopped": g.stopped_badly()}
+             "into": st["into"], "stopped": g.stopped_badly()}
     if not st["cast"]:
         return "inconclusive", "never had a non-Human creature and {1}{G}{G}", found
     problems = [found["stopped"]] if found["stopped"] else []
-    merged = [c for c in creatures if c.get("name") == "Gemrazer"]
+    want = "Grizzly Bears" if under else "Gemrazer"
+    merged = [c for c in creatures if c.get("id") == st["host"]]
+    if st["top"] is None:
+        problems.append("the controller was never asked which card is the top")
     if not merged:
-        problems.append("Gemrazer is not on the battlefield")
+        problems.append("the mutated creature is not on the battlefield")
     elif len(creatures) != st["before"]["creatures"]:
         problems.append(f"mutating made a second creature instead of one object: {found['creatures']}")
-    elif (merged[0].get("power"), merged[0].get("toughness")) != (4, 4):
+    elif merged[0].get("name") != want:
+        problems.append(f"the mutated creature should be named {want}: {merged[0]}")
+    elif not under and (merged[0].get("power"), merged[0].get("toughness")) != (4, 4):
         problems.append(f"the mutated creature should be Gemrazer's 4/4: {merged[0]}")
-    return result(problems, "mutated onto a creature: still one creature, now Gemrazer's 4/4", found)
+    if not told_both(st, (st["gem"], "stack", "merged", st["host"])):
+        problems.append(f"both seats should be told Gemrazer went stack -> merged into {st['host']}: {st['into']}")
+    others = [e for seat in (1, 2) for e in st["into"].get(seat, []) if e[0] != st["gem"]]
+    if others:
+        problems.append(f"only Gemrazer merged into anything: {others}")
+    if under:
+        return result(problems, "mutated UNDER the Bears: one creature, still Grizzly Bears; both seats told "
+                      "Gemrazer went stack -> merged into it", found)
+    return result(problems, "mutated onto a creature: still one creature, now Gemrazer's 4/4; both seats told "
+                  "Gemrazer went stack -> merged into it", found)
+
+
+def meld():
+    g = game("meld", [("Swamp", 30), ("Graf Rats", 15), ("Midnight Scavengers", 15)], [("Island", 60)])
+    st = {"rats": None, "scav": None, "melded": False, "into": {}}
+
+    def policy(g, f):
+        if f["authorisedSeat"] != 1:
+            return DEFAULT
+        if f.get("kind") != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        names = [c.get("name") for c in g.mine(1)]
+        for want in ("Graf Rats", "Midnight Scavengers"):
+            if want in names:
+                continue
+            o = g.option(f, name=want, zone="hand", land=False)
+            if o:
+                return o
+        return g.play_land(f)
+
+    def until(g):
+        merges_seen(g, st)
+        for c in g.mine(1):
+            if c.get("name") == "Graf Rats":
+                st["rats"] = c["id"]
+            elif c.get("name") == "Midnight Scavengers":
+                st["scav"] = c["id"]
+        host = g.card(1, st["rats"]) if st["rats"] else None
+        if host and host.get("name") == "Chittering Host":
+            st["melded"] = True
+            st.setdefault("at", g.turn)
+        # Stop once both seats were told -- or, never told, by the next turn.
+        return st["melded"] and (told_both(st, (st["scav"], "battlefield", "exile", st["rats"]))
+                                 or g.turn > st["at"])
+
+    g.run(policy, until=until, max_turn=20)
+    host = g.card(1, st["rats"]) if st["rats"] else None
+    found = {"rats": st["rats"], "scav": st["scav"], "melded": st["melded"],
+             "host": {k: host.get(k) for k in ("id", "name", "power", "toughness")} if host else None,
+             "into": st["into"], "stopped": g.stopped_badly()}
+    if not st["melded"]:
+        return "inconclusive", "Graf Rats and Midnight Scavengers never melded", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if any(c.get("id") == st["scav"] for c in g.mine(1)):
+        problems.append("the Scavengers are still on the battlefield")
+    if not told_both(st, (st["scav"], "battlefield", "exile", st["rats"])):
+        problems.append(f"both seats should be told the Scavengers went battlefield -> exile into {st['rats']}: "
+                        f"{st['into']}")
+    others = [e for seat in (1, 2) for e in st["into"].get(seat, []) if e[0] != st["scav"]]
+    if others:
+        problems.append(f"only the Scavengers merged into anything (not the Rats' own out-and-back): {others}")
+    return result(problems, "melded: the Rats' card is Chittering Host; both seats told the Scavengers went "
+                  "battlefield -> exile into it", found)
 
 
 def battle():
@@ -620,7 +722,7 @@ def daybound():
 
 
 SCENARIOS = {"adventure": adventure, "split": split, "aftermath": aftermath, "fuse": fuse, "rooms": rooms,
-             "mutate": mutate, "battle": battle, "prepare": prepare, "daybound": daybound}
+             "mutate": mutate, "mutate-under": lambda: mutate(under=True), "meld": meld, "battle": battle, "prepare": prepare, "daybound": daybound}
 
 if __name__ == "__main__":
     import json

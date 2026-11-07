@@ -17,6 +17,7 @@ import type {
   BoardHandCard,
   CombatView,
   DamageWave,
+  Merge,
   OpponentHandCard,
   StackView,
 } from "./Board";
@@ -34,6 +35,8 @@ export interface BoardData {
   damage: DamageWave | null;
   arrivals: Map<string, AnchorId>;
   departures: Map<string, AnchorId>;
+  /** Phase 10 A-10 -- each permanent that cards merged into this update, and those cards. */
+  merges: Map<string, Merge>;
 }
 
 function toBoardCard(card: SnapshotCard): BoardCard {
@@ -161,6 +164,17 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       if (to) wentTo.set(move.card, to);
     }
   }
+  // Phase 10 A-10 -- what merged into what, as the game says (a meld
+  // partner exiled `into` the melded card, a mutating spell `into` its
+  // creature): never guessed from a rename and a card gone to exile.
+  const merges = new Map<string, Merge>();
+  for (const move of snapshot.moves ?? []) {
+    if (!move.card || !move.into || !onBoard.has(move.into)) continue;
+    const kind = move.to.zone === "merged" ? "mutate" : "meld";
+    const merge = merges.get(move.into) ?? { kind, partners: [] };
+    if (!merge.partners.includes(move.card)) merge.partners.push(move.card);
+    merges.set(move.into, merge);
+  }
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -223,5 +237,6 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     damage: snapshot.damage,
     arrivals,
     departures,
+    merges,
   };
 }

@@ -109,4 +109,71 @@ describe("where a card went (Phase 10 A-00)", () => {
     expect(after.moves?.[0]?.card).toBeNull();
     expect(boardFromSnapshot(after, before).departures.size).toBe(0);
   });
+
+  // Phase 10 A-10 -- as the Lab measured them (seat 2's snapshots).
+  it("a meld: the partner exiled `into` the melded card is one merge, not a departure guessed", () => {
+    const ratsAndScavengers = snapshot(1, {
+      battlefield: [card("card:12", 1, "Graf Rats"), card("card:28", 1, "Midnight Scavengers")],
+    });
+    const after = snapshot(2, {
+      battlefield: [card("card:12", 1, "Chittering Host")],
+      moves: [
+        { card: "card:12", from: { zone: "battlefield", seat: 1 }, to: { zone: "exile", seat: 1 } },
+        {
+          card: "card:28",
+          from: { zone: "battlefield", seat: 1 },
+          to: { zone: "exile", seat: 1 },
+          into: "card:12",
+        },
+        { card: "card:12", from: { zone: "exile", seat: 1 }, to: { zone: "battlefield", seat: 1 } },
+      ],
+    });
+    expect(after.moves?.[1]?.into).toBe("card:12");
+    const board = boardFromSnapshot(after, ratsAndScavengers);
+    expect([...board.merges]).toEqual([["card:12", { kind: "meld", partners: ["card:28"] }]]);
+    // The Rats never left as far as the board is concerned: no arrival.
+    expect(board.arrivals.has("card:12")).toBe(false);
+  });
+
+  it("a mutate: the spell gone to the merged zone `into` its creature", () => {
+    const after = snapshot(2, {
+      battlefield: [card("card:13", 1, "Gemrazer")],
+      moves: [
+        {
+          card: "card:19",
+          from: { zone: "stack" },
+          to: { zone: "merged", seat: 1 },
+          into: "card:13",
+        },
+      ],
+    });
+    const board = boardFromSnapshot(
+      after,
+      snapshot(1, { battlefield: [card("card:13", 1, "Grizzly Bears")] }),
+    );
+    expect(board.merges.get("card:13")).toEqual({ kind: "mutate", partners: ["card:19"] });
+  });
+
+  it("no merge without the game saying so: a rename and a card exiled are not guessed into one", () => {
+    const after = snapshot(2, {
+      battlefield: [card("card:12", 1, "Chittering Host")],
+      moves: [
+        { card: "card:28", from: { zone: "battlefield", seat: 1 }, to: { zone: "exile", seat: 1 } },
+      ],
+    });
+    expect(boardFromSnapshot(after, before).merges.size).toBe(0);
+    // Nor into a permanent this viewer's board does not have.
+    const elsewhere = snapshot(3, {
+      battlefield: [],
+      moves: [
+        {
+          card: "card:19",
+          from: { zone: "stack" },
+          to: { zone: "merged", seat: 1 },
+          into: "card:13",
+        },
+      ],
+    });
+    expect(boardFromSnapshot(elsewhere, before).merges.size).toBe(0);
+  });
 });

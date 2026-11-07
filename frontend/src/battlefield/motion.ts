@@ -223,6 +223,139 @@ export function flipFrames(cardH: number, half: "out" | "in"): Keyframe[] {
   ];
 }
 
+// --- Two cards becoming one (Phase 10 A-10) ------------------------------------
+
+/**
+ * "B · Fusion burst" (owner 2026-11-06, Amendment 13), as the canvas's
+ * `burst()` plays it: the table dims; the two cards are pulled together
+ * with a small wind-up away from each other and slam at the merged card's
+ * spot (MERGE_PULL_MS); a white flash with rays, sparks and a ring in the
+ * merge's colour; the merged card shakes and rises out of the light to
+ * MERGE_RISE_SCALE, glowing, and settles (MERGE_RISE_MS). Meld, mutate on
+ * top and mutate underneath all look like this.
+ */
+export type MergeKind = "meld" | "mutate";
+export const MERGE_PULL_MS = 560;
+export const MERGE_RISE_MS = 760;
+/** The whole of it: every part runs this long, so a hurry keeps them together. */
+export const MERGE_MS = MERGE_PULL_MS + MERGE_RISE_MS;
+export const MERGE_RISE_SCALE = 1.18;
+/** The table's dimming at its deepest (black, over the table; not the hand). */
+export const MERGE_DIM = 0.45;
+/** The flash, sparks and ring after the slam; the merged card's brightening and glow. */
+export const MERGE_FLASH_MS = 800;
+export const MERGE_RING_MS = 600;
+const MERGE_BRIGHT_MS = 600;
+const MERGE_GLOW_MS = 900;
+/** The merge's colour (r g b): a meld purple, a mutate green (the canvas's). */
+export const MERGE_COLOUR: Record<MergeKind, string> = {
+  meld: "185 147 232",
+  mutate: "110 220 150",
+};
+// The canvas's curves: the pull speeds into its slam; the rise eases out.
+const pullEase = cubicBezier(0.6, 0, 0.9, 0.5);
+const riseEase = cubicBezier(0, 0, 0.58, 1);
+const MERGE_STEPS = 14;
+
+/**
+ * One part of a merge, run linear over MERGE_MS on its element:
+ * "partner" -- the card merging in (a meld partner on the table, a
+ * mutating spell on the stack), pulled to the right of the spot and gone
+ * at the slam; "old" -- the merged card's old face (a ghost), pulled to the
+ * left of the spot and gone at the slam; "new" -- the merged card itself,
+ * its new face, unseen until the slam, then shaking and rising out of the
+ * light, glowing in `colour`, and settling. The canvas's distances are in
+ * its 110-pixel-wide card's pixels, scaled to `to`'s width. The last frame
+ * of "new" is exactly `placement(to, ..., origin)`: it lands where the
+ * layout puts it. `origin` is the element's own transform origin.
+ */
+export function mergeFrames(
+  part: "partner" | "old" | "new",
+  from: Box,
+  to: Box,
+  cardW: number,
+  cardH: number,
+  origin: { x: number; y: number },
+  colour: string,
+  start: Placed | null = null,
+): Keyframe[] {
+  const a = start ?? parts(from, cardW, cardH, origin);
+  const b = parts(to, cardW, cardH, origin);
+  const k = (cardW * to.scale) / 110;
+  const pull: Placed[] =
+    part === "partner"
+      ? [
+          a,
+          { x: a.x + (a.x - b.x) * 0.08, y: a.y - 16 * k, r: a.r + 5, s: a.s * 1.05 },
+          { x: b.x + 18 * k, y: b.y, r: b.r - 3, s: b.s },
+        ]
+      : [
+          a,
+          { x: a.x + (a.x - b.x) * 0.12, y: a.y - 6 * k, r: a.r - 4, s: a.s },
+          { x: b.x - 18 * k, y: b.y, r: b.r + 3, s: b.s },
+        ];
+  const rise: Placed[] = [
+    pull[2]!,
+    { x: b.x - 6 * k, y: b.y - 4 * k, r: b.r - 2, s: b.s * 1.1 },
+    { x: b.x + 5 * k, y: b.y - 14 * k, r: b.r + 2, s: b.s * 1.16 },
+    { x: b.x - 3 * k, y: b.y - 18 * k, r: b.r - 1, s: b.s * MERGE_RISE_SCALE },
+    { x: b.x, y: b.y - 16 * k, r: b.r, s: b.s * MERGE_RISE_SCALE },
+    b,
+  ];
+  // Along evenly spaced points by eased progress, as the canvas's keyframes.
+  const along = (points: Placed[], e: number): Placed => {
+    const span = e * (points.length - 1);
+    const i = Math.min(points.length - 2, Math.floor(span));
+    const f = span - i;
+    const p = points[i]!;
+    const q = points[i + 1]!;
+    return {
+      x: p.x + (q.x - p.x) * f,
+      y: p.y + (q.y - p.y) * f,
+      r: p.r + (q.r - p.r) * f,
+      s: p.s + (q.s - p.s) * f,
+    };
+  };
+  // The new face's light: 3x bright at the slam, back to 1 by 600 ms; a
+  // glow peaking at 360 ms and gone by 900 ms (the canvas's glowPulse).
+  const lightAt = (ms: number) => {
+    if (part !== "new" || ms < MERGE_PULL_MS) return { bright: 1, glow: 0 };
+    const t = ms - MERGE_PULL_MS;
+    const bright = 3 - 2 * Math.min(1, t / MERGE_BRIGHT_MS);
+    const peak = MERGE_GLOW_MS * 0.4;
+    const glow = t <= peak ? t / peak : Math.max(0, 1 - (t - peak) / (MERGE_GLOW_MS - peak));
+    return { bright, glow };
+  };
+  const frame = (p: Placed, ms: number, seen: boolean): Keyframe => {
+    const { bright, glow } = lightAt(ms);
+    return {
+      offset: ms / MERGE_MS,
+      transform: `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s})`,
+      opacity: seen ? 1 : 0,
+      filter: `brightness(${bright}) drop-shadow(0px 0px ${40 * k * glow}px rgb(${colour} / ${0.95 * glow}))`,
+    };
+  };
+  const before = part !== "new";
+  const frames: Keyframe[] = [];
+  for (let i = 0; i <= MERGE_STEPS; i++) {
+    const t = i / MERGE_STEPS;
+    const p = i === 0 ? a : i === MERGE_STEPS ? pull[2]! : along(pull, pullEase(t));
+    frames.push(frame(p, t * MERGE_PULL_MS, before));
+  }
+  // The slam: what was seen goes, what was not is there.
+  frames.push({
+    ...frame(pull[2]!, MERGE_PULL_MS, !before),
+    offset: (MERGE_PULL_MS + 1) / MERGE_MS,
+  });
+  for (let i = 1; i <= MERGE_STEPS; i++) {
+    const t = i / MERGE_STEPS;
+    const p = i === MERGE_STEPS ? b : along(rise, riseEase(t));
+    // Only the new face rises; the others wait, unseen, where they slammed.
+    frames.push(frame(part === "new" ? p : pull[2]!, MERGE_PULL_MS + t * MERGE_RISE_MS, !before));
+  }
+  return frames;
+}
+
 // --- A creature changing sides (Phase 10 A-08) ---------------------------------
 
 /**

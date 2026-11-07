@@ -2,7 +2,7 @@
 
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board, stackCaption, type BoardCard } from "./Board";
+import { Board, stackCaption, type BoardCard, type Merge, type StackView } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, layout } from "./layout";
 import { centreOf } from "./effects";
@@ -458,6 +458,159 @@ describe("Board movement", () => {
     expect(String(turnRound.frames.at(-1)!.transform)).toContain("rotateY(0deg)");
     const turnAway = calls.find((c) => c.element === ghost.querySelector(":scope > .bf-card"))!;
     expect(String(turnAway.frames.at(-1)!.transform)).toContain("rotateY(90deg)");
+  });
+
+  // Phase 10 A-10 (owner 2026-11-06, Amendment 13): B · Fusion burst.
+  function merging(
+    cards: BoardCard[],
+    n: number,
+    extra: { merges?: Map<string, Merge>; stack?: StackView[]; departures?: Map<string, AnchorId> },
+  ) {
+    const step = applyChanges(start, n, 1);
+    return (
+      <Board
+        battlefield={cards}
+        hand={step.board.hand}
+        viewerSeat={step.board.viewerSeat}
+        artUrl={same}
+        arrivals={new Map()}
+        departures={extra.departures ?? new Map()}
+        merges={extra.merges ?? new Map()}
+        stack={extra.stack ?? []}
+      />
+    );
+  }
+  const slotOf = (container: HTMLElement, id: string) =>
+    container.querySelector(`[data-object-id="${id}"]`)!.closest(".bf-slot") as HTMLElement;
+
+  it("a meld: both pulled together and slam, a burst, and ONE card rises -- no flip, no glide to exile", () => {
+    const { n, cards, a, b } = equipScene();
+    const view = render(merging(cards, n, {}));
+    const partnerWas = slotOf(view.container, b.id).style.transform;
+    calls.length = 0;
+    const after = cards
+      .filter((c) => c.id !== b.id)
+      .map((c) => (c.id === a.id ? { ...c, name: "Chittering Host", power: 5, toughness: 6 } : c));
+    view.rerender(
+      merging(after, n, {
+        merges: new Map([[a.id, { kind: "meld", partners: [b.id] }]]),
+        // What the game's record also says: the partner went to exile.
+        departures: new Map([[b.id, "viewer:exile"]]),
+      }),
+    );
+    // The merged card itself: unseen until the slam, landing exactly in its place.
+    const host = slotOf(view.container, a.id);
+    const rise = calls.filter((c) => c.element === host);
+    expect(rise).toHaveLength(1);
+    expect(rise[0]!.frames[0]!.opacity).toBe(0);
+    expect(rise[0]!.frames.at(-1)!.opacity).toBe(1);
+    expect(String(rise[0]!.frames.at(-1)!.transform)).toBe(host.style.transform);
+    expect(host.style.zIndex).toBe("4601"); // above the dimmed table while it runs
+    // Not also flipped (A-09): no flip ghost, nothing turned on its card.
+    expect(view.container.querySelector("[data-flip]")).toBeNull();
+    expect(calls.some((c) => c.element === host.querySelector(":scope > .bf-card"))).toBe(false);
+    // Its old face, pulled in and gone at the slam.
+    const old = view.container.querySelector(`[data-ghost-of="merge:${a.id}"]`)!;
+    expect(old.getAttribute("data-merge")).toBe("old");
+    expect(old.textContent).toContain(a.name);
+    // The partner: pulled from its place, not exiled (no Banished, no Glide to exile).
+    const partner = view.container.querySelector(`[data-ghost-of="${b.id}"]`)!;
+    expect(partner.getAttribute("data-merge")).toBe("partner");
+    expect(partner.getAttribute("data-fate")).toBeNull();
+    expect(view.container.querySelectorAll(`[data-ghost-of="${b.id}"]`)).toHaveLength(1);
+    const pulled = calls.find((c) => c.element === partner)!;
+    expect(String(pulled.frames[0]!.transform)).toBe(partnerWas);
+    expect(pulled.frames.at(-1)!.opacity).toBe(0);
+    // The burst, in the meld's colour: the dim, the flash, the ring, 30 sparks.
+    const burst = view.container.querySelector('.bf-merge[data-merge="meld"]') as HTMLElement;
+    expect(burst.style.getPropertyValue("--merge-colour")).toBe("185 147 232");
+    expect(burst.querySelector(".bf-merge-dim")).toBeTruthy();
+    expect(burst.querySelector(".bf-merge-flash")).toBeTruthy();
+    expect(burst.querySelector(".bf-merge-ring")).toBeTruthy();
+    expect(burst.querySelectorAll(".bf-merge-spark")).toHaveLength(30);
+    expect(view.container.querySelector(".bf-sweep")).toBeNull();
+    // Once it has run: one card, nothing more.
+    act(() => {
+      for (const c of calls) c.animation.onfinish?.();
+    });
+    expect(host.style.zIndex).toBe(host.dataset.z);
+    expect(view.container.querySelector("[data-merge]:not(.bf-merge)")).toBeNull();
+    act(() => {
+      // jsdom has no AnimationEvent: the name is put on a plain event.
+      const end = new Event("animationend", { bubbles: true });
+      Object.defineProperty(end, "animationName", { value: "bf-merge-flash" });
+      burst.querySelector(".bf-merge-flash")!.dispatchEvent(end);
+    });
+    expect(view.container.querySelector(".bf-merge")).toBeNull();
+  });
+
+  it("a mutate: the spell is pulled from the stack into the creature, not resolved to a graveyard", () => {
+    const { n, cards, a } = equipScene();
+    const spell: StackView = {
+      id: "stack:33",
+      name: "Gemrazer",
+      kind: "spell",
+      source: null,
+      card: "card:9100",
+      seat: applyChanges(start, n, 1).board.viewerSeat,
+      targets: [{ object: a.id }],
+    };
+    const view = render(merging(cards, n, { stack: [spell] }));
+    calls.length = 0;
+    view.rerender(
+      merging(
+        cards.map((c) => (c.id === a.id ? { ...c, name: "Gemrazer", power: 4, toughness: 4 } : c)),
+        n,
+        { merges: new Map([[a.id, { kind: "mutate", partners: ["card:9100"] }]]) },
+      ),
+    );
+    const ghosts = view.container.querySelectorAll('[data-ghost-of="stack:33"]');
+    expect(ghosts).toHaveLength(1);
+    expect(ghosts[0]!.getAttribute("data-merge")).toBe("partner");
+    expect(view.container.querySelector(".bf-spark")).toBeNull(); // no resolving spark
+    expect(view.container.querySelector("[data-flip]")).toBeNull();
+    const pulled = calls.find((c) => c.element === ghosts[0])!;
+    expect(String(pulled.frames.at(-1)!.transform)).not.toContain("scale(0.3)"); // not to a pile
+    const burst = view.container.querySelector('.bf-merge[data-merge="mutate"]') as HTMLElement;
+    expect(burst.style.getPropertyValue("--merge-colour")).toBe("110 220 150");
+  });
+
+  it("mutating underneath keeps the name: still the burst, and no flip", () => {
+    const { n, cards, a } = equipScene();
+    const spell: StackView = {
+      id: "stack:34",
+      name: "Gemrazer",
+      kind: "spell",
+      source: null,
+      card: "card:9101",
+      targets: [{ object: a.id }],
+    };
+    const view = render(merging(cards, n, { stack: [spell] }));
+    calls.length = 0;
+    view.rerender(
+      merging(cards, n, { merges: new Map([[a.id, { kind: "mutate", partners: ["card:9101"] }]]) }),
+    );
+    const host = slotOf(view.container, a.id);
+    expect(calls.filter((c) => c.element === host)).toHaveLength(1);
+    expect(view.container.querySelector(`[data-ghost-of="merge:${a.id}"]`)).toBeTruthy();
+    expect(view.container.querySelector(".bf-merge")).toBeTruthy();
+  });
+
+  it("a merge plays once: the same board drawn again (pointing at a card) does not merge again", () => {
+    const { n, cards, a, b } = equipScene();
+    const view = render(merging(cards, n, {}));
+    const merges = new Map<string, Merge>([[a.id, { kind: "meld", partners: [b.id] }]]);
+    const after = cards.filter((c) => c.id !== b.id);
+    view.rerender(merging(after, n, { merges }));
+    calls.length = 0;
+    act(() => {
+      slotOf(view.container, a.id)
+        .querySelector("button")!
+        .dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    view.rerender(merging(after, n, { merges }));
+    expect(calls.filter((c) => c.element === slotOf(view.container, a.id))).toHaveLength(0);
+    expect(view.container.querySelectorAll(".bf-merge")).toHaveLength(1);
   });
 
   it("one creature dying is not a wipe: no flash", () => {

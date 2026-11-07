@@ -1397,6 +1397,7 @@ export function GameScreen({
             artUrl={pictureUrl}
             arrivals={data.arrivals}
             departures={data.departures}
+            merges={data.merges}
             flyingOnto={flyingOnto}
             hiddenStack={hiddenStack}
             stackOwing={

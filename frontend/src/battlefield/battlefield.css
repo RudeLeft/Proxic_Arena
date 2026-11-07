@@ -298,6 +298,131 @@
   }
 }
 
+/* Phase 10 A-10 -- two cards becoming one (B · Fusion burst, Amendment 13):
+   the table dims (under the merging cards, which are raised above it);
+   at the slam a white flash with rays, sparks and a ring in the merge's
+   colour. The cards' own movement is motion.ts mergeFrames. Sizes are the
+   canvas's, in its 110-pixel card's widths (--merge-w is the card's). */
+.bf-merge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bf-merge-dim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  animation: bf-merge-dim var(--merge-ms) linear both;
+}
+@keyframes bf-merge-dim {
+  0% {
+    opacity: 0;
+  }
+  25%,
+  70% {
+    opacity: var(--merge-dim);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.bf-merge-burst {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.bf-merge-flash {
+  position: absolute;
+  left: calc(var(--merge-w) * -160 / 110);
+  top: calc(var(--merge-w) * -160 / 110);
+  width: calc(var(--merge-w) * 320 / 110);
+  height: calc(var(--merge-w) * 320 / 110);
+  border-radius: 50%;
+  background: radial-gradient(
+      circle,
+      #fff 0 12%,
+      rgb(var(--merge-colour) / 70%) 26%,
+      transparent 60%
+    ),
+    repeating-conic-gradient(from 0deg, rgb(255 255 255 / 55%) 0 6deg, transparent 6deg 24deg);
+  mask-image: radial-gradient(circle, #000 0 30%, transparent 70%);
+  opacity: 0;
+  animation: bf-merge-flash var(--merge-flash-ms) ease-out var(--merge-slam) both;
+}
+@keyframes bf-merge-flash {
+  0% {
+    transform: scale(0.2) rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1) rotate(25deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5) rotate(60deg);
+    opacity: 0;
+  }
+}
+.bf-merge-ring {
+  position: absolute;
+  left: calc(var(--merge-w) * -20 / 110);
+  top: calc(var(--merge-w) * -20 / 110);
+  width: calc(var(--merge-w) * 40 / 110);
+  height: calc(var(--merge-w) * 40 / 110);
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: calc(var(--merge-w) * 3 / 110) solid rgb(var(--merge-colour) / 95%);
+  box-shadow:
+    0 0 18px rgb(var(--merge-colour) / 80%),
+    inset 0 0 12px rgb(var(--merge-colour) / 60%);
+  opacity: 0;
+  /* forwards, not both: unseen (opacity 0) until the slam. */
+  animation: bf-merge-ring var(--merge-ring-ms) cubic-bezier(0.2, 0.7, 0.3, 1) var(--merge-slam)
+    forwards;
+}
+@keyframes bf-merge-ring {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(7.5);
+    opacity: 0;
+  }
+}
+.bf-merge-spark {
+  position: absolute;
+  left: calc(var(--merge-w) * -3.5 / 110);
+  top: calc(var(--merge-w) * -3.5 / 110);
+  width: calc(var(--merge-w) * 7 / 110);
+  height: calc(var(--merge-w) * 7 / 110);
+  border-radius: 50%;
+  background: rgb(var(--merge-colour));
+  box-shadow: 0 0 8px 2px rgb(var(--merge-colour) / 90%);
+  opacity: 0;
+  animation: bf-merge-spark var(--spark-ms) cubic-bezier(0.1, 0.7, 0.3, 1) var(--merge-slam)
+    forwards;
+}
+.bf-merge-spark-white {
+  background: #fff;
+}
+@keyframes bf-merge-spark {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-merge {
+    display: none;
+  }
+}
+
 /* Phase 10 A-00 -- Glide: a card in flight is lifted off the table. */
 .bf-moving .bf-card {
   box-shadow: 0 calc(var(--card-h) * 0.1) calc(var(--card-h) * 0.22) rgb(0 0 0 / 55%);
