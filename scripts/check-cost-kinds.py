@@ -456,7 +456,7 @@ def gush():
             islands = g.mine(1, name="Island")
             if st["cast"] is None and len(islands) >= 3:
                 alt = [o for o in f["options"] if (o.get("label") or "").startswith("Gush")
-                       and "return two Islands" in (o.get("label") or "")]
+                       and "return two islands" in (o.get("label") or "").lower()]  # spec 0057: "Return two Islands ... instead of paying"
                 if alt:
                     st["cast"] = card_of(alt[0]["actionId"])
                     st["islands"] = sorted(c["id"] for c in islands)
