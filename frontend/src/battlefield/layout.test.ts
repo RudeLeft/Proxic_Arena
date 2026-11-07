@@ -7,6 +7,11 @@ import { describe, expect, it } from "vitest";
 import {
   FAN_EXTRA,
   GROW_SHOW,
+  HAND_ORIGIN,
+  LAND_GAP,
+  OPPONENT_HAND_ORIGIN,
+  SHARE_GAP,
+  TAPPED_ORIGIN,
   TAB_W,
   tabAt,
   tabRoom,
@@ -109,8 +114,10 @@ describe("geometry", () => {
     expect(g.cardW).toBeCloseTo(97.5, 0);
     expect(g.cardH).toBeCloseTo(136.5, 0);
     expect(g.lineH).toBeCloseTo(0.1333 * 1080, 6);
-    // The opponent's band is exactly where the contract's three rows were.
-    expect(g.halves.opponent.y).toBeCloseTo(0.0964 * 1080, 6);
+    // The opponent's band is where the contract's three rows were, reaching
+    // on (spec 0059) to LAND_GAP from their hand: 4 px at 1080.
+    expect(g.halves.opponent.y).toBeCloseTo(1080 - g.handTop + 4, 6);
+    expect(g.halves.opponent.y).toBeLessThan(0.0964 * 1080);
     expect(g.halves.opponent.y + g.halves.opponent.h).toBeCloseTo((0.3642 + 0.1333) * 1080, 6);
     // And the rail starts where the lines stop.
     expect(g.rail.x).toBeCloseTo(0.8529 * 1920, 1);
@@ -384,7 +391,8 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
           const line = lines.get(slot.row)!;
           for (const id of slot.ids) expect(kindOf(byId.get(id)!)).toBe(line.kind);
         }
-        // From the middle outward: creatures, then the rest, then lands at the edge.
+        // From the middle outward: creatures, then the rest, then lands at the
+        // edge -- or (spec 0059) the rest sharing the land line.
         for (const side of ["viewer", "opponent"] as const) {
           const mid = viewport.height / 2;
           const distance = (kind: string) =>
@@ -395,10 +403,17 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
           const other = distance("other");
           const land = distance("land");
           if (creature.length && other.length) {
-            expect(Math.max(...creature)).toBeLessThan(Math.min(...other));
+            if (out.sharing[side] === "creature") {
+              expect(Math.max(...creature)).toBeCloseTo(Math.min(...other), 6);
+            } else expect(Math.max(...creature)).toBeLessThan(Math.min(...other));
           }
-          if (land.length && (creature.length || other.length)) {
-            expect(Math.min(...land)).toBeGreaterThan(Math.max(...creature, ...other));
+          if (land.length && creature.length) {
+            expect(Math.min(...land)).toBeGreaterThan(Math.max(...creature));
+          }
+          if (land.length && other.length) {
+            if (out.sharing[side] === "land") {
+              expect(Math.min(...land)).toBeCloseTo(Math.max(...other), 6);
+            } else expect(Math.min(...land)).toBeGreaterThan(Math.max(...other));
           }
         }
       }
@@ -856,7 +871,9 @@ describe("combat and tapped", () => {
             const a = rects[i]!;
             const b = rects[j]!;
             const y = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-            expect(y, `${what}: ${side} lines ${i} and ${j}`).toBeLessThanOrEqual(EPS);
+            // Spec 0059: two kinds sharing a line keep to their own ends of it.
+            const x = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+            expect(Math.min(x, y), `${what}: ${side} lines ${i} and ${j}`).toBeLessThanOrEqual(EPS);
           }
         const band = out.geometry.halves[side];
         for (const r of rects) {
@@ -864,7 +881,31 @@ describe("combat and tapped", () => {
           expect(r.y + r.h, what).toBeLessThanOrEqual(band.y + band.h + EPS);
         }
       }
+      // And card by card, tilt included: no card covers a card of another
+      // line (or of the other kind sharing its line), and none leaves its line.
+      const drawn = out.slots.map((slot) => {
+        const b = slot.box;
+        const r = reach(b);
+        return { row: slot.row, l: b.x - r.left, r: right(b) + r.right, t: b.y, b: b.y + b.h };
+      });
+      const lines = linesOf(out);
+      for (const d of drawn) {
+        const rect = lines.get(d.row)!.rect;
+        expect(d.l, `${what}: ${d.row} leaves its line`).toBeGreaterThanOrEqual(rect.x - EPS);
+        expect(d.r, `${what}: ${d.row} leaves its line`).toBeLessThanOrEqual(rect.x + rect.w + EPS);
+      }
+      for (let i = 0; i < drawn.length; i++)
+        for (let j = i + 1; j < drawn.length; j++) {
+          const a = drawn[i]!;
+          const b = drawn[j]!;
+          if (a.row === b.row) continue; // a squeezed line overlaps by design
+          const x = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+          const y = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+          expect(Math.min(x, y), `${what}: ${a.row} covers ${b.row}`).toBeLessThanOrEqual(EPS);
+        }
+      return out;
     };
+    const shared = new Map<string, number>();
     for (const viewport of VIEWPORTS) {
       for (const seed of [1, 2, 3, 4, 5]) {
         for (const n of [12, 40, 90, 200]) {
@@ -888,14 +929,21 @@ describe("combat and tapped", () => {
             board.battlefield.map((c) => (blocking.has(c.id) ? { ...c, blocking: true } : c)),
             { attackers: attackers.map((a) => ({ id: a.id, target: { player: 1 } })), blocks },
           );
-          check(
+          const out = check(
             { ...board, battlefield: fought },
             viewport,
             `${n} permanents, seed ${seed}, ${viewport.width}x${viewport.height}, with blocks`,
           );
+          for (const side of ["viewer", "opponent"] as const) {
+            const way = out.sharing[side] ?? "none";
+            shared.set(way, (shared.get(way) ?? 0) + 1);
+          }
         }
       }
     }
+    // The sweep reached both sharings and boards that share nothing (TEST-001).
+    expect(shared.get("land") ?? 0).toBeGreaterThan(0);
+    expect(shared.get("none") ?? 0).toBeGreaterThan(0);
   });
 
   it("A-11: a side whose every creature attacks needs no extra line", () => {
@@ -914,6 +962,264 @@ describe("combat and tapped", () => {
     expect(out.lines.filter((l) => l.side === "opponent")).toHaveLength(2);
     expect(out.boxes.get(a.id)!.y).toBe(calm.boxes.get(a.id)!.y);
     expect(out.scales.opponent).toBe(calm.scales.opponent);
+  });
+});
+
+// Spec 0059 item 10 (owner 2026-11-07): share a line before shrinking.
+describe("sharing a line before shrinking (spec 0059)", () => {
+  const vp = { width: 1920, height: 1080 };
+  /** A side in combat: `att` attackers, `cre` other creatures, `oth` other permanents, `lan` lands. */
+  function side(att: number, cre: number, oth: number, lan: number, seat = 1) {
+    const attackers = many(att, seat, "creature").map((c) => ({
+      ...c,
+      name: `attacker ${c.id}`,
+      attacking: true,
+      tapped: true,
+    }));
+    return {
+      attackers,
+      creatures: many(cre, seat, "creature"),
+      others: many(oth, seat, "other"),
+      lands: many(lan, seat, "land", 2),
+    };
+  }
+  const all = (s: ReturnType<typeof side>) => [
+    ...s.attackers,
+    ...s.creatures,
+    ...s.others,
+    ...s.lands,
+  ];
+
+  it("F-0059-B: a 7-card side in combat stays at full size (the canvas's board), on every screen", () => {
+    const mine = side(2, 1, 1, 3);
+    for (const viewport of VIEWPORTS) {
+      for (const viewerSeat of [1, 2]) {
+        const out = layout({ viewerSeat, hand: [], battlefield: all(mine) }, viewport);
+        const at = viewerSeat === 1 ? "viewer" : "opponent";
+        expect(out.scales[at]).toBe(1);
+        expect(out.sharing[at]).toBe("land");
+        // Three lines: the front, the creature behind it, lands and the Mind Stone.
+        const ys = new Set(out.lines.filter((l) => l.side === at).map((l) => l.rect.y));
+        expect(ys.size).toBe(3);
+      }
+    }
+    // Before 0059 four kinds of line took the 75% step however few the cards.
+    expect(
+      layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 1, 1, 3)) }, vp).scales,
+    ).toEqual({
+      viewer: 1,
+      opponent: 1,
+    });
+  });
+
+  it("F-0059-B: lands from the left end, the others from the right end, a gap between", () => {
+    const mine = side(2, 1, 3, 4);
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: all(mine) }, vp);
+    const g = out.geometry;
+    const lines = linesOf(out);
+    const land = lines.get("viewer:land-1")!;
+    const other = lines.get("viewer:other-1")!;
+    // The same line (ids unchanged, so the cards Glide, never jump: P10-R1).
+    expect(land.rect.y).toBe(other.rect.y);
+    expect(land.shared && other.shared).toBe(true);
+    for (const c of mine.others) expect(out.rowOf.get(c.id)).toBe("viewer:other-1");
+    for (const c of mine.lands) expect(out.rowOf.get(c.id)).toBe("viewer:land-1");
+    // The first land at the left end, the oldest other at the right end,
+    // each newer one further in.
+    const first = out.boxes.get(mine.lands[0]!.id)!; // tapped: its tilt starts at the end
+    expect(first.x - reach(first).left).toBeCloseTo(g.play.x + g.inset, 6);
+    const xs = mine.others.map((c) => out.boxes.get(c.id)!.x);
+    expect(xs[0]! + g.cardW).toBeCloseTo(g.play.x + g.play.w - g.inset, 6);
+    expect(xs[1]!).toBeLessThan(xs[0]!);
+    expect(xs[2]!).toBeLessThan(xs[1]!);
+    // A gap of at least SHARE_GAP of a step between the two kinds.
+    const lastLand = Math.max(
+      ...mine.lands.map((c) => {
+        const b = out.boxes.get(c.id)!;
+        return right(b) + reach(b).right;
+      }),
+    );
+    expect(Math.min(...xs) - lastLand).toBeGreaterThanOrEqual(SHARE_GAP * g.referencePitch - EPS);
+    // The owner's rule (2026-11-07, SHARE_SHOW = 1): a shared line never
+    // squeezes its cards -- 16 lands and 6 others would overlap there, so the
+    // others share the creatures' line instead, every card side by side.
+    const tight = side(2, 1, 6, 16);
+    const unsqueezed = layout({ viewerSeat: 1, hand: [], battlefield: all(tight) }, vp);
+    expect(unsqueezed.sharing.viewer).toBe("creature");
+    const sharedRows = linesOf(unsqueezed);
+    for (const [id, line] of sharedRows) {
+      if (!line.shared) continue;
+      const xs = unsqueezed.slots
+        .filter((sl) => sl.row === id)
+        .map((sl) => sl.box.x)
+        .sort((p, q) => p - q);
+      for (let k = 1; k < xs.length; k++)
+        expect(xs[k]! - xs[k - 1]!, id).toBeGreaterThanOrEqual(g.cardW - EPS);
+    }
+    // Outside combat nothing shares: three kinds, three lines, as before.
+    const calm = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: all(mine).map((c) => ({ ...c, attacking: false })),
+      },
+      vp,
+    );
+    expect(calm.sharing.viewer).toBeNull();
+    expect(calm.rowOf.get(mine.others[0]!.id)).toBe("viewer:other-1");
+    expect(linesOf(calm).get("viewer:other-1")!.shared).toBeUndefined();
+  });
+
+  it("F-0059-B: the order -- the land line, then the creature line behind the front, then a size step", () => {
+    // Few lands: the others share the land line.
+    expect(
+      layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 2, 3, 6)) }, vp).sharing.viewer,
+    ).toBe("land");
+    // So many lands that sharing their line would make cards overlap (the
+    // owner's rule): the others share the creatures' line instead, full size.
+    const crowded = side(2, 2, 6, 16);
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: all(crowded) }, vp);
+    expect(out.scales.viewer).toBe(1);
+    expect(out.sharing.viewer).toBe("creature");
+    const lines = linesOf(out);
+    expect(lines.get("viewer:other-1")!.rect.y).toBe(lines.get("viewer:creature-2")!.rect.y);
+    for (const c of crowded.creatures) expect(out.rowOf.get(c.id)).toBe("viewer:creature-2");
+    for (const c of crowded.attackers) expect(out.rowOf.get(c.id)).toBe("viewer:creature-1");
+    // The front line is never shared.
+    expect(lines.get("viewer:creature-1")!.shared).toBeUndefined();
+    // And when no shared line has room, the side steps down a size.
+    const busy = layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 20, 14, 26)) }, vp);
+    expect(busy.scales.viewer).toBeLessThan(1);
+    // Every card in every case still shows at least half of itself.
+    for (const o of [out, busy]) {
+      for (const row of new Set(o.slots.map((s) => s.row))) {
+        const list = o.slots.filter((s) => s.row === row);
+        const xs = list.map((s) => s.box.x).sort((a, b) => a - b);
+        for (let i = 1; i < xs.length; i++)
+          expect(xs[i]! - xs[i - 1]!, row).toBeGreaterThanOrEqual(SHOW_MIN * list[0]!.box.w - EPS);
+      }
+    }
+  });
+
+  it("F-0059-B: on the canvas's slider mix a side in combat stays full size to about 30 cards", () => {
+    // The canvas's mix: a quarter fighting, a fifth other creatures, 15%
+    // other permanents, the rest lands. The owner's rule (SHARE_SHOW = 1):
+    // a shared line is full as soon as its cards would overlap.
+    for (let n = 4; n <= 28; n++) {
+      const a = Math.round(n * 0.25);
+      const c = Math.round(n * 0.2);
+      const o = Math.round(n * 0.15);
+      const out = layout(
+        { viewerSeat: 1, hand: [], battlefield: all(side(a, c, o, n - a - c - o)) },
+        vp,
+      );
+      expect(out.scales.viewer, `${n} cards`).toBe(1);
+      if (o > 0) expect(out.sharing.viewer, `${n} cards`).not.toBeNull();
+    }
+  });
+});
+
+// Spec 0059 item 11 (owner 2026-11-07, Option 1): lands nearer the hand.
+describe("the land line (spec 0059)", () => {
+  /** A box's four corners as drawn, rotated about its origin. */
+  const outline = (b: Box, origin: { x: number; y: number }): [number, number][] => {
+    const t = (b.rotation * Math.PI) / 180;
+    const px = b.x + origin.x * b.w;
+    const py = b.y + origin.y * b.h;
+    return [
+      [b.x, b.y],
+      [b.x + b.w, b.y],
+      [b.x + b.w, b.y + b.h],
+      [b.x, b.y + b.h],
+    ].map(([x, y]) => [
+      px + (x! - px) * Math.cos(t) - (y! - py) * Math.sin(t),
+      py + (x! - px) * Math.sin(t) + (y! - py) * Math.cos(t),
+    ]);
+  };
+  /** Two convex outlines overlap (separating axes). */
+  const overlaps = (a: [number, number][], b: [number, number][]) => {
+    for (const poly of [a, b]) {
+      for (let i = 0; i < poly.length; i++) {
+        const [x1, y1] = poly[i]!;
+        const [x2, y2] = poly[(i + 1) % poly.length]!;
+        const [nx, ny] = [y1 - y2, x2 - x1];
+        const pa = a.map(([x, y]) => x * nx + y * ny);
+        const pb = b.map(([x, y]) => x * nx + y * ny);
+        if (Math.max(...pa) <= Math.min(...pb) + EPS || Math.max(...pb) <= Math.min(...pa) + EPS)
+          return false;
+      }
+    }
+    return true;
+  };
+
+  it("F-0059-C: sits 4 px above the hand's resting top at 1920x1080, scaled with the screen, mirrored", () => {
+    for (const vp of VIEWPORTS) {
+      const out = layout(
+        { viewerSeat: 1, hand: [], battlefield: [...many(5, 1, "land"), ...many(5, 2, "land")] },
+        vp,
+      );
+      const g = out.geometry;
+      const lines = linesOf(out);
+      const mine = lines.get("viewer:land-1")!.rect;
+      const theirs = lines.get("opponent:land-1")!.rect;
+      expect(g.handTop - (mine.y + mine.h)).toBeCloseTo(LAND_GAP * vp.height, 6);
+      expect(theirs.y - (vp.height - g.handTop)).toBeCloseTo(LAND_GAP * vp.height, 6);
+      if (vp.height === 1080) {
+        expect(g.handTop - (mine.y + mine.h)).toBeCloseTo(4, 6);
+        // A land's own edge: about 8 px (18 before 0059).
+        const land = out.boxes.get(out.slots.find((s) => s.row === "viewer:land-1")!.ids[0]!)!;
+        expect(g.handTop - (land.y + land.h)).toBeGreaterThan(7);
+        expect(g.handTop - (land.y + land.h)).toBeLessThan(8.5);
+      }
+    }
+  });
+
+  it("F-0059-C: no land, tapped or not, touches either hand fan, at any hand size or screen", () => {
+    for (const vp of VIEWPORTS) {
+      for (const n of [1, 2, 7, 8, 15]) {
+        const hand = Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` }));
+        const theirs = Array.from({ length: n }, (_, i) => ({ id: `hidden-hand:2:${i}` }));
+        for (const tappedEvery of [1, 2]) {
+          const battlefield = [
+            ...many(30, 1, "land", tappedEvery),
+            ...many(30, 2, "land", tappedEvery),
+          ];
+          const out = layout({ viewerSeat: 1, hand, opponentHand: theirs, battlefield }, vp);
+          const fan = [
+            ...hand.map((h) => outline(out.boxes.get(h.id)!, HAND_ORIGIN)),
+            ...theirs.map((h) => outline(out.boxes.get(h.id)!, OPPONENT_HAND_ORIGIN)),
+          ];
+          for (const slot of out.slots) {
+            const land = outline(slot.box, TAPPED_ORIGIN);
+            for (const card of fan)
+              expect(overlaps(land, card), `${vp.width}x${vp.height}`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it("F-0059-C: only the land line moved -- the lines from the middle are where they were", () => {
+    const vp = { width: 1920, height: 1080 };
+    const out = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [...many(3, 1, "creature"), ...many(3, 1, "other"), ...many(3, 1, "land")],
+      },
+      vp,
+    );
+    const lines = linesOf(out);
+    // The contract's rows: the creature line at the middle, the next a pitch on.
+    expect(lines.get("viewer:creature-1")!.rect.y).toBeCloseTo((1 - (0.3642 + 0.1333)) * 1080, 6);
+    expect(lines.get("viewer:other-1")!.rect.y).toBeCloseTo(
+      (1 - (0.3642 + 0.1333) + (0.2302 - 0.0964)) * 1080,
+      6,
+    );
+    // The land line about 10 px lower than the contract's third row.
+    const was = (1 - 0.0964 - 0.1333) * 1080;
+    expect(lines.get("viewer:land-1")!.rect.y - was).toBeGreaterThan(9);
+    expect(lines.get("viewer:land-1")!.rect.y - was).toBeLessThan(11);
   });
 });
 

@@ -43,6 +43,7 @@ import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { SharpCard, closeUpOf } from "../closeUp";
+import { avatarUrl } from "../avatars";
 import {
   inCombat,
   HAND_ORIGIN,
@@ -345,6 +346,11 @@ export interface BoardProps {
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
   damage?: DamageWave | null;
+  /**
+   * Spec 0059 item 9 -- each player's picture as their plate shows it, by
+   * seat: an attacker's badge shows whom it attacks. Absent: the default face.
+   */
+  playerFaces?: ReadonlyMap<number, string>;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
   onPick?: (objectId: string, members?: readonly string[]) => void;
@@ -435,6 +441,63 @@ const STACK_KIND: Record<string, string> = {
   ability: "Ability",
   trigger: "Trigger",
 };
+
+/** Spec 0059 item 9 -- a battle's mark on an attacker's badge (crossed blades). */
+const BATTLE_GLYPH = "M5 5 L19 19 M19 5 L5 19 M4 15 L9 20 M15 20 L20 15";
+
+/**
+ * Spec 0059 item 9 (owner 2026-11-07, look B): an unblocked attacker's badge
+ * -- the picture of the player it attacks, as their plate shows it, or a
+ * planeswalker's or battle's mark. Its name shows while the attacker is
+ * pointed at, when its line is drawn too. On the card's right, under its
+ * name (the canvas); on its left in a line squeezed so tight that the next
+ * card covers its right side.
+ */
+function AimBadge({
+  aim,
+  face,
+  target,
+  words,
+  crowded,
+  named,
+}: {
+  aim: TargetRef;
+  face: string | null;
+  target: BoardCard | undefined;
+  words: string;
+  crowded: boolean;
+  named: boolean;
+}) {
+  const battle = !!target && /\bBattle\b/.test(target.types);
+  return (
+    <>
+      <span
+        className={`bf-aim-at${crowded ? " bf-aim-left" : ""}`}
+        data-attack-badge={refKey(aim)}
+        aria-hidden="true"
+      >
+        {face !== null ? (
+          <span className="bf-aim bf-aim-player">
+            <img src={face} alt="" draggable={false} />
+          </span>
+        ) : (
+          <span className={`bf-aim bf-aim-card${battle ? " bf-aim-battle" : ""}`}>
+            <svg viewBox="0 0 24 24">
+              <path d={battle ? BATTLE_GLYPH : GLYPH.walker} />
+            </svg>
+          </span>
+        )}
+      </span>
+      {/* Under the ATTACKING tag, over the picture: clear of the card's
+          name, its state and its bars. */}
+      {named && (
+        <span className={`bf-aim-name${crowded ? " bf-aim-left" : ""}`} aria-hidden="true">
+          {words === "you" ? "You" : words}
+        </span>
+      )}
+    </>
+  );
+}
 
 function Glyph({ look, className }: { look: Look; className: string }) {
   return (
@@ -828,6 +891,7 @@ export function Board({
   handCosts,
   attaching,
   damage,
+  playerFaces,
   onPick,
   onInspect,
   choosable,
@@ -845,6 +909,9 @@ export function Board({
   const cardsRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [pointed, setPointed] = useState<string | null>(null);
+  // Spec 0059 item 9 -- the attacker pointed at (or focused, or tapped on a
+  // touch screen): its attack line shows; at rest none do, its badge says.
+  const [aimed, setAimed] = useState<string | null>(null);
   // Spec 0028 — the stack card the player points at: its line shows
   // instead of the front card's, and the rest of the stack fades.
   const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
@@ -1058,6 +1125,18 @@ export function Board({
       if (sorted.some((x, i) => i > 0 && x - sorted[i - 1]! < g.cardW * 0.98)) crowded.add(row);
     }
 
+    // Spec 0059 item 9 -- what each unblocked attacker attacks (a blocked
+    // one hits its blockers, spec 0037): its badge, and its line on pointing.
+    const blockedIds = new Set((combat?.blocks ?? []).map((b) => b.attacker));
+    const aims = new Map<string, TargetRef>();
+    for (const a of combat?.attackers ?? []) if (!blockedIds.has(a.id)) aims.set(a.id, a.target);
+    const aimWords = (target: TargetRef) =>
+      "player" in target
+        ? target.player === viewerSeat
+          ? "you"
+          : opponentName
+        : (byId.get(target.object)?.name ?? "a permanent");
+
     for (const slot of result.slots) {
       const lead = byId.get(slot.ids[0]!)!;
       const count = slot.ids.length;
@@ -1065,6 +1144,7 @@ export function Board({
       const side = slot.row.startsWith("viewer") ? "viewer" : sideOf(lead.seat);
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
+      const aim = slot.ids.map((id) => aims.get(id)).find((t) => t !== undefined);
       const label = [
         lead.faceDown && !lead.known
           ? "Face-down card"
@@ -1074,7 +1154,7 @@ export function Board({
         count > 1 ? `${count} of them` : "",
         pt,
         lead.tapped ? "tapped" : "",
-        lead.attacking ? "attacking" : "",
+        lead.attacking ? (aim ? `attacking ${aimWords(aim)}` : "attacking") : "",
         lead.blocking
           ? `blocking ${byId.get(slot.faces ?? lead.blocks ?? "")?.name ?? "an attacker"}`
           : "",
@@ -1136,6 +1216,27 @@ export function Board({
               data-pile={count > 1 ? count : undefined}
               data-blocking={lead.blocking ? "true" : undefined}
               data-blocks={slot.faces ?? lead.blocks}
+              data-aims={aim ? refKey(aim) : undefined}
+              data-aimed={aim && aimed === lead.id ? "true" : undefined}
+              {...(aim
+                ? {
+                    // Spec 0059 item 9: pointing, focus, or a tap on a touch
+                    // screen (which has no pointing) shows its line.
+                    onPointerEnter: (event: { pointerType: string }) => {
+                      if (event.pointerType !== "touch") setAimed(lead.id);
+                    },
+                    onPointerLeave: (event: { pointerType: string }) => {
+                      if (event.pointerType !== "touch")
+                        setAimed((now) => (now === lead.id ? null : now));
+                    },
+                    onPointerDown: (event: { pointerType: string }) => {
+                      if (event.pointerType === "touch")
+                        setAimed((now) => (now === lead.id ? null : lead.id));
+                    },
+                    onFocus: () => setAimed(lead.id),
+                    onBlur: () => setAimed((now) => (now === lead.id ? null : now)),
+                  }
+                : {})}
             >
               <CardFace {...drawn} />
               {leadAct.chosen ? (
@@ -1189,6 +1290,16 @@ export function Board({
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
+            {aim && (
+              <AimBadge
+                aim={aim}
+                face={"player" in aim ? (playerFaces?.get(aim.player) ?? avatarUrl(null)) : null}
+                target={"object" in aim ? byId.get(aim.object) : undefined}
+                words={aimWords(aim)}
+                crowded={crowded.has(slot.row)}
+                named={aimed === lead.id}
+              />
+            )}
             {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
                 it sits beside the card, which clips what crosses its edge. */}
             {leadAct.marks > 0 && (
@@ -1383,6 +1494,9 @@ export function Board({
     act,
     handCosts,
     pinned,
+    combat,
+    playerFaces,
+    aimed,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -2604,6 +2718,10 @@ export function Board({
   }
   for (const a of combat?.attackers ?? []) {
     if (blockedIds.has(a.id)) continue;
+    // Spec 0059 item 9 (owner 2026-11-07, look B): no attack lines at rest
+    // -- each attacker's badge says what it attacks; the one pointed at
+    // (focused, tapped) draws its full line, as before.
+    if (aimed === null || drawn(a.id) !== aimed) continue;
     const from = centre(a.id);
     const aim = refPoint(a.target);
     if (!from || !aim) continue;

@@ -17,6 +17,11 @@ crowded kind takes a spare line; each card shows at least half of itself
 before a side shrinks, in steps of 90, 80, 75 and 70%; the sliver (33%)
 stays the least ever shown. The card size, the band, the rail and the
 mirror are unchanged. Where §2–§3 disagree with spec 0040, the spec wins.
+**Amended by** spec 0059 (`docs/features/0059-arrows-sharing-lands.md`,
+owner 2026-11-07): before a side shrinks for want of lines, kinds share a
+line (§7b); and the land line sits nearer the hand, 4 px above its resting
+top at 1920×1080, mirrored (§7c). The card size and the lines from the
+middle are unchanged.
 **As built:** the board is `frontend/src/battlefield/layout.ts` (React DOM
 + SVG, `BATTLEFIELD_RENDERING.md`). What §3 and §6 say about the Phase 0A
 spike -- `layout.mjs`, `BUILD_STATUS.md`, its pinned geometry -- describes
@@ -313,6 +318,30 @@ lines follow (`creature-2`, ...):
   board's "other" line covered its lands by 41 px). Most boards
   (creatures and lands, or creatures, other and lands with a spare) need
   no extra line.
+  **Amended 2026-11-07 (spec 0059 item 10, owner: "share a line before
+  shrinking").** A side with more kinds of line than its band holds no
+  longer steps down for that alone. At each size, before the next size
+  step: first the other permanents **share the land line** -- lands from
+  its left end as always, the others from its right end (the oldest at
+  the very end, each newer one further in, so none moves when one
+  arrives), `SHARE_GAP` = half a reference pitch between the two; then,
+  if that line would leave a card showing less than `SHOW_MIN`
+  (`SHARE_SHOW`), they **share the line of creatures not in combat**
+  (behind the front line) the same way; only when neither shows every
+  card at least half does the side step down a size (and tries again).
+  Sharing happens only for want of lines: outside combat (three kinds,
+  three lines) nothing changes. The two kinds keep to their own stretches
+  of the line (`Line.rect` is each kind's stretch, `shared: true`); when
+  they would meet, both squeeze by about the same share and the gap holds,
+  so no card of one ever lies on a card of the other. **The front line is
+  never shared.** Line ids do not change with sharing (`other-1`,
+  `land-1`, `creature-2` stay the cards' lines), so a sharing that begins
+  or ends is a Glide, never a jump (P10-R1). A 7-card side in combat (two
+  attackers, a creature, an artifact, three lands) stays at full size; on
+  the canvas's slider mix a side stays full size past 40 cards at
+  1920×1080. `layout.ts` `planShared`, `sizeSide`; `layout.test.ts`
+  "sharing a line before shrinking", and the 12-200 permanent sweep now
+  also checks card by card, tilt included, that nothing covers anything.
 - Nothing covers anything: the two front lines meet at the middle with
   the usual gaps (at 1920x1080 about 12 px between an attacker's edge and
   its blocker's). When combat ends, every card Glides home.
@@ -320,6 +349,24 @@ lines follow (`creature-2`, ...):
 `layout.ts` (`LineKind` "front", `faceBlockers`); `layout.test.ts`
 "combat and tapped", "big combats". Owner's reasons and the fights that
 play on these places are `PHASE_10_ANIMATION_LOCKED.md`, Amendments 15-16.
+
+## 7c. Amendment — the land line nearer the hand (spec 0059 item 11, owner 2026-11-07)
+
+The owner: lands "a little closer to the hand so they are not so far away
+to tap" (Option 1, "lands lower"; the hand is unchanged). Each side's band
+reaches on, **at the player's edge only**, to `LAND_GAP` = 4/1080 of the
+board's height above the hand's resting top (`HAND_BASELINE`): 4 px at
+1920×1080, scaling with the height like everything else. The opponent's
+band is 0.0870–0.4975 of the height (was 0.0964–0.4975, the contract's
+three rows) and the viewer's is its mirror, so the other player's land
+line sits the same 4 px below their hand. Lines from the middle are laid
+where they were; land lines are laid from the edge, so only they move
+(about 10 px). The gap is measured from the land LINE, whose height holds
+a tapped land's corners: an untapped land's edge is about 8 px from the
+hand (18 px before), a tapped one's lowest corner about 4 px, and nothing
+of a land touches either hand fan at any hand size (`layout.test.ts` "the
+land line", outlines tilt included). Lines held at each size are
+unchanged (3 at 100-80%, 4 at 75-70%).
 
 ---
 

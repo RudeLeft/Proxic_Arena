@@ -813,3 +813,21 @@ are counted unseen there); its other findings are the other player's
 casts (A-21), as before.
 
 Shown to the owner (Unsummon, Griptide, Chaos Warp clips) and approved, 2026-11-07.
+
+## Note — spec 0059 amends Amendment 16's "fits" (2026-11-07)
+
+Spec 0059 (`docs/features/0059-arrows-sharing-lands.md`, owner-approved
+on the canvas "table-1107") is the authority; recorded here because it
+changes what Amendment 16 built. (1) **Attack lines**: no long attack line
+at rest; each unblocked attacker wears a badge of what it attacks (the
+player's picture, or a planeswalker's or battle's mark) and draws its line,
+as Amendment 16 drew it, only while pointed at, focused or tapped. Blocks,
+targets, sources, the stolen pull and the chains are unchanged.
+(2) **"fits"**: a side whose band holds fewer lines than its kinds no
+longer steps down for that alone -- the other permanents first share the
+land line, then the line of creatures not in combat, and only when neither
+shows every card at least half does it step down (contract §7b as
+amended). Line ids do not change with sharing, so a sharing that starts or
+ends is a Glide (P10-R1); the front line is never shared. The 12-200
+permanent sweep still holds, now card by card. (3) The land line sits 4 px
+above the hand (contract §7c).

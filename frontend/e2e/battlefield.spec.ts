@@ -512,17 +512,18 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       what,
     ).toBe(0);
 
-    const drawnLines = await page.evaluate(() =>
-      [...document.querySelectorAll<SVGGElement>("[data-line]")].map((g) => ({
-        kind: g.dataset.line!,
-        from: g.dataset.from!,
-        to: g.dataset.to!,
-        start: g.dataset.start!.split(",").map(Number) as [number, number],
-        end: g.dataset.end!.split(",").map(Number) as [number, number],
-        // Drawn, not just present: a hidden layer has no size on screen.
-        shown: g.getBoundingClientRect().width + g.getBoundingClientRect().height > 4,
-      })),
-    );
+    const readLines = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll<SVGGElement>("[data-line]")].map((g) => ({
+          kind: g.dataset.line!,
+          from: g.dataset.from!,
+          to: g.dataset.to!,
+          start: g.dataset.start!.split(",").map(Number) as [number, number],
+          end: g.dataset.end!.split(",").map(Number) as [number, number],
+          // Drawn, not just present: a hidden layer has no size on screen.
+          shown: g.getBoundingClientRect().width + g.getBoundingClientRect().height > 4,
+        })),
+      );
     // Spec 0037: a blocked attacker draws no fire line. Phase 10 A-12: a
     // blocker stands facing the (first) attacker it blocks, so it needs no
     // shield line to it; one blocking several has lines to the others.
@@ -530,13 +531,12 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     const blockedIds = new Set(blocks.map((b) => b.attacker));
     const blocksOf = (id: string) => blocks.filter((b) => b.blocker === id).length;
     const faces = (b: (typeof blocks)[number]) => blocks.find((x) => x.blocker === b.blocker) === b;
+    const aimKey = (t: { player: number } | { object: string }) =>
+      "player" in t ? `player:${t.player}` : t.object;
+    // Spec 0059 item 9: an unblocked attacker wears a badge of what it
+    // attacks, and draws its line only while pointed at.
+    const unblocked = (scene.combat?.attackers ?? []).filter((a) => !blockedIds.has(a.id));
     const want: string[] = [
-      ...(scene.combat?.attackers ?? [])
-        .filter((a) => !blockedIds.has(a.id))
-        .map(
-          (a) =>
-            `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
-        ),
       ...blocks
         .filter((b) => blocksOf(b.blocker) > 1 && !faces(b))
         .map((b) => `block ${b.blocker}>${b.attacker}`),
@@ -554,15 +554,19 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       ...scene.stack.filter((s) => s.source).map((s) => `source ${s.source}>${s.id}`),
       ...(scene.attaching ? [`attach ${scene.attaching.source}>${scene.attaching.host}`] : []),
     ];
-    expect(drawnLines.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
-      want.sort(),
+    const atRest = await readLines();
+    expect(atRest.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
+      [...want].sort(),
     );
     // Every end is inside the drawn card it belongs to, or on its rail point.
     const outlineOf = (id: string) => {
       const box = expected.boxes.get(id)!;
       return corners(box, TAPPED_ORIGIN);
     };
-    for (const line of drawnLines) {
+    const checkEnds = (drawnLines: Awaited<ReturnType<typeof readLines>>) => {
+      for (const line of drawnLines) checkEnd(line);
+    };
+    const checkEnd = (line: Awaited<ReturnType<typeof readLines>>[number]) => {
       expect(line.shown, `${what}: ${line.kind} ${line.from} is not visible`).toBe(true);
       const start = { x: line.start[0], y: line.start[1] };
       const end = { x: line.end[0], y: line.end[1] };
@@ -615,6 +619,54 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           true,
         );
       }
+    };
+    checkEnds(atRest);
+
+    // Spec 0059 item 9: a badge on each drawn unblocked attacker, saying
+    // what it attacks; pointing at it draws its line (one per pile), and
+    // moving away takes it off again.
+    const leadOf = (id: string) => expected.slots.find((s) => s.ids.includes(id))!.ids[0]!;
+    const leads = [...new Set(unblocked.map((a) => leadOf(a.id)))];
+    const badges = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("[data-attack-badge]")].map(
+        (b) =>
+          `${b.closest(".bf-slot")?.querySelector<HTMLElement>(":scope > button")?.dataset.objectId} ${b.dataset.attackBadge}`,
+      ),
+    );
+    expect(badges.sort(), `${what}: badges`).toEqual(
+      [...new Set(unblocked.map((a) => `${leadOf(a.id)} ${aimKey(a.target)}`))].sort(),
+    );
+    for (const lead of leads) {
+      const firstOf = new Map<string, string>();
+      for (const a of unblocked)
+        if (leadOf(a.id) === lead && !firstOf.has(aimKey(a.target)))
+          firstOf.set(aimKey(a.target), a.id);
+      const pointed = [...want, ...[...firstOf].map(([to, from]) => `attack ${from}>${to}`)];
+      // The real pointer, near the card's left edge (the part a squeezed
+      // line leaves showing). Not locator.hover(): a flyer bobs, so it is
+      // never "stable".
+      const box = expected.boxes.get(lead)!;
+      await page.mouse.move(box.x + 16, box.y + box.h / 2);
+      expect(
+        await page.evaluate(
+          ([x, y]) =>
+            document.elementFromPoint(x!, y!)?.closest<HTMLElement>("[data-object-id]")?.dataset
+              .objectId,
+          [box.x + 16, box.y + box.h / 2],
+        ),
+        `${what}: the pointer is on ${lead}`,
+      ).toBe(lead);
+      await expect
+        .poll(async () => (await readLines()).map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), {
+          timeout: 5_000,
+          message: `${what}: pointing at ${lead}`,
+        })
+        .toEqual(pointed.sort());
+      checkEnds(await readLines());
+      await page.mouse.move(viewport.width / 2, 40);
+      await expect
+        .poll(async () => (await readLines()).length, { timeout: 5_000 })
+        .toBe(want.length);
     }
   }
   expect(problems, "browser reported errors").toEqual([]);

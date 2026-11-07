@@ -249,8 +249,51 @@ const SCENARIOS: Record<string, { label: string; you: SideSpec; them: SideSpec }
 
 export const SCENARIO_NAMES = Object.keys(SCENARIOS);
 
+/**
+ * Spec 0059 -- two more boards for the dev page only (not the owner's ten,
+ * so not in SCENARIO_NAMES): the canvas "table-1107"'s. With `&combat=1`
+ * the dev page makes their attackers attack (DevBoardPage).
+ */
+const DEV_BOARDS: Record<string, { label: string; you: SideSpec; them: SideSpec }> = {
+  attack8: {
+    label: "Spec 0059: Bob attacks you with 8",
+    you: {
+      lands: [["Forest", 5]],
+      creatures: ["Grizzly Bears", "Llanowar Elves", "Elvish Archer"],
+      others: [["The Wandering Emperor", "Legendary Planeswalker — Emperor"]],
+    },
+    them: {
+      lands: [["Mountain", 5]],
+      tappedLands: 3,
+      creatures: [
+        "Raging Goblin",
+        "Hill Giant",
+        "Gray Ogre",
+        "Wild Boar",
+        "Goblin Piker",
+        "Fire Imp",
+        "Orc Raider",
+        "Volcanic Drake",
+        "Goblin Guide",
+      ],
+      attackers: 8,
+      others: [["Mind Stone", "Artifact"]],
+    },
+  },
+  fight7: {
+    label: "Spec 0059: a 7-card side in combat",
+    you: {
+      lands: [["Forest", 2], "Mountain"],
+      creatures: ["Grizzly Bears", "Hill Giant", "Llanowar Elves"],
+      attackers: 2,
+      others: [["Mind Stone", "Artifact"]],
+    },
+    them: { lands: [["Plains", 4]], creatures: ["Serra Angel", "White Knight"] },
+  },
+};
+
 export function scenarioLabel(name: string): string | null {
-  return SCENARIOS[name]?.label ?? null;
+  return (SCENARIOS[name] ?? DEV_BOARDS[name])?.label ?? null;
 }
 
 const BASICS = ["Forest", "Mountain", "Plains", "Island", "Swamp"];
@@ -323,7 +366,7 @@ function side(seat: number, spec: SideSpec, next: () => number): BoardCard[] {
 export function scenarioBoard(
   name: string,
 ): { battlefield: BoardCard[]; hand: BoardHandCard[]; viewerSeat: number } | null {
-  const spec = SCENARIOS[name];
+  const spec = SCENARIOS[name] ?? DEV_BOARDS[name];
   if (!spec) return null;
   let id = 0;
   const next = () => ++id;

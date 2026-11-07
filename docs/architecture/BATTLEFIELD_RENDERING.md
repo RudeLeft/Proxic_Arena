@@ -207,7 +207,10 @@ rather than teleports.
    bursts, numbers and the fights' marks 6000, hand 10000+). Every line
    starts and ends **inside the card's picture**, never on its name or
    power/toughness bar (the mock ended its block line at 72% of the card's
-   height for the same reason). *Phase 10 (2026-11-06, Amendment 15 of
+   height for the same reason). *Spec 0059 (2026-11-07):* an attack line is
+   drawn only for the attacker pointed at (or focused, or tapped on a touch
+   screen); at rest each unblocked attacker wears a badge of what it
+   attacks instead (`Board.tsx` `AimBadge`). *Phase 10 (2026-11-06, Amendment 15 of
    `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage

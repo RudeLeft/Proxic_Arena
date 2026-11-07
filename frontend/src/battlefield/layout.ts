@@ -22,12 +22,18 @@
  * then everything else, then lands at the player's own edge.
  *
  * The opponent's band, as fractions of the board's height; the viewer's is
- * its mirror about y = 0.5. It is exactly what the contract's three rows
- * covered, so a full-size line is one of those rows.
+ * its mirror about y = 0.5. It is what the contract's three rows covered,
+ * so a full-size line is one of those rows -- except that since spec 0059
+ * it reaches on to the land line's edge, LAND_GAP from the hand (BAND_EDGE),
+ * so the land line sits lower; the lines from the middle are where they were.
+ *
+ * Spec 0059 (owner 2026-11-07): before a side shrinks for want of lines, the
+ * other permanents share a line (the land line, else the line of creatures
+ * not in combat), each kind from its own end (planShared, sizeSide).
  */
 const HALF_TOP = 0.0964;
 const HALF_BOTTOM = 0.3642 + 0.1333;
-const LINE_PITCH = 0.2302 - 0.0964; // of board height, between line tops, at full size
+const LINE_PITCH = 0.2302 - HALF_TOP; // of board height, between line tops, at full size
 
 export type Side = "viewer" | "opponent";
 export type Kind = "creature" | "land" | "other";
@@ -51,6 +57,19 @@ const REFERENCE_PITCH = 0.09375; // of board height; = card width + minimum gap
 const SLIVER = 0.33; // of card width (§7.51 decision 1): the least ever showing
 const RAIL_X = 0.8529; // the rail starts here on the 16:9 board
 const HAND_BASELINE = 0.9167; // of board height: the top of a resting hand card
+/**
+ * Spec 0059 item 11 (owner 2026-11-07, Option 1 "lands lower"): the land
+ * line's bottom edge sits this far above the hand's resting top (4 px at
+ * 1920x1080, scaling with the board's height like everything else); the
+ * other player's mirrors it. It was 0.0131 (14 px; a land's edge 18 px)
+ * when the band ended at the contract's third row. The band reaches this
+ * far on the player's edge only: the lines from the middle are unchanged,
+ * and a tapped land's corner stays inside its line, so nothing of a land
+ * touches the hand fan (layout.test.ts "the land line").
+ */
+export const LAND_GAP = 4 / 1080;
+/** Where each side's band ends at the player's edge (the opponent's top). */
+const BAND_EDGE = 1 - (HAND_BASELINE - LAND_GAP);
 // From the canvas (a 1600x900 board), as fractions of its height:
 const HAND_DIP = 5 / 900; // per card from the middle of the hand
 const HAND_TILT = 2.4; // degrees per card from the middle of the hand
@@ -215,8 +234,11 @@ export interface Line {
   id: RowId;
   side: Side;
   kind: Kind;
+  /** Its stretch of the line: the whole play width, or (shared) one kind's end of it. */
   rect: Rect;
   scale: number;
+  /** Spec 0059 — two kinds share this line, each from its own end: this is one's stretch. */
+  shared?: boolean;
 }
 
 export interface Layout {
@@ -230,6 +252,8 @@ export interface Layout {
   /** Spec 0040 — the lines in use, and each side's card size. */
   lines: Line[];
   scales: Record<Side, number>;
+  /** Spec 0059 — which line each side's other permanents share, if any. */
+  sharing: Record<Side, Sharing | null>;
   /** Sides ("viewer:creature"...) whose cards show less than the minimum
    * sliver even at the smallest size. */
   overcrowded: string[];
@@ -247,7 +271,8 @@ export function geometry(viewport: Viewport): Geometry {
   const railW = (1 - RAIL_X) * (16 / 9) * height;
   const playW = Math.max(0, width - railW);
   const zoneH = ZONE_H * height;
-  const half = (HALF_BOTTOM - HALF_TOP) * height;
+  // Spec 0059: from the middle out to the land line's edge near the hand.
+  const half = (HALF_BOTTOM - BAND_EDGE) * height;
   const cardH = CARD_H_OF_ZONE * zoneH;
   return {
     width,
@@ -259,7 +284,7 @@ export function geometry(viewport: Viewport): Geometry {
     play: { x: 0, y: 0, w: playW, h: height },
     rail: { x: playW, y: 0, w: railW, h: height },
     halves: {
-      opponent: { x: 0, y: HALF_TOP * height, w: playW, h: half },
+      opponent: { x: 0, y: BAND_EDGE * height, w: playW, h: half },
       viewer: { x: 0, y: (1 - HALF_BOTTOM) * height, w: playW, h: half },
     },
     lineH: zoneH,
@@ -430,6 +455,8 @@ export function tiltOverhang(w: number, h: number): { left: number; right: numbe
 interface LinePlan {
   xs: number[];
   showing: number;
+  /** How wide the line's cards are drawn, tilt included, from the first's left. */
+  used: number;
 }
 
 /**
@@ -452,7 +479,7 @@ function planLine(
   pre: readonly number[] = [],
 ): LinePlan {
   const n = tapped.length;
-  if (n === 0) return { xs: [], showing: 1 };
+  if (n === 0) return { xs: [], showing: 1, used: 0 };
   const w = g.cardW * s;
   const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
   const at: number[] = [];
@@ -481,7 +508,64 @@ function planLine(
   const left = (centred ? x0 + Math.max(0, (avail - used) / 2) : x0) + lead;
   let showing = 1;
   for (let i = 1; i < n; i++) showing = Math.min(showing, ((at[i]! - at[i - 1]!) * squeeze) / w);
-  return { xs: at.map((a) => left + a * squeeze), showing: Math.min(1, showing) };
+  return { xs: at.map((a) => left + a * squeeze), showing: Math.min(1, showing), used };
+}
+
+/**
+ * Spec 0059 item 10 -- the gap between the two kinds sharing a line, in
+ * reference pitches at the line's size (the canvas's half a card's step).
+ */
+export const SHARE_GAP = 0.5;
+/**
+ * Spec 0059 item 10 -- the least share of a card a shared line may show
+ * before the next sharing (or a size step) is tried: the same half as any
+ * line would be SHOW_MIN; the owner chose (2026-11-07) the canvas's rule:
+ * a shared line is full as soon as its cards would overlap at all, so
+ * cards stay side by side and the side shrinks after that (measured at
+ * 1920x1080: the land line shared to 30 cards, the creature line to 47).
+ */
+export const SHARE_SHOW = 1;
+
+/**
+ * Spec 0059 item 10 -- two kinds sharing one line: the line's own kind from
+ * its left end (as lands always start), the other permanents from its right
+ * end -- the oldest at the very end, each newer one further in, so nobody
+ * moves when one arrives -- with SHARE_GAP between. Each kind keeps to its
+ * own stretch of the line; when the two would meet, both squeeze, each by
+ * about the same share, so no card of one ever lies on a card of the other.
+ */
+function planShared(
+  host: { tapped: readonly boolean[]; extra: readonly number[]; pre: readonly number[] },
+  others: { tapped: readonly boolean[]; extra: readonly number[]; pre: readonly number[] },
+  x0: number,
+  x1: number,
+  s: number,
+  g: Geometry,
+): { host: LinePlan & { x0: number; x1: number }; others: LinePlan & { x0: number; x1: number } } {
+  const gap = SHARE_GAP * g.referencePitch * s;
+  const plan = (part: typeof host, a: number, b: number) =>
+    planLine(part.tapped, a, b, s, g, false, part.extra, part.pre);
+  // Each kind as wide as it would like (nothing squeezed), and as narrow as
+  // it can be (all squeezed onto its first card).
+  const wide = (part: typeof host) => plan(part, x0, x0 + 1e9).used;
+  const narrow = (part: typeof host) => plan(part, x0, x0).used;
+  const [hw, ow] = [wide(host), wide(others)];
+  const [hn, on] = [narrow(host), narrow(others)];
+  const avail = x1 - x0 - gap;
+  let hostW = hw;
+  let otherW = ow;
+  if (hw + ow > avail) {
+    const spare = hw - hn + (ow - on);
+    const q = spare > 0 ? Math.max(0, Math.min(1, (avail - hn - on) / spare)) : 0;
+    hostW = hn + q * (hw - hn);
+    otherW = on + q * (ow - on);
+  }
+  const hostEnd = x0 + hostW;
+  const otherStart = x1 - otherW;
+  return {
+    host: { ...plan(host, x0, hostEnd), x0, x1: hostEnd },
+    others: { ...plan(others, otherStart, x1), x0: otherStart, x1 },
+  };
 }
 
 /** Split a kind's slots over n lines, in arrival order, as evenly as can be. */
@@ -494,10 +578,20 @@ function share<T>(slots: readonly T[], n: number): T[][] {
 /** A side's lines at one size: each line's kind, rectangle and plan. */
 interface SidePlan {
   scale: number;
-  lines: { kind: LineKind; index: number; rect: Rect; slots: number[]; plan: LinePlan }[];
+  /** Each line, or each kind's stretch of a shared line (spec 0059). */
+  lines: {
+    kind: LineKind;
+    index: number;
+    rect: Rect;
+    slots: readonly number[];
+    plan: LinePlan;
+    shared?: boolean;
+  }[];
   showing: number;
-  /** Every kind present has a line of its own inside the side's band at this size. */
+  /** Every line the side needs fits inside its band at this size. */
   fits: boolean;
+  /** Spec 0059 — which line the other permanents share, if any. */
+  sharing: Sharing | null;
 }
 
 /**
@@ -510,10 +604,24 @@ type LineKind = Kind | "front";
 const KIND_ORDER: readonly LineKind[] = ["front", "creature", "other", "land"];
 
 /**
+ * Spec 0059 item 10 (owner 2026-11-07, "share a line before shrinking"):
+ * which line the other permanents share when a side has more kinds of line
+ * than its band holds -- first the land line, then the line of creatures
+ * not in combat (behind the front line). The front line is never shared.
+ */
+export type Sharing = "land" | "creature";
+const SHARINGS: readonly (Sharing | null)[] = [null, "land", "creature"];
+
+/**
  * Spec 0040 — a side's lines at size s. Every kind present gets a line; a
  * spare line goes, one at a time, to the kind whose cards overlap most;
  * creature lines run from the middle of the table outward, the rest next,
  * land lines from the player's edge inward.
+ *
+ * Spec 0059 — with `sharing`, the other permanents take no line of their
+ * own: they stand at the right end of the land line ("land") or of the
+ * line of creatures not in combat ("creature"), planShared. Null when that
+ * sharing cannot be (no other permanents, or nothing to share with).
  */
 function planSide(
   side: Side,
@@ -522,7 +630,8 @@ function planSide(
   g: Geometry,
   extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
   pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
-): SidePlan {
+  sharing: Sharing | null = null,
+): SidePlan | null {
   const half = g.halves[side];
   const lineH = g.lineH * s;
   const pitch = g.linePitch * s;
@@ -530,30 +639,34 @@ function planSide(
   const x0 = g.play.x + g.inset;
   const x1 = g.play.x + g.play.w - g.inset;
   const present = KIND_ORDER.filter((k) => (kinds.get(k)?.length ?? 0) > 0);
-  const count = new Map(present.map((k) => [k, 1]));
+  if (sharing && (!present.includes("other") || !present.includes(sharing))) return null;
+  // The kinds with lines of their own.
+  const own = sharing ? present.filter((k) => k !== "other") : present;
+  const count = new Map(own.map((k) => [k, 1]));
   const indices = (k: LineKind) => kinds.get(k)!.map((_, i) => i);
+  const partOf = (k: LineKind, part: readonly number[]) => ({
+    tapped: part.map((i) => kinds.get(k)![i]!),
+    extra: part.map((i) => extras.get(k)?.[i] ?? 0),
+    pre: part.map((i) => pres.get(k)?.[i] ?? 0),
+  });
   const plansOf = (k: LineKind, n: number) =>
-    share(indices(k), n).map((part) => ({
-      slots: part,
-      plan: planLine(
-        part.map((i) => kinds.get(k)![i]!),
-        x0,
-        x1,
-        s,
-        g,
-        k !== "land",
-        part.map((i) => extras.get(k)?.[i] ?? 0),
-        part.map((i) => pres.get(k)?.[i] ?? 0),
-      ),
-    }));
+    share(indices(k), n).map((part) => {
+      const p = partOf(k, part);
+      return {
+        slots: part,
+        plan: planLine(p.tapped, x0, x1, s, g, k !== "land", p.extra, p.pre),
+      };
+    });
   const showingOf = (k: LineKind, n: number) =>
     Math.min(...plansOf(k, n).map((p) => p.plan.showing));
-  for (let spare = total - present.length; spare > 0; spare--) {
+  for (let spare = total - own.length; spare > 0; spare--) {
     let worst: LineKind | null = null;
     let least = 1 - 1e-9;
-    for (const k of present) {
+    for (const k of own) {
       // The front line is one line: its cards face each other across the middle.
       if (k === "front") continue;
+      // A shared line stays one line (sharing is only ever for want of lines).
+      if (k === sharing) continue;
       const showing = showingOf(k, count.get(k)!);
       if (showing < least) {
         least = showing;
@@ -569,7 +682,29 @@ function planSide(
     side === "opponent" ? half.y + j * pitch : half.y + half.h - lineH - j * pitch;
   const lines: SidePlan["lines"] = [];
   let j = 0;
-  for (const k of present) {
+  for (const k of own) {
+    if (k === sharing) {
+      // The shared line: its own kind from the left, the others from the
+      // right, newest furthest in (so they are listed right to left).
+      const y = k === "land" ? fromEdge(0) : fromMiddle(j++);
+      const mine = indices(k);
+      const theirs = indices("other").reverse();
+      const both = planShared(partOf(k, mine), partOf("other", theirs), x0, x1, s, g);
+      for (const [kind, slots, p] of [
+        [k, mine, both.host],
+        ["other", theirs, both.others],
+      ] as const) {
+        lines.push({
+          kind,
+          index: 0,
+          rect: { x: p.x0, y, w: p.x1 - p.x0, h: lineH },
+          slots,
+          plan: p,
+          shared: true,
+        });
+      }
+      continue;
+    }
     plansOf(k, count.get(k)!).forEach((p, index) => {
       const y = k === "land" ? fromEdge(index) : fromMiddle(j++);
       lines.push({ kind: k, index, rect: { x: x0, y, w: x1 - x0, h: lineH }, ...p });
@@ -579,7 +714,8 @@ function planSide(
     scale: s,
     lines,
     showing: Math.min(1, ...lines.map((l) => l.plan.showing)),
-    fits: present.length <= total,
+    fits: own.length <= total,
+    sharing,
   };
 }
 
@@ -587,6 +723,12 @@ function planSide(
  * Spec 0040 — a side's size: the largest step at which every card shows at
  * least SHOW_MIN of itself (GROW_SHOW for a step above the side's previous
  * size); at the floor, whatever it takes, overcrowded below the sliver.
+ *
+ * Spec 0059 — at each size, a side with more kinds of line than its band
+ * holds first lets the other permanents share the land line, then the line
+ * of creatures not in combat; only when no sharing shows every card well
+ * enough does it step down. So a side in combat stays full size until a
+ * shared line itself runs out of room.
  */
 function sizeSide(
   side: Side,
@@ -596,16 +738,24 @@ function sizeSide(
   extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
   pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
 ): SidePlan & { overcrowded: boolean } {
-  let plan: SidePlan | null = null;
+  let floor: SidePlan | null = null;
   for (const s of SIZE_STEPS) {
-    plan = planSide(side, kinds, s, g, extras, pres);
     const needed = previous !== undefined && s > previous + 1e-9 ? GROW_SHOW : SHOW_MIN;
-    // Phase 10 A-11/A-12: with combat's front line a side can have four
-    // kinds of line; a size whose band holds fewer lines is never taken
-    // (its lines would cover each other), however well its cards show.
-    if (plan.fits && plan.showing >= needed - 1e-9) return { ...plan, overcrowded: false };
+    floor = null;
+    for (const sharing of SHARINGS) {
+      const plan = planSide(side, kinds, s, g, extras, pres, sharing);
+      // Phase 10 A-11/A-12: a size whose band holds fewer lines than the
+      // side needs is never taken (its lines would cover each other).
+      if (!plan || !plan.fits) continue;
+      floor ??= plan;
+      const shared = Math.min(1, ...plan.lines.filter((l) => l.shared).map((l) => l.plan.showing));
+      if (plan.showing >= needed - 1e-9 && shared >= SHARE_SHOW - 1e-9)
+        return { ...plan, overcrowded: false };
+      // Spec 0059: sharing is only for want of lines.
+      if (sharing === null) break;
+    }
   }
-  return { ...plan!, overcrowded: plan!.showing < SLIVER - 1e-9 };
+  return { ...floor!, overcrowded: floor!.showing < SLIVER - 1e-9 };
 }
 
 // --- layout -------------------------------------------------------------------
@@ -702,6 +852,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   // attackers (Phase 10 A-12).
   const lines: Line[] = [];
   const scales: Record<Side, number> = { viewer: 1, opponent: 1 };
+  const sharing: Record<Side, Sharing | null> = { viewer: null, opponent: null };
   const attackingSide: Side =
     groups.has("viewer:front") && !groups.has("opponent:front") ? "viewer" : "opponent";
   const sides: Side[] =
@@ -758,6 +909,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     );
     const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras, pres);
     scales[side] = plan.scale;
+    sharing[side] = plan.sharing;
     if (plan.overcrowded) overcrowded.push(side);
     const w = g.cardW * plan.scale;
     const h = g.cardH * plan.scale;
@@ -774,6 +926,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
         kind: line.kind === "front" ? "creature" : line.kind,
         rect: line.rect,
         scale: plan.scale,
+        ...(line.shared ? { shared: true } : {}),
       });
       const top = line.rect.y + (line.rect.h - h) / 2;
       // A-12: the blockers' places, each group facing its attacker.
@@ -885,5 +1038,5 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     });
   });
 
-  return { geometry: g, boxes, slots, rowOf, lines, scales, overcrowded };
+  return { geometry: g, boxes, slots, rowOf, lines, scales, sharing, overcrowded };
 }

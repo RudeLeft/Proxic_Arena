@@ -156,3 +156,25 @@ All taken 2026-10-30 (see the top).
 - *Draw order.* Up to four lines a side, so a line's cards are stacked
   four apart (was ten) and a rider sits 2000 above them, keeping every
   battlefield card under the lines and effects layers.
+
+**Amendment 2 (2026-11-07, spec 0059, owner-approved on the canvas
+"table-1107").** Two changes, both made by spec 0059, which is their
+authority:
+
+- *The land line sits lower (item 11, Option 1).* A side's band reaches
+  on, at the player's edge only, to 4 px (at 1920×1080; `LAND_GAP` = 4/1080
+  of the height) above the hand's resting top -- the opponent's band is
+  0.0870–0.4975 of the height (was 0.0964–0.4975), mirrored for the
+  viewer. Lines are still laid from the middle out and land lines from the
+  edge in, so only the land line moves (about 10 px nearer the hand; a
+  land's own edge is now about 8 px from the hand, was 18). The number of
+  lines a band holds at each size is unchanged (3 at 100–80%, 4 at
+  75–70%).
+- *One kind to a line, except for want of lines (item 10).* When a side
+  has more kinds of line than its band holds at a size (combat's front
+  line makes four), the other permanents first share the land line (lands
+  from its left end, the others from its right, half a card's step
+  between), then the line of creatures not in combat; the side steps down
+  a size only when no such sharing shows every card at least half
+  (`SHOW_MIN`). Outside combat nothing changes. The details are in the
+  layout contract's §7b, as amended.

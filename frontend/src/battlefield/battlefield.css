@@ -660,6 +660,97 @@
   color: #111;
 }
 
+/* Spec 0059 item 9 (owner 2026-11-07, look B): an unblocked attacker wears a
+   badge of what it attacks -- the player's picture, or a planeswalker's or
+   battle's mark -- on its right under the name (the canvas's place), on its
+   left when the line is squeezed and the next card covers its right. Its
+   long line shows only while it is pointed at. */
+.bf-aim-at {
+  position: absolute;
+  right: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--card-h) * 0.02);
+  pointer-events: none;
+  z-index: 3;
+}
+/* Squeezed: low on the left, over the picture (the pile's count is under
+   the name, the ATTACKING tag in the middle, the power at the bottom). */
+.bf-aim-at.bf-aim-left {
+  right: auto;
+  left: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.6);
+  align-items: flex-start;
+}
+.bf-aim {
+  width: calc(var(--card-h) * 0.2);
+  height: calc(var(--card-h) * 0.2);
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2f7f7a;
+  box-shadow:
+    0 0 0 1px var(--bf-attack),
+    0 1px 4px rgb(0 0 0 / 70%);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.bf-aim-player img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* A planeswalker or battle: a blue diamond (the canvas's), its mark upright. */
+.bf-aim-card {
+  border-radius: 18%;
+  background: #3b6fb6;
+  transform: rotate(45deg) scale(0.85);
+}
+.bf-aim-card svg {
+  width: 70%;
+  height: 70%;
+  transform: rotate(-45deg);
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bf-aim-battle {
+  background: #8a4a2a;
+}
+/* While pointed at: whom or what, under the ATTACKING tag, over the picture
+   (clear of the card's name, its state and its bars). */
+.bf-aim-name {
+  position: absolute;
+  right: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.64);
+  z-index: 3;
+  pointer-events: none;
+  font-family: var(--pa-card);
+  font-size: calc(var(--card-h) * 0.07);
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.22em 0.4em;
+  border-radius: 0.3em;
+  white-space: nowrap;
+  max-width: calc(var(--card-h) * 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #1a1206;
+  background: var(--bf-attack);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 70%);
+}
+.bf-aim-name.bf-aim-left {
+  right: auto;
+  left: calc(var(--card-h) * 0.26);
+  top: calc(var(--card-h) * 0.66);
+}
+
 /* --- Auras and Equipment: name tags on the host (AMENDMENT 4) ------------ */
 
 /* Phase 10 A-17 (owner 2026-11-06): attached cards are tabs on the host's

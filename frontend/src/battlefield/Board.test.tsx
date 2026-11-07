@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Board,
@@ -767,11 +767,17 @@ describe("Board lines and effects", () => {
       (g) => `${g.getAttribute("data-from")}>${g.getAttribute("data-to")}`,
     );
 
-  it("fire lines from unblocked attackers; blockers stand facing what they block (A-12)", () => {
+  it("fire lines from unblocked attackers, on pointing; blockers stand facing what they block (A-12)", () => {
     const c = render(scene(2)).container;
+    // Spec 0059 item 9: no attack line at rest; the Goblin token's badge.
+    expect(lines(c, "attack")).toEqual([]);
+    const token = c.querySelector('[data-object-id="card:203"]')!;
+    fireEvent.pointerEnter(token);
     // Serra Angel and White Knight are blocked: they hit their blockers,
     // not the player, so only the Goblin token's line is drawn.
     expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
+    fireEvent.pointerLeave(token);
+    expect(lines(c, "attack")).toEqual([]);
     // Each blocker stands facing its attacker: no shield lines.
     expect(lines(c, "block")).toEqual([]);
     const blocks = (id: string) =>
@@ -788,6 +794,109 @@ describe("Board lines and effects", () => {
     expect(guide.getAttribute("aria-label")).toContain("blocking Serra Angel");
     // The lines layer takes no clicks.
     expect(c.querySelector(".bf-lines")!.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("F-0059-A: each unblocked attacker wears a badge of what it attacks; its line shows on pointing, focus or a tap", () => {
+    const s = combatScript(1);
+    const faces = new Map([
+      [1, "/face-1.webp"],
+      [2, "/face-2.webp"],
+    ]);
+    const c = render(
+      <Board
+        battlefield={s.board.battlefield}
+        hand={s.board.hand}
+        viewerSeat={s.board.viewerSeat}
+        artUrl={art}
+        combat={s.combat}
+        stack={s.stack}
+        playerFaces={faces}
+      />,
+    ).container;
+    const you = s.board.viewerSeat;
+    const badge = (id: string) =>
+      c
+        .querySelector(`[data-object-id="${id}"]`)!
+        .closest(".bf-slot")!
+        .querySelector<HTMLElement>("[data-attack-badge]");
+    const nameOf = (id: string) =>
+      c
+        .querySelector(`[data-object-id="${id}"]`)!
+        .closest(".bf-slot")!
+        .querySelector(".bf-aim-name");
+    // Serra Angel and White Knight attack you: your picture, as on your plate.
+    for (const id of ["card:201", "card:202"]) {
+      expect(badge(id)!.dataset.attackBadge).toBe(`player:${you}`);
+      expect(badge(id)!.querySelector("img")!.getAttribute("src")).toBe(faces.get(you));
+    }
+    // The Goblin token attacks The Wandering Emperor: a planeswalker's mark.
+    expect(badge("card:203")!.dataset.attackBadge).toBe("card:215");
+    expect(badge("card:203")!.querySelector(".bf-aim-card")).not.toBeNull();
+    expect(badge("card:203")!.querySelector("img")).toBeNull();
+    // The words say it too; nothing that is not attacking has a badge.
+    const token = c.querySelector('[data-object-id="card:203"]')!;
+    expect(token.getAttribute("aria-label")).toContain("attacking The Wandering Emperor");
+    expect(c.querySelectorAll("[data-attack-badge]")).toHaveLength(3);
+    // At rest: no attack line, no name.
+    expect(lines(c, "attack")).toEqual([]);
+    expect(nameOf("card:203")).toBeNull();
+    // Pointing: its line, and the planeswalker's name by the badge -- and
+    // nothing on the table moves for it (P10-R1).
+    calls.length = 0;
+    fireEvent.pointerEnter(token);
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
+    expect(calls).toHaveLength(0);
+    expect(nameOf("card:203")!.textContent).toBe("The Wandering Emperor");
+    expect(token.getAttribute("data-aimed")).toBe("true");
+    fireEvent.pointerLeave(token);
+    expect(lines(c, "attack")).toEqual([]);
+    // The keyboard: focus shows it, leaving hides it.
+    const angel = c.querySelector('[data-object-id="card:201"]')!;
+    fireEvent.focus(angel);
+    expect(lines(c, "attack")).toEqual([`card:201>player:${you}`]);
+    expect(nameOf("card:201")!.textContent).toBe("You");
+    fireEvent.blur(angel);
+    expect(lines(c, "attack")).toEqual([]);
+    // A touch screen has no pointing: a tap shows it, a second tap hides it.
+    // (jsdom has no PointerEvent: one that carries its pointerType.)
+    vi.stubGlobal(
+      "PointerEvent",
+      class extends MouseEvent {
+        pointerType: string;
+        constructor(type: string, init?: PointerEventInit) {
+          super(type, init);
+          this.pointerType = init?.pointerType ?? "mouse";
+        }
+      },
+    );
+    fireEvent.pointerDown(token, { pointerType: "touch" });
+    fireEvent.pointerLeave(token, { pointerType: "touch" });
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
+    fireEvent.pointerDown(token, { pointerType: "touch" });
+    expect(lines(c, "attack")).toEqual([]);
+  });
+
+  it("F-0059-A: without the players' pictures, a badge shows the default face; the other player's name on pointing", () => {
+    const s = combatScript(1);
+    // Seen from the attacker's side: the badge is the defender's.
+    const attacker = s.board.battlefield.find((c) => c.id === "card:201")!.seat;
+    const c = render(
+      <Board
+        battlefield={s.board.battlefield}
+        hand={[]}
+        viewerSeat={attacker}
+        opponentName="Pat"
+        artUrl={art}
+        combat={s.combat}
+        stack={s.stack}
+      />,
+    ).container;
+    const angel = c.querySelector('[data-object-id="card:201"]')!;
+    const badge = angel.closest(".bf-slot")!.querySelector("[data-attack-badge]")!;
+    expect(badge.querySelector("img")!.getAttribute("src")).toBeTruthy();
+    fireEvent.pointerEnter(angel);
+    expect(angel.closest(".bf-slot")!.querySelector(".bf-aim-name")!.textContent).toBe("Pat");
+    expect(angel.getAttribute("aria-label")).toContain("attacking Pat");
   });
 
   it("A-11: attackers step forward over 600 ms, each a beat after the one before", () => {
@@ -1092,13 +1201,20 @@ describe("Board lines and effects", () => {
     );
   }
 
-  it("300 identical attackers are 20 piles of 15, a fire line and a fight each (specs 0003, 0036)", () => {
+  it("300 identical attackers are 20 piles of 15, a badge, a fire line on pointing and a fight each (specs 0003, 0036, 0059)", () => {
     const view = render(horde(4, false));
-    const fire = view.container.querySelectorAll('[data-line="attack"]');
-    expect(fire).toHaveLength(20);
-    expect([...fire].every((line) => line.getAttribute("data-count") === "15")).toBe(true);
+    // Spec 0059 item 9: a badge each, no lines at rest.
+    expect(view.container.querySelectorAll('[data-attack-badge="player:1"]')).toHaveLength(20);
+    expect(view.container.querySelectorAll('[data-line="attack"]')).toHaveLength(0);
     const piles = view.container.querySelectorAll('[data-pile="15"]');
     expect(piles).toHaveLength(20);
+    // Pointing at one pile: its one line, standing for its 15.
+    fireEvent.pointerEnter(piles[3]!);
+    const fire = view.container.querySelectorAll('[data-line="attack"]');
+    expect(fire).toHaveLength(1);
+    expect(fire[0]!.getAttribute("data-count")).toBe("15");
+    expect(fire[0]!.getAttribute("data-from")).toBe(piles[3]!.getAttribute("data-object-id"));
+    fireEvent.pointerLeave(piles[3]!);
     calls.length = 0;
     view.rerender(horde(5, false));
     // One fight per pile, each lunging at your plate: a slash across it,
@@ -1131,8 +1247,15 @@ describe("Board lines and effects", () => {
     expect(c.querySelector('[data-object-id="card:211"]')!.getAttribute("data-blocks")).toBe(
       "card:5000",
     );
-    // The 299 unblocked: a line per pile; the blocked one none; no shield line.
-    expect(lines(c, "attack")).toHaveLength(20);
+    // The 299 unblocked: a badge per pile; the blocked one none; no shield
+    // line, and (spec 0059) no attack line until one is pointed at.
+    expect(c.querySelectorAll("[data-attack-badge]")).toHaveLength(20);
+    expect(lines(c, "attack")).toEqual([]);
+    const blocked = c.querySelector('[data-object-id="card:5000"]')!;
+    expect(blocked.getAttribute("data-aims")).toBeNull();
+    expect(blocked.closest(".bf-slot")!.querySelector("[data-attack-badge]")).toBeNull();
+    fireEvent.pointerEnter(blocked);
+    expect(lines(c, "attack")).toEqual([]);
     expect(lines(c, "block")).toEqual([]);
   });
 
