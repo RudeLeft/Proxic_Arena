@@ -4,9 +4,8 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, stackCaption, type BoardCard, type Merge, type StackView } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
-import { TAPPED_ORIGIN, layout } from "./layout";
-import { centreOf } from "./effects";
-import type { AnchorId } from "./motion";
+import { TAPPED_ORIGIN, inCombat, layout } from "./layout";
+import { placement, type AnchorId } from "./motion";
 
 /**
  * The drawn board — PHASE_07 §7.42 and §7.45, BATTLEFIELD_RENDERING.md §7
@@ -686,10 +685,15 @@ describe("Board movement", () => {
  */
 describe("Board lines and effects", () => {
   const size = { width: 1920, height: 1080 };
+  type Played = {
+    onfinish: (() => void) | null;
+    playState: string;
+  };
   const calls: {
     element: Element;
     frames: Keyframe[];
     options: KeyframeAnimationOptions;
+    animation: Played;
   }[] = [];
   let reduced = false;
   beforeEach(() => {
@@ -710,8 +714,19 @@ describe("Board lines and effects", () => {
       frames: Keyframe[],
       options: KeyframeAnimationOptions,
     ) {
-      calls.push({ element: this, frames, options });
-      return { onfinish: null, oncancel: null, cancel() {} };
+      const end = Number(options.delay ?? 0) + Number(options.duration ?? 0);
+      const animation = {
+        onfinish: null,
+        oncancel: null,
+        cancel() {},
+        id: options.id ?? "",
+        playState: "running",
+        currentTime: 0,
+        playbackRate: 1,
+        effect: { getComputedTiming: () => ({ endTime: end }) },
+      };
+      calls.push({ element: this, frames, options, animation });
+      return animation;
     };
   });
   afterEach(() => {
@@ -744,23 +759,67 @@ describe("Board lines and effects", () => {
       (g) => `${g.getAttribute("data-from")}>${g.getAttribute("data-to")}`,
     );
 
-  it("fire lines from unblocked attackers; blockers ride on what they block (spec 0037)", () => {
+  it("fire lines from unblocked attackers; blockers stand facing what they block (A-12)", () => {
     const c = render(scene(2)).container;
     // Serra Angel and White Knight are blocked: they hit their blockers,
     // not the player, so only the Goblin token's line is drawn.
     expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
-    // Each blocker rides on its attacker: no shield lines.
+    // Each blocker stands facing its attacker: no shield lines.
     expect(lines(c, "block")).toEqual([]);
-    const rides = (id: string) =>
-      c.querySelector(`[data-object-id="${id}"]`)!.getAttribute("data-rides");
-    expect([rides("card:211"), rides("card:212"), rides("card:213")]).toEqual([
+    const blocks = (id: string) =>
+      c.querySelector(`[data-object-id="${id}"]`)!.getAttribute("data-blocks");
+    expect([blocks("card:211"), blocks("card:212"), blocks("card:213")]).toEqual([
       "card:201",
       "card:201",
       "card:202",
     ]);
-    expect(c.querySelector('[data-object-id="card:211"]')!.textContent).toContain("BLOCKING");
+    const guide = c.querySelector('[data-object-id="card:211"]')!;
+    expect(guide.textContent).toContain("BLOCKING");
+    expect(guide.getAttribute("data-blocking")).toBe("true");
+    expect(guide.classList.contains("bf-blocking")).toBe(true);
+    expect(guide.getAttribute("aria-label")).toContain("blocking Serra Angel");
     // The lines layer takes no clicks.
     expect(c.querySelector(".bf-lines")!.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("A-11: attackers step forward over 600 ms, each a beat after the one before", () => {
+    const view = render(scene(0));
+    calls.length = 0;
+    view.rerender(scene(1));
+    const out = layout(combatScript(1).board, size);
+    const steps = ["card:201", "card:202", "card:203"].map((id) => {
+      const call = calls.find(
+        (c) => c.element.querySelector(`:scope > button[data-object-id="${id}"]`) !== null,
+      )!;
+      return call;
+    });
+    expect(steps.map((c) => c.options.duration)).toEqual([600, 600, 600]);
+    expect(steps.map((c) => c.options.delay).sort((p, q) => Number(p) - Number(q))).toEqual([
+      0, 120, 240,
+    ]);
+    // Each ends exactly where the layout puts it: the front line.
+    for (const [i, id] of ["card:201", "card:202", "card:203"].entries()) {
+      const last = steps[i]!.frames[steps[i]!.frames.length - 1]!;
+      const box = out.boxes.get(id)!;
+      expect(String(last.transform)).toContain(`rotate(${box.rotation}deg)`);
+      expect(out.rowOf.get(id)).toBe("opponent:creature-1");
+    }
+  });
+
+  it("A-12: blockers glide up to face their attacker over 650 ms, a beat apart", () => {
+    const view = render(scene(1));
+    calls.length = 0;
+    view.rerender(scene(2));
+    const moved = ["card:211", "card:212", "card:213"].map(
+      (id) =>
+        calls.find(
+          (c) => c.element.querySelector(`:scope > button[data-object-id="${id}"]`) !== null,
+        )!,
+    );
+    expect(moved.map((c) => c.options.duration)).toEqual([650, 650, 650]);
+    expect(moved.map((c) => c.options.delay).sort((p, q) => Number(p) - Number(q))).toEqual([
+      0, 160, 320,
+    ]);
   });
 
   it("no lines once combat ends", () => {
@@ -795,44 +854,187 @@ describe("Board lines and effects", () => {
     ).toBe("card:214");
   });
 
-  it("combat damage: attackers swoop, everything hit bursts and shows its number", () => {
+  const rest = "translate(0px, 0px) rotate(0deg) scale(1)";
+  const fightsOf = () => calls.filter((call) => call.options.id === "fight");
+  const fightOn = (id: string) =>
+    fightsOf().find((c) => c.element.getAttribute("data-object-id") === id);
+  /** The first moment a fighter's frames leave its rest. */
+  const movesAt = (frames: Keyframe[]) =>
+    Number(frames.find((f) => f.transform !== rest)?.offset ?? 1);
+
+  it("A-13: combat damage plays one fight at a time, first and last frames exact", () => {
     const view = render(scene(4));
+    calls.length = 0;
     view.rerender(scene(5));
-    const swoops = calls.filter((call) => call.options.id === "swoop");
-    // Serra Angel and the Goblin token swoop; blockers do not.
-    const swooping = swoops.map(
-      (call) => call.element.querySelector("button")!.getAttribute("data-object-id")!,
-    );
-    expect(swooping.sort()).toEqual(["card:201", "card:203"]);
-    for (const call of swoops) {
-      expect(call.frames[1]!.offset).toBe(0.4);
-      expect(call.frames[0]!.transform).toBe(call.frames[3]!.transform); // and back
+    // Serra Angel against its two blockers, then the Goblin token at the
+    // Emperor. White Knight dealt nothing (first strike was its step).
+    const angel = fightOn("card:201")!;
+    const token = fightOn("card:203")!;
+    const emperor = fightOn("card:215")!;
+    expect(fightOn("card:202")).toBeUndefined();
+    for (const call of [angel, token, emperor]) {
+      expect(call.frames[0]!.transform).toBe(rest);
+      expect(call.frames[call.frames.length - 1]!.transform).toBe(rest);
+      expect(call.frames[0]!.offset).toBe(0);
+      expect(call.frames[call.frames.length - 1]!.offset).toBe(1);
+      // One clock for all of it, so a click hurries every part together.
+      expect(call.options.duration).toBe(angel.options.duration);
+      expect(call.options.easing).toBe("linear");
     }
-    const numbers = [...view.container.querySelectorAll("[data-damage-number]")].map(
-      (n) => `${n.getAttribute("data-damage-number")} ${n.textContent}`,
-    );
-    expect(numbers.sort()).toEqual(
-      ["card:201 −3", "card:211 −2", "card:212 −2", "card:215 −1"].sort(),
-    );
-    expect(view.container.querySelectorAll("[data-impact]")).toHaveLength(4);
-    // Serra Angel is hit where it landed, but its number rises at home.
-    const home = centreOf(
-      layout(combatScript(5).board, size).boxes.get("card:201")!,
-      TAPPED_ORIGIN,
-    );
-    const angelNumber = view.container.querySelector<HTMLElement>(
-      '[data-damage-number="card:201"]',
-    )!;
-    const angelBurst = view.container.querySelector<HTMLElement>('[data-impact="card:201"]')!;
-    expect(parseFloat(angelNumber.style.left)).toBeCloseTo(home.x, 3);
-    expect(parseFloat(angelNumber.style.top)).toBeCloseTo(home.y, 3);
-    // Its blockers ride on it (spec 0037), so the swoop is short -- but
-    // the burst is still where it landed, not at home.
-    expect(Math.abs(parseFloat(angelBurst.style.top) - home.y)).toBeGreaterThan(3);
+    // In order: the blocked fight first, then the unblocked attacker.
+    expect(movesAt(angel.frames)).toBeLessThan(movesAt(token.frames));
+    // The fighters are raised above the dimming while it plays.
+    const raised = fightsOf().filter((c) => c.element.classList.contains("bf-slot"));
+    expect(raised.length).toBe(3);
+    // The dead fight, then shatter after the beat: their ghosts.
+    for (const id of ["card:211", "card:212"]) {
+      const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
+      expect(ghost.getAttribute("data-fought")).toBe("true");
+      expect(ghost.getAttribute("data-fate")).toBe("defeated");
+      const leaving = calls.find((c) => c.element === ghost)!;
+      expect(Number(leaving.options.delay)).toBeGreaterThan(1500);
+      const fighting = calls.find(
+        (c) => c.element.parentElement === ghost && c.options.id === "fight",
+      )!;
+      expect(fighting.frames[0]!.transform).toBe(rest);
+    }
+    const marks = (kind: string) => [
+      ...view.container.querySelectorAll<HTMLElement>(`[data-fight="${kind}"]`),
+    ];
+    expect(marks("caption").map((m) => m.textContent)).toEqual([
+      "Damage · the Serra Angel against your Goblin Guide and Llanowar Elves",
+      "Damage · Your opponent's Goblin Token hit The Wandering Emperor",
+    ]);
+    expect(
+      marks("number")
+        .map((m) => `${m.dataset.of} ${m.textContent}`)
+        .sort(),
+    ).toEqual(["card:201 −3", "card:211 −2", "card:212 −2", "card:215 −1"]);
+    // Three slash marks across each card struck.
+    expect(marks("slash")).toHaveLength(12);
+    expect(marks("dim")).toHaveLength(1);
+    expect(marks("edge")).toHaveLength(0);
     // A wave plays once: the same damage again draws nothing new.
     calls.length = 0;
     view.rerender(scene(5));
-    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
+    expect(fightsOf()).toHaveLength(0);
+  });
+
+  it("A-13: first strike is its own wave; its dead shatter after their fight", () => {
+    const view = render(scene(2));
+    calls.length = 0;
+    view.rerender(scene(3));
+    const knight = fightOn("card:202")!;
+    expect(knight.frames[0]!.transform).toBe(rest);
+    const caption = view.container.querySelector('[data-fight="caption"]')!;
+    expect(caption.textContent).toBe("First strike · the White Knight against your Grizzly Bears");
+    const ghost = view.container.querySelector('[data-ghost-of="card:213"]')!;
+    expect(ghost.getAttribute("data-fought")).toBe("true");
+  });
+
+  /**
+   * The damage board as the game sends it when the attacker dies: Serra
+   * Angel and both blockers dead, Forge's combat already over (no
+   * attackers left), the rest laid out at home -- the RESULT.
+   */
+  function deadly() {
+    const s = combatScript(5);
+    const battlefield = s.board.battlefield.filter((c) => c.id !== "card:201");
+    const departures = new Map(s.departures);
+    departures.set("card:201", "opponent:graveyard");
+    return (
+      <Board
+        battlefield={battlefield}
+        hand={s.board.hand}
+        viewerSeat={s.board.viewerSeat}
+        artUrl={art}
+        departures={departures}
+        combat={null}
+        stack={[]}
+        damage={s.damage}
+      />
+    );
+  }
+  /** Where a card stood in combat (step 4, as the board laid it out then). */
+  const combatSpot = (id: string) => {
+    const s = combatScript(4);
+    const box = layout(
+      { ...s.board, battlefield: inCombat(s.board.battlefield, s.combat!) },
+      size,
+    ).boxes.get(id)!;
+    return placement(
+      box,
+      layout(s.board, size).geometry.cardW,
+      layout(s.board, size).geometry.cardH,
+      TAPPED_ORIGIN,
+    ).transform;
+  };
+
+  it("A-13: from the damage board's first frame, everyone stands where they fought -- the dead too", () => {
+    const view = render(scene(4));
+    calls.length = 0;
+    view.rerender(deadly());
+    // The dead: drawn at once, at their combat spots, until they shatter.
+    for (const id of ["card:201", "card:211", "card:212"]) {
+      const ghost = view.container.querySelector<HTMLElement>(`[data-ghost-of="${id}"]`)!;
+      expect(ghost.style.transform).toBe(combatSpot(id));
+      expect(ghost.getAttribute("data-fought")).toBe("true");
+    }
+    // The living: drawn where they stood in combat, not at home (the token
+    // in front, Walking Corpse a line back) -- by the drawing itself, not
+    // an animation's first frame.
+    for (const id of ["card:203", "card:214", "card:215"]) {
+      const slot = view.container
+        .querySelector(`[data-object-id="${id}"]`)!
+        .closest<HTMLElement>(".bf-slot")!;
+      expect(slot.style.transform).toBe(combatSpot(id));
+    }
+    // Nothing glides home yet, and the fights start at once.
+    expect(
+      calls.filter((c) => c.element.matches(".bf-slot:not(.bf-ghost)") && c.options.id !== "fight"),
+    ).toEqual([]);
+    const dim = calls.find((c) => c.element.classList.contains("bf-fight-dim"))!;
+    expect(Number(dim.options.delay)).toBe(0);
+    expect(Number(fightOn("card:203")!.options.delay)).toBe(0);
+    // A board arriving while they fight keeps them there too.
+    calls.length = 0;
+    view.rerender(deadly());
+    expect(
+      calls.filter((c) => c.element.matches(".bf-slot:not(.bf-ghost)") && c.options.id !== "fight"),
+    ).toEqual([]);
+  });
+
+  it("A-13: when the fights end (or a click hurries them), the survivors go home", () => {
+    const view = render(scene(4));
+    view.rerender(deadly());
+    const clock = calls.find((c) => c.options.id === "fight-clock")!.animation;
+    calls.length = 0;
+    act(() => {
+      clock.playState = "finished";
+      clock.onfinish?.();
+    });
+    const corpse = view.container
+      .querySelector('[data-object-id="card:214"]')!
+      .closest<HTMLElement>(".bf-slot")!;
+    const home = layout(
+      {
+        ...combatScript(5).board,
+        battlefield: combatScript(5).board.battlefield.filter((c) => c.id !== "card:201"),
+      },
+      size,
+    );
+    expect(corpse.style.transform).toBe(
+      placement(
+        home.boxes.get("card:214")!,
+        home.geometry.cardW,
+        home.geometry.cardH,
+        TAPPED_ORIGIN,
+      ).transform,
+    );
+    // A Glide home, from where it fought, at once.
+    const glide = calls.find((c) => c.element === corpse)!;
+    expect(Number(glide.options.delay ?? 0)).toBe(0);
+    expect(glide.frames[0]!.transform).toBe(combatSpot("card:214"));
   });
 
   // Spec 0003 -- owner report 2026-10-23: 300 attacking Goblin tokens drew
@@ -869,6 +1071,12 @@ describe("Board lines and effects", () => {
             ? {
                 key: "horde",
                 hits: goblins.map((g) => ({ source: g.id, target: { player: 1 }, amount: 1 })),
+                combat: "regular",
+                fights: goblins.map((g) => ({
+                  attacker: g.id,
+                  defender: { player: 1 },
+                  blockers: [],
+                })),
               }
             : null
         }
@@ -876,27 +1084,43 @@ describe("Board lines and effects", () => {
     );
   }
 
-  it("300 identical attackers are 20 piles of 15, a fire line and a swoop each (specs 0003, 0036)", () => {
+  it("300 identical attackers are 20 piles of 15, a fire line and a fight each (specs 0003, 0036)", () => {
     const view = render(horde(4, false));
     const fire = view.container.querySelectorAll('[data-line="attack"]');
     expect(fire).toHaveLength(20);
     expect([...fire].every((line) => line.getAttribute("data-count") === "15")).toBe(true);
     const piles = view.container.querySelectorAll('[data-pile="15"]');
     expect(piles).toHaveLength(20);
+    calls.length = 0;
     view.rerender(horde(5, false));
-    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(20);
-    // One number on the player hit, for all 300.
-    expect(view.container.querySelector('[data-damage-number="player:1"]')!.textContent).toBe(
-      "−300",
+    // One fight per pile, each lunging at your plate: a slash across it,
+    // the screen's red edge, and its 15.
+    const lunges = fightsOf().filter((c) => c.element.classList.contains("bf-card"));
+    expect(lunges).toHaveLength(20);
+    const marks = (kind: string) => [
+      ...view.container.querySelectorAll<HTMLElement>(`[data-fight="${kind}"]`),
+    ];
+    expect(marks("caption")).toHaveLength(20);
+    expect(marks("caption")[0]!.textContent).toBe(
+      "Damage · Your opponent's 15 Goblin Token hit you",
     );
+    expect(marks("edge")).toHaveLength(20);
+    expect(marks("number").map((m) => `${m.dataset.of} ${m.textContent}`)).toEqual(
+      Array.from({ length: 20 }, () => "player:1 −15"),
+    );
+    // Twenty fights speed up together (to 0.3 of their time at most): one clock.
+    expect(Number(lunges[0]!.options.duration)).toBeLessThan(20 * 1500 * 0.31 + 250);
+    expect(new Set(lunges.map((c) => c.options.duration)).size).toBe(1);
+    // Each lunges toward your plate and back.
+    expect(lunges[0]!.frames.some((f) => f.transform !== rest)).toBe(true);
   });
 
-  it("a blocked attacker steps out of the pile and carries its blocker (specs 0003, 0037)", () => {
+  it("a blocked attacker steps out of the pile and its blocker faces it (specs 0003, 0037, A-12)", () => {
     const c = render(horde(4, true)).container;
     expect(c.querySelectorAll('[data-pile="15"]')).toHaveLength(19);
     expect(c.querySelectorAll('[data-pile="14"]')).toHaveLength(1);
     expect(c.querySelector('[data-object-id="card:5000"]')!.getAttribute("data-pile")).toBeNull();
-    expect(c.querySelector('[data-object-id="card:211"]')!.getAttribute("data-rides")).toBe(
+    expect(c.querySelector('[data-object-id="card:211"]')!.getAttribute("data-blocks")).toBe(
       "card:5000",
     );
     // The 299 unblocked: a line per pile; the blocked one none; no shield line.
@@ -904,7 +1128,7 @@ describe("Board lines and effects", () => {
     expect(lines(c, "block")).toEqual([]);
   });
 
-  it("a creature the same update killed waits for its impact before it leaves", () => {
+  it("a creature a spell killed waits for its burst before it leaves", () => {
     const view = render(scene(9));
     view.rerender(scene(10)); // Shock resolves: 2 damage, White Knight dies
     expect(view.container.querySelector('[data-damage-number="card:202"]')!.textContent).toBe("−2");
@@ -913,11 +1137,12 @@ describe("Board lines and effects", () => {
     expect(Number(call.options.delay)).toBeGreaterThan(100);
   });
 
-  it("with reduced motion: no swoops, no bursts, the numbers still say what happened", () => {
+  it("with reduced motion: no fights, no bursts, the numbers still say what happened", () => {
     reduced = true;
     const view = render(scene(4));
     view.rerender(scene(5));
-    expect(calls.filter((call) => call.options.id === "swoop")).toHaveLength(0);
+    expect(fightsOf()).toHaveLength(0);
+    expect(view.container.querySelectorAll("[data-fight]")).toHaveLength(0);
     expect(view.container.querySelectorAll("[data-impact]")).toHaveLength(0);
     expect(view.container.querySelectorAll("[data-damage-number]")).toHaveLength(4);
   });

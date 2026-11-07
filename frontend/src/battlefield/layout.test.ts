@@ -15,6 +15,7 @@ import {
   kindOf,
   tiltOverhang,
   geometry,
+  inCombat,
   layout,
   type Box,
   type LayoutCard,
@@ -381,7 +382,6 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
         const lines = linesOf(out);
         for (const slot of out.slots) {
           const line = lines.get(slot.row)!;
-          if (slot.rides) continue; // a blocker sits on its attacker (spec 0037)
           for (const id of slot.ids) expect(kindOf(byId.get(id)!)).toBe(line.kind);
         }
         // From the middle outward: creatures, then the rest, then lands at the edge.
@@ -808,19 +808,112 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
 describe("combat and tapped", () => {
   const vp = { width: 1920, height: 1080 };
 
-  it("an attacker keeps its place (AMENDMENT 4); a tapped card tilts 5 degrees (spec 0040)", () => {
-    const mine = card({ seat: 1 });
-    const mineAttacking = card({ seat: 1, attacking: true, tapped: true });
-    const theirs = card({ seat: 2 });
-    const theirsAttacking = card({ seat: 2, attacking: true });
-    const out = layout(
-      { viewerSeat: 1, hand: [], battlefield: [mine, mineAttacking, theirs, theirsAttacking] },
+  it("A-11: attackers step forward -- the line nearest the middle, ahead of the rest of their side; a tapped card tilts 5 degrees", () => {
+    for (const viewerAttacks of [true, false]) {
+      const att = viewerAttacks ? 1 : 2;
+      const home = card({ seat: att });
+      const attacker = card({ seat: att, attacking: true, tapped: true });
+      const land = card({ seat: att, kind: "land", types: "Land", name: "Forest" });
+      const other = card({ seat: 3 - att });
+      const out = layout(
+        { viewerSeat: 1, hand: [], battlefield: [home, attacker, land, other] },
+        vp,
+      );
+      const mid = vp.height / 2;
+      const from = (id: string) => {
+        const b = out.boxes.get(id)!;
+        return Math.abs(b.y + b.h / 2 - mid);
+      };
+      // In front of its own side's creatures and lands.
+      expect(from(attacker.id)).toBeLessThan(from(home.id));
+      expect(from(home.id)).toBeLessThan(from(land.id));
+      const side = viewerAttacks ? "viewer" : "opponent";
+      expect(out.rowOf.get(attacker.id)).toBe(`${side}:creature-1`);
+      expect(out.rowOf.get(home.id)).toBe(`${side}:creature-2`);
+      expect(out.boxes.get(attacker.id)!.rotation).toBe(TAPPED_TILT);
+      expect(out.boxes.get(home.id)!.rotation).toBe(0);
+      // Home again: with combat over, it is where it was before.
+      const after = layout(
+        {
+          viewerSeat: 1,
+          hand: [],
+          battlefield: [home, { ...attacker, attacking: false }, land, other],
+        },
+        vp,
+      );
+      expect(after.rowOf.get(attacker.id)).toBe(`${side}:creature-1`);
+      expect(after.boxes.get(attacker.id)!.y).toBe(after.boxes.get(home.id)!.y);
+    }
+  });
+
+  it("A-11: the front line never makes a side's lines cover each other (90 permanents, seed 3, 1920x947)", () => {
+    const check = (input: LayoutInput, viewport: Viewport, what: string) => {
+      const out = layout(input, viewport);
+      for (const side of ["viewer", "opponent"] as const) {
+        const rects = out.lines.filter((l) => l.side === side).map((l) => l.rect);
+        for (let i = 0; i < rects.length; i++)
+          for (let j = i + 1; j < rects.length; j++) {
+            const a = rects[i]!;
+            const b = rects[j]!;
+            const y = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+            expect(y, `${what}: ${side} lines ${i} and ${j}`).toBeLessThanOrEqual(EPS);
+          }
+        const band = out.geometry.halves[side];
+        for (const r of rects) {
+          expect(r.y, what).toBeGreaterThanOrEqual(band.y - EPS);
+          expect(r.y + r.h, what).toBeLessThanOrEqual(band.y + band.h + EPS);
+        }
+      }
+    };
+    for (const viewport of VIEWPORTS) {
+      for (const seed of [1, 2, 3, 4, 5]) {
+        for (const n of [12, 40, 90, 200]) {
+          const board = syntheticBoard(n, 30, seed);
+          const attackers = board.battlefield.filter((c) => c.attacking);
+          // Without combat (attackers only), and with Forge's combat and blocks.
+          check(
+            board,
+            viewport,
+            `${n} permanents, seed ${seed}, ${viewport.width}x${viewport.height}`,
+          );
+          const mine = board.battlefield.filter(
+            (c) => c.seat === board.viewerSeat && c.kind === "creature" && !c.attacking,
+          );
+          const blocks = attackers.slice(0, mine.length).map((a, i) => ({
+            blocker: mine[i]!.id,
+            attacker: a.id,
+          }));
+          const blocking = new Set(blocks.map((b) => b.blocker));
+          const fought = inCombat(
+            board.battlefield.map((c) => (blocking.has(c.id) ? { ...c, blocking: true } : c)),
+            { attackers: attackers.map((a) => ({ id: a.id, target: { player: 1 } })), blocks },
+          );
+          check(
+            { ...board, battlefield: fought },
+            viewport,
+            `${n} permanents, seed ${seed}, ${viewport.width}x${viewport.height}, with blocks`,
+          );
+        }
+      }
+    }
+  });
+
+  it("A-11: a side whose every creature attacks needs no extra line", () => {
+    const a = card({ seat: 2, attacking: true, tapped: true });
+    const b = card({ seat: 2, attacking: true, tapped: true, name: "Hill Giant" });
+    const land = card({ seat: 2, kind: "land", types: "Land", name: "Mountain" });
+    const calm = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [{ ...a, attacking: false }, { ...b, attacking: false }, land],
+      },
       vp,
     );
-    expect(out.boxes.get(mineAttacking.id)!.y).toBe(out.boxes.get(mine.id)!.y);
-    expect(out.boxes.get(theirsAttacking.id)!.y).toBe(out.boxes.get(theirs.id)!.y);
-    expect(out.boxes.get(mineAttacking.id)!.rotation).toBe(TAPPED_TILT);
-    expect(out.boxes.get(mine.id)!.rotation).toBe(0);
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [a, b, land] }, vp);
+    expect(out.lines.filter((l) => l.side === "opponent")).toHaveLength(2);
+    expect(out.boxes.get(a.id)!.y).toBe(calm.boxes.get(a.id)!.y);
+    expect(out.scales.opponent).toBe(calm.scales.opponent);
   });
 });
 
@@ -998,8 +1091,25 @@ describe("stacking identical cards (spec 0036)", () => {
   });
 });
 
-// Spec 0037 — a blocker rides on the attacker it blocks; identical pairs stack.
-describe("big combats (spec 0037)", () => {
+/** No two drawn cards on the table overlap (their upright boxes, less a pixel). */
+function overlaps(out: ReturnType<typeof layout>): string[] {
+  const table = out.slots;
+  const found: string[] = [];
+  for (let i = 0; i < table.length; i++) {
+    for (let j = i + 1; j < table.length; j++) {
+      const a = table[i]!.box;
+      const b = table[j]!.box;
+      const x = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const y = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (x > 1 && y > 1) found.push(`${table[i]!.ids[0]} / ${table[j]!.ids[0]}`);
+    }
+  }
+  return found;
+}
+
+// Phase 10 A-12 (Amendment 15, replacing spec 0037's riding): a blocker
+// stands facing the attacker it blocks; identical pairs still stack.
+describe("big combats (spec 0037, Phase 10 A-12)", () => {
   const vp = { width: 1738, height: 1000 };
   const goblin = (seat: number, over: Partial<LayoutCard> = {}) =>
     card({
@@ -1012,27 +1122,87 @@ describe("big combats (spec 0037)", () => {
       ...over,
     });
 
-  it("F-0037-B: a blocker hangs from its attacker toward the middle; two blockers both do", () => {
+  it("A-12: two blockers stand side by side facing their attacker, across the middle, covering nothing", () => {
     const attacker = goblin(2, { attacking: true, tapped: true });
     const b1 = goblin(1, { blocking: true, blocks: attacker.id, power: 5, toughness: 5 });
     const b2 = card({ seat: 1, name: "Wall of Wood", blocking: true, blocks: attacker.id });
-    const out = layout({ viewerSeat: 1, hand: [], battlefield: [attacker, b1, b2] }, vp);
+    const rest = [
+      goblin(1),
+      goblin(2),
+      card({ seat: 1, kind: "land", types: "Land", name: "Forest" }),
+    ];
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [attacker, b1, b2, ...rest] }, vp);
     const host = out.boxes.get(attacker.id)!;
-    const riders = out.slots.filter((s) => s.rides === attacker.id);
-    expect(riders).toHaveLength(2);
-    for (const rider of riders) {
-      // The attacker is the opponent's: its riders sit on it, shifted
-      // toward the middle, drawn over it (and over the rows).
-      expect(rider.box.y).toBeGreaterThan(host.y);
-      expect(rider.box.y - host.y).toBeLessThan(host.h * 0.25);
-      expect(rider.box.z).toBeGreaterThan(host.z);
-      expect(rider.box.rotation).toBe(0);
-    }
-    // A blocker of your attacker hangs up toward the middle instead.
+    const facing = out.slots.filter((s) => s.faces === attacker.id);
+    expect(facing).toHaveLength(2);
+    const [l, r] = facing.map((s) => s.box).sort((p, q) => p.x - q.x);
+    // Side by side, centred under it, in the viewer's front line, just
+    // across the middle -- facing it, edge to edge but never on it.
+    expect(l!.y).toBe(r!.y);
+    expect(r!.x).toBeGreaterThan(l!.x + l!.w);
+    expect((l!.x + r!.x + r!.w) / 2).toBeCloseTo(host.x + host.w / 2, 6);
+    expect(l!.y).toBeGreaterThan(host.y + host.h);
+    expect(l!.y - (host.y + host.h)).toBeLessThan(host.h * 0.15);
+    expect(out.rowOf.get(b1.id)).toBe("viewer:creature-1");
+    expect(out.rowOf.get(rest[0]!.id)).toBe("viewer:creature-2");
+    expect(overlaps(out)).toEqual([]);
+    // A blocker of your attacker stands above it, on their side.
     const mine = goblin(1, { attacking: true, tapped: true });
     const theirs = goblin(2, { blocking: true, blocks: mine.id });
     const up = layout({ viewerSeat: 1, hand: [], battlefield: [mine, theirs] }, vp);
-    expect(up.boxes.get(theirs.id)!.y).toBeLessThan(up.boxes.get(mine.id)!.y);
+    const m = up.boxes.get(mine.id)!;
+    const t = up.boxes.get(theirs.id)!;
+    expect(t.y + t.h).toBeLessThan(m.y);
+    expect(t.x + t.w / 2).toBeCloseTo(m.x + m.w / 2, 6);
+  });
+
+  it("A-12: a blocker on each of several attackers, and three on one -- each faces its own, nothing covered", () => {
+    for (const viewport of VIEWPORTS) {
+      const attackers = ["Hill Giant", "Grizzly Bears", "Serra Angel", "Craw Wurm"].map((name) =>
+        card({ seat: 2, name, attacking: true, tapped: true }),
+      );
+      const blockers = [
+        card({ seat: 1, name: "Llanowar Elves", blocking: true, blocks: attackers[0]!.id }),
+        card({ seat: 1, name: "Wall of Wood", blocking: true, blocks: attackers[1]!.id }),
+        ...["Elvish Mystic", "Fyndhorn Elves", "Wood Elves"].map((name) =>
+          card({ seat: 1, name, blocking: true, blocks: attackers[2]!.id }),
+        ),
+      ];
+      const home = Array.from({ length: 6 }, (_, i) => card({ seat: 1, name: `Home ${i}` }));
+      const out = layout(
+        { viewerSeat: 1, hand: [], battlefield: [...attackers, ...blockers, ...home] },
+        viewport,
+      );
+      expect(overlaps(out)).toEqual([]);
+      for (const b of blockers) {
+        const slot = out.slots.find((s) => s.ids.includes(b.id))!;
+        expect(slot.faces).toBe(b.blocks);
+        // Under its own attacker more than any other.
+        const box = slot.box;
+        const centre = box.x + box.w / 2;
+        const nearest = [...attackers].sort((p, q) => {
+          const pb = out.boxes.get(p.id)!;
+          const qb = out.boxes.get(q.id)!;
+          return Math.abs(pb.x + pb.w / 2 - centre) - Math.abs(qb.x + qb.w / 2 - centre);
+        })[0]!;
+        if (b.blocks !== attackers[2]!.id) expect(nearest.id).toBe(b.blocks);
+      }
+      // The three facing the Angel stand in a row, centred on it.
+      const three = out.slots.filter((s) => s.faces === attackers[2]!.id).map((s) => s.box);
+      const angel = out.boxes.get(attackers[2]!.id)!;
+      const left = Math.min(...three.map((b) => b.x));
+      const rightEdge = Math.max(...three.map((b) => b.x + b.w));
+      expect((left + rightEdge) / 2).toBeCloseTo(angel.x + angel.w / 2, 4);
+    }
+  });
+
+  it("A-12: a blocker of two attackers faces the first; the rest of its side steps back", () => {
+    const a1 = card({ seat: 2, name: "Hill Giant", attacking: true, tapped: true });
+    const a2 = card({ seat: 2, name: "Grizzly Bears", attacking: true, tapped: true });
+    const wall = card({ seat: 1, name: "Two-Headed Wall", blocking: true, blocks: a1.id });
+    const out = layout({ viewerSeat: 1, hand: [], battlefield: [a1, a2, wall] }, vp);
+    expect(out.slots.find((s) => s.ids.includes(wall.id))!.faces).toBe(a1.id);
+    expect(overlaps(out)).toEqual([]);
   });
 
   it("F-0037-C: identical pairs stack, at most 15; a different blocker splits", () => {
@@ -1044,10 +1214,16 @@ describe("big combats (spec 0037)", () => {
     const odd = goblin(2, { attacking: true, tapped: true });
     list.push(odd, card({ seat: 1, name: "Goblin Chieftain", blocking: true, blocks: odd.id }));
     const out = layout({ viewerSeat: 1, hand: [], battlefield: list }, vp);
-    const hosts = out.slots.filter((s) => !s.rides && s.ids.length > 0);
+    const hosts = out.slots.filter((s) => !s.faces && s.ids.length > 0);
     expect(hosts.map((s) => s.ids.length).sort((a, b) => a - b)).toEqual([1, 5, 15]);
-    const riders = out.slots.filter((s) => s.rides);
-    expect(riders.map((s) => s.ids.length).sort((a, b) => a - b)).toEqual([1, 5, 15]);
+    const facing = out.slots.filter((s) => s.faces);
+    expect(facing.map((s) => s.ids.length).sort((a, b) => a - b)).toEqual([1, 5, 15]);
+    // Each pile of blockers faces the pile of the attackers they block.
+    for (const slot of facing) {
+      const host = out.slots.find((s) => s.ids[0] === slot.faces)!;
+      expect(host.ids).toHaveLength(slot.ids.length);
+    }
+    expect(overlaps(out)).toEqual([]);
   });
 
   it("F-0037-A: the owner's Goblin swarm, after 30 blocks, draws at most 16 cards a side", () => {
@@ -1079,8 +1255,7 @@ describe("big combats (spec 0037)", () => {
     }
     const out = layout({ viewerSeat: 1, hand: [], battlefield: list }, vp);
     const drawn = (seat: number) =>
-      out.slots.filter((s) => list.find((c) => c.id === s.ids[0])!.seat === seat && !s.rides)
-        .length;
+      out.slots.filter((s) => list.find((c) => c.id === s.ids[0])!.seat === seat).length;
     expect(drawn(2)).toBeLessThanOrEqual(16);
     expect(drawn(1)).toBeLessThanOrEqual(16);
     expect(out.overcrowded).toEqual([]);

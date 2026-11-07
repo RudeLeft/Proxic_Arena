@@ -421,10 +421,10 @@ const SCRIPT_STEPS = [
   "the board before combat",
   "Bob attacks: Serra Angel and White Knight at you, a Goblin token at The Wandering Emperor",
   "you block: Goblin Guide and Llanowar Elves on Serra Angel, Grizzly Bears on White Knight",
-  "first-strike damage: White Knight deals 2 to Grizzly Bears",
-  "Grizzly Bears dies",
-  "combat damage: Serra Angel 2 to each blocker, they hit back, the token hits the Emperor",
-  "Goblin Guide and Llanowar Elves die; combat ends",
+  "first-strike damage: White Knight deals 2 to Grizzly Bears, which dies",
+  "the regular damage step begins",
+  "combat damage: Serra Angel 2 to each blocker, they hit back and die, the token hits the Emperor",
+  "combat ends: everyone goes home",
   "Bob casts Lightning Bolt at The Wandering Emperor",
   "you respond: Shock at White Knight",
   "pointing at Lightning Bolt in the stack",
@@ -557,25 +557,37 @@ export function combatScript(n: number): SyntheticScene {
       blocks: [],
     };
   }
-  if (step >= 2 && step <= 5) {
+  // As the game sends it (Phase 10 A-13): each damage step's wave says
+  // which step and who fought whom, and the dead are gone in the same
+  // update -- the board then plays the fights before they shatter.
+  if (step >= 2 && step <= 4) {
     set(guide.id, { blocking: true });
     set(elves.id, { blocking: true });
-    if (step <= 3) set(bears.id, { blocking: true });
+    if (step === 2) set(bears.id, { blocking: true });
     scene.combat!.blocks = [
       { blocker: guide.id, attacker: angel.id },
       { blocker: elves.id, attacker: angel.id },
-      ...(step <= 3 ? [{ blocker: bears.id, attacker: knight.id }] : []),
+      ...(step === 2 ? [{ blocker: bears.id, attacker: knight.id }] : []),
     ];
+  }
+  if (step === 5) {
+    scene.combat!.blocks = [];
   }
   if (step === 3) {
     scene.damage = {
       key: "first-strike",
       hits: [{ source: knight.id, target: { object: bears.id }, amount: 2 }],
+      combat: "first-strike",
+      fights: [
+        { attacker: angel.id, defender: { player: you }, blockers: [guide.id, elves.id] },
+        { attacker: knight.id, defender: { player: you }, blockers: [bears.id] },
+        { attacker: token.id, defender: { object: emperor.id }, blockers: [] },
+      ],
     };
   }
-  if (step >= 4) {
+  if (step >= 3) {
     remove(bears.id);
-    if (step === 4) scene.departures.set(bears.id, "viewer:graveyard");
+    if (step === 3) scene.departures.set(bears.id, "viewer:graveyard");
   }
   if (step === 5) {
     scene.damage = {
@@ -587,12 +599,18 @@ export function combatScript(n: number): SyntheticScene {
         { source: elves.id, target: { object: angel.id }, amount: 1 },
         { source: token.id, target: { object: emperor.id }, amount: 1 },
       ],
+      combat: "regular",
+      fights: [
+        { attacker: angel.id, defender: { player: you }, blockers: [guide.id, elves.id] },
+        { attacker: knight.id, defender: { player: you }, blockers: [] },
+        { attacker: token.id, defender: { object: emperor.id }, blockers: [] },
+      ],
     };
   }
   if (step >= 5) set(emperor.id, { counters: [{ name: "LOYALTY", count: 3 }] });
-  if (step >= 6) {
+  if (step >= 5) {
     remove(guide.id, elves.id);
-    if (step === 6) {
+    if (step === 5) {
       scene.departures.set(guide.id, "viewer:graveyard");
       scene.departures.set(elves.id, "viewer:graveyard");
     }

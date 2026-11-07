@@ -508,10 +508,24 @@ export interface CombatState {
   blocks: { blocker: string; attacker: string }[];
 }
 
+/** Phase 10 A-13 -- one fight of a combat damage step, as Forge's combat stood when it began. */
+export interface CombatFight {
+  attacker: string;
+  defender: TargetRef;
+  /** In Forge's damage-assignment order. */
+  blockers: string[];
+}
+
 /** One wave of damage — §7.61 B13. A new key is a new wave. */
 export interface DamageState {
   key: string;
-  hits: { source: string; target: TargetRef; amount: number }[];
+  hits: { source: string; target: TargetRef; amount: number; deathtouch?: boolean }[];
+  /** Phase 10 A-13 -- the damage a combat damage step dealt: which step. Absent for a spell's. */
+  combat?: "first-strike" | "regular";
+  /** Phase 10 A-13 -- who fought whom in that step (the dead included). */
+  fights?: CombatFight[];
+  /** Phase 10 A-13 -- life gained as it was dealt (lifelink), and from what when the game knows. */
+  gains?: { player: number; amount: number; source?: string }[];
 }
 
 /** §6.40 — the board as one seat may see it. */
@@ -1150,9 +1164,42 @@ function asDamage(value: unknown): DamageState | null {
     const source = asString(h["source"]);
     const target = asTarget(h["target"]);
     const amount = asNumber(h["amount"]);
-    if (source && target && amount !== null) hits.push({ source, target, amount });
+    if (source && target && amount !== null)
+      hits.push({
+        source,
+        target,
+        amount,
+        ...(h["deathtouch"] === true ? { deathtouch: true } : {}),
+      });
   }
-  return { key, hits };
+  const step = row["combat"];
+  if (step !== "first-strike" && step !== "regular") return { key, hits };
+  const fights: CombatFight[] = [];
+  for (const entry of Array.isArray(row["fights"]) ? (row["fights"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const f = entry as Record<string, unknown>;
+    const attacker = asString(f["attacker"]);
+    const defender = asTarget(f["defender"]);
+    if (!attacker || !defender) continue;
+    const blockers = (Array.isArray(f["blockers"]) ? (f["blockers"] as unknown[]) : []).flatMap(
+      (b) => {
+        const id = asString(b);
+        return id ? [id] : [];
+      },
+    );
+    fights.push({ attacker, defender, blockers });
+  }
+  const gains: NonNullable<DamageState["gains"]> = [];
+  for (const entry of Array.isArray(row["gains"]) ? (row["gains"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const g = entry as Record<string, unknown>;
+    const player = asNumber(g["player"]);
+    const amount = asNumber(g["amount"]);
+    const source = asString(g["source"]);
+    if (player !== null && amount !== null)
+      gains.push({ player, amount, ...(source ? { source } : {}) });
+  }
+  return { key, hits, combat: step, fights, gains };
 }
 
 /** Phase 9 W-21 -- the command zone's words, keeping only well-formed entries. */

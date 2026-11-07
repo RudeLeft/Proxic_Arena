@@ -202,18 +202,21 @@ rather than teleports.
    As built (step 5, PHASE 7 AMENDMENT 7): the game's lines (attack, block,
    target, and spec 0028's faint source line) are one SVG layer
    above the battlefield and below the hand (stacking: battlefield cards
-   under 2000, a riding blocker from 2000 up to about 4000 (spec 0037), a
-   card selected to attack or block 4400 (W-14), a swooping attacker 4500, lines 5000, bursts and numbers 6000,
-   hand 10000+). Every line starts and ends **inside the card's picture**,
-   never on its name or power/toughness bar (the mock ended its block line
-   at 72% of the card's height for the same reason). A swoop comes
-   **straight across the table**: centred over its target, or between its
-   blockers, its near edge halfway down them; at a player it stops with its
-   near edge on the life total. A swooping attacker is hit where it lands
-   (the burst), and its damage number rises where it rests.
+   under 2000, a card selected to attack or block 4400 (W-14), the fights'
+   dimming 4550 and the fighters over it 4600 (Phase 10 A-13), lines 5000,
+   bursts, numbers and the fights' marks 6000, hand 10000+). Every line
+   starts and ends **inside the card's picture**, never on its name or
+   power/toughness bar (the mock ended its block line at 72% of the card's
+   height for the same reason). *Phase 10 (2026-11-06, Amendment 15 of
+   `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
+   blocker:* attackers are their side's front line, blockers stand facing
+   them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage
+   plays one fight at a time (`fights.ts`): the fighters rear back and meet
+   edge to edge, never overlapping.
 
 6. **State-driven appearance stays on the card.** Tapped (tilt, dim, and
-   the word), attacking (step toward the line), selected, legal target,
+   the word), attacking (a red glow; since Phase 10 A-11 its side's front
+   line), blocking (a blue glow), selected, legal target,
    summoning sick — all per §7.40, never hue alone — are CSS states on
    the card element, not overlay drawings.
 

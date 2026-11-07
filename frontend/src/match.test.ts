@@ -593,6 +593,53 @@ describe("board detail", () => {
     expect(card?.kind).toBe("unknown");
   });
 
+  // Phase 10 A-13 -- a combat damage step's wave says which step, who
+  // fought whom, and the life gained; a spell's is just its hits.
+  it("reads a combat damage wave's step, fights and gains, and keeps only well-formed ones", () => {
+    const wave = (damage: unknown) =>
+      apply([
+        {
+          ...withCreature({ id: "card:1", seat: 1, name: "Mountain", kind: "land", known: true }),
+          state: {
+            ...withCreature({ id: "card:1", seat: 1, name: "Mountain", kind: "land", known: true })
+              .state,
+            damage,
+          },
+        },
+      ]).board?.damage;
+    const combat = wave({
+      key: "damage:9",
+      hits: [
+        { source: "card:5", target: { object: "card:7" }, amount: 2, deathtouch: true },
+        { source: "card:7", target: { player: 1 }, amount: 3 },
+      ],
+      combat: "regular",
+      fights: [
+        { attacker: "card:5", defender: { player: 2 }, blockers: ["card:7", 3] },
+        { attacker: 4, defender: { player: 2 }, blockers: [] },
+      ],
+      gains: [{ player: 1, amount: 2, source: "card:5" }, { player: 2, amount: 1 }, { amount: 1 }],
+    });
+    expect(combat?.combat).toBe("regular");
+    expect(combat?.hits[0]).toEqual({
+      source: "card:5",
+      target: { object: "card:7" },
+      amount: 2,
+      deathtouch: true,
+    });
+    expect(combat?.hits[1]?.deathtouch).toBeUndefined();
+    expect(combat?.fights).toEqual([
+      { attacker: "card:5", defender: { player: 2 }, blockers: ["card:7"] },
+    ]);
+    expect(combat?.gains).toEqual([
+      { player: 1, amount: 2, source: "card:5" },
+      { player: 2, amount: 1 },
+    ]);
+    const spell = wave({ key: "damage:3", hits: [], combat: "other", fights: [] });
+    expect(spell?.combat).toBeUndefined();
+    expect(spell?.fights).toBeUndefined();
+  });
+
   // Absent fields are not zero. A non-creature has no power, and
   // showing "0/0" for a land would be a lie about the board.
   it("a land has no power or toughness", () => {

@@ -32,16 +32,8 @@ import {
   type Box,
   type RowId,
 } from "../src/battlefield/layout";
-import {
-  LIFE_R,
-  MOVE_MS,
-  SWEEP_MS,
-  fateMs,
-  anchors,
-  handZoomBox,
-  placement,
-} from "../src/battlefield/motion";
-import { STACK_READ_SCALE, stackSpotBoxes, swoopBox } from "../src/battlefield/effects";
+import { LIFE_R, MOVE_MS, SWEEP_MS, fateMs, anchors, handZoomBox } from "../src/battlefield/motion";
+import { STACK_READ_SCALE, stackSpotBoxes } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -241,8 +233,6 @@ async function differences(
       if (!tag?.tag || tag.attachedTo !== slot.ids[0])
         wrong.push(`${id} is not a name tag on ${slot.ids[0]}`);
     }
-    // A blocker rides on its attacker, across the divider, on purpose (spec 0037).
-    if (slot.rides) continue;
     const rect = lines.get(slot.row)!;
     placed.push({
       id: d.id,
@@ -419,8 +409,6 @@ function inside(point: { x: number; y: number }, poly: Point[], slack = 1): bool
   return true;
 }
 
-const numbers = (text: string) => (text.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
-
 test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ page }) => {
   test.setTimeout(120_000);
   const problems = watchErrors(page);
@@ -435,7 +423,6 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     // Laid out as the board does: with combat's piles and riders (0037).
     const laid = (s: ReturnType<typeof combatScript>) =>
       s.combat ? { ...s.board, battlefield: inCombat(s.board.battlefield, s.combat) } : s.board;
-    const before = layout(laid(combatScript(n - 1)), viewport);
     const expected = layout(laid(scene), viewport);
     const where = anchors(expected.geometry);
     const what = `step ${n} (${scene.what})`;
@@ -443,24 +430,33 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     await page.mouse.move(viewport.width / 2, 40);
     await expect(page.getByRole("note")).toContainText(`change ${n} `);
 
-    // Damage: read the swoops and numbers while they play.
+    // Damage: what plays. Phase 10 A-13 -- a combat damage step's wave plays
+    // one fight at a time: every fighter's card moves (or, killed, its
+    // ghost), and the numbers say what each took; a spell's is a burst and a
+    // number.
     if (scene.damage) {
       const playing = await page.evaluate(() => ({
-        swoops: document
-          .getAnimations()
-          .filter((a) => a.id === "swoop")
-          .map((a) => {
-            const effect = a.effect as KeyframeEffect;
-            const target = effect.target as HTMLElement;
-            return {
-              id: target.querySelector("button")!.dataset.objectId!,
-              landing: String(effect.getKeyframes()[1]!.transform),
-            };
-          }),
-        numbers: [...document.querySelectorAll<HTMLElement>("[data-damage-number]")].map(
-          (e) => `${e.dataset.damageNumber} ${e.textContent}`,
-        ),
+        fighters: [
+          ...new Set(
+            document
+              .getAnimations()
+              .filter((a) => a.id === "fight")
+              .map((a) => {
+                const target = (a.effect as KeyframeEffect).target as HTMLElement;
+                return (
+                  target.dataset.objectId ??
+                  target.closest<HTMLElement>("[data-ghost-of]")?.dataset.ghostOf ??
+                  target.querySelector<HTMLElement>(":scope > button")?.dataset.objectId ??
+                  ""
+                );
+              }),
+          ),
+        ],
+        numbers: [
+          ...document.querySelectorAll<HTMLElement>("[data-damage-number], [data-fight=number]"),
+        ].map((e) => `${e.dataset.damageNumber ?? e.dataset.of} ${e.textContent}`),
         impacts: document.querySelectorAll("[data-impact]").length,
+        captions: document.querySelectorAll("[data-fight=caption]").length,
       }));
       const totals = new Map<string, number>();
       for (const hit of scene.damage.hits) {
@@ -470,40 +466,37 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       expect(playing.numbers.sort(), `${what}: numbers`).toEqual(
         [...totals].map(([k, v]) => `${k} −${v}`).sort(),
       );
-      expect(playing.impacts, `${what}: bursts`).toBe(totals.size);
-      // Attackers swoop -- and land exactly where swoopBox() says.
-      const attackers = new Set(scene.combat?.attackers.map((a) => a.id) ?? []);
-      const sources = [...new Set(scene.damage.hits.map((h) => h.source))].filter((s) =>
-        attackers.has(s),
-      );
-      expect(playing.swoops.map((s) => s.id).sort(), `${what}: swoops`).toEqual(sources.sort());
-      for (const swoop of playing.swoops) {
-        const from = expected.boxes.get(swoop.id) ?? before.boxes.get(swoop.id)!;
-        const hits = scene.damage.hits.filter((h) => h.source === swoop.id);
-        const boxes = hits.flatMap((h) =>
-          "object" in h.target
-            ? [expected.boxes.get(h.target.object) ?? before.boxes.get(h.target.object)!]
-            : [],
+      if (scene.damage.combat) {
+        // Everyone who dealt or took damage fights; no burst of the old swoop.
+        const fought = new Set(
+          scene.damage.hits.flatMap((h) => [
+            h.source,
+            ...("object" in h.target ? [h.target.object] : []),
+          ]),
         );
-        const landing =
-          boxes.length > 0
-            ? swoopBox(from, TAPPED_ORIGIN, { boxes })
-            : swoopBox(from, TAPPED_ORIGIN, { point: where["viewer:life"] });
-        const want = placement(
-          landing,
-          expected.geometry.cardW,
-          expected.geometry.cardH,
-          TAPPED_ORIGIN,
-        ).transform;
-        const [got, wanted] = [numbers(swoop.landing), numbers(want)];
-        expect(got.length, `${what}: ${swoop.id}'s swoop`).toBe(wanted.length);
-        got.forEach((v, i) => expect(Math.abs(v - wanted[i]!)).toBeLessThan(0.05));
+        expect(playing.fighters.sort(), `${what}: fighters`).toEqual([...fought].sort());
+        expect(playing.impacts, `${what}: bursts`).toBe(0);
+        expect(playing.captions, `${what}: one caption a fight`).toBeGreaterThan(0);
+      } else {
+        expect(playing.impacts, `${what}: bursts`).toBe(totals.size);
       }
     }
 
     // Once it has all played out: the board is exactly the layout, nothing
     // still moving or showing, and the lines are the scene's.
-    await page.waitForTimeout(1400);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () =>
+              document
+                .getAnimations()
+                .filter((a) => a.playState === "running" && !(a instanceof CSSAnimation)).length,
+          ),
+        { timeout: 15_000, message: `${what}: still moving` },
+      )
+      .toBe(0);
+    await page.waitForTimeout(300);
     const result = await differences(page, laid(scene), viewport, false);
     expect(result.wrong, what).toEqual([]);
     // Nothing moves any more but the lines' own sparks (CSS animations).
@@ -514,7 +507,10 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           .filter((a) => a.playState === "running" && !(a instanceof CSSAnimation)).length,
     );
     expect(stillMoving, `${what}: still moving`).toBe(0);
-    expect(await page.locator("[data-damage-number], [data-impact]").count(), what).toBe(0);
+    expect(
+      await page.locator("[data-damage-number], [data-impact], [data-fight]").count(),
+      what,
+    ).toBe(0);
 
     const drawnLines = await page.evaluate(() =>
       [...document.querySelectorAll<SVGGElement>("[data-line]")].map((g) => ({
@@ -527,11 +523,13 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
         shown: g.getBoundingClientRect().width + g.getBoundingClientRect().height > 4,
       })),
     );
-    // Spec 0037: a blocked attacker draws no fire line, and a blocker of
-    // one attacker rides on it instead of a shield line.
+    // Spec 0037: a blocked attacker draws no fire line. Phase 10 A-12: a
+    // blocker stands facing the (first) attacker it blocks, so it needs no
+    // shield line to it; one blocking several has lines to the others.
     const blocks = scene.combat?.blocks ?? [];
     const blockedIds = new Set(blocks.map((b) => b.attacker));
     const blocksOf = (id: string) => blocks.filter((b) => b.blocker === id).length;
+    const faces = (b: (typeof blocks)[number]) => blocks.find((x) => x.blocker === b.blocker) === b;
     const want: string[] = [
       ...(scene.combat?.attackers ?? [])
         .filter((a) => !blockedIds.has(a.id))
@@ -540,7 +538,7 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
             `attack ${a.id}>${"player" in a.target ? `player:${a.target.player}` : a.target.object}`,
         ),
       ...blocks
-        .filter((b) => blocksOf(b.blocker) > 1)
+        .filter((b) => blocksOf(b.blocker) > 1 && !faces(b))
         .map((b) => `block ${b.blocker}>${b.attacker}`),
       // Spec 0028: the pointed-at stack object's line, else the front one's;
       // and every ability's faint line back to its permanent.

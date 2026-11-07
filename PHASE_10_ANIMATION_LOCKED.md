@@ -520,3 +520,158 @@ files): the owner chose **B2 · Claw slash**. Together:
   First strike, trample, deathtouch and lifelink are the fights' details
   for the build (trample: the excess slashes the player; lifelink: the
   controller's life rises as the slash lands).
+
+## Amendment 16 — A-11, A-12, A-13 built (2026-11-06, as built)
+
+- **Where they stand (the real layout).** The two halves' creature lines
+  already touch at the middle (about 12 px between their cards at
+  1920x1080), so there is no gap to step into. While there is combat each
+  side gets a **front line** -- the line nearest the middle, `creature-1`
+  -- holding its combatants; its other creatures step back a line
+  (`creature-2`...). **Attackers** are the attacking side's front line
+  ("step forward": ahead of everything else of theirs). **Blockers** are
+  the defending side's front line, each standing **facing the attacker it
+  blocks** (the first, if it blocks several; block lines to the others),
+  never on it: several side by side, centred on it, the attackers' line
+  making room (half of `(k - 1)` pitches either side, like A-17's tabs);
+  crowded groups slide along without overlapping (`layout.ts`
+  `faceBlockers`), and past the line's width it squeezes like any line.
+  Identical blocked pairs still stack (spec 0037): a pile of attackers,
+  facing it a pile of their blockers. The front line is one line a side,
+  and a side never takes a size whose band holds fewer lines than its
+  kinds (`fits`): with attackers, creatures, other permanents and lands
+  that is four lines, held only at the 70% step. (The first build
+  stepped down by how well cards showed alone, and the browser layout
+  check caught a 90-permanent board at 1920x947 whose "other" line
+  covered its lands by 41 px; a layout test now sweeps 12-200 permanents,
+  five seeds, every screen, with and without blocks: no side's lines
+  overlap or leave its band, and it fails without `fits`.) A side whose
+  every creature attacks needs no extra line. A
+  planeswalker or battle stays in its "other" line; its attacker's fire
+  line points at it. When combat ends every card Glides home. This
+  **replaces spec 0037's riding blocker** (its Amendment 3) and is the
+  layout contract's new §7b. Nothing moves when a question is asked or
+  the page redraws: the places are layout's, from the board.
+- **Attacking and blocking (A-11, A-12).** A creature that has just
+  become an attacker Glides to the front line over `ATTACK_MS` 600 ms,
+  each `ATTACK_BEAT_MS` 120 ms after the one before, glowing red with
+  ATTACKING; a new blocker over `BLOCK_MS` 650 ms, `BLOCK_BEAT_MS` 160 ms
+  apart, glowing blue (`.bf-blocking`) with BLOCKING. Every blocker is
+  marked `data-blocking`, `data-blocks="card:N"` (was spec 0037's
+  `data-rides`; the e2e specs were changed with it).
+- **The game says who fought whom (the data).** Phase 7 Amendment 7's
+  damage wave (`{key, hits: [{source, target, amount}]}`, one per damage
+  step) was enough for the hits but not for the fights: the board that
+  carries it has already lost the dead, whom Forge takes out of combat as
+  they leave. So the worker adds, to the wave a combat damage step dealt
+  (`CombatDamage`, `GameHost.beginDamageStep`): `combat` ("first-strike" |
+  "regular"); `fights` -- Forge's combat as the step began, `[{attacker,
+  defender, blockers}]`; `gains` -- life gained as it was dealt
+  (lifelink), naming the source only when the gain is exactly what that
+  source dealt; and `deathtouch: true` on a hit Forge marked so. Damage to
+  a planeswalker or battle that is not a creature has no Forge event: it
+  is read from Forge's own damage history (`CardDamageHistory`,
+  `Game.getDamageLKI`; public API). Trample's excess is the attacker's hit
+  on the player; first strike and regular damage stay two waves. All of
+  it is public; no server change (the snapshot passes through).
+- **One fight at a time (A-13, B2 · Claw slash; `fights.ts`).** From the
+  wave and where each card stood: each attacker with its blockers, then
+  each unblocked attacker (one fight per drawn card; a pile fights as
+  one); a fight in which nothing was dealt is left out. The table dims
+  (black, `FIGHT_DIM` 0.6; fighters waiting their turn at `FIGHT_DIMMED`
+  0.4), a caption says who fights ("Damage · the Hill Giant against your
+  two Grizzly Bears", "First strike · ...", "Damage · Bob's Grizzly Bears
+  hit you"). The fighters rear back (`FIGHT_REAR` 0.19 of a card,
+  300 ms) and lunge (170 ms) so they meet **edge to edge, never
+  overlapping** (tilt included); each struck card gets three glowing red
+  slash marks (`SLASH_MS` 650, 60 ms apart; dark green for deathtouch), a
+  red flash, sparks at the meeting point, a jolt (the small shake) and is
+  knocked back (`FIGHT_KNOCK` 0.18, 420 ms); the numbers slash in
+  (1400 ms). An unblocked attacker lunges at the player's plate, stopping
+  at its ring (260 + 240 ms): a slash across the plate, the number, and
+  the screen's red edge when it is **you** (a red glow on their plate when
+  it is them); at a planeswalker or battle, it lunges edge to edge onto
+  that card. Lifelink's "+N" rises at the controller's life as the slash
+  lands. They step back (260 ms); after the beat (450 ms) the dead
+  shatter (A-04) and the next fight starts as they crack (520 ms). A
+  blocked fight is about 2.0 s, an unblocked one 1.5 s; past
+  `FIGHTS_MAX_MS` 8 s in all, every time is scaled down together, to
+  `FIGHTS_FASTEST` 0.3 at most.
+- **Never holding the game up.** Every part is an animation on one clock
+  -- each fighter's moves on its card (`fighterFrames`, the whole
+  sequence, first and last frames exactly at rest), the dimming, captions,
+  marks -- so a click hurries all of it to its end in 100 ms (A-00). The
+  board is always the newest: answering is never waited on. **Everyone
+  stays where they fought until the fights have played**: the board a
+  damage step's wave arrives on has already lost the dead, and Forge has
+  already ended the blocks (a dead attacker has none), so its own layout
+  is the result. From that board's first frame the Board draws every card
+  that was on the table at its combat place (`pins`, in the drawing
+  itself), the dead as their ghosts at their places, and plays the first
+  fight at once; when the fights' clock ends (or a click hurries it) the
+  pins are released and everyone Glides home together. (The first build
+  held places only through each animation's first frame; pinning them in
+  the drawing makes that independent of when an animation starts.) The
+  films of the first build seemed to show the result for about a second
+  and the fight interrupted, then replayed: that was the jump tool, not
+  the board -- its clip shots were named with two digits, so a 130-shot
+  clip read in name order put shots 100-109 (the end state) between 10
+  and 11. A shot-by-shot brightness check of that film shows the caption
+  on from shot 5 to 52 and the dim to 75, once, uninterrupted, and a
+  re-film on the rebuilt local stack (with a log of every damage play,
+  clock end and hurry) showed one play, no hurry, the clock ending once
+  at its full 2740 ms. Shots are now numbered with three digits. A
+  page test pins it (the dead and the living at their combat spots on the
+  damage board's first render, no Glide home, the dim and the first fight
+  starting with no delay; home only when the clock ends). Anything else
+  moving meanwhile (a card joining the table, a spell's dead) waits for
+  the fights; a second wave (regular after first strike) plays after the
+  first. Going home all together, two Bears' Glides can cross for a
+  moment (the 2.95 s frame in double-block): transient, inside the
+  450 ms Glide; no card ends on another (layout tests). Not done: the
+  plate's life total still changes when the board arrives (the number
+  slashes in at the plate as the blow lands); holding it would mean the
+  rail (GameScreen) drawing an older life than the board says, released
+  by the Board's clock, and the e2e specs read life from the page -- left
+  for A-19. "Reduce motion" turns it all off: the numbers still show.
+  Phase 7 Amendment 7's swoop is gone; a spell's damage keeps its burst
+  and number (A-19).
+- **The Lab** (`check-combat-choices.py`, in CI): `double-block` (one
+  regular wave, one fight, the Giant and both Bears, every hit), `trample`
+  (2 to the Bears, 4 to the player, in the one fight), `exert-last` (each
+  unblocked Initiate a fight at the player; the 4 gained named as the
+  exerted one's lifelink), `exert-none` (no gain), and new `first-strike`
+  (White Knight: its own "first-strike" wave, the dead Bears deals
+  nothing), `deathtouch` (Vampire Nighthawk blocked by Giant Spider: the
+  hit marked deathtouch, the 2 gained named, the Spider dead) and
+  `planeswalker` (Grizzly Bears at Liliana of the Veil: one fight at her,
+  her 2 damage a hit from Forge's damage record); every one asserts both
+  seats were sent the same waves. Run against the worker without
+  `CombatDamage`, double-block, exert-last, deathtouch and planeswalker
+  fail; with it all 13 pass, as do `check-board-data`, `check-moves` and
+  `check-blocks`. `CombatDamageTest` (four). Page tests: layout (attackers
+  in front, the rest a line back, home again; two blockers side by side
+  facing theirs; a blocker on each of four attackers and three on one, at
+  every screen: each faces its own, nothing overlaps; a blocker of two;
+  the swarm and stacked pairs), `fights.test.ts` (order, first strike,
+  edge to edge with tilt, rear back, a planeswalker, the plate's ring,
+  trample and lifelink, frames exact at both ends, dimmed until its turn,
+  the dead lit to shatter, many fights speeding up together, captions),
+  Board (A-11 600 ms a beat apart, A-12 650 ms, the fights and their
+  marks, first strike, 300 attackers
+  as 20 fights, reduce motion, everyone pinned at their combat places
+  from the damage board's first frame and home when the clock ends --
+  both fail with the pins removed), the wave read by `match.ts`. 863 page
+  tests; `e2e/battlefield.spec.ts` (layout at every swept board and
+  screen, moves, lines and the fights) passes against the rebuilt local
+  stack.
+
+Verified on the rebuilt stack at a tenth of the speed (the jump tool's
+clips of the Lab's combat-choices games, seat 2): two Bears blocking
+the Hill Giant stand below it, facing it, nothing covered; its fight --
+dim, caption, rear back, the lunge edge to edge, slashes, -4 and -3, the
+Giant and one Bears shattering, the survivor gliding home -- plays once;
+the Dreadmaw's trample: the slash, the red screen edge as 4 reach the
+player, the shatter. `battlefield.spec.ts`, `match-big-combat.spec.ts`
+and `match-damage-tray.spec.ts` pass locally. Shown to the owner and
+approved (2026-11-06).

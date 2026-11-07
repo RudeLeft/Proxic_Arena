@@ -636,6 +636,9 @@ public final class GameHost {
                         || phase == forge.game.phase.PhaseType.COMBAT_END;
                 if (combatStep || !damageDealt.isEmpty()) {
                     publishSnapshots();
+                    // Phase 10 A-13: a damage step begins -- Forge's combat as
+                    // it stands now, before anyone dies, is who fights whom.
+                    beginDamageStep(CombatDamage.stepOf(phase));
                 } else if (stops.active()) {
                     // AMENDMENT 13: with stops, most steps ask nobody, so each
                     // step is announced -- the step bar walks through them
@@ -648,10 +651,52 @@ public final class GameHost {
                 }
                 return;
             }
+            if (event instanceof forge.game.event.GameEventSpellResolved && damageStep != null) {
+                // Something resolved: the step's combat damage, if any, is long
+                // dealt (all of it prevented, else it was sent at the first
+                // priority). What follows is not combat damage.
+                synchronized (damageDealt) {
+                    if (damageDealt.isEmpty()) {
+                        beginDamageStep(null);
+                    }
+                }
+                return;
+            }
             if (event instanceof forge.game.event.GameEventCardDamaged hit && hit.amount() > 0) {
                 com.google.gson.JsonObject target = new com.google.gson.JsonObject();
                 target.addProperty("object", "card:" + hit.card().getId());
-                record(hit.source(), target, hit.amount());
+                com.google.gson.JsonObject entry = record(hit.source(), target, hit.amount());
+                if (hit.type() == forge.game.event.GameEventCardDamaged.DamageType.Deathtouch) {
+                    entry.addProperty("deathtouch", true);
+                }
+            } else if (event instanceof forge.game.event.GameEventPlayerLivesChanged lives
+                    && lives.newLives() > lives.oldLives() && damageStep != null) {
+                // Phase 10 A-13: lifelink -- Forge gains the life right after
+                // the lifelinker's own damage (GameAction.dealDamage), so the
+                // source is the last hit's, when its controller gained exactly
+                // what it dealt; otherwise the gain is told without a source.
+                Game current = game;
+                if (current == null) {
+                    return;
+                }
+                for (Player player : current.getRegisteredPlayers()) {
+                    if (player.getId() != lives.player().getId()) {
+                        continue;
+                    }
+                    Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
+                    int gained = lives.newLives() - lives.oldLives();
+                    String source = null;
+                    forge.game.card.CardView last = lastSource;
+                    if (last != null && last.getController() != null
+                            && last.getController().getId() == player.getId()) {
+                        synchronized (damageDealt) {
+                            if (CombatDamage.gainedFrom(damageDealt, "card:" + last.getId(), gained)) {
+                                source = "card:" + last.getId();
+                            }
+                        }
+                    }
+                    lifeGained.add(CombatDamage.gain(seat == null ? 0 : seat, gained, source));
+                }
             } else if (event instanceof forge.game.event.GameEventPlayerDamaged hit && hit.amount() > 0) {
                 Game current = game;
                 if (current == null) {
@@ -668,7 +713,8 @@ public final class GameHost {
             }
         }
 
-        private void record(forge.game.card.CardView source, com.google.gson.JsonObject target, int amount) {
+        private com.google.gson.JsonObject record(
+                forge.game.card.CardView source, com.google.gson.JsonObject target, int amount) {
             com.google.gson.JsonObject entry = new com.google.gson.JsonObject();
             if (source != null) {
                 entry.addProperty("source", "card:" + source.getId());
@@ -676,6 +722,94 @@ public final class GameHost {
             entry.add("target", target);
             entry.addProperty("amount", amount);
             damageDealt.add(entry);
+            lastSource = source;
+            return entry;
+        }
+    }
+
+    /**
+     * Phase 10 A-13 (Amendment 15) -- the combat damage step under way:
+     * "first-strike" or "regular" from the moment it begins until its damage
+     * is sent, else null. Its damage is the first wave sent after it begins
+     * (the step deals all of it at once, before anyone gets priority); the
+     * questions Forge asks while assigning it carry no damage yet.
+     */
+    private volatile String damageStep;
+    /** Forge's combat when the step began: who fights whom (CombatDamage). */
+    private com.google.gson.JsonArray stepFights;
+    /** Each attacker of a planeswalker or battle, and how much damage history it had then. */
+    private final java.util.Map<forge.game.card.Card, Integer> walkerAttackers = new java.util.IdentityHashMap<>();
+    /** Life gained while the step's damage was dealt (lifelink). */
+    private final java.util.List<com.google.gson.JsonObject> lifeGained =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** The source of the last hit recorded: a lifelink gain follows its source's hits. */
+    private volatile forge.game.card.CardView lastSource;
+
+    private void beginDamageStep(String step) {
+        damageStep = null;
+        stepFights = null;
+        walkerAttackers.clear();
+        lifeGained.clear();
+        lastSource = null;
+        Game current = game;
+        forge.game.combat.Combat combat = current == null ? null : current.getCombat();
+        if (step == null || combat == null || combat.getAttackers().isEmpty()) {
+            return;
+        }
+        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
+        com.google.gson.JsonArray fights = new com.google.gson.JsonArray();
+        for (forge.game.card.Card attacker : combat.getAttackers()) {
+            forge.game.GameEntity defender = combat.getDefenderByAttacker(attacker);
+            com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+            if (defender instanceof Player player) {
+                target.addProperty("player", seats.getOrDefault(player, 0));
+            } else if (defender instanceof forge.game.card.Card card) {
+                target.addProperty("object", "card:" + card.getId());
+                // Forge fires no damage event for a planeswalker or battle that
+                // is not a creature (Card.addDamageAfterPrevention only removes
+                // counters), so its hits are read from Forge's own damage record.
+                walkerAttackers.put(attacker, attacker.getDamageHistory().getAllDmgInstances().size());
+            }
+            java.util.List<String> blockers = new java.util.ArrayList<>();
+            for (forge.game.card.Card blocker : combat.getBlockers(attacker)) {
+                blockers.add("card:" + blocker.getId());
+            }
+            fights.add(CombatDamage.fight("card:" + attacker.getId(), target, blockers));
+        }
+        stepFights = fights;
+        damageStep = step;
+    }
+
+    /**
+     * Phase 10 A-13 -- combat damage to a planeswalker or battle that is not a
+     * creature, from each of its attackers' damage history (Forge's record:
+     * CardDamageHistory.getAllDmgInstances, and Game.getDamageLKI for what
+     * each instance hit). Public API, no reflection. A creature (a
+     * planeswalker made one) has its hit already, from GameEventCardDamaged.
+     */
+    private void walkerHits(Game current) {
+        for (java.util.Map.Entry<forge.game.card.Card, Integer> entry : walkerAttackers.entrySet()) {
+            forge.game.card.Card attacker = entry.getKey();
+            java.util.List<org.apache.commons.lang3.tuple.Pair<Integer, Boolean>> dealt =
+                    attacker.getDamageHistory().getAllDmgInstances();
+            for (int i = entry.getValue(); i < dealt.size(); i++) {
+                org.apache.commons.lang3.tuple.Pair<Integer, Boolean> instance = dealt.get(i);
+                if (!Boolean.TRUE.equals(instance.getRight())) {
+                    continue;
+                }
+                org.apache.commons.lang3.tuple.Pair<forge.game.card.Card, forge.game.GameEntity> what =
+                        current.getDamageLKI(instance);
+                if (what != null && what.getRight() instanceof forge.game.card.Card hit && !hit.isCreature()) {
+                    com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+                    target.addProperty("object", "card:" + hit.getId());
+                    com.google.gson.JsonObject one = new com.google.gson.JsonObject();
+                    one.addProperty("source", "card:" + attacker.getId());
+                    one.add("target", target);
+                    one.addProperty("amount", instance.getLeft());
+                    damageDealt.add(one);
+                }
+            }
+            entry.setValue(dealt.size());
         }
     }
 
@@ -787,14 +921,24 @@ public final class GameHost {
         // B13: this round's damage, sent once, to every seat (damage is
         // public). The key is the round's, so a board plays it once.
         com.google.gson.JsonObject damage = null;
+        String step = damageStep;
+        if (step != null) {
+            walkerHits(current);
+        }
         synchronized (damageDealt) {
             if (!damageDealt.isEmpty()) {
-                damage = new com.google.gson.JsonObject();
-                damage.addProperty("key", "damage:" + revision);
-                com.google.gson.JsonArray hits = new com.google.gson.JsonArray();
-                damageDealt.forEach(hits::add);
-                damage.add("hits", hits);
+                // Phase 10 A-13: a damage step's own damage says so, with who
+                // fought whom and the life it gained; the step is then over
+                // (a spell cast later in the step is a wave of its own).
+                java.util.List<com.google.gson.JsonObject> gains;
+                synchronized (lifeGained) {
+                    gains = java.util.List.copyOf(lifeGained);
+                }
+                damage = CombatDamage.wave("damage:" + revision, damageDealt, step, stepFights, gains);
                 damageDealt.clear();
+                if (step != null) {
+                    beginDamageStep(null);
+                }
             }
         }
         // Phase 10 A-00: this round's moves, each seat its own view of them.

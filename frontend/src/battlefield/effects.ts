@@ -2,12 +2,12 @@
 // PHASE 7 AMENDMENTS 4 and 7.
 //
 // Pure geometry, like layout() and motion.ts: where each relationship line
-// starts and ends, its curve, and where an attacker lands when combat
-// damage is dealt. The shapes are the PixiJS mock's
+// starts and ends, and its curve. The shapes are the PixiJS mock's
 // (`proxic-arena-spike-10`: attack-, block-, target- and
-// attach-presentation.mjs), ported to plain points for SVG. Nothing here
-// decides what attacks, blocks or targets what: that is Forge's, and
-// arrives as data (§7.61 B3, B4, B13).
+// attach-presentation.mjs), ported to plain points for SVG. (AMENDMENT 7's
+// swoop is gone: Phase 10 A-13 plays combat one fight at a time, in
+// fights.ts.) Nothing here decides what attacks, blocks or targets what:
+// that is Forge's, and arrives as data (§7.61 B3, B4, B13).
 
 import type { Box, Geometry } from "./layout";
 import type { Point } from "./motion";
@@ -16,15 +16,12 @@ import type { Point } from "./motion";
 /** A card selected to attack or block (W-14): lifted over its neighbours,
     so its seal shows (Amendment 13, item 10); under the lines. */
 export const Z_MARKED = 4400;
-export const Z_SWOOP = 4500;
 export const Z_LINES = 5000;
 export const Z_EFFECTS = 6000;
 
-/** The swoop: out, a beat on the target, back (AMENDMENT 4 item 2). */
-export const SWOOP_MS = 650;
-export const SWOOP_ARRIVE = 0.4; // fraction of SWOOP_MS when it lands
-export const SWOOP_LEAVE = 0.6; // ...and when it starts back
-export const NUMBER_MS = 1000; // the damage number (AMENDMENT 7 item 5)
+/** A spell's damage number (AMENDMENT 7 item 5). Combat's fights are fights.ts
+ * (Phase 10 A-13), which replaced AMENDMENT 7's swoop. */
+export const NUMBER_MS = 1000;
 
 /** What a line or a hit points at: a permanent, or a player. */
 export type TargetRef = { object: string } | { player: number };
@@ -125,46 +122,6 @@ export function arrowHead(c: Curve, size: number): string {
     { x: back.x - p.x * half, y: back.y - p.y * half },
   ];
   return pts.map((q) => `${Math.round(q.x * 10) / 10},${Math.round(q.y * 10) / 10}`).join(" ");
-}
-
-// --- the swoop (AMENDMENT 4 item 2, AMENDMENT 7 items 6-8) --------------------
-
-/**
- * Where an attacker is drawn at the moment its combat damage lands:
- * covering about half of what it hits. One blocker: over the blocker's
- * near half. Several: between them, over the inner half of each. A player
- * or something in the rail: its near edge on that point. It keeps its
- * size and its tilt; only its place changes.
- */
-export function swoopBox(
-  attacker: Box,
-  origin: { x: number; y: number },
-  hit: { boxes: Box[]; point?: undefined } | { boxes?: undefined; point: Point },
-): Box {
-  const from = centreOf(attacker, origin);
-  let to: Point;
-  if (hit.point) {
-    // A player's life total (or anything in the rail): straight at it,
-    // stopping with the card's near edge on it.
-    const dx = from.x - hit.point.x;
-    const dy = from.y - hit.point.y;
-    const len = Math.max(0.001, Math.hypot(dx, dy));
-    const reach = attacker.h / 2;
-    to = { x: hit.point.x + (dx / len) * reach, y: hit.point.y + (dy / len) * reach };
-  } else {
-    // Permanents: straight across the table, as a card is pushed into
-    // another -- centred over the target (or between several), its near
-    // edge halfway down them, so it covers half of one, or the inner half
-    // of each of two side by side.
-    const centres = hit.boxes.map((b) => centreOf(b, origin));
-    const aim = {
-      x: centres.reduce((n, c) => n + c.x, 0) / centres.length,
-      y: centres.reduce((n, c) => n + c.y, 0) / centres.length,
-    };
-    const reach = (hit.boxes[0]!.h + attacker.h) / 4;
-    to = { x: aim.x, y: aim.y + (from.y <= aim.y ? -reach : reach) };
-  }
-  return { ...attacker, x: attacker.x + (to.x - from.x), y: attacker.y + (to.y - from.y) };
 }
 
 // --- the stack, as cards (owner 2026-10-21) -----------------------------------

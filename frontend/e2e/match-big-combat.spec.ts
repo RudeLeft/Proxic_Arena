@@ -5,8 +5,9 @@
 // deck). They stack (0036). The host selects everything ("All attack") and
 // points it at the guest. The guest clicks its own Goblin stack once per
 // Goblin to select ("✓ 2"), then the attacking stack: one blocker on each
-// (W-14, replacing 0037's "Block how many?" box). Each blocker then rides
-// on the attacker it blocks: no block lines.
+// (W-14, replacing 0037's "Block how many?" box). Each blocker then stands
+// facing the attacker it blocks (Phase 10 A-12, replacing 0037's riding): no
+// block lines.
 
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
@@ -30,14 +31,14 @@ const SPELLS =
 async function goblinStack(page: Page, side: "viewer" | "opponent"): Promise<number> {
   const piles = await page
     .locator(
-      `.bf-cards button[data-controller="${side}"][data-tapped="false"][data-pile]:not([data-rides])`,
+      `.bf-cards button[data-controller="${side}"][data-tapped="false"][data-pile]:not([data-blocking])`,
     )
     .filter({ hasText: "Goblin" })
     .evaluateAll((els) => els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)));
   return Math.max(0, ...piles);
 }
 
-test("a stack blocks a stack: select from the pile, point at theirs, and blockers ride", async ({
+test("a stack blocks a stack: select from the pile, point at theirs, and blockers face them", async ({
   browser,
 }) => {
   test.skip(!existsSync(pkg), "no swarm deck package (CI builds it)");
@@ -139,21 +140,21 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
           });
           await clickNow(theirs);
           await expect(page.getByRole("dialog", { name: "Block how many" })).toHaveCount(0);
-          // Every block lands, each blocker riding on its attacker.
+          // Every block lands, each blocker standing facing its attacker.
           await expect
             .poll(
               async () =>
                 (
                   await page
-                    .locator(".bf-cards button[data-rides]")
+                    .locator(".bf-cards button[data-blocking][data-blocks]")
                     .evaluateAll((els) =>
                       els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)),
                     )
                 ).reduce((a, b) => a + b, 0),
-              { timeout: 60_000, message: `all ${n} blocks ride on their attackers` },
+              { timeout: 60_000, message: `all ${n} blockers face their attackers` },
             )
             .toBe(n);
-          // No shield lines for riders.
+          // No shield lines for blockers facing their attackers.
           await expect(page.locator('[data-line="block"]')).toHaveCount(0);
           await page.screenshot({ path: "test-results/seen/block-many-riders.png" });
           blocked = n;

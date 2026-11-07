@@ -281,6 +281,46 @@ over to make room (Phase 10 A-00). `layout.ts` `tabRoom`, `tabAt`;
 common, 3-4 in Aura and Equipment decks, 5-8 rare) are in
 `PHASE_10_ANIMATION_LOCKED.md`, Amendment 9.
 
+## 7b. Amendment — combat's front lines (Phase 10 A-11, A-12, owner 2026-11-06)
+
+While there is combat, each side's **front line** -- the line nearest the
+middle, id `creature-1` -- holds its combatants, and its other creature
+lines follow (`creature-2`, ...):
+
+- **The attacking side's front line is its attackers** ("step forward"):
+  every creature Forge says is attacking leaves its line for the front,
+  ahead of everything else of its side; the side's other creatures step
+  back a line. A side whose every creature attacks needs no extra line.
+- **The defending side's front line is its blockers, each standing
+  facing the attacker it blocks** (the first, if it blocks several),
+  across the middle -- never on it (this replaces spec 0037's riding
+  blocker, owner Amendment 15). Several blockers of one attacker stand
+  side by side, centred on it; the attackers' line makes room for them
+  (half of `(k - 1)` pitches either side of an attacker with k blocker
+  slots, as the tabs' room of §7a). Left to right, a group that would
+  overlap the one before moves along; past the line's edge they move
+  back; when they cannot stand side by side at all, the line squeezes
+  them like any line (§3). Identical blocked pairs still stack (spec
+  0037): a pile of attackers, and facing it a pile of their blockers.
+- **Capacity.** The front line is ONE line a side (it never takes a
+  spare line), so it is sized like any line: past its width it squeezes
+  to the sliver, then the side steps down in size (spec 0040). A side
+  never takes a size whose band holds fewer lines than it has kinds of
+  line (`fits`), however well its cards would show: with creatures,
+  attackers, other permanents and lands a side needs four lines, which
+  the band holds only at the 70% step, so such a side is drawn at 70%
+  (found by the browser layout check at 1920x947, where a 90-permanent
+  board's "other" line covered its lands by 41 px). Most boards
+  (creatures and lands, or creatures, other and lands with a spare) need
+  no extra line.
+- Nothing covers anything: the two front lines meet at the middle with
+  the usual gaps (at 1920x1080 about 12 px between an attacker's edge and
+  its blocker's). When combat ends, every card Glides home.
+
+`layout.ts` (`LineKind` "front", `faceBlockers`); `layout.test.ts`
+"combat and tapped", "big combats". Owner's reasons and the fights that
+play on these places are `PHASE_10_ANIMATION_LOCKED.md`, Amendments 15-16.
+
 ---
 
 ## 8. Provenance

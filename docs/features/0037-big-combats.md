@@ -115,3 +115,15 @@ its pile (Amendment 13, item 10). See `docs/history/phases/phase-09/PHASE_09_GAM
 
 **As built (2026-11-04, a documentation check).** A pair stack's badge
 reads "×N", like every other pile; the word "pairs" is not shown.
+
+**Amendment 3 (owner, 2026-11-06 -- Phase 10 Amendment 15, A-12).** A
+blocker no longer rides on its attacker: it stands **facing** it, in its
+own side's front line across the middle, never covering it ("cards pop on
+top of each other", the owner); several blockers of one attacker stand
+side by side. Identical blocked pairs still stack (a pile of attackers,
+facing it a pile of their blockers), a blocked attacker still has no fire
+line, and a blocker facing its attacker has no block line. F-0037-B is
+now "two blockers stand side by side facing their attacker, covering
+nothing" (`layout.test.ts`); F-0037-A's swarm still draws at most 16 cards
+a side. The page marks every blocker `data-blocking` / `data-blocks`
+(was `data-rides`). See BATTLEFIELD_LAYOUT_CONTRACT.md §7b.

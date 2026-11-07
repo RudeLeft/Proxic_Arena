@@ -106,7 +106,7 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
             .first();
           for (let i = 0; i < 2 && (await attacker.count()) > 0; i++) {
             const mine = page.locator(
-              '.bf-cards button[data-controller="viewer"][data-choosable="true"]:not([data-rides])',
+              '.bf-cards button[data-controller="viewer"][data-choosable="true"]:not([data-blocking])',
             );
             if ((await mine.count()) === 0) break;
             await clickNow(mine.first());

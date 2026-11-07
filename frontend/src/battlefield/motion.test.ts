@@ -55,7 +55,6 @@ describe("tapped cards fit their line (spec 0040, F-0040-B)", () => {
         const g = out.geometry;
         const rects = new Map(out.lines.map((l) => [l.id, l.rect]));
         for (const slot of out.slots) {
-          if (slot.rides) continue; // a blocker hangs off its attacker on purpose (spec 0037)
           const rect = rects.get(slot.row)!;
           const at = drawn(slot.box, g.cardW, g.cardH, TAPPED_ORIGIN);
           const ys = [

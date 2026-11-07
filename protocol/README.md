@@ -328,6 +328,21 @@ damage              B13 damage dealt since the last round, ONE combat
                         combat step sends the board even when nobody is
                         asked anything, so first strike and regular
                         damage are always separate waves.
+                        Phase 10 A-13 (2026-11-06): a hit carries
+                        `deathtouch: true` when Forge marked it so; the
+                        wave a combat damage step dealt adds
+                          combat  "first-strike" | "regular"
+                          fights  [{attacker, defender: {player} |
+                                  {object}, blockers: [...]}] -- Forge's
+                                  combat as the step began, the dead
+                                  included, blockers in damage order
+                          gains   [{player, amount, source?}] -- life
+                                  gained as it was dealt (lifelink); the
+                                  source only when the gain is exactly
+                                  what that source dealt
+                        Combat damage to a planeswalker or battle that is
+                        not a creature is read from Forge's damage
+                        history (Forge sends no event for it). All public.
 card.enteredAt      B11 Forge's game timestamp: arrival order
 card.token          B12 true on a token
 ```

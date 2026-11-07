@@ -21,10 +21,11 @@
 // they attack and from blockers to what they block, from a spell's card on
 // the stack (drawn large at the right edge of the play area) to what it
 // targets, which glows, and a chain while an Aura or Equipment's host is
-// chosen -- in one SVG layer that takes no clicks. When damage is dealt, attackers swoop onto
-// what they hit, a burst plays there and the amount rises and fades. All
-// of it is drawn from data Forge supplies (§7.61 B2-B4, B13); none of it is
-// inferred here.
+// chosen -- in one SVG layer that takes no clicks. Combat damage plays one
+// fight at a time (Phase 10 A-13, fights.ts): the table dims, the fighters
+// rear back and lunge, slash marks and numbers land; other damage shows a
+// burst and the amount. All of it is drawn from data Forge supplies (§7.61
+// B2-B4, B13, and the damage wave's fights); none of it is inferred here.
 
 import {
   useEffect,
@@ -104,17 +105,25 @@ import {
   STACK_READ_SCALE,
   STACK_SCALE,
   stackSpotBoxes,
-  SWOOP_ARRIVE,
-  SWOOP_LEAVE,
-  SWOOP_MS,
-  swoopBox,
   type LineKind,
   type TargetRef,
   Z_EFFECTS,
   Z_LINES,
   Z_MARKED,
-  Z_SWOOP,
 } from "./effects";
+import {
+  FIGHT_DIM,
+  FIGHT_FOCUS_MS,
+  FIGHTS_FADE_MS,
+  fighterFrames,
+  HURT_EDGE_MS,
+  planFights,
+  SLASH_GAP_MS,
+  SLASH_MS,
+  SLASH_NUMBER_MS,
+  type FightPlan,
+  type Stand,
+} from "./fights";
 
 export type { TargetRef } from "./effects";
 
@@ -228,7 +237,11 @@ export interface AttachView {
  * what Forge actually dealt (§7.61 B13). A new `key` is a new wave. */
 export interface DamageWave {
   key: string;
-  hits: readonly { source: string; target: TargetRef; amount: number }[];
+  hits: readonly { source: string; target: TargetRef; amount: number; deathtouch?: boolean }[];
+  /** Phase 10 A-13 -- a combat damage step's: which step, who fought whom, life gained. */
+  combat?: "first-strike" | "regular";
+  fights?: readonly { attacker: string; defender: TargetRef; blockers: readonly string[] }[];
+  gains?: readonly { player: number; amount: number; source?: string }[];
 }
 
 /**
@@ -594,6 +607,39 @@ interface Ghost extends Drawn {
    * was drawn when it set off.
    */
   merge?: { part: "partner" | "old"; colour: string; start: Placed | null };
+  /** Phase 10 A-13: a card that died in a fight -- its moves in the fight, on its card. */
+  fight?: { frames: Keyframe[]; duration: number; delay: number };
+}
+
+/**
+ * Phase 10 A-11, A-12 (owner 2026-11-06, Amendment 15): an attacker steps
+ * forward to its side's front line, the next one a beat later; a blocker
+ * glides up to stand facing its attacker.
+ */
+const ATTACK_MS = 600;
+const ATTACK_BEAT_MS = 120;
+const BLOCK_MS = 650;
+const BLOCK_BEAT_MS = 160;
+
+/** A card a spell killed leaves once its burst has landed. */
+const SPELL_HIT_MS = 150;
+
+/** Phase 10 A-13: the fights' dimming, above the table; the fighters above it. */
+const Z_FIGHT_DIM = 4550;
+const Z_FIGHT = 4600;
+
+/** Phase 10 A-13 -- one mark of a fight (fights.ts): drawn, then gone when its animation ends. */
+interface FightMark {
+  key: string;
+  kind: "dim" | "caption" | "hit" | "slash" | "number" | "gain" | "edge" | "plate";
+  style: CSSProperties;
+  frames: Keyframe[];
+  duration: number;
+  delay: number;
+  text?: string;
+  /** What it marks: an object id or "player:N" (for tests and the jump check). */
+  of?: string;
+  deathtouch?: boolean;
 }
 
 /** Phase 10 A-10 -- a merge's dimming, flash, sparks and ring, at the merged card. */
@@ -752,7 +798,15 @@ export function Board({
   /** Phase 10 A-10: the merges' bursts. */
   const [fusions, setFusions] = useState<Fusion[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
-  const wave = useRef<{ key: string; impactAt: number; targets: Set<string> } | null>(null);
+  const wave = useRef<{ key: string } | null>(null);
+  /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
+  const [marks, setMarks] = useState<FightMark[]>([]);
+  const fightClock = useRef<Animation | null>(null);
+  /** A spell's damage: what it hit waits for its burst before it leaves. */
+  const spellHits = useRef<{ ids: Set<string>; delay: number } | null>(null);
+  const fightGhosts = useRef(
+    new Map<string, { frames: Keyframe[]; duration: number; delay: number; shatterAt: number }>(),
+  );
   const timers = useRef<number[]>([]);
   useLayoutEffect(
     () => () => {
@@ -774,7 +828,22 @@ export function Board({
     pointed: string | null;
     /** Phase 10 A-17 -- every attached card's tab then. */
     tabs: Map<string, Tab>;
+    /** Phase 10 A-13 -- the drawn card each object was drawn as, and what it was. */
+    itemOf: Map<string, string>;
+    members: Map<string, number>;
+    cards: Map<string, BoardCard>;
+    /** Phase 10 A-11/A-12 -- the drawn cards attacking or blocking then. */
+    roles: Map<string, "attack" | "block">;
   } | null>(null);
+
+  /** Phase 10 A-13: how long the fights still playing hold the table (on the animation clock). */
+  const holdLeft = () => {
+    const clock = fightClock.current;
+    if (!clock || clock.playState !== "running") return 0;
+    const end = Number(clock.effect?.getComputedTiming().endTime ?? 0);
+    const now = Number(clock.currentTime ?? 0);
+    return Math.max(0, (end - now) / Math.abs(clock.playbackRate || 1));
+  };
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -786,6 +855,30 @@ export function Board({
     return () => observer.disconnect();
   }, []);
 
+  // Phase 10 A-13 (found filming the rebuilt stack): the board a combat
+  // damage step's wave comes on has already lost the dead, and Forge has
+  // already ended the blocks (a dead attacker has none), so its layout is
+  // the RESULT -- survivors home, the dead gone. From its very first frame,
+  // every card stays where it stood in combat until the fights have played
+  // (the clock's end, or a click hurrying it); then all go home together.
+  // Pinned here, in the drawing itself, not left to an animation's first
+  // frame. Decided as the board is drawn, so nothing waits on an effect.
+  const pins = useRef<{ key: string; boxes: Map<string, Box> } | null>(null);
+  const [released, setReleased] = useState<string | null>(null);
+  if (
+    damage?.combat &&
+    damage.fights?.length &&
+    damage.key !== pins.current?.key &&
+    damage.key !== wave.current?.key &&
+    previous.current &&
+    !reducedMotion()
+  ) {
+    pins.current = {
+      key: damage.key,
+      boxes: new Map([...previous.current.at].map(([id, at]) => [id, at.box])),
+    };
+  }
+  const pinned = pins.current && pins.current.key !== released ? pins.current.boxes : null;
   const laidOut = useMemo(
     () => (combat ? inCombat(battlefield, combat) : battlefield),
     [battlefield, combat],
@@ -906,13 +999,7 @@ export function Board({
       const lead = byId.get(slot.ids[0]!)!;
       const count = slot.ids.length;
       const look = lookOf(lead.kind, lead.types);
-      // A rider (spec 0037) sits in its attacker's row but is its own
-      // controller's card.
-      const side = slot.rides
-        ? sideOf(lead.seat)
-        : slot.row.startsWith("viewer")
-          ? "viewer"
-          : "opponent";
+      const side = slot.row.startsWith("viewer") ? "viewer" : sideOf(lead.seat);
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
       const label = [
@@ -925,7 +1012,9 @@ export function Board({
         pt,
         lead.tapped ? "tapped" : "",
         lead.attacking ? "attacking" : "",
-        slot.rides ? `blocking ${byId.get(slot.rides)?.name ?? "an attacker"}` : "",
+        lead.blocking
+          ? `blocking ${byId.get(slot.faces ?? lead.blocks ?? "")?.name ?? "an attacker"}`
+          : "",
         lead.ringBearer ? "Ring-bearer" : "",
         flies(lead) ? "flying" : "",
         sick(lead) ? "summoning sick: can attack next turn" : "",
@@ -955,7 +1044,7 @@ export function Board({
       out.push({
         id: lead.id,
         ids: [...slot.ids, ...slot.attached],
-        box: slot.box,
+        box: pinned?.get(lead.id) ?? slot.box,
         origin: TAPPED_ORIGIN,
         drawn,
         content: (
@@ -969,7 +1058,7 @@ export function Board({
             )}
             <button
               type="button"
-              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${leadAct.className}${flies(lead) ? (crowded.has(slot.row) ? " bf-fly bf-fly-bob" : " bf-fly") : ""}`}
+              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${lead.blocking ? " bf-blocking" : ""}${leadAct.className}${flies(lead) ? (crowded.has(slot.row) ? " bf-fly bf-fly-bob" : " bf-fly") : ""}`}
               style={flies(lead) ? motionDelay(lead.id) : undefined}
               aria-label={label}
               {...leadAct.data}
@@ -982,14 +1071,15 @@ export function Board({
               data-pt={pt || undefined}
               data-face={lead.faceDown ? "down" : "up"}
               data-pile={count > 1 ? count : undefined}
-              data-rides={slot.rides}
+              data-blocking={lead.blocking ? "true" : undefined}
+              data-blocks={slot.faces ?? lead.blocks}
             >
               <CardFace {...drawn} />
               {leadAct.chosen ? (
                 // Phase 9 Amendment 17: already chosen for the spell being cast.
                 <span className="bf-state bf-state-target">TARGET</span>
-              ) : slot.rides ? (
-                // Spec 0037: blue, on the blocker sitting on its attacker.
+              ) : lead.blocking ? (
+                // Phase 10 A-12: blue, on a blocker standing facing its attacker.
                 <span className="bf-state bf-state-blocking">BLOCKING</span>
               ) : lead.attacking ? (
                 <span className="bf-state bf-state-attacking">ATTACKING</span>
@@ -1229,6 +1319,7 @@ export function Board({
     pointed,
     act,
     handCosts,
+    pinned,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -1244,79 +1335,60 @@ export function Board({
     return at;
   }, [items]);
 
-  // Damage: swoops, bursts and numbers, once per wave. Declared before the
-  // movement effect so a creature the same snapshot killed knows to wait.
+  // Damage, once per wave. Declared before the movement effect, so what
+  // moves in the same update waits for the fights. Phase 10 A-13 (owner
+  // 2026-11-06, Amendment 15): a combat damage step's damage plays one fight
+  // at a time (fights.ts) -- the game says who fought whom; anything else
+  // (a spell) is a burst and the amount where it landed.
   useLayoutEffect(() => {
     if (!result || !damage || damage.key === wave.current?.key) return;
+    wave.current = { key: damage.key };
     const g = result.geometry;
     const where = anchors(g);
     const still = reducedMotion();
-    // Where a hit object is: drawn now, or (killed by this very snapshot)
-    // where it was drawn last.
-    const at = (id: string) => positions.get(id) ?? previous.current?.at.get(id);
-    // A swooping attacker is hit where it lands, not where it rests.
-    const landed = new Map<string, Point>();
+    const before = previous.current;
+    // Where an object stood: as drawn before this update (so the dead too),
+    // else as drawn now.
+    const standOf = (id: string): Stand | null => {
+      const was = before?.at.get(id);
+      const item = before?.itemOf.get(id) ?? positions.get(id)?.item;
+      const box = was?.box ?? positions.get(id)?.box;
+      const card = before?.cards.get(id) ?? byId.get(id);
+      if (!box || !item || !card) return null;
+      return {
+        box,
+        item,
+        name: card.faceDown && !card.known ? "face-down creature" : card.name,
+        seat: card.seat,
+        count: before?.members.get(item) ?? 1,
+      };
+    };
+    const lifeOf = (seat: number) => playerPoint(seat, viewerSeat, where);
+    const plan =
+      still || !damage.combat
+        ? null
+        : planFights({
+            wave: damage,
+            at: standOf,
+            life: lifeOf,
+            lifeR: LIFE_R * g.height,
+            viewerSeat,
+            opponentName,
+          });
+    const hold = holdLeft();
+    if (plan && ref.current && typeof ref.current.animate === "function") {
+      playFights(plan, hold, standOf, lifeOf, g);
+      return;
+    }
+    // No fights to play after all: nothing is held.
+    if (pins.current?.key === damage.key) setReleased(damage.key);
+    // A spell's damage (or an older worker's combat): a burst and the
+    // amount on everything hit, after any fights still playing.
     const pointOf = (ref: TargetRef): Point | null => {
-      if ("player" in ref) return playerPoint(ref.player, viewerSeat, where);
-      const swooped = landed.get(ref.object);
-      if (swooped) return swooped;
-      const p = at(ref.object);
+      if ("player" in ref) return lifeOf(ref.player);
+      const p = positions.get(ref.object) ?? before?.at.get(ref.object);
       return p ? centreOf(p.box, p.origin) : null;
     };
-
-    // Attackers swoop onto what they hit, all at once (AMENDMENT 7).
-    const attackers = new Set(combat?.attackers.map((a) => a.id) ?? []);
-    const bySource = new Map<string, TargetRef[]>();
-    for (const hit of damage.hits) {
-      bySource.set(hit.source, [...(bySource.get(hit.source) ?? []), hit.target]);
-    }
-    let swooped = false;
-    // One swoop per drawn card: a pile of attacking tokens moves as one,
-    // not once per token on the same element (owner report 2026-10-23).
-    const moving = new Map<string, Point>();
-    for (const [source, targets] of bySource) {
-      if (still || !attackers.has(source)) continue;
-      const from = positions.get(source);
-      const already = from ? moving.get(from.item) : undefined;
-      if (already) {
-        landed.set(source, already);
-        continue;
-      }
-      const element = from ? elements.current.get(from.item) : undefined;
-      if (!from || !element || typeof element.animate !== "function") continue;
-      const boxes = targets.flatMap((t) => ("object" in t ? [at(t.object)?.box ?? []].flat() : []));
-      const player = targets.find((t) => "player" in t);
-      const landing =
-        boxes.length > 0
-          ? swoopBox(from.box, from.origin, { boxes })
-          : player
-            ? swoopBox(from.box, from.origin, { point: pointOf(player)! })
-            : null;
-      if (!landing) continue;
-      landed.set(source, centreOf(landing, from.origin));
-      moving.set(from.item, centreOf(landing, from.origin));
-      const rest = placement(from.box, g.cardW, g.cardH, from.origin).transform;
-      const there = placement(landing, g.cardW, g.cardH, from.origin).transform;
-      element.style.zIndex = String(Z_SWOOP);
-      const animation = element.animate(
-        [
-          { transform: rest },
-          { transform: there, offset: SWOOP_ARRIVE },
-          { transform: there, offset: SWOOP_LEAVE },
-          { transform: rest },
-        ],
-        { duration: SWOOP_MS, easing: "ease-in-out", id: "swoop" },
-      );
-      const back = () => {
-        element.style.zIndex = element.dataset.z ?? "";
-      };
-      animation.onfinish = back;
-      animation.oncancel = back;
-      swooped = true;
-    }
-
-    // A burst and a number on everything hit, as the swoops land.
-    const delay = swooped ? SWOOP_ARRIVE * SWOOP_MS : 0;
     const totals = new Map<string, { ref: TargetRef; amount: number }>();
     for (const hit of damage.hits) {
       const k = refKey(hit.target);
@@ -1326,15 +1398,6 @@ export function Board({
     for (const [k, { ref, amount }] of totals) {
       const point = pointOf(ref);
       if (!point) continue;
-      // The burst is where the hit happened; the number rises from where
-      // the card stays -- a swooping attacker's home, not its landing.
-      const home =
-        "object" in ref && landed.has(ref.object)
-          ? (() => {
-              const p = at(ref.object)!;
-              return centreOf(p.box, p.origin);
-            })()
-          : point;
       if (!still)
         added.push({
           key: `${damage.key}:${k}:burst`,
@@ -1342,30 +1405,264 @@ export function Board({
           target: k,
           at: point,
           amount,
-          delay,
+          delay: hold,
         });
       added.push({
         key: `${damage.key}:${k}:number`,
         kind: "number",
         target: k,
-        at: home,
+        at: point,
         amount,
-        delay,
+        delay: hold,
       });
     }
     setEffects((list) => [...list.filter((e) => !e.key.startsWith(`${damage.key}:`)), ...added]);
     timers.current.push(
       window.setTimeout(
         () => setEffects((list) => list.filter((e) => !added.includes(e))),
-        delay + NUMBER_MS + 50,
+        hold + NUMBER_MS + 50,
       ),
     );
-    wave.current = {
-      key: damage.key,
-      impactAt: performance.now() + delay,
-      targets: new Set([...totals.keys()]),
+    spellHits.current = { ids: new Set(totals.keys()), delay: hold + SPELL_HIT_MS };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [damage, result, positions, viewerSeat]);
+
+  /**
+   * Phase 10 A-13 -- play a combat damage step's fights, after any still
+   * playing (`hold`). Every part is an animation on the board's clock -- the
+   * fighters' moves (on their cards, so their places can hold or Glide on
+   * their own), the dimming, the caption, the slash marks and numbers -- so a
+   * click hurries all of it together and nothing waits on a timer.
+   */
+  function playFights(
+    plan: FightPlan,
+    hold: number,
+    standOf: (id: string) => Stand | null,
+    lifeOf: (seat: number) => Point,
+    g: Geometry,
+  ) {
+    const root = ref.current!;
+    const total = hold + plan.total;
+    // Any dead from an older wave have long been handed to their ghosts.
+    fightGhosts.current.clear();
+    fightClock.current?.cancel();
+    const clock = root.animate([{ opacity: 1 }, { opacity: 1 }], {
+      duration: total,
+      id: "fight-clock",
+    });
+    fightClock.current = clock;
+    // The fights over (or hurried to their end): everyone goes home.
+    clock.onfinish = () => {
+      if (fightClock.current === clock) setReleased(plan.key);
     };
-  }, [damage, result, positions, combat, viewerSeat]);
+    const alive = new Set(items.map((item) => item.id));
+    for (const [item] of plan.fighters) {
+      const stand = standOf(item);
+      if (!stand) continue;
+      const frames = fighterFrames(plan, item, stand.box, !alive.has(item));
+      if (!alive.has(item)) {
+        // It died: its ghost fights, then shatters (A-04) after the beat.
+        const fight = plan.fights[plan.fighters.get(item)!]!;
+        fightGhosts.current.set(item, {
+          frames,
+          duration: plan.total,
+          delay: hold,
+          shatterAt: hold + fight.shatterAt,
+        });
+        continue;
+      }
+      const slot = elements.current.get(item);
+      const card = slot?.querySelector<HTMLElement>(":scope > .bf-card");
+      if (!slot || !card || typeof card.animate !== "function") continue;
+      card.animate(frames, {
+        duration: plan.total,
+        delay: hold,
+        easing: "linear",
+        id: "fight",
+      });
+      // Above the dimming while the fights play.
+      slot.animate([{ zIndex: Z_FIGHT }, { zIndex: Z_FIGHT }], {
+        duration: plan.total,
+        delay: hold,
+        id: "fight",
+      });
+    }
+    const k = plan.speed;
+    const added: FightMark[] = [];
+    const key = (what: string) => `${plan.key}:${what}`;
+    const dimIn = (FIGHT_FOCUS_MS * k) / plan.total;
+    const dimOut = 1 - (FIGHTS_FADE_MS * k) / plan.total;
+    added.push({
+      key: key("dim"),
+      kind: "dim",
+      style: { zIndex: Z_FIGHT_DIM },
+      frames: [
+        { offset: 0, opacity: 0 },
+        { offset: Math.min(dimIn, 0.5), opacity: FIGHT_DIM },
+        { offset: Math.max(dimOut, 0.5), opacity: FIGHT_DIM },
+        { offset: 1, opacity: 0 },
+      ],
+      duration: plan.total,
+      delay: hold,
+    });
+    const slashMs = SLASH_MS * k;
+    const numberMs = SLASH_NUMBER_MS * k;
+    plan.fights.forEach((fight, n) => {
+      const length = Math.max(1, fight.end - fight.start);
+      added.push({
+        key: key(`caption:${n}`),
+        kind: "caption",
+        style: {
+          left: g.play.x + g.inset * 4,
+          top: g.height * 0.1 + g.inset,
+          fontSize: Math.max(13, g.cardH * 0.13),
+        },
+        frames: [
+          { offset: 0, opacity: 0 },
+          { offset: Math.min(0.15, 200 / length), opacity: 1 },
+          { offset: 0.88, opacity: 1 },
+          { offset: 1, opacity: 0 },
+        ],
+        duration: length,
+        delay: hold + fight.start,
+        text: fight.caption,
+        of: fight.attacker,
+      });
+      // Sparks where they meet.
+      const spark = g.cardW * 0.8;
+      added.push({
+        key: key(`hit:${n}`),
+        kind: "hit",
+        style: {
+          left: fight.contact.x - spark / 2,
+          top: fight.contact.y - spark / 2,
+          width: spark,
+          height: spark,
+        },
+        frames: [
+          { offset: 0, opacity: 0, transform: "scale(0.3)" },
+          { offset: 0.3, opacity: 1, transform: "scale(1.1)" },
+          { offset: 1, opacity: 0, transform: "scale(1.6)" },
+        ],
+        duration: 420 * k,
+        delay: hold + fight.impact,
+        of: fight.attacker,
+      });
+      for (const strike of fight.strikes) {
+        const box = strike.box;
+        if (box) {
+          // Three glowing slash marks across the card it strikes.
+          for (let i = 0; i < 3; i++) {
+            added.push({
+              key: key(`slash:${n}:${strike.target}:${i}`),
+              kind: "slash",
+              style: {
+                left: box.x + (0.083 + i * 0.146) * box.w,
+                top: box.y + (0.164 + i * 0.194) * box.h,
+                width: box.w * 1.17,
+                height: Math.max(3, box.h * 0.037),
+              },
+              frames: [
+                { offset: 0, opacity: 1, transform: "rotate(32deg) scaleX(0)" },
+                { offset: 0.35, opacity: 1, transform: "rotate(32deg) scaleX(1)" },
+                { offset: 1, opacity: 0, transform: "rotate(32deg) scaleX(1)" },
+              ],
+              duration: slashMs,
+              delay: hold + strike.at + i * SLASH_GAP_MS * k,
+              of: strike.target,
+              deathtouch: strike.deathtouch,
+            });
+          }
+        }
+        const at = box ? { x: box.x + box.w / 2, y: box.y + box.h * 0.12 } : strike.point!;
+        if (!box && strike.point) {
+          // At the player: a slash across the plate, and their hurt shown --
+          // the screen's red edge for you, a red glow on their plate for them.
+          const p = strike.point;
+          added.push({
+            key: key(`slash:${n}:${strike.target}`),
+            kind: "slash",
+            style: {
+              left: p.x - g.cardW * 0.55,
+              top: p.y - g.cardH * 0.12,
+              width: g.cardW * 1.1,
+              height: Math.max(3, g.cardH * 0.037),
+            },
+            frames: [
+              { offset: 0, opacity: 1, transform: "rotate(20deg) scaleX(0)" },
+              { offset: 0.35, opacity: 1, transform: "rotate(20deg) scaleX(1)" },
+              { offset: 1, opacity: 0, transform: "rotate(20deg) scaleX(1)" },
+            ],
+            duration: slashMs,
+            delay: hold + strike.at,
+            of: strike.target,
+          });
+          const you = strike.target === `player:${viewerSeat}`;
+          const ring = LIFE_R * g.height * 3.2;
+          added.push({
+            key: key(`hurt:${n}:${strike.target}`),
+            kind: you ? "edge" : "plate",
+            style: you
+              ? {}
+              : { left: p.x - ring / 2, top: p.y - ring / 2, width: ring, height: ring },
+            frames: [
+              { offset: 0, opacity: 0 },
+              { offset: 0.2, opacity: 0.9 },
+              { offset: 1, opacity: 0 },
+            ],
+            duration: HURT_EDGE_MS * k,
+            delay: hold + strike.at,
+            of: strike.target,
+          });
+        }
+        added.push({
+          key: key(`number:${n}:${strike.target}`),
+          kind: "number",
+          style: { left: at.x, top: at.y, fontSize: g.cardH * 0.3 },
+          frames: [
+            {
+              offset: 0,
+              opacity: 0,
+              transform: "translate(-50%, -50%) translateY(-30%) scale(2.2)",
+            },
+            { offset: 0.18, opacity: 1, transform: "translate(-50%, -50%) scale(1)" },
+            {
+              offset: 0.8,
+              opacity: 1,
+              transform: "translate(-50%, -50%) translateY(-6%) scale(1)",
+            },
+            { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-14%) scale(1)" },
+          ],
+          duration: numberMs,
+          delay: hold + strike.at,
+          text: `−${strike.amount}`,
+          of: strike.target,
+        });
+      }
+      // Lifelink: the life rises as the slash lands.
+      [...fight.gains, ...(n === plan.fights.length - 1 ? plan.unsourced : [])].forEach(
+        (gain, i) => {
+          const p = lifeOf(gain.player);
+          added.push({
+            key: key(`gain:${n}:${gain.player}:${i}`),
+            kind: "gain",
+            style: { left: p.x, top: p.y, fontSize: g.cardH * 0.24 },
+            frames: [
+              { offset: 0, opacity: 0, transform: "translate(-50%, -20%) scale(0.8)" },
+              { offset: 0.2, opacity: 1, transform: "translate(-50%, -50%) scale(1.1)" },
+              { offset: 0.8, opacity: 1, transform: "translate(-50%, -90%) scale(1)" },
+              { offset: 1, opacity: 0, transform: "translate(-50%, -120%) scale(1)" },
+            ],
+            duration: numberMs,
+            delay: hold + gain.at,
+            text: `+${gain.amount}`,
+            of: `player:${gain.player}`,
+          });
+        },
+      );
+    });
+    setMarks((list) => [...list, ...added]);
+  }
 
   // After each commit, before paint: start what should move.
   useLayoutEffect(() => {
@@ -1409,6 +1706,27 @@ export function Board({
     const resized =
       before !== null && (before.viewport.width !== g.width || before.viewport.height !== g.height);
     const still = reducedMotion();
+    // Phase 10 A-13: while fights play, everything else that moves waits for
+    // them (held where it was), then goes -- the survivors home with the rest.
+    const hold = still ? 0 : holdLeft();
+    // Phase 10 A-11/A-12: who attacks and who blocks, now.
+    const roles = new Map<string, "attack" | "block">();
+    for (const item of items) {
+      const card = byId.get(item.id);
+      if (card?.attacking) roles.set(item.id, "attack");
+      else if (card?.blocking) roles.set(item.id, "block");
+    }
+    // An attacker steps forward, a blocker glides up to face it: a little
+    // slower than a Glide, each a beat after the one before.
+    let stepping = 0;
+    let facing = 0;
+    const pace = (id: string): { delay: number; duration: number } => {
+      const role = roles.get(id);
+      if (!role || before?.roles.get(id) === role) return { delay: hold, duration: MOVE_MS };
+      return role === "attack"
+        ? { delay: hold + ATTACK_BEAT_MS * stepping++, duration: ATTACK_MS }
+        : { delay: hold + BLOCK_BEAT_MS * facing++, duration: BLOCK_MS };
+    };
 
     if (resized && cardsRef.current) {
       // A new window size is not a move: everything goes straight there.
@@ -1440,12 +1758,15 @@ export function Board({
               ? fromStack.box
               : boxAt(where[arrivals?.get(item.id) ?? "stack"], g);
         const fromOrigin = was && !offTab ? was.origin : item.origin;
+        const { delay, duration } = pace(item.id);
         glide(
           element,
           glideFrames(fromBox, item.box, g.cardW, g.cardH, fromOrigin, item.origin, {
             from: was ? 1 : 0.2,
             to: 1,
           }),
+          delay,
+          duration,
         );
       }
       const stackNow = new Set((stack ?? []).map((s) => s.id));
@@ -1476,7 +1797,7 @@ export function Board({
           const colour = MERGE_COLOUR[merge.kind];
           const moving = host.getAnimations?.().some((a) => a.playState === "running") ?? false;
           const start = moving ? placedNow(host) : null;
-          if (moving) for (const a of host.getAnimations()) a.cancel();
+          if (moving) for (const a of host.getAnimations()) if (a.id !== "fight") a.cancel();
           // Above the dimmed table while it runs; its own place after.
           host.style.zIndex = String(Z_MERGE + 1);
           const run = host.animate(
@@ -1606,9 +1927,12 @@ export function Board({
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
         // Still gliding from the last board: set off from where it is now.
-        const moving = element.getAnimations?.().some((a) => a.playState === "running") ?? false;
+        const moving =
+          element.getAnimations?.().some((a) => a.playState === "running" && a.id !== "fight") ??
+          false;
         const start = moving ? placedNow(element) : null;
-        if (moving) for (const a of element.getAnimations()) a.cancel();
+        // A fight's moves are on its card, not its place: they play on.
+        if (moving) for (const a of element.getAnimations()) if (a.id !== "fight") a.cancel();
         // A-08: a permanent that changed sides is pulled across.
         const was_ = before.drawn.get(item.id);
         if (item.drawn.table && was_ && was_.side !== item.drawn.side) {
@@ -1631,7 +1955,7 @@ export function Board({
               arc: PULL_ARC,
               lean: PULL_LEAN,
             }),
-            TETHER_MS,
+            TETHER_MS + hold,
             PULL_MS,
           );
           element.classList.remove("bf-pulled");
@@ -1639,9 +1963,12 @@ export function Board({
           element.classList.add("bf-pulled");
           continue;
         }
+        const { delay, duration } = pace(item.id);
         glide(
           element,
           glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start),
+          delay,
+          duration,
         );
       }
       if (flips.length > 0) setGhosts((list) => [...list, ...flips]);
@@ -1673,9 +2000,16 @@ export function Board({
         const at = before.at.get(id);
         if (!at) continue;
         const joined = now.get(id);
-        const hit = wave.current;
-        const delay =
-          hit && hit.targets.has(id) ? Math.max(0, hit.impactAt - performance.now()) + 150 : 0;
+        // Phase 10 A-13: killed in a fight -- it fights, then shatters after
+        // the beat; anything else leaving waits for the fights to end.
+        const fought = fightGhosts.current.get(id);
+        fightGhosts.current.delete(id);
+        const elapsed = Number(fightClock.current?.currentTime ?? 0);
+        const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
+        const delay = fought ? Math.max(0, fought.shatterAt - elapsed) : Math.max(hold, struck);
+        const fight = fought
+          ? { frames: fought.frames, duration: fought.duration, delay: fought.delay - elapsed }
+          : undefined;
         const dest = departures?.get(id) ?? `${d.side}:graveyard`;
         // Phase 10 A-04/A-05 (owner 2026-11-06): a permanent leaving the
         // table for a graveyard was defeated (Shatter); for exile, banished.
@@ -1720,6 +2054,7 @@ export function Board({
                 fade: true,
                 delay,
                 fate,
+                ...(fight ? { fight, zIndex: Z_FIGHT + 1 } : {}),
               },
         );
       }
@@ -1768,7 +2103,7 @@ export function Board({
       }
       // A-07: several leaving the table at once is a board wipe -- a pale
       // flash sweeps the table first, then they all go together.
-      if (leaving.filter((ghost) => ghost.fate).length >= WIPE_AT) {
+      if (leaving.filter((ghost) => ghost.fate && !ghost.fight).length >= WIPE_AT) {
         setSweep(performance.now());
         for (const ghost of leaving) if (ghost.fate) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
       }
@@ -1848,7 +2183,7 @@ export function Board({
           to: into ? into.box : boxAt(where[`${side}:graveyard`], g),
           toOrigin: into ? into.origin : { x: 0, y: 0 },
           fade: true,
-          delay: RESOLVE_MS,
+          delay: RESOLVE_MS + hold,
           stack: whole
             ? {
                 low: artUrl(s.art!),
@@ -1899,9 +2234,22 @@ export function Board({
 
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     playedMerges.current = merges;
+    const itemOf = new Map<string, string>();
+    const members = new Map<string, number>();
+    for (const item of items) {
+      for (const id of item.ids) itemOf.set(id, item.id);
+      members.set(
+        item.id,
+        item.ids.filter((id) => byId.has(id) && !byId.get(id)!.attachedTo).length || 1,
+      );
+    }
     previous.current = {
       pointed,
       tabs,
+      itemOf,
+      members,
+      cards: new Map(battlefield.map((card) => [card.id, card])),
+      roles,
       viewport: { width: g.width, height: g.height },
       at: now,
       drawn,
@@ -1921,6 +2269,7 @@ export function Board({
     flyingOnto,
     stackScale,
     pointed,
+    battlefield,
   ]);
 
   // Phase 10 A-00 (owner, at lock and on the canvas): the player acts while
@@ -1980,9 +2329,13 @@ export function Board({
     else byKey.set(key, { key, kind, from, to, start, end, lane: 0, count: 1 });
   };
   // Spec 0037 — a blocked attacker hits its blockers, not the player: no
-  // fire line; and a blocker riding on its attacker needs no block line.
+  // fire line. Phase 10 A-12: a blocker standing facing its attacker needs
+  // no block line to it (one blocking several has lines to the others).
   const blockedIds = new Set((combat?.blocks ?? []).map((b) => b.attacker));
-  const riders = new Set(result?.slots.flatMap((slot) => (slot.rides ? slot.ids : [])) ?? []);
+  const faced = new Map<string, string>();
+  for (const slot of result?.slots ?? []) {
+    if (slot.faces) for (const id of slot.ids) faced.set(id, slot.faces);
+  }
   for (const a of combat?.attackers ?? []) {
     if (blockedIds.has(a.id)) continue;
     const from = centre(a.id);
@@ -1993,7 +2346,7 @@ export function Board({
     add("attack", a.id, refKey(a.target), edge(a.id, end, 0.22), end);
   }
   for (const b of combat?.blocks ?? []) {
-    if (riders.has(b.blocker)) continue;
+    if (faced.has(b.blocker) && faced.get(b.blocker) === drawn(b.attacker)) continue;
     const from = centre(b.blocker);
     const to = centre(b.attacker);
     if (!from || !to) continue;
@@ -2325,7 +2678,25 @@ export function Board({
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
         {overlay?.((id) => positions.get(id)?.box ?? spotBox.get(id) ?? null, g)}
+        {marks
+          .filter((m) => m.kind === "dim")
+          .map((m) => (
+            <FightMarkView
+              key={m.key}
+              mark={m}
+              done={() => setMarks((list) => list.filter((x) => x.key !== m.key))}
+            />
+          ))}
         <div className="bf-effects" style={{ zIndex: Z_EFFECTS }} aria-hidden="true">
+          {marks
+            .filter((m) => m.kind !== "dim")
+            .map((m) => (
+              <FightMarkView
+                key={m.key}
+                mark={m}
+                done={() => setMarks((list) => list.filter((x) => x.key !== m.key))}
+              />
+            ))}
           {effects.map((effect) =>
             effect.kind === "spark" ? (
               <div
@@ -2572,10 +2943,22 @@ function GhostCard({
     );
     element.classList.add("bf-moving");
     animation.onfinish = done;
+    // A-13: killed in a fight -- its moves in the fight, on its card, first.
+    const card = ghost.fight ? element.querySelector<HTMLElement>(":scope > .bf-card") : null;
+    const fought =
+      ghost.fight && card && typeof card.animate === "function"
+        ? card.animate(ghost.fight.frames, {
+            duration: ghost.fight.duration,
+            delay: ghost.fight.delay,
+            easing: "linear",
+            id: "fight",
+          })
+        : null;
     // Unmounting (or StrictMode's rehearsal) stops it without finishing it.
     return () => {
       animation.onfinish = null;
       animation.cancel();
+      fought?.cancel();
     };
     // Runs once: a ghost goes where it was sent when it appeared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2590,6 +2973,7 @@ function GhostCard({
       data-chained={ghost.chained ? "true" : undefined}
       data-flip={ghost.flip ? "true" : undefined}
       data-merge={ghost.merge?.part}
+      data-fought={ghost.fight ? "true" : undefined}
       style={{
         width: cardW,
         height: cardH,
@@ -2624,6 +3008,46 @@ function GhostCard({
         </div>
       )}
       {ghost.fate === "exiled" && <Motes />}
+    </div>
+  );
+}
+
+/**
+ * Phase 10 A-13 -- one mark of a fight: the dimming, a caption, sparks, a
+ * slash mark, a number, the hurt. Its animation is on the board's clock
+ * (a click hurries it); it is gone when its animation ends.
+ */
+function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element || typeof element.animate !== "function") {
+      done();
+      return;
+    }
+    const animation = element.animate(mark.frames, {
+      duration: mark.duration,
+      delay: mark.delay,
+      easing: "linear",
+      fill: "both",
+    });
+    animation.onfinish = done;
+    return () => {
+      animation.onfinish = null;
+      animation.cancel();
+    };
+    // Runs once: a mark plays what it was given when it appeared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}`}
+      data-fight={mark.kind}
+      data-of={mark.of}
+      style={{ ...mark.style, opacity: 0 }}
+    >
+      {mark.text}
     </div>
   );
 }

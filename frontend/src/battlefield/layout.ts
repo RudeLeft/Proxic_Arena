@@ -125,7 +125,8 @@ export interface LayoutCard {
    * pile together, one card and one fire line.
    */
   attackPile?: string;
-  /** Spec 0037 — the one attacker this blocker blocks: it rides on it. */
+  /** Spec 0037 — the attacker this blocker blocks (the first, when it
+   * blocks several): Phase 10 A-12, it stands facing it. */
   blocks?: string;
   /** Spec 0036 — facts a stack compares (absent: as if none). */
   damage?: number;
@@ -186,9 +187,9 @@ export interface Slot {
    * (§7.52a L7 as amended by PHASE 7 AMENDMENT 4). */
   attached: string[];
   box: Box;
-  /** Spec 0037 — a blocker riding on an attacker: that attacker's slot
-   * lead. Its box hangs from the attacker's toward the board's middle. */
-  rides?: string;
+  /** Phase 10 A-12 — a blocker standing facing its attacker (the
+   * attacker's slot lead), in its own side's front line, across the middle. */
+  faces?: string;
 }
 
 export interface Geometry {
@@ -276,10 +277,11 @@ export function kindOf(card: LayoutCard): Kind {
 }
 
 /**
- * Combat, as layout needs it (spec 0003, spec 0037): unblocked attackers
- * say what they attack, so identical ones pile (one card, one fire line);
- * a blocker of exactly one attacker rides on it. The board and its tests
- * both lay out through this, so they agree.
+ * Combat, as layout needs it (spec 0003, spec 0037, Phase 10 A-12):
+ * unblocked attackers say what they attack, so identical ones pile (one
+ * card, one fire line); a blocker says the attacker it stands facing (the
+ * first, if it blocks several). The board and its tests both lay out
+ * through this, so they agree.
  */
 export function inCombat<C extends LayoutCard>(
   battlefield: readonly C[],
@@ -301,7 +303,7 @@ export function inCombat<C extends LayoutCard>(
   }
   return battlefield.map((card) => {
     const blocks = blocking.get(card.id);
-    if (blocks?.length === 1) return { ...card, blocks: blocks[0]! };
+    if (blocks?.length) return { ...card, blocks: blocks[0]! };
     return card.attacking && aims.has(card.id) && !blocked.has(card.id)
       ? { ...card, attackPile: aims.get(card.id)! }
       : card;
@@ -341,12 +343,12 @@ function identity(card: LayoutCard): string {
  * Spec 0036 (owner 2026-10-29, replacing §7.58 / §7.52a L5 / L8's "basic
  * lands and tokens only"): any identical cards stack -- `identity` says
  * what identical means. Alone: a face-down card, anything with an
- * attachment or attached, and a blocker that does not ride (spec 0037).
+ * attachment or attached, and a blocker that faces no attacker.
  *
  * Attacking (spec 0003): unblocked attackers of the same thing stack, as
  * `attackPile` says. A blocked attacker stacks with the attackers its
  * twins are, blocked by twins of its blockers (spec 0037: identical pairs
- * stack); `riders` are its blockers.
+ * stack); `riders` are its blockers (Phase 10 A-12: they stand facing it).
  */
 function pileKey(
   card: LayoutCard,
@@ -356,19 +358,51 @@ function pileKey(
   if (card.faceDown || !card.known) return null;
   if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
   if (card.blocking) return null;
-  if (riders) return JSON.stringify(["pair", identity(card), riders.map(identity).sort()]);
+  if (riders) {
+    // A blocker with its own tabs, or attached, stands alone: so its attacker does.
+    if (riders.some((r) => r.attachedTo !== null || attachedHosts.has(r.id))) return null;
+    return JSON.stringify(["pair", identity(card), riders.map(identity).sort()]);
+  }
   if (card.attacking && card.attackPile === undefined) return null;
   return JSON.stringify([card.attacking ? card.attackPile : null, identity(card)]);
 }
 
 /**
- * Spec 0037 — where a blocker sits on its attacker, of a card: a little
- * toward the board's middle and to the right, drawn over it. Measured on
- * the real board (2026-10-29): the two front rows touch in the middle, so
- * a blocker hanging further out covered the defender's own front row.
+ * Phase 10 A-12 (owner 2026-11-06, Amendment 15): place each attacker's
+ * blockers side by side, centred under (or over) it, in the defender's
+ * front line: `groups` are the attackers' centres and, per blocker slot,
+ * its width; `step` is the gap between two cards. Left to right, a group
+ * that would overlap the one before moves along; past the line's right
+ * edge they all move back. Null when they cannot fit side by side at all
+ * (the line then squeezes them as any line, §3).
  */
-const RIDE_DOWN = 0.14;
-const RIDE_ACROSS = 0.14;
+export function faceBlockers(
+  groups: readonly { centre: number; widths: readonly number[] }[],
+  step: number,
+  x0: number,
+  x1: number,
+): number[][] | null {
+  const width = (g: { widths: readonly number[] }) =>
+    g.widths.reduce((n, w) => n + w, 0) + step * Math.max(0, g.widths.length - 1);
+  const lefts = groups.map((g) => g.centre - width(g) / 2);
+  for (let i = 0; i < groups.length; i++) {
+    const before = i > 0 ? lefts[i - 1]! + width(groups[i - 1]!) + step : x0;
+    lefts[i] = Math.max(lefts[i]!, before);
+  }
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const after = i < groups.length - 1 ? lefts[i + 1]! - step : x1;
+    lefts[i] = Math.min(lefts[i]!, after - width(groups[i]!));
+  }
+  if (groups.length > 0 && lefts[0]! < x0 - 0.5) return null;
+  return groups.map((g, i) => {
+    let x = lefts[i]!;
+    return g.widths.map((w) => {
+      const at = x;
+      x += w + step;
+      return at;
+    });
+  });
+}
 
 // --- the overflow ladder (spec 0040) -----------------------------------------
 
@@ -414,6 +448,8 @@ function planLine(
   centred: boolean,
   /** Phase 10 A-17: each slot's tab room at full size, in pixels. */
   extra: readonly number[] = [],
+  /** Phase 10 A-12: room before each slot (half its blockers' row), at full size. */
+  pre: readonly number[] = [],
 ): LinePlan {
   const n = tapped.length;
   if (n === 0) return { xs: [], showing: 1 };
@@ -421,12 +457,13 @@ function planLine(
   const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
   const at: number[] = [];
   const reach: number[] = [];
-  let offset = 0;
+  let offset = (pre[0] ?? 0) * s;
   for (let i = 0; i < n; i++) {
     if (i > 0)
       offset +=
         g.referencePitch * s +
         (extra[i - 1] ?? 0) * s +
+        (pre[i] ?? 0) * s +
         (tapped[i - 1] ? R : 0) +
         (tapped[i] ? L : 0);
     at.push(offset);
@@ -457,11 +494,20 @@ function share<T>(slots: readonly T[], n: number): T[][] {
 /** A side's lines at one size: each line's kind, rectangle and plan. */
 interface SidePlan {
   scale: number;
-  lines: { kind: Kind; index: number; rect: Rect; slots: number[]; plan: LinePlan }[];
+  lines: { kind: LineKind; index: number; rect: Rect; slots: number[]; plan: LinePlan }[];
   showing: number;
+  /** Every kind present has a line of its own inside the side's band at this size. */
+  fits: boolean;
 }
 
-const KIND_ORDER: readonly Kind[] = ["creature", "other", "land"];
+/**
+ * Phase 10 A-11/A-12 -- "front": the line nearest the middle while there is
+ * combat, holding a side's attackers (stepped forward of everything else of
+ * theirs) or its blockers (standing facing them). Its id is `creature-1`;
+ * the side's other creature lines follow it.
+ */
+type LineKind = Kind | "front";
+const KIND_ORDER: readonly LineKind[] = ["front", "creature", "other", "land"];
 
 /**
  * Spec 0040 — a side's lines at size s. Every kind present gets a line; a
@@ -471,10 +517,11 @@ const KIND_ORDER: readonly Kind[] = ["creature", "other", "land"];
  */
 function planSide(
   side: Side,
-  kinds: ReadonlyMap<Kind, readonly boolean[]>,
+  kinds: ReadonlyMap<LineKind, readonly boolean[]>,
   s: number,
   g: Geometry,
-  extras: ReadonlyMap<Kind, readonly number[]> = new Map(),
+  extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
+  pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
 ): SidePlan {
   const half = g.halves[side];
   const lineH = g.lineH * s;
@@ -484,8 +531,8 @@ function planSide(
   const x1 = g.play.x + g.play.w - g.inset;
   const present = KIND_ORDER.filter((k) => (kinds.get(k)?.length ?? 0) > 0);
   const count = new Map(present.map((k) => [k, 1]));
-  const indices = (k: Kind) => kinds.get(k)!.map((_, i) => i);
-  const plansOf = (k: Kind, n: number) =>
+  const indices = (k: LineKind) => kinds.get(k)!.map((_, i) => i);
+  const plansOf = (k: LineKind, n: number) =>
     share(indices(k), n).map((part) => ({
       slots: part,
       plan: planLine(
@@ -496,13 +543,17 @@ function planSide(
         g,
         k !== "land",
         part.map((i) => extras.get(k)?.[i] ?? 0),
+        part.map((i) => pres.get(k)?.[i] ?? 0),
       ),
     }));
-  const showingOf = (k: Kind, n: number) => Math.min(...plansOf(k, n).map((p) => p.plan.showing));
+  const showingOf = (k: LineKind, n: number) =>
+    Math.min(...plansOf(k, n).map((p) => p.plan.showing));
   for (let spare = total - present.length; spare > 0; spare--) {
-    let worst: Kind | null = null;
+    let worst: LineKind | null = null;
     let least = 1 - 1e-9;
     for (const k of present) {
+      // The front line is one line: its cards face each other across the middle.
+      if (k === "front") continue;
       const showing = showingOf(k, count.get(k)!);
       if (showing < least) {
         least = showing;
@@ -524,7 +575,12 @@ function planSide(
       lines.push({ kind: k, index, rect: { x: x0, y, w: x1 - x0, h: lineH }, ...p });
     });
   }
-  return { scale: s, lines, showing: Math.min(1, ...lines.map((l) => l.plan.showing)) };
+  return {
+    scale: s,
+    lines,
+    showing: Math.min(1, ...lines.map((l) => l.plan.showing)),
+    fits: present.length <= total,
+  };
 }
 
 /**
@@ -534,16 +590,20 @@ function planSide(
  */
 function sizeSide(
   side: Side,
-  kinds: ReadonlyMap<Kind, readonly boolean[]>,
+  kinds: ReadonlyMap<LineKind, readonly boolean[]>,
   g: Geometry,
   previous: number | undefined,
-  extras: ReadonlyMap<Kind, readonly number[]> = new Map(),
+  extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
+  pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
 ): SidePlan & { overcrowded: boolean } {
   let plan: SidePlan | null = null;
   for (const s of SIZE_STEPS) {
-    plan = planSide(side, kinds, s, g, extras);
+    plan = planSide(side, kinds, s, g, extras, pres);
     const needed = previous !== undefined && s > previous + 1e-9 ? GROW_SHOW : SHOW_MIN;
-    if (plan.showing >= needed - 1e-9) return { ...plan, overcrowded: false };
+    // Phase 10 A-11/A-12: with combat's front line a side can have four
+    // kinds of line; a size whose band holds fewer lines is never taken
+    // (its lines would cover each other), however well its cards show.
+    if (plan.fits && plan.showing >= needed - 1e-9) return { ...plan, overcrowded: false };
   }
   return { ...plan!, overcrowded: plan!.showing < SLIVER - 1e-9 };
 }
@@ -551,10 +611,7 @@ function sizeSide(
 // --- layout -------------------------------------------------------------------
 
 const Z_BATTLEFIELD = 10;
-/** Spec 0037 — a riding blocker draws over every line's cards (which stay
- * under 2000), and under the lines and effects (5000, 6000). */
-const RIDER_Z = 2000;
-const Z_HAND = 10000; // above every battlefield z (riders reach ~4000), the lines and the effects
+const Z_HAND = 10000; // above every battlefield z (under ~2000), the lines and the effects
 
 /** A hand of [n] cards fanned across the play area: where the first
  * card's left edge is, the step between cards, and the middle index. */
@@ -597,28 +654,31 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   const isAttachment = (card: LayoutCard): boolean =>
     card.attachedTo !== null && byId.has(card.attachedTo) && card.attachedTo !== card.id;
 
-  // Spec 0037 — a blocker rides on the one attacker it blocks, unless
-  // something is attached to it (its tags need a card of its own).
+  // Phase 10 A-12 (Amendment 15, replacing spec 0037's riding): a blocker
+  // stands facing the attacker it blocks, in its own side's front line --
+  // never on it. (Spec 0037: an attacker's twins blocked by twins stack.)
   const ridersOf = new Map<string, LayoutCard[]>();
   for (const card of [...input.battlefield].sort(arrival)) {
     const host = card.blocks ? byId.get(card.blocks) : undefined;
-    if (!card.blocking || !host || isAttachment(card) || hosts.has(card.id)) continue;
+    if (!card.blocking || !host || !host.attacking || isAttachment(card) || isAttachment(host))
+      continue;
     const list = ridersOf.get(host.id) ?? [];
     list.push(card);
     ridersOf.set(host.id, list);
   }
   const riding = new Set([...ridersOf.values()].flat().map((card) => card.id));
-  // The same order for every pair, so a stack's k-th riders are twins.
+  // The same order for every pair, so a stack's k-th blockers are twins.
   for (const list of ridersOf.values()) list.sort((a, b) => (identity(a) < identity(b) ? -1 : 1));
 
-  // Group the free-standing permanents into slots, per side and kind.
-  type Group = { side: Side; kind: Kind; slots: LayoutCard[][] };
+  // Group the free-standing permanents into slots, per side and kind; a
+  // side's attackers are its front line (Phase 10 A-11).
+  type Group = { side: Side; kind: LineKind; slots: LayoutCard[][] };
   const groups = new Map<string, Group>();
   const piles = new Map<string, LayoutCard[]>();
   for (const card of [...input.battlefield].sort(arrival)) {
     if (isAttachment(card) || riding.has(card.id)) continue;
     const side: Side = card.seat === input.viewerSeat ? "viewer" : "opponent";
-    const kind = kindOf(card);
+    const kind: LineKind = card.attacking && !isAttachment(card) ? "front" : kindOf(card);
     const groupKey = `${side}:${kind}`;
     let group = groups.get(groupKey);
     if (!group) {
@@ -637,49 +697,130 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     }
   }
 
-  // Spec 0040 — each side's lines and size, then every slot's box.
+  // Spec 0040 — each side's lines and size, then every slot's box. The
+  // attacking side first: the other side's blockers stand facing its
+  // attackers (Phase 10 A-12).
   const lines: Line[] = [];
   const scales: Record<Side, number> = { viewer: 1, opponent: 1 };
-  for (const side of ["opponent", "viewer"] as const) {
-    const kinds = new Map<Kind, LayoutCard[][]>();
+  const attackingSide: Side =
+    groups.has("viewer:front") && !groups.has("opponent:front") ? "viewer" : "opponent";
+  const sides: Side[] =
+    attackingSide === "viewer" ? ["viewer", "opponent"] : ["opponent", "viewer"];
+  /** Each attacker slot placed: its members and its box, left to right. */
+  const attackSlots: { members: LayoutCard[]; box: Box; lead: string }[] = [];
+  for (const side of sides) {
+    const kinds = new Map<LineKind, LayoutCard[][]>();
     for (const kind of KIND_ORDER) {
       const group = groups.get(`${side}:${kind}`);
       if (group) kinds.set(kind, group.slots);
     }
+    // The defender's front line: each attacker slot's k-th blockers, a slot
+    // each, in the attackers' order (left to right), so each stands facing it.
+    const facingOf: string[] = [];
+    if (side !== attackingSide && attackSlots.length > 0) {
+      const blockSlots: LayoutCard[][] = [];
+      for (const a of [...attackSlots].sort((p, q) => p.box.x - q.box.x)) {
+        const deepest = Math.max(0, ...a.members.map((m) => ridersOf.get(m.id)?.length ?? 0));
+        for (let k = 0; k < deepest; k++) {
+          const ids = a.members.flatMap((m) => {
+            const rider = ridersOf.get(m.id)?.[k];
+            return rider ? [rider] : [];
+          });
+          if (ids.length === 0) continue;
+          blockSlots.push(ids);
+          facingOf.push(a.lead);
+        }
+      }
+      if (blockSlots.length > 0) kinds.set("front", blockSlots);
+    }
     const tapped = new Map(
       [...kinds].map(([kind, list]) => [kind, list.map((members) => members[0]!.tapped)]),
     );
-    // Phase 10 A-17: a host's tabs need room beside it.
+    // Phase 10 A-17: a host's tabs need room beside it. A-12: an attacker
+    // needs room for the blockers standing side by side facing it, half
+    // each side of it, so they stand centred on it.
+    const facingRoom = (kind: LineKind, members: readonly LayoutCard[]) => {
+      if (kind !== "front" || side !== attackingSide) return 0;
+      const facing = Math.max(0, ...members.map((m) => ridersOf.get(m.id)?.length ?? 0));
+      return (Math.max(0, facing - 1) * g.referencePitch) / 2;
+    };
     const extras = new Map(
       [...kinds].map(([kind, list]) => [
         kind,
-        list.map((members) => g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0)),
+        list.map((members) => {
+          const tabs = g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0);
+          return Math.max(tabs, facingRoom(kind, members));
+        }),
       ]),
     );
-    const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras);
+    const pres = new Map(
+      [...kinds].map(([kind, list]) => [kind, list.map((members) => facingRoom(kind, members))]),
+    );
+    const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras, pres);
     scales[side] = plan.scale;
     if (plan.overcrowded) overcrowded.push(side);
     const w = g.cardW * plan.scale;
     const h = g.cardH * plan.scale;
 
+    const hasFront = plan.lines.some((line) => line.kind === "front");
     plan.lines.forEach((line, lineIndex) => {
-      const rowId: RowId = `${side}:${line.kind}-${line.index + 1}`;
-      lines.push({ id: rowId, side, kind: line.kind, rect: line.rect, scale: plan.scale });
+      const rowId: RowId =
+        line.kind === "front"
+          ? `${side}:creature-1`
+          : `${side}:${line.kind}-${line.index + 1 + (line.kind === "creature" && hasFront ? 1 : 0)}`;
+      lines.push({
+        id: rowId,
+        side,
+        kind: line.kind === "front" ? "creature" : line.kind,
+        rect: line.rect,
+        scale: plan.scale,
+      });
       const top = line.rect.y + (line.rect.h - h) / 2;
+      // A-12: the blockers' places, each group facing its attacker.
+      let xs = line.plan.xs;
+      if (line.kind === "front" && facingOf.length > 0) {
+        const slotsHere = line.slots.map((i) => kinds.get("front")![i]!);
+        const widths = slotsHere.map(
+          (members) =>
+            w + g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0) * plan.scale,
+        );
+        const groupsHere: { centre: number; widths: number[]; at: number[] }[] = [];
+        line.slots.forEach((slotIndex, i) => {
+          const lead = facingOf[slotIndex]!;
+          const host = attackSlots.find((a) => a.lead === lead)!;
+          const last = groupsHere[groupsHere.length - 1];
+          const centre = host.box.x + host.box.w / 2;
+          if (last && last.centre === centre) {
+            last.widths.push(widths[i]!);
+            last.at.push(i);
+          } else groupsHere.push({ centre, widths: [widths[i]!], at: [i] });
+        });
+        const placed = faceBlockers(
+          groupsHere,
+          g.referencePitch * plan.scale - w,
+          line.rect.x,
+          line.rect.x + line.rect.w,
+        );
+        if (placed) {
+          const out = [...xs];
+          groupsHere.forEach((group, j) => group.at.forEach((i, n) => (out[i] = placed[j]![n]!)));
+          xs = out;
+        }
+      }
       line.slots.forEach((slotIndex, i) => {
         const members = kinds.get(line.kind)![slotIndex]!;
         const lead = members[0]!;
-        // An attacker keeps its place (PHASE 7 AMENDMENT 4): what it
-        // attacks is shown by a line, not by moving it over the divider.
+        // Phase 10 A-11 (replacing PHASE 7 AMENDMENT 4's "an attacker keeps
+        // its place"): attackers are the front line, nearest the middle.
         const box: Box = {
-          x: line.plan.xs[i]!,
+          x: xs[i]!,
           y: top,
           w,
           h,
           scale: plan.scale,
           rotation: lead.tapped ? TAPPED_TILT : 0,
           // Left to right, so a card overlaps the one before it (§7.9);
-          // up to four lines a side stay under RIDER_Z.
+          // up to four lines a side stay under 2000.
           z: Z_BATTLEFIELD + (lineIndex * 100 + i) * 4,
         };
         const attachedCards = attachmentsOf.get(lead.id) ?? [];
@@ -694,35 +835,17 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           boxes.set(card.id, box);
           rowOf.set(card.id, rowId);
         }
+        const faces =
+          line.kind === "front" && side !== attackingSide ? facingOf[slotIndex] : undefined;
         slots.push({
           row: rowId,
           ids: members.map((card) => card.id),
           attached: attachedCards.map((card) => card.id),
           box,
+          ...(faces ? { faces } : {}),
         });
-        // Spec 0037 — the blockers ride: each member's k-th blocker shares
-        // the k-th rider box, sitting on the attacker, over every line.
-        const toward = side === "opponent" ? 1 : -1;
-        const deepest = Math.max(0, ...members.map((m) => ridersOf.get(m.id)?.length ?? 0));
-        for (let k = 0; k < deepest; k++) {
-          const ids = members.flatMap((m) => {
-            const rider = ridersOf.get(m.id)?.[k];
-            return rider ? [rider.id] : [];
-          });
-          const ride: Box = {
-            x: box.x + (k + 1) * RIDE_ACROSS * w,
-            y: box.y + toward * (RIDE_DOWN + k * 0.06) * h,
-            w,
-            h,
-            scale: plan.scale,
-            rotation: 0,
-            z: box.z + RIDER_Z + k,
-          };
-          for (const id of ids) {
-            boxes.set(id, ride);
-            rowOf.set(id, rowId);
-          }
-          slots.push({ row: rowId, ids, attached: [], box: ride, rides: lead.id });
+        if (line.kind === "front" && side === attackingSide) {
+          attackSlots.push({ members, box, lead: lead.id });
         }
       });
     });

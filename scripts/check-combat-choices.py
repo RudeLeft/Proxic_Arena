@@ -9,13 +9,17 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
                   (assignCombatDamage) and puts every point on the LAST
                   Bears offered -- that one dies, the other is untouched.
                   Each question carries the whole fight for the page's one
-                  window (owner item 5): 3 damage, both Bears needing 2
+                  window (owner item 5): 3 damage, both Bears needing 2.
+                  Phase 10 A-13: the damage wave says so -- "regular",
+                  one fight (the Giant, both Bears), every hit
   trample         a Colossal Dreadmaw (6/6 trample) blocked by one Grizzly
                   Bears: the defending player is offered only once the
                   Bears has lethal damage (CR 702.19c) -- points 1 and 2
                   go to the Bears, then every point the player is offered
                   is taken: the Bears dies, the player loses 4; the fight
-                  says 6 damage, trample, the Bears needing 2
+                  says 6 damage, trample, the Bears needing 2; the wave's
+                  fight is the Dreadmaw and the Bears, with 2 to the Bears
+                  and 4 to the player
   wolf-yes        Lone Wolf, blocked: "assign its damage as though it
                   weren't blocked?" (confirmStaticApplication) -- Yes: the
                   defending player loses 2, the blocker takes nothing
@@ -25,7 +29,19 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
   exert-last      two Glory-Bound Initiates attack: "Exert which
                   attackers?" (exertAttackers) -- the LAST one, then Done:
                   7 damage, 4 life, and next turn that one alone stays tapped
+                  (A-13: unblocked, each hits the player; the 4 gained is
+                  told as lifelink from the exerted one)
   exert-none      the same, Done at once: 6 damage, nothing gained, both untap
+  first-strike    Phase 10 A-13: a White Knight (first strike) blocked by a
+                  Grizzly Bears: a "first-strike" wave with the Knight's 2 to
+                  the Bears and the fight; the dead Bears deals nothing after
+  planeswalker    Phase 10 A-13: a Grizzly Bears attacks Liliana of the Veil,
+                  unblocked: the wave's fight is at her, and her 2 damage is
+                  a hit (Forge sends no event for it; the worker reads it
+                  from Forge's damage history)
+  deathtouch      Phase 10 A-13: a Vampire Nighthawk (deathtouch, lifelink)
+                  blocked by a Giant Spider: its hit is marked deathtouch, the
+                  2 life gained names it, and the Spider dies
   enlist-last     a Faithbonder attacks: "Enlist with which attackers?" --
                   it; the creature to tap (CostEnlist) -- the LAST at home:
                   1 + its power in damage, and only it tapped
@@ -81,6 +97,57 @@ def outcome(problems, ok, found):
     return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
 
 
+class Waves:
+    """Phase 10 A-13 -- every damage wave each seat was sent, and every
+    card's name as either seat saw it (for a failure report)."""
+
+    def __init__(self, g):
+        self.g = g
+        self.seen = {1: [], 2: []}
+        self.names = {}
+
+    def see(self):
+        for seat in (1, 2):
+            s = self.g.state.get(seat) or {}
+            for zone in ("battlefield", "graveyard"):
+                for c in s.get(zone) or []:
+                    if c.get("id"):
+                        self.names[c["id"]] = c.get("name")
+            d = s.get("damage")
+            if d and d.get("key") not in [x.get("key") for x in self.seen[seat]]:
+                self.seen[seat].append(d)
+
+    def combat(self, seat=1):
+        return [d for d in self.seen[seat] if d.get("combat")]
+
+    def problems(self):
+        """Both seats are told the same combat waves (damage is public)."""
+        mine, theirs = self.combat(1), self.combat(2)
+        if [d["key"] for d in mine] != [d["key"] for d in theirs] or mine != theirs:
+            return [f"both seats should be sent the same combat waves: {mine} vs {theirs}"]
+        return []
+
+
+def settled(g, w):
+    """Both seats have been sent the same number of combat waves (seat 1's
+    board arrives first), or the turn has moved on past combat."""
+    later = g.state.get(1, {}).get("phase") in ("END_OF_TURN", "CLEANUP")
+    return later or (bool(w.combat(1)) and len(w.combat(1)) == len(w.combat(2)))
+
+
+def hits_of(wave):
+    return sorted((h.get("source"), json.dumps(h.get("target"), sort_keys=True), h.get("amount"))
+                  for h in wave.get("hits", []))
+
+
+def to_card(card):
+    return json.dumps({"object": card}, sort_keys=True)
+
+
+def to_player(seat):
+    return json.dumps({"player": seat}, sort_keys=True)
+
+
 def bears_now(g):
     """Seat 2's Bears as SEAT 1's board shows them: the snapshot that just
     arrived is seat 1's, and seat 2's own view may not have caught up."""
@@ -117,6 +184,7 @@ def block(g, f, st, count):
 
 def double_block():
     g = game("double-block", [("Mountain", 30), ("Hill Giant", 30)])
+    w = Waves(g)
     st = {"attacked": False, "blockers": [], "asked": [], "picked": None, "after": None, "life": None,
           "bears_before": None}
 
@@ -137,14 +205,15 @@ def double_block():
         return DEFAULT
 
     def until(g):
+        w.see()
         if st["asked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
                 "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
             st["after"] = {"bears": bears_now(g), "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
-        return st["after"] is not None
+        return st["after"] is not None and settled(g, w)
 
     g.run(policy, until=until, max_turn=24)
     found = {"blockers": st["blockers"], "asked": st["asked"][:2], "points": len(st["asked"]),
-             "picked": st["picked"], "after": st["after"], "stopped": g.stopped_badly()}
+             "picked": st["picked"], "after": st["after"], "waves": w.combat(1), "stopped": g.stopped_badly()}
     if not st["asked"]:
         return "inconclusive", "the Hill Giant was never double-blocked", found
     problems = []
@@ -165,12 +234,27 @@ def double_block():
         problems.append(f"all 3 damage went to {st['picked']}, but it is not in the graveyard: {after}")
     if any(b not in after.get("bears", []) for b in spared):
         problems.append(f"{spared} took no damage, but did not survive: {after}")
+    # Phase 10 A-13: the wave the page plays the fight from.
+    problems += w.problems()
+    waves = w.combat(1)
+    wave = waves[0] if len(waves) == 1 else {}
+    fights = wave.get("fights") or []
+    giant = fights[0].get("attacker") if len(fights) == 1 else None
+    if wave.get("combat") != "regular" or len(fights) != 1 or w.names.get(giant) != "Hill Giant" \
+            or sorted(fights[0].get("blockers", [])) != sorted(st["blockers"]) \
+            or fights[0].get("defender") != {"player": 2}:
+        problems.append(f"one regular wave, one fight: the Hill Giant at player 2, blocked by both Bears: {waves}")
+    else:
+        want = sorted([(giant, to_card(st["picked"]), 3)] + [(b, to_card(giant), 2) for b in st["blockers"]])
+        if hits_of(wave) != want:
+            problems.append(f"the wave's hits: 3 to the Bears picked, 2 from each Bears to the Giant: {wave}")
     return outcome(problems, "the Hill Giant's player put every point on the Bears picked: that one died, the "
-                             "other is untouched", found)
+                             "other is untouched; the wave tells the one fight, both Bears in it", found)
 
 
 def trample():
     g = game("trample", [("Forest", 30), ("Colossal Dreadmaw", 30)])
+    w = Waves(g)
     st = {"attacked": False, "blockers": [], "asked": [], "after": None, "life": None, "bears_before": None}
 
     def policy(g, f):
@@ -190,15 +274,16 @@ def trample():
         return DEFAULT
 
     def until(g):
+        w.see()
         if st["asked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
                 "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
             st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
                            "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
-        return st["after"] is not None
+        return st["after"] is not None and settled(g, w)
 
     g.run(policy, until=until, max_turn=30)
     found = {"blockers": st["blockers"], "asked": st["asked"], "life": st["life"], "after": st["after"],
-             "stopped": g.stopped_badly()}
+             "waves": w.combat(1), "stopped": g.stopped_badly()}
     if not st["asked"] or not st["after"]:
         return "inconclusive", "the Colossal Dreadmaw was never blocked by one Bears", found
     problems = []
@@ -214,8 +299,20 @@ def trample():
     fight = (st.get("fights") or [None])[0] or {}
     if fight.get("damage") != 6 or fight.get("trample") is not True             or [b.get("lethal") for b in fight.get("blockers", [])] != [2]:
         problems.append(f"the fight says 6 damage, trample, the Bears needing 2: {fight}")
+    # Phase 10 A-13: trample's excess is a hit on the player, in the same fight.
+    problems += w.problems()
+    waves = w.combat(1)
+    wave = waves[0] if len(waves) == 1 else {}
+    fights = wave.get("fights") or []
+    maw = fights[0].get("attacker") if len(fights) == 1 else None
+    bears = st["blockers"][0] if st["blockers"] else None
+    if wave.get("combat") != "regular" or w.names.get(maw) != "Colossal Dreadmaw" \
+            or fights[0].get("blockers") != [bears] or fights[0].get("defender") != {"player": 2}:
+        problems.append(f"one regular wave, one fight: the Dreadmaw at player 2, blocked by the Bears: {waves}")
+    elif hits_of(wave) != sorted([(maw, to_card(bears), 2), (maw, to_player(2), 4), (bears, to_card(maw), 2)]):
+        problems.append(f"the wave's hits: 2 to the Bears, 4 trampling over to player 2, 2 back: {wave}")
     return outcome(problems, "Colossal Dreadmaw: 2 to the Bears first (lethal), then 4 trampled over to the "
-                             "player", found)
+                             "player; the wave tells both in the one fight", found)
 
 
 def wolf(yes):
@@ -274,6 +371,7 @@ def exert(pick):
     damage, nothing gained."""
     g = game(f"exert-{'last' if pick else 'none'}", [("Plains", 30), ("Glory-Bound Initiate", 30)],
              [("Forest", 60)])
+    w = Waves(g)
     st = {"attackers": [], "asked": [], "picked": None, "turn": None, "life": None,
           "combat": None, "after": None}
 
@@ -310,6 +408,7 @@ def exert(pick):
         return DEFAULT
 
     def until(g):
+        w.see()
         phase = g.state.get(1, {}).get("phase")
         if st["asked"] and st["combat"] is None and g.turn == st["turn"] and phase in ("MAIN2", "END_OF_TURN"):
             st["combat"] = lives()
@@ -320,7 +419,8 @@ def exert(pick):
 
     g.run(policy, until=until, max_turn=20)
     found = {"attackers": st["attackers"], "asked": st["asked"], "picked": st["picked"],
-             "life": [st["life"], st["combat"]], "tapped": st["after"], "stopped": g.stopped_badly()}
+             "life": [st["life"], st["combat"]], "tapped": st["after"], "waves": w.combat(1)[:2],
+             "stopped": g.stopped_badly()}
     if not st["asked"] or not st["after"]:
         return "inconclusive", "two Initiates never attacked and reached the next turn", found
     problems = []
@@ -333,6 +433,17 @@ def exert(pick):
     if pick:
         if (them0 - them1, me1 - me0) != (7, 4):
             problems.append(f"one exerted: 7 damage and 4 gained, got {them0 - them1} and {me1 - me0}")
+        # Phase 10 A-13: unblocked, each Initiate hits player 2 in its own
+        # fight; the 4 gained is the exerted one's lifelink, named.
+        waves = [d for d in w.combat(1) if any(h.get("source") in st["attackers"] for h in d.get("hits", []))]
+        wave = waves[0] if waves else {}
+        fights = sorted((f.get("attacker"), json.dumps(f.get("defender")), tuple(f.get("blockers", [])))
+                        for f in wave.get("fights", []))
+        if fights != sorted((a, json.dumps({"player": 2}), ()) for a in st["attackers"]):
+            problems.append(f"the wave's fights: each Initiate at player 2, unblocked: {wave}")
+        if wave.get("gains") != [{"player": 1, "amount": 4, "source": st["picked"]}]:
+            problems.append(f"the wave tells the 4 gained as {st['picked']}'s lifelink: {wave.get('gains')}")
+        problems += w.problems()
         other = [a for a in st["attackers"] if a != st["picked"]]
         if st["after"].get(st["picked"]) is not True or any(st["after"].get(a) for a in other):
             problems.append(f"next turn {st['picked']} stays tapped, {other} untaps: {st['after']}")
@@ -341,6 +452,8 @@ def exert(pick):
             problems.append(f"none exerted: 6 damage, nothing gained, got {them0 - them1} and {me1 - me0}")
         if any(st["after"].values()):
             problems.append(f"none exerted, so both untap: {st['after']}")
+        if any(d.get("gains") for d in w.combat(1)):
+            problems.append(f"none exerted: no lifelink, so no life gained in the waves: {w.combat(1)}")
     return outcome(problems, "exerted the Initiate picked: 7 damage, 4 life, and it stayed tapped" if pick
                    else "exerted none: 6 damage, both untapped", found)
 
@@ -484,10 +597,176 @@ def enlist(pick):
                    else "enlisted none: 1 damage, nothing else tapped", found)
 
 
+def first_strike():
+    """Phase 10 A-13: a White Knight (2/2 first strike) blocked by a Grizzly
+    Bears. The first-strike step's wave: "first-strike", the fight (the
+    Knight, the Bears), the Knight's 2 to the Bears -- and the dead Bears
+    deals nothing in the regular step."""
+    g = game("first-strike", [("Plains", 30), ("White Knight", 30)])
+    w = Waves(g)
+    st = {"attacked": False, "blockers": [], "after": None, "life": None, "bears_before": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "declareAttackers":
+            return attack(g, f, st, "White Knight", 1) if seat == 1 else None
+        if k == "declareBlockers":
+            return block(g, f, st, 1) if seat == 2 else None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            name = "White Knight" if seat == 1 else "Grizzly Bears"
+            return g.play_land(f) or (None if st["attacked"] else cast(g, f, name))
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if st["blockers"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+                "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
+        return st["after"] is not None and settled(g, w)
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"blockers": st["blockers"], "after": st["after"], "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if not st["blockers"] or not st["after"]:
+        return "inconclusive", "the White Knight was never blocked by a Bears", found
+    problems = w.problems()
+    bears = st["blockers"][0]
+    first = [d for d in w.combat(1) if d.get("combat") == "first-strike"]
+    wave = first[0] if len(first) == 1 else {}
+    fights = wave.get("fights") or []
+    knight = fights[0].get("attacker") if len(fights) == 1 else None
+    if w.names.get(knight) != "White Knight" or fights[0].get("blockers") != [bears]:
+        problems.append(f"one first-strike wave, its fight the Knight and the Bears: {w.combat(1)}")
+    elif hits_of(wave) != [(knight, to_card(bears), 2)]:
+        problems.append(f"the first-strike wave: the Knight's 2 to the Bears, nothing else: {wave}")
+    if any(h.get("source") == bears for d in w.combat(1) for h in d.get("hits", [])):
+        problems.append(f"the Bears died to first strike and must deal nothing: {w.combat(1)}")
+    if bears not in st["after"]["grave"]:
+        problems.append(f"the Bears took 2 first-strike damage, but is not in the graveyard: {st['after']}")
+    return outcome(problems, "first strike: its own wave, the Knight's 2 to the Bears in the one fight; the "
+                             "Bears dealt nothing", found)
+
+
+def planeswalker():
+    """Phase 10 A-13: a Grizzly Bears attacks Liliana of the Veil (3
+    loyalty) and nobody blocks. The wave's one fight is the Bears at her,
+    and her 2 damage is a hit -- Forge fires no damage event for a
+    planeswalker that is not a creature, so the worker reads it from
+    Forge's own damage record."""
+    g = game("planeswalker", [("Forest", 30), ("Grizzly Bears", 30)], [("Swamp", 40), ("Liliana of the Veil", 20)])
+    w = Waves(g)
+    st = {"attacked": None, "walker": None, "after": None}
+
+    def walker():
+        return next((c["id"] for c in g.zone(1, "battlefield", owner=2, name="Liliana of the Veil")), None)
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "declareAttackers" and seat == 1:
+            if st["attacked"] or not walker() or not ready(g, 1, "Grizzly Bears"):
+                return None
+            o = next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Grizzly Bears")), None)
+            st["attacked"] = card_of(o) if o else None
+            st["walker"] = walker()
+            return o
+        if k == "chooseDefender" and seat == 1:
+            return next((o["actionId"] for o in f["options"] if o["actionId"] == f"defender:{st['walker']}"), None)
+        if k == "declareBlockers":
+            return None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            if seat == 2:
+                return g.play_land(f) or (None if walker() else cast(g, f, "Liliana of the Veil"))
+            return g.play_land(f) or (None if g.mine(1, name="Grizzly Bears") else cast(g, f, "Grizzly Bears"))
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if st["attacked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+                "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = True
+        return st["after"] is not None and settled(g, w)
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"attacked": st["attacked"], "walker": st["walker"], "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if not st["attacked"] or not st["walker"] or not st["after"]:
+        return "inconclusive", "a Grizzly Bears never attacked Liliana of the Veil", found
+    problems = w.problems()
+    waves = [d for d in w.combat(1) if any(h.get("source") == st["attacked"] for h in d.get("hits", []))]
+    wave = waves[0] if len(waves) == 1 else {}
+    if [(f.get("attacker"), f.get("defender"), f.get("blockers")) for f in wave.get("fights", [])] != \
+            [(st["attacked"], {"object": st["walker"]}, [])]:
+        problems.append(f"one fight: the Bears at Liliana, unblocked: {w.combat(1)}")
+    if hits_of(wave) != [(st["attacked"], to_card(st["walker"]), 2)]:
+        problems.append(f"the Bears' 2 to Liliana is a hit in the wave: {wave}")
+    return outcome(problems, "the Bears attacked Liliana: one fight at her, her 2 damage told from Forge's "
+                             "damage record", found)
+
+
+def deathtouch():
+    """Phase 10 A-13: a Vampire Nighthawk (2/3 flying, deathtouch, lifelink)
+    blocked by a Giant Spider (2/4 reach). The hit on the Spider is marked
+    deathtouch, the 2 gained is named as the Nighthawk's lifelink, the
+    Spider dies and the Nighthawk lives."""
+    g = game("deathtouch", [("Swamp", 30), ("Vampire Nighthawk", 30)], [("Forest", 30), ("Giant Spider", 30)])
+    w = Waves(g)
+    st = {"attacked": False, "blockers": [], "after": None, "life": None, "bears_before": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "declareAttackers":
+            if seat != 1 or st["attacked"] or not ready(g, 1, "Vampire Nighthawk") \
+                    or not ready(g, 2, "Giant Spider"):
+                return None
+            o = next((o["actionId"] for o in f["options"]
+                      if (o.get("label") or "").startswith("Vampire Nighthawk")), None)
+            st["attacked"] = bool(o)
+            return o
+        if k == "declareBlockers":
+            return block(g, f, st, 1) if seat == 2 else None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            name = "Vampire Nighthawk" if seat == 1 else "Giant Spider"
+            return g.play_land(f) or (None if st["attacked"] else cast(g, f, name))
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if st["blockers"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+                "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
+        return st["after"] is not None and settled(g, w)
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"blockers": st["blockers"], "after": st["after"], "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if not st["blockers"] or not st["after"]:
+        return "inconclusive", "the Vampire Nighthawk was never blocked by a Giant Spider", found
+    problems = w.problems()
+    spider = st["blockers"][0]
+    waves = w.combat(1)
+    wave = waves[0] if len(waves) == 1 else {}
+    fights = wave.get("fights") or []
+    hawk = fights[0].get("attacker") if len(fights) == 1 else None
+    if w.names.get(hawk) != "Vampire Nighthawk" or fights[0].get("blockers") != [spider]:
+        problems.append(f"one wave, its fight the Nighthawk and the Spider: {waves}")
+    else:
+        on_spider = [h for h in wave.get("hits", []) if h.get("source") == hawk]
+        if [(h.get("target"), h.get("amount"), h.get("deathtouch")) for h in on_spider] != \
+                [({"object": spider}, 2, True)]:
+            problems.append(f"the Nighthawk's 2 to the Spider, marked deathtouch: {wave}")
+        back = [h for h in wave.get("hits", []) if h.get("source") == spider]
+        if [(h.get("target"), h.get("amount"), h.get("deathtouch")) for h in back] != [({"object": hawk}, 2, None)]:
+            problems.append(f"the Spider's 2 back to the Nighthawk, not deathtouch: {wave}")
+        if wave.get("gains") != [{"player": 1, "amount": 2, "source": hawk}]:
+            problems.append(f"the 2 gained, named as the Nighthawk's lifelink: {wave.get('gains')}")
+    if spider not in st["after"]["grave"]:
+        problems.append(f"deathtouch: the Spider should be in the graveyard: {st['after']}")
+    return outcome(problems, "deathtouch marked on the Nighthawk's hit, its lifelink named, the Spider dead",
+                   found)
+
+
 SCENARIOS = {"double-block": double_block, "trample": trample, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
              "exert-last": lambda: exert(True), "exert-none": lambda: exert(False),
              "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False),
-             "enlist-last": lambda: enlist(True), "enlist-none": lambda: enlist(False)}
+             "enlist-last": lambda: enlist(True), "enlist-none": lambda: enlist(False),
+             "first-strike": first_strike, "deathtouch": deathtouch, "planeswalker": planeswalker}
 
 if __name__ == "__main__":
     codes = []

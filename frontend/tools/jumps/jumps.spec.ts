@@ -137,7 +137,9 @@ async function settled(page: Page) {
           .filter((a) => a.playState === "running" && a.effect?.getTiming().iterations !== Infinity)
           .length === 0,
       undefined,
-      { timeout: 4_000, polling: 50 },
+      // Phase 10 A-13: a combat damage step's fights play one at a time,
+      // for several seconds; wait for them, as a player watching would.
+      { timeout: 12_000, polling: 50 },
     )
     .catch(() => undefined);
   await page.waitForTimeout(120);
@@ -217,7 +219,7 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.1 });
       const dir = join(OUT, "clips", `${clip.trace}-s${clip.seat}-b${clip.board}`);
       mkdirSync(dir, { recursive: true });
-      await p.page.screenshot({ path: join(dir, "00.jpg"), type: "jpeg", quality: 60 });
+      await p.page.screenshot({ path: join(dir, "000.jpg"), type: "jpeg", quality: 60 });
       p.client!.send(
         JSON.stringify({
           type: "MATCH_SNAPSHOT",
@@ -227,7 +229,10 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
       for (let k = 1; k <= (clip.shots ?? 24); k++) {
         await p.page.waitForTimeout(250);
         await p.page.screenshot({
-          path: join(dir, `${String(k).padStart(2, "0")}.jpg`),
+          // Three digits: a clip of 100 or more shots read in name order
+          // put shots 100-109 between 10 and 11 (A-13's fight looked
+          // interrupted by its own ending).
+          path: join(dir, `${String(k).padStart(3, "0")}.jpg`),
           type: "jpeg",
           quality: 60,
         });
