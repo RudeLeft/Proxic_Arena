@@ -388,6 +388,28 @@ to Insectile Aberration, Reckless Stormseeker to Storm-Charged Slasher
 at nightfall, a face-down Willbender turned face up. 800 page tests.
 Merge (A-10: meld, mutate) still needs Mechanics Lab games first.
 
+## Amendment 13 — A-10 decided: Fusion burst (owner, 2026-11-06)
+
+Lab games first (scratch probes, 2026-11-06): Graf Rats + Midnight
+Scavengers meld at the beginning of combat -- the snapshot keeps Graf
+Rats' id, renamed Chittering Host 5/6, and records the Scavengers going
+to exile (and the Rats out and back); today the page glides the
+Scavengers to exile and flips the Rats. Gemrazer mutating onto Grizzly
+Bears: the move record sends Gemrazer stack -> `merged`, and the Bears
+(same id) become Gemrazer 4/4; today Gemrazer vanishes from the stack
+and the Bears flip. Nothing in the snapshot says what is inside a
+merged creature.
+
+On the canvas (sent as a file; publishing failed that evening) the owner
+first asked for more dramatic looks, then chose **B · Fusion burst**:
+the table dims; the cards are pulled together with a small wind-up and
+slam; a white flash with rays, flying sparks and a shockwave ring in the
+merge's colour; the merged card shakes and rises out of the light,
+glowing, and settles (about one and a half seconds; a click hurries it
+like everything else). Meld, mutate on top and mutate underneath look
+the same; underneath keeps the creature's name. Afterwards it is **one
+card, nothing more** -- no edge or count of the cards inside (owner).
+
 ## Note — the owner on attacking and blocking (2026-11-06)
 
 For A-11, A-12 and A-13 (owner, while playing): attacks and blocks "feel
