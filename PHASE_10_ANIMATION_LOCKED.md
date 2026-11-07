@@ -675,3 +675,26 @@ the Dreadmaw's trample: the slash, the red screen edge as 4 reach the
 player, the shatter. `battlefield.spec.ts`, `match-big-combat.spec.ts`
 and `match-damage-tray.spec.ts` pass locally. Shown to the owner and
 approved (2026-11-06).
+
+## Amendment 17 — A-14 decided: Lift and glide (owner, 2026-11-06)
+
+Today, filmed in a scratch Lab game (Unsummon and Griptide on the other
+player's Grizzly Bears, both seats, a tenth of the speed): back to a hand
+is a plain Glide down into the hand in about 0.2 s; onto a library the
+card shrinks, slides toward the side and fades. Nothing says where it
+went.
+
+Canvas 1 (dramatic: Swept away, Rewind, Vortex): the owner asked for
+something less dramatic. Canvas 2 (D Lift and glide, E Slide home, F Turn
+and tuck; sent as files): the owner chose **D · Lift and glide**:
+
+- The card rises a little (about 12 px, scale 1.05) with a soft gold
+  glow, then glides on a gentle arc to where it goes and settles there --
+  about 0.7 s in all (180 ms lift, 520 ms glide).
+- Back to a hand: it lands in the hand as a card of that hand; going to
+  the other player's hand, it turns face down on the way (their hand is
+  hidden). Onto or into a library: it turns face down on the way and
+  lands on that player's library; shuffled in, the library riffles.
+- A small tag at the destination says what happened: "Back to your hand",
+  "Back to Bob's hand", "On top of Bob's library", "On the bottom of ...",
+  "Shuffled into ...". Both players see the same; a click hurries it.
