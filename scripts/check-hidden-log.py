@@ -80,7 +80,6 @@ def own_name(name):
 
 def check(path, totals, problems):
     known = {}        # seat -> names its snapshots have named so far
-    ids = {}          # seat -> card ids its snapshots have carried so far (zones and moves)
     numbers = {}      # seat -> last line number
     rounds = {}       # revision -> seat -> state
     for number, raw in enumerate(open(path, encoding="utf-8"), 1):
@@ -96,9 +95,6 @@ def check(path, totals, problems):
         rounds.setdefault(rev, {})[seat] = state
         names = known.setdefault(seat, set())
         names.update(own_name(n) for n in seen_names(state))
-        carried = ids.setdefault(seat, set())
-        carried.update(c.get("id") for zone in ZONES for c in state.get(zone, []) or [] if isinstance(c, dict))
-        carried.update(m.get("card") for m in state.get("moves", []) or [] if isinstance(m, dict))
         lines = state.get("playLog") or []
         if lines and (seat == 0 or state.get("spectator")):
             problems.append(f"{path}:{number}: a spectator's snapshot carries play log lines")
@@ -140,16 +136,11 @@ def check(path, totals, problems):
                 for line in view.get("playLog") or []:
                     for part in line.get("parts", []) or []:
                         if isinstance(part, dict) and part.get("id") in hand - allowed:
-                            # A card can be named publicly and then be in a hand by the
-                            # time the round is sent (bounced in the same round): that
-                            # line was written while it was public, and the board was
-                            # sent the same id (its move). Only an id this seat's own
-                            # snapshots never carried counts.
-                            if part.get("id") not in ids.get(viewer, set()):
-                                problems.append(f"{path}:{number}: seat {viewer} line {line.get('n')} points "
-                                                f"at {part['id']}, in seat {other}'s hand: {line}")
-                            else:
-                                totals["named while public, in a hand by the round's end"] += 1
+                            # A card named while public and in a hand by the time the
+                            # round is sent (bounced in the same round) is no exception:
+                            # the line keeps its name, never its id (2026-11-08).
+                            problems.append(f"{path}:{number}: seat {viewer} line {line.get('n')} points "
+                                            f"at {part['id']}, in seat {other}'s hand: {line}")
 
 
 def main():

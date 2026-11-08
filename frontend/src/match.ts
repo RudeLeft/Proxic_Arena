@@ -277,7 +277,11 @@ export interface PaidMana {
   colour: string;
   /** The symbol paid ("1" generic, "B", "B/G"); absent where the cost is hidden from this viewer. */
   shard: string | null;
-  /** "card:12" (tapped, or convoked), "pool" (mana already made) or "life" (Phyrexian). */
+  /**
+   * "card:12" (tapped, or convoked), "pool" (mana already made), "life"
+   * (Phyrexian), or "unseen": a card now in a hand or a library this viewer
+   * can't see, whose id the game no longer sends (2026-11-08).
+   */
   from: string;
 }
 
@@ -1751,7 +1755,12 @@ function asDice(value: unknown): DiceLayout | null {
 /** Phase 9 W-17 -- the dice rolled lately, as the worker keeps them. */
 /** Phase 10 A-00 -- one card's move, as the game made it. */
 export interface SnapshotMove {
-  /** "card:N"; absent when this viewer can't see the card at either end. */
+  /**
+   * "card:N"; absent when this viewer can't see where the card is now (the
+   * other player's hand, any library): the game never sends an id for a card
+   * in a zone hidden from the viewer (2026-11-08). The page pairs such a move
+   * with the card gone from the board it drew before (fromSnapshot).
+   */
   card: string | null;
   from: { zone: string; seat: number | null };
   to: { zone: string; seat: number | null };

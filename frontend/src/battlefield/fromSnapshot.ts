@@ -104,6 +104,68 @@ function opponentHandOf(snapshot: Snapshot): OpponentHandCard[] {
 }
 
 /**
+ * The round's moves, each one that left the table, the stack or the
+ * viewer's own hand for a place this viewer cannot see (the other player's
+ * hand, any library) given the card it was on the board drawn before.
+ *
+ * The game sends no id for a card now in a zone hidden from the viewer
+ * (2026-11-08, Krark, the Thumbless returning a Lightning Bolt to its
+ * owner's hand: an id is a live handle on a card wherever it goes), only
+ * "a card went from Alice's battlefield to her hand". The page still holds
+ * the board it drew, so it knows which card is gone from there: animation
+ * only (header), never an identity sent on. Known limit: when two cards
+ * leave the same place for two different hidden places in one round, they
+ * are paired in the order the game moved them and the board listed them,
+ * which can swap the two glides.
+ */
+function withLeavers(
+  snapshot: Snapshot,
+  previous: Snapshot | null,
+): NonNullable<Snapshot["moves"]> {
+  const moves = snapshot.moves ?? [];
+  if (!previous || previous.gameEpoch !== snapshot.gameEpoch) return moves;
+  if (moves.every((m) => m.card)) return moves;
+  const here = new Set<string>([
+    ...[
+      ...snapshot.battlefield,
+      ...snapshot.hand,
+      ...snapshot.otherHands,
+      ...snapshot.graveyard,
+      ...snapshot.exile,
+      ...snapshot.casting,
+    ].map((c) => c.id),
+    ...snapshot.stack.flatMap((e) => (e.source ? [e.source] : [])),
+  ]);
+  const claimed = new Set(moves.flatMap((m) => (m.card ? [m.card] : [])));
+  const gone = (id: string) => !here.has(id) && !claimed.has(id);
+  const leftFrom = (place: { zone: string; seat: number | null }): string[] => {
+    if (place.zone === "battlefield") {
+      // The battlefield's seat is its controller's, as the card's is.
+      return previous.battlefield
+        .filter((c) => gone(c.id) && (place.seat === null || c.seat === place.seat))
+        .map((c) => c.id);
+    }
+    if (place.zone === "stack") {
+      return previous.stack
+        .filter((e) => e.kind === "spell" && e.source && gone(e.source))
+        .filter((e) => place.seat === null || e.controller === place.seat)
+        .map((e) => e.source!);
+    }
+    if (place.zone === "hand" && place.seat === snapshot.seat) {
+      return previous.hand.filter((c) => gone(c.id)).map((c) => c.id);
+    }
+    return [];
+  };
+  return moves.map((move) => {
+    if (move.card || (move.to.zone !== "hand" && move.to.zone !== "library")) return move;
+    const card = leftFrom(move.from)[0];
+    if (!card) return move;
+    claimed.add(card);
+    return { ...move, card };
+  });
+}
+
+/**
  * The board for this snapshot. [previous] is the snapshot drawn before
  * it, or null on the first one (nothing animates in from anywhere).
  */
@@ -158,7 +220,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   };
   const cameFrom = new Map<string, AnchorId>();
   const wentTo = new Map<string, AnchorId>();
-  for (const move of snapshot.moves ?? []) {
+  const moves = withLeavers(snapshot, previous);
+  for (const move of moves) {
     if (!move.card) continue;
     if (move.to.zone === "battlefield" && !cameFrom.has(move.card)) {
       const from = anchorOf(move.from);
@@ -173,7 +236,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // partner exiled `into` the melded card, a mutating spell `into` its
   // creature): never guessed from a rename and a card gone to exile.
   const merges = new Map<string, Merge>();
-  for (const move of snapshot.moves ?? []) {
+  for (const move of moves) {
     if (!move.card || !move.into || !onBoard.has(move.into)) continue;
     const kind = move.to.zone === "merged" ? "mutate" : "meld";
     const merge = merges.get(move.into) ?? { kind, partners: [] };
@@ -187,7 +250,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // the viewer saw at one end).
   const returns = new Map<string, Return>();
   const seenInHands = new Set([...snapshot.hand, ...snapshot.otherHands].map((c) => c.id));
-  for (const move of snapshot.moves ?? []) {
+  for (const move of moves) {
     if (!move.card || move.to.seat === null) continue;
     if (move.from.zone !== "battlefield" && move.from.zone !== "stack") continue;
     if (move.to.zone !== "hand" && move.to.zone !== "library") continue;
@@ -200,7 +263,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   }
   // Spec 0061, item 4 -- why a card went to a graveyard, as the game says.
   const graves = new Map<string, string>();
-  for (const move of snapshot.moves ?? []) {
+  for (const move of moves) {
     if (move.card && move.said && move.to.zone === "graveyard") graves.set(move.card, move.said);
   }
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {

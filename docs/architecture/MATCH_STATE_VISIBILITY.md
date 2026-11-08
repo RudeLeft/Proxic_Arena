@@ -48,6 +48,36 @@ shown it to, including Mindslaver's master and Karn's hand exile
 (P6-G, `scripts/check-hidden-hands.py`), and on the live site over 835
 snapshots (P6-BK).
 
+## A card's id, once it is hidden (2026-11-08)
+
+A card keeps its id for the whole match, across zones (Phase 0A), so an
+id is a handle on the card wherever it goes. **No snapshot carries the id
+of a card now in a zone hidden from its viewer** -- every library, every
+hand but the viewer's own, less what Forge shows in `otherHands` -- under
+any key. The board's lists never did; the history sent with them did: the
+round's `moves`, the last 24 `payments` (`for`, a mana's `from`), `rolls`,
+`action`, `damage`, the play log. Found by CI on Krark, the Thumbless (a
+lost flip returned Alice's Lightning Bolt from the stack to her hand; Bob
+was still sent card:7 in a move, a payment and a log line), then over
+every Lab game: 2,544 such sightings, most of them a payment pointing at
+the card a player had started to cast and taken back into the hand.
+
+The worker strips them per viewer as the round is sent (`HiddenIds`):
+the name, the reason and the place stay -- they were public -- the id
+goes (a move loses `why`, `said`, `into` with it; a mana says from
+"unseen"). A card that no longer exists (a token gone from the
+battlefield) is in no hidden zone and keeps its id. The page pairs a move
+without a card with the card gone from the board it drew before, so a
+Bolt bounced to the other player's hand still flies there as a back
+(`fromSnapshot` `withLeavers`). `scripts/check-hidden-hands.py` now looks
+at every string that is a card id, under any key.
+
+Not covered: a card seen while public and seen again once public (cast
+from the hand it was bounced to) has the same id both times, so a page
+that remembers ids can tell it is the same card. That is the Phase 0A
+identity decision (CR 400.7 not reflected in the id), not a leak of this
+snapshot.
+
 ## Libraries
 
 **A snapshot's library is a count only**, for every player including the

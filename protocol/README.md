@@ -210,9 +210,13 @@ moves                     Phase 10 A-00: the cards moved since the last
                           battlefield|hand|library|graveyard|exile|stack|
                           command|merged|other|nowhere (a new token); why is
                           "destroyed" or "sacrificed" for a card leaving the
-                          battlefield. `card` only when this viewer can see
-                          the card at one end (never the other player's
-                          draw); absent when nothing moved. Phase 10 A-10:
+                          battlefield. `card` only when the card is not now
+                          in a zone hidden from this viewer (the other
+                          player's hand, any library -- 2026-11-08: never the
+                          other player's draw, nor a Bolt bounced back to its
+                          caster's hand; the page pairs such a move with the
+                          card gone from the board it drew); absent when
+                          nothing moved. Phase 10 A-10:
                           into "card:N" -- the permanent this card merged
                           into (a meld partner to exile, a mutating spell
                           to merged), from Forge's state; only with `card`.
@@ -250,6 +254,9 @@ payments                  spec 0062: what each payment step paid, the last
                           it paid), from "card:N"|"pool"|"life"}]}. A spell
                           still being cast (and a face-down card's ability)
                           keeps cost, owing and shard to its payer.
+                          `for` and a mana's card `from` follow the rule
+                          below: a card now in a hidden zone has no `for`,
+                          and its mana says from "unseen".
 playLog                   spec 0064: this round's play log lines for THIS
                           seat, written by the worker from Forge's events
                           with only what this seat may identify (both
@@ -268,6 +275,15 @@ playLog                   spec 0064: this round's play log lines for THIS
                           each seat's lines for the match (last 2,000) and
                           puts the whole log in the board it sends a
                           connection that just arrived
+(every key)               2026-11-08: no snapshot carries the id of a card
+                          now in a zone hidden from its viewer -- every
+                          library, every hand but the viewer's own (less
+                          what Forge shows in otherHands) -- under any key:
+                          moves, payments, rolls, action, damage, the play
+                          log. The name and the place stay (they were
+                          public); the id, a handle on the card wherever it
+                          goes, does not (worker HiddenIds;
+                          scripts/check-hidden-hands.py)
 decision.arrange.dice     Phase 9 W-17, on the roll questions: {how
                           (reroll|nudge|swap|swapValue|ignore), sides,
                           rolls, by [{id, name}], price?, power?,

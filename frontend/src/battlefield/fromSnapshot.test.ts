@@ -273,3 +273,68 @@ describe("back to a hand, onto or into a library (Phase 10 A-14)", () => {
     expect(after.moves?.[1]?.where).toBe("top"); // read as sent; only a library's is used
   });
 });
+
+// 2026-11-08 -- the game sends no id for a card now in a zone hidden from the
+// viewer (Krark, the Thumbless returning Alice's Lightning Bolt to her hand).
+// The page pairs the move with the card gone from the board it drew, so the
+// glide is the same as when the id came with it.
+describe("a card gone where this viewer can't see, sent without its id", () => {
+  it("off the table to the other player's hand, or into a library: the card that left", () => {
+    const after = snapshot(2, {
+      battlefield: [card("card:9", 1, "Walking Corpse")],
+      moves: [
+        { from: { zone: "battlefield", seat: 2 }, to: { zone: "hand", seat: 2 } },
+        { from: { zone: "battlefield", seat: 2 }, to: { zone: "library", seat: 2 }, where: "top" },
+      ],
+    });
+    const board = boardFromSnapshot(after, before);
+    expect(board.departures.get("card:7")).toBe("opponent:hand");
+    expect(board.departures.get("card:8")).toBe("opponent:library");
+    expect(board.returns.get("card:7")).toEqual({
+      zone: "hand",
+      side: "opponent",
+      where: null,
+      hidden: true,
+    });
+    expect(board.returns.get("card:8")?.where).toBe("top");
+    expect(board.departures.has("card:9")).toBe(false);
+  });
+
+  it("a spell off the stack back to its caster's hand (Krark's lost flip)", () => {
+    const casting = snapshot(1, {
+      stack: [
+        {
+          id: "stack:1",
+          name: "Lightning Bolt",
+          kind: "spell",
+          controller: 2,
+          source: "card:7",
+          targets: [],
+        },
+      ],
+    });
+    const after = snapshot(2, {
+      moves: [{ from: { zone: "stack" }, to: { zone: "hand", seat: 2 } }],
+    });
+    const board = boardFromSnapshot(after, casting);
+    expect(board.returns.get("card:7")).toEqual({
+      zone: "hand",
+      side: "opponent",
+      where: null,
+      hidden: true,
+    });
+  });
+
+  it("pairs nothing with a draw, nor with a card still in sight", () => {
+    const after = snapshot(2, {
+      battlefield: [card("card:7", 2, "Grizzly Bears"), card("card:8", 2, "Leashling")],
+      moves: [
+        { from: { zone: "library", seat: 2 }, to: { zone: "hand", seat: 2 } },
+        { from: { zone: "battlefield", seat: 2 }, to: { zone: "hand", seat: 2 } },
+      ],
+    });
+    const board = boardFromSnapshot(after, before);
+    expect(board.returns.size).toBe(0);
+    expect(after.moves?.every((m) => m.card === null)).toBe(true); // nothing written back
+  });
+});

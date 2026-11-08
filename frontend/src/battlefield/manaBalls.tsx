@@ -370,6 +370,9 @@ export function ManaBalls({
       const el = document.querySelector(`[data-object-id="${from}"]`);
       return el ? centre(el) : null;
     }
+    // "unseen": a card now somewhere this viewer can't see (the game sends
+    // no id for it, 2026-11-08) -- no place to fly from.
+    if (from !== "pool" && from !== "life") return null;
     const life = document.querySelector(`.gs-life[data-object-id="player:${seat}"]`);
     if (from === "pool") {
       const chip = document.querySelector(`[data-pool="${seat}:${colour}"]`);

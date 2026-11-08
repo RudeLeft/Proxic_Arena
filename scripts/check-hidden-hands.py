@@ -14,8 +14,16 @@ named. A hidden card's id is never sent (an id on the wire is a card
 that can be followed), so the test is by id:
 
   snapshot    no card in another seat's hand appears in this seat's
-              snapshot, in any zone -- except `otherHands`, which is
-              Forge's own permission (Mindslaver, a revealed hand)
+              snapshot, under ANY key -- a zone's `id`, a stack `source`
+              or target, a move's `card` (Phase 10 A-00), a payment's
+              `for` or mana `from` (spec 0062), a roll's `source`, a play
+              log line's card (spec 0064): every string that is a card id,
+              wherever it sits -- except `otherHands`, which is Forge's own
+              permission (Mindslaver, a revealed hand). A card that was
+              public a moment ago (Krark, the Thumbless returning a
+              Lightning Bolt from the stack to its owner's hand,
+              2026-11-08) is no exception: its name is history, but its id
+              is a live handle on a card now hidden
   questions   no option offered to this seat names such a card -- except
               one Forge has just revealed to it (Blackmail: "Looking at
               Bob's hand: Grizzly Bears, Giant Growth, Grizzly Bears", then
@@ -49,21 +57,21 @@ CARD = re.compile(r"card:(\d+)")
 
 
 def ids_in(node, skip=("otherHands",)):
-    found = set()
+    """Every card id anywhere in [node], under any key: {id: [where, ...]}."""
+    found = {}
 
-    def walk(n):
+    def walk(n, where):
         if isinstance(n, dict):
-            value = n.get("id")
-            if isinstance(value, str) and CARD.fullmatch(value):
-                found.add(value)
             for key, child in n.items():
                 if key not in skip:
-                    walk(child)
+                    walk(child, f"{where}.{key}" if where else key)
         elif isinstance(n, list):
             for child in n:
-                walk(child)
+                walk(child, f"{where}[]")
+        elif isinstance(n, str) and CARD.fullmatch(n):
+            found.setdefault(n, []).append(where)
 
-    walk(node)
+    walk(node, "")
     return found
 
 
@@ -111,9 +119,12 @@ def check(path, totals, leaks):
                     allowed = {c["id"] for c in view.get("otherHands", [])}
                     totals["snapshots compared"] += 1
                     totals["hand cards protected"] += len(hand)
-                    for card in (ids_in(view) & hand) - allowed:
+                    carried = ids_in(view)
+                    for card in (carried.keys() & hand) - allowed:
+                        totals["leaks by key: " + ", ".join(sorted(set(carried[card])))] += 1
                         leaks.append(f"{path}:{number} rev {rev}: seat {viewer}'s snapshot carries "
-                                     f"{card}, in seat {other}'s hand")
+                                     f"{card} (in {', '.join(sorted(set(carried[card])))}), "
+                                     f"in seat {other}'s hand")
                     if viewer == view.get("seat"):
                         for text in view.get("notices", []):
                             shown = REVEAL.match(text)

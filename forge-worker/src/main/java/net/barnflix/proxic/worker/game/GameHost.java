@@ -1132,6 +1132,10 @@ public final class GameHost {
         PlayLog log = playLog;
         java.util.Map<Integer, com.google.gson.JsonArray> logLines =
                 log == null ? java.util.Map.of() : log.flush(revision);
+        // Every hand and library, by seat: no seat is sent a live id for a
+        // card in one it cannot see (HiddenIds, 2026-11-08).
+        java.util.Map<Integer, java.util.Map<String, java.util.List<Integer>>> hiddenZones =
+                HiddenIds.zonesOf(current, seatsByPlayer(current));
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone
         // and showed the winner alone. Measured, P6-AP.
@@ -1172,6 +1176,10 @@ public final class GameHost {
                 PlayLog.keepShownIds(lines, PlayLog.cardIds(snapshot));
                 snapshot.add("playLog", lines);
             }
+            // The history sent with the board (moves, payments, rolls, the
+            // play log...) keeps no id of a card now in a hand or a library
+            // this seat cannot see: the name stays, the handle goes.
+            HiddenIds.strip(snapshot, HiddenIds.hiddenZones(hiddenZones, seat));
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {
@@ -1192,6 +1200,7 @@ public final class GameHost {
             if (!moved.isEmpty()) {
                 everyone.add("moves", Moves.forViewer(moved, null));
             }
+            HiddenIds.strip(everyone, HiddenIds.hiddenZones(hiddenZones, null));
             try {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);
             } catch (RuntimeException e) {
