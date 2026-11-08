@@ -38,3 +38,77 @@ the chat window. The lobby chat is unchanged.
 | F-0064-D | Pop-out window shows chat and log and stays in step | e2e |
 
 ## Amendments
+
+### Amendment 1 -- As built (2026-11-08, not committed)
+
+**Where the log is written: the worker, per seat (`PlayLog`).** It
+listens to Forge's events (turn began, mulligan, land played, spell or
+ability cast with its targets, attackers and blockers declared, damage,
+life gained and lost, poison, scry, surveil, sacrificed, every zone
+change) and writes one line per thing that happened FOR EACH SEAT. A card
+is named for a seat only if Forge says that seat may identify it at that
+moment -- both questions, `canBeShownTo` and `canFaceDownBeShownTo`
+(HID-002) -- or if it was public in the zone it just left (a creature
+bounced to a hand, a card milled). Otherwise the words say "a card", "a
+face-down spell", "a face-down creature". A card Forge reveals to one
+seat is named in that seat's line alone. Never from Forge's game log
+(`GAME_LOG` still goes to the admin record only). Runs are one line
+("Bob drew 7 cards"; "Alice created 12 Goblin tokens"; a Pyroclasm's
+damage); a round is capped at 300 lines ("And N more things happened").
+A damage line carries the life total after it ("Bob 17"); a line naming
+more than the other seat's is marked private (the gold ring).
+
+**Never ahead of the table (HID-005).** Lines wait in the worker and go
+out IN the next snapshot round (`playLog`, each line with that round's
+revision). The page shows a line only once the board drawn on the table
+is at least that revision -- so while a spell of the other player's is
+held on screen (the 1.5 s spotlight) the next board's lines wait too.
+
+**Where it is kept: the server (`SeatPlayLogs`, in `LiveMatch`).** Each
+seat's lines, the last 2,000, for the match's life; the board a
+connection gets on (re)connect carries that seat's whole log, so a
+refresh brings it back. Never sent to another seat; spectators get no log
+(their snapshot never carries one). The server adds pictures to the
+named cards (`MatchArt`), which authorises that seat to fetch them, as a
+snapshot does. A server restart loses the log, as it loses the match.
+Chat is still live-only (spec 0013 G2: the canvas's question on keeping
+chat was left as it was).
+
+**The page (`battlefield/GameChat.tsx`, `chatPlace.ts`).** Tabs Chat and
+Play log with unread counts (chat gold, plays grey; the log a refresh
+brings back is not counted). Opens on Chat; the closed edge tab keeps
+today's dot for chat only (both left open on the canvas; the defaults).
+The log: "Turn 5 · Alice" headers that stick while you scroll that turn
+("your turn" on yours; "Before the game" for the opening hands), the step
+written small when it changes (Combat, Main 2, End), coloured dots by
+kind, card names you point at to see the card (its picture beside the
+name) and click to open the board's close-up when it is still on the
+table, filters Everything / Spells and combat, follows the game unless
+you scrolled up ("Jump to latest"). Floating: the ⇱ button; dragged by
+its top bar, resized from its corner (300x260 to 900x1400), remembered
+per user in this browser (`proxic.gameChat.v1.<user>`, try/catch); while
+dragging, the hand and the column with the action button light up; let
+go over either and it slides the least distance clear (shorter only if it
+must); it moves clear again when the window or the hand grows; ⇲ docks
+it. Pop-out (⧉, hidden on phones and tablets): `window.open` of a blank
+same-origin window that this page draws into (a React portal, with the
+page's styles copied), so it shares the page's game state and sockets and
+stays in step; a blocked pop-up says "Your browser blocked the chat's own
+window. Allow pop-ups for this site, then try again."; the table keeps a
+tab that brings it back; closing it puts the chat back; refreshing or
+leaving the game closes it. The lobby chat is unchanged.
+
+**Proof.** `PlayLogTest` (worker: a hidden card never reaches a seat's
+line by name or id, from both seats); `PlayLogKeptTest` (server: each
+seat gets back only its own whole log; bounded; pictures for that seat
+only); `scripts/check-play-log.py` (a real game, both seats: own draws
+named, the other's "drew a card"; Willbender cast face down named to
+Alice only until it died; Bolt targeting Bob's Grizzly Bears; attack and
+damage lines with life totals; every line in its own revision's
+snapshot); `scripts/check-hidden-log.py` over traces (every card a line
+names is one that seat's own snapshots named; no id from another seat's
+hand; no line ahead of its board; no line to a spectator) -- both added
+to CI. With the visibility check removed from `PlayLog`, both scripts
+fail (49 problems); with the page's revision filter removed, the
+held-board page test fails. Page tests `fixes0064.test.tsx`; e2e
+`match-play-log.spec.ts`.

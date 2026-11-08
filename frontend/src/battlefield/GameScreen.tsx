@@ -27,7 +27,7 @@ import graveyardArt from "../assets/zones/graveyard.webp";
 import exileArt from "../assets/zones/exile.webp";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import { Avatar, avatarUrl } from "../avatars";
-import { ChatPanel } from "../LobbyChat";
+import { GameChat } from "./GameChat";
 import { avatarOf, holdsBelt, rankOf } from "../lobbyView";
 import { BeltMark } from "../BeltMark";
 import { FitName } from "../FitName";
@@ -307,6 +307,14 @@ export function GameScreen({
     () => (board ? boardFromSnapshot(board, frames.current.previous) : null),
     [board],
   );
+  // Spec 0064 -- the play log only as far as the board on the table: a line
+  // that came with a board still held back (a spell shown for a moment) waits
+  // for it (HID-005: never ahead of the table).
+  const shownRevision = board?.stateRevision ?? -1;
+  const playLog = useMemo(
+    () => (game.playLog ?? []).filter((line) => line.rev <= shownRevision),
+    [game.playLog, shownRevision],
+  );
   // The loading ring only once loading takes a moment: a refreshed game
   // draws its board in a few hundredths of a second, and the ring
   // flashing first looked like a hiccup (owner 2026-10-24).
@@ -442,18 +450,6 @@ export function GameScreen({
       }),
     [data, match.participants, lobby],
   );
-  const latestFromOthers = useMemo(() => {
-    // Spec 0013 — the game's own chat, not the lobby's.
-    for (let i = lobby.gameChat.length - 1; i >= 0; i--) {
-      if (lobby.gameChat[i]!.fromUserId !== me) return lobby.gameChat[i]!.id;
-    }
-    return null;
-  }, [lobby.gameChat, me]);
-  const [chatSeen, setChatSeen] = useState(latestFromOthers);
-  useEffect(() => {
-    if (chatOpen) setChatSeen(latestFromOthers);
-  }, [chatOpen, latestFromOthers]);
-  const unread = !chatOpen && latestFromOthers !== chatSeen;
   const [listOpen, setListOpen] = useState(false);
 
   // A new question (or none) clears what the last one had picked.
@@ -1985,8 +1981,22 @@ export function GameScreen({
           <ResultBanner over={over} sentence={sentence} onLeave={onLeave} onAside={null} />
         )}
 
-        {drawn && !watching && (
-          <GameChat open={chatOpen} unread={unread} me={me} onToggle={setChatOpen} />
+        {drawn && !watching && board && (
+          <GameChat
+            open={chatOpen}
+            onToggle={setChatOpen}
+            me={me}
+            matchId={match.matchId}
+            lines={playLog}
+            players={board.players}
+            mySeat={board.seat}
+            handCount={board.hand.length}
+            onInspect={(id) => {
+              if (!cardOf(board, id)) return false;
+              setInspecting(id);
+              return true;
+            }}
+          />
         )}
       </section>
     </SeatsContext.Provider>
@@ -4204,57 +4214,5 @@ function GearIcon() {
         d="M10.3 2h3.4l.5 2.6c.7.2 1.3.5 1.9.9l2.3-1.4 2.4 2.4-1.4 2.3c.4.6.7 1.2.9 1.9l2.6.5v3.4l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.4 2.3-2.4 2.4-2.3-1.4c-.6.4-1.2.7-1.9.9l-.5 2.6h-3.4l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.3 1.4-2.4-2.4 1.4-2.3c-.4-.6-.7-1.2-.9-1.9L1 13.7v-3.4l2.6-.5c.2-.7.5-1.3.9-1.9L3.1 5.6 5.5 3.2l2.3 1.4c.6-.4 1.2-.7 1.9-.9L10.3 2ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
       />
     </svg>
-  );
-}
-
-/**
- * Spec 0013 — the game's own chat: the lobby chat's panel (time by the
- * name, bubbles, emoji, reactions, "New") with the game's lines, in a
- * drawer with a tab on its edge to open and close it, and Close by Send.
- */
-function GameChat({
-  open,
-  unread,
-  me,
-  onToggle,
-}: {
-  open: boolean;
-  unread: boolean;
-  me: string;
-  onToggle: (open: boolean) => void;
-}) {
-  const { lobby, send } = useLobbyConnection();
-  return (
-    <aside className={`gs-chat${open ? " gs-chat-open" : ""}`} aria-label="Game chat">
-      <button
-        type="button"
-        className={`gs-chat-tab${unread && !open ? " gs-chat-tab-unread" : ""}`}
-        aria-expanded={open}
-        aria-label={
-          open
-            ? "Close the game chat"
-            : unread
-              ? "Open the game chat, new messages"
-              : "Open the game chat"
-        }
-        onClick={() => onToggle(!open)}
-      >
-        <span aria-hidden="true">Game chat</span>
-        {unread && !open && <span aria-hidden="true" className="gs-chat-tab-dot" />}
-      </button>
-      {open && (
-        <ChatPanel
-          lobby={lobby}
-          me={me}
-          lines={lobby.gameChat}
-          title="Game chat"
-          inputLabel="Message the game"
-          className="gs-chat-panel"
-          onSay={(text) => send({ type: "CHAT", text, scope: "game" })}
-          onReact={(lineId, emoji, on) => send({ type: "REACT", lineId, emoji, on, scope: "game" })}
-          // Spec 0016 (6) — no Close button: the tab on its edge opens and closes it.
-        />
-      )}
-    </aside>
   );
 }

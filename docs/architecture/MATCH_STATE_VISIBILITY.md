@@ -160,3 +160,29 @@ face up in exile -- whose names the effect allows. A face-down card, a
 hand or a library is never listed, so the list says nothing the board
 does not. The names and type lines a search returns are Forge's card
 data for every card in Magic, not game state.
+
+## The play log (spec 0064)
+
+The game chat's Play log tab is written **per seat by the worker**
+(`PlayLog`), from Forge's events as they happen -- never from Forge's own
+game log (`GAME_LOG`, which can name hidden cards and goes to the admin
+game record only). Each card in a line is named for a seat only when
+Forge says that seat may identify it at that moment (both questions,
+as for the board), or when it was public in the zone it just left (a
+creature bounced to a hand). Otherwise the line says "a card", "a
+face-down creature" ("Bob drew a card"; "Alice cast a face-down spell").
+A card Forge revealed to one seat is named in that seat's line alone.
+
+Lines wait in the worker until the next snapshot round and travel in that
+round's snapshots (`playLog`), each with its revision; the page shows a
+line only once the board on the table is that revision or later, so the
+log is never ahead of the table, even while a board is held on screen
+(HID-005). The server keeps each seat's lines for the match (the last
+2,000) and sends them only to that seat's user, whole, on (re)connect.
+Spectators get no log.
+
+Proven over Mechanics Lab traces by `scripts/check-hidden-log.py` (every
+card a line names is one that seat's own snapshots named; no line points
+at a card in another seat's hand; every line arrives in its own
+revision's snapshot), and from both seats by `scripts/check-play-log.py`
+(draws, a face-down cast, a Bolt, combat), both in CI.

@@ -104,7 +104,11 @@ class LiveMatch(
         state: kotlinx.serialization.json.JsonObject,
     ) {
         snapshots[seat] = state
+        if (seat != PUBLIC_SEAT) playLogs.keep(seat, state)
     }
+
+    /** Spec 0064 — each seat's play log for the match ([SeatPlayLogs]). */
+    val playLogs = SeatPlayLogs()
 
     /** Spec 0056 — the turn the game is on, from the latest board any seat was sent; null before one. */
     val turn: Int?
@@ -124,9 +128,18 @@ class LiveMatch(
      */
     val spectators: MutableSet<UUID> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /**
+     * The latest board this user's seat was sent, carrying (spec 0064) the
+     * seat's WHOLE play log so far instead of only that round's lines: what
+     * a connection that just arrived needs. The lines are all from rounds up
+     * to this board's, so none is ahead of it (HID-005).
+     */
     fun snapshotFor(userId: UUID): kotlinx.serialization.json.JsonObject? {
         val seat = seatOf(userId) ?: return null
-        return snapshots[seat] as? kotlinx.serialization.json.JsonObject
+        val state = snapshots[seat] as? kotlinx.serialization.json.JsonObject ?: return null
+        val log = playLogs.of(seat)
+        if (log.isEmpty()) return state
+        return kotlinx.serialization.json.JsonObject(state + ("playLog" to log))
     }
 
     fun nowAsking(request: DecisionRequest) {
@@ -322,4 +335,38 @@ fun LiveMatch.endForAway(
     val since = offlineSince(other.userId) ?: return "NOT_AWAY"
     if (since.plus(away).isAfter(now)) return "NOT_AWAY"
     return if (send(other.seatNumber)) null else "UNREACHABLE"
+}
+
+/** Spec 0064 — how many play log lines are kept per seat for a match. */
+const val PLAY_LOG_KEPT = 2_000
+
+/**
+ * Spec 0064 — each seat's play log for the match, as the worker wrote it
+ * for that seat (its `playLog` lines, each round's in that round's
+ * snapshot). Kept so a refresh or a reconnect gets the whole log back: the
+ * worker sends each line once. Per seat, and only ever sent to that seat's
+ * own user (HID-001): never re-written or merged across seats. Bounded;
+ * the oldest lines go first.
+ */
+class SeatPlayLogs {
+    private val bySeat =
+        java.util.concurrent.ConcurrentHashMap<Int, ArrayDeque<kotlinx.serialization.json.JsonElement>>()
+
+    fun keep(
+        seat: Int,
+        state: kotlinx.serialization.json.JsonObject,
+    ) {
+        val lines = state["playLog"] as? kotlinx.serialization.json.JsonArray ?: return
+        val kept = bySeat.computeIfAbsent(seat) { ArrayDeque() }
+        synchronized(kept) {
+            kept.addAll(lines)
+            while (kept.size > PLAY_LOG_KEPT) kept.removeFirst()
+        }
+    }
+
+    /** This seat's play log so far, oldest first. */
+    fun of(seat: Int): kotlinx.serialization.json.JsonArray {
+        val kept = bySeat[seat] ?: return kotlinx.serialization.json.JsonArray(emptyList())
+        return synchronized(kept) { kotlinx.serialization.json.JsonArray(kept.toList()) }
+    }
 }

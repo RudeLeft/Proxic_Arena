@@ -692,6 +692,129 @@ export interface Snapshot {
   spectator?: boolean;
 }
 
+/**
+ * Spec 0064 -- one card a play log line names: only a card the worker let
+ * this seat identify (anything else is plain words, "a card"). `art` is the
+ * picture the server put on it for this seat; `label` is how it reads when
+ * that differs from its name (a token: "Goblin" for "Goblin Token").
+ */
+export interface PlayLogCard {
+  name: string;
+  label?: string;
+  id?: string;
+  owner: number;
+  seat: number;
+  art?: string;
+  crop?: string;
+  token?: boolean;
+  faceDown?: boolean;
+}
+
+/** Words, a player (by seat) or a card. */
+export type PlayLogPart = string | { player: number } | PlayLogCard;
+
+/**
+ * Spec 0064 -- one line of this seat's play log, as the worker wrote it for
+ * this seat. `rev` is the board it came with: the page shows it only once
+ * the board on the table is at least that one (HID-005).
+ */
+export interface PlayLogLine {
+  n: number;
+  rev: number;
+  turn: number;
+  /** Whose turn it was. */
+  active: number;
+  step: string;
+  kind: string;
+  parts: PlayLogPart[];
+  /** Life totals after it, by seat. */
+  life?: { seat: number; total: number }[];
+  /** Only you were told this much. */
+  private?: boolean;
+}
+
+/** Spec 0064 -- how many play log lines the page keeps (the server keeps as many). */
+export const PLAY_LOG_KEPT = 2000;
+
+/** The lines of a snapshot's `playLog`, as far as they are well formed. */
+export function asPlayLog(value: unknown): PlayLogLine[] {
+  if (!Array.isArray(value)) return [];
+  const out: PlayLogLine[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const row = raw as Record<string, unknown>;
+    const n = asNumber(row["n"]);
+    const rev = asNumber(row["rev"]);
+    if (n === null || rev === null || !Array.isArray(row["parts"])) continue;
+    const parts: PlayLogPart[] = [];
+    for (const part of row["parts"] as unknown[]) {
+      if (typeof part === "string") parts.push(part);
+      else if (typeof part === "object" && part !== null) {
+        const p = part as Record<string, unknown>;
+        const player = asNumber(p["player"]);
+        const name = asString(p["name"]);
+        if (player !== null) parts.push({ player });
+        else if (name) {
+          const card: PlayLogCard = {
+            name,
+            owner: asNumber(p["owner"]) ?? 0,
+            seat: asNumber(p["seat"]) ?? 0,
+          };
+          const label = asString(p["label"]);
+          const id = asString(p["id"]);
+          const art = asString(p["art"]);
+          const crop = asString(p["crop"]);
+          if (label) card.label = label;
+          if (id) card.id = id;
+          if (art) card.art = art;
+          if (crop) card.crop = crop;
+          if (p["token"] === true) card.token = true;
+          if (p["faceDown"] === true) card.faceDown = true;
+          parts.push(card);
+        }
+      }
+    }
+    const line: PlayLogLine = {
+      n,
+      rev,
+      turn: asNumber(row["turn"]) ?? 0,
+      active: asNumber(row["active"]) ?? 0,
+      step: asString(row["step"]) ?? "",
+      kind: asString(row["kind"]) ?? "other",
+      parts,
+    };
+    if (Array.isArray(row["life"])) {
+      line.life = (row["life"] as unknown[]).flatMap((t) => {
+        const r = (t ?? {}) as Record<string, unknown>;
+        const seat = asNumber(r["seat"]);
+        const total = asNumber(r["total"]);
+        return seat === null || total === null ? [] : [{ seat, total }];
+      });
+    }
+    if (row["private"] === true) line.private = true;
+    out.push(line);
+  }
+  return out;
+}
+
+/**
+ * Spec 0064 -- the log with [incoming] added: by number, so a line sent
+ * twice (the whole log again on a reconnect) is kept once; oldest first;
+ * bounded as the server bounds it.
+ */
+export function mergePlayLog(log: PlayLogLine[], incoming: PlayLogLine[]): PlayLogLine[] {
+  if (incoming.length === 0) return log;
+  const last = log.length > 0 ? log[log.length - 1]!.n : 0;
+  // The ordinary case: this round's lines, all new and in order.
+  if (incoming[0]!.n > last && incoming.every((l, i) => i === 0 || l.n > incoming[i - 1]!.n)) {
+    return [...log, ...incoming].slice(-PLAY_LOG_KEPT);
+  }
+  const byN = new Map<number, PlayLogLine>();
+  for (const line of log) byN.set(line.n, line);
+  for (const line of incoming) byN.set(line.n, line);
+  return [...byN.values()].sort((a, b) => a.n - b.n).slice(-PLAY_LOG_KEPT);
+}
+
 /** "reconnecting": dropped and being retried on its own; "closed": refused, reload. */
 export type MatchConnection = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -751,6 +874,12 @@ export interface MatchState {
    * the game cannot be finished, and the screen says so plainly.
    */
   serverStopping?: boolean;
+  /**
+   * Spec 0064 -- this seat's play log, oldest first, as far as it has come
+   * (each line says which board it came with; the screen holds back a line
+   * until that board is on the table).
+   */
+  playLog?: PlayLogLine[];
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -798,7 +927,16 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return { ...state, watching: asNumber(message["count"]) ?? 0 };
 
     case "MATCH_SNAPSHOT": {
-      const board = asSnapshot(message["state"]);
+      // Spec 0064 -- the play log first: a stale board (a reconnect's stored
+      // one) still brings the log's history, which the page keeps by number.
+      const raw = message["state"];
+      const lines = asPlayLog(
+        typeof raw === "object" && raw !== null
+          ? (raw as Record<string, unknown>)["playLog"]
+          : null,
+      );
+      if (lines.length > 0) state = { ...state, playLog: mergePlayLog(state.playLog ?? [], lines) };
+      const board = asSnapshot(raw);
       if (!board) return state;
       // §6.41 — the revision is monotonic, so an older snapshot
       // arriving late must not overwrite a newer one. Frames are

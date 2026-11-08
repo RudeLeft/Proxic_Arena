@@ -1818,6 +1818,407 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   }
 }
 
+/* Spec 0064 (canvas chat-1107) -- the game chat window: two tabs (Chat and
+   Play log) with unread counts, the play log, and the window undocked:
+   floating on the table or popped out into its own browser window. */
+.gs-chat-floating,
+.gs-chat-popped {
+  transform: none;
+  width: 0;
+  transition: none;
+}
+.gs-cw {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #0d1117;
+  color: #e6e9ee;
+  border-right: 1px solid #39424f;
+}
+.gs-cw-floating {
+  position: absolute;
+  z-index: 35001;
+  border: 1px solid #4b5563;
+  border-radius: 10px;
+  box-shadow: 0 12px 36px #000a;
+}
+.gs-cw-popped {
+  position: fixed;
+  inset: 0;
+  border: 0;
+}
+.gs-cw-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 8px 14px;
+  background: #11161d;
+  border-bottom: 1px solid #39424f;
+  user-select: none;
+}
+.gs-cw-floating .gs-cw-head {
+  cursor: grab;
+  touch-action: none;
+}
+.gs-cw-floating .gs-cw-head:active {
+  cursor: grabbing;
+}
+.gs-cw-title {
+  margin-right: auto;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-sm);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: #cfd5dd;
+}
+.gs-cw-ib {
+  margin: 0;
+  padding: 2px 8px;
+  border: 1px solid #39424f;
+  border-radius: 6px;
+  background: transparent;
+  color: #c2c9d2;
+  font-size: var(--pa-size-md);
+  line-height: 1.3;
+  cursor: pointer;
+}
+.gs-cw-ib:hover,
+.gs-cw-ib:focus-visible {
+  border-color: #e0a44a;
+  color: #fff;
+  outline: none;
+}
+.gs-cw-blocked {
+  flex: none;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: var(--pa-size-sm);
+  color: #f3d79c;
+  background: #2b2214;
+  border-bottom: 1px solid #4a3a1e;
+}
+.gs-cw-tabs {
+  flex: none;
+  display: flex;
+  background: #11161d;
+  border-bottom: 1px solid #39424f;
+}
+.gs-cw-tabs button {
+  flex: 1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 6px 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #98a1ad;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-base);
+  font-weight: 600;
+  letter-spacing: var(--pa-track-button);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.gs-cw-tabs button[aria-selected="true"] {
+  color: #f1f4f8;
+  border-bottom-color: #e0a44a;
+}
+.gs-cw-tabs button:focus-visible {
+  outline: 1px solid #e0a44a;
+  outline-offset: -3px;
+}
+.gs-cw-cnt {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #e0a44a;
+  color: #141414;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+.gs-cw-cnt-grey {
+  background: #3a4350;
+  color: #dfe4ea;
+}
+.gs-cw-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gs-cw-body[hidden] {
+  display: none;
+}
+.gs-cw .gs-chat-panel {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border-right: 0;
+}
+/* The window's top bar and tabs say what this is: the panel's own heading goes. */
+.gs-cw .gs-chat-panel > .pa-panel-head {
+  display: none;
+}
+.gs-cw-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    #6b7480 50%,
+    #6b7480 58%,
+    transparent 58%,
+    transparent 70%,
+    #6b7480 70%,
+    #6b7480 78%,
+    transparent 78%
+  );
+}
+/* While it is dragged: the places it keeps clear of. */
+.gs-cw-zone {
+  position: absolute;
+  z-index: 35000;
+  border: 2px dashed #e0a44a;
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, #e0a44a1c 0 8px, transparent 8px 16px);
+  pointer-events: none;
+}
+
+/* The play log. */
+.gs-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.gs-log-filters {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #222a35;
+}
+.gs-log-filters button {
+  margin: 0;
+  padding: 2px 10px;
+  border: 1px solid #39424f;
+  border-radius: 14px;
+  background: transparent;
+  color: #98a1ad;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-sm);
+  cursor: pointer;
+}
+.gs-log-filters button[aria-pressed="true"] {
+  background: #e0a44a22;
+  border-color: #e0a44a;
+  color: #f3d79c;
+}
+.gs-log-lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #39424f transparent;
+}
+.gs-log-empty {
+  margin: 16px 0;
+  color: #98a1ad;
+  font-size: var(--pa-size-md);
+}
+.gs-log-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px -12px 4px;
+  padding: 5px 12px;
+  background: #141a22;
+  border-top: 1px solid #222a35;
+  border-bottom: 1px solid #222a35;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-base);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #f1c36a;
+}
+.gs-log-who {
+  color: #e6e9ee;
+}
+.gs-log-you {
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #98a1ad;
+}
+.gs-log-step {
+  margin: 8px 0 2px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 500;
+  letter-spacing: var(--pa-track-button);
+  text-transform: uppercase;
+  color: #6f7884;
+}
+.gs-log-ent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 3px 0;
+  font-size: var(--pa-size-md);
+  line-height: 1.4;
+  color: #d6dbe2;
+}
+.gs-log-ic {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #56606c;
+}
+.gs-log-spell .gs-log-ic {
+  background: #6a8cd6;
+}
+.gs-log-combat .gs-log-ic {
+  background: #d0574a;
+}
+.gs-log-death .gs-log-ic {
+  background: #9a9aa6;
+  border-radius: 2px;
+}
+.gs-log-life .gs-log-ic {
+  background: #67b36b;
+}
+.gs-log-land .gs-log-ic {
+  background: #a58a52;
+}
+/* A gold ring: only you were told this much. */
+.gs-log-private .gs-log-ic {
+  box-shadow: 0 0 0 2px #e0a44a66;
+}
+.gs-log-fresh {
+  animation: gs-log-fresh 1.6s ease-out;
+}
+@keyframes gs-log-fresh {
+  from {
+    background: #e0a44a2a;
+  }
+  to {
+    background: transparent;
+  }
+}
+.gs-log-total {
+  margin-left: 6px;
+  white-space: nowrap;
+  font-size: var(--pa-size-sm);
+  color: #e0a44a;
+}
+.gs-log-pl {
+  font-weight: 600;
+  color: #fff;
+}
+.gs-log-cn {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted #e0a44a99;
+  border-radius: 0;
+  background: none;
+  color: #f3e3c3;
+  font: inherit;
+  font-weight: 600;
+  cursor: help;
+}
+.gs-log-cn:hover,
+.gs-log-cn:focus-visible {
+  color: #fff;
+  border-bottom-color: #e0a44a;
+  outline: none;
+}
+.gs-log-jump {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 5;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 5px 14px;
+  border: 1px solid #e0a44a;
+  border-radius: 16px;
+  background: #1a1408;
+  color: #f3d79c;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px #000a;
+  cursor: pointer;
+}
+.gs-log-peek {
+  position: fixed;
+  z-index: 40000;
+  width: 250px;
+  border-radius: 12px;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: 0 10px 30px #000c;
+  background: #0b0f14;
+}
+.gs-log-peek img {
+  display: block;
+  width: 100%;
+}
+.gs-log-peek-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 350px;
+  padding: 16px;
+  border: 1px solid #4b5563;
+  border-radius: 12px;
+  text-align: center;
+  font-family: var(--pa-display);
+  font-size: var(--pa-size-lg);
+  font-weight: 700;
+  color: #e6e9ee;
+}
+/* The window of its own: this page's styles, the chat window filling it. */
+.gs-popout {
+  margin: 0;
+  overflow: hidden;
+  background: #0d1117;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-log-fresh {
+    animation: none;
+  }
+}
+
 /* Phase 9 W-24 (owner 2026-11-02, option B) -- the result in a banner
    across the table (drawn in Board's top slot), which dims behind it;
    the column is left clear. Gold

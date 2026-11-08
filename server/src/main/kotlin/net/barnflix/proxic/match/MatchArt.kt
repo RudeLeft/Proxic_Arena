@@ -124,6 +124,14 @@ class MatchArt(
                                     reveal.forEach { (k, v) -> put(k, if (k == "cards") cards(v) ?: v else v) }
                                 }
                             }
+                        // Spec 0064 -- each card a play log line names to this seat
+                        // (the worker named it only if this seat may identify it)
+                        // wears its picture, so pointing at the name shows the card.
+                        "playLog" ->
+                            (value as? JsonArray)?.let {
+                                    lines ->
+                                JsonArray(lines.map { pictured(it) { part -> card(part, allowed) } })
+                            }
                         else -> null
                     }
                 put(key, rewritten ?: value)
@@ -332,4 +340,15 @@ class MatchArt(
             key: String,
         ): Int? = entry[key]?.jsonPrimitive?.content?.toIntOrNull()?.takeIf { it > 0 }
     }
+}
+
+/** Spec 0064 -- one play log line, each card part it names given its picture by [card]. */
+private fun pictured(
+    line: kotlinx.serialization.json.JsonElement,
+    card: (JsonObject) -> JsonObject,
+): kotlinx.serialization.json.JsonElement {
+    val row = line as? JsonObject ?: return line
+    val parts = row["parts"] as? JsonArray ?: return line
+    val withArt = parts.map { part -> (part as? JsonObject)?.takeIf { "name" in it }?.let(card) ?: part }
+    return JsonObject(row + ("parts" to JsonArray(withArt)))
 }

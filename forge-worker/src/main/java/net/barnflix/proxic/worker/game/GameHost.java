@@ -191,6 +191,10 @@ public final class GameHost {
         created.subscribeToEvents(new DamageLog());
         // Phase 10 A-00 -- every card's move, where from, where to, why.
         created.subscribeToEvents(new MoveLog());
+        // Spec 0064 -- the play log, written per seat from what each may see.
+        PlayLog log = new PlayLog(created, player -> seatOf.get(player.getOriginalLobbyPlayer()));
+        this.playLog = log;
+        created.subscribeToEvents(log.new Listener());
 
         // NOTHING installs controllers here, deliberately. Forge
         // builds its own Player objects during createGame through
@@ -407,7 +411,14 @@ public final class GameHost {
         while (rolls.size() > ROLLS_KEPT) {
             rolls.removeFirst();
         }
+        PlayLog log = playLog;
+        if (log != null) {
+            log.rolled(seat, source, sides, results);
+        }
     }
+
+    /** Spec 0064 -- the play log (null before the game is made). */
+    private volatile PlayLog playLog;
 
     /** Spec 0062 -- what each payment step paid, for every seat (Payments). */
     private final Payments payments = new Payments();
@@ -462,6 +473,11 @@ public final class GameHost {
         Causes now = causes;
         if (now != null) {
             now.revealed(seat, cardIds, forgeWords, told);
+        }
+        // Spec 0064 -- and in that seat's play log, for that seat alone.
+        PlayLog log = playLog;
+        if (log != null) {
+            log.shown(seat, cardIds, forgeWords);
         }
     }
 
@@ -1111,6 +1127,11 @@ public final class GameHost {
         moved = Moves.withInto(moved, mergedInto(current));
         sacrificing.clear();
         tellGraveyards(current, moved);
+        // Spec 0064 -- this round's play log lines, each seat its own, sent
+        // IN this round's snapshots so no line is ahead of the board (HID-005).
+        PlayLog log = playLog;
+        java.util.Map<Integer, com.google.gson.JsonArray> logLines =
+                log == null ? java.util.Map.of() : log.flush(revision);
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone
         // and showed the winner alone. Measured, P6-AP.
@@ -1144,6 +1165,10 @@ public final class GameHost {
             snapshot.add("payments", payments.forViewer(seat));
             if (!moved.isEmpty()) {
                 snapshot.add("moves", Moves.forViewer(moved, seat));
+            }
+            com.google.gson.JsonArray lines = logLines.get(seat);
+            if (lines != null && lines.size() > 0) {
+                snapshot.add("playLog", lines);
             }
             try {
                 snapshotSink.accept(seat, snapshot);

@@ -250,6 +250,24 @@ payments                  spec 0062: what each payment step paid, the last
                           it paid), from "card:N"|"pool"|"life"}]}. A spell
                           still being cast (and a face-down card's ability)
                           keeps cost, owing and shard to its payer.
+playLog                   spec 0064: this round's play log lines for THIS
+                          seat, written by the worker from Forge's events
+                          with only what this seat may identify (both
+                          visibility questions, at the moment it happened),
+                          never from Forge's game log: [{n (per seat, only
+                          grows), rev (this snapshot's revision), turn,
+                          active (whose turn), step ("Beginning", "Main 1",
+                          "Combat", "Main 2", "End", "Before the game"),
+                          kind turn|draw|land|spell|ability|trigger|combat|
+                          damage|death|life|move|reveal|other, parts [words
+                          | {player} | {name, known, id, owner, seat, label?,
+                          token?, faceDown?, printing?, art?}], life?
+                          [{seat, total}], private? (only this seat was told
+                          this much)}]. Absent when the round has none, and
+                          never in the public (seat 0) view. The server keeps
+                          each seat's lines for the match (last 2,000) and
+                          puts the whole log in the board it sends a
+                          connection that just arrived
 decision.arrange.dice     Phase 9 W-17, on the roll questions: {how
                           (reroll|nudge|swap|swapValue|ignore), sides,
                           rolls, by [{id, name}], price?, power?,

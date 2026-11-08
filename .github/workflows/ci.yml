@@ -306,7 +306,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=900;; esac;
@@ -324,6 +324,10 @@ jobs:
           # P6-G, over the same games: no seat is sent a card from another
           # seat's hand that Forge did not show it.
           python3 -I scripts/check-hidden-hands.py "$traces"/*.jsonl
+          # Spec 0064, over the same games: every card a seat's play log names
+          # is one that seat's own snapshots named, and no line comes ahead
+          # of the board it belongs to.
+          python3 -I scripts/check-hidden-log.py "$traces"/*.jsonl
           # PHASE_07 P7-C, over the same games: every permanent Forge put on a
           # battlefield has a row, the one its current type line says.
           python3 -I scripts/check-kinds.py "$traces"/*.jsonl
