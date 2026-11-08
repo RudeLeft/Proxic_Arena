@@ -22,7 +22,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import logo from "../assets/logo-header.webp";
 import libraryArt from "../assets/zones/library.webp";
 import graveyardArt from "../assets/zones/graveyard.webp";
 import exileArt from "../assets/zones/exile.webp";
@@ -65,7 +64,7 @@ import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Boar
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
-import { LoadingRing } from "./LoadingRing";
+import { LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
 import {
@@ -306,6 +305,9 @@ export function GameScreen({
   // must still be abandonable, so after a long wait the gear comes back.
   const longLoad = useSettled(!(data && board), 20_000);
   const drawn = Boolean(data && board);
+  // Spec 0065 -- the loading screen stays on past the board's arrival for
+  // its burst (BURST_MS), over the table, which is drawn at once.
+  const vortex = useVortexHandover(drawn, ringDue);
   // W-24 — said once: the banner, and the column's button under it. A
   // spectator is nobody's "you"; a spectator goes back to the lobby, a
   // player to their room, which is open again with both still seated.
@@ -1762,7 +1764,10 @@ export function GameScreen({
               );
             }}
           />
-        ) : !ringDue ? null : (
+        ) : null}
+        {/* Spec 0065 -- the mana vortex while the table is coming, and its
+          burst played over the table once it is here (never holding it up). */}
+        {vortex.show && (
           <LoadingRing
             words={
               finished
@@ -1773,15 +1778,14 @@ export function GameScreen({
                     ? "Setting up the table…"
                     : "Shuffling up and dealing…"
             }
+            ready={vortex.ready}
+            onDone={vortex.done}
           />
         )}
 
         <div className="gs-corner">
-          {/* Owner 2026-10-24: not over the loading screen, which has the
-            logo in its ring already. */}
-          {data && board && <img className="gs-logo" src={logo} alt="Proxic Arena" />}
-          {/* Owner 2026-10-22: nothing written under the logo -- the screen
-            stays clean. Still said to a screen reader. */}
+          {/* Spec 0065 (owner 2026-11-07): no logo in the corner; nothing
+            replaces it. The game's state is still said to a screen reader. */}
           <p className="gs-status pa-visually-hidden" role="status">
             {finished
               ? updated

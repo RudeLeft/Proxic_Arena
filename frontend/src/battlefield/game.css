@@ -23,86 +23,71 @@
   color: #a9b0ba;
 }
 
-/* The mana ring (owner pick 2026-10-21): five symbols orbit the logo and
-   light in turn; each symbol turns back against the orbit to stay upright. */
-.gs-ring {
+/* Spec 0065 -- A · Mana vortex (owner 2026-11-07): no logo; the five
+   symbols orbit with trails on the canvas behind, faster into a swirl,
+   and burst into light as the table arrives. The burst plays OVER the
+   table, which is already drawn under it: above everything, and never
+   in the way of a click. */
+.gs-loading-ready {
+  z-index: 45000;
+  pointer-events: none;
+}
+.gs-vortex-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Where the swirl turns: the canvas centres on this box. */
+.gs-vortex {
   position: relative;
   width: 260px;
   height: 260px;
 }
-.gs-ring::before {
-  content: "";
-  position: absolute;
-  inset: 26px;
-  border-radius: 50%;
-  border: 1px solid rgba(233, 179, 74, 0.18);
-  box-shadow: 0 0 40px rgba(233, 179, 74, 0.08) inset;
-}
-.gs-ring-orbit {
-  position: absolute;
-  inset: 0;
-  animation: gs-orbit 24s linear infinite;
-}
-.gs-ring-pip {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 46px;
-  height: 46px;
-  margin: -23px 0 0 -23px;
-  transform: rotate(var(--gs-angle)) translateY(-104px) rotate(calc(-1 * var(--gs-angle)));
-}
-.gs-ring-pip img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  animation:
-    gs-orbit 24s linear infinite reverse,
-    gs-pip-light 2s ease-in-out var(--gs-delay) infinite;
-  opacity: 0.45;
-}
-.gs-ring-logo {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 132px;
-  transform: translate(-50%, -50%);
-}
 .gs-ring-words {
+  position: relative;
   margin: 0;
   font-family: var(--pa-display);
   font-size: var(--pa-size-lg);
   letter-spacing: var(--pa-track-button);
   color: #d8dde4;
+  text-shadow: 0 0 12px #000;
+  transition: opacity 250ms ease;
 }
-@keyframes gs-orbit {
-  to {
-    transform: rotate(360deg);
-  }
+.gs-loading-ready .gs-ring-words {
+  opacity: 0;
 }
-@keyframes gs-pip-light {
-  0%,
-  100% {
-    opacity: 0.45;
-    filter: none;
-  }
-  20% {
-    opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(255, 220, 150, 0.85));
-  }
-  45% {
-    opacity: 0.45;
-    filter: none;
-  }
+
+/* Reduced motion: the five symbols stand still on their circle, softly lit,
+   and the table simply fades in. */
+.gs-loading-still {
+  background: #05070a;
+  transition: opacity 250ms ease;
 }
-@media (prefers-reduced-motion: reduce) {
-  .gs-ring-orbit,
-  .gs-ring-pip img {
-    animation: none;
-  }
-  .gs-ring-pip img {
-    opacity: 0.9;
-  }
+.gs-loading-still.gs-loading-ready {
+  opacity: 0;
+}
+.gs-vortex-pip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  transform: rotate(var(--gs-angle)) translateY(-112px) rotate(calc(-1 * var(--gs-angle)));
+}
+.gs-vortex-pip img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 10px rgba(255, 220, 150, 0.55));
+}
+.gs-loading-still .gs-vortex::before {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 230, 180, 0.12), rgba(255, 230, 180, 0) 70%);
 }
 
 /* --- the column on the right ------------------------------------------------- */
@@ -876,7 +861,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   }
 }
 
-/* The logo and the game's state in words: top left. */
+/* The game's state in words, for a screen reader: top left (spec 0065: no logo). */
 .gs-corner {
   position: absolute;
   left: 20px;
@@ -890,11 +875,6 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .gs-corner > * {
   pointer-events: auto;
-}
-.gs-logo {
-  display: block;
-  height: 44px;
-  width: auto;
 }
 .gs-menu-button {
   margin: 0;
