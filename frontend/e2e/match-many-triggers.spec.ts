@@ -17,6 +17,8 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   sharedDeck,
   startAMatch,
@@ -205,7 +207,7 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
             .getAttribute("data-kind", { timeout: 200 })
             .catch(() => null)) ?? "";
         if (kind) {
-          await clickNow(panel.locator("button.gs-act-combat"));
+          await passCombat(page);
           continue;
         }
 
@@ -274,7 +276,7 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         const listed = panel.locator(".gs-question li button, .gs-win li button");
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
-        else if ((await board.count()) > 0) await clickNow(board);
+        else if ((await board.count()) > 0) await clickUnlessCombat(board);
         else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
       }
       await host.waitForTimeout(100);

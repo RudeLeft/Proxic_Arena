@@ -23,6 +23,8 @@ import {
   boardCards,
   clearEverything,
   clickNow,
+  passCombat,
+  clickUnlessCombat,
   matchPanel,
   question,
   sharedDeck,
@@ -110,7 +112,7 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
         // Nobody attacks: the act button declares no attack, or no block.
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await click(combat);
+          await passCombat(page);
           continue;
         }
 
@@ -125,8 +127,9 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
           const board = panel.locator(
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );
+          // Never a creature under "Declare attackers" arriving meanwhile.
           if ((await listed.count()) > 0) await click(listed);
-          else if ((await board.count()) > 0) await click(board);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           continue;
         }

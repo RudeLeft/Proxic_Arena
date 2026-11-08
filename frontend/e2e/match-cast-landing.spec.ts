@@ -24,6 +24,8 @@ import {
   answerCardTray,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   passButton,
   sharedDeck,
@@ -122,7 +124,7 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
         if (await answerCardTray(page)) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await clickNow(combat);
+          await passCombat(page);
           continue;
         }
         const priority =
@@ -135,7 +137,7 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
             '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
           );
           const listed = panel.locator(".gs-question li button, .gs-win li button");
-          if ((await mana.count()) > 0) await clickNow(mana);
+          if ((await mana.count()) > 0) await clickUnlessCombat(mana);
           else if ((await listed.count()) > 0) await clickNow(listed);
           else await clickNow(passButton(page));
           continue;

@@ -24,6 +24,8 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   sharedDeck,
   startAMatch,
@@ -132,7 +134,7 @@ test("surveil and scry show their cards to the player looking, and are answered 
             .count()) > 0;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await click(combat);
+          await passCombat(page);
           continue;
         }
         if (!priority) {
@@ -141,7 +143,7 @@ test("surveil and scry show their cards to the player looking, and are answered 
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );
           if ((await listed.count()) > 0) await click(listed);
-          else if ((await board.count()) > 0) await click(board);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           continue;
         }

@@ -21,6 +21,7 @@ import {
   attackWithAll,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   matchPanel,
   passButton,
   sharedDeck,
@@ -134,7 +135,7 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
           // "Discard a card" at the end of a turn with eight in hand is
           // answered above (pick, then Discard: spec 0061).
           if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await mana.count()) > 0) await clickNow(mana);
+          else if ((await mana.count()) > 0) await clickUnlessCombat(mana);
           else await clickNow(passButton(page));
           continue;
         }

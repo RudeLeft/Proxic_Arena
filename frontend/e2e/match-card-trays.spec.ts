@@ -29,6 +29,8 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   sharedDeck,
   startAMatch,
@@ -201,7 +203,7 @@ test("the card trays: order, rows, a hidden zone, the split and the piles, answe
 
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await click(combat);
+          await passCombat(page);
           continue;
         }
         const priority =
@@ -219,7 +221,7 @@ test("the card trays: order, rows, a hidden zone, the split and the piles, answe
           );
           if ((await listed.count()) > 0) await click(listed);
           else if ((await them.count()) > 0) await click(them);
-          else if ((await board.count()) > 0) await click(board);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           continue;
         }

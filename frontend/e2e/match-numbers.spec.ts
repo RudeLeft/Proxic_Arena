@@ -31,6 +31,8 @@ import {
   cardCount,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   sharedDeck,
   startAMatch,
@@ -185,7 +187,7 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
 
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await click(combat);
+          await passCombat(page);
           continue;
         }
         const priority =
@@ -256,7 +258,7 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           if ((await them.count()) > 0) await click(them);
           else if (isTarget && divided && (await theirs.count()) > 0) await click(theirs);
           else if (isTarget && divided && (await creature.count()) > 0) await click(creature);
-          else if ((await board.count()) > 0) await click(board);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else if ((await listed.count()) > 0) await click(listed);
           else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           if (isTarget) targeted.set(page, (targeted.get(page) ?? 0) + 1);

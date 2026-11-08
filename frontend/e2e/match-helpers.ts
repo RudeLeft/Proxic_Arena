@@ -282,6 +282,46 @@ export async function clickNow(target: Locator): Promise<void> {
 }
 
 /**
+ * A "board choice" click for a bot's catch-all branch: clicks only if no
+ * combat question is on screen at that very moment. The branch runs when
+ * the page showed no combat button, but the next question can arrive
+ * between that look and the click; a click on a creature during "Declare
+ * attackers" then SELECTS it (Phase 9 W-14), the combat button locks
+ * until it is pointed somewhere, and a bot that only passes combat waits
+ * forever (match-sacrifice, 2026-11-08: "Declare attackers" stuck for
+ * 120 s with "1 selected"). The check and the click are one step in the
+ * page, so nothing can arrive between them.
+ */
+export async function clickUnlessCombat(target: Locator): Promise<void> {
+  if ((await target.count()) === 0) return;
+  await target
+    .first()
+    .evaluate(
+      (e) => {
+        if (document.querySelector(".gs-combat")) return;
+        (e as HTMLElement).click();
+      },
+      undefined,
+      { timeout: 5_000 },
+    )
+    .catch(() => undefined);
+}
+
+/**
+ * Declare no attack (or no block): the combat button. If something is
+ * selected and not pointed (W-14), that button is locked until it is
+ * pointed or unselected: Esc unselects first, as a player would. For a
+ * bot that only ever passes combat.
+ */
+export async function passCombat(page: Page): Promise<void> {
+  const panel = matchPanel(page);
+  if ((await panel.locator("button.gs-act-combat.gs-act-waiting").count()) > 0) {
+    await page.keyboard.press("Escape");
+  }
+  await clickNow(panel.locator("button.gs-act-combat"));
+}
+
+/**
  * Phase 9 W-14 -- attack with everything at the other player: "All attack"
  * selects every creature, a click on their life total points them all
  * there, and the page answers the game for each. Waits until the attack

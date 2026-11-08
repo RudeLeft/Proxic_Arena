@@ -21,6 +21,8 @@ import {
   answerCardTray,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   passButton,
   sharedDeck,
@@ -95,7 +97,7 @@ test("paying for a spell, the card being cast never covers a card to tap", async
         if (await answerCardTray(page)) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
-          await clickNow(combat);
+          await passCombat(page);
           continue;
         }
         if ((await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0) {
@@ -133,7 +135,7 @@ test("paying for a spell, the card being cast never covers a card to tap", async
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
           if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await board.count()) > 0) await clickNow(board);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await clickNow(passButton(page));
           continue;
         }

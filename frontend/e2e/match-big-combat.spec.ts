@@ -17,6 +17,8 @@ import {
   attackWithAll,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  passCombat,
   matchPanel,
   sharedDeck,
   startAMatch,
@@ -165,7 +167,7 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
         }
 
         if (kind) {
-          await clickNow(panel.locator("button.gs-act-combat"));
+          await passCombat(page);
           continue;
         }
 
@@ -191,7 +193,7 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
         const listed = panel.locator(".gs-question li button, .gs-win li button");
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
-        else if ((await board.count()) > 0) await clickNow(board);
+        else if ((await board.count()) > 0) await clickUnlessCombat(board);
         else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
       }
       await host.waitForTimeout(100);
