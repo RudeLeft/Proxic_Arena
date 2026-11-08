@@ -65,6 +65,7 @@ own human screen or a rule that leaves no choice:
 | `chooseManaFromPool` (Forge's automatic pool payment, a tie) | the first | as Forge's screen; only reached while a cost is checked |
 | `sideboard` | none | Open Format has no sideboard (FMT-002) |
 | A question while Forge only *checks* whether a cost can be paid (assist) | none asked | `CHECKING` guard: a check is not a payment |
+| Convoke, improvise, waterbend or delve while Forge only *checks* a cost (can it be paid? what does it cost now?) | none asked; the check counts what those cards COULD pay -- Forge's AI matcher `ComputerUtilMana.getConvokeOrImproviseFromList` over cards with no mana ability of their own (`MatchController.couldConvoke`), and for delve as many graveyard cards as count | `CHECKING` guard, owner 2026-11-08: Forge asks these even in test mode, so Venerated Loxodon in hand asked "tap a creature for Convoke" twice per priority and Treasure Cruise about ten delve questions. Casting still asks, card by card. `check-costs` delve/convoke/improvise: no question outside a cast, dimmed exactly when lands and those cards cannot pay |
 | A question interrupted while a match is being stopped | the first answer | Only as the game ends; recorded in the Phase 8 exit gate |
 
 Every other question is asked of the player Forge names, and a question

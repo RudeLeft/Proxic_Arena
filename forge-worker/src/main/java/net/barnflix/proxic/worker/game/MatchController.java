@@ -3749,6 +3749,16 @@ public final class MatchController extends GeneratedControllerBase {
         if (most == 0) {
             return forge.game.card.CardCollection.EMPTY;
         }
+        if (CHECKING.get()) {
+            // A cost being checked, not paid (Forge's CostAdjustment.adjust
+            // asks for delve even in test mode, and exiles nothing then):
+            // no one is asked. The answer is what delve COULD pay -- as
+            // many cards as count -- so "can you afford it?" counts the
+            // graveyard (owner 2026-11-08). Before this, Treasure Cruise
+            // in hand asked about ten delve questions before every
+            // priority (Lab costs delve trace, 2026-11-08).
+            return new forge.game.card.CardCollection(grave.subList(0, most));
+        }
         return new forge.game.card.CardCollection(chooseEntitiesForEffect(
                 grave, 0, most, null, null,
                 "Delve: exile cards from your graveyard, each paying {1}", player, null));
@@ -3773,6 +3783,9 @@ public final class MatchController extends GeneratedControllerBase {
             boolean artifacts,
             boolean creatures,
             Integer maxReduction) {
+        if (CHECKING.get()) {
+            return couldConvoke(manaCost, untappedCards, artifacts, creatures, maxReduction);
+        }
         java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> chosen = new java.util.LinkedHashMap<>();
         forge.game.mana.ManaCostBeingPaid remaining = new forge.game.mana.ManaCostBeingPaid(manaCost);
         java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
@@ -3841,6 +3854,51 @@ public final class MatchController extends GeneratedControllerBase {
             }
         }
         return chosen;
+    }
+
+    /**
+     * Convoke, improvise or waterbend while a cost is only being CHECKED
+     * (payable(), the cost shown on a card): no one is asked. Forge's
+     * CostAdjustment.adjustCostByConvokeOrImprovise asks the controller
+     * even in test mode (it only skips the tapping), so a convoke card in
+     * hand asked "Choose a creature to tap for Convoke" twice before every
+     * priority with nothing being cast (Lab costs convoke trace,
+     * 2026-11-08) -- the assist step's problem again (CHECKING).
+     *
+     * The answer is what the cards COULD pay, so "can you afford it?"
+     * counts them (owner 2026-11-08): Forge's AI's own test-mode answer
+     * (PlayerControllerAi.chooseCardsForConvokeOrImprovise), less its
+     * "not before attacking" tactic -- the matcher
+     * ComputerUtilMana.getConvokeOrImproviseFromList over the cards with
+     * no mana ability of their own (as the AI filters them: a Llanowar
+     * Elves is already counted as mana, and counting it twice would say
+     * a spell is payable when it is not). Waterbend's limit is kept.
+     */
+    static java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> couldConvoke(
+            forge.card.mana.ManaCost manaCost,
+            forge.game.card.CardCollectionView untappedCards,
+            boolean artifacts,
+            boolean creatures,
+            Integer maxReduction) {
+        java.util.List<forge.game.card.Card> usable = new java.util.ArrayList<>();
+        for (forge.game.card.Card card : untappedCards) {
+            if (card.getManaAbilities().isEmpty()) {
+                usable.add(card);
+            }
+        }
+        java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> could =
+                forge.ai.ComputerUtilMana.getConvokeOrImproviseFromList(manaCost, usable, artifacts, creatures);
+        if (maxReduction != null && could.size() > maxReduction) {
+            java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> kept = new java.util.LinkedHashMap<>();
+            for (java.util.Map.Entry<forge.game.card.Card, forge.card.mana.ManaCostShard> e : could.entrySet()) {
+                if (kept.size() == maxReduction) {
+                    break;
+                }
+                kept.put(e.getKey(), e.getValue());
+            }
+            return kept;
+        }
+        return could;
     }
 
     /**

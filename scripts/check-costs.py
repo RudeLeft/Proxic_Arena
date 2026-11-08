@@ -12,6 +12,10 @@ fact that a question was asked.
   delve          Treasure Cruise: graveyard cards exiled pay generic mana
   convoke        Venerated Loxodon: creatures tapped pay, then get counters
   improvise      Reverse Engineer: artifacts tapped pay generic mana
+                 (delve, convoke, improvise: and their question is asked only
+                 while the card is being cast -- never while Forge only checks
+                 whether it can be paid -- and the card is dimmed exactly when
+                 lands and those cards together cannot pay it; 2026-11-08)
   affinity       Thoughtcast: artifacts reduce the cost, nothing tapped
   warchief       spec 0058, item 2: with Goblin Warchief out, a Goblin Piker
                  in hand carries costNow {R} and costWhy "Costs {1} less:
@@ -62,6 +66,51 @@ def cast(g, frame, name, contains=None):
 
 def graveyard(g, seat, name=None):
     return g.zone(seat, "graveyard", owner=seat, name=name)
+
+
+class Asks:
+    """Convoke, improvise and delve questions belong to a spell being CAST.
+
+    Forge asks them while only checking a cost too (can it be paid? what
+    does it cost now?); the worker must answer those itself (CHECKING),
+    and count what the cards could pay. Before that fix Venerated
+    Loxodon in hand asked "tap a creature for Convoke" twice before every
+    priority, and Treasure Cruise about ten delve questions (2026-11-08).
+
+    `casting` is set by the policy when it casts the card and cleared when
+    the card's questions are done; a question outside that is a stray.
+    `offered` records, at each priority that offers the card, whether
+    Forge called it payable and whether the board could pay it.
+    """
+
+    def __init__(self):
+        self.casting = False
+        self.strays = []
+        self.offers = []
+
+    def stray(self, f):
+        self.strays.append(f.get("prompt"))
+
+    def offered(self, g, f, action_id, could):
+        if action_id:
+            o = next(o for o in f["options"] if o["actionId"] == action_id)
+            self.offers.append({"payable": o.get("payable", True), "could": could})
+
+    def problems(self, card):
+        out = []
+        if self.strays:
+            out.append(f"{len(self.strays)} {card} question(s) asked with nothing being cast: {self.strays[:2]}")
+        wrong = [o for o in self.offers if o["payable"] != o["could"]]
+        if wrong:
+            out.append(f"{card} dimmed wrongly at {len(wrong)} of {len(self.offers)} offers: {wrong[:3]}")
+        if not any(o["could"] for o in self.offers) or all(o["could"] for o in self.offers):
+            # Both kinds of offer must be seen, or the dimming was not tested.
+            out.append(f"{card} was never offered both payable and not: {self.offers[:6]}")
+        return out
+
+
+def untapped(cards):
+    return [c for c in cards if not c.get("tapped")]
 
 
 # --- the scenarios ----------------------------------------------------------
@@ -194,26 +243,38 @@ def force_of_will():
 def delve():
     g = game("delve", [("Island", 24), ("Treasure Cruise", 36)])
     done = {"cast": False, "before": None, "delved": 0}
+    asks = Asks()
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
             return seat2_bears(g, f)
         kind = f.get("kind")
         if kind == "chooseSpellAbilityToPlay":
+            asks.casting = False
+            o = cast(g, f, "Treasure Cruise")
+            # {7}{U}: an Island for {U}; Islands and graveyard cards for the {7}.
+            islands = len(g.untapped_lands(1))
+            asks.offered(g, f, o, islands >= 1 and islands + min(len(graveyard(g, 1)), 7) >= 8)
             if len(g.mine(1, name="Island")) < 4:
                 return g.play_land(f)
-            o = cast(g, f, "Treasure Cruise")
             if o and not done["cast"] and len(graveyard(g, 1)) >= 4 and len(g.untapped_lands(1)) >= 4:
                 done["cast"] = True
+                asks.casting = True
                 done["before"] = {"grave": len(graveyard(g, 1)), "hand": g.player(1, 1).get("handCount"),
                                   "exile": len(g.zone(1, "exile", owner=1)),
                                   "cruise": len(graveyard(g, 1, "Treasure Cruise"))}
                 return o
             return None
-        if kind == "chooseEntitiesForEffect" and done["cast"] and "Delve" in (f.get("prompt") or ""):
+        if kind == "chooseEntitiesForEffect" and "Delve" in (f.get("prompt") or ""):
+            if not asks.casting:
+                asks.stray(f)
+                return None
             if done["delved"] < 4 and f["options"]:
                 done["delved"] += 1
+                # Forge asks one card at a time, up to min({7}, graveyard).
+                asks.casting = done["delved"] < min(7, done["before"]["grave"])
                 return f["options"][0]["actionId"]
+            asks.casting = False
             return None
         return DEFAULT
 
@@ -223,10 +284,11 @@ def delve():
     found = {"before": done["before"], "delved": done["delved"],
              "after": {"grave": len(graveyard(g, 1)), "hand": g.player(1, 1).get("handCount"),
                        "exile": len(g.zone(1, "exile", owner=1))}}
+    found["strays"], found["offers"] = asks.strays, asks.offers
     if not done["cast"]:
         return "inconclusive", "the graveyard never held four cards with four Islands up", found
     b, a = found["before"], found["after"]
-    problems = []
+    problems = asks.problems("delve")
     if done["delved"] != 4:
         problems.append(f"delve was offered {done['delved']} times, not 4")
     if a["exile"] - b["exile"] != 4:
@@ -235,7 +297,7 @@ def delve():
     if a["hand"] - b["hand"] != 2:
         problems.append(f"Treasure Cruise draws three: hand {b['hand']} -> {a['hand']}")
     return ("wrong", "; ".join(problems), found) if problems else \
-        ("ok", "four graveyard cards exiled for {4} of {7}{U}, four Islands paid the rest, three drawn", found)
+        ("ok", "four graveyard cards exiled for {4} of {7}{U}, four Islands paid the rest, three drawn; no delve question while not casting, dimmed only when unaffordable", found)
 
 
 def discard_spare(f, spare):
@@ -252,30 +314,42 @@ def cast_again(g, card):
 def convoke():
     g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)])
     done = {"card": None, "tapped": []}
+    asks = Asks()
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
             return seat2_bears(g, f)
         kind = f.get("kind")
         if kind == "chooseSpellAbilityToPlay":
+            asks.casting = False
             lions = g.mine(1, name="Savannah Lions")
+            o = cast(g, f, "Venerated Loxodon")
+            # {4}{W}: every untapped Plains or Lion pays one of it.
+            asks.offered(g, f, o, len(g.untapped_lands(1)) + len(untapped(lions)) >= 5)
             if len(g.mine(1, name="Plains")) < 2:
                 land = g.play_land(f)
                 if land:
                     return land
-            o = cast(g, f, "Venerated Loxodon")
             if o and len(lions) >= 3 and cast_again(g, done["card"]) and len(g.untapped_lands(1)) >= 2:
                 done["card"], done["tapped"] = card_of(o), []
+                done["could_tap"] = min(5, len(untapped(g.mine(1, name=None))) - len(g.untapped_lands(1)))
+                asks.casting = True
                 return o
             if len(lions) < 3 and g.untapped_lands(1):
                 return cast(g, f, "Savannah Lions")
             return None
         if kind == "chooseCardsForConvokeOrImprovise":
+            if not asks.casting:
+                asks.stray(f)
+                return None
             lions = [o for o in f["options"] if any(c["id"] == card_of(o["actionId"])
                                                     for c in g.mine(1, name="Savannah Lions"))]
             if lions and len(done["tapped"]) < 3:
                 done["tapped"].append(card_of(lions[0]["actionId"]))
+                # Forge asks one at a time, up to min({5}, untapped creatures).
+                asks.casting = len(done["tapped"]) < done["could_tap"]
                 return lions[0]["actionId"]
+            asks.casting = False
             return None
         if kind == "chooseCardsToDiscardToMaximumHandSize":
             return discard_spare(f, "Plains")
@@ -286,9 +360,10 @@ def convoke():
     lions = {c["id"]: c for c in g.mine(1, name="Savannah Lions")}
     found = {"convoked": done["tapped"], "loxodon": any(c["id"] == done["card"] for c in g.mine(1)),
              "lions": {i: {"tapped": c.get("tapped"), "counters": c.get("counters")} for i, c in lions.items()}}
+    found["strays"], found["offers"] = asks.strays, asks.offers
     if not done["card"]:
         return "inconclusive", "never had three Lions and two Plains", found
-    problems = []
+    problems = asks.problems("convoke")
     if not found["loxodon"]:
         problems.append("Venerated Loxodon did not resolve")
     if len(done["tapped"]) != 3:
@@ -300,19 +375,25 @@ def convoke():
         if "P1P1" not in str(lion.get("counters")) and "+1/+1" not in str(lion.get("counters")):
             problems.append(f"{cid} convoked but got no +1/+1 counter: {lion.get('counters')}")
     return ("wrong", "; ".join(problems), found) if problems else \
-        ("ok", "three creatures tapped to convoke {4}{W}, each then got its +1/+1 counter", found)
+        ("ok", "three creatures tapped to convoke {4}{W}, each then got its +1/+1 counter; no convoke question while not casting, dimmed only when unaffordable", found)
 
 
 def improvise():
     g = game("improvise", [("Island", 20), ("Ornithopter", 20), ("Reverse Engineer", 20)])
     done = {"card": None, "tapped": [], "hand_before": None}
+    asks = Asks()
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
             return seat2_bears(g, f)
         kind = f.get("kind")
         if kind == "chooseSpellAbilityToPlay":
+            asks.casting = False
             thopters = g.mine(1, name="Ornithopter")
+            islands = len(g.untapped_lands(1))
+            # {3}{U}{U}: Islands for {U}{U}; Islands and artifacts for the {3}.
+            asks.offered(g, f, cast(g, f, "Reverse Engineer"),
+                         islands >= 2 and islands + min(len(untapped(thopters)), 3) >= 5)
             if len(thopters) < 3:
                 o = cast(g, f, "Ornithopter")
                 if o:
@@ -323,12 +404,20 @@ def improvise():
             if o and len(thopters) >= 3 and cast_again(g, done["card"]) and len(g.untapped_lands(1)) >= 2:
                 done["card"], done["tapped"] = card_of(o), []
                 done["hand_before"] = g.player(1, 1).get("handCount")
+                # Forge asks one at a time, up to min({5}, untapped artifacts).
+                done["could_tap"] = min(5, len(untapped(thopters)))
+                asks.casting = True
                 return o
             return None
         if kind == "chooseCardsForConvokeOrImprovise":
+            if not asks.casting:
+                asks.stray(f)
+                return None
             if f["options"] and len(done["tapped"]) < 3:
                 done["tapped"].append(card_of(f["options"][0]["actionId"]))
+                asks.casting = len(done["tapped"]) < done["could_tap"]
                 return f["options"][0]["actionId"]
+            asks.casting = False
             return None
         if kind == "chooseCardsToDiscardToMaximumHandSize":
             return discard_spare(f, "Island")
@@ -343,9 +432,10 @@ def improvise():
     found = {"improvised": done["tapped"], "thopters_tapped": thopters,
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
              "resolved": bool(done["card"] and resolved(g))}
+    found["strays"], found["offers"] = asks.strays, asks.offers
     if not done["card"]:
         return "inconclusive", "never had three Ornithopters and two Islands", found
-    problems = []
+    problems = asks.problems("improvise")
     if not found["resolved"]:
         problems.append("Reverse Engineer did not resolve")
     if len(done["tapped"]) != 3 or not all(thopters.get(c) for c in done["tapped"]):
@@ -353,7 +443,7 @@ def improvise():
     if found["hand"][1] - found["hand"][0] != 2:
         problems.append(f"Reverse Engineer draws three: hand {found['hand']}")
     return ("wrong", "; ".join(problems), found) if problems else \
-        ("ok", "three artifacts tapped for {3}, two Islands for {U}{U}, three cards drawn", found)
+        ("ok", "three artifacts tapped for {3}, two Islands for {U}{U}, three cards drawn; no improvise question while not casting, dimmed only when unaffordable", found)
 
 
 def affinity():
