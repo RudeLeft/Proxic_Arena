@@ -114,7 +114,39 @@ final class HiddenIds {
         if (drop.isEmpty()) {
             return 0;
         }
-        return walk(snapshot, null, drop);
+        return standIns(snapshot, drop) + walk(snapshot, null, drop);
+    }
+
+    /**
+     * The cards Forge showed this viewer (`reveal`, spec 0045: Goblin
+     * Ringleader's four) stay in the tray when they have gone on to a hand
+     * or a library -- that is the reveal's point -- but under a stand-in id,
+     * "reveal:KEY:I", never the card's own: the way Phase 9 Amendment 12's
+     * `action` cards are already sent ("action:N:I"). Their names and
+     * pictures (by name and printing, MatchArt) stay. Found by CI's
+     * match-what-happened, 2026-11-08: with the id removed the page dropped
+     * every card and the tray with them.
+     */
+    private static int standIns(JsonObject snapshot, Set<String> drop) {
+        JsonElement reveal = snapshot.get("reveal");
+        if (reveal == null || !reveal.isJsonObject()) {
+            return 0;
+        }
+        JsonElement cards = reveal.getAsJsonObject().get("cards");
+        JsonElement key = reveal.getAsJsonObject().get("key");
+        if (cards == null || !cards.isJsonArray()) {
+            return 0;
+        }
+        String prefix = "reveal:" + (key != null && key.isJsonPrimitive() ? key.getAsString() : "") + ":";
+        int replaced = 0;
+        JsonArray list = cards.getAsJsonArray();
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).isJsonObject() && dropped(list.get(i).getAsJsonObject().get("id"), drop)) {
+                list.get(i).getAsJsonObject().addProperty("id", prefix + i);
+                replaced++;
+            }
+        }
+        return replaced;
     }
 
     private static boolean dropped(JsonElement value, Set<String> drop) {

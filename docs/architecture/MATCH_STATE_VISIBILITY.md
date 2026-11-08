@@ -65,7 +65,9 @@ the card a player had started to cast and taken back into the hand.
 The worker strips them per viewer as the round is sent (`HiddenIds`):
 the name, the reason and the place stay -- they were public -- the id
 goes (a move loses `why`, `said`, `into` with it; a mana says from
-"unseen"). A card that no longer exists (a token gone from the
+"unseen"; a card Forge revealed to the viewer -- Goblin Ringleader's four --
+stays in the `reveal` tray under a stand-in id, `reveal:KEY:I`, as `action`
+cards already are). A card that no longer exists (a token gone from the
 battlefield) is in no hidden zone and keeps its id. The page pairs a move
 without a card with the card gone from the board it drew before, so a
 Bolt bounced to the other player's hand still flies there as a back

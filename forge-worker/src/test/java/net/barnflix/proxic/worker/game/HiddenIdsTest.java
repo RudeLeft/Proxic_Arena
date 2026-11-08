@@ -102,6 +102,27 @@ class HiddenIdsTest {
     }
 
     @Test
+    void revealedCardsGoneToAHandStayInTheTrayUnderAStandIn() {
+        // Goblin Ringleader revealed Alice's top four; a Goblin went to her
+        // hand (card:8), a Forest to the bottom of her library (card:30).
+        JsonObject bob = JsonParser.parseString("""
+                {"hand": [{"id": "card:20"}],
+                 "reveal": {"key": "r5", "source": "card:39",
+                            "cards": [{"id": "card:8", "name": "Goblin Piker", "seat": 1},
+                                      {"id": "card:30", "name": "Forest", "seat": 1},
+                                      {"id": "card:39", "name": "Goblin Ringleader", "seat": 1}]}}
+                """).getAsJsonObject();
+        HiddenIds.strip(bob, HiddenIds.hiddenZones(ZONES, 2));
+        com.google.gson.JsonArray cards = bob.getAsJsonObject("reveal").getAsJsonArray("cards");
+        assertEquals(3, cards.size(), "every revealed card stays in the tray");
+        assertEquals("reveal:r5:0", cards.get(0).getAsJsonObject().get("id").getAsString());
+        assertEquals("Goblin Piker", cards.get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals("reveal:r5:1", cards.get(1).getAsJsonObject().get("id").getAsString());
+        assertEquals("card:39", cards.get(2).getAsJsonObject().get("id").getAsString(), "one on the table keeps its own");
+        assertFalse(bob.toString().contains("card:8\""));
+    }
+
+    @Test
     void aManaFromACardNowHiddenSaysUnseen() {
         JsonObject bob = JsonParser.parseString("""
                 {"payments": [{"n": 3, "mana": [{"colour": "G", "from": "card:8"}]}]}
