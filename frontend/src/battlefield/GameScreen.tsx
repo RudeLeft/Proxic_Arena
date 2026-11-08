@@ -432,13 +432,6 @@ export function GameScreen({
       }),
     [data, match.participants, lobby],
   );
-  // Spec 0059 item 9 -- each seat's picture, as its plate shows it: an
-  // attacker's badge shows whom it attacks.
-  const playerFaces = useMemo(
-    () =>
-      new Map(match.participants.map((p) => [p.seatNumber, avatarUrl(avatarOf(lobby, p.userId))])),
-    [match.participants, lobby],
-  );
   const latestFromOthers = useMemo(() => {
     // Spec 0013 — the game's own chat, not the lobby's.
     for (let i = lobby.gameChat.length - 1; i >= 0; i--) {
@@ -1532,7 +1525,6 @@ export function GameScreen({
             clockMs={RESPONSE_WINDOW_MS}
             handCosts={handCosts}
             damage={data.damage}
-            playerFaces={playerFaces}
             onPick={pick}
             onInspect={setInspecting}
             choosable={boardChoosable}

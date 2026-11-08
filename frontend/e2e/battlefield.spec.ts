@@ -33,7 +33,7 @@ import {
   type RowId,
 } from "../src/battlefield/layout";
 import { LIFE_R, MOVE_MS, SWEEP_MS, fateMs, anchors, handZoomBox } from "../src/battlefield/motion";
-import { STACK_READ_SCALE, stackSpotBoxes } from "../src/battlefield/effects";
+import { STACK_READ_SCALE, TIP_GAP, stackSpotBoxes } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -533,9 +533,7 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     const faces = (b: (typeof blocks)[number]) => blocks.find((x) => x.blocker === b.blocker) === b;
     const aimKey = (t: { player: number } | { object: string }) =>
       "player" in t ? `player:${t.player}` : t.object;
-    // Spec 0059 item 9: an unblocked attacker wears a badge of what it
-    // attacks, and draws its line only while pointed at.
-    const unblocked = (scene.combat?.attackers ?? []).filter((a) => !blockedIds.has(a.id));
+    // Spec 0059 item 9: attack lines only while an attacker is pointed at.
     const want: string[] = [
       ...blocks
         .filter((b) => blocksOf(b.blocker) > 1 && !faces(b))
@@ -558,7 +556,9 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     expect(atRest.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
       [...want].sort(),
     );
-    // Every end is inside the drawn card it belongs to, or on its rail point.
+    // Every end is on (or, a tip, a hair off -- spec 0063) the drawn card it
+    // belongs to, or on its rail point.
+    const tipGap = TIP_GAP * expected.geometry.cardH;
     const outlineOf = (id: string) => {
       const box = expected.boxes.get(id)!;
       return corners(box, TAPPED_ORIGIN);
@@ -600,48 +600,53 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
         const spot = stackSpotBoxes(expected.geometry, scene.stack.length, STACK_READ_SCALE);
         const box = spot[scene.stack.findIndex((s) => s.id === line.to)]!;
         expect(
-          end.x >= box.x - 1 &&
+          end.x >= box.x - tipGap - 1 &&
             end.x <= box.x + box.w + 1 &&
             end.y >= box.y - 1 &&
             end.y <= box.y + box.h + 1,
           `${what}: ${line.kind} ends on ${line.to}'s card`,
         ).toBe(true);
       } else if (line.to.startsWith("player:")) {
-        // On the life circle's edge, never over the total.
+        // A hair off the life circle's edge, never over the total.
         const life = where["viewer:life"];
         const fromCentre = Math.hypot(end.x - life.x, end.y - life.y);
         expect(
-          Math.abs(fromCentre - LIFE_R * expected.geometry.height) < 1,
-          `${what}: ${line.kind} ends on the life circle's edge`,
+          Math.abs(fromCentre - LIFE_R * expected.geometry.height - tipGap) < 1,
+          `${what}: ${line.kind} ends by the life circle's edge`,
         ).toBe(true);
       } else {
-        expect(inside(end, outlineOf(line.to)), `${what}: ${line.kind} ends in ${line.to}`).toBe(
-          true,
-        );
+        expect(
+          inside(end, outlineOf(line.to), tipGap + 1),
+          `${what}: ${line.kind} ends at ${line.to}`,
+        ).toBe(true);
       }
     };
     checkEnds(atRest);
 
-    // Spec 0059 item 9: a badge on each drawn unblocked attacker, saying
-    // what it attacks; pointing at it draws its line (one per pile), and
-    // moving away takes it off again.
+    // Spec 0063: no badge or name pill; every drawn attacker -- blocked ones
+    // and piles too -- draws its own arrow while pointed at (one per pile;
+    // a blocked one a short arrow to each of its blockers), and moving away
+    // takes it off again.
+    expect(
+      await page.locator("[data-attack-badge], .bf-aim-at, .bf-aim-name").count(),
+      `${what}: no badges`,
+    ).toBe(0);
     const leadOf = (id: string) => expected.slots.find((s) => s.ids.includes(id))!.ids[0]!;
-    const leads = [...new Set(unblocked.map((a) => leadOf(a.id)))];
-    const badges = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>("[data-attack-badge]")].map(
-        (b) =>
-          `${b.closest(".bf-slot")?.querySelector<HTMLElement>(":scope > button")?.dataset.objectId} ${b.dataset.attackBadge}`,
-      ),
-    );
-    expect(badges.sort(), `${what}: badges`).toEqual(
-      [...new Set(unblocked.map((a) => `${leadOf(a.id)} ${aimKey(a.target)}`))].sort(),
-    );
+    const attackers = scene.combat?.attackers ?? [];
+    const leads = [...new Set(attackers.map((a) => leadOf(a.id)))];
     for (const lead of leads) {
       const firstOf = new Map<string, string>();
-      for (const a of unblocked)
-        if (leadOf(a.id) === lead && !firstOf.has(aimKey(a.target)))
-          firstOf.set(aimKey(a.target), a.id);
-      const pointed = [...want, ...[...firstOf].map(([to, from]) => `attack ${from}>${to}`)];
+      for (const a of attackers) {
+        if (leadOf(a.id) !== lead) continue;
+        const ends = blockedIds.has(a.id)
+          ? blocks.filter((b) => b.attacker === a.id).map((b) => b.blocker)
+          : [aimKey(a.target)];
+        for (const to of ends) {
+          const key = to.startsWith("player:") ? to : leadOf(to);
+          if (!firstOf.has(key)) firstOf.set(key, `${a.id}>${to}`);
+        }
+      }
+      const pointed = [...want, ...[...firstOf.values()].map((line) => `attack ${line}`)];
       // The real pointer, near the card's left edge (the part a squeezed
       // line leaves showing). Not locator.hover(): a flyer bobs, so it is
       // never "stable".

@@ -209,8 +209,20 @@ rather than teleports.
    power/toughness bar (the mock ended its block line at 72% of the card's
    height for the same reason). *Spec 0059 (2026-11-07):* an attack line is
    drawn only for the attacker pointed at (or focused, or tapped on a touch
-   screen); at rest each unblocked attacker wears a badge of what it
-   attacks instead (`Board.tsx` `AimBadge`). *Phase 10 (2026-11-06, Amendment 15 of
+   screen); at rest each unblocked attacker wore a badge of what it
+   attacks. *Spec 0063 (2026-11-07, curve B "ride the middle", rest look
+   R2) replaced the badge and the curve:* no badge or name pill; at rest
+   what is attacked glows (a life circle's halo with "N attacking", a
+   planeswalker's or battle's frame); every attacker answers pointing,
+   keyboard focus or a tap, blocked ones (a short arrow to each blocker)
+   and piles ("×N" on the arrow) too. Attack, block, target and source
+   lines leave a card's edge facing the middle (on the frame, not inside
+   the picture), turn into the strip along the middle of the table, ride
+   it, and land straight on their end (`effects.ts` `ride`): a life circle
+   from the table's side, a card's edge facing the middle; no lanes. The
+   attach line keeps the old curve, inside the picture; the stolen and
+   chain tethers are unchanged. Lines draw in, glow included, over 300 ms
+   and fade out over 160 ms. *Phase 10 (2026-11-06, Amendment 15 of
    `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage

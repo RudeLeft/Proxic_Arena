@@ -660,95 +660,82 @@
   color: #111;
 }
 
-/* Spec 0059 item 9 (owner 2026-11-07, look B): an unblocked attacker wears a
-   badge of what it attacks -- the player's picture, or a planeswalker's or
-   battle's mark -- on its right under the name (the canvas's place), on its
-   left when the line is squeezed and the next card covers its right. Its
-   long line shows only while it is pointed at. */
-.bf-aim-at {
-  position: absolute;
-  right: calc(var(--card-h) * 0.03);
-  top: calc(var(--card-h) * 0.16);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: calc(var(--card-h) * 0.02);
-  pointer-events: none;
-  z-index: 3;
-}
-/* Squeezed: low on the left, over the picture (the pile's count is under
-   the name, the ATTACKING tag in the middle, the power at the bottom). */
-.bf-aim-at.bf-aim-left {
-  right: auto;
-  left: calc(var(--card-h) * 0.03);
-  top: calc(var(--card-h) * 0.6);
-  align-items: flex-start;
-}
-.bf-aim {
-  width: calc(var(--card-h) * 0.2);
-  height: calc(var(--card-h) * 0.2);
-  box-sizing: border-box;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #2f7f7a;
+/* Spec 0063 (owner 2026-11-07, R2 "the target glows"): no badge, no name
+   pill. An attacker wears its ATTACKING tag and warm edge; pointed at (its
+   arrow drawn), the edge brightens. A blocked attacker's blockers light up
+   blue while it is pointed at. What is attacked glows: a planeswalker's
+   frame ember, a battle's rust (a player's life circle: .bf-attacked-life). */
+.bf-card[data-aimed] {
   box-shadow:
-    0 0 0 1px var(--bf-attack),
-    0 1px 4px rgb(0 0 0 / 70%);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
+    0 0 0 2px #ff7a3d,
+    0 0 calc(var(--card-h) * 0.13) rgb(255 90 31 / 85%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
-.bf-aim-player img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.bf-card[data-pointed-blocker] {
+  border-color: #e4f5ff;
+  box-shadow:
+    0 0 0 3px #6cc6ff,
+    0 0 calc(var(--card-h) * 0.18) calc(var(--card-h) * 0.02) rgb(58 168 255 / 95%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
-/* A planeswalker or battle: a blue diamond (the canvas's), its mark upright. */
-.bf-aim-card {
-  border-radius: 18%;
-  background: #3b6fb6;
-  transform: rotate(45deg) scale(0.85);
+.bf-card[data-attacked] {
+  box-shadow:
+    0 0 0 2px rgb(255 122 61 / 75%),
+    0 0 calc(var(--card-h) * 0.09) rgb(255 90 31 / 45%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
-.bf-aim-card svg {
-  width: 70%;
-  height: 70%;
-  transform: rotate(-45deg);
-  fill: none;
-  stroke: #fff;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.bf-card[data-attacked]:not(.bf-look-walker) {
+  box-shadow:
+    0 0 0 2px rgb(200 106 58 / 80%),
+    0 0 calc(var(--card-h) * 0.09) rgb(160 72 34 / 55%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
-.bf-aim-battle {
-  background: #8a4a2a;
+.bf-card[data-attacked="hot"] {
+  box-shadow:
+    0 0 0 2px #ff7a3d,
+    0 0 calc(var(--card-h) * 0.13) rgb(255 90 31 / 85%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.08) rgb(0 0 0 / 55%);
 }
-/* While pointed at: whom or what, under the ATTACKING tag, over the picture
-   (clear of the card's name, its state and its bars). */
-.bf-aim-name {
+.bf-attacked-life {
   position: absolute;
-  right: calc(var(--card-h) * 0.03);
-  top: calc(var(--card-h) * 0.64);
-  z-index: 3;
+  transform: translate(-50%, -50%);
   pointer-events: none;
-  font-family: var(--pa-card);
-  font-size: calc(var(--card-h) * 0.07);
-  font-weight: 700;
-  line-height: 1;
-  padding: 0.22em 0.4em;
-  border-radius: 0.3em;
-  white-space: nowrap;
-  max-width: calc(var(--card-h) * 0.62);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #1a1206;
-  background: var(--bf-attack);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 70%);
 }
-.bf-aim-name.bf-aim-left {
-  right: auto;
-  left: calc(var(--card-h) * 0.26);
-  top: calc(var(--card-h) * 0.66);
+.bf-attacked-life::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid #ff7a3d;
+  box-shadow:
+    0 0 12px 2px rgb(255 90 31 / 60%),
+    inset 0 0 8px rgb(255 90 31 / 35%);
+  opacity: 0.6;
+  transition: opacity 200ms ease-out;
+}
+.bf-attacked-hot::before {
+  opacity: 1;
+}
+.bf-attacked-life[data-count-side="above"] .bf-attacked-count {
+  top: 0;
+}
+/* On the halo's far side from where its arrows come in: under your life
+   banner (in the gap above the plate's tiles), over the other player's. */
+.bf-attacked-count {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font:
+    700 11px/1 Inter,
+    system-ui,
+    sans-serif;
+  color: #fff;
+  background: #c2532f;
+  border-radius: 999px;
+  padding: 2px 7px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 60%);
 }
 
 /* --- Auras and Equipment: name tags on the host (AMENDMENT 4) ------------ */
@@ -873,25 +860,60 @@
 /* MTG Arena-style (owner 2026-10-21): a soft glow, a solid body with a
  * bright core, an arrowhead. Each line draws itself in from its source,
  * then the glow breathes. */
+/* Spec 0063: the glow draws in with the line, over 300 ms; the arrowhead
+ * comes as the line arrives; a line that goes fades out (bf-line-out). */
 .bf-line-aura {
   opacity: 0.32;
-  animation: bf-line-breathe 1.8s ease-in-out infinite;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation:
+    bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
+    bf-line-breathe 1.8s ease-in-out 300ms infinite;
 }
 .bf-line-body,
 .bf-line-core {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: bf-line-draw 420ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation: bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 .bf-line-core {
   opacity: 0.9;
 }
 .bf-line-head {
   opacity: 0;
-  animation: bf-line-head 180ms ease-out 330ms forwards;
+  transform: scale(0.5);
+  filter: drop-shadow(0 0 3px rgb(255 90 31 / 80%));
+  animation: bf-line-head 110ms ease-out 220ms forwards;
+}
+.bf-line-chip {
+  opacity: 0;
+  animation: bf-line-head 120ms ease-out 160ms forwards;
+}
+.bf-line-out {
+  animation: bf-line-out 160ms ease-in forwards;
+}
+.bf-line-out path,
+.bf-line-out polygon,
+.bf-line-out .bf-line-chip {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+.bf-line-out polygon,
+.bf-line-out .bf-line-chip {
+  opacity: 1;
+  transform: none;
+}
+@keyframes bf-line-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 .bf-line-attach .bf-line-aura {
   animation: none;
+  stroke-dashoffset: 0;
   opacity: 0.25;
 }
 @keyframes bf-line-draw {
@@ -902,6 +924,7 @@
 @keyframes bf-line-head {
   to {
     opacity: 1;
+    transform: scale(1);
   }
 }
 @keyframes bf-line-breathe {
@@ -1267,16 +1290,23 @@
   .bf-line-body,
   .bf-line-core,
   .bf-line-head,
+  .bf-line-chip,
   .bf-stack-slot,
   .bf-card.bf-targeted {
     animation: none;
   }
+  .bf-line-aura,
   .bf-line-body,
   .bf-line-core {
     stroke-dashoffset: 0;
   }
-  .bf-line-head {
+  .bf-line-head,
+  .bf-line-chip {
     opacity: 1;
+    transform: none;
+  }
+  .bf-attacked-life::before {
+    transition: none;
   }
   .bf-number {
     animation-name: bf-number-still;

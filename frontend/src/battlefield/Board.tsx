@@ -43,7 +43,6 @@ import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { SharpCard, closeUpOf } from "../closeUp";
-import { avatarUrl } from "../avatars";
 import {
   inCombat,
   HAND_ORIGIN,
@@ -113,12 +112,20 @@ import {
   NUMBER_MS,
   pathOf,
   playerPoint,
-  rectEdge,
-  ringEdge,
+  facingPort,
+  lifePort,
+  ride,
+  routeAt,
+  shownShare,
   STACK_READ_SCALE,
   STACK_SCALE,
   stackSpotBoxes,
+  swing,
+  TIP_GAP,
+  trimmed,
   type LineKind,
+  type Port,
+  type Route,
   type TargetRef,
   Z_EFFECTS,
   Z_LINES,
@@ -353,11 +360,6 @@ export interface BoardProps {
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
   damage?: DamageWave | null;
-  /**
-   * Spec 0059 item 9 -- each player's picture as their plate shows it, by
-   * seat: an attacker's badge shows whom it attacks. Absent: the default face.
-   */
-  playerFaces?: ReadonlyMap<number, string>;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
   onPick?: (objectId: string, members?: readonly string[]) => void;
@@ -450,63 +452,6 @@ const STACK_KIND: Record<string, string> = {
   ability: "Ability",
   trigger: "Trigger",
 };
-
-/** Spec 0059 item 9 -- a battle's mark on an attacker's badge (crossed blades). */
-const BATTLE_GLYPH = "M5 5 L19 19 M19 5 L5 19 M4 15 L9 20 M15 20 L20 15";
-
-/**
- * Spec 0059 item 9 (owner 2026-11-07, look B): an unblocked attacker's badge
- * -- the picture of the player it attacks, as their plate shows it, or a
- * planeswalker's or battle's mark. Its name shows while the attacker is
- * pointed at, when its line is drawn too. On the card's right, under its
- * name (the canvas); on its left in a line squeezed so tight that the next
- * card covers its right side.
- */
-function AimBadge({
-  aim,
-  face,
-  target,
-  words,
-  crowded,
-  named,
-}: {
-  aim: TargetRef;
-  face: string | null;
-  target: BoardCard | undefined;
-  words: string;
-  crowded: boolean;
-  named: boolean;
-}) {
-  const battle = !!target && /\bBattle\b/.test(target.types);
-  return (
-    <>
-      <span
-        className={`bf-aim-at${crowded ? " bf-aim-left" : ""}`}
-        data-attack-badge={refKey(aim)}
-        aria-hidden="true"
-      >
-        {face !== null ? (
-          <span className="bf-aim bf-aim-player">
-            <img src={face} alt="" draggable={false} />
-          </span>
-        ) : (
-          <span className={`bf-aim bf-aim-card${battle ? " bf-aim-battle" : ""}`}>
-            <svg viewBox="0 0 24 24">
-              <path d={battle ? BATTLE_GLYPH : GLYPH.walker} />
-            </svg>
-          </span>
-        )}
-      </span>
-      {/* Under the ATTACKING tag, over the picture: clear of the card's
-          name, its state and its bars. */}
-      {named && (
-        <span className={`bf-aim-name${crowded ? " bf-aim-left" : ""}`} aria-hidden="true">
-          {words === "you" ? "You" : words}
-        </span>
-      )}
-    </>
-  );
-}
 
 function Glyph({ look, className }: { look: Look; className: string }) {
   return (
@@ -840,6 +785,9 @@ interface Effect {
   to?: Point;
 }
 
+/** Spec 0063 -- how long a line takes to fade out when it goes (battlefield.css bf-line-out). */
+const LINE_OUT_MS = 160;
+
 /** Spec 0028 — how long a resolving stack card glows, its spark travelling, before it leaves. */
 const RESOLVE_MS = 380;
 
@@ -849,9 +797,8 @@ interface Line {
   kind: LineKind;
   from: string;
   to: string;
-  start: Point;
-  end: Point;
-  lane: number;
+  /** Spec 0063 -- its pieces; it starts at the first's start, its tip is the last's end. */
+  route: Route;
   /** How many relationships it stands for: a pile's members are one line. */
   count: number;
 }
@@ -867,6 +814,15 @@ interface Item {
   origin: { x: number; y: number };
   drawn: Drawn;
   content: ReactNode;
+}
+
+/** Spec 0063 -- focus the keyboard gave (`:focus-visible`), not a click's. */
+function keyboardFocus(element: Element): boolean {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    return true;
+  }
 }
 
 function reducedMotion(): boolean {
@@ -903,7 +859,6 @@ export function Board({
   handCosts,
   attaching,
   damage,
-  playerFaces,
   onPick,
   onInspect,
   choosable,
@@ -1152,11 +1107,32 @@ export function Board({
       if (sorted.some((x, i) => i > 0 && x - sorted[i - 1]! < g.cardW * 0.98)) crowded.add(row);
     }
 
-    // Spec 0059 item 9 -- what each unblocked attacker attacks (a blocked
-    // one hits its blockers, spec 0037): its badge, and its line on pointing.
+    // Spec 0059 item 9, spec 0063 -- what each unblocked attacker attacks (a
+    // blocked one hits its blockers, spec 0037): its words, and its line on
+    // pointing. Every attacker answers pointing, blocked ones too.
     const blockedIds = new Set((combat?.blocks ?? []).map((b) => b.attacker));
     const aims = new Map<string, TargetRef>();
-    for (const a of combat?.attackers ?? []) if (!blockedIds.has(a.id)) aims.set(a.id, a.target);
+    const attacks = new Map<string, TargetRef>();
+    for (const a of combat?.attackers ?? []) {
+      attacks.set(a.id, a.target);
+      if (!blockedIds.has(a.id)) aims.set(a.id, a.target);
+    }
+    // Spec 0063 (R2) -- what is attacked glows; brighter while an attacker
+    // aimed at it is pointed at, and the pointed blocked attacker's
+    // blockers light up blue.
+    const leadOf = new Map<string, string>();
+    for (const slot of result.slots) for (const id of slot.ids) leadOf.set(id, slot.ids[0]!);
+    const attacked = new Set<string>();
+    const hot = new Set<string>();
+    for (const [id, target] of aims) {
+      if (!("object" in target)) continue;
+      attacked.add(target.object);
+      if (aimed !== null && leadOf.get(id) === aimed) hot.add(target.object);
+    }
+    const litBlockers = new Set<string>();
+    for (const b of combat?.blocks ?? []) {
+      if (aimed !== null && leadOf.get(b.attacker) === aimed) litBlockers.add(b.blocker);
+    }
     const aimWords = (target: TargetRef) =>
       "player" in target
         ? target.player === viewerSeat
@@ -1172,6 +1148,8 @@ export function Board({
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
       const aim = slot.ids.map((id) => aims.get(id)).find((t) => t !== undefined);
+      const attacker = slot.ids.map((id) => attacks.get(id)).find((t) => t !== undefined);
+      const glows = slot.ids.some((id) => attacked.has(id));
       const label = [
         lead.faceDown && !lead.known
           ? "Face-down card"
@@ -1243,12 +1221,18 @@ export function Board({
               data-pile={count > 1 ? count : undefined}
               data-blocking={lead.blocking ? "true" : undefined}
               data-blocks={slot.faces ?? lead.blocks}
-              data-aims={aim ? refKey(aim) : undefined}
-              data-aimed={aim && aimed === lead.id ? "true" : undefined}
-              {...(aim
+              data-aims={attacker ? refKey(attacker) : undefined}
+              data-aimed={attacker && aimed === lead.id ? "true" : undefined}
+              data-attacked={
+                glows ? (slot.ids.some((id) => hot.has(id)) ? "hot" : "true") : undefined
+              }
+              data-pointed-blocker={slot.ids.some((id) => litBlockers.has(id)) ? "true" : undefined}
+              {...(attacker
                 ? {
-                    // Spec 0059 item 9: pointing, focus, or a tap on a touch
-                    // screen (which has no pointing) shows its line.
+                    // Spec 0059 item 9, spec 0063: pointing, keyboard focus,
+                    // or a tap on a touch screen (which has no pointing)
+                    // shows its line -- every attacker, blocked ones and
+                    // piles too.
                     onPointerEnter: (event: { pointerType: string }) => {
                       if (event.pointerType !== "touch") setAimed(lead.id);
                     },
@@ -1260,7 +1244,11 @@ export function Board({
                       if (event.pointerType === "touch")
                         setAimed((now) => (now === lead.id ? null : lead.id));
                     },
-                    onFocus: () => setAimed(lead.id),
+                    // Spec 0063: only focus the keyboard gave (a click
+                    // focuses the card too, and must not leave it pointed at).
+                    onFocus: (event: { currentTarget: Element }) => {
+                      if (keyboardFocus(event.currentTarget)) setAimed(lead.id);
+                    },
                     onBlur: () => setAimed((now) => (now === lead.id ? null : now)),
                   }
                 : {})}
@@ -1317,16 +1305,6 @@ export function Board({
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
-            {aim && (
-              <AimBadge
-                aim={aim}
-                face={"player" in aim ? (playerFaces?.get(aim.player) ?? avatarUrl(null)) : null}
-                target={"object" in aim ? byId.get(aim.object) : undefined}
-                words={aimWords(aim)}
-                crowded={crowded.has(slot.row)}
-                named={aimed === lead.id}
-              />
-            )}
             {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
                 it sits beside the card, which clips what crosses its edge. */}
             {leadAct.marks > 0 && (
@@ -1522,7 +1500,6 @@ export function Board({
     handCosts,
     pinned,
     combat,
-    playerFaces,
     aimed,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
@@ -2729,6 +2706,34 @@ export function Board({
     };
   }, []);
 
+  // Spec 0063 -- a line that goes (the pointer leaves an attacker, a spell
+  // resolves) fades out over LINE_OUT_MS instead of vanishing: after each
+  // drawing, a copy of every line drawn is kept; one no longer drawn is
+  // put back, fading, outside React's lines (with reduced motion asked
+  // for, it just goes).
+  const linesRef = useRef<SVGSVGElement>(null);
+  const leavingRef = useRef<SVGGElement>(null);
+  const lastLines = useRef(new Map<string, SVGGElement>());
+  useLayoutEffect(() => {
+    const now = new Map<string, SVGGElement>();
+    for (const line of linesRef.current?.querySelectorAll<SVGGElement>(":scope > [data-line]") ??
+      []) {
+      now.set(line.dataset.key ?? "", line.cloneNode(true) as SVGGElement);
+    }
+    const out = leavingRef.current;
+    if (out && !reducedMotion()) {
+      for (const [key, line] of lastLines.current) {
+        if (now.has(key)) continue;
+        line.removeAttribute("data-line");
+        line.setAttribute("data-line-leaving", line.dataset.key ?? "");
+        line.classList.add("bf-line-out");
+        out.appendChild(line);
+        timers.current.push(window.setTimeout(() => line.remove(), LINE_OUT_MS));
+      }
+    }
+    lastLines.current = now;
+  });
+
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
   const where = anchors(g);
@@ -2739,9 +2744,8 @@ export function Board({
     const p = positions.get(id);
     return p ? centreOf(p.box, p.origin) : null;
   };
-  // A point inside the card's picture, toward `toward`: a line starts and
-  // ends there, never on the name or power/toughness bars (as the mock's
-  // block line ended at 72% of the card's height).
+  // A point inside the card's picture, toward `toward` (the attach line's
+  // ends, as the mock's block line ended at 72% of the card's height).
   const edge = (id: string, toward: Point, depth: number) => {
     const p = positions.get(id)!;
     const c = centreOf(p.box, p.origin);
@@ -2751,52 +2755,98 @@ export function Board({
     const reach = Math.min(p.box.h * depth, len / 3);
     return { x: c.x + (dx / len) * reach, y: c.y + (dy / len) * reach };
   };
-  const refPoint = (ref: TargetRef) =>
-    "player" in ref ? playerPoint(ref.player, viewerSeat, where) : centre(ref.object);
-  // A line into a player meets their life circle's edge, never covers it.
+  // Spec 0063 (curve B, "ride the middle"): lines leave a card's edge that
+  // faces the middle of the table (an attacker's top edge on your side,
+  // the bottom edge on the other), on its frame, never inside its picture,
+  // straight out toward the middle; and land the same way on a card.
+  const middle = g.height / 2;
+  const gap = TIP_GAP * g.cardH;
+  const facing = (id: string, off = 0): Port | null => {
+    const p = positions.get(id);
+    return p ? facingPort(p.box, p.origin, middle, off, shownShare(result.slots, p.item)) : null;
+  };
+  // A life circle, from the table's side, stopping a hair off its edge.
   const lifeR = LIFE_R * g.height;
+  const lifeAt = (seat: number): Port =>
+    lifePort(playerPoint(seat, viewerSeat, where), g, lifeR + gap);
+  const head = sizes.line * 4.4;
   // The stack, drawn as cards at the right edge of the play area.
   const spot = stackSpotBoxes(g, (stack ?? []).length, stackScale);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
+  // A stack card's edge facing the table (its left), where it shows: the
+  // front card at the middle, one behind it on the strip above the next.
+  const stackPort = (index: number, off = 0): Port | null => {
+    const box = spot[index];
+    if (!box) return null;
+    const y =
+      index === 0
+        ? Math.min(Math.max(middle, box.y + box.h * 0.1), box.y + box.h * 0.9)
+        : (box.y + Math.min(box.y + box.h, spot[index - 1]!.y)) / 2;
+    return { at: { x: box.x - off, y }, out: { x: -1, y: 0 } };
+  };
+  const spotIndex = (id: string) =>
+    (stack ?? []).slice(0, spot.length).findIndex((s) => s.id === id);
   // One line per DRAWN thing, not per object: a pile of 300 Goblin tokens
   // attacking is one card on the table, so it is one fire line (owner
   // report 2026-10-23: 300 lines, each blurred and fanned into its own
   // lane, buried the screen and stalled the page).
   const drawn = (id: string) => positions.get(id)?.item ?? id;
   const byKey = new Map<string, Line>();
-  const add = (kind: LineKind, from: string, to: string, start: Point, end: Point) => {
+  const add = (kind: LineKind, from: string, to: string, route: Route | null) => {
+    if (!route) return;
     const key = `${kind}:${drawn(from)}:${to.startsWith("player:") ? to : drawn(to)}`;
     const same = byKey.get(key);
     if (same) same.count += 1;
-    else byKey.set(key, { key, kind, from, to, start, end, lane: 0, count: 1 });
+    else byKey.set(key, { key, kind, from, to, route, count: 1 });
   };
-  // Spec 0037 — a blocked attacker hits its blockers, not the player: no
-  // fire line. Phase 10 A-12: a blocker standing facing its attacker needs
-  // no block line to it (one blocking several has lines to the others).
+  // Where a line lands on a card: a hair off the edge facing the middle.
+  // Next to the middle (the front lines are about 12 px apart at 1080),
+  // there is less room than the arrowhead's length: the head then reaches
+  // into the card above the middle, over its bottom bar's empty middle
+  // (power/toughness and type sit at its ends) -- never over the name bar
+  // of the card below.
+  const land = (id: string): Port | null => {
+    const port = facing(id, gap);
+    if (!port) return null;
+    if (port.out.y > 0) port.at = { x: port.at.x, y: Math.min(port.at.y, middle - head * 0.95) };
+    return port;
+  };
+  const rideTo = (from: Port | null, to: Port | null, via?: number) =>
+    from && to ? ride(from, to, middle, g.cardH, via) : null;
+  // Spec 0037 — a blocked attacker hits its blockers, not the player.
+  // Phase 10 A-12: a blocker standing facing its attacker needs no block
+  // line to it (one blocking several has lines to the others).
   const blockedIds = new Set((combat?.blocks ?? []).map((b) => b.attacker));
   const faced = new Map<string, string>();
   for (const slot of result?.slots ?? []) {
     if (slot.faces) for (const id of slot.ids) faced.set(id, slot.faces);
   }
   for (const a of combat?.attackers ?? []) {
-    if (blockedIds.has(a.id)) continue;
-    // Spec 0059 item 9 (owner 2026-11-07, look B): no attack lines at rest
-    // -- each attacker's badge says what it attacks; the one pointed at
-    // (focused, tapped) draws its full line, as before.
+    // Spec 0059 item 9: no attack lines at rest; the one pointed at
+    // (focused, tapped) draws its line. Spec 0063: every attacker -- a
+    // blocked one a short arrow to each of its blockers.
     if (aimed === null || drawn(a.id) !== aimed) continue;
-    const from = centre(a.id);
-    const aim = refPoint(a.target);
-    if (!from || !aim) continue;
-    const end =
-      "object" in a.target ? edge(a.target.object, from, 0.18) : ringEdge(aim, from, lifeR);
-    add("attack", a.id, refKey(a.target), edge(a.id, end, 0.22), end);
+    const from = facing(a.id);
+    if (blockedIds.has(a.id)) {
+      for (const b of combat?.blocks ?? []) {
+        if (b.attacker !== a.id) continue;
+        add("attack", a.id, b.blocker, rideTo(from, land(b.blocker)));
+      }
+      continue;
+    }
+    const target = a.target;
+    add(
+      "attack",
+      a.id,
+      refKey(target),
+      "player" in target
+        ? rideTo(from, lifeAt(target.player), g.rail.x)
+        : rideTo(from, land(target.object)),
+    );
   }
   for (const b of combat?.blocks ?? []) {
     if (faced.has(b.blocker) && faced.get(b.blocker) === drawn(b.attacker)) continue;
-    const from = centre(b.blocker);
-    const to = centre(b.attacker);
-    if (!from || !to) continue;
-    add("block", b.blocker, b.attacker, edge(b.blocker, to, 0.2), edge(b.attacker, from, 0.22));
+    add("block", b.blocker, b.attacker, rideTo(facing(b.blocker), land(b.attacker)));
   }
   // Spec 0043: every object, a "×9" card counting nine.
   const stackTotal = (stack ?? []).reduce((n, s) => n + (s.count ?? 1), 0);
@@ -2804,46 +2854,52 @@ export function Board({
   const shown = (stack ?? []).filter((s) => s.id === focus);
   for (const s of shown) {
     // From the spell's own card on the stack (the last drawn one, for an
-    // object further down than the cards shown).
-    const box = spotBox.get(s.id) ?? spot[spot.length - 1];
-    const from = box ? { x: box.x + box.w / 2, y: box.y + box.h / 2 } : where.stack;
+    // object further down than the cards shown): its edge facing the table.
+    const index = spotBox.has(s.id) ? spotIndex(s.id) : spot.length - 1;
+    const box = spot[index];
+    const start: Port = stackPort(index) ?? { at: where.stack, out: { x: -1, y: 0 } };
     for (const t of s.targets) {
-      const aim = refPoint(t);
-      if (!aim) continue;
-      const end = "player" in t ? ringEdge(aim, from, lifeR) : edge(t.object, from, 0.18);
-      add("target", s.id, refKey(t), box ? rectEdge(box, end) : from, end);
+      if ("player" in t) {
+        // Up or down to a life circle: from the card's top or bottom edge.
+        const life = lifeAt(t.player);
+        const up = life.at.y < start.at.y;
+        const from: Port = box
+          ? {
+              at: { x: box.x + box.w / 2, y: up ? box.y : box.y + box.h },
+              out: { x: 0, y: up ? -1 : 1 },
+            }
+          : start;
+        add("target", s.id, refKey(t), swing(from, life));
+      } else add("target", s.id, refKey(t), rideTo(start, land(t.object)));
     }
   }
   // Spec 0028 — an ability, faintly, back to the permanent it came from.
   for (const s of stack ?? []) {
-    const box = spotBox.get(s.id);
-    if (!s.source || !box || !centre(s.source)) continue;
-    const mid = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
-    const end = rectEdge(box, centre(s.source)!);
-    add("source", s.source, s.id, edge(s.source, mid, 0.22), end);
+    if (!s.source || !spotBox.has(s.id)) continue;
+    add("source", s.source, s.id, rideTo(facing(s.source), stackPort(spotIndex(s.id), gap)));
   }
   if (attaching) {
     const from = centre(attaching.source);
     const to = centre(attaching.host);
     if (from && to) {
-      add(
-        "attach",
-        attaching.source,
-        attaching.host,
-        edge(attaching.source, to, 0.22),
-        edge(attaching.host, from, 0.22),
-      );
+      add("attach", attaching.source, attaching.host, [
+        curve("attach", edge(attaching.source, to, 0.22), edge(attaching.host, from, 0.22)),
+      ]);
     }
   }
   const lines = [...byKey.values()];
-  // Several lines into one thing spread into lanes (the mock's).
-  const into = new Map<string, Line[]>();
-  for (const line of lines) {
-    const to = line.to.startsWith("player:") ? line.to : drawn(line.to);
-    into.set(to, [...(into.get(to) ?? []), line]);
-  }
-  for (const group of into.values()) {
-    group.forEach((line, i) => (line.lane = i - (group.length - 1) / 2));
+  // Spec 0063 (R2) -- each player attacked by unblocked attackers: how many.
+  const underAttack: { seat: number; at: Point; count: number; hot: boolean }[] = [];
+  for (const a of combat?.attackers ?? []) {
+    if (blockedIds.has(a.id) || !("player" in a.target)) continue;
+    const seat = a.target.player;
+    let u = underAttack.find((x) => x.seat === seat);
+    if (!u) {
+      u = { seat, at: playerPoint(seat, viewerSeat, where), count: 0, hot: false };
+      underAttack.push(u);
+    }
+    u.count += 1;
+    if (aimed !== null && drawn(a.id) === aimed) u.hot = true;
   }
 
   return (
@@ -3053,7 +3109,29 @@ export function Board({
             </span>
           </div>
         )}
+        {/* Spec 0063 (R2): an attacked player's life circle glows, with
+            how many attack it; brighter while one of them is pointed at. */}
+        {underAttack.map((u) => (
+          <div
+            key={u.seat}
+            className={`bf-attacked-life${u.hot ? " bf-attacked-hot" : ""}`}
+            data-attacked-player={u.seat}
+            // The count sits on the side its arrows do not come from.
+            data-count-side={u.at.y < middle ? "above" : "below"}
+            aria-hidden="true"
+            style={{
+              left: u.at.x,
+              top: u.at.y,
+              width: (lifeR + gap) * 2,
+              height: (lifeR + gap) * 2,
+              zIndex: Z_LINES - 1,
+            }}
+          >
+            <span className="bf-attacked-count">{u.count} attacking</span>
+          </div>
+        ))}
         <svg
+          ref={linesRef}
           className="bf-lines"
           width={g.width}
           height={g.height}
@@ -3066,20 +3144,25 @@ export function Board({
             </filter>
           </defs>
           {lines.map((line) => {
-            const c = curve(line.kind, line.start, line.end, line.lane);
-            const d = pathOf(c);
+            const route = line.route;
+            const first = route[0]!;
+            const tip = route[route.length - 1]!.end;
             const theme = LINE_THEME[line.kind];
             const w = sizes.line;
+            // Spec 0063: the body stops under the arrowhead, which makes the point.
+            const d = pathOf(line.kind === "attach" ? route : trimmed(route, head * 0.55));
+            const chip = line.count > 1 && line.kind === "attack" ? routeAt(route, 0.5) : null;
             return (
               <g
                 key={line.key}
                 className={`bf-line bf-line-${line.kind}`}
+                data-key={line.key}
                 data-line={line.kind}
                 data-from={line.from}
                 data-to={line.to}
                 data-count={line.count > 1 ? line.count : undefined}
-                data-start={`${line.start.x.toFixed(1)},${line.start.y.toFixed(1)}`}
-                data-end={`${line.end.x.toFixed(1)},${line.end.y.toFixed(1)}`}
+                data-start={`${first.start.x.toFixed(1)},${first.start.y.toFixed(1)}`}
+                data-end={`${tip.x.toFixed(1)},${tip.y.toFixed(1)}`}
               >
                 <path
                   d={d}
@@ -3087,6 +3170,7 @@ export function Board({
                   strokeWidth={w * 2.6}
                   className="bf-line-aura"
                   filter="url(#bf-glow)"
+                  pathLength={1}
                 />
                 <path
                   d={d}
@@ -3104,23 +3188,50 @@ export function Board({
                 />
                 {line.kind !== "attach" && (
                   <polygon
-                    points={arrowHead(c, w * 4.4)}
+                    points={arrowHead(route, head)}
                     fill={theme.body}
                     stroke={theme.core}
                     strokeWidth={w * 0.3}
                     strokeLinejoin="round"
                     className="bf-line-head"
+                    style={{ transformOrigin: `${tip.x}px ${tip.y}px` }}
                   />
                 )}
                 {line.kind === "attach" && (
                   <g fill={theme.core} stroke={theme.body}>
-                    <circle cx={c.start.x} cy={c.start.y} r={w * 1.6} />
-                    <circle cx={c.end.x} cy={c.end.y} r={w * 1.6} />
+                    <circle cx={first.start.x} cy={first.start.y} r={w * 1.6} />
+                    <circle cx={tip.x} cy={tip.y} r={w * 1.6} />
+                  </g>
+                )}
+                {/* Spec 0063: a pile's one arrow says how many it stands for. */}
+                {chip && (
+                  <g className="bf-line-chip" data-chip={line.count}>
+                    <circle
+                      cx={chip.x}
+                      cy={chip.y}
+                      r={g.cardH * 0.085}
+                      fill="#c2532f"
+                      stroke={theme.core}
+                      strokeWidth={w * 0.35}
+                    />
+                    <text
+                      x={chip.x}
+                      y={chip.y}
+                      dy="0.35em"
+                      textAnchor="middle"
+                      fontSize={g.cardH * 0.085}
+                      fontWeight={700}
+                      fill="#fff"
+                    >
+                      ×{line.count}
+                    </text>
                   </g>
                 )}
               </g>
             );
           })}
+          {/* Spec 0063: a line that goes fades out here (never just vanishes). */}
+          <g ref={leavingRef} className="bf-lines-leaving" />
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
         {overlay?.((id) => positions.get(id)?.box ?? spotBox.get(id) ?? null, g)}

@@ -290,6 +290,29 @@ const DEV_BOARDS: Record<string, { label: string; you: SideSpec; them: SideSpec 
     },
     them: { lands: [["Plains", 4]], creatures: ["Serra Angel", "White Knight"] },
   },
+  // Spec 0063 -- the canvas "arrows-1107"'s board: two Grizzly Bears (one
+  // card, "×2"), a Hill Giant, Llanowar Elves and a Raging Goblin attack
+  // (`&pw=1`: the Goblin at Chandra); `&blocked=N` has Bob block.
+  arrows: {
+    label: "Spec 0063: you attack Bob with five",
+    you: {
+      lands: [["Forest", 4], "Mountain"],
+      creatures: [
+        ["Grizzly Bears", 2],
+        "Hill Giant",
+        "Llanowar Elves",
+        "Raging Goblin",
+        "Wall of Roots",
+        "Birds of Paradise",
+      ],
+      attackers: 5,
+    },
+    them: {
+      lands: [["Mountain", 3]],
+      creatures: ["Goblin Guide", "Gray Ogre", "Wild Boar"],
+      others: [["Chandra, Torch of Defiance", "Legendary Planeswalker — Chandra"]],
+    },
+  },
 };
 
 export function scenarioLabel(name: string): string | null {

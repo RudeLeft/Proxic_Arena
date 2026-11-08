@@ -36,12 +36,6 @@ function number(params: URLSearchParams, key: string, fallback: number, max: num
 /** The synthetic board's pictures are data URIs already. */
 const asIs = (art: string) => art;
 
-/** The players' pictures, as the stack's casters have them here. */
-const FACES = new Map([
-  [1, avatarUrl("avatar-01")],
-  [2, avatarUrl("avatar-46")],
-]);
-
 export default function DevBoardPage() {
   const [params, setParams] = useSearchParams();
   const permanents = number(params, "permanents", 40, 200);
@@ -89,13 +83,27 @@ export default function DevBoardPage() {
     : now.board.battlefield;
 
   // `&combat=1` (spec 0059) -- the board's attackers attack the other player;
-  // with `&pw=N` the last N of a side attack the defender's first planeswalker.
+  // with `&pw=N` the last N of a side attack the defender's first planeswalker;
+  // with `&blocked=N` (spec 0063) the defender's first N untapped creatures
+  // block the first N attackers, one each.
   const atWalkers = number(params, "pw", 0, 200);
+  const blocking = number(params, "blocked", 0, 200);
   const derived = useMemo(() => {
     if (params.get("combat") !== "1" || script) return null;
     const field = now.board.battlefield;
     const attackers = field.filter((c) => c.attacking);
+    const blockers = field.filter(
+      (c) =>
+        c.kind === "creature" &&
+        !c.attacking &&
+        !c.tapped &&
+        attackers.length > 0 &&
+        c.seat !== attackers[0]!.seat,
+    );
     return {
+      blocks: blockers
+        .slice(0, Math.min(blocking, attackers.length))
+        .map((b, i) => ({ blocker: b.id, attacker: attackers[i]!.id })),
       attackers: attackers.map((c) => {
         const mine = attackers.filter((a) => a.seat === c.seat);
         const walker = field.find((w) => w.seat !== c.seat && /\bPlaneswalker\b/.test(w.types));
@@ -105,9 +113,12 @@ export default function DevBoardPage() {
           target: walker && late ? { object: walker.id } : { player: c.seat === 1 ? 2 : 1 },
         };
       }),
-      blocks: [],
     };
-  }, [params, script, now, atWalkers]);
+  }, [params, script, now, atWalkers, blocking]);
+  const blockerIds = new Set((derived?.blocks ?? []).map((b) => b.blocker));
+  const fielded = blockerIds.size
+    ? battlefield.map((c) => (blockerIds.has(c.id) ? { ...c, blocking: true } : c))
+    : battlefield;
 
   const next = () => {
     const after = new URLSearchParams(params);
@@ -118,14 +129,13 @@ export default function DevBoardPage() {
   return (
     <div className="bf-page">
       <Board
-        battlefield={battlefield}
+        battlefield={fielded}
         hand={now.board.hand}
         viewerSeat={now.board.viewerSeat}
         artUrl={asIs}
         arrivals={now.arrivals}
         departures={now.departures}
         combat={scene?.combat ?? derived}
-        playerFaces={FACES}
         // Spec 0028: a picture for each caster, as the game gives them.
         stack={(scene?.stack ?? []).map((s) => ({
           ...s,
