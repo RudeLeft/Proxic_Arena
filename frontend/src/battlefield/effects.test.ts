@@ -269,7 +269,8 @@ describe("attack arrows ride the middle (F-0063-C)", () => {
       }
     }
     expect(checked).toBeGreaterThan(200);
-  });
+    // A sweep over every board, screen and seat: about 5 s on CI's runner.
+  }, 60_000);
 
   it("a planeswalker: lands straight onto its edge facing the middle", () => {
     const { l } = attack("attack8", 2, screens[0]!);
