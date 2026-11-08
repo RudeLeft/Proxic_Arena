@@ -240,6 +240,16 @@ noticesTotal              spec 0061: how many notices this seat was told in
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}
+payments                  spec 0062: what each payment step paid, the last
+                          24, every seat: {n (only grows), seat (who paid),
+                          payment (shared by one payment's steps), for
+                          "card:N" (the card paid for), kind
+                          cast|spell|ability|trigger, cost? "{2}{B}{B}" (when
+                          it began), owing? (after this step), mana [{colour
+                          W|U|B|R|G|C, shard? "1"|"B"|"B/G"|"B/P" (the symbol
+                          it paid), from "card:N"|"pool"|"life"}]}. A spell
+                          still being cast (and a face-down card's ability)
+                          keeps cost, owing and shard to its payer.
 decision.arrange.dice     Phase 9 W-17, on the roll questions: {how
                           (reroll|nudge|swap|swapValue|ignore), sides,
                           rolls, by [{id, name}], price?, power?,

@@ -271,6 +271,39 @@ export interface SnapshotRoll {
   results: number[];
 }
 
+/** Spec 0062 -- one mana of a payment step: its colour, the cost's symbol it paid, its source. */
+export interface PaidMana {
+  /** W U B R G, or C for colourless. */
+  colour: string;
+  /** The symbol paid ("1" generic, "B", "B/G"); absent where the cost is hidden from this viewer. */
+  shard: string | null;
+  /** "card:12" (tapped, or convoked), "pool" (mana already made) or "life" (Phyrexian). */
+  from: string;
+}
+
+/**
+ * Spec 0062 -- one step of a payment, as it was paid: public (the land
+ * tapped is), but a spell still being cast keeps its cost (and so the
+ * symbols paid) to its caster.
+ */
+export interface SnapshotPayment {
+  /** Grows by one each step: a page plays each once. */
+  n: number;
+  /** Who paid. */
+  seat: number;
+  /** Which payment: the steps of one payment share it. */
+  payment: number;
+  /** The card paid for (the spell being cast, the ability's or trigger's card). */
+  for: string | null;
+  /** "cast" (a spell being cast), "spell" (one on the stack), "ability" or "trigger". */
+  kind: string;
+  /** The cost when the payment began, "{2}{B}{B}"; absent where hidden. */
+  cost: string | null;
+  /** Still due after this step; absent where hidden. */
+  owing: string | null;
+  mana: PaidMana[];
+}
+
 /**
  * Phase 9 Amendment 17 -- a target question's state, from the game:
  * the targets chosen so far (snapshot ids, in order), whether that is
@@ -616,6 +649,8 @@ export interface Snapshot {
   battlefield: SnapshotCard[];
   /** Phase 9 W-17 -- the dice rolled lately (public); absent from an older worker. */
   rolls?: SnapshotRoll[] | undefined;
+  /** Spec 0062 -- the latest payment steps (each mana paid); absent from an older worker. */
+  payments?: SnapshotPayment[] | undefined;
   /**
    * Phase 10 A-00 -- the cards moved since the last board, as the game
    * moved them: where from, where to, why. Empty from an older worker (the
@@ -984,6 +1019,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     noticesTotal: asNumber(row["noticesTotal"]),
     battlefield: asCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
+    payments: asPayments(row["payments"]),
     moves: asMoves(row["moves"]),
     hand: asCards(row["hand"]),
     otherHands: asCards(row["otherHands"]),
@@ -1629,6 +1665,40 @@ function asMoves(value: unknown): SnapshotMove[] {
         said: asString(e["said"]),
         into: asString(e["into"]),
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
+      },
+    ];
+  });
+}
+
+function asPayments(value: unknown): SnapshotPayment[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const e = entry as Record<string, unknown>;
+    const n = asNumber(e["n"]);
+    const seat = asNumber(e["seat"]);
+    const payment = asNumber(e["payment"]);
+    if (n === null || seat === null || payment === null) return [];
+    const mana = Array.isArray(e["mana"])
+      ? e["mana"].flatMap((m): PaidMana[] => {
+          if (typeof m !== "object" || m === null) return [];
+          const r = m as Record<string, unknown>;
+          const colour = asString(r["colour"]);
+          const from = asString(r["from"]);
+          if (!colour || !from) return [];
+          return [{ colour, shard: asString(r["shard"]), from }];
+        })
+      : [];
+    return [
+      {
+        n,
+        seat,
+        payment,
+        for: asString(e["for"]),
+        kind: asString(e["kind"]) ?? "ability",
+        cost: asString(e["cost"]),
+        owing: asString(e["owing"]),
+        mana,
       },
     ];
   });

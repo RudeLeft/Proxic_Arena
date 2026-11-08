@@ -409,6 +409,43 @@ public final class GameHost {
         }
     }
 
+    /** Spec 0062 -- what each payment step paid, for every seat (Payments). */
+    private final Payments payments = new Payments();
+
+    Payments payments() {
+        return payments;
+    }
+
+    /**
+     * Spec 0062 -- [seat] paid one step of [payment] for [paidFor]: [mana],
+     * with [owing] still due. A spell still being cast (on the stack zone,
+     * not yet on the stack: the page draws it face down to the others) and
+     * an ability of a face-down permanent keep their cost to the payer.
+     */
+    void paid(int seat, Payments.Payment payment, forge.game.spellability.SpellAbility paidFor, String owing,
+            java.util.List<Payments.Mana> mana) {
+        forge.game.card.Card card = paidFor == null ? null : paidFor.getHostCard();
+        boolean beingCast = false;
+        // A spell is being cast until it is on the stack (Forge puts the card
+        // in the stack zone first; the object paid for may still be the copy
+        // from the hand, so its zone is not asked).
+        if (paidFor != null && paidFor.isSpell() && card != null && game != null) {
+            beingCast = true;
+            for (forge.game.spellability.SpellAbilityStackInstance instance : game.getStack()) {
+                if (instance.getSourceCard() != null && instance.getSourceCard().getId() == card.getId()) {
+                    beingCast = false;
+                }
+            }
+        }
+        String kind = beingCast ? "cast"
+                : paidFor == null ? "ability"
+                : paidFor.isTrigger() ? "trigger"
+                : paidFor.isSpell() ? "spell"
+                : "ability";
+        boolean hidden = beingCast || (card != null && card.isFaceDown());
+        payments.paid(seat, payment, card == null ? null : "card:" + card.getId(), kind, hidden, owing, mana);
+    }
+
     private synchronized com.google.gson.JsonArray rollsSoFar() {
         com.google.gson.JsonArray out = new com.google.gson.JsonArray();
         rolls.forEach(roll -> out.add(roll.deepCopy()));
@@ -1104,6 +1141,7 @@ public final class GameHost {
             // Spec 0061 -- how many notices this seat was told in all.
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
             snapshot.add("rolls", rollsSoFar());
+            snapshot.add("payments", payments.forViewer(seat));
             if (!moved.isEmpty()) {
                 snapshot.add("moves", Moves.forViewer(moved, seat));
             }
@@ -1123,6 +1161,7 @@ public final class GameHost {
                 everyone.add("damage", damage.deepCopy());
             }
             everyone.add("rolls", rollsSoFar());
+            everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {
                 everyone.add("moves", Moves.forViewer(moved, null));
             }

@@ -16,7 +16,9 @@
 //
 // JUMPS_ONLY=<regex> picks traces; JUMPS_CLIPS='[{"trace":"x","seat":1,"board":6}]'
 // instead films those boards at a tenth of the speed, a screenshot every
-// 250 ms, into <out>/clips/.
+// 250 ms, into <out>/clips/. A clip's "more": N films the N boards after it
+// too, each "every" shots after the one before, or at the shots in "at"
+// (spec 0062: a whole payment, the last boards a moment apart).
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -52,6 +54,9 @@ function boards(file: string, seat: number): Snap[] {
       s.otherHands,
       s.casting,
       s.players.map((p) => [p.life, p.handCount, p.libraryCount, p.poison, p.counters]),
+      // Spec 0062 -- a payment step can change nothing else (a creature
+      // chosen for convoke is tapped only at the end).
+      s.payments,
     ]);
     if (sig === prev) continue;
     prev = sig;
@@ -199,6 +204,9 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
       seat: number;
       board: number;
       shots?: number;
+      more?: number;
+      every?: number;
+      at?: number[];
     }[];
     let rev = 500_000;
     for (const clip of clips) {
@@ -226,7 +234,27 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
           state: { ...list[clip.board]!.state, stateRevision: ++rev },
         }),
       );
+      // The shot before which each later board is sent: every `every` shots,
+      // or `at` (several at one shot: boards that came a moment apart).
+      const sendAt = Array.from(
+        { length: clip.more ?? 0 },
+        (_, i) => clip.at?.[i] ?? (i + 1) * (clip.every ?? 24),
+      );
+      let sent = 0;
       for (let k = 1; k <= (clip.shots ?? 24); k++) {
+        while (sent < sendAt.length && sendAt[sent]! <= k) {
+          sent += 1;
+          const later = list[clip.board + sent];
+          if (later) {
+            p.client!.send(
+              JSON.stringify({
+                type: "MATCH_SNAPSHOT",
+                state: { ...later.state, stateRevision: ++rev },
+              }),
+            );
+            await p.page.waitForTimeout(30);
+          }
+        }
         await p.page.waitForTimeout(250);
         await p.page.screenshot({
           // Three digits: a clip of 100 or more shots read in name order

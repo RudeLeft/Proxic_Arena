@@ -3300,17 +3300,31 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-weight: 700;
   font-size: var(--pa-size-sm);
 }
-/* Spec 0058, item 6 -- the spark from the land that paid, to its pip. */
-.gs-cast-spark {
+/* Spec 0062 -- the mana balls (manaBalls.tsx): over the whole page, so a
+   ball can leave the rail's life total or mana display. */
+.gs-balls {
+  position: fixed;
+  inset: 0;
+  /* Over the board and the rail, under the question windows (15000+). */
+  z-index: 14000;
+  pointer-events: none;
+  overflow: visible;
+}
+.gs-ball {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 3;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
   border-radius: 50%;
   pointer-events: none;
+  will-change: transform, opacity;
+}
+/* Where the board is on the screen, for the balls: nothing drawn. */
+.gs-balls-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 /* Spec 0058, item 6 -- one grey pip per point of generic mana. */
 .gs-cast-pip-generic {

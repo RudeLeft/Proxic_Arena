@@ -91,7 +91,7 @@ From here the project grows **one feature at a time** (owner decision,
 | 0059 | Attack badges with the line on pointing; sharing a line before cards shrink in combat; lands nearer the hand. From the owner, 2026-11-07 | **Done** in 1.49.0 | `docs/features/0059-arrows-sharing-lands.md` |
 | 0060 | Player pictures recover by themselves after a failed load (an update's restart left one broken); failures never cached; a wider players list. From the owner, 2026-11-07 | **Done** in 1.50.0 | `docs/features/0060-pictures-recover-wider-players.md` |
 | 0061 | Nothing thrown away by one click; say why a card left. From the owner, 2026-11-07 | **Done** in 1.51.0 | `docs/features/0061-nothing-thrown-away-by-one-click.md` |
-| 0062 | A spark of mana for every payment. From the owner, 2026-11-07 | **Approved** 2026-11-07 | `docs/features/0062-mana-every-payment.md` |
+| 0062 | A spark of mana for every payment. From the owner, 2026-11-07 | **Built** 2026-11-08, unreleased | `docs/features/0062-mana-every-payment.md` |
 | 0063 | Attack arrows: ride the middle; the target glows. From the owner, 2026-11-07 | **Done** in 1.51.0 | `docs/features/0063-attack-arrows-ride-the-middle.md` |
 | 0064 | Game chat: a play log tab, and undocking. From the owner, 2026-11-07 | **Approved** 2026-11-07 | `docs/features/0064-game-chat-play-log-undock.md` |
 | 0065 | No logo on the table; the mana vortex loading screen. From the owner, 2026-11-07 | **Done** in 1.51.0 | `docs/features/0065-no-logo-mana-vortex.md` |

@@ -24,6 +24,7 @@ import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
+import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
 
 /** How much bigger than a card on the table. */
 const GROW = 2.5;
@@ -147,14 +148,6 @@ export interface Floating {
  * fly back to the hand from there -- a jump (Phase 10 P10-R1). Null when
  * a question is being asked: then it goes where that question puts it.
  */
-/** Spec 0058, item 6 -- how long a payment's spark takes from the land to its pip. */
-export const SPARK_MS = 420;
-
-/** Spec 0058, item 6 -- the first pip lit now that was not before ([before] is "*" for lit), or -1. */
-export function litIndex(pips: readonly { paid: boolean }[], before: string): number {
-  return pips.findIndex((p, i) => p.paid && before[i] !== "*");
-}
-
 export function heldSpot(
   floating: Floating | null,
   castingId: string | null,
@@ -226,12 +219,6 @@ export function costPips(
     const paidOfKind = Math.max(0, (total.get(key) ?? 0) - (owed.get(key) ?? 0));
     return shape(p.symbol, p.generic, at < paidOfKind);
   });
-}
-
-/** Spec 0058, item 6 -- the card that just paid (its place on the table) and its mana's colour. */
-export interface Spark {
-  box: Box;
-  colour: string;
 }
 
 /** Spec 0058, items 6-7 -- a cast being paid: the cost being paid, and what is still owed. */
@@ -359,7 +346,7 @@ export function CastingCard({
   from,
   owing,
   cost = null,
-  spark = null,
+  paid = null,
   artUrl,
   docked = false,
   hiddenBy = null,
@@ -375,8 +362,12 @@ export function CastingCard({
   owing: string[] | null;
   /** Spec 0058, item 7 -- the cost being paid, as symbols; the printed cost when not known yet. */
   cost?: readonly string[] | null;
-  /** Spec 0058, item 6 -- the land that last paid: a spark flies from it to the pip it lit. */
-  spark?: Spark | null;
+  /**
+   * Spec 0062 -- each mana the game says paid this cost, in order: its pip
+   * lights in its colour, and its ball (manaBalls) flies to it. Replaces
+   * spec 0058's one spark from the land just tapped.
+   */
+  paid?: readonly PaidStep[] | null;
   artUrl: (art: string) => string;
   /** Spec 0044: beside the stack, while a question needs the table. */
   docked?: boolean;
@@ -402,53 +393,16 @@ export function CastingCard({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it arrives
   }, [card.id]);
-  const pips = hidden ? [] : costPips(cost ?? card.manaCost, owing);
-  // Spec 0058, item 6 -- each pip that lights gets a small spark from the
-  // land that paid it (the canvas's "small spark from the land").
-  const litNow = pips.map((p) => (p.paid ? "*" : "o")).join("");
-  const litBefore = useRef(litNow);
-  useLayoutEffect(() => {
-    const was = litBefore.current;
-    litBefore.current = litNow;
-    const el = ref.current;
-    const at = litIndex(pips, was);
-    if (!el || !spark || at < 0 || typeof el.animate !== "function") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const pip = el.querySelectorAll<HTMLElement>(".gs-cast-pip")[at];
-    if (!pip) return;
-    const rect = el.getBoundingClientRect();
-    const scale = rect.width > 0 && box.w > 0 ? rect.width / box.w : 1;
-    const p = pip.getBoundingClientRect();
-    const x1 = (p.left + p.width / 2 - rect.left) / scale;
-    const y1 = (p.top + p.height / 2 - rect.top) / scale;
-    const x0 = spark.box.x + spark.box.w / 2 - box.x;
-    const y0 = spark.box.y + spark.box.h / 2 - box.y;
-    const dot = document.createElement("span");
-    dot.className = "gs-cast-spark";
-    dot.style.background = spark.colour;
-    dot.style.boxShadow = `0 0 10px 3px ${spark.colour}`;
-    el.appendChild(dot);
-    const flight = dot.animate(
-      [
-        { transform: `translate(${x0}px, ${y0}px)`, opacity: 1 },
-        {
-          transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px)`,
-          opacity: 1,
-          offset: 0.5,
-        },
-        { transform: `translate(${x1}px, ${y1}px)`, opacity: 0.9 },
-      ],
-      { duration: SPARK_MS, easing: "ease-in-out" },
-    );
-    flight.onfinish = () => dot.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per payment
-  }, [litNow]);
+  // Spec 0062 -- the opponent's spell is a back: no pips (its cost is not
+  // even sent); the balls fly to the back itself (data-ball-for).
+  const pips = hidden ? [] : assignBalls(costPips(cost ?? card.manaCost, owing), paid ?? []);
   return (
     <div
       ref={ref}
       className={`gs-cast${docked ? " gs-cast-docked" : ""}`}
       data-docked={docked ? "true" : undefined}
       data-object-id={card.id}
+      data-ball-for={card.id}
       style={{
         left: box.x,
         top: box.y,
@@ -466,6 +420,13 @@ export function CastingCard({
       {pips.length > 0 && (
         <div className="gs-cast-cost" aria-label={owing ? "Paying its cost" : "Its cost"}>
           {pips.map((pip, i) => {
+            // Spec 0062 -- lit in the colour of the mana that paid it; its
+            // ball finds it by `data-ball`.
+            const lit = pip.paid && pip.colour ? { boxShadow: litShadow(pip.colour) } : undefined;
+            const data = {
+              "data-ball": pip.ball,
+              "data-paid-by": pip.paid ? (pip.colour ?? "") : undefined,
+            };
             // Spec 0058, item 6 -- a point of generic mana: a plain grey pip.
             if (pip.generic) {
               return (
@@ -474,6 +435,8 @@ export function CastingCard({
                   className={`gs-cast-pip gs-cast-pip-generic${pip.paid ? " gs-cast-pip-paid" : ""}`}
                   role="img"
                   aria-label={pip.paid ? "1 generic paid" : "1 generic"}
+                  style={lit}
+                  {...data}
                 />
               );
             }
@@ -484,11 +447,15 @@ export function CastingCard({
                 className={`gs-cast-pip${pip.paid ? " gs-cast-pip-paid" : ""}`}
                 src={url}
                 alt={pip.paid ? `${pip.symbol} paid` : pip.symbol}
+                style={lit}
+                {...data}
               />
             ) : (
               <span
                 key={i}
                 className={`gs-cast-pip gs-cast-pip-text${pip.paid ? " gs-cast-pip-paid" : ""}`}
+                style={lit}
+                {...data}
               >
                 {pip.symbol}
               </span>

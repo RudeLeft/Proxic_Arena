@@ -75,11 +75,21 @@ import {
   heldSpot,
   owingSymbols,
   keepPaying,
-  emberColour,
+  costPips,
   type Paying,
-  type Spark,
   type Floating,
 } from "./CastingCard";
+import {
+  BALLS_LONGEST_MS,
+  ManaBalls,
+  PILL_HOLD_MS,
+  assignBalls,
+  latestPayment,
+  newLedger,
+  paymentFor,
+  pending,
+  type PayPip,
+} from "./manaBalls";
 import {
   ChoiceWindow,
   ListTray,
@@ -464,8 +474,6 @@ export function GameScreen({
     if (decision && isCopyTarget(decision) && decision.about?.copy === 1) setSameTarget(true);
   }, [decision]);
 
-  // Spec 0058, item 6 -- the card that last paid mana, and a count of payments.
-  const paidFrom = useRef<{ id: string | null; n: number }>({ id: null, n: 0 });
   const answer = useCallback(
     (actionId: string | null) => {
       if (!decision) return;
@@ -482,12 +490,6 @@ export function GameScreen({
       ) {
         const card = decision.options.find((o) => o.actionId === actionId)?.objectId;
         if (card) setHandOrder((list) => [...list, card]);
-      }
-      // Spec 0058, item 6 -- the land just tapped to pay: a spark flies
-      // from it to the pip it lights.
-      if (actionId && decision.kind === "applyManaToCost") {
-        const land = decision.options.find((o) => o.actionId === actionId)?.objectId;
-        if (land?.startsWith("card:")) paidFrom.current = { id: land, n: paidFrom.current.n + 1 };
       }
       // The first copy's target, however it was chosen (bubble or board).
       if (actionId && isCopyTarget(decision) && (decision.about?.copy ?? 1) === 1) {
@@ -555,7 +557,63 @@ export function GameScreen({
     optionalSource && board?.hand.some((card) => card.id === optionalSource.id)
       ? optionalSource
       : null;
-  const casting = board?.casting[0] ?? optionalFromHand;
+  const castingNow = board?.casting[0] ?? optionalFromHand;
+  // Spec 0062 -- the balls: which steps flew, which landed (manaBalls). A
+  // landing re-draws the page (the cast card may then go).
+  const balls = useRef(newLedger());
+  const [, setBallsLanded] = useState(0);
+  const ballsLanded = useCallback(() => setBallsLanded((n) => n + 1), []);
+  const payments = board?.payments;
+  // Spec 0062 -- the last mana's ball flies after the card is cast: the card
+  // stays exactly where it is until every ball for it has landed (P10-R1:
+  // its pips must still be there to light), then flies as before. Bounded
+  // by BALLS_LONGEST_MS, whatever the balls do.
+  const lastCasting = useRef<{
+    card: SnapshotCard;
+    docked: boolean;
+    hidden: boolean;
+    handCount: number;
+    /** The battlefield while it was being cast: what is new after is it. */
+    battlefield: Set<string>;
+  } | null>(null);
+  const lingerSince = useRef<{ id: string; at: number } | null>(null);
+  const wasCasting = lastCasting.current;
+  const lingerFor =
+    !castingNow &&
+    wasCasting &&
+    (payments ?? []).some((p) => p.for === wasCasting.card.id && pending(balls.current, p.n))
+      ? wasCasting.card
+      : null;
+  if (lingerFor && lingerSince.current?.id !== lingerFor.id) {
+    lingerSince.current = { id: lingerFor.id, at: Date.now() };
+  }
+  if (!lingerFor) lingerSince.current = null;
+  const lingering =
+    lingerFor && lingerSince.current && Date.now() - lingerSince.current.at < BALLS_LONGEST_MS
+      ? lingerFor
+      : null;
+  useEffect(() => {
+    if (!lingering) return undefined;
+    const timer = window.setTimeout(ballsLanded, BALLS_LONGEST_MS);
+    return () => window.clearTimeout(timer);
+  }, [lingering, ballsLanded]);
+  const casting = castingNow ?? lingering;
+  // Spec 0062 -- this cast's payment: its steps since the card appeared (an
+  // earlier cast of the same card, cancelled, is not this one).
+  const castSince = useRef<{ id: string; n: number } | null>(null);
+  if (casting && castSince.current?.id !== casting.id) {
+    castSince.current = {
+      id: casting.id,
+      n: (payments ?? []).reduce((most, p) => Math.max(most, p.n), 0),
+    };
+  }
+  const castPaid = casting
+    ? paymentFor(
+        payments,
+        casting.id,
+        castSince.current?.id === casting.id ? castSince.current.n : 0,
+      )
+    : null;
   // Spec 0058, items 6-7 -- the cost under the card being cast: the cost
   // being PAID (the first payment question's "still owing": mutate's
   // {2}{B/G}{B/G}, an evoke or a reduced cost), and the last "still owing"
@@ -573,14 +631,63 @@ export function GameScreen({
         )
       : null,
   );
+  // Spec 0062 -- the cost the game says this payment began with (convoke's
+  // whole {4}{W}, not what was left for the lands) comes first.
   const castCost =
+    (castPaid?.cost ? manaSymbols(castPaid.cost) : null) ??
     paying.current?.cost ??
     (casting ? manaSymbols(lastHandCosts.current.get(casting.id) ?? casting.manaCost) : null);
   const castOwing = paying.current?.owing ?? null;
+  // Spec 0062 -- "Still to pay" for an ability or trigger: every symbol of
+  // its cost kept, each lit as it is paid. The payer's while asked (until
+  // the first step, the cost asked is all there is); anyone's -- the other
+  // player sees it too: an ability is public -- while its balls fly, and a
+  // moment after (PILL_HOLD_MS), so the last symbol is seen lit.
+  const newest = latestPayment(payments);
+  const abilityPay = newest && newest.kind !== "cast" ? newest : null;
+  const abilityFlying = abilityPay?.steps.some((n) => pending(balls.current, n)) ?? false;
+  const abilityLanded = abilityPay
+    ? Math.max(0, ...abilityPay.steps.map((n) => balls.current.landed.get(n) ?? 0))
+    : 0;
+  const abilityHeld =
+    !abilityFlying && abilityLanded > 0 && Date.now() - abilityLanded < PILL_HOLD_MS;
+  useEffect(() => {
+    if (!abilityHeld) return undefined;
+    const timer = window.setTimeout(ballsLanded, PILL_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [abilityHeld, abilityLanded, ballsLanded]);
+  const owingNow =
+    decision?.kind === "applyManaToCost" && !casting
+      ? owingSymbols(
+          decision.owing,
+          decision.options.map((o) => o.label),
+        )
+      : null;
+  let stackPay: PayPip[] | null = null;
+  if (owingNow) {
+    // This payment's steps, if the game has told any: the newest payment,
+    // this player's, owing what the question says.
+    const same =
+      abilityPay?.cost &&
+      abilityPay.seat === board?.seat &&
+      manaSymbols(abilityPay.owing).join() === owingNow.join();
+    stackPay = same
+      ? assignBalls(costPips(manaSymbols(abilityPay.cost), owingNow), abilityPay.mana)
+      : assignBalls(costPips(owingNow, null), []);
+  } else if (abilityPay?.cost && (abilityFlying || abilityHeld)) {
+    stackPay = assignBalls(
+      costPips(manaSymbols(abilityPay.cost), manaSymbols(abilityPay.owing)),
+      abilityPay.mana,
+    );
+  }
   /** Where the card being cast was last drawn: its flight starts there. */
   const floating = useRef<Floating | null>(null);
   // Spec 0057, item 1 -- between questions it stays where it was (heldSpot).
-  const heldCast = heldSpot(floating.current, casting?.id ?? null, decision, game.awaiting);
+  const heldCast = lingering
+    ? floating.current?.id === lingering.id
+      ? floating.current
+      : null
+    : heldSpot(floating.current, casting?.id ?? null, decision, game.awaiting);
   const castingDocked = heldCast
     ? heldCast.docked
     : !!casting &&
@@ -651,14 +758,6 @@ export function GameScreen({
   // place there, and the board shows the card only once it has.
   const castFrom = useRef<{ id: string; box: Box } | null>(null);
   const handCountOf = (seat: number) => board?.players.find((p) => p.seat === seat)?.handCount ?? 0;
-  const lastCasting = useRef<{
-    card: SnapshotCard;
-    docked: boolean;
-    hidden: boolean;
-    handCount: number;
-    /** The battlefield while it was being cast: what is new after is it. */
-    battlefield: Set<string>;
-  } | null>(null);
   const [flight, setFlight] = useState<{
     card: SnapshotCard;
     docked: boolean;
@@ -675,32 +774,37 @@ export function GameScreen({
   // The battlefield as it is while a spell is being cast, read on every
   // board: the last one before it is paid is what "new" is measured from.
   const fieldWhileCasting = useRef<Set<string>>(new Set());
-  if (casting && board)
+  // Not while it lingers for its balls (spec 0062): by then the spell may
+  // already be on the battlefield.
+  if (castingNow && board)
     fieldWhileCasting.current = new Set(board.battlefield.map((card) => card.id));
   // Chosen once per flight, then kept: the newest card of that name, that
   // player's, not there while it was being cast.
   const landingChoice = useRef<{ key: number; id: string } | null>(null);
   let flyingOnto: string | null = null;
-  if (
-    flight &&
-    !flight.hidden &&
-    board &&
-    !board.stack.some((entry) => entry.source === flight.card.id)
-  ) {
-    if (landingChoice.current?.key === flight.key) {
+  // Spec 0062 -- lingering for its balls, a spell already resolved is not
+  // drawn on the battlefield yet either: the flight still lands there.
+  const going =
+    flight && !flight.hidden
+      ? flight
+      : lingering && lastCasting.current
+        ? { key: -1, card: lingering, battlefield: lastCasting.current.battlefield }
+        : null;
+  if (going && board && !board.stack.some((entry) => entry.source === going.card.id)) {
+    if (landingChoice.current?.key === going.key) {
       flyingOnto = landingChoice.current.id;
     } else {
       const fresh = board.battlefield
         .filter(
           (card) =>
-            !flight.battlefield.has(card.id) &&
-            card.name === flight.card.name &&
-            card.seat === flight.card.seat,
+            !going.battlefield.has(card.id) &&
+            card.name === going.card.name &&
+            card.seat === going.card.seat,
         )
         .sort((a, b) => Number(b.id.replace(/\D/g, "")) - Number(a.id.replace(/\D/g, "")));
       if (fresh[0]) {
         flyingOnto = fresh[0].id;
-        landingChoice.current = { key: flight.key, id: fresh[0].id };
+        landingChoice.current = { key: going.key, id: fresh[0].id };
       }
     }
   }
@@ -721,6 +825,9 @@ export function GameScreen({
         from: floating.current?.id === before.card.id ? floating.current.box : null,
       });
     }
+    // Lingering for its balls: what it was while cast is kept (a cancel is
+    // read from the hand count before).
+    if (lingering) return;
     lastCasting.current = casting
       ? {
           card: casting,
@@ -731,7 +838,7 @@ export function GameScreen({
         }
       : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handCountOf reads this board
-  }, [casting, castingDocked, castingHiddenBy]);
+  }, [casting, castingDocked, castingHiddenBy, lingering]);
   // Amendment 13 (item 2) -- while your cast card is in the air, the spell
   // is not also drawn on the stack: it shows there only once the card has
   // flown there, and a spell that resolves first never shows there at all.
@@ -740,11 +847,13 @@ export function GameScreen({
   const castNow =
     flight && !flight.hidden && !flight.reveal
       ? flight.card.id
-      : lastCasting.current &&
-          lastCasting.current.card.id !== casting?.id &&
-          !lastCasting.current.hidden
-        ? lastCasting.current.card.id
-        : null;
+      : lingering && castingHiddenBy === null
+        ? lingering.id
+        : lastCasting.current &&
+            lastCasting.current.card.id !== casting?.id &&
+            !lastCasting.current.hidden
+          ? lastCasting.current.card.id
+          : null;
   const hiddenStack = castNow
     ? (board?.stack.find((entry) => entry.source === castNow)?.id ?? null)
     : null;
@@ -1508,16 +1617,7 @@ export function GameScreen({
             graves={data.graves}
             flyingOnto={flyingOnto}
             hiddenStack={hiddenStack}
-            stackOwing={
-              // Amendment 13 (item 8) -- paying for a trigger or ability on
-              // the stack (no spell being cast): its card shows what's due.
-              decision?.kind === "applyManaToCost" && !casting
-                ? owingSymbols(
-                    decision.owing,
-                    decision.options.map((o) => o.label),
-                  )
-                : null
-            }
+            stackPay={stackPay}
             quietStack={quietStack.current}
             combat={data.combat}
             stack={stackShown}
@@ -1644,6 +1744,15 @@ export function GameScreen({
                       at={at}
                     />
                   )}
+                  {board && (
+                    <ManaBalls
+                      payments={board.payments ?? []}
+                      at={at}
+                      geometry={geometry}
+                      ledger={balls.current}
+                      onLanded={ballsLanded}
+                    />
+                  )}
                   {casting && (
                     <CastingCard
                       key={casting.id}
@@ -1652,11 +1761,7 @@ export function GameScreen({
                       from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
                       owing={castOwing}
                       cost={castCost}
-                      spark={
-                        paidFrom.current.id
-                          ? sparkOf(paidFrom.current.id, at(paidFrom.current.id), board)
-                          : null
-                      }
+                      paid={castPaid?.mana ?? null}
                       artUrl={artUrl}
                       docked={castingDocked}
                       hiddenBy={castingHiddenBy}
@@ -2353,14 +2458,6 @@ function useResolving(asking: { seat: number | null } | null): boolean {
     return () => clearTimeout(timer);
   }, [nobody]);
   return nobody && quiet;
-}
-
-/** Spec 0058, item 6 -- where a payment's spark starts, and its colour (the land's mana). */
-function sparkOf(id: string, box: Box | null, board: Snapshot | null): Spark | null {
-  if (!box) return null;
-  const land = board ? cardOf(board, id) : null;
-  const made = land?.makes?.length === 1 ? `{${land.makes[0]}}` : null;
-  return { box, colour: emberColour(made) };
 }
 
 /** Spec 0058, item 5 -- how long the act button holds its last state when nothing is asked. */

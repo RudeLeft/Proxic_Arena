@@ -147,7 +147,8 @@ export function StatusTray({ player, side }: { player: Player; side: "opponent" 
       key: `mana:${c}`,
       width: 26 + 9 * String(player.manaPool[c]).length,
       node: (
-        <span className="gs-mana" key={`mana:${c}`}>
+        // Spec 0062 -- spent, a ball leaves from here (data-pool).
+        <span className="gs-mana" key={`mana:${c}`} data-pool={`${player.seat}:${c}`}>
           <img src={symbolUrl(c)} alt={c} draggable={false} />
           {player.manaPool[c]}
         </span>

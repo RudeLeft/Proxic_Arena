@@ -119,6 +119,8 @@ final class ManaPayment {
         // when the whole cost is paid (Forge's done()), so cancelling
         // halfway costs nothing.
         int lifeToLose = 0;
+        // Spec 0062 -- each step's mana, told to every seat as it is paid.
+        Payments.Payment payment = host.payments().open(paidFor, toPay.toString(), false);
 
         while (!toPay.isPaid()) {
             LinkedHashMap<String, Card> sources = usableSources(toPay, paidFor);
@@ -162,19 +164,29 @@ final class ManaPayment {
             }
             if (floating.containsKey(choice)) {
                 // Forge's own "click the mana pool" (InputPayMana.useManaFromPool).
-                player.getManaPool().tryPayCostWithColor(
-                        floating.get(choice), paidFor, toPay, paidFor.getPayingMana());
+                List<String> before = Payments.shards(toPay);
+                if (player.getManaPool().tryPayCostWithColor(
+                        floating.get(choice), paidFor, toPay, paidFor.getPayingMana())) {
+                    tell(payment, paidFor, toPay, List.of(new Payments.Mana(
+                            Payments.colour(floating.get(choice)),
+                            Payments.shardPaid(before, Payments.shards(toPay)), "pool")));
+                }
                 String nowRemaining = toPay.toString();
                 stalled = nowRemaining.equals(lastRemaining) ? stalled + 1 : 0;
                 lastRemaining = nowRemaining;
                 continue;
             }
             if (PHYREXIAN.equals(choice)) {
+                List<String> before = Payments.shards(toPay);
                 if (toPay.payPhyrexian()) {
                     paidFor.setSpendPhyrexianMana(true);
                     lifeToLose += 2;
                     lastRemaining = toPay.toString();
                     stalled = 0;
+                    // The ball leaves the life total, in the symbol's colour.
+                    String shard = Payments.shardPaid(before, Payments.shards(toPay));
+                    tell(payment, paidFor, toPay, List.of(new Payments.Mana(
+                            Payments.colourOfShard(shard), shard, "life")));
                 }
                 continue;
             }
@@ -182,7 +194,7 @@ final class ManaPayment {
             if (tapped == null) {
                 return false;
             }
-            if (!activate(tapped, toPay, paidFor)) {
+            if (!activate(tapped, toPay, paidFor, payment)) {
                 // The player declined which ability, or Forge would
                 // not activate the one chosen. Their choice, and it
                 // waited for them: NOT a stall. Counting it as one
@@ -315,7 +327,7 @@ final class ManaPayment {
      * thread here.
      */
     /** True when an ability was really activated; false when nothing was. */
-    private boolean activate(Card card, ManaCostBeingPaid toPay, SpellAbility paidFor)
+    private boolean activate(Card card, ManaCostBeingPaid toPay, SpellAbility paidFor, Payments.Payment payment)
             throws InterruptedException {
         byte canUse = acceptableColors(toPay);
         byte needed = neededColors(toPay);
@@ -358,8 +370,56 @@ final class ManaPayment {
                 return true;
             }
         }
-        player.getManaPool().payManaFromAbility(paidFor, toPay, chosen);
+        tell(payment, paidFor, toPay, payFromAbility(paidFor, toPay, chosen, "card:" + card.getId()));
         return true;
+    }
+
+    /**
+     * Spec 0062 -- Forge's ManaPool.payManaFromAbility, step for step (the
+     * same calls in the same order: the ability is recorded as paying, each
+     * mana it just made that may pay is offered to the cost), reading the
+     * unpaid symbols around each one mana: so what EACH mana paid is
+     * Forge's own answer ({G} paid a generic, {B} the {B}), not a guess
+     * afterwards. Only public Forge API, no reflection; on a Forge update
+     * compare it with Forge's method (VEND-005's before/after report). The
+     * Lab's check-mana-balls fails on a symbol paid wrongly.
+     */
+    private List<Payments.Mana> payFromAbility(
+            SpellAbility paidFor, ManaCostBeingPaid toPay, SpellAbility chosen, String from) {
+        forge.game.mana.ManaPool pool = player.getManaPool();
+        paidFor.getPayingManaAbilities().add(chosen);
+        List<Payments.Mana> paid = new ArrayList<>();
+        for (AbilityManaPart part : chosen.getAllManaParts()) {
+            for (forge.game.mana.Mana mana : part.getLastManaProduced()) {
+                if (!paidFor.allowsPayingWithShard(part.getSourceCard(), mana.getColor())) {
+                    continue;
+                }
+                List<String> before = Payments.shards(toPay);
+                if (pool.tryPayCostWithMana(paidFor, toPay, mana, false)) {
+                    paidFor.getPayingMana().add(mana);
+                    paid.add(new Payments.Mana(Payments.colour(mana.getColor()),
+                            Payments.shardPaid(before, Payments.shards(toPay)), from));
+                }
+            }
+        }
+        return paid;
+    }
+
+    /**
+     * Spec 0062 -- one step paid, recorded: every seat is told it on the
+     * next snapshot, which follows at once -- the next payment question's,
+     * or, after the last mana, the one with the spell on the stack (the
+     * page keeps the card in place until that last ball lands). Not a
+     * snapshot of its own: a board "being cast, nothing on the stack" after
+     * the last mana would be a state the game never stops in, and the Lab
+     * reads "stack empty" as "done".
+     */
+    private void tell(Payments.Payment payment, SpellAbility paidFor, ManaCostBeingPaid toPay,
+            List<Payments.Mana> mana) {
+        if (mana.isEmpty()) {
+            return;
+        }
+        host.paid(actedForSeat, payment, paidFor, toPay.toString(), mana);
     }
 
     /**

@@ -3827,6 +3827,17 @@ public final class MatchController extends GeneratedControllerBase {
             forge.card.mana.ManaCostShard shard = remaining.payManaViaConvoke(colour);
             if (shard != null) {
                 chosen.put(picked, shard);
+                // Spec 0062 -- a ball from the tapped creature (or artifact)
+                // to the symbol it paid; the mana payment after it is the
+                // same payment.
+                // Not while a cost is only being checked (CHECKING): that is
+                // no payment.
+                if (!CHECKING.get()) {
+                    Payments.Payment payment = host.payments().open(sa, manaCost.toString(), true);
+                    host.paid(actedForSeat, payment, sa, remaining.toString(), java.util.List.of(
+                            new Payments.Mana(Payments.colour(colour), shard.toShortString(),
+                                    "card:" + picked.getId())));
+                }
             }
         }
         return chosen;

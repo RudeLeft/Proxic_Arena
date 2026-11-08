@@ -42,6 +42,7 @@ import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
+import { litShadow, owingWords, type PayPip } from "./manaBalls";
 import { SharpCard, closeUpOf } from "../closeUp";
 import {
   inCombat,
@@ -356,6 +357,14 @@ export interface BoardProps {
   quietStack?: ReadonlySet<string>;
   /** Amendment 13 (item 8) -- the mana still due for the front stack object. */
   stackOwing?: readonly string[] | null;
+  /**
+   * Spec 0062 -- the cost of the ability or trigger being paid, every
+   * symbol kept and each lit as it is paid (in the colour of the mana that
+   * paid it; its ball finds it by `data-ball`). Shown under the front stack
+   * card, or -- an ability, not on the stack until it is paid -- where the
+   * first stack card goes. Instead of `stackOwing` when given.
+   */
+  stackPay?: readonly PayPip[] | null;
   /** An attachment's host being chosen. */
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
@@ -834,6 +843,44 @@ function reducedMotion(): boolean {
 const NO_CARDS: readonly OpponentHandCard[] = [];
 
 /** The board fills its container and lays itself out for that size. */
+/**
+ * Spec 0062 -- "Still to pay" with every symbol of the cost (Amendment 13's
+ * pill, spec 0057's size): a grey pip per generic mana, each lit as it is
+ * paid, in that mana's colour.
+ */
+function OwePill({ pips }: { pips: readonly PayPip[] }) {
+  return (
+    <span className="bf-stack-owe" aria-label={`Still to pay: ${owingWords(pips) || "nothing"}`}>
+      <span className="bf-stack-owe-word">Still to pay</span>
+      <span className="bf-owe-pips">
+        {pips.map((pip, i) => {
+          const className = `bf-owe-pip${pip.generic ? " bf-owe-pip-generic" : ""}${pip.paid ? " bf-owe-pip-paid" : ""}`;
+          const style = pip.paid && pip.colour ? { boxShadow: litShadow(pip.colour) } : undefined;
+          const data = {
+            "data-ball": pip.ball,
+            "data-paid-by": pip.paid ? (pip.colour ?? "") : undefined,
+          };
+          const url = pip.generic ? null : symbolUrl(pip.symbol);
+          return url ? (
+            <img
+              key={i}
+              className={className}
+              src={url}
+              alt={pip.paid ? `${pip.symbol} paid` : pip.symbol}
+              style={style}
+              {...data}
+            />
+          ) : (
+            <span key={i} className={className} style={style} {...data}>
+              {pip.generic ? "" : pip.symbol}
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
+}
+
 export function Board({
   battlefield,
   hand,
@@ -851,6 +898,7 @@ export function Board({
   hiddenStack = null,
   quietStack,
   stackOwing = null,
+  stackPay = null,
   combat,
   stack,
   pointedStack,
@@ -2964,6 +3012,31 @@ export function Board({
             {item.content}
           </div>
         ))}
+        {(stack ?? []).length === 0 &&
+          stackPay &&
+          stackPay.length > 0 &&
+          (() => {
+            // Spec 0062 -- an ability is on the stack only once it is paid:
+            // its "Still to pay" stands where it will go.
+            const box = stackSpotBoxes(g, 1, stackScale)[0]!;
+            return (
+              <div
+                key="stack-spot:paying"
+                className="bf-slot bf-stack-slot bf-stack-paying"
+                style={{
+                  width: g.cardW,
+                  height: g.cardH,
+                  transformOrigin: "0 0",
+                  transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(${box.scale})`,
+                  zIndex: Z_LINES - 100,
+                  pointerEvents: "none",
+                  ["--stack-scale" as string]: String(box.scale),
+                }}
+              >
+                <OwePill pips={stackPay} />
+              </div>
+            );
+          })()}
         {(stack ?? []).slice(0, spot.length).map((s, i) => {
           const box = spot[i]!;
           const a = act([s.id]);
@@ -3056,7 +3129,8 @@ export function Board({
               </button>
               {/* Amendment 13 (item 8) -- paying for this one: what's still due,
                   under its words, as on a card being cast. */}
-              {i === 0 && stackOwing && stackOwing.length > 0 && (
+              {i === 0 && stackPay && stackPay.length > 0 && <OwePill pips={stackPay} />}
+              {i === 0 && !stackPay && stackOwing && stackOwing.length > 0 && (
                 <span className="bf-stack-owe" aria-label={`Still to pay: ${stackOwing.join(" ")}`}>
                   {/* Spec 0057, item 4 -- bigger, and plainer. */}
                   <span className="bf-stack-owe-word">Still to pay</span>

@@ -1040,6 +1040,31 @@
   width: calc(var(--card-h) * 0.15);
   height: calc(var(--card-h) * 0.15);
 }
+/* Spec 0062 -- every symbol of the cost kept, each lit as it is paid (look C):
+   unlit dim, lit full in the colour of the mana that paid it (set inline). */
+.bf-owe-pips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--card-h) * 0.02);
+}
+.bf-owe-pip {
+  display: inline-block;
+  border-radius: 50%;
+  opacity: 0.5;
+  filter: grayscale(0.25);
+}
+.bf-owe-pip-generic {
+  width: calc(var(--card-h) * 0.15);
+  height: calc(var(--card-h) * 0.15);
+  background: #cfc9be;
+}
+.bf-owe-pip-paid {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.12);
+  box-shadow: 0 0 12px 2px rgb(255 230 160 / 75%);
+}
 /* The number and caster stay their usual size beside a readable card. */
 .bf-stack-tag {
   transform: scale(calc(1.5 / var(--stack-scale, 1.5)));
