@@ -95,33 +95,12 @@ public final class PriorityStops {
         boolean stackFull = !game.getStack().isEmpty();
         PhaseType phase = game.getPhaseHandler().getPhase();
 
-        boolean somethingToDo = false;
+        int todo = somethingToDo(options, unpayable, stackFull, phase);
+        boolean somethingToDo = todo > 0;
         // A card that only works in this step (Forge's own "ActivationPhases"
         // restriction: "only during your upkeep", "only during combat"):
         // this step is its only chance (spec 0035, gap 3).
-        boolean onlyNow = false;
-        for (Map.Entry<String, SpellAbility> option : options.entrySet()) {
-            SpellAbility sa = option.getValue();
-            if (sa.isManaAbility()) {
-                // Tapping a land with nothing to spend the mana on is never
-                // a reason to stop: mana empties between steps. Sacrificing
-                // for mana is (Ashnod's Altar), while something on the stack
-                // could be answered by it (spec 0035, gap 4).
-                if (stackFull && sa.getPayCosts() != null
-                        && sa.getPayCosts().hasSpecificCostType(CostSacrifice.class)) {
-                    somethingToDo = true;
-                }
-                continue;
-            }
-            if (!sa.isLandAbility() && unpayable.contains(option.getKey())) {
-                continue;
-            }
-            somethingToDo = true;
-            Set<PhaseType> phases = sa.getRestrictions() == null ? null : sa.getRestrictions().getPhases();
-            if (phases != null && !phases.isEmpty() && phase != null && phases.contains(phase)) {
-                onlyNow = true;
-            }
-        }
+        boolean onlyNow = todo > 1;
         if (!somethingToDo) {
             return false;
         }
@@ -147,5 +126,114 @@ public final class PriorityStops {
             return CombatUtil.canAttack(game.getPhaseHandler().getPlayerTurn());
         }
         return true;
+    }
+
+    /**
+     * 0 when nothing offered is worth stopping for, 1 when something is, 2
+     * when one of those works only in this step.
+     */
+    private static int somethingToDo(Map<String, SpellAbility> options, Collection<String> unpayable,
+                                     boolean stackFull, PhaseType phase) {
+        int todo = 0;
+        for (Map.Entry<String, SpellAbility> option : options.entrySet()) {
+            SpellAbility sa = option.getValue();
+            if (sa.isManaAbility()) {
+                // Tapping a land with nothing to spend the mana on is never
+                // a reason to stop: mana empties between steps. Sacrificing
+                // for mana is (Ashnod's Altar), while something on the stack
+                // could be answered by it (spec 0035, gap 4).
+                if (stackFull && sa.getPayCosts() != null
+                        && sa.getPayCosts().hasSpecificCostType(CostSacrifice.class)) {
+                    todo = Math.max(todo, 1);
+                }
+                continue;
+            }
+            if (!sa.isLandAbility() && unpayable.contains(option.getKey())) {
+                continue;
+            }
+            todo = Math.max(todo, 1);
+            Set<PhaseType> phases = sa.getRestrictions() == null ? null : sa.getRestrictions().getPhases();
+            if (phases != null && !phases.isEmpty() && phase != null && phases.contains(phase)) {
+                todo = 2;
+            }
+        }
+        return todo;
+    }
+
+    /**
+     * Spec 0061, item 2 -- how long the page sees each step of a turn passed
+     * for its player because nothing could be played: the steps move where
+     * the player can see them instead of jumping to the end in a tenth of a
+     * second. Within the brief's "0.4 s at most" (the canvas played them at
+     * about half a second); only on that player's own turn, only while the
+     * stack is empty, so the opponent's turn and every question are as fast
+     * as before.
+     */
+    public static final long STEP_PAUSE_MS = 400;
+
+    /** Spec 0061, item 2 -- seat to the turn number it is being passed for. */
+    private final Map<Integer, Integer> passingTurn = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Spec 0061, item 2 -- this priority question was NOT asked (shouldAsk
+     * said no). If it is the seat's own Main 1, with an empty stack and
+     * nothing it could play, its turn is being passed for it: the words to
+     * tell it, once ("Nothing you can play this turn -- 1 land, no land in
+     * hand. Passing your turn."), and the rest of the turn's steps pause
+     * (pausing). Null otherwise. Words only: nothing here decides anything.
+     */
+    String passedTurn(int seat, Player player, Game game, boolean controlled,
+                      Map<String, SpellAbility> options, Collection<String> unpayable) {
+        if (!ruled.contains(seat) || controlled || !game.getStack().isEmpty()) {
+            return null;
+        }
+        PhaseType phase = game.getPhaseHandler().getPhase();
+        if (phase != PhaseType.MAIN1 || !player.equals(game.getPhaseHandler().getPlayerTurn())
+                || somethingToDo(options, unpayable, false, phase) > 0) {
+            return null;
+        }
+        int turn = game.getPhaseHandler().getTurn();
+        if (Integer.valueOf(turn).equals(passingTurn.put(seat, turn))) {
+            return null; // said already
+        }
+        int lands = player.getLandsInPlay().size();
+        int inHand = 0;
+        for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
+            if (card.isLand()) {
+                inHand++;
+            }
+        }
+        return nothingToPlay(lands, inHand, player.getLandsPlayedThisTurn() > 0,
+                CombatUtil.canAttack(player));
+    }
+
+    /** Spec 0061, item 2 -- the seat's own turn is being passed for it now: pause at this step. */
+    boolean pausing(int seat, Player player, Game game) {
+        PhaseType phase = game.getPhaseHandler().getPhase();
+        if (phase == PhaseType.UPKEEP || phase == PhaseType.DRAW) {
+            // A new turn (or a restarted game's: Karn counts turns from 1
+            // again): whatever was being passed is over.
+            passingTurn.remove(seat);
+            return false;
+        }
+        Integer passing = passingTurn.get(seat);
+        return passing != null && passing == game.getPhaseHandler().getTurn()
+                && player.equals(game.getPhaseHandler().getPlayerTurn())
+                && game.getStack().isEmpty();
+    }
+
+    /**
+     * Spec 0061, item 2 -- the notice, in the approved words, adapted to the
+     * case: how many lands, and why no land comes from the hand (none there,
+     * or the land for the turn already played). "Passing your turn" stays
+     * true when a creature could attack: that question is still asked.
+     */
+    static String nothingToPlay(int lands, int landsInHand, boolean landPlayed, boolean canAttack) {
+        String have = lands == 0 ? "No lands" : lands == 1 ? "1 land" : lands + " lands";
+        String hand = landsInHand == 0
+                ? "no land in hand"
+                : landPlayed ? "you've already played a land this turn" : "no land you can play";
+        return "Nothing you can play this turn -- " + have + ", " + hand + ". Passing your turn"
+                + (canAttack ? " (you can still attack)." : ".");
     }
 }

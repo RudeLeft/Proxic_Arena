@@ -26,6 +26,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -88,6 +89,8 @@ test("paying for a spell, the card being cast never covers a card to tap", async
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         if ((await page.locator(".gs-over").count()) > 0) break;
         if (await answerCardTray(page)) continue;
         const combat = panel.locator("button.gs-act-combat");
@@ -123,8 +126,9 @@ test("paying for a spell, the card being cast never covers a card to tap", async
           }
         }
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         if (!priority) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
@@ -151,7 +155,11 @@ test("paying for a spell, the card being cast never covers a card to tap", async
           }
         }
         if (!acted) {
-          await clickNow(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+          await clickNow(
+            panel.locator(
+              "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+            ),
+          );
         }
       }
       await host.waitForTimeout(120);

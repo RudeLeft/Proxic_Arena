@@ -90,7 +90,7 @@ test("a stolen creature wears its owner's picture, and the graveyard shows pictu
       else if (/Put a card back/.test(heading)) pick = find(/^Mountain/);
       else {
         pick = find(/Play land/);
-        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
+        if (pick < 0) pick = /Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1;
         if (pick < 0 && live === host) {
           const mine = boardCards(host, "viewer").filter({ hasText: "Mountain" });
           const untapped = await cardCount(mine.filter({ hasNotText: "tapped" }));

@@ -103,8 +103,10 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         (a scry's or surveil's top cards; spec 0001 D3),
                         window?: true -- a response window: your OWN spell or
                         trigger is on top (spec 0005, Phase 8 Amendment 4),
-                        notNow?: {objectId: [{label, why}]} -- abilities not
-                        offered now (Phase 9 W-16),
+                        notNow?: {objectId: [{label, why, use?}]} -- abilities
+                        not offered now (Phase 9 W-16), and the play a card
+                        can't make when its only choices throw it away
+                        (spec 0061),
                         owing?: "{1}{R}" -- mana still due on a payment
                         (Phase 9 Amendment 13),
                         arrange?: how a window lays the question out -- a

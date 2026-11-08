@@ -141,7 +141,7 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
         // Mana, targets, confirmations: Forge's first. Mandatory
         // questions with nothing else to go on take it too.
         if (
-          (/Pay the mana/.test(heading) ? 0 : -1) >= 0 ||
+          (/Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1) >= 0 ||
           find(/^Pay the cost/) >= 0 ||
           labels.length
         )

@@ -15,6 +15,7 @@ import { extraPlayers, secondPassword, secondUser, signIn, signInAs } from "./he
 import {
   clearEverything,
   clickNow,
+  discardIfAsked,
   matchPanel,
   passButton,
   sharedDeck,
@@ -42,11 +43,10 @@ async function playOn(host: Page, guest: Page, ms: number) {
       const list = matchPanel(page).locator(
         ".gs-question li button, .gs-win li button, button.gs-win-tile:not(:disabled), .gs-win button.gs-win-btn-main",
       );
-      // Discarding down to seven at cleanup: a card in hand.
-      const discard = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
+      // Discarding down to seven at cleanup: pick a card, then Discard (spec 0061).
+      if (await discardIfAsked(page)) continue;
       if ((await passButton(page).count()) > 0) await clickNow(passButton(page));
       else if ((await list.count()) > 0) await clickNow(list.first());
-      else if ((await discard.count()) > 0) await clickNow(discard.first());
     }
     await host.waitForTimeout(250);
   }

@@ -24,6 +24,7 @@ import {
   matchPanel,
   sharedDeck,
   startAMatch,
+  discardIfAsked,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
@@ -65,6 +66,8 @@ test("a Leyline in the opening hand can begin the game on the battlefield, uncas
       let handled = false;
       for (const page of [host, guest]) {
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         if ((await panel.getByRole("heading", { name: opening }).count()) > 0) {
           const options = await choices(page);
           await expect(options.first()).toBeVisible();

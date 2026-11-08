@@ -18,6 +18,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
@@ -75,6 +76,8 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);
+      // Spec 0061: discarding to hand size is pick, then Discard.
+      if (await discardIfAsked(page)) continue;
       const windowButton = panel.locator("button.gs-act-window");
 
       if (page === host && (await windowButton.count()) > 0) {
@@ -138,7 +141,9 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
       }
 
       const priority =
-        (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) > 0;
+        (await panel
+          .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+          .count()) > 0;
       const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
       if (!priority) {
         // Targets go to the opponent; anything else: first choice or pass.
@@ -150,7 +155,7 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
         if ((await face.count()) > 0) await click(face);
         else if ((await listed.count()) > 0) await click(listed);
         else if ((await board.count()) > 0) await click(board);
-        else await click(panel.locator("button.gs-pass, button.gs-act"));
+        else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
         continue;
       }
       const land = hand.filter({ hasText: "Mountain" });
@@ -172,7 +177,9 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
           continue;
         }
       }
-      await click(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+      await click(
+        panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)"),
+      );
     }
   }
   expect(ranOut, "a response window ran out and the spell resolved").toBe(true);

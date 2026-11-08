@@ -145,6 +145,7 @@ final class ManaPayment {
             }
 
             host.offerSubject(paidFor);
+            offerPurpose(paidFor);
             host.offerOwing(toPay.toString());
             String choice =
                     host.gate().ask(
@@ -359,6 +360,24 @@ final class ManaPayment {
         }
         player.getManaPool().payManaFromAbility(paidFor, toPay, chosen);
         return true;
+    }
+
+    /**
+     * Spec 0061, item 5 -- paying for an activated ability: what it is for
+     * ("Pay {R} to cycle Forgotten Cave"), read off Forge's ability (its
+     * keyword, its words). Spells and triggers keep their windows as they were.
+     */
+    private void offerPurpose(SpellAbility paidFor) {
+        if (paidFor == null || paidFor.isSpell() || paidFor.isTrigger() || paidFor.getHostCard() == null) {
+            return;
+        }
+        Card card = paidFor.getHostCard();
+        String way = paidFor.isCycling() ? "cycling" : paidFor.isEquip() ? "equip" : "other";
+        String effect = PlainWords.effectWords(
+                paidFor.getParamOrDefault("SpellDescription", String.valueOf(paidFor.getDescription())),
+                card.getName());
+        String[] words = PlainWords.payFor(way, card.getName(), effect);
+        host.offerPurpose(words[0], words[1]);
     }
 
     /**

@@ -50,6 +50,17 @@ export interface DecisionOption {
   use?: OptionUse | null;
 }
 
+/**
+ * Phase 9 W-16 -- something a card can't do now, and why. Spec 0061, item 1:
+ * `use` "land" or "spell" for the PLAY of a card whose only choices throw it
+ * away ("Play it as your land" -- "You've already played a land this turn").
+ */
+export interface NotNowRow {
+  label: string;
+  why: string;
+  use?: "land" | "spell";
+}
+
 /** Spec 0057, item 5 -- an option of a play-or-discard card. */
 export interface OptionUse {
   /** "land" | "spell" (the play) or "cycling" | "landcycling" | "channel" (discards it). */
@@ -117,7 +128,7 @@ export interface Decision {
    */
   unavailable: Record<string, string>;
   /** Phase 9 W-16 -- each permanent's abilities not offered now, and why, by object id. */
-  notNow?: Record<string, { label: string; why: string }[]> | undefined;
+  notNow?: Record<string, NotNowRow[]> | undefined;
   /** Phase 9 Amendment 13 -- on a payment question, the mana still due ("{1}{R}"). */
   owing?: string | null;
   /**
@@ -213,6 +224,8 @@ export interface DecisionArrange {
    * top or underneath, and the ability's words.
    */
   sources?: Record<string, TriggerSource> | null;
+  /** Spec 0061, item 3 -- discarding to hand size: how many cards are still to go. */
+  discard?: number | null;
 }
 
 /** Spec 0058, item 8 -- the card of a mutated creature a trigger came from. */
@@ -330,6 +343,12 @@ export interface DecisionAbout {
   act?: string | null;
   /** Spec 0057, item 3 -- what the ability does. */
   effect?: string | null;
+  /**
+   * Spec 0061, item 5 -- paying for an ability: what for, after "Pay {R}"
+   * ("to cycle Forgotten Cave"), and the line under it.
+   */
+  pay?: string | null;
+  then?: string | null;
 }
 
 /** What one search matched: the best few, and how many there were. */
@@ -588,6 +607,12 @@ export interface Snapshot {
    * exactly one person.
    */
   notices: string[];
+  /**
+   * Spec 0061 -- how many notices this viewer was told in all. `notices`
+   * keeps the last six only, so its length stops changing once full; this
+   * says how many of them are new. Absent from an older worker.
+   */
+  noticesTotal?: number | null;
   battlefield: SnapshotCard[];
   /** Phase 9 W-17 -- the dice rolled lately (public); absent from an older worker. */
   rolls?: SnapshotRoll[] | undefined;
@@ -956,6 +981,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     prioritySeat: asNumber(row["prioritySeat"]),
     players: asPlayers(row["players"]),
     notices: asNotices(row["notices"]),
+    noticesTotal: asNumber(row["noticesTotal"]),
     battlefield: asCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
     moves: asMoves(row["moves"]),
@@ -1064,15 +1090,17 @@ function asHash(value: unknown): string | null {
 }
 
 /** Phase 9 W-16 -- {objectId: [{label, why}]}, keeping only well-formed rows. */
-function asNotNow(value: unknown): Record<string, { label: string; why: string }[]> {
-  const out: Record<string, { label: string; why: string }[]> = {};
+function asNotNow(value: unknown): Record<string, NotNowRow[]> {
+  const out: Record<string, NotNowRow[]> = {};
   if (typeof value !== "object" || value === null || Array.isArray(value)) return out;
   for (const [id, rows] of Object.entries(value as Record<string, unknown>)) {
     if (!Array.isArray(rows)) continue;
     const kept = rows.flatMap((row) => {
       const r = row as Record<string, unknown>;
+      const use: NotNowRow["use"] =
+        r?.["use"] === "land" || r?.["use"] === "spell" ? r["use"] : undefined;
       return typeof r?.["label"] === "string" && typeof r?.["why"] === "string"
-        ? [{ label: r["label"], why: r["why"] }]
+        ? [{ label: r["label"], why: r["why"], ...(use ? { use } : {}) }]
         : [];
     });
     if (kept.length > 0) out[id] = kept;
@@ -1476,6 +1504,7 @@ function asArrange(value: unknown): DecisionArrange | null {
     dungeons: asDungeons(v["dungeons"]),
     modes: asModes(v["modes"]),
     sources: asSources(v["sources"]),
+    discard: asNumber(v["discard"]),
   };
 }
 
@@ -1552,8 +1581,17 @@ export interface SnapshotMove {
   card: string | null;
   from: { zone: string; seat: number | null };
   to: { zone: string; seat: number | null };
-  /** Why it left the battlefield, when the game says. */
-  why: "destroyed" | "sacrificed" | null;
+  /**
+   * Why it left the battlefield, when the game says. Spec 0061, item 4: and
+   * why it went to a graveyard -- "cycled", "discarded", "countered", "died".
+   */
+  why: "destroyed" | "sacrificed" | "cycled" | "discarded" | "countered" | "died" | null;
+  /**
+   * Spec 0061, item 4 -- the tag the card carries on its way to a graveyard,
+   * in the game's words ("Cycled", "Discarded: too many cards", "Countered by
+   * Counterspell", "Died"). Only with a named card.
+   */
+  said?: string | null;
   /**
    * Phase 10 A-10 -- the permanent this card merged into ("card:N"): a meld
    * partner going to exile, a mutating card going to the merged zone. Only
@@ -1568,6 +1606,8 @@ export interface SnapshotMove {
    */
   where?: "top" | "bottom" | "shuffled" | null;
 }
+
+const MOVE_WHYS = new Set(["destroyed", "sacrificed", "cycled", "discarded", "countered", "died"]);
 
 function asMoves(value: unknown): SnapshotMove[] {
   if (!Array.isArray(value)) return [];
@@ -1585,7 +1625,8 @@ function asMoves(value: unknown): SnapshotMove[] {
         card: asString(e["card"]),
         from: place(e["from"]),
         to: place(e["to"]),
-        why: why === "destroyed" || why === "sacrificed" ? why : null,
+        why: MOVE_WHYS.has(why ?? "") ? (why as SnapshotMove["why"]) : null,
+        said: asString(e["said"]),
         into: asString(e["into"]),
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
       },
@@ -1634,6 +1675,9 @@ function asAbout(value: unknown): DecisionAbout | null {
     ...(pairs["card"] ? { card: pairs["card"] } : {}),
     ...(pairs["act"] ? { act: pairs["act"] } : {}),
     ...(pairs["effect"] ? { effect: pairs["effect"] } : {}),
+    // Spec 0061, item 5.
+    ...(pairs["pay"] ? { pay: pairs["pay"] } : {}),
+    ...(pairs["then"] ? { then: pairs["then"] } : {}),
   };
 }
 

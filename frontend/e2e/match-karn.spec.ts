@@ -26,6 +26,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
@@ -102,7 +103,7 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
         if (pick < 0) pick = find(/\+4: Target player/);
         if (pick < 0) pick = find(/Play land/);
         if (pick < 0 && !karnOut && lands >= 7) pick = find(/^Karn Liberated · \{7\}/);
-        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
+        if (pick < 0) pick = /Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1;
         if (pick < 0) pick = find(new RegExp(`^${secondUser}`)); // +4's target: the opponent
       } else {
         // The guest plays lands and nothing else; when Karn's +4 makes
@@ -130,6 +131,8 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
     // Game 2, as each player sees it.
     for (const page of [host, guest]) {
       const panel = matchPanel(page);
+      // Spec 0061: discarding to hand size is pick, then Discard.
+      if (await discardIfAsked(page)) continue;
       await expect(panel.getByText(restarted), `after ${answered} decisions`).toBeVisible({
         timeout: 120_000,
       });

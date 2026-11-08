@@ -20,6 +20,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
@@ -58,8 +59,12 @@ test("a click with nothing asked selects and does not attack; a cancelled target
     for (const page of [host, guest]) {
       await page.mouse.move(0, 0);
       const panel = matchPanel(page);
+      // Spec 0061: discarding to hand size is pick, then Discard.
+      if (await discardIfAsked(page)) continue;
       const priority =
-        (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) > 0;
+        (await panel
+          .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+          .count()) > 0;
       const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
 
       if (page === host && priority && !selected) {
@@ -76,7 +81,9 @@ test("a click with nothing asked selects and does not attack; a cancelled target
           await expect(card, "the click selects it").toHaveAttribute("data-selected", "true");
           await expect(card, "and it does not attack").not.toContainText(/attacking/i);
           await expect(
-            panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"),
+            panel.locator(
+              "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+            ),
             "and the question is still open",
           ).toHaveCount(1);
           selected = true;
@@ -160,7 +167,7 @@ test("a click with nothing asked selects and does not attack; a cancelled target
           .filter({ hasNotText: /attacking|blocking/i });
         if ((await listed.count()) > 0) await click(listed);
         else if ((await board.count()) > 0) await click(board);
-        else await click(panel.locator("button.gs-pass, button.gs-act"));
+        else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
         continue;
       }
       const land = hand.filter({ hasText: "Mountain" });

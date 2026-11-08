@@ -13,7 +13,14 @@ import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
-import { clearEverything, matchPanel, sharedDeck, startAMatch, watchGame } from "./match-helpers";
+import {
+  clearEverything,
+  discardIfAsked,
+  matchPanel,
+  sharedDeck,
+  startAMatch,
+  watchGame,
+} from "./match-helpers";
 
 test.describe.configure({ timeout: 900_000 });
 
@@ -71,8 +78,13 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
       }
       let acted = false;
       for (const page of [host, guest]) {
+        // Spec 0061: discarding down to seven is pick, then Discard.
+        if (await discardIfAsked(page)) {
+          acted = true;
+          continue;
+        }
         const act = matchPanel(page).locator(
-          "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)",
+          "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
         );
         if ((await act.count()) === 0) {
           // A question that is not a priority pass (attackers, a target):
@@ -92,8 +104,8 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
             (await matchPanel(page).locator(".gs-question, .gs-win, .gs-combat").count()) > 0 &&
             (await matchPanel(page).locator('.bf-cards button[data-choosable="true"]').count()) > 0
           ) {
-            // A question answered on the board -- discarding down to seven
-            // at cleanup is one: click a highlighted card, as a player does.
+            // A question answered on the board: click a highlighted card,
+            // as a player does (discarding down to seven is above).
             await page.mouse.move(0, 0);
             await matchPanel(page)
               .locator('.bf-cards button[data-choosable="true"]')

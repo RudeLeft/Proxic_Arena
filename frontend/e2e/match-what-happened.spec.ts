@@ -21,6 +21,7 @@ import {
   answerCardTray,
   clearEverything,
   clickNow,
+  discardIfAsked,
   matchPanel,
   passButton,
   sharedDeck,
@@ -165,6 +166,8 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
           }
         }
 
+        // Spec 0061: discarding down to seven is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         const k = await kind(page);
         // A window without a kind (the order tray: Ringleader's "the rest on
         // the bottom in any order") is a question too.

@@ -373,6 +373,11 @@ public final class WorkerMain {
                                     one.addProperty("label",
                                             net.barnflix.proxic.worker.game.PlainWords.humanise(row[0]));
                                     one.addProperty("why", row[1]);
+                                    // Spec 0061, item 1 -- the play a card
+                                    // can't make now ("land" or "spell").
+                                    if (row.length > 2 && row[2] != null) {
+                                        one.addProperty("use", row[2]);
+                                    }
                                     rows.add(one);
                                 }
                                 byObject.add(objectId, rows);

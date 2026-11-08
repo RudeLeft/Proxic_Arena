@@ -64,6 +64,36 @@ export function splitSentence(text: string): { title: string; line?: string } {
 }
 
 /**
+ * Spec 0061 -- a notice the game tells in two parts, "Nothing you can play
+ * this turn -- 1 land, no land in hand. Passing your turn.": the first as
+ * its title, the rest as its line. Anything else is all title.
+ */
+export function noticeParts(text: string): { title: string; line?: string } {
+  const at = text.indexOf(" -- ");
+  if (at < 0) return { title: text };
+  return { title: text.slice(0, at), line: text.slice(at + 4).trim() };
+}
+
+/**
+ * Spec 0061 -- the game's notices new on this board. The game keeps the last
+ * six, so once six have been told the list's length stops changing: counting
+ * by length missed every notice after the sixth. The total told says how
+ * many of the six are new. From an older worker (no total), by length.
+ */
+export function newNotices(
+  board: { notices: readonly string[]; noticesTotal?: number | null },
+  seenLength: number,
+  seenTotal: number | null,
+): string[] {
+  const total = board.noticesTotal;
+  if (typeof total === "number" && seenTotal !== null) {
+    const fresh = Math.max(0, total - seenTotal);
+    return fresh === 0 ? [] : board.notices.slice(-Math.min(fresh, board.notices.length));
+  }
+  return board.notices.slice(seenLength);
+}
+
+/**
  * Orders notices by when each first appeared, so one that stays keeps its
  * place and a new one goes on top. `seen` lives as long as the page.
  */

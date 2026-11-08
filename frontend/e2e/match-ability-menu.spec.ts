@@ -21,6 +21,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "loyalty-deck.zip");
@@ -80,9 +81,15 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
       await watch.check();
       for (const page of [host, guest]) {
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
+        // Not the last button held for a moment between questions (spec
+        // 0058, item 5): its question is gone, and a click then is no answer.
+        // Spec 0061's paced passed turns make those moments longer.
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0 && (await panel.locator(".gs-act-held").count()) === 0;
         const myTurn = (await page.locator(".gs-whose-mine").count()) > 0;
         const onTable = page.locator(
           '.bf-cards button[data-controller="viewer"]:not([data-zone="viewer:hand"])',
@@ -132,7 +139,11 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
           const plains = hand.filter({ hasText: /^Plains/ });
           if (myTurn && (await plains.count()) > 0) await clickNow(plains);
           else
-            await clickNow(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+            await clickNow(
+              panel.locator(
+                "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+              ),
+            );
         } else {
           const combat = panel.locator("button.gs-act-combat");
           if ((await combat.count()) > 0) await clickNow(combat);

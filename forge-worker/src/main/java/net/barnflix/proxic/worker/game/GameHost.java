@@ -350,6 +350,18 @@ public final class GameHost {
 
     private static final int NOTICES_KEPT = 6;
 
+    /**
+     * Spec 0061 -- how many notices each seat has been told in all. The list
+     * keeps the last six, so once it is full its length stops changing; the
+     * page counted by length and missed every notice after the sixth. With
+     * the total it knows how many of the six are new.
+     */
+    private final java.util.Map<Integer, Integer> noticesTotal = new java.util.concurrent.ConcurrentHashMap<>();
+
+    int noticesTotal(int seat) {
+        return noticesTotal.getOrDefault(seat, 0);
+    }
+
     void note(int seat, String text) {
         if (text == null || text.isBlank()) {
             return;
@@ -359,6 +371,7 @@ public final class GameHost {
         java.util.Deque<String> queue =
                 notices.computeIfAbsent(seat, key -> new java.util.ArrayDeque<>());
         synchronized (queue) {
+            noticesTotal.merge(seat, 1, Integer::sum);
             queue.addLast(text);
             while (queue.size() > NOTICES_KEPT) {
                 queue.removeFirst();
@@ -853,9 +866,80 @@ public final class GameHost {
                 if ("library".equals(to)) {
                     move = move.withWhere(libraryPlace(moved.to(), card.getId()));
                 }
+                if ("graveyard".equals(to)) {
+                    // Spec 0061, item 4 -- why it went there, said on its way.
+                    String[] reason = Moves.graveReason(graveFacts(card, from, moved.from(), why));
+                    if (reason != null) {
+                        move = move.withSaid(reason[0], reason[1], card.getName());
+                    }
+                }
                 movesMade.add(move);
             }
         }
+    }
+
+    /**
+     * Spec 0061, item 4 -- what the game tells each player about this
+     * round's cards gone to a graveyard with a reason ("Died: Grizzly Bears
+     * (Bob's)"). Graveyards are public, so both players are told; one line
+     * per owner and reason, so a big combat is one line, not ten.
+     */
+    private void tellGraveyards(Game current, java.util.List<Moves.Move> moved) {
+        java.util.Map<Integer, java.util.Map<String, java.util.List<String>>> lines = Moves.toldByOwner(moved);
+        if (lines.isEmpty()) {
+            return;
+        }
+        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
+        java.util.Map<Integer, String> names = new java.util.HashMap<>();
+        seats.forEach((player, seat) -> names.put(seat, player.getName()));
+        for (Integer viewer : seats.values()) {
+            lines.forEach((owner, bySaid) -> bySaid.forEach((said, cards) ->
+                    note(viewer, Moves.told(said, cards, owner.equals(viewer) ? null : names.get(owner)))));
+        }
+    }
+
+    /**
+     * Spec 0061, item 4 -- the card whose cycling ability is being played
+     * now (MatchController#playChosenSpellAbility), so its discard -- the
+     * cycling cost -- is told as "Cycled". -1 for none.
+     */
+    private volatile int cycling = -1;
+
+    void cycling(int cardId) {
+        cycling = cardId;
+    }
+
+    /**
+     * Spec 0061, item 4 -- Forge's facts about a card moving to a graveyard,
+     * read as Forge reports the move (the event bus is synchronous, so the
+     * game is as the move left it). A discard: Forge records the card in its
+     * player's discards just before moving it (Player#discard). Countered:
+     * it leaves the stack while ANOTHER card's spell or ability resolves (a
+     * counterspell; Forge removes the target from the stack, then moves it).
+     */
+    private Moves.GraveFacts graveFacts(forge.game.card.CardView card, String from,
+                                        forge.game.zone.ZoneView fromZone, String why) {
+        Game current = game;
+        boolean discarded = false;
+        boolean cleanup = false;
+        String counteredBy = null;
+        if (current != null && "hand".equals(from)) {
+            Player owner = playerOf(fromZone == null ? null : fromZone.player());
+            java.util.List<forge.game.card.Card> discards = owner == null ? java.util.List.of()
+                    : owner.getDiscardedThisTurn();
+            discarded = !discards.isEmpty() && discards.get(discards.size() - 1).getId() == card.getId();
+            cleanup = current.getPhaseHandler().getPhase() == forge.game.phase.PhaseType.CLEANUP;
+        }
+        if (current != null && "stack".equals(from) && current.getStack().isResolving()) {
+            forge.game.spellability.SpellAbility top = current.getStack().peekAbility();
+            forge.game.card.Card by = top == null ? null : top.getHostCard();
+            if (by != null && by.getId() != card.getId()) {
+                counteredBy = by.isFaceDown() ? "a face-down card" : by.getName();
+            }
+        }
+        boolean creature = card.getCurrentState() != null && card.getCurrentState().isCreature();
+        return new Moves.GraveFacts(from, discarded, discarded && cycling == card.getId(), cleanup, counteredBy,
+                "sacrificed".equals(why), "destroyed".equals(why), creature);
     }
 
     /**
@@ -989,6 +1073,7 @@ public final class GameHost {
         // Phase 10 A-10: what merged into what, from Forge's own state.
         moved = Moves.withInto(moved, mergedInto(current));
         sacrificing.clear();
+        tellGraveyards(current, moved);
         // REGISTERED players, not getPlayers(): Forge removes a player
         // who has lost, so the final board went to the winner alone
         // and showed the winner alone. Measured, P6-AP.
@@ -1016,6 +1101,8 @@ public final class GameHost {
                 snapshot.add("damage", damage.deepCopy());
             }
             addHandCosts(snapshot, player);
+            // Spec 0061 -- how many notices this seat was told in all.
+            snapshot.addProperty("noticesTotal", noticesTotal(seat));
             snapshot.add("rolls", rollsSoFar());
             if (!moved.isEmpty()) {
                 snapshot.add("moves", Moves.forViewer(moved, seat));
@@ -1360,6 +1447,22 @@ public final class GameHost {
      * word ("Sacrifice") and what the ability does, for the window's line.
      * Set after offerSubject.
      */
+    /**
+     * Spec 0061, item 5 -- what the mana for an ability is for: the window
+     * says "Pay {R} " + `pay` ("to cycle Forgotten Cave"), and `then`
+     * under it. Set after offerSubject.
+     */
+    void offerPurpose(String pay, String then) {
+        com.google.gson.JsonObject about = subject;
+        if (about == null || pay == null) {
+            return;
+        }
+        about.addProperty("pay", pay);
+        if (then != null && !then.isBlank()) {
+            about.addProperty("then", then);
+        }
+    }
+
     void offerCostChoice(String act, String effect) {
         com.google.gson.JsonObject about = subject;
         if (about == null) {

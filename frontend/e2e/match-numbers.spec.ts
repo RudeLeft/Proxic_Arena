@@ -35,6 +35,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "numbers-deck.zip");
@@ -88,6 +89,8 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         if ((await page.locator(".gs-over").count()) > 0) break;
 
         // The split: one tray for the whole of it.
@@ -186,8 +189,9 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           continue;
         }
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         if (!priority) {
           // Targets: the other player first, then anything on the table.
           // A divided spell gets exactly two, on purpose: the other player,
@@ -254,7 +258,7 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           else if (isTarget && divided && (await creature.count()) > 0) await click(creature);
           else if ((await board.count()) > 0) await click(board);
           else if ((await listed.count()) > 0) await click(listed);
-          else await click(panel.locator("button.gs-pass, button.gs-act"));
+          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           if (isTarget) targeted.set(page, (targeted.get(page) ?? 0) + 1);
           continue;
         }
@@ -342,7 +346,11 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           if ((await popup.count()) > 0) await click(popup);
           continue;
         }
-        await click(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+        await click(
+          panel.locator(
+            "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+          ),
+        );
       }
       await host.waitForTimeout(100);
     }

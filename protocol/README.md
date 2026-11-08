@@ -222,7 +222,21 @@ moves                     Phase 10 A-00: the cards moved since the last
                           "shuffled" when Forge shuffled that library later
                           in the same round, replacing any place); absent
                           when it went elsewhere in it. Public, so sent with
-                          or without `card`
+                          or without `card`. Spec 0061, item 4: a move to a
+                          graveyard also says why -- why "cycled" (hand),
+                          "discarded" (hand; Forge's discard record),
+                          "countered" (the stack, while another card's
+                          spell or ability resolves), "died" (a creature
+                          neither destroyed nor sacrificed); said: the tag
+                          the board shows on its way ("Cycled",
+                          "Discarded: too many cards", "Discarded",
+                          "Countered by Counterspell", "Died",
+                          "Sacrificed", "Destroyed"); only with `card`.
+                          Each such round is also told to both players as a
+                          notice ("Died: Grizzly Bears (Bob's)")
+noticesTotal              spec 0061: how many notices this seat was told in
+                          all (`notices` keeps the last six), so a page can
+                          tell new ones once the list is full
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}
@@ -248,6 +262,22 @@ decision.notNow           on a priority question: each of the asked player's
                           permanents' abilities NOT offered now, as
                           {objectId: [{label, why}]} ("Needs 7 loyalty");
                           words only, to the asked seat only (Phase 9 W-16)
+                          Spec 0061, item 1: and a hand card whose every
+                          option throws it away (cycling, landcycling,
+                          channel): the play it can't make, first, with
+                          use "land"|"spell" ({label "Play it as your
+                          land", why "You've already played a land this
+                          turn", use "land"}). A page never answers such a
+                          card on one click
+decision.arrange.discard  spec 0061, item 3, on
+                          chooseCardsToDiscardToMaximumHandSize: how many
+                          cards are still to go (the game asks one at a
+                          time; the page lets the player pick them all)
+decision.about.pay,       spec 0061, item 5, on a payment for an activated
+decision.about.then       ability (applyManaToCost): what it is for, after
+                          "Pay {R}" ("to cycle Forgotten Cave"), and the
+                          line under it ("Then Forgotten Cave goes to your
+                          graveyard and you draw a card.")
 decision.owing            on a payment question (applyManaToCost): the mana
                           still due, "{1}{R}"; the buttons no longer repeat
                           it (Phase 9 Amendment 13, item 9)

@@ -437,6 +437,39 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   border-color: #6b7480;
   color: #eef1f5;
 }
+/* Spec 0061, item 3 (way a) -- "Discard Elvish Warrior": red once a card is
+   picked; grey and unclickable until then ("Click a card to pick it"). */
+.gs-act.gs-act-discard {
+  border-color: #e5533d;
+  background: linear-gradient(180deg, #3a1612 0%, #24100d 100%);
+  color: #ffc2b6;
+}
+.gs-act-discard .gs-coin {
+  background: linear-gradient(180deg, #f06a55, #b8382a);
+}
+.gs-act-discard .gs-coin svg path {
+  stroke: #fff;
+}
+.gs-act.gs-act-discard.gs-act-discard-idle {
+  border-color: #4a5a52;
+  background: linear-gradient(180deg, #161d26 0%, #0c1015 100%);
+  color: #cfd8d2;
+}
+.gs-act-discard-idle .gs-coin {
+  background: #4a5a52;
+}
+.gs-act-discard-idle .gs-coin svg path {
+  stroke: #cfd8d2;
+}
+/* Spec 0061, item 3 -- a hand card picked to discard: lifted, outlined red. */
+.bf-card.bf-picked,
+.bf-card.bf-choosable.bf-picked {
+  animation: none;
+  outline: 3px solid #e5533d;
+  outline-offset: 2px;
+  box-shadow: 0 0 calc(var(--card-h) * 0.12) rgb(229 83 61 / 67%);
+  translate: 0 calc(var(--card-h) * -0.08);
+}
 .gs-act-cancel .gs-coin {
   background: linear-gradient(180deg, #8f98a3, #4c545f);
 }
@@ -592,6 +625,16 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+/* Spec 0061, item 3 -- "Discard Elvish Warrior" may take two lines too. */
+.gs-act-discard .gs-act-word {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.gs-act-discard .gs-act-sub {
+  -webkit-line-clamp: 1;
 }
 /* Two lines of name leave room for one line under it. */
 .gs-act-cancel .gs-act-sub {
@@ -1108,6 +1151,12 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   border-radius: 6px;
   opacity: 0.55;
   list-style: none;
+}
+/* Spec 0061, item 1 -- the play a card can't make now (its only choices
+   throw it away): greyed, first, its title and why the whole width. */
+.gs-ab-no.gs-ab-use-no {
+  grid-template-columns: 1fr;
+  opacity: 0.6;
 }
 .gs-ab-cost {
   justify-self: center;

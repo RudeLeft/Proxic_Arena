@@ -140,7 +140,7 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
         );
         // Every mill targets the host itself.
         pick = find(new RegExp(`^${testUser}`));
-        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
+        if (pick < 0) pick = /Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1;
         if (pick < 0 && maniacOut) {
           for (const [cast, cost] of MILLS) {
             if (pick < 0 && untapped >= cost) pick = find(cast);

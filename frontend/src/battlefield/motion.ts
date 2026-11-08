@@ -603,6 +603,60 @@ export function riffleFrames(i: number, k: number): Keyframe[] {
   ];
 }
 
+/** Spec 0061, item 4 -- how long the tag stays by the graveyard once the card is there (the canvas's 1.4 s). */
+export const GRAVE_TAG_HOLD_MS = 1400;
+
+/**
+ * Spec 0061, item 4 (the canvas "cast-1107", section 4) -- a tag ("Cycled",
+ * "Countered by Counterspell") rides above a card on its way to a graveyard:
+ * it shows over the card while the card shows its fate (`leadMs`: Shatter's
+ * shake), travels with it for `moveMs` by (dx, dy) to just left of the pile,
+ * holds there, and fades. Placed at the card's top centre; linear over the
+ * returned duration.
+ */
+export function graveTagFrames(
+  dx: number,
+  dy: number,
+  leadMs: number,
+  moveMs: number,
+): { frames: Keyframe[]; duration: number } {
+  const duration = leadMs + moveMs + GRAVE_TAG_HOLD_MS;
+  const at = (ms: number) => ms / duration;
+  // From above the card's top centre to just left of the pile, at the
+  // card's own pace (the Glide's ease), so it rides on the card.
+  // The Glide's bow too (glideFrames): up the screen, most at mid-way.
+  const distance = Math.hypot(dx, dy);
+  let nx = distance ? -dy / distance : 0;
+  let ny = distance ? dx / distance : 0;
+  if (ny > 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  const place = (e: number) => {
+    const bow = Math.sin(Math.PI * e) * GLIDE_ARC * distance;
+    const x = dx * e + nx * bow;
+    const y = dy * e + ny * bow;
+    return `translate(${-50 - 50 * e}%, ${-100 + 50 * e}%) translate(${x}px, ${y}px)`;
+  };
+  const steps = 8;
+  const frames: Keyframe[] = [{ offset: 0, opacity: 0, transform: place(0) }];
+  if (leadMs > 0) {
+    frames.push({ offset: at(Math.min(150, leadMs)), opacity: 1, transform: place(0) });
+    frames.push({ offset: at(leadMs), opacity: 1, transform: place(0) });
+  }
+  for (let k = 1; k <= steps; k++) {
+    const e = k === steps ? 1 : glideEase(k / steps);
+    frames.push({ offset: at(leadMs + (moveMs * k) / steps), opacity: 1, transform: place(e) });
+  }
+  frames.push({
+    offset: at(leadMs + moveMs + GRAVE_TAG_HOLD_MS - 300),
+    opacity: 1,
+    transform: place(1),
+  });
+  frames.push({ offset: 1, opacity: 0, transform: place(1) });
+  return { frames, duration };
+}
+
 /** The tag's keyframes (the canvas's): it pops in, holds, and fades. `base` places it. */
 export function returnTagFrames(base: string): Keyframe[] {
   return [

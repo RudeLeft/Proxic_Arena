@@ -361,6 +361,44 @@ public final class PlainWords {
     }
 
     /**
+     * Spec 0061, item 5 -- what the mana paid for an ability is for, after
+     * "Pay {R}": {"to cycle Forgotten Cave", "Then Forgotten Cave goes to
+     * your graveyard and you draw a card."}. `way`: "cycling" (cycling and
+     * landcycling), "equip", or anything else; `effect` the ability's words
+     * (effectWords). An ability whose words read on after "to" ("Draw a
+     * card.") is "to draw a card with Jayemdae Tome"; any other is "for
+     * Prodigal Sorcerer's ability", its words the line under it. Index 1 is
+     * null when there is no line.
+     */
+    static String[] payFor(String way, String card, String effect) {
+        String does = effect == null ? "" : effect.trim();
+        if ("cycling".equals(way)) {
+            String then = "Then " + card + " goes to your graveyard";
+            if (!does.isEmpty()) {
+                String lowered = lower(does);
+                then += lowered.equals(does) ? ". Then: " + does : " and you " + lowered;
+                if (!then.endsWith(".")) {
+                    then += ".";
+                }
+            } else {
+                then += ".";
+            }
+            return new String[] {"to cycle " + card, then};
+        }
+        if ("equip".equals(way)) {
+            return new String[] {"to equip a creature with " + card, null};
+        }
+        int stop = does.indexOf(". ");
+        String first = stop < 0 ? does : does.substring(0, stop + 1);
+        String bare = first.endsWith(".") ? first.substring(0, first.length() - 1) : first;
+        String lowered = lower(bare);
+        if (stop < 0 && !bare.isEmpty() && !lowered.equals(bare) && bare.length() <= 60) {
+            return new String[] {"to " + lowered + " with " + card, null};
+        }
+        return new String[] {"for " + card + "'s ability", does.isEmpty() ? null : does};
+    }
+
+    /**
      * Spec 0057, item 7 -- why: "to cast Wren's Run Vanquisher for {1}{G}
      * instead of {4}{G}", or, with no cheaper price to name, "to pay for
      * Wren's Run Vanquisher".

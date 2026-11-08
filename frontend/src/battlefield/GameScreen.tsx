@@ -41,6 +41,7 @@ import {
   type DecisionOption,
   type MatchSocket,
   type MatchState,
+  type NotNowRow,
   type Snapshot,
   type SnapshotCard,
   type SnapshotPlayer,
@@ -63,6 +64,7 @@ import {
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
+import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
 import { LoadingRing } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
@@ -86,6 +88,7 @@ import {
   NUMBER_KINDS,
   NumberWindow,
   TableQuestionWindow,
+  payTitle,
   sourceOf,
   targetsTitle,
 } from "./QuestionWindows";
@@ -130,7 +133,7 @@ import {
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { NoticeStack } from "../NoticeStack";
-import { GAME_MESSAGE_MS, inArrival, type Notice } from "../notices";
+import { GAME_MESSAGE_MS, inArrival, newNotices, noticeParts, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead, pictureUrl } from "../closeUp";
 import { ManaCost, ManaText, costChange, manaSymbols, withSymbols } from "./ManaCost";
@@ -523,7 +526,11 @@ export function GameScreen({
   // Phase 9 W-15 -- the cards still to put back, or to begin in play
   // (then no more), clicked at once and asked one at a time.
   const [openingQueue, setOpeningQueue] = useState<{
-    kind: "tuckCardsViaMulligan" | "chooseSaToActivateFromOpeningHand";
+    kind:
+      | "tuckCardsViaMulligan"
+      | "chooseSaToActivateFromOpeningHand"
+      // Spec 0061, item 3 -- the rest of the cards picked to discard.
+      | typeof DISCARD_KIND;
     cards: string[];
   } | null>(null);
   // PHASE_09 group 3 (W-07..W-10) -- the answers a card tray gave for the
@@ -850,6 +857,8 @@ export function GameScreen({
   // a time from the plan, each checked by the game, and stops at the first
   // one it does not offer: the rest stay selected, with why.
   const [marked, setMarked] = useState<string[]>([]);
+  // Spec 0061, item 3 -- the hand cards picked to discard, not yet confirmed.
+  const [discardPick, setDiscardPick] = useState<string[]>([]);
   const [combatNote, setCombatNote] = useState<string | null>(null);
   const planHandled = useRef<number | null>(null);
   const declaring = decision && DECLARE_KINDS.has(decision.kind) ? decision.kind : null;
@@ -888,9 +897,56 @@ export function GameScreen({
     if (here.length !== marked.length) setMarked(here);
   }, [board, marked]);
 
+  // Spec 0061, item 3 -- the picks belong to one discard: another question
+  // ends them, and a card no longer offered is no longer picked.
+  const discarding = decision?.kind === DISCARD_KIND ? decision : null;
+  useEffect(() => {
+    if (!discarding) {
+      setDiscardPick((picked) => (picked.length > 0 ? [] : picked));
+      return;
+    }
+    setDiscardPick((picked) => {
+      const kept = picked.filter((id) => discarding.options.some((o) => o.objectId === id));
+      return kept.length === picked.length ? picked : kept;
+    });
+  }, [discarding]);
+  const pickedNow = useMemo(() => new Set(discardPick), [discardPick]);
+  const discardButton =
+    discarding && board && !answeredForYou
+      ? {
+          heading: headingFor(DISCARD_KIND),
+          ...discardWords(
+            discardPick.map((id) => nameOf(board, id)),
+            discardCount(discarding),
+          ),
+        }
+      : null;
+  const confirmDiscard = useCallback(() => {
+    if (!discarding) return;
+    const [first, ...rest] = discardPick
+      .map((id) => discarding.options.find((o) => o.objectId === id))
+      .filter((o): o is DecisionOption => !!o);
+    if (!first) return;
+    setDiscardPick([]);
+    // The game asks one card at a time: the rest as it asks for them.
+    if (rest.length > 0) {
+      setOpeningQueue({ kind: DISCARD_KIND, cards: rest.map((o) => o.objectId!) });
+    }
+    answer(first.actionId);
+  }, [discarding, discardPick, answer]);
+
   const lastTarget = useRef<string | null>(null);
   const pick = useCallback(
     (objectId: string, members?: readonly string[]) => {
+      // Spec 0061, item 3 -- discarding to hand size: a click only picks
+      // the card (red outline); the act button discards it.
+      if (decision?.kind === DISCARD_KIND && question?.onBoard.has(objectId)) {
+        setDiscardPick((picked) => togglePick(picked, objectId, discardCount(decision)));
+        setSelected(null);
+        setOffer(null);
+        setWhy(null);
+        return;
+      }
       if (decision?.kind === "chooseCardName" && decision.arrange?.name) {
         nameCardRef.current(objectId);
         return;
@@ -1238,7 +1294,8 @@ export function GameScreen({
           ? `Playing for seat ${decision.actedForSeat}`
           : decision.kind === "chooseOptionalCosts"
             ? optionalCostTitle(decision)
-            : (binaryTitle(decision) ??
+            : (payTitle(decision) ??
+              binaryTitle(decision) ??
               targetsTitle(
                 decision,
                 // Spec 0055: the action ("Deal 1 damage"), when the card's words say.
@@ -1257,6 +1314,8 @@ export function GameScreen({
     if (listOpen && !decision.searchable) {
       return <ListTray key={decision.decisionId} {...common} onClose={() => setListOpen(false)} />;
     }
+    // Spec 0061, item 3 -- the discard is the act button and the hand.
+    if (decision.kind === DISCARD_KIND) return null;
     // Phase 9 W-15 -- the start of the game, the opening hand laid out.
     if (OPENING_KINDS.has(decision.kind)) {
       return (
@@ -1451,6 +1510,7 @@ export function GameScreen({
             departures={data.departures}
             merges={data.merges}
             returns={data.returns}
+            graves={data.graves}
             flyingOnto={flyingOnto}
             hiddenStack={hiddenStack}
             stackOwing={
@@ -1475,6 +1535,7 @@ export function GameScreen({
             onInspect={setInspecting}
             choosable={boardChoosable}
             marked={marked}
+            picked={pickedNow}
             chosenTargets={chosenTargets}
             lit={lit}
             unpayable={unpayable}
@@ -1571,6 +1632,8 @@ export function GameScreen({
                 placing={
                   placingTriggers(decision) ? (answeredForYou ? "answering" : "asking") : null
                 }
+                discard={discardButton}
+                onDiscard={confirmDiscard}
               />
             }
             overlay={(at, geometry) => {
@@ -2379,6 +2442,41 @@ export function useSteadyAct(
   return act;
 }
 
+/**
+ * Spec 0061, item 3 (owner's way "a") -- the act button while discarding to
+ * hand size: grey until the cards are picked ("Discard 1 · Click a card to
+ * pick it"), then red and naming them ("Discard Elvish Warrior"); only it
+ * discards.
+ */
+export function DiscardAct({
+  discard,
+  busy,
+  onDiscard,
+}: {
+  discard: { heading: string; word: string; sub: string; ready: boolean };
+  busy: boolean;
+  onDiscard?: (() => void) | undefined;
+}) {
+  return (
+    <div className="gs-act-group gs-discard" data-kind={DISCARD_KIND}>
+      <h2 className="gs-question-title pa-visually-hidden">{discard.heading}</h2>
+      <button
+        type="button"
+        className={`gs-act gs-act-discard${discard.ready ? "" : " gs-act-discard-idle"}`}
+        disabled={busy || !discard.ready}
+        onClick={onDiscard}
+        aria-label={`${discard.word}. ${discard.sub}`}
+      >
+        <Coin emblem="cancel" />
+        <span className="gs-act-text">
+          <span className="gs-act-word">{discard.word}</span>
+          <span className="gs-act-sub">{discard.sub}</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /** Spec 0002 — the last seat the server said was asked. */
 function useLastAsked(asking: { seat: number | null } | null): number | null {
   const [last, setLast] = useState<number | null>(null);
@@ -2412,6 +2510,8 @@ function Rail({
   onLeave,
   watching = 0,
   placing = null,
+  discard = null,
+  onDiscard,
 }: {
   board: Snapshot;
   question: Question | null;
@@ -2455,6 +2555,9 @@ function Rail({
    * question about one the page answers itself, or the gap after one.
    */
   placing?: "answering" | "asking" | null;
+  /** Spec 0061, item 3 -- discarding to hand size: what the button says, and whether it can. */
+  discard?: { heading: string; word: string; sub: string; ready: boolean } | null;
+  onDiscard?: () => void;
 }) {
   const me = board.players.find((p) => p.seat === mySeat);
   const them = board.players.find((p) => p.seat !== mySeat);
@@ -2548,6 +2651,9 @@ function Rail({
         </button>
       )}
     </div>
+  ) : discard ? (
+    // Spec 0061, item 3 (way a) -- pick, then confirm.
+    <DiscardAct discard={discard} busy={busy} onDiscard={onDiscard} />
   ) : cancel ? (
     // Owner 2026-10-22: a misclick must be undoable where every other
     // answer is -- the act button. Esc does the same.
@@ -3130,7 +3236,7 @@ export function ActionPopup({
   card: SnapshotCard | null;
   artUrl: (art: string) => string;
   options: DecisionOption[];
-  notNow: { label: string; why: string }[];
+  notNow: NotNowRow[];
   why: string | null;
   busy: boolean;
   onChoose: (actionId: string) => void;
@@ -3186,6 +3292,23 @@ export function ActionPopup({
       )}
       {(options.length > 0 || notNow.length > 0) && (
         <ul className="gs-popup-actions">
+          {/* Spec 0061, item 1 -- the play this card can't make now, first and
+              greyed, with why: its only choices throw it away. */}
+          {notNow
+            .filter((row) => row.use)
+            .map((row) => (
+              <li
+                key={row.label}
+                className="gs-ab-no gs-ab-use-no"
+                data-use={row.use}
+                aria-label={`${row.label}: ${row.why}`}
+              >
+                <span className="gs-ab-words">
+                  <span className="gs-ab-said gs-ab-title">{row.label}</span>
+                  <em className="gs-ab-why">{row.why}</em>
+                </span>
+              </li>
+            ))}
           {playFirst(options).map((o, i) => {
             const use = o.use ?? null;
             if (use) {
@@ -3251,24 +3374,26 @@ export function ActionPopup({
               </li>
             );
           })}
-          {notNow.map((row) => {
-            const parts = abilityParts(row.label, name);
-            return (
-              <li
-                key={row.label}
-                className="gs-ab gs-ab-no"
-                aria-label={`${row.label}: ${row.why}`}
-              >
-                {cost(parts.cost, parts.kind)}
-                <span className="gs-ab-words">
-                  <span className="gs-ab-said">
-                    <ManaText text={parts.text} />
+          {notNow
+            .filter((row) => !row.use)
+            .map((row) => {
+              const parts = abilityParts(row.label, name);
+              return (
+                <li
+                  key={row.label}
+                  className="gs-ab gs-ab-no"
+                  aria-label={`${row.label}: ${row.why}`}
+                >
+                  {cost(parts.cost, parts.kind)}
+                  <span className="gs-ab-words">
+                    <span className="gs-ab-said">
+                      <ManaText text={parts.text} />
+                    </span>
+                    <em className="gs-ab-why">{row.why}</em>
                   </span>
-                  <em className="gs-ab-why">{row.why}</em>
-                </span>
-              </li>
-            );
-          })}
+                </li>
+              );
+            })}
         </ul>
       )}
       <div className="gs-popup-foot">
@@ -3775,10 +3900,12 @@ export function ZoneViewer({
 function useGameMessages(board: Snapshot | null): Notice[] {
   const [shown, setShown] = useState<{ key: string; text: string }[]>([]);
   const seen = useRef(0);
+  const seenTotal = useRef<number | null>(null);
   useEffect(() => {
     if (!board) return;
-    const fresh = board.notices.slice(seen.current);
+    const fresh = newNotices(board, seen.current, seenTotal.current);
     seen.current = board.notices.length;
+    seenTotal.current = board.noticesTotal ?? null;
     if (fresh.length === 0) return;
     // Spec 0045 -- a reveal's line ("Looking at your library: A, B") is the
     // reveal tray's cards already.
@@ -3792,18 +3919,22 @@ function useGameMessages(board: Snapshot | null): Notice[] {
       .map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
     setShown((list) => [...list, ...added].slice(-4));
   }, [board]);
-  return shown.map((said) => ({
-    key: said.key,
-    tone: "grey",
-    label: "Game",
-    // The game's own words, exactly as it says them.
-    title: said.text,
-    titleNode: <ManaText text={said.text} />,
-    actions: [],
-    quiet: true,
-    fadeMs: GAME_MESSAGE_MS,
-    close: () => setShown((list) => list.filter((n) => n.key !== said.key)),
-  }));
+  return shown.map((said) => {
+    const { title, line } = noticeParts(said.text);
+    return {
+      key: said.key,
+      tone: "grey",
+      label: "Game",
+      // The game's own words, exactly as it says them.
+      title,
+      titleNode: <ManaText text={title} />,
+      ...(line ? { line } : {}),
+      actions: [],
+      quiet: true,
+      fadeMs: GAME_MESSAGE_MS,
+      close: () => setShown((list) => list.filter((n) => n.key !== said.key)),
+    };
+  });
 }
 
 // --- the game menu and the chat drawer ------------------------------------------------------

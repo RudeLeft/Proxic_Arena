@@ -653,7 +653,8 @@ public final class MatchController extends GeneratedControllerBase {
         // away for something (cycling, landcycling, channel): which option is
         // which, so the menu can make the play the main choice and mark the
         // one that discards the card.
-        host.offerUses(usesFor(byId));
+        java.util.Map<String, com.google.gson.JsonObject> uses = usesFor(byId);
+        host.offerUses(uses);
 
         // B7 (owner 2026-10-21) -- a card in hand with nothing offered:
         // why, read off Forge's facts, for when the player clicks it.
@@ -695,6 +696,12 @@ public final class MatchController extends GeneratedControllerBase {
                         .add(new String[] {label, WhyNot.ability(sa, card, player)});
             }
         }
+        // Spec 0061, item 1 -- a card in hand whose ONLY options throw it away
+        // (Forgotten Cave after the land drop: cycling alone): its play, greyed,
+        // with why ("You've already played a land this turn"), so its menu says
+        // what it can't do now. Words only, read off Forge's facts (WhyNot).
+        missingPlays(byId, uses).forEach((objectId, row) ->
+                notNow.computeIfAbsent(objectId, k -> new java.util.ArrayList<>()).add(0, row));
         host.offerNotNow(notNow);
 
         // PHASE_07 §7.53, AMENDMENT 13 -- a step this player does not stop
@@ -706,6 +713,22 @@ public final class MatchController extends GeneratedControllerBase {
             // Not asked: nothing set for this question may ride on the next.
             host.offerUnavailable(java.util.Map.of());
             host.offerNotNow(java.util.Map.of());
+            // Spec 0061, item 2 -- your own turn passed because nothing could
+            // be played: said once (at Main 1), and its steps then move where
+            // the player can see them (a short pause at each).
+            String told = host.stops().passedTurn(actedForSeat, player, player.getGame(),
+                    actedForSeat != authorisedSeat, byId, unpayable);
+            if (told != null) {
+                host.note(actedForSeat, told);
+                host.publishSnapshots();
+            }
+            if (host.stops().pausing(actedForSeat, player, player.getGame())) {
+                try {
+                    Thread.sleep(PriorityStops.STEP_PAUSE_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             showTheirStack();
             return null;
         }
@@ -774,7 +797,19 @@ public final class MatchController extends GeneratedControllerBase {
      */
     @Override
     public boolean playChosenSpellAbility(SpellAbility sa) {
-        return forge.game.player.PlaySpellAbility.playSpellAbility(this, player, sa);
+        // Spec 0061, item 4 -- a cycling ability: its card's discard (the
+        // cost) is told as "Cycled", not "Discarded".
+        boolean cycling = sa != null && sa.isCycling() && sa.getHostCard() != null;
+        if (cycling) {
+            host.cycling(sa.getHostCard().getId());
+        }
+        try {
+            return forge.game.player.PlaySpellAbility.playSpellAbility(this, player, sa);
+        } finally {
+            if (cycling) {
+                host.cycling(-1);
+            }
+        }
     }
 
     /**
@@ -1576,14 +1611,18 @@ public final class MatchController extends GeneratedControllerBase {
                     return chosen;
                 }
 
-                String choice =
+                // Spec 0061, item 3 -- how many cards are still to go, so the
+                // page can let the player pick them all, then confirm.
+                com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+                how.addProperty("discard", nDiscard - chosen.size());
+                String choice = arrangedAsk(how, () ->
                         host.gate().ask(
                                 actedForSeat,
                                 authorisedSeat,
                                 "chooseCardsToDiscardToMaximumHandSize",
                                 new java.util.ArrayList<>(byId.keySet()),
                                 true,
-                                pending -> host.publishDecision(pending, labels));
+                                pending -> host.publishDecision(pending, labels)));
 
                 forge.game.card.Card card = byId.get(choice);
                 if (card == null) {
@@ -3540,6 +3579,17 @@ public final class MatchController extends GeneratedControllerBase {
         }
     }
 
+    /** As [#arranged], for a gate question asked directly (spec 0061, item 3). */
+    private String arrangedAsk(com.google.gson.JsonObject how, Asking<String> ask) throws InterruptedException {
+        com.google.gson.JsonObject before = host.arrange();
+        host.arranging(how);
+        try {
+            return ask.ask();
+        } finally {
+            host.arranging(before);
+        }
+    }
+
     /** A layout of one fact: {"to": "top"}. */
     private static com.google.gson.JsonObject layout(String key, String value) {
         com.google.gson.JsonObject how = new com.google.gson.JsonObject();
@@ -5323,6 +5373,46 @@ public final class MatchController extends GeneratedControllerBase {
             }
         }
         return uses;
+    }
+
+    /**
+     * Spec 0061, item 1 -- each card in hand whose every option offered now
+     * throws it away (cycling, landcycling, channel: `uses` says which): the
+     * play it does NOT have, as a greyed row for its menu -- {"Play it as
+     * your land" or "Cast it", why (WhyNot's words, without the full stop,
+     * as the approved canvas has them), "land" or "spell"}. Nothing here
+     * offers or withholds anything: Forge's options are unchanged.
+     */
+    private java.util.Map<String, String[]> missingPlays(
+            java.util.Map<String, SpellAbility> byId, java.util.Map<String, com.google.gson.JsonObject> uses) {
+        java.util.Map<Integer, Boolean> onlyThrows = new java.util.LinkedHashMap<>();
+        java.util.Map<Integer, forge.game.card.Card> cards = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, SpellAbility> option : byId.entrySet()) {
+            forge.game.card.Card card = option.getValue().getHostCard();
+            if (card == null || !card.isInZone(forge.game.zone.ZoneType.Hand)) {
+                continue;
+            }
+            com.google.gson.JsonObject use = uses.get(option.getKey());
+            String kind = use == null || !use.has("kind") ? null : use.get("kind").getAsString();
+            boolean throwsAway = "cycling".equals(kind) || "landcycling".equals(kind) || "channel".equals(kind);
+            cards.put(card.getId(), card);
+            onlyThrows.merge(card.getId(), throwsAway, Boolean::logicalAnd);
+        }
+        java.util.Map<String, String[]> rows = new java.util.LinkedHashMap<>();
+        onlyThrows.forEach((id, only) -> {
+            if (!only) {
+                return;
+            }
+            forge.game.card.Card card = cards.get(id);
+            String why = WhyNot.play(card, player);
+            if (why.endsWith(".")) {
+                why = why.substring(0, why.length() - 1);
+            }
+            rows.put("card:" + id, card.isLand()
+                    ? new String[] {"Play it as your land", why, "land"}
+                    : new String[] {"Cast it", why, "spell"});
+        });
+        return rows;
     }
 
     /** Spec 0057, item 5 -- what an option of a card in hand does with it; null for anything else. */

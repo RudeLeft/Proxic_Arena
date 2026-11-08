@@ -24,6 +24,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -82,6 +83,8 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         if ((await page.locator(".gs-over").count()) > 0) break;
         const turn = (
           (await page.locator(".gs-turn-value").first().allTextContents())[0] ?? ""
@@ -133,8 +136,9 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
           continue;
         }
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         if (!priority) {
           // Paying: Birds first, so a flyer gets tapped.
           const mana = page.locator(
@@ -161,7 +165,11 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
           }
         }
         if (!acted) {
-          await clickNow(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+          await clickNow(
+            panel.locator(
+              "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+            ),
+          );
         }
       }
       await host.waitForTimeout(120);

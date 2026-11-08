@@ -21,6 +21,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "swarm-deck.zip");
@@ -62,6 +63,8 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         const kind =
           (await panel
             .locator(".gs-combat")
@@ -167,7 +170,9 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
         }
 
         // Priority: a Mountain, else a Goblin-making spell, else pass.
-        const act = panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)");
+        const act = panel.locator(
+          "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+        );
         if ((await act.count()) > 0) {
           const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
           const land = hand.filter({ hasText: "Mountain" });
@@ -187,7 +192,7 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
         else if ((await board.count()) > 0) await clickNow(board);
-        else await clickNow(panel.locator("button.gs-pass, button.gs-act"));
+        else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
       }
       await host.waitForTimeout(100);
     }

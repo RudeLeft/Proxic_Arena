@@ -299,7 +299,27 @@ export async function attackWithAll(page: Page): Promise<boolean> {
 }
 
 /** "No": the act button under the stack on your move, else the question's Pass. */
-export const passButton = (page: Page) => page.locator("button.gs-act, button.gs-pass");
+export const passButton = (page: Page) =>
+  page.locator("button.gs-act:not(.gs-act-discard), button.gs-pass");
+
+/**
+ * Spec 0061, item 3 -- discarding down to hand size is pick, then confirm: a
+ * click on a hand card only picks it; the act button ("Discard Elvish
+ * Warrior") discards. Picks the first card not yet picked until the button
+ * can be pressed, then presses it. False when no discard is asked.
+ */
+export async function discardIfAsked(page: Page): Promise<boolean> {
+  const panel = matchPanel(page);
+  if ((await panel.locator("button.gs-act-discard").count()) === 0) return false;
+  const ready = panel.locator("button.gs-act-discard:not(:disabled)");
+  if ((await ready.count()) === 0) {
+    await clickNow(
+      page.locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-picked="true"])'),
+    );
+  }
+  await clickNow(ready);
+  return true;
+}
 
 /** Cards on the battlefield, by side, as the board draws them (piles are one button). */
 export const boardCards = (page: Page, side: "viewer" | "opponent") =>

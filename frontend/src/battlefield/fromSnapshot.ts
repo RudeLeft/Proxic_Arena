@@ -40,6 +40,8 @@ export interface BoardData {
   merges: Map<string, Merge>;
   /** Phase 10 A-14 -- each card that went back to a hand or onto/into a library, from the table or the stack. */
   returns: Map<string, Return>;
+  /** Spec 0061, item 4 -- each card gone to a graveyard with a reason: the game's tag ("Cycled"). */
+  graves: Map<string, string>;
 }
 
 function toBoardCard(card: SnapshotCard): BoardCard {
@@ -196,6 +198,11 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       hidden: move.to.zone === "library" || !seenInHands.has(move.card),
     });
   }
+  // Spec 0061, item 4 -- why a card went to a graveyard, as the game says.
+  const graves = new Map<string, string>();
+  for (const move of snapshot.moves ?? []) {
+    if (move.card && move.said && move.to.zone === "graveyard") graves.set(move.card, move.said);
+  }
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -260,5 +267,6 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     departures,
     merges,
     returns,
+    graves,
   };
 }

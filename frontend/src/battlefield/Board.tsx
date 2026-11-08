@@ -96,6 +96,8 @@ import {
   returnBackFrames,
   returnFrames,
   returnTagFrames,
+  graveTagFrames,
+  fateMs,
   riffleFrames,
   type Placed,
   placement,
@@ -320,6 +322,11 @@ export interface BoardProps {
   merges?: ReadonlyMap<string, Merge>;
   /** Phase 10 A-14 -- each card that went back to a hand or a library this update (the game says). */
   returns?: ReadonlyMap<string, Return>;
+  /**
+   * Spec 0061, item 4 -- each card that went to a graveyard this update with
+   * a reason, and the game's tag for it ("Cycled", "Countered by Counterspell").
+   */
+  graves?: ReadonlyMap<string, string>;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -367,6 +374,8 @@ export interface BoardProps {
   /** Phase 9 W-14 -- creatures selected to attack or block, not yet
    * pointed: a check mark, and on a pile how many of it ("✓ 2"). */
   marked?: readonly string[];
+  /** Spec 0061, item 3 -- hand cards picked to discard, not yet confirmed: a red outline, lifted. */
+  picked?: ReadonlySet<string>;
   /** Phase 9 Amendment 17 -- the targets already chosen for the spell
    * being cast: a TARGET tag, so the player sees what is picked. */
   chosenTargets?: ReadonlySet<string>;
@@ -729,6 +738,8 @@ interface ReturnMark {
   text?: string;
   /** The card it is about ("card:N"), for tests and the jump check. */
   of: string;
+  /** Spec 0061, item 4 -- a tag riding to a graveyard, not one at a return's destination. */
+  grave?: boolean;
 }
 
 /** Phase 10 A-14 -- tags and riffles above everything on the table and the hand. */
@@ -879,6 +890,7 @@ export function Board({
   departures,
   merges,
   returns,
+  graves,
   flyingOnto = null,
   hiddenStack = null,
   quietStack,
@@ -898,6 +910,7 @@ export function Board({
   unpayable,
   selected,
   marked,
+  picked,
   chosenTargets,
   lit,
   asking,
@@ -1070,9 +1083,11 @@ export function Board({
       const isLit = ids.some((one) => lit?.has(one));
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
+      const isPicked = ids.some((one) => picked?.has(one));
       return {
-        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}`,
+        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}${isPicked ? " bf-picked" : ""}`,
         words: [
+          isPicked ? "picked to discard" : "",
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
           isSelected ? "selected" : "",
@@ -1090,6 +1105,7 @@ export function Board({
           "data-unpayable": dim ? "true" : undefined,
           "data-chosen-target": isChosen ? "true" : undefined,
           "data-lit": isLit ? "true" : undefined,
+          "data-picked": isPicked ? "true" : undefined,
         },
         handlers: {
           // Spec 0037: and the whole stack, for "block with all of these".
@@ -1103,7 +1119,18 @@ export function Board({
         },
       };
     };
-  }, [choosable, unpayable, selected, marked, chosenTargets, lit, targeted, onPick, onInspect]);
+  }, [
+    choosable,
+    unpayable,
+    selected,
+    marked,
+    picked,
+    chosenTargets,
+    lit,
+    targeted,
+    onPick,
+    onInspect,
+  ]);
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -2573,6 +2600,40 @@ export function Board({
           zIndex: Z_LINES - 50,
         });
       }
+      // Spec 0061, item 4 -- why each card went to a graveyard: a tag rides
+      // above it there (the table's, the hand's and the stack's cards), stays
+      // a moment by the pile, and goes.
+      if (graves && graves.size > 0) {
+        const tagGrave = (card: string, ghost: Ghost, lead: number, move: number, side: Side) => {
+          const said = graves.get(card);
+          if (!said) return;
+          const top = centreOf(ghost.box, ghost.origin);
+          const from = { x: top.x, y: top.y - (g.cardH * ghost.box.scale) / 2 - g.cardH * 0.04 };
+          const pile = where[`${side}:graveyard`];
+          const to = { x: g.rail.x - g.cardH * 0.06, y: pile.y };
+          const { frames, duration } = graveTagFrames(to.x - from.x, to.y - from.y, lead, move);
+          returning.push({
+            key: `grave:${card}:${performance.now()}`,
+            kind: "tag",
+            style: { left: from.x, top: from.y },
+            frames,
+            duration,
+            delay: ghost.delay,
+            text: said,
+            of: card,
+            grave: true,
+          });
+        };
+        for (const ghost of leaving) {
+          if (!ghost.fade || ghost.returning || ghost.chained) continue;
+          tagGrave(ghost.id, ghost, ghost.fate ? fateMs(ghost.fate) : 0, MOVE_MS, ghost.side);
+        }
+        for (const ghost of gone) {
+          if (!ghost.fade || ghost.chained) continue;
+          const card = before.stack.find((entry) => entry.s.id === ghost.id)?.s.card;
+          if (card) tagGrave(card, ghost, 0, MOVE_MS, ghost.side);
+        }
+      }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
       if (returning.length > 0) setReturnMarks((list) => [...list, ...returning]);
       if (chains.length > 0) {
@@ -2642,6 +2703,7 @@ export function Board({
     departures,
     merges,
     returns,
+    graves,
     opponentName,
     stack,
     viewerSeat,
@@ -3512,8 +3574,9 @@ function ReturnMarkView({ mark, done }: { mark: ReturnMark; done: () => void }) 
   return mark.kind === "tag" ? (
     <div
       ref={ref}
-      className="bf-return-tag"
-      data-return-tag={mark.of}
+      className={`bf-return-tag${mark.grave ? " bf-grave-tag" : ""}`}
+      data-return-tag={mark.grave ? undefined : mark.of}
+      data-grave-tag={mark.grave ? mark.of : undefined}
       aria-hidden="true"
       style={style}
     >

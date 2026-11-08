@@ -246,6 +246,24 @@ function OptionButton({
  * Phase 9 Amendment 17 -- a target question's title once something is
  * chosen: how many more may be ("Choose up to 1 more target").
  */
+/**
+ * Spec 0061, item 5 -- paying for an ability, the window says what for:
+ * "Pay {R} to cycle Forgotten Cave" (the game's words after the mana still
+ * due). Null for anything else: a spell's payment stays "Pay the mana".
+ */
+export function payTitle(decision: Decision): string | null {
+  const pay = decision.about?.pay;
+  if (decision.kind !== "applyManaToCost" || !pay) return null;
+  return decision.owing ? `Pay ${decision.owing} ${pay}` : `Pay ${pay}`;
+}
+
+/** Spec 0061, item 5 -- the line under that title ("Then Forgotten Cave goes to your graveyard…"). */
+export function payLine(decision: Decision): string | null {
+  return decision.kind === "applyManaToCost" && decision.about?.pay
+    ? (decision.about.then ?? null)
+    : null;
+}
+
 export function targetsTitle(decision: Decision, heading: string): string {
   const t = decision.arrange?.targets;
   if (decision.kind !== "chooseTargetsFor" || !t || t.chosen.length === 0 || t.more <= 0) {
@@ -395,6 +413,11 @@ export function TableQuestionWindow(props: Common) {
       {(words?.said ?? decision.prompt) && (
         <p className="gs-win-prompt gs-question-prompt decision-prompt">
           <ManaText text={words?.said ?? decision.prompt ?? ""} />
+        </p>
+      )}
+      {payLine(decision) && (
+        <p className="gs-win-prompt gs-pay-then">
+          <ManaText text={payLine(decision) ?? ""} />
         </p>
       )}
       <ChosenLine decision={decision} board={board} />

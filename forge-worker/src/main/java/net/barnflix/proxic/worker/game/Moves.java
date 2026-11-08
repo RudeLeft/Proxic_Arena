@@ -41,20 +41,108 @@ final class Moves {
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
     record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-            Integer into, String where) {
+            Integer into, String where, String said, String name) {
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null);
         }
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
                 Integer into) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null);
         }
 
         Move withWhere(String place) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place);
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place, said, name);
         }
+
+        /**
+         * Spec 0061, item 4 -- why it went to a graveyard (`why`: "cycled",
+         * "discarded", "countered", "died"...), the tag the page shows on
+         * the card on its way ("Countered by Counterspell"), and the card's
+         * name for what the game tells the players. The name is never sent
+         * with the move itself: the board names cards by id.
+         */
+        Move withSaid(String reason, String words, String cardName) {
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, reason, into, where, words, cardName);
+        }
+    }
+
+    /** Spec 0061, item 4 -- Forge's facts about one card going to a graveyard, as MoveLog reads them. */
+    record GraveFacts(String from, boolean discarded, boolean cycled, boolean cleanup, String counteredBy,
+            boolean sacrificed, boolean destroyed, boolean creature) {
+    }
+
+    /**
+     * Spec 0061, item 4 -- why a card went to a graveyard, from Forge's facts:
+     * {why, tag}. From the hand: discarded for its cycling cost ("Cycled"),
+     * discarded down to hand size in the cleanup step ("Discarded: too many
+     * cards"), any other discard ("Discarded"). From the stack, while another
+     * card's spell or ability resolves: countered ("Countered by
+     * Counterspell"). From the battlefield: sacrificed ("Sacrificed"), a
+     * creature ("Died", why "destroyed" kept when Forge destroyed it, as
+     * Phase 10 A-00 has it), any other destroyed permanent ("Destroyed").
+     * Null when none of these is known (a spell that resolved, a mill).
+     */
+    static String[] graveReason(GraveFacts f) {
+        switch (f.from()) {
+            case "hand" -> {
+                if (!f.discarded()) {
+                    return null;
+                }
+                if (f.cycled()) {
+                    return new String[] {"cycled", "Cycled"};
+                }
+                return new String[] {"discarded", f.cleanup() ? "Discarded: too many cards" : "Discarded"};
+            }
+            case "stack" -> {
+                return f.counteredBy() == null ? null
+                        : new String[] {"countered", "Countered by " + f.counteredBy()};
+            }
+            case "battlefield" -> {
+                if (f.sacrificed()) {
+                    return new String[] {"sacrificed", "Sacrificed"};
+                }
+                if (f.creature()) {
+                    return new String[] {f.destroyed() ? "destroyed" : "died", "Died"};
+                }
+                return f.destroyed() ? new String[] {"destroyed", "Destroyed"} : null;
+            }
+            default -> {
+                return null;
+            }
+        }
+    }
+
+    /**
+     * Spec 0061, item 4 -- what the game tells a player about cards that went
+     * to a graveyard together for one reason, in the approved canvas's words:
+     * "Cycled: Forgotten Cave", "Discarded, too many cards: Elvish Warrior",
+     * "Countered by Counterspell: Giant Growth", "Died: Grizzly Bears". Another
+     * player's cards say whose: "Died: Grizzly Bears (Bob's)".
+     */
+    static String told(String said, List<String> names, String whose) {
+        return said.replace(": ", ", ") + ": " + String.join(", ", names)
+                + (whose == null ? "" : " (" + whose + "'s)");
+    }
+
+    /**
+     * Spec 0061, item 4 -- this round's graveyard moves with a reason, as the
+     * lines to tell: one line per owner and reason, in the order they went.
+     * Key: the owner seat; value: [said, names...] per line.
+     */
+    static Map<Integer, Map<String, List<String>>> toldByOwner(List<Move> moves) {
+        Map<Integer, Map<String, List<String>>> out = new java.util.LinkedHashMap<>();
+        for (Move move : moves) {
+            if (move.said() == null || move.name() == null || !"graveyard".equals(move.to())
+                    || move.toSeat() == null) {
+                continue;
+            }
+            out.computeIfAbsent(move.toSeat(), k -> new java.util.LinkedHashMap<>())
+                    .computeIfAbsent(move.said(), k -> new ArrayList<>())
+                    .add(move.name());
+        }
+        return out;
     }
 
     /**
@@ -114,7 +202,7 @@ final class Moves {
                     || ("battlefield".equals(move.from()) && "exile".equals(move.to()));
             out.add(host != null && merging && host != move.card()
                     ? new Move(move.card(), move.from(), move.fromSeat(), move.to(), move.toSeat(),
-                            move.faceDown(), move.why(), host, move.where())
+                            move.faceDown(), move.why(), host, move.where(), move.said(), move.name())
                     : move);
         }
         return out;
@@ -165,6 +253,10 @@ final class Moves {
             entry.add("to", place(move.to(), move.toSeat()));
             if (named && move.why() != null) {
                 entry.addProperty("why", move.why());
+            }
+            // Spec 0061, item 4 -- the tag the card carries to the graveyard.
+            if (named && move.said() != null) {
+                entry.addProperty("said", move.said());
             }
             if (named && move.into() != null) {
                 entry.addProperty("into", "card:" + move.into());

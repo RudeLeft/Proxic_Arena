@@ -172,8 +172,8 @@ test("attachments are drawn with what they modify, on either side of the table",
         pick = find(/^Forest · .*Play land/);
         if (pick < 0) pick = find(/Play land/);
         if (pick < 0 && forests >= 2) pick = find(/^Grizzly Bears · \{/);
-      } else if ((/Pay the mana/.test(heading) ? 0 : -1) >= 0) {
-        pick = /Pay the mana/.test(heading) ? 0 : -1;
+      } else if ((/Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1) >= 0) {
+        pick = /Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1;
       } else if (intent === "pacifism" && find(/^Grizzly Bears/) >= 0) {
         pick = find(/^Grizzly Bears/);
       } else if (intent === "goblin" && find(/^Raging Goblin/) >= 0) {

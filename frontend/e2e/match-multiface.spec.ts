@@ -132,7 +132,7 @@ ${await screens()}`);
       } else if (live === host) {
         pick = find(/Play land/);
         if (pick < 0 && (await front.count()) === 0) pick = find(/^Delver of Secrets · \{U\}/);
-        if (pick < 0) pick = /Pay the mana/.test(heading) ? 0 : -1;
+        if (pick < 0) pick = /Pay the mana|^\s*Pay \{/.test(heading) ? 0 : -1;
       } else {
         pick = find(/Play land/);
       }

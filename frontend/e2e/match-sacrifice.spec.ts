@@ -28,6 +28,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "sacrifice-deck.zip");
@@ -65,6 +66,8 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
 
         if ((await page.locator(SACRIFICE).count()) > 0) {
           const { heading, prompt } = await question(page);
@@ -112,8 +115,9 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
         }
 
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         if (!priority) {
           // Any other question (paying mana, a discard): the first choice,
           // a board choice, or pass.
@@ -123,7 +127,7 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
           );
           if ((await listed.count()) > 0) await click(listed);
           else if ((await board.count()) > 0) await click(board);
-          else await click(panel.locator("button.gs-pass, button.gs-act"));
+          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           continue;
         }
 
@@ -152,7 +156,11 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
           await click(creature);
           continue;
         }
-        await click(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+        await click(
+          panel.locator(
+            "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+          ),
+        );
       }
       await host.waitForTimeout(100);
     }

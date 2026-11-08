@@ -28,6 +28,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "surveil-deck.zip");
@@ -72,6 +73,8 @@ test("surveil and scry show their cards to the player looking, and are answered 
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         const other = page === host ? guest : host;
 
         if ((await panel.locator(ORDER_AGAIN).count()) > 0) askedAgain++;
@@ -124,8 +127,9 @@ test("surveil and scry show their cards to the player looking, and are answered 
 
         // Any other question: the first choice, a board choice, or pass.
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
           await click(combat);
@@ -138,7 +142,7 @@ test("surveil and scry show their cards to the player looking, and are answered 
           );
           if ((await listed.count()) > 0) await click(listed);
           else if ((await board.count()) > 0) await click(board);
-          else await click(panel.locator("button.gs-pass, button.gs-act"));
+          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
           continue;
         }
 
@@ -157,7 +161,11 @@ test("surveil and scry show their cards to the player looking, and are answered 
           if ((await popup.count()) > 0) await click(popup);
           continue;
         }
-        await click(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+        await click(
+          panel.locator(
+            "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+          ),
+        );
       }
       await host.waitForTimeout(100);
     }

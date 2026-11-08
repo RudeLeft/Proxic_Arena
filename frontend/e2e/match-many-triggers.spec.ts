@@ -21,6 +21,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
@@ -120,6 +121,8 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
 
         // W-05: the order tray -- click its cards in order, then Done.
         const tray = page.getByRole("dialog", {
@@ -208,7 +211,9 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
 
         // Priority: the host plays a Mountain, Boggart Shenanigans, Goblins,
         // then Pyroclasm; the guest only passes.
-        const act = panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)");
+        const act = panel.locator(
+          "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+        );
         if ((await act.count()) > 0) {
           const hand = page.locator(
             '[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])',
@@ -270,7 +275,7 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
         else if ((await board.count()) > 0) await clickNow(board);
-        else await clickNow(panel.locator("button.gs-pass, button.gs-act"));
+        else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
       }
       await host.waitForTimeout(100);
     }

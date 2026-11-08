@@ -188,7 +188,7 @@ test("naming a card is a search over Forge's names, and the pick is one of them"
       const land = labels.findIndex((label) => label.includes("Play land"));
       const paying =
         labels.length > 0 &&
-        /Pay the mana/.test(
+        /Pay the mana|^\s*Pay \{/.test(
           await matchPanel(live)
             .locator(".gs-question-title")
             .allTextContents()

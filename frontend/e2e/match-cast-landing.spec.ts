@@ -29,6 +29,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -115,6 +116,8 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
       for (const page of [host, guest]) {
         await page.mouse.move(0, 0);
         const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         if ((await page.locator(".gs-over").count()) > 0) break;
         if (await answerCardTray(page)) continue;
         const combat = panel.locator("button.gs-act-combat");
@@ -123,8 +126,9 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
           continue;
         }
         const priority =
-          (await panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)").count()) >
-          0;
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
         if (!priority) {
           // Paying for the creature: a Forest (or an elf) to tap.
           const mana = page.locator(
@@ -157,7 +161,11 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
         const fresh = names.findIndex((name) => !seen(name));
         const creature = fresh >= 0 ? creatures.nth(fresh) : creatures;
         if ((await creatures.count()) === 0) {
-          await clickNow(panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel)"));
+          await clickNow(
+            panel.locator(
+              "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+            ),
+          );
           continue;
         }
         // Cast it, and watch from the click that pays the last of it.

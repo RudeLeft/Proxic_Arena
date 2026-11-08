@@ -87,6 +87,14 @@ export type ClickResult =
   /** Just select it: inspect, no answer (§7.25). */
   | { kind: "select"; objectId: string };
 
+/** Spec 0057's kinds of option that discard the card for something (the server says which). */
+const THROWS_AWAY = new Set(["cycling", "landcycling", "channel"]);
+
+/** Spec 0061, item 1 -- this option throws its card away (cycling, landcycling, channel). */
+export function throwsAway(option: DecisionOption): boolean {
+  return THROWS_AWAY.has(option.use?.kind ?? "");
+}
+
 export function clickOn(
   question: Question | null,
   objectId: string,
@@ -101,8 +109,11 @@ export function clickOn(
   const back = options.find((o) => /^un(attack|block):/.test(o.actionId));
   if (back) return { kind: "answer", actionId: back.actionId };
   // AMENDMENT 12 (on your move) and §7.27 (inside Forge's context): the
-  // click IS the choice when there is only one thing it could mean.
-  if (options.length === 1 && withheld === 0) {
+  // click IS the choice when there is only one thing it could mean --
+  // unless that one thing throws the card away (spec 0061, item 1: Forgotten
+  // Cave with the land drop used was cycled by one click). Then its menu
+  // opens, the play greyed with why, and nothing happens until a pick.
+  if (options.length === 1 && withheld === 0 && !throwsAway(options[0]!)) {
     return { kind: "answer", actionId: options[0]!.actionId };
   }
   return { kind: "offer", objectId, options };
