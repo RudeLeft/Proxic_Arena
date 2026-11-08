@@ -3,6 +3,24 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.52.0 — 2026-11-08
+
+A spark of mana for every payment, and a play log in the game chat.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Mana sparks**
+- Every mana you pay sends a small sparking ball in its own colour to the symbol it pays, and the symbol pops and lights up -- the last one too. Forest green, Swamp dark with a pale ring, Island blue, Plains white, Mountain red, colourless grey.
+- It works for every payment: casting, abilities ("Still to pay"), creatures and artifacts that make mana, mana you already made (from your mana display), convoke and Phyrexian life (from your life).
+- The other player sees the sparks too; while your spell is still face down to them, the sparks fly into its back, so its cost stays hidden.
+
+**Game chat: a Play log**
+- The game chat now has two tabs, **Chat** and **Play log**, each with its own unread count.
+- The play log lists what happened, turn by turn, in plain words ("Alice cast Lightning Bolt targeting Bob's Grizzly Bears", "Grizzly Bears died", "Bob drew a card"). Point at a card's name to see it; filter to just spells and combat; "Jump to latest" when you've scrolled up. It survives a page refresh.
+- It only ever shows what you're allowed to see: the other player's draws say "drew a card", face-down cards stay unnamed.
+- Undock the chat into a floating window you can drag and resize -- it remembers where you put it and keeps clear of your hand and the action button -- or pop it out into its own browser window (for a second screen). The lobby chat is unchanged.
+
 ## 1.51.0 — 2026-11-08
 
 No card thrown away by one click, clearer attack arrows, and a new loading screen.
