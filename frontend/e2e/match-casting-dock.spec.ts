@@ -23,6 +23,7 @@ import {
   sharedDeck,
   startAMatch,
   watchGame,
+  discardIfAsked,
 } from "./match-helpers";
 
 const castingPackage = join(process.cwd(), "..", "Test Deck", "casting-deck.zip");
@@ -77,6 +78,8 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
       await watch.check();
       for (const page of [host, guest]) {
         const other = page === host ? guest : host;
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
         const k = await kind(page);
         if (!k) continue;
         if (k === "chooseSpellAbilityToPlay") {

@@ -114,8 +114,10 @@ test("in a game, the game's messages sit top right of the table and clicks go th
     await expect.poll(() => last !== "").toBe(true);
 
     // What the game says, as it says it: on the snapshot's notices.
-    const said = JSON.parse(last) as { state: { notices?: string[] } };
+    // Spec 0061: with one more told in all, as the game counts them.
+    const said = JSON.parse(last) as { state: { notices?: string[]; noticesTotal?: number } };
     said.state.notices = [...(said.state.notices ?? []), "RudeLeft flipped a coin: heads."];
+    said.state.noticesTotal = (said.state.noticesTotal ?? 0) + 1;
     (client as WebSocketRoute | null)?.send(JSON.stringify(said));
 
     const message = noticeCard(guest, "RudeLeft flipped a coin: heads");

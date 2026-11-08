@@ -169,9 +169,12 @@ export async function isAsked(page: Page): Promise<boolean> {
   // combat is the act button (owner 2026-10-22).
   // PHASE_09: a yes/no, a trigger's target or an order is a window (.gs-win);
   // the start of the game is the opening hand (.gs-opening, W-15).
+  // Spec 0061: discarding to hand size is the act button (.gs-discard), no
+  // window; "List choices" still lists the cards.
   return (
-    (await page.locator(".gs-question, .gs-your-move, .gs-combat, .gs-win, .gs-opening").count()) >
-    0
+    (await page
+      .locator(".gs-question, .gs-your-move, .gs-combat, .gs-win, .gs-opening, .gs-discard")
+      .count()) > 0
   );
 }
 
@@ -610,7 +613,7 @@ export function watchGame(
                 `stack ${count('[data-zone="stack"]')}`,
                 `mine ${count('.bf-cards [data-zone^="viewer:"]:not([data-zone="viewer:hand"])')}`,
                 `theirs ${count('.bf-cards [data-zone^="opponent:"]:not([data-zone="opponent:hand"])')}`,
-                `asked ${count(".gs-question, .gs-your-move, .gs-combat, .gs-win, .gs-opening")}`,
+                `asked ${count(".gs-question, .gs-your-move, .gs-combat, .gs-win, .gs-opening, .gs-discard")}`,
                 `question "${text(".gs-question-title, .gs-win h2, .gs-your-move")}"`,
               ].join(", "),
             };
