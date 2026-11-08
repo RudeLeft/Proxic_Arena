@@ -26,6 +26,7 @@ fact that a question was asked.
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
 """
+import copy
 import os
 import sys
 
@@ -103,10 +104,35 @@ class Asks:
         wrong = [o for o in self.offers if o["payable"] != o["could"]]
         if wrong:
             out.append(f"{card} dimmed wrongly at {len(wrong)} of {len(self.offers)} offers: {wrong[:3]}")
-        if not any(o["could"] for o in self.offers) or all(o["could"] for o in self.offers):
-            # Both kinds of offer must be seen, or the dimming was not tested.
-            out.append(f"{card} was never offered both payable and not: {self.offers[:6]}")
         return out
+
+    def both_seen(self):
+        """Both kinds of offer seen -- or the dimming was not tested. Not
+        seeing both is the shuffle's doing (CI 2026-11-08: improvise only
+        ever affordable), so it is inconclusive (one more game), never
+        WRONG."""
+        return any(o["could"] for o in self.offers) and not all(o["could"] for o in self.offers)
+
+
+def until_both(base, asks):
+    """[base] -- the scenario's own "done" -- and then on until the card has
+    been offered both payable and not (a copy offered right after the cast,
+    the lands tapped, is the usual unaffordable one). The board is measured
+    as it was when [base] first held: `frozen` keeps that snapshot, put
+    back after the game (CI 2026-11-08: Reverse Engineer drawn only once
+    already affordable, so its dimming was never seen)."""
+    frozen = {}
+
+    def until(g):
+        if "state" not in frozen and base(g):
+            frozen["state"] = copy.deepcopy(g.state)
+        return "state" in frozen and asks.both_seen()
+
+    def restore(g):
+        if "state" in frozen:
+            g.state = frozen["state"]
+
+    return until, restore
 
 
 def untapped(cards):
@@ -278,9 +304,11 @@ def delve():
             return None
         return DEFAULT
 
-    g.run(policy, until=lambda g: done["cast"]
-          and len(g.zone(1, "exile", owner=1)) > done["before"]["exile"]
-          and not g.state.get(1, {}).get("stack"), max_turn=40)
+    until, restore = until_both(lambda g: done["cast"]
+                                and len(g.zone(1, "exile", owner=1)) > done["before"]["exile"]
+                                and not g.state.get(1, {}).get("stack"), asks)
+    g.run(policy, until=until, max_turn=40)
+    restore(g)
     found = {"before": done["before"], "delved": done["delved"],
              "after": {"grave": len(graveyard(g, 1)), "hand": g.player(1, 1).get("handCount"),
                        "exile": len(g.zone(1, "exile", owner=1))}}
@@ -289,6 +317,8 @@ def delve():
         return "inconclusive", "the graveyard never held four cards with four Islands up", found
     b, a = found["before"], found["after"]
     problems = asks.problems("delve")
+    if not problems and not asks.both_seen():
+        return "inconclusive", f"delve was never offered both payable and not: {asks.offers[:6]}", found
     if done["delved"] != 4:
         problems.append(f"delve was offered {done['delved']} times, not 4")
     if a["exile"] - b["exile"] != 4:
@@ -355,8 +385,10 @@ def convoke():
             return discard_spare(f, "Plains")
         return DEFAULT
 
-    g.run(policy, until=lambda g: done["card"] and any(c["id"] == done["card"] for c in g.mine(1))
-          and not g.state.get(1, {}).get("stack"), max_turn=40)
+    until, restore = until_both(lambda g: done["card"] and any(c["id"] == done["card"] for c in g.mine(1))
+                                and not g.state.get(1, {}).get("stack"), asks)
+    g.run(policy, until=until, max_turn=40)
+    restore(g)
     lions = {c["id"]: c for c in g.mine(1, name="Savannah Lions")}
     found = {"convoked": done["tapped"], "loxodon": any(c["id"] == done["card"] for c in g.mine(1)),
              "lions": {i: {"tapped": c.get("tapped"), "counters": c.get("counters")} for i, c in lions.items()}}
@@ -364,6 +396,8 @@ def convoke():
     if not done["card"]:
         return "inconclusive", "never had three Lions and two Plains", found
     problems = asks.problems("convoke")
+    if not problems and not asks.both_seen():
+        return "inconclusive", f"convoke was never offered both payable and not: {asks.offers[:6]}", found
     if not found["loxodon"]:
         problems.append("Venerated Loxodon did not resolve")
     if len(done["tapped"]) != 3:
@@ -426,8 +460,10 @@ def improvise():
     # The copy that was cast, not any copy: a discarded one is in the
     # graveyard too.
     resolved = lambda g: any(c["id"] == done["card"] for c in graveyard(g, 1))  # noqa: E731
-    g.run(policy, until=lambda g: done["card"] and resolved(g)
-          and not g.state.get(1, {}).get("stack"), max_turn=28)
+    until, restore = until_both(lambda g: done["card"] and resolved(g)
+                                and not g.state.get(1, {}).get("stack"), asks)
+    g.run(policy, until=until, max_turn=28)
+    restore(g)
     thopters = {c["id"]: c.get("tapped") for c in g.mine(1, name="Ornithopter")}
     found = {"improvised": done["tapped"], "thopters_tapped": thopters,
              "hand": (done["hand_before"], g.player(1, 1).get("handCount")),
@@ -436,6 +472,8 @@ def improvise():
     if not done["card"]:
         return "inconclusive", "never had three Ornithopters and two Islands", found
     problems = asks.problems("improvise")
+    if not problems and not asks.both_seen():
+        return "inconclusive", f"improvise was never offered both payable and not: {asks.offers[:6]}", found
     if not found["resolved"]:
         problems.append("Reverse Engineer did not resolve")
     if len(done["tapped"]) != 3 or not all(thopters.get(c) for c in done["tapped"]):
