@@ -26,8 +26,9 @@ Each scenario is its own small game against Forge.
              holds only Craw Wurms ({4}{G}{G}) and Forests. At her own Main 1
              with nothing to play she is told "Nothing you can play this turn
              -- N lands, .... Passing your turn." (once that turn, her seat
-             only), and the rest of the turn takes visible time: the next
-             board comes at least 0.8 s later (a 0.4 s pause at each step).
+             only), and the rest of the turn takes visible time: its END
+             step (or the next turn) comes at least 0.8 s later (a 0.4 s
+             pause at each step passed for: Main 1, Main 2, ...).
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -281,6 +282,9 @@ NOTICE = re.compile(r"^Nothing you can play this turn -- (No lands|1 land|\d+ la
                     r"Passing your turn( \(you can still attack\))?\.$")
 
 
+LATE = {"END_OF_TURN", "CLEANUP"}
+
+
 def passed():
     g = game("passed", [("Forest", 16), ("Craw Wurm", 44)], [("Forest", 30), ("Grizzly Bears", 30)],
              stops={1: True, 2: True})
@@ -303,9 +307,17 @@ def passed():
                 if any(NOTICE.match(n) for n in s.get("notices") or []):
                     st["at"] = i
                     break
-        if st["at"] is not None and len(snaps) > st["at"] + 1:
-            st["gap"] = w.times[1][st["at"] + 1] - w.times[1][st["at"]]
-            return True
+        if st["at"] is not None:
+            # To the turn's END step or later: a board in between proves
+            # nothing (a combat step sends one with nothing to fight -- CI
+            # 2026-11-08 timed only Main 1's pause that way, on turn 1).
+            # Main 1 and Main 2 at least are passed for, 0.4 s each.
+            turn = snaps[st["at"]].get("turn")
+            for i in range(st["at"] + 1, len(snaps)):
+                if snaps[i].get("turn") != turn or snaps[i].get("phase") in LATE:
+                    st["gap"] = w.times[1][i] - w.times[1][st["at"]]
+                    st["until"] = f'turn {snaps[i].get("turn")} {snaps[i].get("phase")}'
+                    return True
         return False
 
     g.run(policy, until=until, max_turn=20)
@@ -321,7 +333,7 @@ def passed():
         k = (now.get("noticesTotal") or 0) - (before.get("noticesTotal") or 0)
         bob_new = (now.get("notices") or [])[-k:] if k > 0 else []
     found = {"told": told, "phase": board.get("phase"), "active": board.get("activeSeat"),
-             "noticesTotal": board.get("noticesTotal"), "gap_s": st["gap"],
+             "noticesTotal": board.get("noticesTotal"), "gap_s": st["gap"], "until": st.get("until"),
              "bob_told": [n for n in bob_new if n.startswith("Nothing you can play")],
              "stopped": g.stopped_badly()}
     if st["at"] is None or st["gap"] is None:
