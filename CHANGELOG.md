@@ -3,6 +3,30 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.51.0 — 2026-11-08
+
+No card thrown away by one click, clearer attack arrows, and a new loading screen.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Nothing thrown away by one click**
+- A card whose only choice right now would throw it away (cycling, landcycling, channel -- Forgotten Cave after you've played your land) now always opens its menu: the play is shown greyed with why ("You've already played a land this turn"), and the red "Cycle it instead" says what you lose.
+- The payment for it says what it's for: "Pay {R} to cycle Forgotten Cave".
+- When nothing in your hand can be played, the game tells you ("Nothing you can play this turn -- 1 land, no land in hand. Passing your turn.") and you can watch the turn's steps go by instead of it jumping to the end.
+- At the end of your turn with too many cards, you pick the card to discard and then press "Discard Elvish Warrior" -- one click no longer discards.
+- A card going to a graveyard says why: "Cycled", "Discarded: too many cards", "Countered by ...", "Died".
+- Fixed: after your sixth game message, no more messages appeared.
+
+**Attack arrows**
+- No more face picture or name pill on attackers. When nothing is pointed at, attackers wear ATTACKING and what they attack glows -- your life circle with "4 attacking", or the planeswalker.
+- Every attacker shows its own arrow when you point at it (or tap it), including blocked ones (a short arrow to their blocker) and stacked ones ("x2").
+- Arrows leave the attacker's edge, run along the middle of the table and land cleanly on the target -- they never cross each other or a card.
+
+**Loading the game**
+- A new loading screen: the five mana symbols orbit, swirl faster while you wait, and burst into a flash that opens onto the table.
+- The Proxic Arena logo is gone from the top left of the table and from the loading screen.
+
 ## 1.50.0 — 2026-11-07
 
 Player pictures that fix themselves, and a wider players list.
