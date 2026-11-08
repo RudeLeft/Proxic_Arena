@@ -1168,6 +1168,8 @@ public final class GameHost {
             }
             com.google.gson.JsonArray lines = logLines.get(seat);
             if (lines != null && lines.size() > 0) {
+                // Spec 0064 -- a card's id only while this board shows the card.
+                PlayLog.keepShownIds(lines, PlayLog.cardIds(snapshot));
                 snapshot.add("playLog", lines);
             }
             try {

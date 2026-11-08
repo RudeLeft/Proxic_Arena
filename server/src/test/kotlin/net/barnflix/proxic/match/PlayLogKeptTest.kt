@@ -138,4 +138,25 @@ class PlayLogKeptTest {
         val drew = hidden["playLog"]!!.jsonArray[0].jsonObject["parts"]!!.jsonArray[1]
         assertNull((drew as? JsonObject)?.get("art"))
     }
+
+    @Test
+    fun `a line keeps a card's id only while the board it is sent with shows that card`() {
+        val live = live()
+        // Alice cast Lightning Bolt (public, on the stack); it then went back to
+        // her hand (Krark, the Thumbless). Bob's next board does not show it.
+        val bolt = """{"name":"Lightning Bolt","known":true,"id":"card:7","owner":1,"seat":1}"""
+        live.snapshotTaken(2, state(2, 10, line(1, 10, """{"player":1}""", "\" cast \"", bolt)))
+        live.snapshotTaken(2, state(2, 11))
+        val sent = live.snapshotFor(bob)!!["playLog"]!!.jsonArray[0].jsonObject["parts"]!!.jsonArray[2].jsonObject
+        assertEquals("Lightning Bolt", sent["name"]!!.jsonPrimitive.content, "the name is history")
+        assertNull(sent["id"], "the id is a live handle on a card Bob can't see now")
+        // While the board shows it, the id stays (a close-up can open).
+        val shown =
+            Json.parseToJsonElement(
+                """{"seat":2,"stateRevision":12,"battlefield":[{"id":"card:7","name":"Lightning Bolt"}],"hand":[]}""",
+            ).jsonObject
+        live.snapshotTaken(2, shown)
+        val kept = live.snapshotFor(bob)!!["playLog"]!!.jsonArray[0].jsonObject["parts"]!!.jsonArray[2].jsonObject
+        assertEquals("card:7", kept["id"]!!.jsonPrimitive.content)
+    }
 }

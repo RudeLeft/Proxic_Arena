@@ -112,3 +112,18 @@ to CI. With the visibility check removed from `PlayLog`, both scripts
 fail (49 problems); with the page's revision filter removed, the
 held-board page test fails. Page tests `fixes0064.test.tsx`; e2e
 `match-play-log.spec.ts`.
+
+**Fix after commit 802a9d1 (2026-11-08): an id left on a card gone hidden.**
+CI's check-hidden-hands caught seat 2's snapshot (Krark, the Thumbless
+game) carrying `card:7` -- Alice's Lightning Bolt, by then back in her
+hand -- in a play log part's `id`: the Bolt left the stack for her hand
+when Krark lost his flip, and the line (named, since the Bolt was public
+on the stack) kept the card's id. The name is history; the id is a live
+handle. Now a line's card keeps its `id` only while the board it travels
+with carries that card id (`PlayLog.keepShownIds` in the worker for each
+round's lines; `SeatPlayLogs.shownOnly` in the server for the whole log
+resent on a reconnect -- a reference check, no visibility decided there).
+That move also said "was countered"; a spell leaving the stack for a hand
+or a library now says where it went ("Lightning Bolt returned to Alice's
+hand"). `check-hidden-log.py` now also fails any line whose `id` the
+board of the same snapshot does not carry (it reported the CI trace).

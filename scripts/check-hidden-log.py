@@ -11,7 +11,10 @@ been applied (HID-001, HID-002):
             have named by then (any zone, its own hand, otherHands, the
             stack, the card being cast, what Forge showed it in a reveal
             or a report) -- the log can't be the first to name a card
-  ids       no card a line points at (`id`) is in another seat's hand at
+  ids       every card a line points at (`id`) is a card the board it is
+            sent with shows (the name is history; an id is a live handle,
+            and a card named while public may be in a hand by now -- Krark,
+            the Thumbless, 2026-11-08); none is in another seat's hand at
             that revision, unless Forge let this seat see it (otherHands);
             no card the seat's own snapshot of that revision shows as
             unknown (face down to it) is named by a line
@@ -50,6 +53,26 @@ def seen_names(state):
     return names
 
 
+def board_ids(state):
+    """Every card id the snapshot carries (an `id` or a stack `source`), the play log aside."""
+    found = set()
+
+    def walk(n):
+        if isinstance(n, dict):
+            for key, child in n.items():
+                if key == "playLog":
+                    continue
+                if key in ("id", "source") and isinstance(child, str) and child.startswith("card:"):
+                    found.add(child)
+                walk(child)
+        elif isinstance(n, list):
+            for child in n:
+                walk(child)
+
+    walk(state)
+    return found
+
+
 def own_name(name):
     # A face-down card named to its controller: "Willbender (face down)" in a stack entry.
     return name[: -len(" (face down)")] if name.endswith(" (face down)") else name
@@ -81,6 +104,7 @@ def check(path, totals, problems):
             problems.append(f"{path}:{number}: a spectator's snapshot carries play log lines")
         unknown = {c.get("id") for zone in ZONES for c in state.get(zone, []) or []
                    if isinstance(c, dict) and c.get("known") is False}
+        on_board = board_ids(state)
         for line in lines:
             totals["lines"] += 1
             n = line.get("n")
@@ -97,6 +121,9 @@ def check(path, totals, problems):
                 if part["name"] not in names:
                     problems.append(f"{path}:{number}: seat {seat} line {n} names {part['name']!r}, which "
                                     f"no snapshot of seat {seat} has named: {line}")
+                if part.get("id") is not None and part["id"] not in on_board:
+                    problems.append(f"{path}:{number}: seat {seat} line {n} points at {part['id']}, which "
+                                    f"this seat's board of the same revision does not show: {line}")
                 if part.get("id") in unknown:
                     problems.append(f"{path}:{number}: seat {seat} line {n} names {part.get('id')}, which "
                                     f"its own board shows face down to it: {line}")

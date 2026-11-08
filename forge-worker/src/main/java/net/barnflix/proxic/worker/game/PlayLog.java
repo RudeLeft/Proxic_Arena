@@ -478,6 +478,63 @@ final class PlayLog {
         return out;
     }
 
+    /**
+     * Every card id a snapshot carries for its viewer (any `id` or stack
+     * `source`, anywhere but the play log itself): the cards that viewer's
+     * board shows right now.
+     */
+    static java.util.Set<String> cardIds(JsonElement node) {
+        java.util.Set<String> out = new HashSet<>();
+        collect(node, out);
+        return out;
+    }
+
+    private static void collect(JsonElement node, java.util.Set<String> out) {
+        if (node == null || node.isJsonNull() || node.isJsonPrimitive()) {
+            return;
+        }
+        if (node.isJsonArray()) {
+            node.getAsJsonArray().forEach(child -> collect(child, out));
+            return;
+        }
+        for (Map.Entry<String, JsonElement> entry : node.getAsJsonObject().entrySet()) {
+            if ("playLog".equals(entry.getKey())) {
+                continue;
+            }
+            JsonElement value = entry.getValue();
+            if (("id".equals(entry.getKey()) || "source".equals(entry.getKey())) && value.isJsonPrimitive()
+                    && value.getAsString().startsWith("card:")) {
+                out.add(value.getAsString());
+            }
+            collect(value, out);
+        }
+    }
+
+    /**
+     * A line's card keeps its id (what the page opens a close-up by) only
+     * while the board it travels with shows that card. The NAME is history --
+     * it was public when the line was written ("Lightning Bolt returned to
+     * Alice's hand") -- but an id is a live handle on the card: once the card
+     * is somewhere this seat can't see (back in its owner's hand), the id
+     * would let the seat follow it (found by check-hidden-hands on Krark, the
+     * Thumbless, 2026-11-08). The server applies the same rule to the whole
+     * log it sends on a reconnect.
+     */
+    static void keepShownIds(JsonArray lines, java.util.Set<String> shown) {
+        for (JsonElement line : lines) {
+            JsonElement parts = line.isJsonObject() ? line.getAsJsonObject().get("parts") : null;
+            if (parts == null || !parts.isJsonArray()) {
+                continue;
+            }
+            for (JsonElement part : parts.getAsJsonArray()) {
+                if (part.isJsonObject() && part.getAsJsonObject().has("id")
+                        && !shown.contains(part.getAsJsonObject().get("id").getAsString())) {
+                    part.getAsJsonObject().remove("id");
+                }
+            }
+        }
+    }
+
     // --- what the worker tells it directly ----------------------------------------------------
 
     /** Forge showed [seat] these cards (a reveal, a look): named for that seat alone. */
@@ -978,13 +1035,21 @@ final class PlayLog {
                     owner, "'s hand");
             case "battlefield-library" -> fact.phrase = (s, items) -> tail(items, " was put into ", " were put into ",
                     owner, "'s library");
-            case "stack-graveyard", "stack-library", "stack-hand", "stack-exile" -> {
+            case "stack-graveyard", "stack-exile" -> {
                 if (!countered(id)) {
                     return; // resolved, or cast from somewhere: the cast line said it
                 }
                 setKind(fact, "death");
-                fact.phrase = (s, items) -> tail(items, " was countered", " were countered");
+                fact.phrase = "stack-graveyard".equals(route)
+                        ? (s, items) -> tail(items, " was countered", " were countered")
+                        : (s, items) -> tail(items, " was countered and exiled", " were countered and exiled");
             }
+            // Off the stack back to a hand or a library (Krark, the Thumbless
+            // losing his flip; Remand; Memory Lapse): said where it went.
+            case "stack-hand" -> fact.phrase = (s, items) -> tail(items, " returned to ", " returned to ",
+                    owner, "'s hand");
+            case "stack-library" -> fact.phrase = (s, items) -> tail(items, " was put into ", " were put into ",
+                    owner, "'s library");
             case "hand-graveyard" -> {
                 Player who = card == null ? null : card.getOwner();
                 List<Card> discards = who == null ? List.of() : who.getDiscardedThisTurn();

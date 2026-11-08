@@ -139,7 +139,7 @@ class LiveMatch(
         val state = snapshots[seat] as? kotlinx.serialization.json.JsonObject ?: return null
         val log = playLogs.of(seat)
         if (log.isEmpty()) return state
-        return kotlinx.serialization.json.JsonObject(state + ("playLog" to log))
+        return kotlinx.serialization.json.JsonObject(state + ("playLog" to SeatPlayLogs.shownOnly(log, state)))
     }
 
     fun nowAsking(request: DecisionRequest) {
@@ -368,5 +368,58 @@ class SeatPlayLogs {
     fun of(seat: Int): kotlinx.serialization.json.JsonArray {
         val kept = bySeat[seat] ?: return kotlinx.serialization.json.JsonArray(emptyList())
         return synchronized(kept) { kotlinx.serialization.json.JsonArray(kept.toList()) }
+    }
+
+    companion object {
+        /**
+         * [log] with a card's `id` kept only where [board] (the snapshot it
+         * is sent with) carries that card id. The name is history; the id is
+         * a live handle, and a card named while it was public may be in a
+         * hand now (the worker's PlayLog.keepShownIds, the same rule, for the
+         * round's own lines). A reference check: no visibility is decided here.
+         */
+        fun shownOnly(
+            log: kotlinx.serialization.json.JsonArray,
+            board: kotlinx.serialization.json.JsonObject,
+        ): kotlinx.serialization.json.JsonArray {
+            val shown = mutableSetOf<String>()
+            collectIds(kotlinx.serialization.json.JsonObject(board - "playLog"), shown)
+            return kotlinx.serialization.json.JsonArray(log.map { line -> withoutHiddenIds(line, shown) })
+        }
+
+        private fun withoutHiddenIds(
+            line: kotlinx.serialization.json.JsonElement,
+            shown: Set<String>,
+        ): kotlinx.serialization.json.JsonElement {
+            val row = line as? kotlinx.serialization.json.JsonObject ?: return line
+            val parts = row["parts"] as? kotlinx.serialization.json.JsonArray ?: return line
+            val kept =
+                parts.map { part ->
+                    val card = part as? kotlinx.serialization.json.JsonObject
+                    val id = (card?.get("id") as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    val hidden = card != null && id != null && id !in shown
+                    if (hidden) kotlinx.serialization.json.JsonObject(card!! - "id") else part
+                }
+            return kotlinx.serialization.json.JsonObject(row + ("parts" to kotlinx.serialization.json.JsonArray(kept)))
+        }
+
+        /** Where a snapshot names a card by id: a card's own `id`, a stack entry's `source`. */
+        private val ID_KEYS = setOf("id", "source")
+
+        private fun collectIds(
+            node: kotlinx.serialization.json.JsonElement,
+            out: MutableSet<String>,
+        ) {
+            when (node) {
+                is kotlinx.serialization.json.JsonArray -> node.forEach { collectIds(it, out) }
+                is kotlinx.serialization.json.JsonObject ->
+                    node.forEach { (key, value) ->
+                        val text = (value as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+                        if (key in ID_KEYS && text.startsWith("card:")) out += text
+                        collectIds(value, out)
+                    }
+                else -> Unit
+            }
+        }
     }
 }

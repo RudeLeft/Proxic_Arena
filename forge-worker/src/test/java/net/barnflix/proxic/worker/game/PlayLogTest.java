@@ -183,6 +183,32 @@ class PlayLogTest {
         assertEquals("Hello", PlayLog.capital(jsonOf("hello")).get(0).getAsString());
     }
 
+    @Test
+    void aLineKeepsACardsIdOnlyWhileTheBoardItTravelsWithShowsIt() {
+        // Krark, the Thumbless: Alice's Lightning Bolt left the stack for her
+        // hand. Bob's line keeps the name (it was public) but not the id.
+        JsonArray lines = new JsonArray();
+        JsonObject line = new JsonObject();
+        JsonArray parts = new JsonArray();
+        parts.add(card("Lightning Bolt", 7, 1));
+        parts.add(" returned to ");
+        parts.add(card("Mountain", 39, 1));
+        line.add("parts", parts);
+        lines.add(line);
+        JsonObject board = new JsonObject();
+        JsonArray battlefield = new JsonArray();
+        JsonObject mountain = new JsonObject();
+        mountain.addProperty("id", "card:39");
+        battlefield.add(mountain);
+        board.add("battlefield", battlefield);
+        board.add("playLog", lines.deepCopy()); // the log itself shows nothing
+        PlayLog.keepShownIds(lines, PlayLog.cardIds(board));
+        JsonObject bolt = parts.get(0).getAsJsonObject();
+        assertEquals("Lightning Bolt", bolt.get("name").getAsString());
+        assertNull(bolt.get("id"), "an id the board does not show is a handle on a hidden card");
+        assertEquals("card:39", parts.get(2).getAsJsonObject().get("id").getAsString());
+    }
+
     private static JsonArray jsonOf(String text) {
         JsonArray out = new JsonArray();
         out.add(text);
