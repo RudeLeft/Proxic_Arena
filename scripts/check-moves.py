@@ -12,7 +12,10 @@ carries `moves`: where from, where to, and why a card left the battlefield.
   sacrifice  Innocent Blood (each player sacrifices a creature): both
              leave as "sacrificed", never "destroyed".
   bounce     Unsummon on Bob's Grizzly Bears: both seats told it went from
-             his battlefield to his hand, with no `where` (Phase 10 A-14).
+             his battlefield to his hand, with no `where` (Phase 10 A-14);
+             Bob is told WHICH card (the one targeted), Alice is not: it is
+             in a hand she can't see (2026-11-08, no live id for a card in a
+             zone hidden from the viewer -- HiddenIds).
   top        Griptide on the Bears: to his library, `where` "top", both seats.
   bottom     Hallowed Burial with a Savannah Lions of Alice's and Bob's
              Bears out: each to its OWNER's library, `where` "bottom".
@@ -20,9 +23,15 @@ carries `moves`: where from, where to, and why a card left the battlefield.
              (Forge moves it, then shuffles: the shuffle replaces any place).
   lapse      Memory Lapse on Bob's Bears spell: from the STACK to the top of
              his library.
+             A card that went into a library is named to nobody (a library
+             is hidden from its owner too): the place, never the card.
   hidden     over every snapshot of all the games: a move the seat can't see
              at either end (the other player drawing) never names the card;
-             one it can see always does; a seat's own draws are named.
+             one whose card is now where the seat can see it always does --
+             unless the other seat's own snapshot of that round shows the
+             card back in its hand (a cast Forge took back without a move);
+             a move into a library never names it; a seat's own draws are
+             named.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -272,11 +281,19 @@ def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
         want = sorted((owner, zone, where) for owner, (zone, where) in wants.items())
         if got != want:
             problems.append(f"seat {seat} should be told {want}: {found[f'seat{seat}']}")
-        if any("card" not in m for m in found[f"seat{seat}"]):
-            problems.append(f"seat {seat}: a card that left the table or the stack is named")
+        # Named only to a seat that can see where it went: its owner's own
+        # hand. A library, or the other player's hand, gets no card (HID-003:
+        # both halves -- the owner must still be told which one).
+        for m in found[f"seat{seat}"]:
+            sees = m["to"]["zone"] == "hand" and m["to"].get("seat") == seat
+            if sees and "card" not in m:
+                problems.append(f"seat {seat}: a card back in its own hand is not named: {m}")
+            if not sees and "card" in m:
+                problems.append(f"seat {seat}: names {m['card']}, now in a zone hidden from it: {m}")
         # A stack entry's id is not its card's (stack:N): the spell is the
         # one Bears spell anyway.
-        if st["targets"] and not respond and not {m.get("card") for m in found[f"seat{seat}"]} & st["targets"]:
+        named = {m.get("card") for m in found[f"seat{seat}"]} - {None}
+        if st["targets"] and not respond and named and not named & st["targets"]:
             problems.append(f"seat {seat}: the targeted card is not the one told moved")
         from_zone = "stack" if respond else "battlefield"
         if any(m["from"]["zone"] != from_zone for m in found[f"seat{seat}"]):
@@ -325,23 +342,41 @@ def hidden():
     wrong = []
     own_draws = {1: 0, 2: 0}
     their_draws = {1: 0, 2: 0}
+    taken_back = 0
     for w in WATCHES:
+        by_rev = {seat: {s.get("stateRevision"): s for s in w.snaps[seat]} for seat in (1, 2)}
         for seat in (1, 2):
-            for m in w.moves(seat):
-                checked += 1
-                a, b = visible(m["from"], seat), visible(m["to"], seat)
-                if (a is True or b is True) and "card" not in m:
-                    wrong.append(("should name the card", seat, m))
-                if a is False and b is False and "card" in m:
-                    wrong.append(("must not name the card", seat, m))
-                if "why" in m and "card" not in m:
-                    wrong.append(("a why without its card", seat, m))
-                if m["from"]["zone"] == "library" and m["to"]["zone"] == "hand":
-                    if m["to"].get("seat") == seat:
-                        own_draws[seat] += 1 if "card" in m else 0
-                    else:
-                        their_draws[seat] += 1 if "card" not in m else 0
-    found = {"checked": checked, "wrong": wrong[:6], "own_draws": own_draws, "their_draws": their_draws}
+            other = 3 - seat
+            for snap in w.snaps[seat]:
+                pair = by_rev[other].get(snap.get("stateRevision"))
+                theirs = (pair or {}).get("moves") or []
+                their_hand = {c.get("id") for c in (pair or {}).get("hand") or []}
+                for i, m in enumerate(snap.get("moves") or []):
+                    checked += 1
+                    a, b = visible(m["from"], seat), visible(m["to"], seat)
+                    if b is True and "card" not in m:
+                        # The other seat's view of the same move, same round:
+                        # its card back in that seat's hand is hidden from this one.
+                        twin = theirs[i] if i < len(theirs) else {}
+                        if twin.get("card") in their_hand:
+                            taken_back += 1
+                        elif pair is not None:
+                            wrong.append(("should name the card", seat, m))
+                    if a is False and b is False and "card" in m:
+                        wrong.append(("must not name the card", seat, m))
+                    if m["to"]["zone"] == "library" and "card" in m:
+                        wrong.append(("names a card now in a library", seat, m))
+                    if m.get("card") in their_hand:
+                        wrong.append(("names a card now in the other player's hand", seat, m))
+                    if "why" in m and "card" not in m:
+                        wrong.append(("a why without its card", seat, m))
+                    if m["from"]["zone"] == "library" and m["to"]["zone"] == "hand":
+                        if m["to"].get("seat") == seat:
+                            own_draws[seat] += 1 if "card" in m else 0
+                        else:
+                            their_draws[seat] += 1 if "card" not in m else 0
+    found = {"checked": checked, "wrong": wrong[:6], "own_draws": own_draws, "their_draws": their_draws,
+             "taken back into a hand, unnamed": taken_back}
     if checked < 50 or not all(own_draws.values()) or not all(their_draws.values()):
         return "inconclusive", f"too few moves seen: {found}", found
     problems = [f"{x[0]} (seat {x[1]}): {x[2]}" for x in wrong[:4]]
