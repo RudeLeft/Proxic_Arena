@@ -327,7 +327,10 @@ def meren():
         problems.append(f"one creature died: experience should be 1, is {found['experience']}")
     if found["experience_seen_by_opponent"] != found["experience"]:
         problems.append(f"experience is public: the opponent sees {found['experience_seen_by_opponent']}")
-    if not found["elves_on_battlefield"] or found["elves_in_graveyard"]:
+    # The target Meren returns is the one picked: with two Elves in the
+    # graveyard the bot may pick the other one (CI 2026-11-08) -- that Elf
+    # must be back, whichever it is.
+    if st["meren_target"] not in found["elves_on_battlefield"]:
         problems.append("Llanowar Elves (mana value 1 <= 1 experience) should return to the battlefield")
     return result(problems, "an Elf sacrificed: one experience counter, shown to both players; at the end step "
                             "Meren returned it (mana value 1) to the battlefield", found)

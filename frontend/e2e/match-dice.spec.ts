@@ -180,7 +180,9 @@ test("dice tumble on the stack; the roll, sector, sprocket and crank windows say
     expect(
       Math.abs(dieBox.x + dieBox.width / 2 - card.x),
       "beside the card on the stack",
-    ).toBeLessThan(80);
+      // Measured mid-tumble: 80.7 twice on CI's runner (a die's width away
+      // from elsewhere is still well over 100).
+    ).toBeLessThan(90);
     expect(dieBox.y).toBeGreaterThan(card.y);
     expect(dieBox.y).toBeLessThan(card.y + card.height);
     await guest.waitForTimeout(1_300);
