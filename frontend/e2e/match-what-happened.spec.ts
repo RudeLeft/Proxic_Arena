@@ -159,10 +159,32 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
               "the player who cast it is not shown what they chose",
             ).toHaveCount(0);
             await page.screenshot({ path: "test-results/seen/0045-reveal.png" });
-            await other.screenshot({ path: "test-results/seen/0045-reveal-opponent.png" });
             revealed = true;
-            await page.locator(".gs-reveal-close").click();
+            // Close at once, the opponent's picture after: the game does not
+            // wait for this page (the caster's turn is passed for them when
+            // nothing is left to play), and at the next turn the worker stops
+            // sending the reveal -- the tray goes by itself. Before, the two
+            // screenshots took long enough on CI for that to happen mid-click,
+            // and a click with no timeout then waited the whole 15 minutes
+            // for a Close button that was never coming back.
+            const close = page.locator(".gs-reveal-close");
+            const closed = await close
+              .click({ timeout: 10_000 })
+              .then(() => true)
+              .catch(() => false);
+            if (!closed) {
+              // Only acceptable if the tray really went: a new turn began.
+              await expect(
+                page.locator(".gs-reveal"),
+                "the reveal tray went with the turn",
+              ).toHaveCount(0);
+              test.info().annotations.push({
+                type: "note",
+                description: "the reveal tray went with the next turn before Close was clicked",
+              });
+            }
             await expect(page.locator(".gs-reveal")).toHaveCount(0);
+            await other.screenshot({ path: "test-results/seen/0045-reveal-opponent.png" });
           }
         }
 
