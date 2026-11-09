@@ -3,6 +3,34 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.55.0 — 2026-11-09
+
+Spectating rebuilt, life that ticks down hit by hit, and a casting card that stays in the middle.
+
+**For whoever runs the server**
+- One database update runs by itself on start: the old "Let people watch" setting is removed, so every game can be spectated. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Spectating**
+- "Watch" is now **Spectate**, with a red LIVE badge. While the players are still loading and choosing their opening hands it shows a greyed "Starting..." instead, so you never click into a game that isn't there yet.
+- The "Let people watch" box is gone: every game can be spectated.
+- Spectators now see who won and why ("Alice won · Bob's life fell to -3") with a Back to the lobby button, instead of a plain "The game is over."
+- Spectators can read the play log (only what everyone can see -- never a card in someone's hand) and press **Switch sides** to watch from the other player's side.
+- A spectator's screen talks in names, never "your" or "opponent's".
+- A short network hiccup shows "Reconnecting..." instead of ending the game, and when the players start a rematch the spectator follows them into it.
+- One loading screen instead of two, and a "Spectating Alice vs Bob · Stop" chip at the top replaces "You are watching" and "Stop watching".
+- Players can point at "2 watching" to see who is watching.
+
+**Life**
+- When creatures attack a player, the life total now drops as each one hits (20 → 18 → 15 → 11), with a red flash on the shield -- not all at once before anything has landed. A pile of identical tokens hits once for its total.
+- Life can show below zero on the shield (even "-12"), and the result says so: "Bob's life fell to -3".
+
+**Casting**
+- The big casting card always sits in the middle of the screen -- it no longer slides aside, moves beside the stack, or stays somewhere odd after you resize the window. When your mouse is over something under it that you need to click (an Elf to tap, a target), it turns see-through and your click goes through. Its question box sits on whichever side covers nothing you need.
+- A new obsidian-and-gold mouse pointer on the game table.
+
+**Fixes**
+- Conceding while the game was asking you to discard down to seven froze the game for everyone; it now ends straight away with the right winner.
+
 ## 1.54.0 — 2026-11-09
 
 Cleaner arrows, crossed swords for blocks, and a steadier payment box.
