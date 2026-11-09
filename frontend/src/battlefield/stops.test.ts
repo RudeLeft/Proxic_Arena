@@ -140,12 +140,12 @@ describe("gameOverWords (spec 0034)", () => {
   it("says who won, and why when the board shows it", () => {
     expect(gameOverWords(lives(5, 0), 1, outcome(1))).toEqual({
       word: "You won",
-      sub: "Bob’s life reached 0",
+      sub: "Bob’s life fell to 0",
       turn: "Turn 7",
     });
     expect(gameOverWords(lives(0, 5), 1, outcome(2))).toEqual({
       word: "Bob won",
-      sub: "Your life reached 0",
+      sub: "Your life fell to 0",
       turn: "Turn 7",
     });
     expect(gameOverWords(lives(5, 5), 1, outcome(1, { concededSeat: 2 })).sub).toBe("Bob conceded");
@@ -162,8 +162,27 @@ describe("gameOverWords (spec 0034)", () => {
       "You lost: had to draw from an empty library",
     );
     expect(gameOverWords(lives(5, 0), 1, outcome(1, { lossReason: "Unheard" })).sub).toBe(
-      "Bob’s life reached 0",
+      "Bob’s life fell to 0",
     );
+  });
+
+  // Spec 0067, item 8 (F-0067-B) -- a negative life is said as it is.
+  it("says where a life fell to, below zero too", () => {
+    expect(gameOverWords(lives(14, -3), 1, outcome(1, { lossReason: "LifeReachedZero" }))).toEqual({
+      word: "You won",
+      sub: "Bob’s life fell to -3",
+      turn: "Turn 7",
+    });
+    expect(gameOverWords(lives(-12, 3), 1, outcome(2, { lossReason: "LifeReachedZero" })).sub).toBe(
+      "Your life fell to -12",
+    );
+    expect(gameOverWords(lives(5, -3), -1, outcome(1, { lossReason: "LifeReachedZero" })).sub).toBe(
+      "Bob’s life fell to -3",
+    );
+    // No reason sent: the board says it.
+    expect(gameOverWords(lives(5, -1), 1, outcome(1)).sub).toBe("Bob’s life fell to -1");
+    // A concession with life still above zero stays a concession.
+    expect(gameOverWords(lives(5, 4), 1, outcome(1, { concededSeat: 2 })).sub).toBe("Bob conceded");
   });
 
   it("says Game over without a winner", () => {
@@ -186,7 +205,7 @@ describe("gameOverWords (spec 0034)", () => {
   it("a spectator is nobody's you (W-24)", () => {
     expect(gameOverWords(lives(5, 0), -1, outcome(1))).toEqual({
       word: "Alice won",
-      sub: "Bob’s life reached 0",
+      sub: "Bob’s life fell to 0",
       turn: "Turn 7",
     });
   });

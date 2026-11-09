@@ -260,6 +260,42 @@ describe("the game connection", () => {
     expect(now().connection).toBe("open");
   });
 
+  // Spec 0067 (F-0067-D) -- a spectator's game ended: told, then closed
+  // normally by the server. No retry, no "no longer connected".
+  it("does not retry once the game has ended", () => {
+    const now = game();
+    FakeSocket.made[0]!.opened();
+    FakeSocket.made[0]!.says({ type: "MATCH_HELLO", seat: 0, spectator: true });
+    FakeSocket.made[0]!.says({
+      type: "MATCH_ENDED",
+      matchId: "m",
+      status: "ENDED",
+      outcome: "WINNER",
+      winningSeat: 1,
+      endedOnTurn: 9,
+      lossReason: "LifeReachedZero",
+    });
+    FakeSocket.made[0]!.dropped(1000);
+    expect(now().connection).toBe("closed");
+    expect(now().ended?.outcome?.winningSeat).toBe(1);
+    vi.advanceTimersByTime(10_000);
+    expect(FakeSocket.made).toHaveLength(1);
+  });
+
+  // Spec 0067 (F-0067-D) -- a hiccup while spectating: back on its own.
+  it("a spectator's dropped connection comes back, and the game is not over", () => {
+    const now = game();
+    FakeSocket.made[0]!.opened();
+    FakeSocket.made[0]!.says({ type: "MATCH_HELLO", seat: 0, spectator: true });
+    FakeSocket.made[0]!.dropped(1006);
+    expect(now().connection).toBe("reconnecting");
+    expect(now().ended ?? null).toBeNull();
+    vi.advanceTimersByTime(100);
+    expect(FakeSocket.made).toHaveLength(2);
+    FakeSocket.made[1]!.says({ type: "MATCH_HELLO", seat: 0, spectator: true });
+    expect(now().connection).toBe("open");
+  });
+
   it("does not retry when it is not your match", () => {
     const now = game();
     FakeSocket.made[0]!.dropped(1008);

@@ -65,8 +65,12 @@ data class DirectoryRoom(
      * host, or asking to join ([DirectoryHold.asked]). Null when no one.
      */
     val held: DirectoryHold? = null,
-    /** Spec 0047 — whether people may watch its game (a Watch button while it is on). */
-    val watchable: Boolean = true,
+    /**
+     * Spec 0067 — its game can be spectated now: the match is running here
+     * (past the opening hands) with its worker alive, as the match socket
+     * asks of a spectator. False while it is still starting ("Starting...").
+     */
+    val spectatable: Boolean = false,
 )
 
 /** Who an open seat is held for — spec 0016 (owner R2: public, by name). */
@@ -136,7 +140,6 @@ fun Room.directoryEntry(): DirectoryRoom =
         // alone, 2 hours with two), and when the page starts warning.
         clearsAt = closesAt()?.toString(),
         warnsAt = closesAt()?.minus(RoomTimeouts.active.warning)?.toString(),
-        watchable = watchable,
     )
 
 /** Spec 0054 -- when this room closes if nothing happens; null in a game. */

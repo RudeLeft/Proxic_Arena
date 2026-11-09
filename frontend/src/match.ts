@@ -22,6 +22,7 @@
 /** §6.49 — a presentation hint, never authority. */
 import { logLine, summarise } from "./reportLog";
 import { onPageBack, pageIsLeaving } from "./pageLife";
+import { asOutcome, type MatchOutcome } from "./lobby";
 
 export interface DecisionOption {
   actionId: string;
@@ -868,6 +869,14 @@ export interface MatchState {
   asking: { seat: number | null; doing?: string | null } | null;
   /** Spec 0047 -- how many people are watching (players are told). */
   watching: number;
+  /** Spec 0067 -- who is watching, by display name (players are told). */
+  watchers?: string[];
+  /**
+   * Spec 0067 -- the game is over, as the server told a SPECTATOR on this
+   * socket (players hear it as the lobby's MATCH): its status and result,
+   * by seat. Null until then.
+   */
+  ended?: MatchEnding | null;
   /**
    * Spec 0054 -- minutes the other player is offline before "End the
    * game" is offered: the server's setting, from the greeting.
@@ -884,6 +893,14 @@ export interface MatchState {
    * until that board is on the table).
    */
   playLog?: PlayLogLine[];
+}
+
+/** Spec 0067 -- how a game ended, told to a spectator (MATCH_ENDED). */
+export interface MatchEnding {
+  matchId: string | null;
+  status: string;
+  failureCode: string | null;
+  outcome: MatchOutcome | null;
 }
 
 export const EMPTY_MATCH: MatchState = {
@@ -926,9 +943,31 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       };
     }
 
-    // Spec 0047 -- how many people are watching this game.
-    case "WATCHING":
-      return { ...state, watching: asNumber(message["count"]) ?? 0 };
+    // Spec 0047 -- how many people are watching this game; spec 0067 -- and who.
+    case "WATCHING": {
+      const names = Array.isArray(message["names"])
+        ? (message["names"] as unknown[]).filter((n): n is string => typeof n === "string")
+        : [];
+      return { ...state, watching: asNumber(message["count"]) ?? 0, watchers: names };
+    }
+
+    // Spec 0067 -- the game is over (to a spectator): who won and why, by
+    // seat. The socket is closed after it; nothing more is asked.
+    case "MATCH_ENDED": {
+      const status = asString(message["status"]);
+      if (!status) return state;
+      return {
+        ...state,
+        decision: null,
+        awaiting: null,
+        ended: {
+          matchId: asString(message["matchId"]),
+          status,
+          failureCode: asString(message["failureCode"]),
+          outcome: asOutcome(message),
+        },
+      };
+    }
 
     case "MATCH_SNAPSHOT": {
       // Spec 0064 -- the play log first: a stale board (a reconnect's stored
@@ -1993,6 +2032,7 @@ export function connectMatch(
   let closedByUs = false;
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let over = false;
 
   const open = () => {
     const current = factory(url);
@@ -2005,6 +2045,9 @@ export function connectMatch(
     current.onmessage = (event) => {
       const parsed = parse(event.data);
       if (!parsed) return;
+      // Spec 0067 -- the game is over: the server closes this socket next,
+      // and there is nothing to come back to.
+      if (parsed["type"] === "MATCH_ENDED") over = true;
       logLine("game", summarise("in", parsed)); // spec 0039
       onState((previous) => reduceMatch(previous, parsed));
     };
@@ -2012,6 +2055,12 @@ export function connectMatch(
       if (dropped || closedByUs) return;
       dropped = true;
       logLine("connection", `game connection closed (${event.code})`);
+      // Spec 0067 -- closed after the game ended (a spectator's): no retry,
+      // and nothing to report.
+      if (over) {
+        onState((previous) => ({ ...previous, connection: "closed" }));
+        return;
+      }
       // A refresh closes it on the way out: not a lost connection, and
       // the game screen says nothing (owner 2026-10-24).
       if (pageIsLeaving()) return;

@@ -61,8 +61,6 @@ data class ReadyRequest(
 @Serializable
 data class CreateRoomRequest(
     val name: String? = null,
-    /** Spec 0047 — "Let people watch"; on unless the host says no. */
-    val watchable: Boolean = true,
 )
 
 @Serializable
@@ -141,7 +139,7 @@ private fun Route.lifecycleRoutes(
                 ),
             )
         }
-        when (val result = rooms.create(callerId(), name, request?.watchable ?: true)) {
+        when (val result = rooms.create(callerId(), name)) {
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)

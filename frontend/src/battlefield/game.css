@@ -240,6 +240,13 @@
 .gs-life-n {
   position: relative;
 }
+/* Spec 0067, item 8 (A) -- three characters ("-12", "100") fit the same
+   shield: the number a little smaller, the plate unchanged. */
+.gs-life-long {
+  /* 18px: the scale's step nearest the canvas's 19. */
+  font-size: var(--pa-size-lg);
+  letter-spacing: -0.02em;
+}
 /* The tiles (spec 0031): Library across the row, then Graveyard and
    Exile; each zone's picture faded behind the right of its tile, the
    count large on the left over it, the word under the count. */
@@ -3806,7 +3813,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     transition: none;
   }
 }
-/* Spec 0047 -- watching: how many are (players), or that you are (a spectator). */
+/* Spec 0047 -- watching: how many are, to the players. Spec 0067 -- and
+   who: pointing at it (or focusing it) lists the names under it. */
 .gs-watching {
   /* Just above the ladder, in the rail's gap: the steps keep their places. */
   position: absolute;
@@ -3819,9 +3827,202 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-sm);
   letter-spacing: 0.04em;
   white-space: nowrap;
+  cursor: default;
 }
-.gs-stop-watching {
+.gs-watching:focus-visible {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 2px;
+}
+/* Spec 0067 -- who is watching: a popover in the game's look (the status
+   list's dark panel and pointer, a gold line), left of the column over the
+   table's edge, level with the pill; the ladder is not covered. */
+.gs-watching-list {
+  position: absolute;
+  right: calc(100% + 7.4px + 14px);
+  top: -40px;
+  z-index: 40000;
+  display: none;
+  min-width: 170px;
+  max-width: 260px;
+  box-sizing: border-box;
+  padding: 10px 14px 12px;
+  border: 1px solid rgb(217 178 106 / 55%);
+  border-radius: 10px;
+  background: #121a17;
+  color: #e6e9ee;
+  box-shadow:
+    0 16px 44px rgb(0 0 0 / 70%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+.gs-watching:hover + .gs-watching-list,
+.gs-watching:focus + .gs-watching-list {
+  display: block;
+}
+.gs-watching-pointer {
+  top: 14px;
+  border-color: rgb(217 178 106 / 55%);
+}
+.gs-watching-head {
+  margin: 0 0 6px;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-xs);
+  letter-spacing: var(--pa-track-caps);
+  text-transform: uppercase;
+  color: #e0a44a;
+}
+.gs-watching-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gs-watching-list li {
+  font-size: var(--pa-size-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Spec 0067 (item 10, B) -- a spectator's chip, top left: "Spectating
+   Alice vs Bob · Stop"; and (checklist 7) the same chip, bottom left:
+   "From Bob's side · Switch sides". */
+.gs-spectating {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid #39424f;
+  border-radius: 999px;
+  background: rgb(13 17 23 / 91%);
+  color: #e6e9ee;
+  font-size: var(--pa-size-sm);
+  white-space: nowrap;
+}
+.gs-spectating b {
+  font-weight: 600;
+}
+.gs-spectating-eye {
+  display: inline-flex;
+  color: #e0a44a;
+}
+.gs-spectating-eye svg {
+  width: 17px;
+  height: 17px;
+}
+.gs-spectating-stop,
+.gs-switch-sides-button {
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.gs-spectating-stop {
+  border: 1px solid #8a3a30;
+  background: #2a1513;
+  color: #ffc4b8;
+}
+.gs-spectating-stop:hover {
+  background: #3a1c18;
+}
+.gs-switch-sides-button {
+  border: 1px solid #e0a44a;
+  background: #1b1610;
+  color: #f0d29a;
+}
+.gs-switch-sides-button:hover {
+  background: #2a2216;
+}
+.gs-spectating-stop:focus-visible,
+.gs-switch-sides-button:focus-visible {
+  outline: 2px solid var(--pa-brass);
+  outline-offset: 2px;
+}
+/* Spec 0067 (item 9, B) -- the spectator's game over: one slim card over
+   the final board, in the table's middle. */
+.gs-spectator-over {
+  position: absolute;
+  left: 50%;
+  top: calc(450px * var(--rail-scale, 1));
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100% - 48px));
+  box-sizing: border-box;
+  padding: 18px 20px;
+  pointer-events: auto;
+  text-align: center;
+  border: 1px solid rgb(217 178 106 / 55%);
+  border-radius: 8px;
+  background: rgb(20 16 8 / 94%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 67%);
+}
+.gs-spectator-over-title {
+  margin: 0;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: var(--pa-size-2xl);
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e6bd6c;
+}
+.gs-spectator-over-why {
+  margin: 4px 0 14px;
+  font-size: var(--pa-size-lg);
+  color: #d6dde3;
+}
+.gs-spectator-over-why:empty {
+  display: none;
+}
+.gs-spectator-over-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.gs-spectator-over-buttons .pa-button {
+  min-height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.gs-spectate-another svg {
+  width: 18px;
+  height: 18px;
+}
+/* Spec 0067 (checklist 7) -- Switch sides: the table fades to its own
+   felt, turns round under it, and fades back (the plates glide). */
+.gs-turning {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: calc(900px * var(--rail-scale, 1));
+  pointer-events: none;
+  background: var(--bf-table, #18201b);
+  opacity: 0;
+  animation: gs-turning 0.7s ease-in-out;
+}
+@keyframes gs-turning {
+  45%,
+  55% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-turning {
+    animation: none;
+  }
+}
+/* Spec 0067 -- the play log alone (a spectator's): no tabs. */
+.gs-cw-tabs[hidden] {
+  display: none;
 }
 .gs-seat-hand {
   display: block;

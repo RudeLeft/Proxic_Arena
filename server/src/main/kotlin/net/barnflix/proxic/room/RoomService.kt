@@ -112,7 +112,6 @@ class RoomService(
     fun create(
         hostUserId: UUID,
         name: String? = null,
-        watchable: Boolean = true,
     ): RoomResult =
         oneRoom {
             store.inTransaction { connection ->
@@ -123,8 +122,8 @@ class RoomService(
                 val roomId = UUID.randomUUID()
                 connection.prepareStatement(
                     """
-                    INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status, name, watchable)
-                    VALUES (?, ?, ?, ?, 'OPEN', ?, ?)
+                    INSERT INTO room (room_id, host_user_id, preset_id, desired_player_count, status, name)
+                    VALUES (?, ?, ?, ?, 'OPEN', ?)
                     """.trimIndent(),
                 ).use {
                     it.setObject(1, roomId)
@@ -132,7 +131,6 @@ class RoomService(
                     it.setString(3, PRESET_OPEN_FORMAT)
                     it.setInt(4, OPEN_FORMAT_PLAYERS)
                     it.setString(5, name)
-                    it.setBoolean(6, watchable)
                     it.executeUpdate()
                 }
                 store.seat(connection, roomId, hostUserId, seatNumber = 1)

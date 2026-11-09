@@ -30,10 +30,12 @@ POST /api/matches/{id}/abandon     any participant; TERMINATED, no winner
 GET  /api/matches/{id}/assets/{sha256}   card artwork (MATCH_ASSET_AUTHORIZATION.md)
 GET  /api/matches/watch/{roomId}   spec 0047: the game a room is playing, to watch;
                                    404 (sent as NOT_WATCHABLE, rewritten to
-                                   NOT_FOUND like every 404), 409 YOUR_GAME
-                                   for a player of a game that may be
-                                   watched (one that may not is 404 for
-                                   everyone, players too)
+                                   NOT_FOUND like every 404) while there is
+                                   none to watch (still starting, over),
+                                   409 YOUR_GAME for one of its players.
+                                   Spec 0067: every running game; the page
+                                   asks it every 3 s to follow the players
+                                   into their next game in the room
 ```
 
 Since 1.30.0 (spec 0052) the game page loads every picture from
@@ -56,22 +58,37 @@ same way (`VIOLATED_POLICY`, "not a participant"); knowing a match id
 grants nothing by itself (§6.108). Separate from the lobby socket
 `/ws/user`.
 
-**Spectators (spec 0047).** A signed-in user who is not a player is
-let in as a spectator when the match is `RUNNING` on this server and
-its room lets people watch (`watchable`, "Let people watch", on by
-default); this is asked again at every connection. A spectator gets
-`MATCH_HELLO` with `seat: 0` and `spectator: true`, then the **public
-view** (a `MATCH_SNAPSHOT` whose state has `spectator: true` and
-`viewFrom`: no hand, nothing face down), `MATCH_STEP`, and
-`MATCH_ASKING` once on connect (later ones go to the players only). It is never asked anything, and whatever it sends is
-dropped. The players get `WATCHING` (`count`, people watching) as it
-changes. The worker builds the public view only while somebody is
-watching (`WATCHED`, `FORGE_WORKER_RUNTIME.md`).
+**Spectators (spec 0047, spec 0067).** A signed-in user who is not a
+player is let in as a spectator when the match is `RUNNING` on this
+server (past the opening hands) and its worker is alive -- every game,
+since spec 0067 removed the room's "Let people watch"; this is asked
+again at every connection. A spectator gets `MATCH_HELLO` with `seat: 0`
+and `spectator: true`, then the **public view** (a `MATCH_SNAPSHOT` whose
+state has `spectator: true` and `viewFrom`: no hand, nothing face down)
+carrying the **public play log** so far (spec 0067: only what every
+player may see, `MATCH_STATE_VISIBILITY.md`), `MATCH_STEP`, and
+`MATCH_ASKING`. It is never asked anything, and whatever it sends is
+dropped. The players get `WATCHING` (`count`, people watching, and spec
+0067's `names`: their display names, each person once) as it changes.
+The worker builds the public view only while somebody is watching
+(`WATCHED`, `FORGE_WORKER_RUNTIME.md`).
+
+**The end, for spectators (spec 0067).** When the match ends -- any way:
+a result, an abandon, a failure, a server stop -- every spectator
+connection is sent `MATCH_ENDED` (`matchId`, `status`, `failureCode?`,
+and the result as the lobby's `MATCH` carries it: `outcome`,
+`winningSeat`, `endedOnTurn`, `reason?`, `concededSeat?`,
+`lossReason?`; by seat, never a name) and then closed with `1000`
+"game over"; the page does not reconnect after it. The server keeps the
+last 64 endings: a non-player who connects to a match that ended here
+lately (a spectator whose connection dropped at the end) is sent its
+`MATCH_ENDED` and closed the same way, instead of `1008`. A dropped
+spectator connection otherwise reconnects like a player's.
 
 ### On connect, in this order (§6.110)
 
 ```text
-WATCHING          count -- only when somebody is watching
+WATCHING          count, names -- only when somebody is watching
 MATCH_HELLO       matchId, seat, awayMinutes (spec 0054: when "End the
                   game" is offered), spectator? (seat 0)
 MATCH_SNAPSHOT    the board as THIS player may see it      (if any yet)
@@ -90,7 +107,12 @@ MATCH_SNAPSHOT          state: viewer snapshot (below)
 MATCH_STEP              state: the step bar's state -- a step nobody is asked
                         at; public, the cards stay as the last board has them
                         (PHASE_07 Amendment 13)
-WATCHING                count: people watching (spec 0047), to the players
+WATCHING                count: people watching (spec 0047), to the players;
+                        names: who, by display name (spec 0067)
+MATCH_ENDED             spec 0067, to spectators only: the game is over --
+                        status, failureCode?, outcome, winningSeat,
+                        endedOnTurn, reason?, concededSeat?, lossReason?;
+                        the socket is then closed (1000 "game over")
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
                         objectId?, payable?, cost?, types?}], searchable?,

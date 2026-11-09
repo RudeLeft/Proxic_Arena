@@ -431,6 +431,16 @@ public final class GameHost {
     /** Spec 0064 -- the play log (null before the game is made). */
     private volatile PlayLog playLog;
 
+    /** Spec 0067 -- how many public log lines wait for a spectator (the server keeps as many). */
+    static final int PUBLIC_LOG_KEPT = 2_000;
+
+    /**
+     * Spec 0067 -- the public play log's lines not yet sent: every round's
+     * while nobody watches (the public view is not built then), handed to
+     * the next public view so a spectator reads the game from its start.
+     */
+    private final java.util.ArrayDeque<com.google.gson.JsonElement> publicBacklog = new java.util.ArrayDeque<>();
+
     /** Spec 0062 -- what each payment step paid, for every seat (Payments). */
     private final Payments payments = new Payments();
 
@@ -1237,6 +1247,18 @@ public final class GameHost {
                 System.err.println("proxic: snapshot not delivered: " + e);
             }
         }
+        // Spec 0067 -- the public play log (what every player may see, as
+        // "Bob drew a card"): kept while nobody watches, so the first
+        // spectator gets the game's log so far with the public view.
+        com.google.gson.JsonArray publicLines = logLines.get(PUBLIC_SEAT);
+        synchronized (publicBacklog) {
+            if (publicLines != null) {
+                publicLines.forEach(publicBacklog::addLast);
+            }
+            while (publicBacklog.size() > PUBLIC_LOG_KEPT) {
+                publicBacklog.removeFirst();
+            }
+        }
         // Spec 0047 -- the public view, for spectators, as seat 0: built
         // with no viewer, so it holds only what every player can see.
         if (watched) {
@@ -1249,6 +1271,15 @@ public final class GameHost {
             everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {
                 everyone.add("moves", Moves.forViewer(moved, null));
+            }
+            com.google.gson.JsonArray lines = new com.google.gson.JsonArray();
+            synchronized (publicBacklog) {
+                publicBacklog.forEach(lines::add);
+                publicBacklog.clear();
+            }
+            if (lines.size() > 0) {
+                PlayLog.keepShownIds(lines, PlayLog.cardIds(everyone));
+                everyone.add("playLog", lines);
             }
             HiddenIds.strip(everyone, HiddenIds.hiddenZones(hiddenZones, null));
             try {

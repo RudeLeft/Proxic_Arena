@@ -108,8 +108,11 @@ export interface DirectoryRoom {
   warnsAt?: string | null;
   /** Spec 0016 R2 — who the open seat is held for; null when nobody. */
   held: RoomHold | null;
-  /** Spec 0047 — whether people may watch its game (the host's "Let people watch"). */
-  watchable?: boolean;
+  /**
+   * Spec 0067 — its game can be spectated now (running, past the opening
+   * hands). An IN_MATCH room without it is still starting ("Starting...").
+   */
+  spectatable?: boolean;
 }
 
 /** Spec 0016 R2 — an open seat held for somebody: invited, or asking to join. */
@@ -736,7 +739,8 @@ function matchFailed(code: string | null): string {
   }
 }
 
-function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
+/** A match message's result (MATCH, and spec 0067's MATCH_ENDED for spectators). */
+export function asOutcome(message: Record<string, unknown>): MatchOutcome | null {
   const kind = asString(message["outcome"]);
   if (!kind) return null;
   const seat = message["winningSeat"];
@@ -924,7 +928,7 @@ function asDirectory(value: unknown): DirectoryRoom[] {
       clearsAt: asString(v["clearsAt"]),
       warnsAt: asString(v["warnsAt"]),
       held: asHold(v["held"]),
-      watchable: v["watchable"] !== false,
+      spectatable: v["spectatable"] === true,
     });
   }
   return rooms;
@@ -1271,21 +1275,16 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 
 /**
  * PHASE_07 Amendment 9 — open a room, optionally named; blank is "<you>'s
- * room". Spec 0047 — and whether people may watch its game (on unless
- * the host says no).
+ * room". Spec 0067 — every game can be spectated: nothing to choose.
  */
-export function createRoom(
-  fetchFn: typeof fetch = fetch,
-  name?: string,
-  watchable = true,
-): Promise<RoomResult> {
+export function createRoom(fetchFn: typeof fetch = fetch, name?: string): Promise<RoomResult> {
   const trimmed = name?.trim();
   return roomCall(
     "/api/rooms",
     {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ ...(trimmed ? { name: trimmed } : {}), watchable }),
+      body: JSON.stringify(trimmed ? { name: trimmed } : {}),
     },
     fetchFn,
   );
@@ -1293,7 +1292,9 @@ export function createRoom(
 
 /**
  * Spec 0047 — the game a room is playing, to watch: null when it cannot
- * be watched (the players said no, it ended, or it is your own game).
+ * be watched (not running yet, it ended, or it is your own game) -- or
+ * when the server could not be reached (spec 0067: [watchRoomAnswer] tells
+ * the two apart).
  */
 export async function watchRoom(
   roomId: string,
@@ -1310,6 +1311,32 @@ export async function watchRoom(
     return asMatch(body["match"]);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Spec 0067 — the same question, with "the server did not answer" kept
+ * apart from "no": a spectator's page rides out a network hiccup instead of
+ * ending the game for them. `match` when there is a game to spectate;
+ * `none` when the server says there is none; `unknown` on no answer.
+ */
+export async function watchRoomAnswer(
+  roomId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ kind: "match"; match: MatchView } | { kind: "none" } | { kind: "unknown" }> {
+  try {
+    const response = await apiFetch(
+      `/api/matches/watch/${encodeURIComponent(roomId)}`,
+      {},
+      fetchFn,
+    );
+    if (response.status === 404 || response.status === 409) return { kind: "none" };
+    if (!response.ok) return { kind: "unknown" };
+    const body = (await response.json()) as Record<string, unknown>;
+    const match = asMatch(body["match"]);
+    return match ? { kind: "match", match } : { kind: "unknown" };
+  } catch {
+    return { kind: "unknown" };
   }
 }
 

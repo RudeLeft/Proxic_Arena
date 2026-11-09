@@ -193,7 +193,7 @@ internal class RoomStore(private val dataSource: DataSource) {
             connection.prepareStatement(
                 """
                 SELECT host_user_id, preset_id, desired_player_count, status, revision,
-                       name, last_activity_at, watchable
+                       name, last_activity_at
                   FROM room WHERE room_id = ?
                 """.trimIndent(),
             ).use { statement ->
@@ -212,7 +212,6 @@ internal class RoomStore(private val dataSource: DataSource) {
                             members = emptyList(),
                             name = rows.getString(6),
                             lastActivityAt = rows.getTimestamp(7).toInstant(),
-                            watchable = rows.getBoolean(8),
                         )
                     }
                 }

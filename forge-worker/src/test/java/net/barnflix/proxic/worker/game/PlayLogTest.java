@@ -169,6 +169,56 @@ class PlayLogTest {
         assertEquals(5, out.get(2).get(0).getAsJsonObject().get("n").getAsInt());
     }
 
+    /**
+     * Spec 0067 (F-0067-E) -- the public log, read by spectators: a draw
+     * says "Bob drew a card" with no name and no id, a line Forge told one
+     * seat alone never reaches it, and the players' "private" marks are
+     * measured between the players as before.
+     */
+    @Test
+    void thePublicLogNamesOnlyWhatEveryoneMaySee() {
+        int pub = PlayLog.PUBLIC_SEAT;
+        Map<Integer, JsonElement> seen = new HashMap<>();
+        seen.put(2, card("Giant Growth", 41, 2));
+        seen.put(1, null);
+        seen.put(pub, null);
+        PlayLog.Fact shown = new PlayLog.Fact("reveal", 3, 2, "Main 1");
+        shown.only = 1;
+        shown.itemsFor(1).add(card("Shivan Dragon", 77, 2));
+        shown.phrase = (seat, items) -> {
+            JsonArray out = new JsonArray();
+            PlayLog.text(out, "Looking at Bob's hand: ");
+            PlayLog.list(out, items, "a card", "cards");
+            return out;
+        };
+        PlayLog.Fact death = new PlayLog.Fact("death", 3, 2, "Main 1");
+        for (int seat : new int[] {1, 2, pub}) {
+            death.itemsFor(seat).add(card("Grizzly Bears", 9, 2));
+        }
+        death.phrase = (seat, items) -> {
+            JsonArray out = new JsonArray();
+            PlayLog.part(out, items.get(0), "a card");
+            PlayLog.text(out, " died");
+            return out;
+        };
+        Map<Integer, JsonArray> out =
+                PlayLog.lines(List.of(draw(2, seen), shown, death), List.of(1, 2, pub), 17, new HashMap<>());
+
+        JsonArray spectators = out.get(pub);
+        assertEquals(2, spectators.size(), "the draw and the death; never the reveal to Alice");
+        JsonObject drew = spectators.get(0).getAsJsonObject();
+        assertEquals("Bob drew a card", words(drew));
+        assertFalse(spectators.toString().contains("Giant Growth"));
+        assertFalse(spectators.toString().contains("card:41"));
+        assertFalse(spectators.toString().contains("Shivan"));
+        assertFalse(spectators.toString().contains("card:77"));
+        assertNull(drew.get("private"));
+        assertEquals("Grizzly Bears died", words(spectators.get(1).getAsJsonObject()));
+        // The players' lines are as they were: Bob's draw is his alone.
+        assertTrue(out.get(2).get(0).getAsJsonObject().get("private").getAsBoolean());
+        assertNull(out.get(1).get(0).getAsJsonObject().get("private"));
+    }
+
     @Test
     void listsReadAsEnglish() {
         JsonArray out = new JsonArray();

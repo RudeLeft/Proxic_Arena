@@ -108,7 +108,12 @@ export function serverWasUpdated(match: MatchView, stopping = false): boolean {
  * a name is the only interpretation allowed, and it uses the
  * participant list the page already holds.
  */
-export function resultText(match: MatchView, mySeat: number | null): string {
+export function resultText(
+  match: MatchView,
+  mySeat: number | null,
+  /** Spec 0067 -- a spectator (no seat of their own): each seat's player by name. */
+  nameOf: ((seat: number) => string | undefined) | null = null,
+): string {
   if (serverWasUpdated(match)) return SERVER_UPDATE_WORDS;
   if (match.status === "FAILED_RUNTIME" || match.outcome?.kind === "FAILED") {
     // §6.154 — not a loss for anybody. A match that stopped is a
@@ -127,6 +132,15 @@ export function resultText(match: MatchView, mySeat: number | null): string {
   // PlayerOutcome reads "has won ...", so "The winner" is its
   // subject; nothing about it is reworded.
   // §7.55 — a concession, said as one: Forge's result, and who gave up.
+  // Spec 0067 -- a spectator is nobody's "you": the players by name.
+  const named = mySeat === null && nameOf ? nameOf : null;
+  if (named && outcome.winningSeat !== null) {
+    const winner = named(outcome.winningSeat) ?? `Seat ${outcome.winningSeat}`;
+    if (outcome.concededSeat !== null) {
+      return `${named(outcome.concededSeat) ?? `Seat ${outcome.concededSeat}`} conceded${turn}. ${winner} won.`;
+    }
+    return `${winner} won${turn}.${outcome.reason ? ` The winner ${outcome.reason}.` : ""}`;
+  }
   if (outcome.concededSeat !== null) {
     if (outcome.concededSeat === mySeat) return `You conceded${turn}. Your opponent won.`;
     if (outcome.winningSeat === mySeat) return `Your opponent conceded${turn}. You won.`;

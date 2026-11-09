@@ -109,13 +109,30 @@ class PlayLogKeptTest {
         assertEquals("26", kept.first().jsonObject["n"]!!.jsonPrimitive.content)
     }
 
+    /**
+     * Spec 0067 (F-0067-E) — the public view keeps its own log, the
+     * spectators': sent whole to a spectator who arrives, never mixed with
+     * a seat's (Bob's own draw by name stays Bob's).
+     */
     @Test
-    fun `the public view keeps no log, and a seat with none is sent the board as it was`() {
+    fun `the public view keeps its own log, apart from the seats', and a seat with none gets the board as it was`() {
         val live = live()
-        live.snapshotTaken(PUBLIC_SEAT, state(0, 3, line(1, 3, "\"x\"")))
-        assertEquals(0, live.playLogs.of(PUBLIC_SEAT).size)
-        live.snapshotTaken(2, state(2, 3))
-        assertEquals(0, texts(live.snapshotFor(bob)).size)
+        live.snapshotTaken(
+            2,
+            state(
+                2,
+                3,
+                line(1, 3, """{"player":2}""", "\" drew \"", """{"name":"Giant Growth","known":true,"id":"card:41"}"""),
+            ),
+        )
+        live.snapshotTaken(PUBLIC_SEAT, state(0, 3, line(1, 3, """{"player":2}""", "\" drew a card\"")))
+        live.snapshotTaken(PUBLIC_SEAT, state(0, 4, line(2, 4, "\"Turn 2\"")))
+        assertEquals(2, live.playLogs.of(PUBLIC_SEAT).size)
+        val sent = texts(live.publicSnapshotWithLog())
+        assertEquals(2, sent.size, "a spectator who arrives gets the whole public log")
+        assertFalse(sent.any { "Giant Growth" in it || "card:41" in it }, "never a seat's line")
+        assertEquals(1, live.playLogs.of(2).size, "Bob's log is his alone")
+        assertEquals(0, texts(live.snapshotFor(alice)).size)
     }
 
     @Test

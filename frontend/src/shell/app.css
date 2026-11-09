@@ -1000,15 +1000,6 @@
   padding: 12px 15px;
   border-top: 1px solid var(--pa-line-soft);
 }
-/* Spec 0047 -- "Let people watch", beside Open a room. */
-.pa-open-watch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--pa-muted, #b8bec7);
-  font-size: var(--pa-size-sm);
-  cursor: pointer;
-}
 .pa-open-room .pa-input {
   flex: 1 1 220px;
   width: auto;
@@ -1915,6 +1906,53 @@
 .pa-button-ask {
   border-color: var(--pa-ok);
   color: var(--pa-ink-bright);
+}
+/* Spec 0067 (item 4, B) -- Spectate: brass-edged, beside a small pulsing
+   red LIVE badge (the only thing that moves); a greyed "Starting…" holds
+   its place while the game loads (item 5, A). */
+.pa-button-brassline {
+  border-color: var(--pa-brass);
+  background: #1b1610;
+  color: #f0d29a;
+}
+.pa-button-brassline:hover:not(:disabled) {
+  background: #2a2216;
+}
+.pa-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  border: 1px solid #6b2a24;
+  border-radius: 3px;
+  background: #2a1210;
+  color: #ff7b6b;
+  font-family: var(--pa-display);
+  font-weight: 700;
+  font-size: var(--pa-size-xs);
+  letter-spacing: 0.1em;
+}
+.pa-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff4a3a;
+  animation: pa-live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pa-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px #ff4a3a;
+  }
+  50% {
+    opacity: 0.25;
+    box-shadow: 0 0 0 0 #ff4a3a;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pa-live i {
+    animation: none;
+  }
 }
 .pa-lobby .pa-room-invited {
   border-color: var(--pa-brass);

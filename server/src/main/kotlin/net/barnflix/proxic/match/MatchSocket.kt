@@ -42,7 +42,6 @@ fun Route.matchSocket(
     runtime: MatchRuntime,
     hub: MatchHub,
     config: ServerConfig,
-    rooms: net.barnflix.proxic.room.RoomService? = null,
     /** Spec 0054 — who is offline, for "End the game" when the other player is away. */
     presence: net.barnflix.proxic.room.Presence = net.barnflix.proxic.room.EveryoneOnline,
 ) {
@@ -60,12 +59,15 @@ fun Route.matchSocket(
         // is no spectator access in Phase 6. A match you are not
         // in and a match that does not exist close the same way:
         // §4.65's lesson, for the sixth phase running.
-        // Spec 0047 — not a player: a spectator, if the game is on here and
-        // its room lets people watch. Sent the public view, never asked.
-        if (match != null && seat == null && mayWatch(match, runtime, rooms)) {
-            spectate(matchId!!, userId, runtime, hub)
+        // Spec 0047 — not a player: a spectator, if the game is on here
+        // (spec 0067: every game may be watched). Sent the public view,
+        // never asked.
+        if (match != null && seat == null && mayWatch(match, runtime)) {
+            spectate(matchId!!, principal.user, runtime, hub)
             return@webSocket
         }
+        // Spec 0067 — a spectator back after the game ended here.
+        if (seat == null && toldTheEnd(match, hub)) return@webSocket
         if (match == null || seat == null) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "not a participant"))
             return@webSocket
@@ -75,9 +77,9 @@ fun Route.matchSocket(
         hub.watchers.open(matchId, userId, connectionId, outgoing)
 
         try {
-            // Spec 0047 — how many are watching, from the start.
-            hub.spectators.people(matchId).takeIf { it > 0 }?.let { count ->
-                send(Frame.Text(watchingMessage(count).toString()))
+            // Spec 0047 — how many are watching, from the start (spec 0067: and who).
+            hub.spectators.people(matchId).takeIf { it > 0 }?.let {
+                send(Frame.Text(watchingNow(matchId, hub).toString()))
             }
             // §6.110 — hello first, and NOT a decision before it.
             send(Frame.Text(matchHelloMessage(matchId, seat).toString()))
@@ -116,37 +118,26 @@ fun Route.matchSocket(
 }
 
 /**
- * Spec 0047 — may this (non-player) watch: the match is RUNNING on this
- * server and its room says people may watch. Asked again at every
- * connection, so a host who closes the room ends it too.
- */
-fun mayWatch(
-    match: Match,
-    runtime: MatchAssets,
-    rooms: net.barnflix.proxic.room.RoomService?,
-): Boolean =
-    match.status == MatchStatus.RUNNING &&
-        runtime.isLive(match.matchId) &&
-        rooms?.find(match.roomId)?.watchable == true
-
-/**
  * Spec 0047 — one spectator connection: the public view (now and as it
  * changes) and the steps; nothing they send is read. The players are
  * told how many people are watching as it changes.
  */
 private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spectate(
     matchId: UUID,
-    userId: UUID,
+    user: net.barnflix.proxic.auth.User,
     runtime: MatchRuntime,
     hub: MatchHub,
 ) {
+    val userId = user.userId
     val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
+    hub.spectatorNames[userId] = user.displayName
     hub.spectators.open(matchId, userId, connectionId, outgoing)
     watching(runtime, matchId, userId, on = true, anyoneLeft = true)
     tellPlayers(matchId, runtime, hub)
     try {
         send(Frame.Text(matchHelloMessage(matchId, PUBLIC_SEAT).toString()))
-        runtime.liveMatch(matchId)?.publicSnapshot?.let { state ->
+        // Spec 0067 — with the public play log so far.
+        runtime.liveMatch(matchId)?.publicSnapshotWithLog()?.let { state ->
             send(Frame.Text(snapshotMessage(state).toString()))
         }
         askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
@@ -184,7 +175,7 @@ private suspend fun tellPlayers(
     hub: MatchHub,
 ) {
     val players = runtime.liveMatch(matchId)?.match?.participants?.map { it.userId }?.distinct().orEmpty()
-    val message = watchingMessage(hub.spectators.people(matchId))
+    val message = watchingNow(matchId, hub)
     players.forEach { player -> hub.sendTo(matchId, player, message) }
 }
 

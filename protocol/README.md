@@ -33,7 +33,7 @@ socket and `/api/version`.
 
 The infrastructure messages put the rest under `payload`. Lobby and
 match messages are flat: their fields sit beside `type`
-(`{"protocolVersion":1,"type":"WATCHING","messageId":"…","count":2}`).
+(`{"protocolVersion":1,"type":"WATCHING","messageId":"…","count":2,"names":["Carol","Dave"]}`).
 
 `messageId` is present from the first infrastructure message on
 purpose. Phase 0A's decision gate rejects duplicate and stale
@@ -295,6 +295,18 @@ decision.arrange.crankNext chooseSprocket: the sprocket cranked next turn
 decision.arrange.modes     Phase 9 Amendment 21, chooseModeForAbility: {num,
                           min, repeat, budget?, spent?, chosen [labels],
                           paws [per option], escalate?}
+WATCHING.names            spec 0067: who is watching, by display name, each
+                          person once, sorted; to the players only
+MATCH_ENDED               spec 0067: the game is over, to spectators only:
+                          matchId, status, failureCode?, outcome,
+                          winningSeat, endedOnTurn, reason?, concededSeat?,
+                          lossReason? (the lobby MATCH's result fields, by
+                          seat); the socket is closed next (1000 "game over")
+state.playLog (seat 0)    spec 0067: the public view's play log -- the lines
+                          every player may read alike ("Bob drew a card"),
+                          never one Forge showed one seat; never `private`;
+                          the first public view brings the game's log from
+                          line 1 (kept by the worker while nobody watched)
 MATCH_ASKING.doing        Phase 9 Amendment 21: a fixed word for what the
                           asked seat is doing ("Splitting the cards"...;
                           "Choosing"; absent for priority), never the

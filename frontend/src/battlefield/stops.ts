@@ -249,14 +249,20 @@ function doingLine(board: Snapshot, mySeat: number, doing: string | null): strin
   if (doing !== "Choosing") return doing;
   const top = board.stack[0];
   if (!top) return "Making a choice";
-  return `Making a choice for ${top.controller === mySeat ? "your" : "their"} ${top.name}`;
+  if (top.controller === mySeat) return `Making a choice for your ${top.name}`;
+  // Spec 0067 -- a spectator (mySeat -1) reads whose by name.
+  const owner = board.players.find((p) => p.seat === top.controller)?.name;
+  return `Making a choice for ${mySeat < 0 && owner ? `${owner}’s` : "their"} ${top.name}`;
 }
 
 /** W-25 — the step, and whose turn it is: "Main 1 · their turn". */
 function stepLine(board: Snapshot, mySeat: number): string {
   const step = STEPS.find((s) => s.phases.includes(board.phase))?.label;
   if (!step) return "";
-  return `${step} · ${board.activeSeat === mySeat ? "your" : "their"} turn`;
+  if (board.activeSeat === mySeat) return `${step} · your turn`;
+  // Spec 0067 -- a spectator (mySeat -1) reads whose turn by name.
+  const active = board.players.find((p) => p.seat === board.activeSeat)?.name;
+  return `${step} · ${mySeat < 0 && active ? `${active}’s` : "their"} turn`;
 }
 
 /**
@@ -299,8 +305,8 @@ const LOSS_WORDS: Record<string, string> = {
 
 /**
  * Spec 0034, Phase 9 W-24 — game over, said once: who won (`word`), why
- * (`sub`: Forge's reason for the loss, a concession, a life total at 0
- * on the board, or Forge's own sentence for an alternate win, word for
+ * (`sub`: Forge's reason for the loss, a concession, where a life at 0 or
+ * below fell to on the board (spec 0067), or Forge's own sentence for an alternate win, word for
  * word, P6-AP), and the turn it ended on. `stopped`: the game failed
  * before it finished. A spectator passes a seat nobody has (-1).
  */
@@ -326,18 +332,21 @@ export function gameOverWords(
   const loser = board.players.find((p) => p.seat !== outcome.winningSeat);
   // Spec 0045 -- why the loser lost, from Forge's own reason.
   const why = outcome.lossReason ? LOSS_WORDS[outcome.lossReason] : undefined;
+  // Spec 0067, item 8 -- a life at 0 or below says where it fell to, from
+  // the final board: "Bob's life fell to -3".
+  const fell = loser && loser.life <= 0 ? `${nameOf(loser.seat)} life fell to ${loser.life}` : null;
+  const conceded =
+    outcome.concededSeat === null
+      ? null
+      : outcome.concededSeat === mySeat
+        ? "You conceded"
+        : `${board.players.find((p) => p.seat === outcome.concededSeat)?.name ?? "Your opponent"} conceded`;
   const sub =
-    why && loser
-      ? `${loser.seat === mySeat ? "You" : loser.name} lost: ${why}`
-      : outcome.concededSeat !== null
-        ? outcome.concededSeat === mySeat
-          ? "You conceded"
-          : `${board.players.find((p) => p.seat === outcome.concededSeat)?.name ?? "Your opponent"} conceded`
-        : outcome.reason
-          ? `The winner ${outcome.reason}`
-          : loser && loser.life <= 0
-            ? `${nameOf(loser.seat)} life reached 0`
-            : "";
+    outcome.lossReason === "LifeReachedZero" && fell
+      ? fell
+      : why && loser
+        ? `${loser.seat === mySeat ? "You" : loser.name} lost: ${why}`
+        : (conceded ?? (outcome.reason ? `The winner ${outcome.reason}` : (fell ?? "")));
   return { word: won ? "You won" : `${winner} won`, sub, turn };
 }
 

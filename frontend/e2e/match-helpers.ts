@@ -63,6 +63,20 @@ export async function clearEverything(page: Page) {
     .toBe(true);
 }
 
+/**
+ * Spec 0067, item 1 -- a plate's life steps down as each blow of the fights
+ * lands, and is the board's number again once the fights' clock ends. A
+ * test reading a life total waits for that first.
+ */
+export async function lifeSettled(page: Page) {
+  await page.waitForFunction(
+    () =>
+      !document.getAnimations().some((a) => a.id === "fight-clock" && a.playState === "running"),
+    undefined,
+    { timeout: 90_000 },
+  );
+}
+
 // --- the Lobby (PHASE_07 §7.64) -------------------------------------------
 //
 // The room you are in is the brass-edged card on the room list; its
@@ -76,10 +90,8 @@ export const seatOf = (page: Page, name: string) =>
   yourRoom(page).locator(".pa-seat", { hasText: name });
 
 /** Open a room from the Lobby (Amendment 9), optionally named. */
-export async function openRoom(page: Page, name?: string, watchable = true) {
+export async function openRoom(page: Page, name?: string) {
   if (name) await page.getByPlaceholder("Room name (optional)").fill(name);
-  // Spec 0047 -- "Let people watch", on unless a test says no.
-  await page.getByRole("checkbox", { name: "Let people watch" }).setChecked(watchable);
   await page.getByRole("button", { name: "Open a room" }).click();
   await expect(yourRoom(page)).toBeVisible();
 }
@@ -439,7 +451,6 @@ export async function startAMatch(
     settle = true,
     hostName = testUser,
     guestName = secondUser,
-    watchable = true,
     // A different deck for the guest (also shared by the host), for the
     // tests that need the two seats to bring different cards.
     guestDeck = deckName,
@@ -447,13 +458,12 @@ export async function startAMatch(
     settle?: boolean;
     hostName?: string;
     guestName?: string;
-    watchable?: boolean;
     guestDeck?: string;
   } = {},
 ) {
   await host.goto("/play");
   await guest.goto("/play");
-  await openRoom(host, undefined, watchable);
+  await openRoom(host);
   await inviteIn(host, guest, guestName);
 
   const readied: string[] = [];

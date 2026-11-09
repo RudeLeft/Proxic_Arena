@@ -153,6 +153,7 @@ import {
   type FightPlan,
   type Stand,
 } from "./fights";
+import { endLifeSteps, lifeSteps, lifeStillPlaying, startLifeSteps } from "./lifeTicks";
 
 export type { TargetRef } from "./effects";
 
@@ -298,8 +299,14 @@ export interface Return {
 }
 
 /** Phase 10 A-14 -- the tag at the destination, in a player's words. */
-export function returnTag(ret: Return, opponentName: string): string {
-  const whose = ret.side === "viewer" ? "your" : `${opponentName}'s`;
+export function returnTag(
+  ret: Return,
+  opponentName: string,
+  viewerName: string | null = null,
+): string {
+  // Spec 0067 -- a spectator is nobody's "you": the bottom player by name.
+  const whose =
+    ret.side === "viewer" ? (viewerName ? `${viewerName}'s` : "your") : `${opponentName}'s`;
   if (ret.zone === "hand") return `Back to ${whose} hand`;
   if (ret.where === "top") return `On top of ${whose} library`;
   if (ret.where === "bottom") return `On the bottom of ${whose} library`;
@@ -315,6 +322,12 @@ export interface BoardProps {
   opponentHand?: readonly OpponentHandCard[];
   /** Whose that hand is, for its words. */
   opponentName?: string | undefined;
+  /**
+   * Spec 0067 -- a spectator's board: the name of the player drawn at the
+   * bottom, said where a player's board says "you"/"your"/"yours". Null
+   * (a player's own board) keeps "you".
+   */
+  viewerName?: string | null | undefined;
   /** Clicking the opponent's hand: opens the cards shown to the viewer;
    * absent when none are. */
   onOpponentHand?: (() => void) | undefined;
@@ -450,12 +463,14 @@ export function stackCaption(
   viewerSeat: number,
   total: number,
   shown: number,
+  viewerName: string | null = null,
 ): string {
   const front = stack[0];
   if (!front) return "";
   const what =
     front.kind === "trigger" ? "trigger" : front.kind === "ability" ? "ability" : front.name;
-  const whose = front.seat === viewerSeat ? "your" : front.by ? `${front.by}'s` : null;
+  const whose =
+    front.seat === viewerSeat && !viewerName ? "your" : front.by ? `${front.by}'s` : null;
   const next = whose ? `Next: ${whose} ${what}` : `Next: ${what}`;
   if (total <= 1) return next;
   const hidden = stack.length > shown ? `, ${stack.length - shown} not shown` : "";
@@ -908,6 +923,7 @@ export function Board({
   hand,
   opponentHand = NO_CARDS,
   opponentName = "Your opponent",
+  viewerName = null,
   onOpponentHand,
   viewerSeat,
   artUrl,
@@ -973,6 +989,8 @@ export function Board({
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
   const [marks, setMarks] = useState<FightMark[]>([]);
   const fightClock = useRef<Animation | null>(null);
+  // Spec 0067 -- a board that goes takes its fights' life steps with it.
+  useEffect(() => () => endLifeSteps(), []);
   /** A spell's damage: what it hit waits for its burst before it leaves. */
   const spellHits = useRef<{ ids: Set<string>; delay: number } | null>(null);
   const fightGhosts = useRef(
@@ -1209,7 +1227,7 @@ export function Board({
     const aimWords = (target: TargetRef) =>
       "player" in target
         ? target.player === viewerSeat
-          ? "you"
+          ? (viewerName ?? "you")
           : opponentName
         : (byId.get(target.object)?.name ?? "a permanent");
 
@@ -1244,7 +1262,13 @@ export function Board({
         lead.sector ? `sector ${lead.sector}` : "",
         lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
-        side === "viewer" ? "yours" : "opponent's",
+        side === "viewer"
+          ? viewerName
+            ? `${viewerName}'s`
+            : "yours"
+          : viewerName
+            ? `${opponentName}'s`
+            : "opponent's",
         ...act(slot.ids).words,
       ]
         .filter(Boolean)
@@ -1418,7 +1442,13 @@ export function Board({
                       {...tagAct.handlers}
                       aria-label={[
                         `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
-                        sideOf(card.seat) === "viewer" ? "yours" : "opponent's",
+                        sideOf(card.seat) === "viewer"
+                          ? viewerName
+                            ? `${viewerName}'s`
+                            : "yours"
+                          : viewerName
+                            ? `${opponentName}'s`
+                            : "opponent's",
                         ...tagAct.words,
                       ]
                         .filter(Boolean)
@@ -1565,6 +1595,7 @@ export function Board({
     hand,
     opponentHand,
     opponentName,
+    viewerName,
     onOpponentHand,
     viewerSeat,
     artUrl,
@@ -1732,6 +1763,7 @@ export function Board({
             lifeR: LIFE_R * g.height,
             viewerSeat,
             opponentName,
+            viewerName,
           });
     const hold = holdLeft();
     if (plan && ref.current && typeof ref.current.animate === "function") {
@@ -1803,15 +1835,31 @@ export function Board({
     const total = hold + plan.total;
     // Any dead from an older wave have long been handed to their ghosts.
     fightGhosts.current.clear();
+    // Spec 0067 -- what the older fights have still to land on a plate,
+    // read before their clock goes.
+    const carried = lifeStillPlaying();
     fightClock.current?.cancel();
     const clock = root.animate([{ opacity: 1 }, { opacity: 1 }], {
       duration: total,
       id: "fight-clock",
     });
     fightClock.current = clock;
+    // Spec 0067, item 1 -- the plates step at each blow on this clock (a
+    // hurry or a slowed clock keeps them with the slashes), and settle on
+    // the board's life when it ends.
+    startLifeSteps(
+      () => Number(clock.currentTime ?? total),
+      [...carried, ...lifeSteps(plan, hold)],
+    );
     // The fights over (or hurried to their end): everyone goes home.
     clock.onfinish = () => {
-      if (fightClock.current === clock) setReleased(plan.key);
+      if (fightClock.current === clock) {
+        endLifeSteps();
+        setReleased(plan.key);
+      }
+    };
+    clock.oncancel = () => {
+      if (fightClock.current === clock) endLifeSteps();
     };
     const alive = new Set(items.map((item) => item.id));
     for (const [item] of plan.fighters) {
@@ -1955,7 +2003,8 @@ export function Board({
             delay: hold + strike.at,
             of: strike.target,
           });
-          const you = strike.target === `player:${viewerSeat}`;
+          // A spectator is nobody: every hurt player's plate glows.
+          const you = !viewerName && strike.target === `player:${viewerSeat}`;
           const ring = LIFE_R * g.height * 3.2;
           added.push({
             key: key(`hurt:${n}:${strike.target}`),
@@ -2133,7 +2182,7 @@ export function Board({
             frames: returnTagFrames("translate(-100%, -50%)"),
             duration: RETURN_TAG_MS,
             delay: land,
-            text: returnTag(ret, opponentName),
+            text: returnTag(ret, opponentName, viewerName),
             of: id,
           });
           return;
@@ -2153,7 +2202,7 @@ export function Board({
           frames: returnTagFrames(mine ? "translate(-50%, -100%)" : "translate(-50%, 0%)"),
           duration: RETURN_TAG_MS,
           delay: land,
-          text: returnTag(ret, opponentName),
+          text: returnTag(ret, opponentName, viewerName),
           of: id,
         });
       };
@@ -2859,6 +2908,7 @@ export function Board({
     returns,
     graves,
     opponentName,
+    viewerName,
     stack,
     viewerSeat,
     artUrl,
@@ -3389,7 +3439,7 @@ export function Board({
                 next, whose, and how many wait. The card's own plate says
                 what it does, so pointing adds nothing here. */}
               <span className="bf-stack-next">
-                {stackCaption(stack, viewerSeat, stackTotal, spot.length)}
+                {stackCaption(stack, viewerSeat, stackTotal, spot.length, viewerName)}
               </span>
             </div>
           )}

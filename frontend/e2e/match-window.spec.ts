@@ -19,6 +19,7 @@ import {
   startAMatch,
   watchGame,
   discardIfAsked,
+  lifeSettled,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
@@ -36,8 +37,10 @@ const setHidden = (page: Page, hidden: boolean) =>
     document.dispatchEvent(new Event("visibilitychange"));
   }, hidden);
 
-const opponentLife = async (page: Page) =>
-  Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
+const opponentLife = async (page: Page) => {
+  await lifeSettled(page); // spec 0067: the plate steps with the fights
+  return Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
+};
 
 test("your own spell counts down from 5 and resolves; a click on the countdown resolves it now", async ({
   browser,

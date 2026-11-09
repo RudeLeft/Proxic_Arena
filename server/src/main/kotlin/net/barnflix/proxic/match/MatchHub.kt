@@ -65,6 +65,9 @@ class MatchWatchers {
 
     /** Spec 0047 — how many people (not tabs) are connected to one match. */
     fun people(matchId: UUID): Int = watchers[matchId]?.size ?: 0
+
+    /** Spec 0067 — who (not how many tabs) is connected to one match. */
+    fun users(matchId: UUID): Set<UUID> = watchers[matchId]?.keys?.toSet().orEmpty()
 }
 
 class MatchHub : DecisionAnnouncer {
@@ -78,6 +81,12 @@ class MatchHub : DecisionAnnouncer {
      * are sent the public view and the steps, and nothing else.
      */
     val spectators = MatchWatchers()
+
+    /** Spec 0067 — each spectator's display name, for the players' "2 watching" list. */
+    val spectatorNames = ConcurrentHashMap<UUID, String>()
+
+    /** Spec 0067 — the endings told to spectators, kept for one who comes back late. */
+    val endings = SpectatorEndings(spectators)
 
     override suspend fun spectate(
         matchId: UUID,

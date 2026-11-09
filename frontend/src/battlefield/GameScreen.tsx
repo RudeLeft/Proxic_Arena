@@ -17,11 +17,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useShownLife } from "./lifeTicks";
 import libraryArt from "../assets/zones/library.webp";
 import graveyardArt from "../assets/zones/graveyard.webp";
 import exileArt from "../assets/zones/exile.webp";
@@ -180,6 +182,7 @@ export function GameScreen({
   me,
   onLeave,
   watching = false,
+  onSpectateAnother = null,
 }: {
   match: MatchView;
   me: string;
@@ -187,6 +190,8 @@ export function GameScreen({
   onLeave: () => void;
   /** Spec 0047 -- a spectator: the public table, never asked, nothing to send. */
   watching?: boolean;
+  /** Spec 0067 -- a spectator's "Spectate another game", when one is running; null when none. */
+  onSpectateAnother?: (() => void) | null;
 }) {
   const mine = match.participants.find((seat) => seat.userId === me);
   const [game, setGame] = useState<MatchState>(EMPTY_MATCH);
@@ -194,11 +199,30 @@ export function GameScreen({
   // LAUNCHING counts as live: the mulligans come before the match row
   // turns RUNNING (Phase 6's three-layer deadlock).
   const live = match.status === "RUNNING" || match.status === "LAUNCHING";
+  // Spec 0067 -- a spectator is told the end on this socket (MATCH_ENDED),
+  // not by the lobby: the result, by seat. A spectator's socket the server
+  // closed for good with no word (a server restarted under it) is over too.
+  const ended = watching ? (game.ended ?? null) : null;
+  const lostTouch = watching && game.connection === "closed" && !ended;
+  const result: MatchView = ended
+    ? { ...match, status: ended.status, failureCode: ended.failureCode, outcome: ended.outcome }
+    : match;
   // Spec 0056 — the server stopped under the game (an update): over, and
   // said plainly, from the server's word on this socket or the match's end.
-  const updated = serverWasUpdated(match, game.serverStopping === true);
-  const finished = match.outcome !== null || match.status === "FAILED_RUNTIME" || updated;
-  const sentence = updated ? SERVER_UPDATE_WORDS : resultText(match, mine?.seatNumber ?? null);
+  const updated = serverWasUpdated(result, game.serverStopping === true);
+  const finished =
+    result.outcome !== null ||
+    result.status === "FAILED_RUNTIME" ||
+    updated ||
+    ended !== null ||
+    lostTouch;
+  const sentence = updated
+    ? SERVER_UPDATE_WORDS
+    : resultText(
+        result,
+        mine?.seatNumber ?? null,
+        watching ? (seat) => game.board?.players.find((p) => p.seat === seat)?.name : null,
+      );
   // W-24 — the result banner put away, to look at how the game ended.
   const [resultAside, setResultAside] = useState(false);
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
@@ -214,7 +238,10 @@ export function GameScreen({
       tone: "blue",
       label: "Connection",
       title: "Reconnecting to the game…",
-      line: "The game is still running, and nothing is answered for you while you're away.",
+      // Spec 0067 -- a spectator's hiccup: the game carries on, and so do they.
+      line: watching
+        ? "The game carries on. You'll be back in a moment."
+        : "The game is still running, and nothing is answered for you while you're away.",
       actions: [],
     });
   }
@@ -283,7 +310,27 @@ export function GameScreen({
     current: null,
     previous: null,
   });
-  const board = held && !askedNow ? held : latest;
+  // Spec 0067 (checklist 7) -- "Switch sides": a spectator looks from the
+  // other player's side. The public view is the same for both (no hand,
+  // nothing face down is named), so this only turns the table round.
+  const [flipped, setFlipped] = useState(false);
+  // The turn: the table fades to the felt, turns round under it, and fades
+  // back while the plates glide to their new ends (P10-R1: nothing jumps).
+  const [turning, setTurning] = useState(0);
+  const switchSides = useCallback(() => {
+    setTurning((n) => n + 1);
+    window.setTimeout(() => setFlipped((was) => !was), SWITCH_SIDES_MS / 2);
+  }, []);
+  useEffect(() => {
+    if (turning === 0) return undefined;
+    const timer = window.setTimeout(() => setTurning(0), SWITCH_SIDES_MS);
+    return () => window.clearTimeout(timer);
+  }, [turning]);
+  const shownBoard = held && !askedNow ? held : latest;
+  const board = useMemo(
+    () => turnedRound(shownBoard, watching && flipped),
+    [shownBoard, watching, flipped],
+  );
   // Spec 0039 — what a report sent from here knows about this moment.
   const reportGame = useMemo<ReportGame | undefined>(() => {
     if (!board) return undefined;
@@ -301,7 +348,10 @@ export function GameScreen({
     };
   }, [board, match.matchId]);
   if (board && board !== frames.current.current) {
-    frames.current = { current: board, previous: frames.current.current };
+    // Spec 0067 -- a spectator's table turned round is not a move: nothing
+    // flies from where it was drawn on the other side (the turn is a fade).
+    const turned = frames.current.current !== null && frames.current.current.seat !== board.seat;
+    frames.current = { current: board, previous: turned ? null : frames.current.current };
   }
   const data = useMemo(
     () => (board ? boardFromSnapshot(board, frames.current.previous) : null),
@@ -318,7 +368,10 @@ export function GameScreen({
   // The loading ring only once loading takes a moment: a refreshed game
   // draws its board in a few hundredths of a second, and the ring
   // flashing first looked like a hiccup (owner 2026-10-24).
-  const ringDue = useSettled(!(data && board), 400);
+  // Spec 0067 (checklist 8): a spectator's page has shown the swirl since
+  // the click, so it carries straight on -- one loading screen, not two.
+  const ringWait = useSettled(!(data && board), 400);
+  const ringDue = ringWait || (watching && !(data && board));
   // Spec 0013 — the corner icons wait for the board. A start that hangs
   // must still be abandonable, so after a long wait the gear comes back.
   const longLoad = useSettled(!(data && board), 20_000);
@@ -331,9 +384,11 @@ export function GameScreen({
   // player to their room, which is open again with both still seated.
   const over: GameOver | null = finished
     ? {
-        ...endingWords(match, board, updated, sentence),
+        ...(lostTouch && !updated
+          ? { word: "Game over", sub: "", turn: "" }
+          : endingWords(result, board, updated, sentence)),
         won: Boolean(
-          !updated && board && !board.spectator && match.outcome?.winningSeat === board.seat,
+          !updated && board && !board.spectator && result.outcome?.winningSeat === board.seat,
         ),
         aside: resultAside,
         leaveWord: watching ? "Back to the lobby" : "Back to the room",
@@ -1334,7 +1389,7 @@ export function GameScreen({
   const acting = actingSeat
     ? {
         name:
-          actingSeat === board?.seat
+          actingSeat === board?.seat && !board?.spectator
             ? "You"
             : (board?.players.find((p) => p.seat === actingSeat)?.name ?? "A player"),
         face: (
@@ -1586,14 +1641,19 @@ export function GameScreen({
 
   return (
     <SeatsContext.Provider value={match.participants}>
-      <section className="gs-screen" aria-label="Your match">
-        <h1 className="pa-visually-hidden">Your match</h1>
+      <section className="gs-screen" aria-label={watching ? "The match" : "Your match"}>
+        <h1 className="pa-visually-hidden">{watching ? "The match" : "Your match"}</h1>
         {data && board ? (
           <Board
             battlefield={data.battlefield}
             hand={data.hand}
             opponentHand={data.opponentHand}
             opponentName={board.players.find((p) => p.seat !== board.seat)?.name}
+            viewerName={
+              board.spectator
+                ? (board.players.find((p) => p.seat === board.seat)?.name ?? null)
+                : null
+            }
             onOpponentHand={
               data.opponentHand.some((card) => card.shown)
                 ? () => {
@@ -1632,7 +1692,10 @@ export function GameScreen({
             asking={question?.context === "choose"}
             top={
               <>
-                {over && !over.aside && (
+                {over && !over.aside && watching && (
+                  <SpectatorOver over={over} onLeave={onLeave} onAnother={onSpectateAnother} />
+                )}
+                {over && !over.aside && !watching && (
                   <ResultBanner
                     over={over}
                     sentence={sentence}
@@ -1640,6 +1703,7 @@ export function GameScreen({
                     onAside={() => setResultAside(true)}
                   />
                 )}
+                {turning > 0 && <div key={turning} className="gs-turning" aria-hidden="true" />}
                 <NoticeStack notices={tableNotices} place="table" />
                 {awayLong && !finished && (
                   // W-26 (Amendment 20): a game window beside their plate.
@@ -1718,6 +1782,7 @@ export function GameScreen({
                 over={over}
                 onLeave={onLeave}
                 watching={game.watching}
+                watchers={game.watchers ?? []}
                 placing={
                   placingTriggers(decision) ? (answeredForYou ? "answering" : "asking") : null
                 }
@@ -1866,9 +1931,11 @@ export function GameScreen({
                 ? "The game is over."
                 : reconnecting
                   ? "Reconnecting to the game…"
-                  : match.status === "LAUNCHING"
-                    ? "Setting up the table…"
-                    : "Shuffling up and dealing…"
+                  : watching
+                    ? SPECTATE_LOADING_WORDS
+                    : match.status === "LAUNCHING"
+                      ? "Setting up the table…"
+                      : "Shuffling up and dealing…"
             }
             ready={vortex.ready}
             onDone={vortex.done}
@@ -1876,6 +1943,14 @@ export function GameScreen({
         )}
 
         <div className="gs-corner">
+          {/* Spec 0067 (item 10, B) -- what a spectator is watching, and how
+            to leave it, in one place: "Spectating Alice vs Bob · Stop". */}
+          {watching && board && drawn && (
+            <SpectatingChip
+              names={[...board.players].sort((a, b) => a.seat - b.seat).map((p) => p.name)}
+              onStop={onLeave}
+            />
+          )}
           {/* Spec 0065 (owner 2026-11-07): no logo in the corner; nothing
             replaces it. The game's state is still said to a screen reader. */}
           <p className="gs-status pa-visually-hidden" role="status">
@@ -1896,15 +1971,15 @@ export function GameScreen({
           from its tab on the left edge, which pulses for a new message
           (owner 2026-10-28: no chat icon here). */}
         <div className="gs-dock-anchor" hidden={!drawn && !longLoad}>
-          {/* Spec 0047 -- a spectator concedes nothing: they can only leave. */}
+          {/* Spec 0047 -- a spectator concedes nothing: they can only leave
+            (the chip, top left) or, spec 0067, turn the table round. */}
           {watching ? (
-            <button
-              type="button"
-              className="pa-button pa-button-quiet gs-stop-watching"
-              onClick={onLeave}
-            >
-              Stop watching
-            </button>
+            board && (
+              <SwitchSides
+                from={board.players.find((p) => p.seat === board.seat)?.name ?? "one player"}
+                onSwitch={switchSides}
+              />
+            )
           ) : (
             <GameMenu
               match={match}
@@ -1980,7 +2055,9 @@ export function GameScreen({
           <ResultBanner over={over} sentence={sentence} onLeave={onLeave} onAside={null} />
         )}
 
-        {drawn && !watching && board && (
+        {/* Spec 0067 (checklist 5) -- a spectator reads the public play log,
+          read-only: no chat, no box to type in. */}
+        {drawn && board && (
           <GameChat
             open={chatOpen}
             onToggle={setChatOpen}
@@ -1988,8 +2065,9 @@ export function GameScreen({
             matchId={match.matchId}
             lines={playLog}
             players={board.players}
-            mySeat={board.seat}
+            mySeat={board.spectator ? -1 : board.seat}
             handCount={board.hand.length}
+            logOnly={watching}
             onInspect={(id) => {
               if (!cardOf(board, id)) return false;
               setInspecting(id);
@@ -2054,11 +2132,14 @@ function StepLadder({
   board,
   mySeat,
   watching = 0,
+  watchers = [],
 }: {
   board: Snapshot;
   mySeat: number;
   /** Spec 0047 -- how many people are watching this game. */
   watching?: number;
+  /** Spec 0067 -- who, by name: pointing at the count lists them. */
+  watchers?: readonly string[];
 }) {
   const target = STEPS.findIndex((step) => step.phases.includes(board.phase));
   // Owner 2026-10-22: steps nobody stops at went by in one jump, and the
@@ -2147,12 +2228,36 @@ function StepLadder({
           <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
         )}
       </div>
-      {/* Spec 0047 -- players see how many are watching; a spectator that
-          they are. Its own line, so whose turn it is keeps the head. */}
-      {(board.spectator || watching > 0) && (
-        <span className="gs-watching" role="status">
-          {board.spectator ? "You are watching" : `${watching} watching`}
+      {/* Spec 0047 -- players see how many are watching (spec 0067 item 2:
+          a spectator no longer sees "You are watching"; the chip says it).
+          Its own line, so whose turn it is keeps the head. Spec 0067 --
+          pointing at it lists who. */}
+      {!board.spectator && watching > 0 && (
+        <span
+          className="gs-watching"
+          role="status"
+          tabIndex={0}
+          aria-label={
+            watchers.length > 0
+              ? `${watching} watching: ${watchers.join(", ")}`
+              : `${watching} watching`
+          }
+        >
+          {`${watching} watching`}
         </span>
+      )}
+      {/* Spec 0067 -- pointing at (or focusing) the pill opens who, beside
+          the column over the table's edge, so the ladder stays readable. */}
+      {!board.spectator && watching > 0 && watchers.length > 0 && (
+        <div className="gs-watching-list" aria-hidden="true" data-testid="watching-list">
+          <span className="gs-status-pointer gs-watching-pointer" />
+          <p className="gs-watching-head">Watching</p>
+          <ul>
+            {watchers.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {/* data-step: the step the game is IN; the highlight may still be
           walking towards it. */}
@@ -2298,9 +2403,24 @@ function SeatBlock({
   );
   // Said to a screen reader only (owner 2026-10-28: the medallion shows
   // just the name and the Belt; the gold ring on the life says whose turn).
-  const role = `${mine ? "you" : "opponent"}${active ? ", active turn" : ""}`;
+  // Spec 0067 -- a spectator is nobody's "you" or "opponent".
+  const role = `${board.spectator ? "player" : mine ? "you" : "opponent"}${active ? ", active turn" : ""}`;
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
   const exiled = board.exile.filter((card) => card.seat === player.seat).length;
+  // Spec 0067, item 1 -- the life steps down at each blow of the fights
+  // playing (lifeTicks), and settles on the board's when they end.
+  const shown = useShownLife(player.seat, player.life);
+  const life = shown.life;
+  const lifeRef = useRef<HTMLButtonElement>(null);
+  const hitsSeen = useRef(shown.hits);
+  useEffect(() => {
+    if (shown.hits === hitsSeen.current) return;
+    hitsSeen.current = shown.hits;
+    const shield = lifeRef.current;
+    if (!shield || typeof shield.animate !== "function") return;
+    // The canvas's A: a short red shake as the number drops.
+    shield.animate(LIFE_HIT_FRAMES, { duration: LIFE_HIT_MS, easing: "ease-out" });
+  }, [shown.hits]);
   return (
     // Spec 0029 — a raised plate: picture, name and Belt, life in a banner,
     // and a grid of tiles for the zones. Whose turn: the plate's top edge.
@@ -2309,8 +2429,8 @@ function SeatBlock({
       data-seat={player.seat}
     >
       <span className="pa-visually-hidden">
-        {player.name} ({role}): {player.life} life, {player.handCount} in hand,{" "}
-        {player.libraryCount} in library, {player.graveyardCount} in graveyard, {exiled} in exile.
+        {player.name} ({role}): {life} life, {player.handCount} in hand, {player.libraryCount} in
+        library, {player.graveyardCount} in graveyard, {exiled} in exile.
       </span>
       <div className="gs-seat-head">
         <span className="gs-life-face">
@@ -2343,15 +2463,17 @@ function SeatBlock({
         </span>
         <button
           type="button"
-          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}${chosenTarget ? " gs-chosen-target" : ""}`}
-          aria-label={`${player.name}, ${player.life} life${chosenTarget ? ", chosen as a target" : ""}${choosable ? ", can be chosen" : ""}`}
+          ref={lifeRef}
+          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}${chosenTarget ? " gs-chosen-target" : ""}${lifeIsLong(life) ? " gs-life-long" : ""}`}
+          aria-label={`${player.name}, ${life} life${chosenTarget ? ", chosen as a target" : ""}${choosable ? ", can be chosen" : ""}`}
+          data-life={life}
           data-object-id={id}
           data-choosable={choosable ? "true" : undefined}
           data-chosen-target={chosenTarget ? "true" : undefined}
           disabled={busy && choosable}
           onClick={() => onPick(id)}
         >
-          <span className="gs-life-n">{player.life}</span>
+          <span className="gs-life-n">{life}</span>
           {chosenTarget && (
             <span className="gs-life-target" aria-hidden="true">
               TARGET
@@ -2371,15 +2493,18 @@ function SeatBlock({
             from an empty library loses the game (CR 704.5b). */}
         <div
           className={`gs-zone${libraryWarning(player.libraryCount) ? ` gs-zone-${libraryWarning(player.libraryCount)}` : ""}`}
-          title={libraryWords(player.libraryCount, mine ? null : player.name) ?? "Library"}
-          aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine ? null : player.name)}` : ""}`}
+          title={
+            libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name) ??
+            "Library"
+          }
+          aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
           data-warning={libraryWarning(player.libraryCount) ?? undefined}
         >
           <ZoneIcon zone="library" />
           <span className="gs-zone-n">{player.libraryCount}</span>
           <span className="gs-zone-key">
             {libraryWarning(player.libraryCount) === "empty"
-              ? libraryWords(0, mine ? null : player.name)
+              ? libraryWords(0, mine && !board.spectator ? null : player.name)
               : "Library"}
           </span>
         </div>
@@ -2641,6 +2766,7 @@ function Rail({
   over,
   onLeave,
   watching = 0,
+  watchers = [],
   placing = null,
   discard = null,
   onDiscard,
@@ -2682,6 +2808,8 @@ function Rail({
   onLeave: () => void;
   /** Spec 0047 — how many people are watching. */
   watching?: number;
+  /** Spec 0067 — who is watching, by name. */
+  watchers?: readonly string[];
   /**
    * Spec 0058, item 5 -- the game is putting triggers on the stack: a
    * question about one the page answers itself, or the gap after one.
@@ -2900,12 +3028,51 @@ function Rail({
   );
   // Spec 0058, item 5 -- nothing asked of you: the last button, for a moment.
   const steadyAct = useSteadyAct(act, waiting !== null && !over, placing);
+  // Spec 0067 -- a spectator's "Switch sides": the plates swap ends with
+  // the table, gliding there (P10-R1), each keyed by its seat so it is the
+  // same plate that moves.
+  const railRef = useRef<HTMLDivElement>(null);
+  const plates = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const before = plates.current;
+    const now = new Map<string, number>();
+    for (const plate of rail.querySelectorAll<HTMLElement>(".gs-seat[data-seat]")) {
+      const seat = plate.dataset["seat"] ?? "";
+      const top = plate.getBoundingClientRect().top;
+      now.set(seat, top);
+      const was = before.get(seat);
+      if (was !== undefined && Math.abs(was - top) > 1 && typeof plate.animate === "function") {
+        plate.animate(
+          [{ transform: `translateY(${was - top}px)` }, { transform: "translateY(0)" }],
+          { duration: SWITCH_SIDES_MS * 0.6, easing: "cubic-bezier(.45,0,.25,1)" },
+        );
+      }
+    }
+    plates.current = now;
+  }, [mySeat]);
   return (
-    <div className="gs-rail">
-      {them && <StatusTray player={them} side="opponent" />}
-      {me && <StatusTray player={me} side="viewer" />}
+    <div className="gs-rail" ref={railRef}>
+      {them && (
+        <StatusTray
+          key={`tray-${them.seat}`}
+          player={them}
+          side="opponent"
+          spectating={board.spectator === true}
+        />
+      )}
+      {me && (
+        <StatusTray
+          key={`tray-${me.seat}`}
+          player={me}
+          side="viewer"
+          spectating={board.spectator === true}
+        />
+      )}
       {them && (
         <SeatBlock
+          key={`seat-${them.seat}`}
           player={them}
           board={board}
           mine={false}
@@ -2919,7 +3086,7 @@ function Rail({
         />
       )}
 
-      <StepLadder board={board} mySeat={mySeat} watching={watching} />
+      <StepLadder board={board} mySeat={mySeat} watching={watching} watchers={watchers} />
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone).
@@ -2928,6 +3095,7 @@ function Rail({
 
       {me && (
         <SeatBlock
+          key={`seat-${me.seat}`}
           player={me}
           board={board}
           mine
@@ -4243,5 +4411,133 @@ function GearIcon() {
         d="M10.3 2h3.4l.5 2.6c.7.2 1.3.5 1.9.9l2.3-1.4 2.4 2.4-1.4 2.3c.4.6.7 1.2.9 1.9l2.6.5v3.4l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.4 2.3-2.4 2.4-2.3-1.4c-.6.4-1.2.7-1.9.9l-.5 2.6h-3.4l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.3 1.4-2.4-2.4 1.4-2.3c-.4-.6-.7-1.2-.9-1.9L1 13.7v-3.4l2.6-.5c.2-.7.5-1.3.9-1.9L3.1 5.6 5.5 3.2l2.3 1.4c.6-.4 1.2-.7 1.9-.9L10.3 2ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
       />
     </svg>
+  );
+}
+
+// --- spectating (spec 0067) -----------------------------------------------------------
+
+/** What the one loading screen says while a spectator's game comes (WatchPage too). */
+export const SPECTATE_LOADING_WORDS = "Finding the game…";
+
+/** How long the table and the plates take to turn round (Switch sides): fade out, turn, fade in. */
+const SWITCH_SIDES_MS = 700;
+
+/** Spec 0067, item 1 -- the shield's short red shake as a blow lands (the canvas's A). */
+const LIFE_HIT_MS = 320;
+const LIFE_HIT_FRAMES: Keyframe[] = [
+  { transform: "translateX(0)", filter: "drop-shadow(0 0 8px rgb(255 60 40 / 100%))" },
+  { transform: "translateX(3px)", offset: 0.17 },
+  { transform: "translateX(-2.5px)", offset: 0.33 },
+  { transform: "translateX(2px)", offset: 0.5 },
+  { transform: "translateX(-1px)", offset: 0.67 },
+  { transform: "translateX(0)", filter: "drop-shadow(0 0 0 rgb(255 60 40 / 0%))" },
+];
+
+/** Spec 0067, item 8 (A) -- three characters ("-12", "100"): the shield's number shrinks to fit. */
+export function lifeIsLong(life: number): boolean {
+  return String(life).length >= 3;
+}
+
+/**
+ * Spec 0067 (checklist 7) -- the public view from the other player's side:
+ * the same board, drawn with the other seat at the bottom. Nothing is
+ * added or uncovered (a spectator is only ever sent public cards).
+ */
+export function turnedRound(board: Snapshot | null, flip: boolean): Snapshot | null {
+  if (!board || !flip || !board.spectator) return board;
+  const other = board.players.find((p) => p.seat !== board.seat);
+  return other ? { ...board, seat: other.seat } : board;
+}
+
+const EYE = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+/** Spec 0067 (item 10, B) -- top left: "Spectating Alice vs Bob · Stop". */
+function SpectatingChip({ names, onStop }: { names: string[]; onStop: () => void }) {
+  return (
+    <span className="gs-spectating" data-testid="spectating-chip">
+      <span className="gs-spectating-eye">{EYE}</span>
+      <span>
+        Spectating <b>{names.join(" vs ")}</b>
+      </span>
+      <button
+        type="button"
+        className="gs-spectating-stop"
+        onClick={onStop}
+        aria-label="Stop spectating"
+      >
+        Stop
+      </button>
+    </span>
+  );
+}
+
+/** Spec 0067 (checklist 7) -- bottom left: which side you look from, and the switch. */
+function SwitchSides({ from, onSwitch }: { from: string; onSwitch: () => void }) {
+  return (
+    <span className="gs-spectating gs-switch-sides">
+      <span>
+        From <b>{from}</b>’s side
+      </span>
+      <button type="button" className="gs-switch-sides-button" onClick={onSwitch}>
+        Switch sides
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Spec 0067 (item 9, B) -- the game is over, for a spectator: one slim card
+ * over the final board -- who won and why, Back to the lobby, and Spectate
+ * another game when one is running.
+ */
+function SpectatorOver({
+  over,
+  onLeave,
+  onAnother,
+}: {
+  over: GameOver;
+  onLeave: () => void;
+  onAnother: (() => void) | null;
+}) {
+  return (
+    <div
+      className="gs-spectator-over"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="gs-spectator-over-title"
+      data-testid="spectator-over"
+    >
+      <h2 id="gs-spectator-over-title" className="gs-spectator-over-title">
+        {over.word}
+      </h2>
+      <p className="gs-spectator-over-why">{[over.sub, over.turn].filter(Boolean).join(" · ")}</p>
+      <div className="gs-spectator-over-buttons">
+        <button type="button" className="pa-button pa-button-brass" onClick={onLeave}>
+          Back to the lobby
+        </button>
+        {onAnother && (
+          <button
+            type="button"
+            className="pa-button pa-button-quiet gs-spectate-another"
+            onClick={onAnother}
+          >
+            {EYE}
+            Spectate another game
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

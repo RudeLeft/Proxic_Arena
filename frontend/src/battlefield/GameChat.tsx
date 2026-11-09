@@ -8,7 +8,8 @@
 // game and its socket), which closes when the game page goes.
 //
 // The lobby chat does not change: Chat is the lobby's panel (ChatPanel)
-// with this game's lines, as before. Spectators have no game chat.
+// with this game's lines, as before. Spectators have no game chat; spec
+// 0067 gives them the public play log alone, read-only (`logOnly`).
 
 import {
   Fragment,
@@ -119,6 +120,7 @@ export function GameChat({
   mySeat,
   handCount,
   onInspect,
+  logOnly = false,
 }: {
   open: boolean;
   onToggle: (open: boolean) => void;
@@ -132,9 +134,11 @@ export function GameChat({
   handCount: number;
   /** Open a card's close-up, when it is on the board (by id); false when it is not. */
   onInspect: (id: string) => boolean;
+  /** Spec 0067 -- a spectator: the play log only, read-only; no chat and no box to type in. */
+  logOnly?: boolean;
 }) {
   const { lobby, send } = useLobbyConnection();
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>(logOnly ? "log" : "chat");
   const remembered = useMemo(() => loadPlace(me), [me]);
   const [mode, setMode] = useState<Mode>(remembered.mode);
   const [rect, setRect] = useState<Rect | null>(remembered.rect);
@@ -316,6 +320,7 @@ export function GameChat({
 
   const window_ = (where: Mode) => (
     <ChatWindow
+      logOnly={logOnly}
       mode={where}
       tab={tab}
       onTab={setTab}
@@ -334,16 +339,20 @@ export function GameChat({
       onMove={moveDrag}
       onUp={endDrag}
       chat={
-        <ChatPanel
-          lobby={lobby}
-          me={me}
-          lines={lobby.gameChat}
-          title="Game chat"
-          inputLabel="Message the game"
-          className="gs-chat-panel"
-          onSay={(text) => send({ type: "CHAT", text, scope: "game" })}
-          onReact={(lineId, emoji, on) => send({ type: "REACT", lineId, emoji, on, scope: "game" })}
-        />
+        logOnly ? null : (
+          <ChatPanel
+            lobby={lobby}
+            me={me}
+            lines={lobby.gameChat}
+            title="Game chat"
+            inputLabel="Message the game"
+            className="gs-chat-panel"
+            onSay={(text) => send({ type: "CHAT", text, scope: "game" })}
+            onReact={(lineId, emoji, on) =>
+              send({ type: "REACT", lineId, emoji, on, scope: "game" })
+            }
+          />
+        )
       }
       log={
         <PlayLogView
@@ -359,8 +368,8 @@ export function GameChat({
 
   return (
     <aside
-      className={`gs-chat gs-chat-${mode}${open ? " gs-chat-open" : ""}`}
-      aria-label="Game chat"
+      className={`gs-chat gs-chat-${mode}${open ? " gs-chat-open" : ""}${logOnly ? " gs-chat-log-only" : ""}`}
+      aria-label={logOnly ? "Play log" : "Game chat"}
     >
       {(mode !== "floating" || !open) && (
         <button
@@ -368,17 +377,23 @@ export function GameChat({
           className={`gs-chat-tab${dot ? " gs-chat-tab-unread" : ""}`}
           aria-expanded={showing}
           aria-label={
-            mode === "popped"
-              ? "The game chat is in its own window: bring it back"
-              : open
-                ? "Close the game chat"
-                : dot
-                  ? "Open the game chat, new messages"
-                  : "Open the game chat"
+            logOnly
+              ? mode === "popped"
+                ? "The play log is in its own window: bring it back"
+                : open
+                  ? "Close the play log"
+                  : "Open the play log"
+              : mode === "popped"
+                ? "The game chat is in its own window: bring it back"
+                : open
+                  ? "Close the game chat"
+                  : dot
+                    ? "Open the game chat, new messages"
+                    : "Open the game chat"
           }
           onClick={() => (mode === "popped" ? comeBack() : onToggle(!open))}
         >
-          <span aria-hidden="true">Game chat</span>
+          <span aria-hidden="true">{logOnly ? "Play log" : "Game chat"}</span>
           {dot && <span aria-hidden="true" className="gs-chat-tab-dot" />}
         </button>
       )}
@@ -402,6 +417,7 @@ export function GameChat({
 }
 
 function ChatWindow({
+  logOnly = false,
   mode,
   tab,
   onTab,
@@ -441,6 +457,8 @@ function ChatWindow({
   onUp: (event: ReactPointerEvent<HTMLElement>) => void;
   chat: ReactNode;
   log: ReactNode;
+  /** Spec 0067 -- a spectator's: the play log alone, read-only. */
+  logOnly?: boolean;
 }) {
   const style = rect ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h } : undefined;
   return (
@@ -452,7 +470,7 @@ function ChatWindow({
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        <span className="gs-cw-title">Game chat</span>
+        <span className="gs-cw-title">{logOnly ? "Play log · read-only" : "Game chat"}</span>
         {mode === "docked" && (
           <button
             type="button"
@@ -514,7 +532,7 @@ function ChatWindow({
           {POPUP_BLOCKED}
         </p>
       )}
-      <div className="gs-cw-tabs" role="tablist" aria-label="Game chat">
+      <div className="gs-cw-tabs" role="tablist" aria-label="Game chat" hidden={logOnly}>
         <button
           type="button"
           role="tab"
@@ -545,9 +563,11 @@ function ChatWindow({
         </button>
       </div>
       {/* Both stay mounted: a half-typed message survives a look at the log. */}
-      <div className="gs-cw-body" role="tabpanel" hidden={tab !== "chat"}>
-        {chat}
-      </div>
+      {!logOnly && (
+        <div className="gs-cw-body" role="tabpanel" hidden={tab !== "chat"}>
+          {chat}
+        </div>
+      )}
       <div className="gs-cw-body" role="tabpanel" hidden={tab !== "log"}>
         {log}
       </div>

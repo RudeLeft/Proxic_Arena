@@ -216,14 +216,40 @@ final class PlayLog {
         return part;
     }
 
-    /** The card as [viewer] may know it now: a name part, or null. */
+    /**
+     * The card as [viewer] may know it now: a name part, or null. Spec 0067
+     * -- a null viewer is the public seat (spectators): named only when
+     * EVERY player may identify it (isPublic), as the public board is.
+     */
     private JsonObject cardFor(Card card, CardView view, Player viewer) {
         CardView v = card != null ? card.getView() : view;
+        if (viewer == null) {
+            return isPublic(card, v) ? named(card, v) : null;
+        }
         if (!maySee(v, viewer.getView())) {
             return null;
         }
         return named(card, v);
     }
+
+    /**
+     * Spec 0067 -- every reader of the log: each player, then the public
+     * seat (null, read by spectators). The public seat is told only what
+     * every player may see, and nothing Forge showed one seat alone.
+     */
+    private List<Player> readers() {
+        List<Player> out = new ArrayList<>(players());
+        out.add(null);
+        return out;
+    }
+
+    /** A reader's seat: its player's, or PUBLIC_SEAT for the public one. */
+    private int readerSeat(Player reader) {
+        return reader == null ? PUBLIC_SEAT : seat(reader);
+    }
+
+    /** Spec 0067 -- the seat the public log is written for (GameHost.PUBLIC_SEAT). */
+    static final int PUBLIC_SEAT = GameHost.PUBLIC_SEAT;
 
     private Card find(CardView view) {
         return view == null ? null : game.findById(view.getId());
@@ -246,14 +272,21 @@ final class PlayLog {
 
     /** Each seat's view of one card, into the fact's items. */
     private void addCard(Fact fact, Card card, CardView view) {
-        for (Player viewer : players()) {
-            fact.itemsFor(seat(viewer)).add(cardFor(card, view, viewer));
+        for (Player viewer : readers()) {
+            fact.itemsFor(readerSeat(viewer)).add(cardFor(card, view, viewer));
         }
     }
 
     private void addPlayer(Fact fact, int seat) {
-        for (Player viewer : players()) {
-            fact.itemsFor(seat(viewer)).add(player(seat));
+        for (Player viewer : readers()) {
+            fact.itemsFor(readerSeat(viewer)).add(player(seat));
+        }
+    }
+
+    /** An item no reader may identify (a hidden source), for every reader. */
+    private void addHidden(Fact fact) {
+        for (Player viewer : readers()) {
+            fact.itemsFor(readerSeat(viewer)).add(null);
         }
     }
 
@@ -429,6 +462,8 @@ final class PlayLog {
         }
         List<Integer> seats = new ArrayList<>();
         all.forEach(viewer -> seats.add(seat(viewer)));
+        // Spec 0067 -- and the public log, for spectators.
+        seats.add(PUBLIC_SEAT);
         out.putAll(lines(pending, seats, revision, numbered));
         pending.clear();
         return out;
@@ -455,7 +490,10 @@ final class PlayLog {
                     said.put(seat, capital(words));
                 }
             }
-            int fewest = said.values().stream().mapToInt(PlayLog::namedIn).min().orElse(0);
+            // Spec 0067 -- the public seat's line names no more than any
+            // player's; "private" is still measured between the players.
+            int fewest = said.entrySet().stream().filter(e -> e.getKey() != PUBLIC_SEAT)
+                    .mapToInt(e -> namedIn(e.getValue())).min().orElse(0);
             for (Map.Entry<Integer, JsonArray> each : said.entrySet()) {
                 int seat = each.getKey();
                 JsonObject line = new JsonObject();
@@ -469,7 +507,7 @@ final class PlayLog {
                 if (fact.life.size() > 0) {
                     line.add("life", fact.life.deepCopy());
                 }
-                if (fact.only != null || namedIn(each.getValue()) > fewest) {
+                if (seat != PUBLIC_SEAT && (fact.only != null || namedIn(each.getValue()) > fewest)) {
                     line.addProperty("private", true);
                 }
                 out.computeIfAbsent(seat, k -> new JsonArray()).add(line);
@@ -731,9 +769,7 @@ final class PlayLog {
             addCard(fact, source, null);
             remember(source, null);
         } else {
-            for (Player viewer : players()) {
-                fact.itemsFor(seat(viewer)).add(null);
-            }
+            addHidden(fact);
         }
         List<Integer> owners = new ArrayList<>();
         owners.add(by);
@@ -812,9 +848,7 @@ final class PlayLog {
             } else if (defender instanceof CardView card) {
                 addCard(fact, find(card), card);
             } else {
-                for (Player viewer : players()) {
-                    fact.itemsFor(seat(viewer)).add(null);
-                }
+                addHidden(fact);
             }
             for (CardView attacker : attackers) {
                 addCard(fact, find(attacker), attacker);
@@ -894,9 +928,7 @@ final class PlayLog {
         if (source != null) {
             addCard(fact, from, source);
         } else {
-            for (Player viewer : players()) {
-                fact.itemsFor(seat(viewer)).add(null);
-            }
+            addHidden(fact);
         }
         target.accept(fact);
         fact.phrase = (s, items) -> {
@@ -994,9 +1026,9 @@ final class PlayLog {
         // What every seat knew of it where it was: a public card stays named.
         JsonObject wasPublic = PUBLIC_ZONES.contains(from) ? publicNames.get(id) : null;
         Fact fact = fact("move");
-        for (Player viewer : players()) {
+        for (Player viewer : readers()) {
             JsonObject now = cardFor(card, view, viewer);
-            fact.itemsFor(seat(viewer)).add(now != null ? now : wasPublic == null ? null : wasPublic.deepCopy());
+            fact.itemsFor(readerSeat(viewer)).add(now != null ? now : wasPublic == null ? null : wasPublic.deepCopy());
         }
         remember(card, view);
         String route = from + "-" + to;

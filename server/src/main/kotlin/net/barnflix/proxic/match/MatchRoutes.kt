@@ -240,7 +240,7 @@ private fun Route.watchRoute(
                 ?: return@get respondBadRequest("That is not a room id.")
         val room = rooms?.find(roomId)
         val match = room?.let { matches.activeMatchOf(it.hostUserId) }?.takeIf { it.roomId == roomId }
-        if (match == null || !mayWatch(match, assets, rooms)) {
+        if (match == null || !mayWatch(match, assets)) {
             return@get call.respond(
                 HttpStatusCode.NotFound,
                 ErrorResponse("NOT_WATCHABLE", "That game cannot be watched.", call.callId),

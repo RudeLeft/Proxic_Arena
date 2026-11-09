@@ -35,6 +35,7 @@ import net.barnflix.proxic.hall.hallRoutes
 import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
+import net.barnflix.proxic.match.spectatableRoom
 import net.barnflix.proxic.report.Reports
 import net.barnflix.proxic.report.reportRoutes
 import net.barnflix.proxic.room.matchPresetRoutes
@@ -509,7 +510,9 @@ private fun Route.databaseRoutes(
             rooms = roomService,
             roomAnnouncer = lobby,
             decisions = matchHub,
+            spectatorsTold = matchHub.endings,
         )
+    lobby.spectatable = { roomId -> matchRuntime.spectatableRoom(roomId) } // spec 0067: "Starting..." until then
     net.barnflix.proxic.match.stopMatchesWithServer(this, matchRuntime, matchHub) // spec 0056: told first
 
     userSocket(sessions, config, lobby)
@@ -520,7 +523,6 @@ private fun Route.databaseRoutes(
         matchRuntime,
         matchHub,
         config,
-        roomService,
         presence = lobbyHub.offline,
     )
 

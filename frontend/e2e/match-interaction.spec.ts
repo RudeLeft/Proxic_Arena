@@ -21,6 +21,7 @@ import {
   startAMatch,
   watchGame,
   discardIfAsked,
+  lifeSettled,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
@@ -29,8 +30,10 @@ const BURN = /^(Shock|Lightning Bolt|Lightning Strike)/;
 /** A DOM click, and no wait when there is nothing to click (see clickNow). */
 const click = clickNow;
 
-const opponentLife = async (page: Page) =>
-  Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
+const opponentLife = async (page: Page) => {
+  await lifeSettled(page); // spec 0067: the plate steps with the fights
+  return Number((await page.locator(".gs-seat-opponent .gs-life").first().textContent()) ?? "0");
+};
 
 // The step the game is in (data-step), not the highlight walking towards it.
 const stepOf = async (page: Page) =>

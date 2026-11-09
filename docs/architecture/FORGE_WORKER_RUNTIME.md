@@ -100,7 +100,9 @@ CONCEDE  seat                   CONCEDE_ACCEPTED  seat; or ERROR CONCEDE_REFUSED
                                                     (PHASE_07 §7.55; spec 0054's End
                                                     the game is a CONCEDE too)
 WATCHED  on                     (no reply)          spec 0047: build the public view,
-                                                    sent as MATCH_SNAPSHOT seat 0
+                                                    sent as MATCH_SNAPSHOT seat 0;
+                                                    spec 0067: its playLog is the
+                                                    public log, from line 1
 GAME_RESULT (diagnostics)       GAME_RESULT
                                 GAME_ENDED          outcome, winningSeat, reason?, turn
                                 GAME_LOG            entries: [{type, message}] -- Forge's

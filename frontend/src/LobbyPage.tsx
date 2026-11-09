@@ -290,7 +290,7 @@ export default function LobbyPage() {
           library={library}
           busy={busy}
           starting={starting}
-          onOpen={(name, watchable) => void run(() => createRoom(fetch, name, watchable))}
+          onOpen={(name) => void run(() => createRoom(fetch, name))}
           onAccept={(roomId) => send({ type: "INVITE_ACCEPT", roomId })}
           onDecline={() => send({ type: "INVITE_DECLINE" })}
           onAsk={(roomId) => send({ type: "JOIN_ASK", roomId })}
@@ -541,7 +541,7 @@ function RoomsColumn({
   library: DeckLibrary;
   busy: boolean;
   starting: boolean;
-  onOpen: (name: string, watchable: boolean) => void;
+  onOpen: (name: string) => void;
   onAccept: (roomId: string) => void;
   onDecline: () => void;
   onAsk: (roomId: string) => void;
@@ -558,8 +558,6 @@ function RoomsColumn({
   onKeepOpen: () => void;
 }) {
   const [name, setName] = useState("");
-  // Spec 0047 — "Let people watch", on to start.
-  const [watchable, setWatchable] = useState(true);
   const nameId = useId();
   // Re-read the clock each minute so "Closes in" stays honest.
   const now = useMinute();
@@ -577,7 +575,7 @@ function RoomsColumn({
 
   const open = (event: FormEvent) => {
     event.preventDefault();
-    onOpen(name, watchable);
+    onOpen(name);
     setName("");
   };
 
@@ -638,15 +636,6 @@ function RoomsColumn({
             <button type="submit" className="pa-button pa-button-brass" disabled={busy}>
               Open a room
             </button>
-            {/* Spec 0047 — whether people may watch the game, on to start. */}
-            <label className="pa-open-watch">
-              <input
-                type="checkbox"
-                checked={watchable}
-                onChange={(event) => setWatchable(event.target.checked)}
-              />
-              Let people watch
-            </label>
           </form>
         </section>
       )}
@@ -709,7 +698,7 @@ function asListed(room: RoomView): DirectoryRoom {
  * Somebody else's room — spec 0016 R1-R3: its seats as anybody may see
  * them, where it stands, and what you can do about it.
  */
-function RoomCard({
+export function RoomCard({
   room,
   lobby,
   me,
@@ -802,18 +791,34 @@ function RoomCard({
         </span>
         {closes && <span className="pa-room-closes">{closes}</span>}
         <span className="pa-room-action">
-          {/* Spec 0047 — a game being played: watch it, if its players allow. */}
+          {/* Spec 0047 — a game being played: spectate it. Spec 0067 (items
+            4 B and 5 A) -- a pulsing LIVE badge and Spectate once the board
+            is up; a greyed "Starting…" in its place while they load and
+            choose their hands, so the card does not shift. */}
           {room.status === "IN_MATCH" &&
             !room.seats.some((seat) => seat.userId === me) &&
-            (room.watchable !== false ? (
-              <Link
-                className="pa-button pa-button-quiet pa-room-watch"
-                to={`/watch/${room.roomId}`}
-              >
-                Watch
-              </Link>
+            (room.spectatable ? (
+              <>
+                <span className="pa-live" aria-hidden="true">
+                  <i />
+                  LIVE
+                </span>
+                <Link
+                  className="pa-button pa-button-brassline pa-room-watch"
+                  to={`/watch/${room.roomId}`}
+                  aria-label={`Spectate ${room.name}, live`}
+                >
+                  Spectate
+                </Link>
+              </>
             ) : (
-              <span className="pa-room-note">Players said no watching</span>
+              <button
+                type="button"
+                className="pa-button pa-button-quiet pa-room-watch pa-room-starting"
+                disabled
+              >
+                Starting…
+              </button>
             ))}
           {action.kind === "invited" && (
             <>

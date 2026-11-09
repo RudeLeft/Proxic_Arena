@@ -97,7 +97,16 @@ const watchOpen = (watcher: () => void) => {
 };
 
 /** Spec 0038 + W-21 -- a player's status tray and its list. */
-export function StatusTray({ player, side }: { player: Player; side: "opponent" | "viewer" }) {
+export function StatusTray({
+  player,
+  side,
+  spectating = false,
+}: {
+  player: Player;
+  side: "opponent" | "viewer";
+  /** Spec 0067 -- a spectator's tray: nobody's "you". */
+  spectating?: boolean;
+}) {
   const open =
     useSyncExternalStore(
       watchOpen,
@@ -237,6 +246,7 @@ export function StatusTray({ player, side }: { player: Player; side: "opponent" 
         <StatusList
           player={player}
           side={side}
+          spectating={spectating}
           peek={peek}
           mana={mana}
           onClose={() => setOpenSeat(null)}
@@ -250,17 +260,20 @@ export function StatusTray({ player, side }: { player: Player; side: "opponent" 
 function StatusList({
   player,
   side,
+  spectating,
   peek,
   mana,
   onClose,
 }: {
   player: Player;
   side: "opponent" | "viewer";
+  spectating: boolean;
   peek: boolean;
   mana: readonly string[];
   onClose: () => void;
 }) {
-  const yours = side === "viewer";
+  // Spec 0067 -- a spectator's trays are nobody's: "for them" both.
+  const yours = side === "viewer" && !spectating;
   const words = player.commandWords ?? [];
   const held = player.designations;
   return (

@@ -30,6 +30,8 @@ internal class MatchEndings(
     private val rooms: RoomService?,
     private val roomAnnouncer: RoomAnnouncer = SilentAnnouncer,
     private val clock: () -> Instant = Instant::now,
+    /** Spec 0067 — the spectators are told the end on the match socket. */
+    private val spectators: SpectatorsTold = SpectatorsTold.NONE,
 ) {
     private val log = LoggerFactory.getLogger(MatchEndings::class.java)
 
@@ -173,6 +175,8 @@ internal class MatchEndings(
         records.releaseRoom(match.roomId)
 
         tell("match") { announcer.matchChanged(match, failureCode, outcome) }
+        // Spec 0067 — and whoever is watching: the result, then a clean close.
+        tell("spectator") { spectators.ended(match, failureCode, outcome) }
         rooms?.find(match.roomId)?.let { room ->
             tell("room") { roomAnnouncer.roomChanged(room) }
         }

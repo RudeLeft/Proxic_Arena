@@ -12,6 +12,11 @@
              - both players' life, counts and the battlefield are there.
            Before WATCHED, nothing was sent as seat 0 (an unwatched game
            builds nothing extra).
+           Spec 0067 -- and the public play log (F-0067-E): the first
+           public view brings the game's log from its first line (written
+           while nobody watched), and no line names a card in a hand, a
+           face-down card, or anything Forge showed one seat alone; none
+           is marked private; draws read "drew a card".
 
 The cross-game check-hidden-hands.py reads these recordings too, and
 compares seat 0's frames with each player's hand round by round.
@@ -41,7 +46,8 @@ def public():
     # The deal: three Islands and a Willbender to cast face down, each seat.
     hand = {"hand": ["Island"] * 4 + ["Willbender", "Willbender", "Opt"]}
     g = Game(DECK, DECK, jar=JAR, res=RES, trace=trace, deal={1: hand, 2: hand})
-    st = {"watched": False, "early": 0, "frames": 0, "problems": [], "morph": False}
+    st = {"watched": False, "early": 0, "frames": 0, "problems": [], "morph": False,
+          "lines": {}, "first": None, "drew": 0, "downCast": 0, "shown": set()}
 
     def policy(g, f):
         if not st["watched"] and g.turn >= 2:
@@ -82,10 +88,42 @@ def public():
                     st["problems"].append(f"turn {g.turn}: a face-down card is named {c.get('name')!r}")
         if not public.get("spectator") or public.get("seat") != 0 or len(public.get("players") or []) != 2:
             st["problems"].append(f"turn {g.turn}: not a public view: seat {public.get('seat')}")
-        return st["morph"] and st["frames"] > 40
+        # Spec 0067 -- the public play log: only what every player may see.
+        for zone in ("battlefield", "graveyard", "exile", "stack", "command"):
+            for c in public.get(zone) or []:
+                if c.get("name") and not c.get("faceDown") and c.get("known", True):
+                    st["shown"].add(c["name"])
+        for line in public.get("playLog") or []:
+            n = line.get("n")
+            if n in st["lines"]:
+                continue
+            if st["first"] is None:
+                st["first"] = n
+            st["lines"][n] = line
+            words = "".join(p if isinstance(p, str) else p.get("name", "") for p in line.get("parts") or [])
+            if line.get("private"):
+                st["problems"].append(f"turn {g.turn}: a public line is private: {words!r}")
+            if " drew a card" in words or " drew " in words and " cards" in words:
+                st["drew"] += 1
+            if "a face-down spell" in words:
+                st["downCast"] += 1
+            for part in line.get("parts") or []:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("id") in hands:
+                    st["problems"].append(f"turn {g.turn}: a public line carries {part.get('id')}, in a hand")
+                if part.get("faceDown"):
+                    st["problems"].append(f"turn {g.turn}: a public line names a face-down card: {words!r}")
+                if part.get("name") and part["name"] not in st["shown"]:
+                    st["problems"].append(
+                        f"turn {g.turn}: a public line names {part['name']!r}, never face up on the public table")
+                if " drew " in words and part.get("name"):
+                    st["problems"].append(f"turn {g.turn}: a public line names a drawn card: {words!r}")
+        return st["morph"] and st["frames"] > 40 and st["downCast"] > 0
 
     g.run(policy, until=until, max_turn=16)
-    found = {k: st[k] for k in ("watched", "early", "frames", "morph")}
+    found = {k: st[k] for k in ("watched", "early", "frames", "morph", "first", "drew", "downCast")}
+    found["lines"] = len(st["lines"])
     found["problems"] = st["problems"][:6]
     found["stopped"] = g.stopped_badly()
     if not st["watched"] or st["frames"] == 0 or not st["morph"]:
@@ -93,7 +131,13 @@ def public():
     problems = st["problems"] + ([found["stopped"]] if found["stopped"] else [])
     if st["early"]:
         problems.append(f"{st['early']} public frames before anybody watched")
-    ok = f"{st['frames']} public frames: no hand, no hand card, face-down cards unnamed"
+    if st["first"] != 1:
+        problems.append(f"the public log began at line {st['first']}, not at the game's first")
+    if st["drew"] == 0:
+        problems.append("no public line said a player drew a card")
+    ok = (f"{st['frames']} public frames: no hand, no hand card, face-down cards unnamed; "
+          f"{len(st['lines'])} public log lines from line 1 ({st['drew']} draws as 'a card', "
+          f"{st['downCast']} face-down casts unnamed)")
     return ("wrong", "; ".join(problems[:6]), found) if problems else ("ok", ok, found)
 
 

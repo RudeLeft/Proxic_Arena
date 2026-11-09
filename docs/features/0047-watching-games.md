@@ -71,4 +71,14 @@ carries a card a player holds or a library's order.
 
 ## Amendments
 
-None.
+**Amendment 1 (2026-11-09, owner, spec 0067).** Superseded in part by
+`0067-spectate-life-ticks-negative.md`: "Watch" is now **Spectate**
+(with a LIVE badge, and a greyed "Starting…" until the game is past the
+opening hands); there is no "Let people watch" -- every game can be
+spectated, and the room's `watchable` column is dropped (V039), so
+F-0047-C is replaced by F-0067-G; the spectator's "You are watching"
+pill and "Stop watching" button are replaced by the chip "Spectating
+Alice vs Bob · Stop"; spectators now read the public play log
+(read-only, still no chat), are told the result on the match socket
+(`MATCH_ENDED`) instead of a 5-second poll, can switch sides, and follow
+the players into a rematch; the players' "N watching" lists the names.

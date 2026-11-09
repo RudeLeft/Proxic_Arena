@@ -104,7 +104,8 @@ class LiveMatch(
         state: kotlinx.serialization.json.JsonObject,
     ) {
         snapshots[seat] = state
-        if (seat != PUBLIC_SEAT) playLogs.keep(seat, state)
+        // Spec 0067 — the public view's lines too: the spectators' log.
+        playLogs.keep(seat, state)
     }
 
     /** Spec 0064 — each seat's play log for the match ([SeatPlayLogs]). */
@@ -121,6 +122,14 @@ class LiveMatch(
     /** Spec 0047 — the latest public view, for a spectator who just arrived. */
     val publicSnapshot: kotlinx.serialization.json.JsonObject?
         get() = snapshots[PUBLIC_SEAT] as? kotlinx.serialization.json.JsonObject
+
+    /**
+     * Spec 0067 — the game is past its opening hands (the worker said it
+     * is running): spectators may come in. The lobby's "Starting..." turns
+     * to Spectate on this.
+     */
+    @Volatile
+    var running: Boolean = false
 
     /**
      * Spec 0047 — who is watching (allowed to fetch the pictures the

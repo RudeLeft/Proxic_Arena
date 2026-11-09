@@ -38,7 +38,7 @@ All under `/api`. Every one requires a session.
 
 | Method | Path | Who | Answer |
 | --- | --- | --- | --- |
-| `POST` | `/rooms` | any | `201` + room; optional body `{"name": "…", "watchable": true}` (PHASE_07 Amendment 9: one line, ≤ 40 characters, `422 INVALID_ROOM_NAME`; `watchable`, spec 0047, defaults to true) |
+| `POST` | `/rooms` | any | `201` + room; optional body `{"name": "…"}` (PHASE_07 Amendment 9: one line, ≤ 40 characters, `422 INVALID_ROOM_NAME`). Spec 0067: every game can be spectated -- spec 0047's `watchable` is gone (an old page's field is ignored) |
 | `GET` | `/rooms/current` | any | `200` + room **or `null`** |
 | `GET` | `/rooms/{roomId}` | members | `200` + room |
 | `POST` | `/rooms/{roomId}/leave` | members | `200` + room |
@@ -97,7 +97,6 @@ cannot express it — and a body that adds one is ignored (§5.216).
     "presetId": "OPEN_FORMAT_1V1",
     "desiredPlayerCount": 2,
     "status": "OPEN | READY_FOR_MATCH | IN_MATCH | CLOSED",  // EXPIRED: old rows only
-    "watchable": true,          // spec 0047: "Let people watch"
     "revision": 42,
     "everyoneReady": false,
     "members": [
@@ -246,7 +245,11 @@ revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
   `status`, `desiredPlayerCount`, `seats` (`seatNumber`, `userId`,
   `displayName`, `ready`, `isHost`), `clearsAt` and `warnsAt` (spec
   0054; `null` in a match), `held` (who an open seat is held for, spec
-  0016) and `watchable` (spec 0047).
+  0016) and `spectatable` (spec 0067: its game is running here, past
+  the opening hands, so a spectator may come in -- the room card's
+  Spectate; an `IN_MATCH` room without it says "Starting…"; spec 0047's
+  `watchable` is gone). It is published again when the match turns
+  running, so the card changes without a reload.
   The same for every viewer, which is safe only because it carries
   **no deck** (§7.68); since spec 0016 it also says who an open seat is held for.
 - `PLAYERS` is every active account (`userId`, `username`,

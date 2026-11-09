@@ -58,13 +58,21 @@ fun watchedFrame(on: Boolean): JsonObject =
         put("on", on)
     }
 
-/** Spec 0047 — how many people are watching, for the players. */
-fun watchingMessage(count: Int): JsonObject =
+/**
+ * Spec 0047 — how many people are watching, for the players. Spec 0067 —
+ * and who: their display names, one per person, to the players only (the
+ * "2 watching" pill lists them on point).
+ */
+fun watchingMessage(
+    count: Int,
+    names: List<String> = emptyList(),
+): JsonObject =
     buildJsonObject {
         put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
         put("type", "WATCHING")
         put("messageId", UUID.randomUUID().toString())
         put("count", count)
+        put("names", namesOf(names))
     }
 
 /** §7.55 — the concession is on its way to Forge; the game's end follows as MATCH. */

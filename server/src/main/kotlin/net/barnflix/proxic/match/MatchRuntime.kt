@@ -36,6 +36,8 @@ class MatchRuntime(
     private val roomAnnouncer: net.barnflix.proxic.room.RoomAnnouncer =
         net.barnflix.proxic.room.SilentAnnouncer,
     private val decisions: DecisionAnnouncer = DecisionAnnouncer.NONE,
+    /** Spec 0067 — a game ended: its spectators are told the result, then closed. */
+    private val spectatorsTold: SpectatorsTold = SpectatorsTold.NONE,
 ) : MatchStarter, MatchControl, MatchAssets {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
@@ -45,7 +47,7 @@ class MatchRuntime(
     private val routing = MatchDecisions(decisions)
 
     /** What is written down, and who is told, when a match stops. */
-    private val endings = MatchEndings(records, announcer, rooms, roomAnnouncer, clock)
+    private val endings = MatchEndings(records, announcer, rooms, roomAnnouncer, clock, spectatorsTold)
 
     /** Every match this process is running. §6.159 bounds the size. */
     private val live = ConcurrentHashMap<UUID, LiveMatch>()
@@ -139,6 +141,9 @@ class MatchRuntime(
             is WorkerStart.Running -> {
                 records.recordRunning(match.matchId, clock())
                 log.info("match ${match.matchId}: RUNNING at turn ${result.turn}")
+                // Spec 0067 — before the lobby hears it: its room's card
+                // then offers Spectate rather than "Starting...".
+                running.running = true
                 endings.running(match.copy(status = MatchStatus.RUNNING))
             }
 

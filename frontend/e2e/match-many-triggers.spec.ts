@@ -24,6 +24,7 @@ import {
   startAMatch,
   watchGame,
   discardIfAsked,
+  lifeSettled,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
@@ -72,6 +73,7 @@ async function goblins(page: Page): Promise<number> {
 }
 
 async function life(page: Page, side: "opponent" | "viewer"): Promise<number> {
+  await lifeSettled(page); // spec 0067: the plate steps with the fights
   return Number((await page.locator(`.gs-seat-${side} .gs-life-n`).first().textContent()) ?? NaN);
 }
 

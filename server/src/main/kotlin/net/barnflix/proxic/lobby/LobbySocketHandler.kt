@@ -15,6 +15,7 @@ import net.barnflix.proxic.auth.User
 import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomAnnouncer
 import net.barnflix.proxic.room.RoomService
+import net.barnflix.proxic.room.RoomStatus
 import net.barnflix.proxic.room.directoryEntry
 import java.time.Duration
 import java.util.UUID
@@ -92,6 +93,14 @@ class LobbyService(
 ) : LobbySocketHandler, RoomAnnouncer, net.barnflix.proxic.match.MatchAnnouncer {
     private val live = ConcurrentHashMap<String, LobbyConnection>()
 
+    /**
+     * Spec 0067 — whether a room's game can be spectated now (running here,
+     * past its opening hands). Set once the match runtime exists, which is
+     * built after the lobby; until then no game is spectatable.
+     */
+    @Volatile
+    var spectatable: (UUID) -> Boolean = { false }
+
     /** A display name for anybody with an account, online or not. */
     private val nameOf: (UUID) -> String? = { userId ->
         hub.entryFor(userId)?.displayName ?: accounts().firstOrNull { it.userId == userId }?.displayName
@@ -104,7 +113,14 @@ class LobbyService(
      * who each open seat is held for.
      */
     private val listed: () -> kotlinx.serialization.json.JsonObject = {
-        roomsMessage(rooms.list.active().map { it.directoryEntry().copy(held = invitations.holdIn(it, nameOf)) })
+        roomsMessage(
+            rooms.list.active().map { room ->
+                room.directoryEntry().copy(
+                    held = invitations.holdIn(room, nameOf),
+                    spectatable = room.status == RoomStatus.IN_MATCH && spectatable(room.roomId),
+                )
+            },
+        )
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val goneSince = ConcurrentHashMap<UUID, Job>()

@@ -161,6 +161,8 @@ export interface FightInput {
   lifeR: number;
   viewerSeat: number;
   opponentName: string;
+  /** Spec 0067 -- a spectator's board: the bottom player's name, said instead of "you"/"your". */
+  viewerName?: string | null;
 }
 
 const centre = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
@@ -192,9 +194,21 @@ export function captionOf(
   viewerSeat: number,
   opponentName: string,
   firstStrike: boolean,
+  viewerName: string | null = null,
 ): string {
   const lead = firstStrike ? "First strike" : "Damage";
   const many = attacker.count > 1 ? `${attacker.count} ` : "";
+  // Spec 0067 -- a spectator is nobody's "you": every side by name.
+  if (viewerName) {
+    const nameOf = (seat: number) => (seat === viewerSeat ? viewerName : opponentName);
+    const who = `${nameOf(attacker.seat)}'s ${many}${attacker.name}`;
+    if (blockers.length > 0) {
+      return `${lead} · ${who} against ${nameOf(blockers[0]!.seat)}'s ${listOf(blockers)}`;
+    }
+    if ("player" in defender) return `${lead} · ${who} hit ${nameOf(defender.player)}`;
+    const theirs = /^The /.test(defender.name) ? "" : `${nameOf(defender.seat)}'s `;
+    return `${lead} · ${who} hit ${theirs}${defender.name}`;
+  }
   const mine = attacker.seat === viewerSeat;
   if (blockers.length > 0) {
     const whose = blockers[0]!.seat === viewerSeat ? "your" : "their";
@@ -298,6 +312,7 @@ export function planFights(input: FightInput): FightPlan | null {
       input.viewerSeat,
       input.opponentName,
       wave.combat === "first-strike",
+      input.viewerName ?? null,
     );
     const moves = new Map<string, Pose[]>();
     const strikes: Strike[] = [];

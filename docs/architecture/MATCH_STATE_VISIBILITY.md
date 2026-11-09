@@ -211,7 +211,24 @@ line only once the board on the table is that revision or later, so the
 log is never ahead of the table, even while a board is held on screen
 (HID-005). The server keeps each seat's lines for the match (the last
 2,000) and sends them only to that seat's user, whole, on (re)connect.
-Spectators get no log.
+
+**Spectators' log (spec 0067).** The worker writes one more log, for the
+public seat (seat 0): each card in a line is named only when Forge says
+EVERY player may identify it (both questions, per player, as the public
+view's board), or when it was public in the zone it just left; nothing
+Forge showed one seat alone (a reveal, a look) is in it, and no line is
+`private`. A draw is "Bob drew a card"; a morph is "Alice cast a
+face-down spell". While nobody watches, the worker keeps those lines
+(the last 2,000) instead of building the public view, and hands them to
+the first public view built; ids go through `keepShownIds` and
+`HiddenIds` with that view, like any snapshot's. The server keeps them
+(seat 0's own log, never mixed with a player's) and sends them, whole,
+to a spectator on connect. Proven by `PlayLogTest` (the public seat's
+lines name no drawn card, no reveal reaches it) and Lab
+`scripts/check-spectator.py` (every public line over a real game with
+face-down creatures: no hand card's id, no face-down name, no name the
+public table never showed face up, draws as "a card", the log from line
+1; a mutation that named every card for the public seat was caught).
 
 Proven over Mechanics Lab traces by `scripts/check-hidden-log.py` (every
 card a line names is one that seat's own snapshots named; no line points
