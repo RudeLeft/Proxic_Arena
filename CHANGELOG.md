@@ -3,6 +3,26 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.54.0 — 2026-11-09
+
+Cleaner arrows, crossed swords for blocks, and a steadier payment box.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Arrows**
+- A spell's or ability's arrow now waits until its card has landed on the stack -- no more arrow coming from nothing while the card is still flying in or turning over.
+- Arrows leave from a small gold stud on the side of the stack card and pass under the stack's words and number badges, never through "Next: ...".
+- Spell, ability and attack arrows are one soft arc that lifts off the table, with a faint shadow underneath. They all bend the same way and never make sharp turns.
+- An arrow aimed at a player goes neatly round the stack and comes down onto their life shield from above -- never behind a card or across a player's picture or name.
+
+**Blocks**
+- Instead of an arrow from an attacker to its blockers, a small crossed-swords mark sits between each attacker and each creature blocking it.
+
+**Fixes**
+- "Still to pay" no longer grows to double size for a moment when you finish paying, and never hangs around after its card has left the stack.
+- A creature that dies, is destroyed or is sacrificed no longer shows a "Died" label or a "Died: ..." message -- the shatter already shows it. "Cycled", "Discarded" and "Countered by ..." stay.
+
 ## 1.53.0 — 2026-11-08
 
 Fixes: convoke, delve and improvise cards, and what the other player can follow.
