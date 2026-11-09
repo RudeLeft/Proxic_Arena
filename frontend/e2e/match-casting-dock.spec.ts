@@ -1,15 +1,18 @@
-// Spec 0044 -- the card being cast: out of the way of the table while a
-// question needs it, face down to the opponent until it is committed, and
-// shown for an optional cost asked while it is still in the hand.
+// Spec 0044 -- the card being cast: face down to the opponent until it is
+// committed, and shown for an optional cost asked while it is still in the
+// hand. Spec 0068 (owner 2026-11-09) supersedes its docking beside the
+// stack: the card stays in the middle of the screen for a target too.
 //
-// F-0044-A: a target question docks the card beside the stack, and a REAL
-//   mouse click on the creature in the middle of the table reaches it.
-// F-0044-B: the opponent sees the card's back ("… is casting a spell") and
-//   never its name while it is paid for; once it is cast the back turns
-//   over to the face.
+// F-0044-A / F-0068-A, B: a target question keeps the card in the middle,
+//   pointing at the creature under it makes the card see-through, and a
+//   REAL mouse click on the creature reaches it.
+// F-0044-B / F-0068-C: the opponent sees the card's back ("… is casting a
+//   spell") and never its name while it is paid for; once it is cast the
+//   back turns over to the face, held in the middle.
 // F-0044-C: Archon's Glory's Bargain question shows the card being cast.
+// F-0068-D: the game screen's pointer is the obsidian arrow.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
@@ -24,6 +27,8 @@ import {
   startAMatch,
   watchGame,
   discardIfAsked,
+  castCentre,
+  shootWithPointer,
 } from "./match-helpers";
 
 const castingPackage = join(process.cwd(), "..", "Test Deck", "casting-deck.zip");
@@ -42,7 +47,6 @@ const castCard = (page: Page) =>
     const el = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
     return el
       ? {
-          docked: el.dataset.docked === "true",
           label: el.getAttribute("aria-label") ?? "",
           back: !!el.querySelector(".gs-cast-back"),
           text: el.textContent ?? "",
@@ -55,7 +59,9 @@ const playable = (page: Page, name: string) =>
     hasText: name,
   });
 
-test("the card being cast docks, hides from the opponent, then turns over", async ({ browser }) => {
+test("the card being cast stays centred, hides from the opponent, then turns over there", async ({
+  browser,
+}) => {
   test.skip(!existsSync(castingPackage), "no casting deck package built");
   test.setTimeout(600_000);
   const viewport = { width: 1920, height: 1080 };
@@ -101,8 +107,11 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
           ) {
             await clickNow(playable(page, "Swords to Plowshares").first());
             await expect.poll(() => kind(page), { timeout: 15_000 }).toBe("chooseTargetsFor");
-            // F-0044-A: beside the stack.
-            await expect.poll(async () => (await castCard(page))?.docked).toBe(true);
+            // F-0068-A: still in the middle of the window, full size.
+            await page.waitForTimeout(700);
+            const centre = (await castCentre(page))!;
+            expect(Math.abs(centre.dx), "centred across for a target").toBeLessThan(2);
+            expect(Math.abs(centre.dy), "centred down for a target").toBeLessThan(2);
             // F-0044-B: the opponent sees its back and who, never its name.
             const seen = await castCard(other);
             expect(seen?.back).toBe(true);
@@ -115,7 +124,7 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
               })
               .first();
             const box = (await target.boundingBox())!;
-            const x = box.x + box.width / 2;
+            const x = box.x + Math.min(box.width / 2, 20);
             const y = box.y + box.height / 2;
             const id = await target.getAttribute("data-object-id");
             const under = await page.evaluate(
@@ -127,6 +136,22 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
               [x, y],
             );
             expect(under).toBe(id);
+            // F-0068-B: pointed at, under the card, the card is see-through.
+            await page.mouse.move(x, y);
+            const covered = await page.evaluate(
+              ([px, py]) => {
+                const r = document
+                  .querySelector(".gs-cast:not(.gs-cast-leaving)")!
+                  .getBoundingClientRect();
+                return px! >= r.left && px! <= r.right && py! >= r.top && py! <= r.bottom;
+              },
+              [x, y],
+            );
+            if (covered) {
+              await expect.poll(async () => (await castCentre(page))?.seeThrough).toBe(true);
+            }
+            await page.waitForTimeout(300);
+            await shootWithPointer(page, "0068-3-target-question.png", [[x, y]]);
             // Once cast, the opponent's back turns over to the face.
             const turned = other.waitForSelector(
               ".gs-cast-leaving .gs-cast-turn .gs-cast-plain, .gs-cast-leaving .gs-cast-turn .gs-cast-picture",
@@ -136,6 +161,32 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
               },
             );
             await page.mouse.click(x, y);
+            // F-0068-C: the other player's card turns over in the middle and
+            // is held there (read while it is held, as this player pays).
+            const held = (async () => {
+              await other
+                .locator(".gs-cast-leaving .gs-cast-turn")
+                .first()
+                .waitFor({ state: "attached", timeout: 60_000 });
+              await other.waitForTimeout(450);
+              const centre = await other.evaluate(() => {
+                const el = document.querySelector<HTMLElement>(".gs-cast-leaving");
+                if (!el) return null;
+                return {
+                  dx: parseFloat(el.style.left) + parseFloat(el.style.width) / 2 - innerWidth / 2,
+                  dy: parseFloat(el.style.top) + parseFloat(el.style.height) / 2 - innerHeight / 2,
+                  moving: el
+                    .getAnimations()
+                    .some((a) =>
+                      (a.effect as KeyframeEffect | null)
+                        ?.getKeyframes()
+                        .some((k) => String(k["transform"] ?? "").includes("translate")),
+                    ),
+                };
+              });
+              await shootWithPointer(other, "0068-5-opponent-reveal-held.png", []);
+              return centre;
+            })();
             for (let i = 0; i < 6 && (await kind(page)) !== "chooseSpellAbilityToPlay"; i++) {
               if ((await kind(page)) === "applyManaToCost") {
                 await clickNow(
@@ -145,6 +196,29 @@ test("the card being cast docks, hides from the opponent, then turns over", asyn
               await page.waitForTimeout(300);
             }
             await turned;
+            const reveal = await held;
+            expect(reveal, "the reveal was seen").not.toBeNull();
+            expect(Math.abs(reveal!.dx), "the reveal is held centred across").toBeLessThan(2);
+            expect(Math.abs(reveal!.dy), "the reveal is held centred down").toBeLessThan(2);
+            expect(reveal!.moving, "held, not yet flying").toBe(false);
+            // F-0068-D: one pointer over the table, a card and a button.
+            // Whatever button and card are there now (never wait for one).
+            const boxOf = async (locator: Locator) =>
+              (await locator.count()) > 0 ? await locator.first().boundingBox() : null;
+            const pass = await boxOf(passButton(page));
+            const plains = await boxOf(
+              page.locator('.bf-cards button[data-zone^="viewer"]', { hasText: "Plains" }),
+            );
+            const points: [number, number][] = [[260, 470]];
+            if (plains) points.push([plains.x + 20, plains.y + plains.height / 2]);
+            if (pass) points.push([pass.x + pass.width / 2, pass.y + pass.height / 2]);
+            const cursors = await page.evaluate(
+              (at) =>
+                at.map(([px, py]) => getComputedStyle(document.elementFromPoint(px, py)!).cursor),
+              points,
+            );
+            for (const cursor of cursors) expect(cursor).toContain("data:image/svg+xml");
+            await shootWithPointer(page, "0068-6-pointer-table-card-button.png", points);
             docked = true;
             continue;
           }

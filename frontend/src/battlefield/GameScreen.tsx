@@ -72,14 +72,11 @@ import type { Box, Geometry } from "./layout";
 import {
   CastingCard,
   CastingFlight,
-  castingSpot,
-  docks,
-  heldSpot,
+  castingBox,
   owingSymbols,
   keepPaying,
   costPips,
   type Paying,
-  type Floating,
 } from "./CastingCard";
 import {
   BALLS_LONGEST_MS,
@@ -597,9 +594,10 @@ export function GameScreen({
   // flies to where it went. `atRef` is the board's latest "where is it".
   //
   // Spec 0044 -- an optional cost (Bargain, kicker) is asked while the
-  // card is still in the hand: it floats for that question too. A
-  // question that needs the table docks it beside the stack; the
+  // card is still in the hand: it floats for that question too. The
   // opponent's spell shows its back until it is on the stack.
+  //
+  // Spec 0068 -- always in the middle of the screen (castingBox).
   const optionalSource =
     board && decision?.kind === "chooseOptionalCosts" && !board.casting.length
       ? sourceOf(board, decision)
@@ -621,7 +619,6 @@ export function GameScreen({
   // by BALLS_LONGEST_MS, whatever the balls do.
   const lastCasting = useRef<{
     card: SnapshotCard;
-    docked: boolean;
     hidden: boolean;
     handCount: number;
     /** The battlefield while it was being cast: what is new after is it. */
@@ -731,44 +728,10 @@ export function GameScreen({
       abilityPay.mana,
     );
   }
-  /** Where the card being cast was last drawn: its flight starts there. */
-  const floating = useRef<Floating | null>(null);
-  // Spec 0057, item 1 -- between questions it stays where it was (heldSpot).
-  const heldCast = lingering
-    ? floating.current?.id === lingering.id
-      ? floating.current
-      : null
-    : heldSpot(floating.current, casting?.id ?? null, decision, game.awaiting);
-  const castingDocked = heldCast
-    ? heldCast.docked
-    : !!casting &&
-      casting.seat === board?.seat &&
-      docks(decision, question, casting.id, (id) => !!board?.hand.some((c) => c.id === id));
-  // Owner 2026-11-01 (item 4) -- out of the way of anything to click under
-  // it while it is cast; once moved aside for a spell it stays there (no
-  // jumping back as each elf is tapped).
-  const aside = useRef<{ id: string; box: Box } | null>(null);
-  const castingAt = (geometry: Geometry): Box | null => {
-    if (!casting) return null;
-    if (heldCast) return heldCast.box;
-    const at = atRef.current;
-    const clickable =
-      question && at && casting.seat === board?.seat
-        ? [...question.onBoard.keys()]
-            .filter((id) => id !== casting.id && !board?.hand.some((c) => c.id === id))
-            .map((id) => at(id))
-            .filter((b): b is Box => b !== null)
-        : [];
-    const spot = castingSpot(geometry, castingDocked, clickable);
-    floating.current = { id: casting.id, box: spot, docked: castingDocked };
-    if (castingDocked) return spot;
-    const middle = castingSpot(geometry, false, []);
-    const moved = spot.x !== middle.x || spot.y !== middle.y;
-    if (moved) aside.current = { id: casting.id, box: spot };
-    const now = aside.current?.id === casting.id ? aside.current.box : spot;
-    floating.current = { id: casting.id, box: now, docked: false };
-    return now;
-  };
+  // Spec 0068 -- the middle of the screen, for every question and between
+  // them: no sliding aside, no docking, no remembered spot (the old
+  // castingSpot / docks / heldSpot).
+  const castingAt = (geometry: Geometry): Box | null => (casting ? castingBox(geometry) : null);
   const castingHiddenBy =
     casting && board && (casting.seat !== board.seat || board.spectator)
       ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
@@ -811,13 +774,11 @@ export function GameScreen({
   const handCountOf = (seat: number) => board?.players.find((p) => p.seat === seat)?.handCount ?? 0;
   const [flight, setFlight] = useState<{
     card: SnapshotCard;
-    docked: boolean;
     /** The opponent's spell: turns face up (committed) or stays down (cancelled). */
     reveal: boolean;
     hidden: boolean;
     key: number;
     battlefield: Set<string>;
-    from: Box | null;
   } | null>(null);
   // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
   // onto the battlefield (nothing answered it): the flight lands on its
@@ -868,12 +829,10 @@ export function GameScreen({
       const cancelled = handCountOf(before.card.seat) > before.handCount;
       setFlight({
         card: before.card,
-        docked: before.docked,
         reveal: before.hidden && !cancelled,
         hidden: before.hidden && cancelled,
         key: Date.now(),
         battlefield: before.battlefield,
-        from: floating.current?.id === before.card.id ? floating.current.box : null,
       });
     }
     // Lingering for its balls: what it was while cast is kept (a cancel is
@@ -882,14 +841,13 @@ export function GameScreen({
     lastCasting.current = casting
       ? {
           card: casting,
-          docked: castingDocked,
           hidden: castingHiddenBy !== null,
           handCount: handCountOf(casting.seat),
           battlefield: fieldWhileCasting.current,
         }
       : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handCountOf reads this board
-  }, [casting, castingDocked, castingHiddenBy, lingering]);
+  }, [casting, castingHiddenBy, lingering]);
   // Amendment 13 (item 2) -- while your cast card is in the air, the spell
   // is not also drawn on the stack: it shows there only once the card has
   // flown there, and a spell that resolves first never shows there at all.
@@ -1431,9 +1389,18 @@ export function GameScreen({
     // Spec 0057, item 6: else by the card asking, in the hand (above it) or
     // on the battlefield (beside it); else by the stack.
     const stackSpot = stackSpotBoxes(geometry, Math.max(1, board.stack.length))[0]!;
-    const anchor: Anchor =
-      castingAt(geometry) ??
-      askingCardAnchor(decision, question, board, geometry, stackSpot, atRef.current);
+    const middle = castingAt(geometry);
+    const anchor: Anchor = middle
+      ? castingWindowAnchor(
+          middle,
+          casting!.id,
+          question,
+          board,
+          geometry,
+          stackSpot,
+          atRef.current,
+        )
+      : askingCardAnchor(decision, question, board, geometry, stackSpot, atRef.current);
     const common = {
       decision,
       question,
@@ -1823,9 +1790,8 @@ export function GameScreen({
                       cost={castCost}
                       paid={castPaid?.mana ?? null}
                       artUrl={artUrl}
-                      docked={castingDocked}
                       hiddenBy={castingHiddenBy}
-                      at={castingAt(geometry)}
+                      asking={decision?.decisionId ?? null}
                     />
                   )}
                   {flight &&
@@ -1839,11 +1805,9 @@ export function GameScreen({
                           to={at(onStack?.id ?? flyingOnto ?? flight.card.id)}
                           artUrl={artUrl}
                           onDone={() => setFlight(null)}
-                          docked={flight.docked}
                           reveal={flight.reveal}
                           hidden={flight.hidden}
                           landing={flyingOnto !== null && !onStack}
-                          from={flight.from}
                         />
                       );
                     })()}
@@ -3484,6 +3448,40 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
  * trigger or a spell is on the stack, and stays by it); otherwise by the
  * stack. Clear of whatever the question needs clicked.
  */
+/**
+ * Spec 0068 -- the window of a question about the card being cast: beside
+ * that card (always in the middle of the screen), on whichever side covers
+ * nothing the question needs clicked (anchorByCard); on its left, as
+ * before, if neither side is clear. The card no longer moves out of the
+ * window's way, so the window does: found in a real game, Swords to
+ * Plowshares' window on the left hid the creature to exile.
+ */
+export function castingWindowAnchor(
+  middle: Box,
+  castingId: string,
+  question: Question | null,
+  board: Snapshot,
+  geometry: Geometry,
+  stackSpot: Box,
+  at: ((objectId: string) => Box | null) | null,
+): Anchor {
+  const avoid =
+    question && at
+      ? [...question.onBoard.keys()]
+          .filter((id) => id !== castingId && !board.hand.some((c) => c.id === id))
+          .map((id) => at(id))
+          .filter((b): b is Box => b !== null)
+      : [];
+  return anchorByCard({
+    card: middle,
+    inHand: false,
+    geometry,
+    stack: stackSpot,
+    avoid,
+    fallback: middle,
+  });
+}
+
 export function askingCardAnchor(
   decision: Decision,
   question: Question | null,

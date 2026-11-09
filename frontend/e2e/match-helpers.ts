@@ -14,7 +14,7 @@
 // Every locator here was read off the running application.
 
 import { expect, type Locator, type Page } from "@playwright/test";
-import { basename, extname } from "node:path";
+import { basename, extname, join } from "node:path";
 import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 
 export async function csrfOf(page: Page): Promise<string> {
@@ -686,4 +686,55 @@ export function watchGame(
       }
     },
   };
+}
+
+// --- spec 0068: the card being cast, centred; screenshots with the pointer ---
+
+/** Screenshots go here (spec 0068's evidence); test-results/seen by default. */
+const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
+
+/**
+ * A headless browser draws no mouse pointer in a screenshot: the page's own
+ * pointer (its CSS cursor picture) is drawn at [points] for the picture
+ * only, its tip on the point, then taken away.
+ */
+export async function shootWithPointer(page: Page, file: string, points: [number, number][]) {
+  await page.evaluate((at) => {
+    const cursor = getComputedStyle(document.querySelector(".gs-screen")!).cursor;
+    const url = /url\("([^"]+)"\)/.exec(cursor)?.[1] ?? "";
+    for (const [x, y] of at) {
+      const img = document.createElement("img");
+      img.src = url;
+      img.className = "e2e-pointer";
+      Object.assign(img.style, {
+        position: "fixed",
+        left: `${x - 2}px`,
+        top: `${y - 2}px`,
+        width: "32px",
+        height: "32px",
+        zIndex: "2147483647",
+        pointerEvents: "none",
+      });
+      document.body.append(img);
+    }
+  }, points);
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: join(SHOTS, file) });
+  await page.evaluate(() => document.querySelectorAll(".e2e-pointer").forEach((el) => el.remove()));
+}
+
+/** The big card being cast: its centre less the window's centre, and whether it is see-through. */
+export async function castCentre(page: Page) {
+  return page.evaluate(() => {
+    const cast = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
+    if (!cast) return null;
+    // Its place, not the sway's tilt: the element's own box.
+    const r = cast.getBoundingClientRect();
+    return {
+      dx: r.x + r.width / 2 - window.innerWidth / 2,
+      dy: r.y + r.height / 2 - window.innerHeight / 2,
+      h: r.height,
+      seeThrough: cast.dataset.seeThrough === "true",
+    };
+  });
 }

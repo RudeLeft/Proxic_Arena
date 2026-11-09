@@ -10,16 +10,20 @@
 // see it: casting is public from its first step (CR 601.2a), and the
 // snapshot names only what this viewer may know.
 //
-// Spec 0044 (owner 2026-10-31) -- a question that needs the table (a
-// target, a sacrifice) moves it beside the stack, so the creatures under
-// the middle can be clicked. The opponent sees its back while it is paid
-// for ("Pat is casting a spell…"); committed, it flips to the face, holds,
-// and flies to the stack.
+// Spec 0044 (owner 2026-10-31) -- the opponent sees its back while it is
+// paid for ("Pat is casting a spell…"); committed, it flips to the face,
+// holds, and flies to the stack.
+//
+// Spec 0068 (owner 2026-11-09, A · Stay centred, see-through) -- it never
+// moves: the middle of the SCREEN, full size, for every spell and every
+// question. It no longer slides aside (owner 2026-11-01, item 4), docks
+// beside the stack (spec 0044) or keeps its last spot (spec 0057, item 1).
+// Instead, when the pointer (or the keyboard's focus) is on something to
+// click for the question that the card covers, the card fades almost
+// away; clicks always went through it (pointer-events: none).
 
-import { useEffect, useLayoutEffect, useRef } from "react";
-import type { Decision, SnapshotCard } from "../match";
-import type { Question } from "./interaction";
-import { stackSpotBoxes } from "./effects";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { SnapshotCard } from "../match";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
 import type { Box, Geometry } from "./layout";
@@ -28,8 +32,6 @@ import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
 
 /** How much bigger than a card on the table. */
 const GROW = 2.5;
-/** Docked beside the stack, this much bigger: still readable. */
-const DOCKED = 1.5;
 /** Rises out of the hand, and flies away, in this long. */
 export const FLY_MS = 560;
 /**
@@ -46,29 +48,16 @@ export const FLIP_MS = 420;
 export const HOLD_MS = 650;
 
 /**
- * Where the card floats: the middle of the table, as big as fits -- or,
- * `docked`, just left of the stack, out of the way of the table.
+ * Spec 0068 -- where the card floats: centred on the middle of the screen
+ * (the game screen fills the window), as big as fits. A pure function of
+ * the window's size, so after a resize it is in the new middle.
  */
-export function castingBox(g: Geometry, docked = false): Box {
-  const h = docked
-    ? Math.min(g.cardH * DOCKED, g.height * 0.4)
-    : Math.min(g.cardH * GROW, g.height * 0.5);
+export function castingBox(g: Geometry): Box {
+  const h = Math.min(g.cardH * GROW, g.height * 0.5);
   const w = (h * g.cardW) / g.cardH;
-  if (docked) {
-    const stack = stackSpotBoxes(g, 1)[0]!;
-    return {
-      x: stack.x - g.inset * 2 - w,
-      y: Math.max(g.height * 0.1, g.height / 2 - h / 2),
-      w,
-      h,
-      scale: h / g.cardH,
-      rotation: 0,
-      z: 0,
-    };
-  }
   return {
-    x: g.play.x + g.play.w * 0.45 - w / 2,
-    y: g.play.y + g.play.h * 0.45 - h / 2,
+    x: g.width / 2 - w / 2,
+    y: g.height / 2 - h / 2,
     w,
     h,
     scale: h / g.cardH,
@@ -77,85 +66,92 @@ export function castingBox(g: Geometry, docked = false): Box {
   };
 }
 
-/** Two boxes overlap, with a little room to spare. */
-function overlaps(a: Box, b: Box, room = 8): boolean {
-  return (
-    a.x < b.x + b.w + room &&
-    b.x < a.x + a.w + room &&
-    a.y < b.y + b.h + room &&
-    b.y < a.y + a.h + room
-  );
+/** Spec 0068 -- how solid the card is while what it covers is pointed at (canvas: 1 - 0.86). */
+export const SEE_THROUGH = 0.14;
+
+/** Something to click for the question being asked (Board marks it). */
+const CHOOSABLE = '[data-choosable="true"]';
+
+function inside(r: DOMRect, x: number, y: number): boolean {
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+function overlap(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
 /**
- * Owner 2026-11-01 (item 4) -- where the card floats while it is cast: in
- * the middle, big, unless something to click is under it (a mana elf to
- * tap, a land turned creature, a target). Then it slides up and toward the
- * stack, step by step, to the first place that covers none of them; if
- * none does, beside the stack at the smaller size (`docked`).
+ * Spec 0068, item 2 -- whether the card is see-through now: the pointer is
+ * inside it and on something to click for the question (the card itself
+ * takes no pointer, so what is under the pointer is what it covers), or
+ * the keyboard's focus is on such a thing under it. Read again for each
+ * new question ([asking]), from where the pointer last was, so a question
+ * that arrives with the pointer already on its Elf fades the card too.
  */
-export function castingSpot(g: Geometry, docked: boolean, clickable: readonly Box[]): Box {
-  const middle = castingBox(g, docked);
-  if (docked || !clickable.some((b) => overlaps(middle, b))) return middle;
-  const stack = stackSpotBoxes(g, 1)[0]!;
-  const right = stack.x - g.inset * 2 - middle.w;
-  const top = g.play.y + g.inset;
-  for (let step = 1; step <= ASIDE_STEPS; step++) {
-    const t = step / ASIDE_STEPS;
-    const spot = {
-      ...middle,
-      x: middle.x + (right - middle.x) * t,
-      y: middle.y + (top - middle.y) * t,
-    };
-    if (!clickable.some((b) => overlaps(spot, b))) return spot;
-  }
-  return castingBox(g, true);
-}
-
-/** How many places between the middle and the corner by the stack are tried. */
-const ASIDE_STEPS = 8;
-
-/**
- * Spec 0044 -- the question needs the table: something on it to click
- * other than the spell itself. Paying does not: the lands are under the
- * hand, and the card in the middle is what is being paid for.
- *
- * Spec 0057, item 1 -- nor do cards to pick from the HAND (Allosaurus
- * Rider's two green cards): the middle never covers the hand, so the card
- * stays where it is.
- */
-export function docks(
-  decision: Decision | null,
-  question: Question | null,
-  castingId: string,
-  inHand: (id: string) => boolean = () => false,
+function useSeeThrough(
+  ref: { current: HTMLElement | null },
+  enabled: boolean,
+  asking: number | null,
 ): boolean {
-  if (!decision || !question || decision.kind === "applyManaToCost") return false;
-  return [...question.onBoard.keys()].some((id) => id !== castingId && !inHand(id));
-}
-
-/** Where the card being cast was last drawn, and whether it was beside the stack. */
-export interface Floating {
-  id: string;
-  box: Box;
-  docked: boolean;
-}
-
-/**
- * Spec 0057, item 1 -- between questions (the last one answered, or none
- * asked yet) the card being cast stays exactly where it was drawn: it used
- * to slide back to the middle as a cancelled question went away, and then
- * fly back to the hand from there -- a jump (Phase 10 P10-R1). Null when
- * a question is being asked: then it goes where that question puts it.
- */
-export function heldSpot(
-  floating: Floating | null,
-  castingId: string | null,
-  decision: Decision | null,
-  awaiting: number | null,
-): Floating | null {
-  if (!floating || !castingId || floating.id !== castingId) return null;
-  return !decision || awaiting === decision.decisionId ? floating : null;
+  const [pointed, setPointed] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!enabled) {
+      setPointed(false);
+      setFocused(false);
+      return undefined;
+    }
+    const covers = (target: Element | null, x: number, y: number) => {
+      const el = ref.current;
+      if (!el || !target?.closest(CHOOSABLE) || el.contains(target)) return false;
+      return inside(el.getBoundingClientRect(), x, y);
+    };
+    const move = (event: PointerEvent) => {
+      last.current = { x: event.clientX, y: event.clientY };
+      setPointed(covers(event.target as Element | null, event.clientX, event.clientY));
+    };
+    const leave = () => {
+      last.current = null;
+      setPointed(false);
+    };
+    const focusIn = (event: FocusEvent) => {
+      const el = ref.current;
+      const target = (event.target as Element | null)?.closest(CHOOSABLE) ?? null;
+      setFocused(
+        !!el &&
+          !!target &&
+          !el.contains(target) &&
+          overlap(el.getBoundingClientRect(), target.getBoundingClientRect()),
+      );
+    };
+    const focusOut = () => setFocused(false);
+    document.addEventListener("pointermove", move, { passive: true });
+    document.documentElement.addEventListener("pointerleave", leave);
+    document.addEventListener("focusin", focusIn);
+    document.addEventListener("focusout", focusOut);
+    return () => {
+      document.removeEventListener("pointermove", move);
+      document.documentElement.removeEventListener("pointerleave", leave);
+      document.removeEventListener("focusin", focusIn);
+      document.removeEventListener("focusout", focusOut);
+    };
+  }, [enabled, ref]);
+  // Each new question: what is clickable may have changed under a pointer
+  // that has not moved.
+  useEffect(() => {
+    const at = last.current;
+    if (!enabled || !at || typeof document.elementFromPoint !== "function") return;
+    const el = ref.current;
+    const target = document.elementFromPoint(at.x, at.y);
+    const now =
+      !!el &&
+      !!target?.closest(CHOOSABLE) &&
+      !el.contains(target) &&
+      inside(el.getBoundingClientRect(), at.x, at.y);
+    setPointed(now);
+  }, [enabled, ref, asking]);
+  return enabled && (pointed || focused);
 }
 
 /** The sparks' colour: the card's one colour, gold for several or none. */
@@ -348,16 +344,13 @@ export function CastingCard({
   cost = null,
   paid = null,
   artUrl,
-  docked = false,
   hiddenBy = null,
-  at = null,
+  asking = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   /** Where it rose from (the card clicked in hand), when known. */
   from: Box | null;
-  /** Item 4 -- where it floats (castingSpot); the middle when not given. */
-  at?: Box | null;
   /** Forge's "still owing", while it is being paid for (spec 0058: the last one, kept). */
   owing: string[] | null;
   /** Spec 0058, item 7 -- the cost being paid, as symbols; the printed cost when not known yet. */
@@ -369,14 +362,17 @@ export function CastingCard({
    */
   paid?: readonly PaidStep[] | null;
   artUrl: (art: string) => string;
-  /** Spec 0044: beside the stack, while a question needs the table. */
-  docked?: boolean;
   /** Spec 0044: the opponent's spell, still being paid for -- its back, and their name. */
   hiddenBy?: string | null;
+  /** Spec 0068 -- the question being asked (its id): see-through is read again for each. */
+  asking?: number | null;
 }) {
-  const box = at ?? castingBox(geometry, docked);
+  const box = castingBox(geometry);
   const ref = useRef<HTMLDivElement>(null);
   const hidden = hiddenBy !== null;
+  // Spec 0068, item 2 -- your own card fades off what you point at under
+  // it; the other player's never needs to (nothing of yours waits on it).
+  const see = useSeeThrough(ref, !hidden, asking);
   const colour = emberColour(hidden ? null : card.manaCost);
   // Rise out of the hand once, when it first appears.
   useLayoutEffect(() => {
@@ -399,8 +395,8 @@ export function CastingCard({
   return (
     <div
       ref={ref}
-      className={`gs-cast${docked ? " gs-cast-docked" : ""}`}
-      data-docked={docked ? "true" : undefined}
+      className={`gs-cast${see ? " gs-cast-see" : ""}`}
+      data-see-through={see ? "true" : undefined}
       data-object-id={card.id}
       data-ball-for={card.id}
       style={{
@@ -491,26 +487,23 @@ export function CastingFlight({
   to,
   artUrl,
   onDone,
-  docked = false,
   reveal = false,
   hidden = false,
   landing = false,
-  from = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   to: Box | null;
   artUrl: (art: string) => string;
   onDone: () => void;
-  docked?: boolean;
   reveal?: boolean;
   hidden?: boolean;
   /** `to` is the card's place on the battlefield: land there, solid. */
   landing?: boolean;
-  /** Item 4 -- where the card was floating when it set off. */
-  from?: Box | null;
 }) {
-  const box = from ?? castingBox(geometry, docked);
+  // Spec 0068 -- it sets off from the middle of the screen, where it always
+  // is (the other player's turns over and is held there first).
+  const box = castingBox(geometry);
   // Where it goes is read when it sets off, not when it is drawn.
   const toRef = useRef(to);
   toRef.current = to;

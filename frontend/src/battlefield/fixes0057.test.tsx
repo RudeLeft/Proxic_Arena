@@ -7,7 +7,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard, SnapshotReveal } from "../match";
 import { Board } from "./Board";
-import { CastingFlight, docks, heldSpot } from "./CastingCard";
+import { CastingFlight, castingBox } from "./CastingCard";
 import { ActionPopup, askingCardAnchor, Inspect, StackInspect, ZoneViewer } from "./GameScreen";
 import { Bubble, anchorByCard, bubbleBox } from "./GameWindow";
 import type { Question } from "./interaction";
@@ -514,39 +514,24 @@ describe("windows sit by the card asking (F-0057-F)", () => {
 
 // --- item 1: the card being cast ----------------------------------------------------------
 
-describe("the card being cast (F-0057-B)", () => {
-  it("does not move aside when everything to click is in the hand", () => {
-    const pick = decision({ kind: "chooseCardsForCost", options: [] });
-    const hand = new Set(["card:7", "card:8"]);
-    expect(docks(pick, question(["card:7", "card:8"]), "card:3", (id) => hand.has(id))).toBe(false);
-    // Something on the table to click still moves it.
-    expect(docks(pick, question(["card:7", "card:20"]), "card:3", (id) => hand.has(id))).toBe(true);
-  });
-
-  it("stays where it was between questions", () => {
-    const spot = { id: "card:3", box: box(1200, 300), docked: true };
-    const asked = decision({ decisionId: 9 });
-    expect(heldSpot(spot, "card:3", asked, 9)).toBe(spot); // answered: waiting
-    expect(heldSpot(spot, "card:3", null, null)).toBe(spot); // nothing asked
-    expect(heldSpot(spot, "card:3", asked, null)).toBeNull(); // asked: it goes where asked
-    expect(heldSpot(spot, "card:4", asked, 9)).toBeNull(); // another card
-  });
-
-  it("flies back from where it is, not from the middle", () => {
-    const from = box(1200, 300, 150, 210);
+// Spec 0068 supersedes item 1's "does not move aside" and "stays where it
+// was between questions": the card never moves from the middle of the
+// screen, so there is no spot to keep. Its flight back starts there.
+describe("the card being cast (F-0057-B, as spec 0068)", () => {
+  it("flies back from the middle of the screen, where it always is", () => {
+    const g = layoutGeometry({ width: 1920, height: 1080 });
+    const middle = castingBox(g);
     const c = render(
       <CastingFlight
         card={card({ id: "card:3", name: "Allosaurus Rider" })}
-        geometry={layoutGeometry({ width: 1920, height: 1080 })}
+        geometry={g}
         to={box(600, 900)}
         artUrl={(a) => a}
         onDone={vi.fn()}
-        docked
-        from={from}
       />,
     ).container;
     const flying = c.querySelector<HTMLElement>(".gs-cast-leaving")!;
-    expect(flying.style.left).toBe("1200px");
-    expect(flying.style.top).toBe("300px");
+    expect(flying.style.left).toBe(`${middle.x}px`);
+    expect(flying.style.top).toBe(`${middle.y}px`);
   });
 });
