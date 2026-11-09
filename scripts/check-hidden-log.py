@@ -20,9 +20,12 @@ been applied (HID-001, HID-002):
             unknown (face down to it) is named by a line
   timing    every line arrives in the snapshot of the revision it carries,
             never in an earlier one: the board shows the event first or
-            with it (HID-005)
-  seats     lines are numbered per seat without gaps, and a line is never
-            sent to a spectator (seat 0)
+            with it (HID-005); the one exception is the public log (seat 0,
+            spec 0067): its first snapshot to a spectator carries the lines
+            kept while nobody watched, each from an earlier revision
+  seats     lines are numbered per seat without gaps; the public log
+            (seat 0) is checked against seat 0's public snapshots like any
+            seat's
 
 Exit 0 when nothing leaked, 1 when something did, 2 when the traces held
 no play log at all.
@@ -96,8 +99,7 @@ def check(path, totals, problems):
         names = known.setdefault(seat, set())
         names.update(own_name(n) for n in seen_names(state))
         lines = state.get("playLog") or []
-        if lines and (seat == 0 or state.get("spectator")):
-            problems.append(f"{path}:{number}: a spectator's snapshot carries play log lines")
+        backlog = seat == 0 and numbers.get(seat) is None
         unknown = {c.get("id") for zone in ZONES for c in state.get(zone, []) or []
                    if isinstance(c, dict) and c.get("known") is False}
         on_board = board_ids(state)
@@ -107,7 +109,8 @@ def check(path, totals, problems):
             if numbers.get(seat) is not None and n != numbers[seat] + 1:
                 problems.append(f"{path}:{number}: seat {seat} line {n} after {numbers[seat]}")
             numbers[seat] = n
-            if line.get("rev") != rev:
+            late = backlog and isinstance(line.get("rev"), int) and isinstance(rev, int) and line["rev"] < rev
+            if line.get("rev") != rev and not late:
                 problems.append(f"{path}:{number}: seat {seat} line {n} carries rev {line.get('rev')}, "
                                 f"sent in the snapshot of rev {rev}")
             for part in line.get("parts", []) or []:
