@@ -302,7 +302,8 @@ class WorkerFramesTest {
         val players = built["players"] as kotlinx.serialization.json.JsonArray
         players.forEach { player ->
             val seat = player as JsonObject
-            assertTrue(seat.keys.all { it in setOf("displayName", "seatNumber", "cards", "stops") }, "seat keys: ${seat.keys}")
+            val allowed = setOf("displayName", "seatNumber", "cards", "stops")
+            assertTrue(seat.keys.all { it in allowed }, "seat keys: ${seat.keys}")
             (seat.getValue("cards") as kotlinx.serialization.json.JsonArray).forEach { card ->
                 assertTrue((card as JsonObject).keys.all { it in setOf("name", "set", "number", "quantity") })
             }
