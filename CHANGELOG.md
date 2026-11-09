@@ -3,6 +3,21 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.53.0 — 2026-11-08
+
+Fixes: convoke, delve and improvise cards, and what the other player can follow.
+
+**For whoever runs the server**
+- No database changes. Before you update: switch on **Update waiting** on the Admin page, wait for "safe to update", then update.
+
+**Fixes**
+- Holding a convoke, improvise or delve card (Venerated Loxodon, Treasure Cruise, Reverse Engineer) no longer asks you to tap creatures or exile cards every time you get priority. Whether it shows as castable now counts the creatures, artifacts and graveyard cards that could help pay. One known limit: a creature that makes its own mana isn't counted for convoke while the game checks, so a card payable only that way may look dimmed -- it still casts.
+- A card that goes back to the other player's hand (a Bolt bounced, a cast taken back) can no longer be followed there: it flies into their hand as a card back and nothing in the game data points at it afterwards.
+- A revealed card that goes back to a hand stays in the reveal window until you close it.
+
+**Behind the scenes**
+- The automatic game tests now deal each test game the cards it needs, so they no longer fail on an unlucky shuffle. Nothing changes in real games.
+
 ## 1.52.0 — 2026-11-08
 
 A spark of mana for every payment, and a play log in the game chat.
