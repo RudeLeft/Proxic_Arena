@@ -73,9 +73,32 @@ def trace_for(name):
     return os.path.join(TRACES, f"stops-{name}.jsonl")
 
 
+# The Lab's deal (lab.py), by deck: each scenario's moment on the first
+# game (the shuffle once left a seat without its Bolt, Viper or Altar).
+# A deck not named here (lands only, Force of Will only) is not dealt.
+DEALS = {
+    "RED": {"hand": ["Mountain"] * 4 + ["Raging Goblin"] * 2 + ["Shock"],
+            "top": ["Mountain", "Raging Goblin", "Mountain", "Lightning Bolt", "Mountain", "Raging Goblin"]},
+    "BEARS": {"hand": ["Forest"] * 3 + ["Grizzly Bears"] * 4, "top": ["Forest", "Grizzly Bears"] * 3},
+    "BOLTS": {"hand": ["Mountain"] * 3 + ["Lightning Bolt"] * 4, "top": ["Mountain"] * 3 + ["Lightning Bolt"]},
+    "Ambush Viper": {"hand": ["Forest"] * 3 + ["Ambush Viper"] * 4, "top": ["Forest"] * 3},
+    "Augur of Skulls": {"hand": ["Swamp"] * 3 + ["Augur of Skulls"] * 4, "top": ["Swamp"] * 3},
+    "Ashnod's Altar": {"hand": ["Forest"] * 3 + ["Ashnod's Altar"] * 2 + ["Grizzly Bears"] * 2,
+                       "top": ["Forest"] * 3},
+    "Ninja of the Deep Hours": {"hand": ["Island"] * 4 + ["Ninja of the Deep Hours"] * 3,
+                                "top": ["Island", "Ninja of the Deep Hours"] * 3},
+}
+
+
+def deal_for(deck):
+    named = {id(RED): "RED", id(BEARS): "BEARS", id(BOLTS): "BOLTS"}.get(id(deck))
+    return DEALS.get(named) or next((DEALS[n] for n, *_ in deck if n in DEALS), None)
+
+
 def game(name, seat1, seat2, stops=True):
+    deal = {seat: d for seat, d in ((1, deal_for(seat1)), (2, deal_for(seat2))) if d}
     return Game(seat1, seat2, jar=JAR, res=RES, trace=trace_for(name),
-                stops={1: True, 2: True} if stops else None)
+                stops={1: True, 2: True} if stops else None, deal=deal)
 
 
 def result(problems, ok, found):

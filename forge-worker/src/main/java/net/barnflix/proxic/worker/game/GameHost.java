@@ -195,6 +195,17 @@ public final class GameHost {
         PlayLog log = new PlayLog(created, player -> seatOf.get(player.getOriginalLobbyPlayer()));
         this.playLog = log;
         created.subscribeToEvents(log.new Listener());
+        // TEST ONLY -- the Mechanics Lab's deal (LabDeal). Subscribed only
+        // when a seat carries one, so a real game has no such listener.
+        java.util.Map<Integer, LabDeal> deals = new java.util.HashMap<>();
+        for (Seat seat : seats) {
+            if (seat.deal != null) {
+                deals.put(seat.seatNumber, seat.deal);
+            }
+        }
+        if (!deals.isEmpty()) {
+            created.subscribeToEvents(new LabDealer(deals));
+        }
 
         // NOTHING installs controllers here, deliberately. Forge
         // builds its own Player objects during createGame through
@@ -1070,6 +1081,45 @@ public final class GameHost {
     }
 
     /** Forge's event bus calls this; Guava finds it by the annotation. */
+    /**
+     * TEST ONLY -- arranges each dealt seat's library when Forge fires
+     * GameEventGameStarted: after prepareAllZones shuffled it, before
+     * GameAction.startGame draws the opening hands (the same thread,
+     * synchronously: Forge's EventBus posts on the caller's thread).
+     * Once: a restarted game (Karn) is dealt as Forge deals it.
+     */
+    private final class LabDealer {
+        private final java.util.Map<Integer, LabDeal> deals;
+        private boolean dealt;
+
+        LabDealer(java.util.Map<Integer, LabDeal> deals) {
+            this.deals = deals;
+        }
+
+        @com.google.common.eventbus.Subscribe
+        public void on(forge.game.event.GameEventGameStarted event) {
+            if (dealt) {
+                return;
+            }
+            dealt = true;
+            try {
+                for (Player player : game.getPlayers()) {
+                    LabDeal deal = deals.get(seatOf(player.getOriginalLobbyPlayer()));
+                    if (deal == null) {
+                        continue;
+                    }
+                    forge.game.zone.PlayerZone library = player.getZone(forge.game.zone.ZoneType.Library);
+                    List<forge.game.card.Card> now = new ArrayList<>(library.getCards());
+                    library.setCards(deal.arrange(now, forge.game.card.Card::getName,
+                            player.getStartingHandSize()));
+                }
+            } catch (RuntimeException e) {
+                // Guava swallows a subscriber's exception; this fails the start.
+                failure.compareAndSet(null, e);
+            }
+        }
+    }
+
     private final class EpochCounter {
         @com.google.common.eventbus.Subscribe
         public void on(forge.game.event.GameEvent event) {
@@ -1939,10 +1989,18 @@ public final class GameHost {
          */
         public final int seatNumber;
 
+        /** TEST ONLY -- the Lab's deal for this seat; null in every real game. */
+        public final LabDeal deal;
+
         public Seat(String displayName, int seatNumber, Deck deck) {
+            this(displayName, seatNumber, deck, null);
+        }
+
+        public Seat(String displayName, int seatNumber, Deck deck, LabDeal deal) {
             this.displayName = displayName;
             this.seatNumber = seatNumber;
             this.deck = deck;
+            this.deal = deal;
         }
     }
 }

@@ -41,16 +41,23 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 HIDDEN = ("cost", "owing")
+# The Lab's deal (protocol/README.md): seat 2's Bears come out on time.
+BEARS_DEAL = {"hand": ["Forest", "Forest", "Forest", "Grizzly Bears", "Grizzly Bears"]}
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, hand=None, top=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"mana-balls-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal: the opening hand and draws each scenario's moment
+    # needs, so the shuffle cannot leave it inconclusive.
+    deal = {1: {"hand": hand or [], "top": top or []}}
+    if seat2 is BEARS:
+        deal[2] = BEARS_DEAL
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 class Seen:
@@ -120,7 +127,8 @@ def shape(records):
 
 
 def nekrataal():
-    g = game("nekrataal", [("Forest", 12), ("Swamp", 24), ("Nekrataal", 24)])
+    g = game("nekrataal", [("Forest", 12), ("Swamp", 24), ("Nekrataal", 24)],
+             hand=["Forest", "Swamp", "Swamp", "Swamp", "Nekrataal", "Nekrataal", "Swamp"], top=["Swamp"] * 4)
     seen, done = Seen(), {"card": None, "order": []}
 
     def policy(g, f):
@@ -173,7 +181,9 @@ def nekrataal():
 
 
 def sol_ring():
-    g = game("sol-ring", [("Mountain", 24), ("Sol Ring", 18), ("Bronze Sable", 18)])
+    g = game("sol-ring", [("Mountain", 24), ("Sol Ring", 18), ("Bronze Sable", 18)],
+             hand=["Mountain", "Sol Ring", "Bronze Sable", "Mountain", "Mountain", "Bronze Sable", "Mountain"],
+             top=["Mountain"] * 3)
     seen, done = Seen(), {"card": None}
 
     def policy(g, f):
@@ -212,7 +222,7 @@ def sol_ring():
 
 
 def phyrexian():
-    g = game("phyrexian", [("Swamp", 30), ("Dismember", 30)])
+    g = game("phyrexian", [("Swamp", 30), ("Dismember", 30)], hand=["Swamp"] + ["Dismember"] * 6)
     seen, done = Seen(), {"card": None}
 
     def policy(g, f):
@@ -255,7 +265,9 @@ def phyrexian():
 
 
 def convoke():
-    g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)])
+    g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)],
+             hand=["Plains", "Plains", "Savannah Lions", "Savannah Lions", "Savannah Lions", "Venerated Loxodon",
+                   "Plains"], top=["Plains"] * 4)
     seen, done = Seen(), {"card": None, "tapped": []}
 
     def policy(g, f):
@@ -314,7 +326,9 @@ def convoke():
 
 
 def floating():
-    g = game("floating", [("Mountain", 20), ("Sol Ring", 14), ("Gingerbrute", 13), ("Signal Pest", 13)])
+    g = game("floating", [("Mountain", 20), ("Sol Ring", 14), ("Gingerbrute", 13), ("Signal Pest", 13)],
+             hand=["Mountain", "Sol Ring", "Gingerbrute", "Signal Pest", "Mountain", "Mountain", "Signal Pest"],
+             top=["Mountain"] * 3)
     seen, done = Seen(), {"brute": None, "pest": None}
 
     def policy(g, f):
@@ -358,7 +372,9 @@ def floating():
 
 
 def ability():
-    g = game("ability", [("Mountain", 30), ("Forgotten Cave", 30)])
+    g = game("ability", [("Mountain", 30), ("Forgotten Cave", 30)],
+             hand=["Mountain", "Forgotten Cave", "Forgotten Cave", "Mountain", "Forgotten Cave", "Mountain",
+                   "Forgotten Cave"])
     seen, done = Seen(), {"card": None}
 
     def policy(g, f):

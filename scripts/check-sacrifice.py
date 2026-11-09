@@ -34,14 +34,16 @@ BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 SAC, DESTROY = "choosePermanentsToSacrifice", "choosePermanentsToDestroy"
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"sacrifice-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def creatures(g, seat):
@@ -96,7 +98,9 @@ def wrong_offers(log):
 
 
 def monument():
-    g = game("monument", [("Mountain", 28), ("Sol Ring", 4), ("Eldrazi Monument", 12), ("Raging Goblin", 16)])
+    g = game("monument", [("Mountain", 28), ("Sol Ring", 4), ("Eldrazi Monument", 12), ("Raging Goblin", 16)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Sol Ring", "Eldrazi Monument", "Raging Goblin"],
+                       "top": ["Raging Goblin", "Mountain", "Raging Goblin", "Mountain"]}})
     asked = Asked()
     done = {"monument": False}
 
@@ -138,7 +142,9 @@ def monument():
 
 
 def monument_alone():
-    g = game("monument-alone", [("Mountain", 30), ("Sol Ring", 4), ("Eldrazi Monument", 26)])
+    g = game("monument-alone", [("Mountain", 30), ("Sol Ring", 4), ("Eldrazi Monument", 26)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Sol Ring"] + ["Eldrazi Monument"] * 2,
+                       "top": ["Mountain"] * 4}})
     asked = Asked()
     seen = {"turn": None}
 
@@ -179,7 +185,7 @@ def monument_alone():
 
 def targeted(name, card, kind, seat1_deck):
     """seat 1 casts `card` at seat 2 once seat 2 has two creatures; seat 2 must choose."""
-    g = game(name, seat1_deck)
+    g = game(name, seat1_deck, deal={1: {"hand": ["Swamp"] * 4 + [card] * 3}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     asked = Asked()
     done = {"cast": False}
 
@@ -234,7 +240,9 @@ def imperial_edict():
 
 
 def innocent_blood():
-    g = game("innocent-blood", [("Swamp", 26), ("Innocent Blood", 14), ("Walking Corpse", 20)])
+    g = game("innocent-blood", [("Swamp", 26), ("Innocent Blood", 14), ("Walking Corpse", 20)],
+             deal={1: {"hand": ["Swamp"] * 4 + ["Walking Corpse"] * 2 + ["Innocent Blood"],
+                       "top": ["Swamp"] * 2}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     asked = Asked()
     done = {"cast": False}
 

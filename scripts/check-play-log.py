@@ -138,7 +138,13 @@ def policy(g, f):
     return DEFAULT
 
 
-g = Logged(SEAT1, SEAT2, jar=JAR, res=RES, trace=TRACE).run(policy, max_turn=16)
+# The deal: three lands for a face-down Willbender, Bolts with Mountains,
+# a Hill Giant to attack with; Bears for Bob to be bolted and to block.
+DEAL = {1: {"hand": ["Mountain", "Island", "Mountain", "Willbender", "Lightning Bolt", "Lightning Bolt",
+                     "Hill Giant"],
+            "top": ["Island", "Mountain", "Island", "Hill Giant"]},
+        2: {"hand": ["Forest"] * 3 + ["Grizzly Bears"] * 4}}
+g = Logged(SEAT1, SEAT2, jar=JAR, res=RES, trace=TRACE, deal=DEAL).run(policy, max_turn=16)
 
 problems, found = [], {}
 bad = g.stopped_badly()

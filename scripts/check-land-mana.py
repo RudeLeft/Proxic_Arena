@@ -36,7 +36,11 @@ def game(name):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"land-mana-{name}.jsonl")
-    return Game([(n, 15) for n in LANDS], [("Mountain", 40), ("Blood Moon", 20)], jar=JAR, res=RES, trace=trace)
+    # The deal: one of each land, and Blood Moon with the Mountains to cast it.
+    deal = {1: {"hand": LANDS + ["Plains", "Wastes", "Plains"]},
+            2: {"hand": ["Mountain"] * 5 + ["Blood Moon"] * 2}}
+    return Game([(n, 15) for n in LANDS], [("Mountain", 40), ("Blood Moon", 20)], jar=JAR, res=RES, trace=trace,
+                deal=deal)
 
 
 def makes(g, viewer):

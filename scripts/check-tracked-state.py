@@ -41,14 +41,16 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"tracked-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def seat2_bears(g, frame):
@@ -98,7 +100,10 @@ def marvel():
     # Marvel-heavy: with 6 of 60 it was sometimes never drawn by turn 40
     # (energy piled up to 30, unused).
     g = game("marvel", [("Mountain", 22), ("Aetherworks Marvel", 10), ("Harnessed Lightning", 12),
-                        ("Shivan Dragon", 16)])
+                        ("Shivan Dragon", 16)],
+             # Two Lightnings make six energy; Dragons fill the top six.
+             deal={1: {"hand": ["Mountain"] * 4 + ["Aetherworks Marvel"] + ["Harnessed Lightning"] * 2,
+                       "top": ["Mountain"] * 3 + ["Shivan Dragon"] * 12}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"paid": [], "activated": None, "chosen": None, "mana_asked_after": 0, "offered": None}
 
     def policy(g, f):
@@ -183,7 +188,9 @@ def marvel():
 
 
 def ring():
-    g = game("ring", [("Swamp", 24), ("Call of the Ring", 14), ("Walking Corpse", 22)])
+    g = game("ring", [("Swamp", 24), ("Call of the Ring", 14), ("Walking Corpse", 22)],
+             deal={1: {"hand": ["Swamp"] * 4 + ["Walking Corpse"] * 2 + ["Call of the Ring"],
+                       "top": ["Swamp"] * 4}})
     st = {"bearer_questions": [], "bearer": None, "pay": [], "tempted": []}
 
     def policy(g, f):
@@ -259,7 +266,11 @@ def ring():
 def meren():
     # Meren-heavy: with 8 of 60 it was once never drawn by the turn limit.
     g = game("meren", [("Swamp", 13), ("Forest", 13), ("Meren of Clan Nel Toth", 12), ("Llanowar Elves", 12),
-                       ("Bone Splinters", 10)])
+                       ("Bone Splinters", 10)],
+             # One Elf only, so there is one to sacrifice and one to return.
+             deal={1: {"hand": ["Swamp", "Forest", "Swamp", "Forest", "Meren of Clan Nel Toth",
+                                "Llanowar Elves", "Bone Splinters"],
+                       "top": ["Forest", "Swamp", "Swamp", "Forest", "Swamp", "Forest"]}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"splinters": False, "sacrificed": None, "experience_after": None, "meren_target": None,
           "asked": []}
 
@@ -337,7 +348,8 @@ def meren():
 
 
 def initiative():
-    g = game("initiative", [("Plains", 30), ("White Plume Adventurer", 30)])
+    g = game("initiative", [("Plains", 30), ("White Plume Adventurer", 30)],
+             deal={1: {"hand": ["Plains"] * 5 + ["White Plume Adventurer"] * 2}})
     st = {"rooms": [], "room_question": None, "scry": [], "searched": False}
 
     def policy(g, f):
@@ -419,7 +431,9 @@ def emblem():
     Karlov's Crossbow's forecast (in seat 1's upkeep) gives seat 1 an emblem
     with a static ability; Chandra, Awakened Inferno's +2 gives seat 2 one
     with a trigger."""
-    g = game("emblem", [("Mountain", 26), ("Karlov's Crossbow", 14), ("Chandra, Awakened Inferno", 20)])
+    g = game("emblem", [("Mountain", 26), ("Karlov's Crossbow", 14), ("Chandra, Awakened Inferno", 20)],
+             deal={1: {"hand": ["Mountain"] * 5 + ["Karlov's Crossbow", "Chandra, Awakened Inferno"],
+                       "top": ["Mountain"] * 4}})
     st = {"forecast": 0, "plus": 0}
 
     def policy(g, f):

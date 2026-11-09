@@ -28,14 +28,14 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"mana-pool-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def cast(g, frame, name):
@@ -59,7 +59,10 @@ def stack_empty(g):
 
 
 def sol_ring():
-    g = game("sol-ring", [("Mountain", 24), ("Sol Ring", 18), ("Bronze Sable", 18)])
+    # The deal: a Mountain and Sol Ring on turn 1, Bronze Sable to pay with it.
+    g = game("sol-ring", [("Mountain", 24), ("Sol Ring", 18), ("Bronze Sable", 18)],
+             deal={1: {"hand": ["Mountain", "Mountain", "Mountain", "Mountain", "Sol Ring",
+                                "Bronze Sable", "Bronze Sable"]}})
     done = {"sable": False, "lands_before": None, "ring_offered": None}
 
     def policy(g, f):
@@ -107,7 +110,11 @@ def sol_ring():
 
 
 def floating():
-    g = game("floating", [("Mountain", 20), ("Sol Ring", 14), ("Gingerbrute", 13), ("Signal Pest", 13)])
+    # The deal: Sol Ring out on turn 1, Gingerbrute and Signal Pest in hand
+    # (CI 2026-11-07: the shuffle once never dealt all three).
+    g = game("floating", [("Mountain", 20), ("Sol Ring", 14), ("Gingerbrute", 13), ("Signal Pest", 13)],
+             deal={1: {"hand": ["Mountain", "Mountain", "Mountain", "Mountain", "Sol Ring",
+                                "Gingerbrute", "Signal Pest"]}})
     done = {"brute": False, "pest": False, "lands_before": None, "pool_after_brute": None,
             "pest_payment": None, "pest_options": None}
 

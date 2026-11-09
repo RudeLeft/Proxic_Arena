@@ -70,14 +70,29 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+LANDS = {"Forest", "Mountain", "Plains", "Island", "Swamp"}
+
+
+def curve(deck):
+    """The Lab's deal (lab.py) for a lands-and-creatures deck: four lands
+    and three of its first creature in hand, then more lands and creatures,
+    so each seat has the board its fight needs on the first game (the
+    shuffle once left a seat with no creature). Spells after the first are
+    left to the shuffle; a scenario that needs one names it."""
+    land = next(n for n, *_ in deck if n in LANDS)
+    spells = [n for n, *_ in deck if n not in LANDS]
+    return {"hand": [land] * 4 + [spells[0]] * 3, "top": [land] * 3 + [spells[0], land] * 3} if spells         else {"hand": [land] * 7, "top": [land] * 4}
+
+
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"combat-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    deal = deal or {1: curve(seat1), 2: curve(seat2)}
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):
@@ -519,7 +534,9 @@ def enlist(pick):
     (CostEnlist) -- the LAST offered: the opponent loses 1 + its power, and
     only it is tapped. Or none: 1 damage, nothing else tapped."""
     g = game(f"enlist-{'last' if pick else 'none'}",
-             [("Plains", 30), ("Benalish Faithbonder", 15), ("Savannah Lions", 15)], [("Forest", 60)])
+             [("Plains", 30), ("Benalish Faithbonder", 15), ("Savannah Lions", 15)], [("Forest", 60)],
+             deal={1: {"hand": ["Plains"] * 4 + ["Benalish Faithbonder"] * 2 + ["Savannah Lions"],
+                       "top": ["Plains"] * 4}, 2: curve([("Forest", 60)])})
     st = {"attacker": None, "asked": [], "helpers": None, "picked": None, "power": None, "turn": None,
           "life": None, "after": None}
 
@@ -779,6 +796,7 @@ if __name__ == "__main__":
             verdict_, message, found = scenario()
             if verdict_ != "inconclusive":
                 break
+            print(f"{name}: never reached its moment ({message}); one more game")
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
         print(f"{name}: {verdict_.upper()}: {message}")
         if verdict_ != "ok":

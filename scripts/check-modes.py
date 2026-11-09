@@ -35,16 +35,24 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
+# The Lab's deal (protocol/README.md): seat 2 has its Bears out on its
+# second turn, so a scenario that needs a creature to aim at has one.
+BEARS_DEAL = {"hand": ["Forest", "Forest", "Forest", "Grizzly Bears", "Grizzly Bears"]}
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, hand=None, top=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"modes-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal: each scenario names the opening hand and draws its
+    # moment needs, so the shuffle cannot leave it inconclusive.
+    deal = {1: {"hand": hand or [], "top": top or []}}
+    if seat2 is BEARS:
+        deal[2] = BEARS_DEAL
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def seat2_bears(g, frame):
@@ -95,7 +103,8 @@ def counted(st, num, least, first_pick, escalate=None, budget=None):
 
 
 def escalate():
-    g = game("escalate", [("Swamp", 24), ("Collective Brutality", 36)])
+    g = game("escalate", [("Swamp", 24), ("Collective Brutality", 36)],
+             hand=["Swamp"] * 3 + ["Collective Brutality"] * 4, top=["Swamp"] * 4)
     st = {"cast": False, "modes": [], "before": None}
 
     def policy(g, f):
@@ -156,7 +165,8 @@ def escalate():
 
 
 def cryptic():
-    g = game("cryptic", [("Island", 24), ("Cryptic Command", 36)])
+    g = game("cryptic", [("Island", 24), ("Cryptic Command", 36)],
+             hand=["Island"] * 4 + ["Cryptic Command"] * 3, top=["Island"] * 4)
     st = {"cast": False, "modes": [], "before": None}
 
     def policy(g, f):
@@ -209,7 +219,8 @@ def cryptic():
 
 
 def entwine():
-    g = game("entwine", [("Forest", 40), ("Tooth and Nail", 10), ("Grizzly Bears", 10)])
+    g = game("entwine", [("Forest", 40), ("Tooth and Nail", 10), ("Grizzly Bears", 10)],
+             hand=["Forest"] * 5 + ["Tooth and Nail", "Grizzly Bears"], top=["Forest"] * 10)
     st = {"cast": False, "entwined": False, "before": None}
 
     def policy(g, f):
@@ -255,7 +266,8 @@ def entwine():
 
 
 def spree():
-    g = game("spree", [("Island", 24), ("Ornithopter", 12), ("Three Steps Ahead", 24)])
+    g = game("spree", [("Island", 24), ("Ornithopter", 12), ("Three Steps Ahead", 24)],
+             hand=["Ornithopter"] + ["Island"] * 5 + ["Three Steps Ahead"], top=["Island"] * 4)
     st = {"cast": False, "modes": [], "before": None}
 
     def policy(g, f):
@@ -309,7 +321,8 @@ def spree():
 
 
 def pawprint():
-    g = game("pawprint", [("Island", 30), ("Season of Weaving", 30)])
+    g = game("pawprint", [("Island", 30), ("Season of Weaving", 30)],
+             hand=["Island"] * 5 + ["Season of Weaving"] * 2, top=["Island"] * 4)
     st = {"cast": False, "chosen": 0, "offered_after_budget": None, "before": None}
 
     def policy(g, f):

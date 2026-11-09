@@ -46,16 +46,28 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
+# The Lab's deal (lab.py): seat 2's Bears, out from turn 2, for every
+# scenario that aims at one -- the shuffle once left it creature-less.
+BEARS_DEAL = {"hand": ["Forest"] * 3 + ["Grizzly Bears"] * 4, "top": ["Forest", "Grizzly Bears"] * 4}
 
 
-def game(name, seat1, seat2=BEARS):
+def deal(hand, top=(), seat2=BEARS_DEAL):
+    """Seat 1's opening hand and next draws (and seat 2's), so a scenario
+    reaches its moment on the first game; INCONCLUSIVE stays the safety net."""
+    out = {1: {"hand": list(hand), "top": list(top)}}
+    if seat2:
+        out[2] = seat2
+    return out
+
+
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"shapes-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def seat2_plays(*names):
@@ -91,7 +103,8 @@ def calm(g, seat=1):
 
 
 def adventure():
-    g = game("adventure", [("Mountain", 24), ("Bonecrusher Giant", 36)])
+    g = game("adventure", [("Mountain", 24), ("Bonecrusher Giant", 36)],
+             deal=deal(["Mountain"] * 4 + ["Bonecrusher Giant"] * 3, ["Mountain"] * 4))
     st = {"stomp": False, "giant": False, "card": None, "in_exile": False, "labels": set()}
     seat2 = seat2_plays("Grizzly Bears")
 
@@ -141,7 +154,9 @@ def adventure():
 
 
 def split():
-    g = game("split", [("Mountain", 12), ("Island", 12), ("Fire // Ice", 36)])
+    g = game("split", [("Mountain", 12), ("Island", 12), ("Fire // Ice", 36)],
+             deal=deal(["Mountain", "Island", "Mountain", "Island"] + ["Fire // Ice"] * 3,
+                       ["Mountain", "Island"] * 3))
     st = {"fire": False, "ice": False, "divided": [], "targeted": 0, "before": None}
     seat2 = seat2_plays("Grizzly Bears")
 
@@ -212,7 +227,8 @@ def split():
 
 
 def aftermath():
-    g = game("aftermath", [("Island", 30), ("Commit // Memory", 30)])
+    g = game("aftermath", [("Island", 30), ("Commit // Memory", 30)],
+             deal=deal(["Island"] * 4 + ["Commit // Memory"] * 3, ["Island"] * 6))
     st = {"commit": False, "memory": False, "card": None, "before": None}
     seat2 = seat2_plays("Grizzly Bears")
 
@@ -262,7 +278,11 @@ def aftermath():
 
 def fuse():
     g = game("fuse", [("Mountain", 15), ("Plains", 15), ("Wear // Tear", 30)],
-             [("Plains", 30), ("Ornithopter", 15), ("Glorious Anthem", 15)])
+             [("Plains", 30), ("Ornithopter", 15), ("Glorious Anthem", 15)],
+             deal=deal(["Mountain", "Plains", "Mountain", "Plains"] + ["Wear // Tear"] * 3,
+                       ["Mountain", "Plains"] * 3,
+                       seat2={"hand": ["Plains"] * 3 + ["Ornithopter"] * 2 + ["Glorious Anthem"] * 2,
+                              "top": ["Plains"] * 4}))
     # "cast" only once the fused spell is on the stack: Forge offers it
     # before it knows the mana is there, and undoes it when it is not.
     st = {"cast": False, "targets": []}
@@ -325,7 +345,9 @@ def fuse():
 
 def rooms():
     g = game("rooms", [("Island", 15), ("Plains", 15), ("Bottomless Pool // Locker Room", 15),
-                        ("Dollmaker's Shop // Porcelain Gallery", 15)])
+                        ("Dollmaker's Shop // Porcelain Gallery", 15)],
+             deal=deal(["Island", "Plains", "Island", "Plains", "Island", "Bottomless Pool // Locker Room",
+                        "Dollmaker's Shop // Porcelain Gallery"], ["Plains", "Island"] * 4))
     # (first door and its cost, the door to unlock and its cost)
     doors = {"Bottomless Pool // Locker Room": ("Bottomless Pool", "{U}", "Locker Room", "{4}{U}"),
              "Dollmaker's Shop // Porcelain Gallery": ("Dollmaker's Shop", "{1}{W}", "Porcelain Gallery", "{4}{W}{W}")}
@@ -406,7 +428,8 @@ def told_both(st, entry):
 
 
 def mutate(under=False):
-    g = game("mutate-under" if under else "mutate", [("Forest", 30), ("Grizzly Bears", 15), ("Gemrazer", 15)])
+    g = game("mutate-under" if under else "mutate", [("Forest", 30), ("Grizzly Bears", 15), ("Gemrazer", 15)],
+             deal=deal(["Forest"] * 3 + ["Grizzly Bears"] * 2 + ["Gemrazer"] * 2, ["Forest"] * 4))
     st = {"cast": False, "host": None, "before": None, "gem": None, "top": None, "into": {}}
     seat2 = seat2_plays("Grizzly Bears")
 
@@ -494,7 +517,9 @@ def mutate(under=False):
 def mutate_two():
     """Spec 0058, items 7 and 8: two mutate triggers at once, each named by its own card."""
     g = game("mutate-two", [("Forest", 30), ("Grizzly Bears", 10), ("Glowstone Recluse", 10),
-                            ("Trumpeting Gnarr", 10)])
+                            ("Trumpeting Gnarr", 10)],
+             deal=deal(["Forest"] * 4 + ["Grizzly Bears", "Glowstone Recluse", "Trumpeting Gnarr"],
+                       ["Forest"] * 6))
     st = {"host": None, "glow": None, "gnarr": None, "stage": 0, "order": None, "owing": None, "into": {},
           "top": []}
     seat2 = seat2_plays("Grizzly Bears")
@@ -571,7 +596,8 @@ def mutate_two():
 
 
 def meld():
-    g = game("meld", [("Swamp", 30), ("Graf Rats", 15), ("Midnight Scavengers", 15)], [("Island", 60)])
+    g = game("meld", [("Swamp", 30), ("Graf Rats", 15), ("Midnight Scavengers", 15)], [("Island", 60)],
+             deal=deal(["Swamp"] * 3 + ["Graf Rats"] * 2 + ["Midnight Scavengers"] * 2, ["Swamp"] * 4, seat2=None))
     st = {"rats": None, "scav": None, "melded": False, "into": {}}
 
     def policy(g, f):
@@ -624,7 +650,8 @@ def meld():
 
 
 def battle():
-    g = game("battle", [("Forest", 30), ("Grizzly Bears", 15), ("Invasion of Zendikar", 15)])
+    g = game("battle", [("Forest", 30), ("Grizzly Bears", 15), ("Invasion of Zendikar", 15)],
+             deal=deal(["Forest"] * 4 + ["Grizzly Bears"] * 2 + ["Invasion of Zendikar"], ["Forest"] * 4, seat2=None))
     st = {"cast": False, "attacked": 0}
     seat2 = seat2_plays()
 
@@ -683,7 +710,9 @@ def battle():
 
 
 def prepare():
-    g = game("prepare", [("Island", 14), ("Forest", 14), ("Studious First-Year", 16), ("Emeritus of Ideation", 16)])
+    g = game("prepare", [("Island", 14), ("Forest", 14), ("Studious First-Year", 16), ("Emeritus of Ideation", 16)],
+             deal=deal(["Forest", "Island", "Forest", "Island", "Island", "Studious First-Year",
+                        "Emeritus of Ideation"], ["Island", "Forest"] * 4))
     st = {"studious": False, "emeritus": False, "growth": False, "recall": False, "before": {}}
     seat2 = seat2_plays("Grizzly Bears")
 
@@ -769,7 +798,8 @@ def prepare():
 
 def daybound():
     # Seat 2 casts nothing: its turns pass with no spells, so day becomes night.
-    g = game("daybound", [("Mountain", 30), ("Reckless Stormseeker", 30)], [("Forest", 60)])
+    g = game("daybound", [("Mountain", 30), ("Reckless Stormseeker", 30)], [("Forest", 60)],
+             deal=deal(["Mountain"] * 4 + ["Reckless Stormseeker"] * 3, ["Mountain"] * 4, seat2=None))
     st = {"cast": False, "sides": []}
     seat2 = seat2_plays()
 

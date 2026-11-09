@@ -32,14 +32,16 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"results-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def cast(g, frame, name):
@@ -67,7 +69,11 @@ def result(problems, ok, found):
 
 
 def felidar():
-    g = game("felidar", [("Plains", 24), ("Felidar Sovereign", 12), ("Angel's Mercy", 24)])
+    g = game("felidar", [("Plains", 24), ("Felidar Sovereign", 12), ("Angel's Mercy", 24)],
+             # Three Mercies (+21) and six Plains for the Sovereign.
+             deal={1: {"hand": ["Plains"] * 4 + ["Felidar Sovereign"] + ["Angel's Mercy"] * 2,
+                       "top": ["Plains", "Angel's Mercy", "Plains", "Angel's Mercy", "Plains", "Plains",
+                               "Angel's Mercy", "Plains"]}})
 
     def policy(g, f):
         if f["authorisedSeat"] == 2:
@@ -107,7 +113,12 @@ def felidar():
 
 def platinum():
     g = game("platinum", [("Plains", 26), ("Platinum Angel", 34)],
-             [("Mountain", 18), ("Swamp", 10), ("Lightning Bolt", 22), ("Doom Blade", 10)])
+             [("Mountain", 18), ("Swamp", 10), ("Lightning Bolt", 22), ("Doom Blade", 10)],
+             # Seven Plains for the Angel; Bob a land every turn (so no
+             # discard), Bolts enough, and the Doom Blade from the start.
+             deal={1: {"hand": ["Plains"] * 6 + ["Platinum Angel"], "top": ["Plains"] * 5},
+                   2: {"hand": ["Swamp"] + ["Mountain"] * 3 + ["Doom Blade"] + ["Lightning Bolt"] * 2,
+                       "top": ["Lightning Bolt", "Mountain"] * 8}})
     st = {"low_turn": None, "low_life": None, "blade": False}
 
     def angel(g):
@@ -174,7 +185,10 @@ def grace():
     # Bolts and then Grace together) it ran past turn 40 in about one CI
     # run in three.
     g = game("grace", [("Plains", 20), ("Angel's Grace", 40)],
-             [("Mountain", 30), ("Lightning Bolt", 30)])
+             [("Mountain", 30), ("Lightning Bolt", 30)],
+             deal={1: {"hand": ["Plains"] * 3 + ["Angel's Grace"] * 4, "top": ["Plains", "Angel's Grace"] * 3},
+                   2: {"hand": ["Mountain"] * 3 + ["Lightning Bolt"] * 4,
+                       "top": ["Mountain", "Lightning Bolt"] * 8}})
     st = {"grace_turn": None, "on_stack_offered": {1: set(), 2: set()}, "asked_during": {1: 0, 2: 0},
           "lethal": None, "bolt_seen": False, "after": None, "grace_seen": False}
 

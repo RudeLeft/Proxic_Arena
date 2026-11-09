@@ -32,6 +32,9 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BOLTS = [("Mountain", 30), ("Lightning Bolt", 30)]
+# The Lab's deal (lab.py): Alice holds lands and Bolts, so she is asked on
+# turn 3 with a Bolt to cast -- never waiting on the shuffle.
+ALICE = {1: {"hand": ["Mountain"] * 4 + ["Lightning Bolt"] * 3}}
 
 
 def game(name, seat1=BOLTS, seat2=BOLTS):
@@ -41,7 +44,7 @@ def game(name, seat1=BOLTS, seat2=BOLTS):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"concede-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=ALICE)
 
 
 def ended(g):

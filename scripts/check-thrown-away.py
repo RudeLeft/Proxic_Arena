@@ -48,14 +48,16 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 
 
-def game(name, seat1, seat2, stops=None):
+def game(name, seat1, seat2, stops=None, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"thrown-away-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, stops=stops)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, stops=stops, deal=deal)
 
 
 def result(problems, ok, found):
@@ -92,7 +94,8 @@ def to_graveyard(w, seat, card=None, why=None):
 
 
 def cave():
-    g = game("cave", [("Mountain", 30), ("Forgotten Cave", 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    g = game("cave", [("Mountain", 30), ("Forgotten Cave", 30)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Mountain"] * 3 + ["Forgotten Cave"] * 4}})
     w = Watch(g)
     st = {"land_turn": None, "cave": None, "offered": None, "not_now": None, "paid_about": None,
           "cycled": False}
@@ -218,7 +221,8 @@ def handsize():
 
 
 def countered():
-    g = game("countered", [("Island", 30), ("Counterspell", 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    g = game("countered", [("Island", 30), ("Counterspell", 30)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Island"] * 4 + ["Counterspell"] * 3}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     w = Watch(g)
     st = {"cast": False, "bears": None}
 
@@ -287,7 +291,8 @@ LATE = {"END_OF_TURN", "CLEANUP"}
 
 def passed():
     g = game("passed", [("Forest", 16), ("Craw Wurm", 44)], [("Forest", 30), ("Grizzly Bears", 30)],
-             stops={1: True, 2: True})
+             # No land in the opening hand: Alice's turn 1 has nothing to play.
+             stops={1: True, 2: True}, deal={1: {"hand": ["Craw Wurm"] * 7}})
     w = Watch(g)
     st = {"at": None, "gap": None}
 

@@ -77,7 +77,12 @@ def trace_of(name):
 
 def run(name):
     deck, card, lands, expected, backs_for, chooser = SCENARIOS[name]
-    g = Game(seat1=deck, seat2=BOB, jar=JAR, res=RES, trace=trace_of(name))
+    # The Lab's deal (lab.py): Alice's lands and the card in her opening
+    # hand, lands next; Bob holds both creatures (seize names one).
+    land = deck[0][0]
+    deal = {1: {"hand": [land] * 4 + [card] * 3, "top": [land] * 4},
+            2: {"hand": ["Plains"] * 3 + ["Savannah Lions"] * 2 + ["Raging Goblin"] * 2, "top": ["Plains"] * 3}}
+    g = Game(seat1=deck, seat2=BOB, jar=JAR, res=RES, trace=trace_of(name), deal=deal)
     cast = {"turn": None}
     seen = {1: [], 2: []}
 

@@ -49,14 +49,18 @@ LANDS_ONLY = [("Forest", 60)]
 ROLL = re.compile(r"Roll: (\d+)")
 
 
-def game(name, seat1):
+def game(name, seat1, hand=None, top=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"dice-{name}.jsonl")
-    return Game(seat1, LANDS_ONLY, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (protocol/README.md): the opening hand and the draws
+    # after it, so the shuffle cannot leave a scenario short of its cards.
+    # The dice themselves are still Forge's to roll.
+    return Game(seat1, LANDS_ONLY, jar=JAR, res=RES, trace=trace,
+                deal={1: {"hand": hand or [], "top": top or []}})
 
 
 def stack_empty(g):
@@ -124,7 +128,10 @@ def fly_game(name, extra_cards, ready, answer, lands_needed=4, max_turn=24):
     answers the dice questions (None: not one of them). Returns g, st with
     the Fly's power after the roll resolved and the lands it used."""
     seat1 = [("Island", 18), ("Swamp", 14), ("Ebony Fly", 10)] + extra_cards
-    g = game(name, seat1)
+    # Two of each land, the Fly and the scenario's card in hand; lands drawn
+    # after, both colours, so the Fly and its {4} are paid on time.
+    g = game(name, seat1, hand=["Island", "Swamp", "Island", "Swamp", "Ebony Fly", extra_cards[0][0], "Island"],
+             top=["Swamp", "Island"] * 6)
     st = {"rolled": False, "turn": None, "asked": [], "lands": None, "after": None, "fly": None}
     wanted = [n for n, _ in extra_cards]
 
@@ -340,7 +347,8 @@ def planar():
     outside a Planechase game, and Proxic never plays one: the proof that
     the question cannot arise is this game -- both cards out, the die
     "rolled", nothing asked, and the game goes on."""
-    g = game("planar", [("Island", 30), ("Fractured Powerstone", 15), ("Ichor Elixir", 15)])
+    g = game("planar", [("Island", 30), ("Fractured Powerstone", 15), ("Ichor Elixir", 15)],
+             hand=["Island"] * 5 + ["Fractured Powerstone", "Ichor Elixir"], top=["Island"] * 6)
     st = {"used": False, "asked": [], "turn": None, "after": None}
 
     def policy(g, f):

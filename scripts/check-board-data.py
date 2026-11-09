@@ -43,14 +43,19 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 
 
-def game(name, seat1, seat2):
+BEARS_DEAL = {"hand": ["Forest", "Forest", "Forest", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"]}
+
+
+def game(name, seat1, seat2, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"board-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (protocol/README.md): each scenario names the hands and
+    # draws its moment needs, so the shuffle cannot leave it inconclusive.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def cast(g, frame, name, contains=None):
@@ -133,7 +138,10 @@ def combat():
              # Mono-white: White Knight's {W}{W} beside a green card left
              # seat 1 with one Plains and no Knight for 30 turns.
              [("Plains", 24), ("White Knight", 18), ("Savannah Lions", 18)],
-             [("Forest", 30), ("Grizzly Bears", 30)])
+             [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Plains"] * 4 + ["White Knight", "Savannah Lions", "White Knight"],
+                       "top": ["Plains"] * 3},
+                   2: BEARS_DEAL})
     w = Watch(g)
     st = {"attacked": False, "blocked": None, "combat_seen": None, "blocks_seen": None, "waves": []}
 
@@ -265,7 +273,9 @@ def combat():
 
 
 def stack():
-    g = game("stack", [("Mountain", 30), ("Lightning Bolt", 30)], [("Island", 30), ("Counterspell", 30)])
+    g = game("stack", [("Mountain", 30), ("Lightning Bolt", 30)], [("Island", 30), ("Counterspell", 30)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Lightning Bolt"] * 3, "top": ["Mountain"] * 3},
+                   2: {"hand": ["Island"] * 4 + ["Counterspell"] * 3, "top": ["Island"] * 3}})
     w = Watch(g)
     st = {"bolt": None, "countered": False, "both": None, "floated": False, "pool": None}
 
@@ -354,7 +364,8 @@ def stack():
 
 
 def tokens():
-    g = game("tokens", [("Plains", 24), ("Raise the Alarm", 36)], [("Forest", 30), ("Grizzly Bears", 30)])
+    g = game("tokens", [("Plains", 24), ("Raise the Alarm", 36)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Plains"] * 4 + ["Raise the Alarm"] * 3, "top": ["Plains"] * 4}, 2: BEARS_DEAL})
     w = Watch(g)
     st = {"raised": 0}
 
@@ -446,7 +457,8 @@ def tokens():
 
 
 def facedown():
-    g = game("facedown", [("Island", 24), ("Willbender", 36)], [("Forest", 30), ("Grizzly Bears", 30)])
+    g = game("facedown", [("Island", 24), ("Willbender", 36)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Island"] * 4 + ["Willbender"] * 3, "top": ["Island"] * 3}, 2: BEARS_DEAL})
     w = Watch(g)
     st = {"cast": False, "seen": None}
 
@@ -500,7 +512,11 @@ def afford():
     # creature -- a cost that is not mana. Neither is ever cast here but
     # the Dragon; the scenario only reads how each is offered.
     g = game("afford", [("Mountain", 24), ("Shivan Dragon", 18), ("Fling", 18)],
-             [("Forest", 30), ("Grizzly Bears", 30)])
+             [("Forest", 30), ("Grizzly Bears", 30)],
+             # A Dragon and a Fling from the start, Mountains to draw: each
+             # is offered short of mana first, then affordable.
+             deal={1: {"hand": ["Mountain"] * 4 + ["Shivan Dragon", "Fling", "Mountain"],
+                       "top": ["Mountain"] * 5}, 2: BEARS_DEAL})
     w = Watch(g)
     st = {"checked": {"Shivan Dragon": [0, 0], "Fling": [0, 0]}, "wrong": [], "cast": False}
 

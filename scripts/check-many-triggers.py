@@ -28,7 +28,11 @@ JAR, RES = sys.argv[1], sys.argv[2]
 BOGGART = "Boggart Shenanigans"
 
 g = Game([("Mountain", 20), (BOGGART, 14), ("Dragon Fodder", 16), ("Pyroclasm", 10)],
-         [("Forest", 30), ("Island", 30)], jar=JAR, res=RES, trace="")
+         [("Forest", 30), ("Island", 30)], jar=JAR, res=RES, trace="",
+         # The deal: Boggart Shenanigans, two Dragon Fodders (four Goblins)
+         # and Pyroclasm, with the Mountains to cast them.
+         deal={1: {"hand": ["Mountain"] * 3 + [BOGGART, "Dragon Fodder", "Dragon Fodder", "Pyroclasm"],
+                   "top": ["Mountain"] * 3 + ["Pyroclasm", "Mountain"]}})
 st = {"died": None, "life": None, "order": 0, "targets": 0, "confirms": 0, "copies": [], "done": False}
 
 

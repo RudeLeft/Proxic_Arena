@@ -38,7 +38,9 @@ def public():
     trace = "" if not TRACES else (
         TRACES[: -len(".jsonl")] + "-public.jsonl" if TRACES.endswith(".jsonl")
         else os.path.join(TRACES, "spectator-public.jsonl"))
-    g = Game(DECK, DECK, jar=JAR, res=RES, trace=trace)
+    # The deal: three Islands and a Willbender to cast face down, each seat.
+    hand = {"hand": ["Island"] * 4 + ["Willbender", "Willbender", "Opt"]}
+    g = Game(DECK, DECK, jar=JAR, res=RES, trace=trace, deal={1: hand, 2: hand})
     st = {"watched": False, "early": 0, "frames": 0, "problems": [], "morph": False}
 
     def policy(g, f):

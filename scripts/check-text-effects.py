@@ -32,14 +32,16 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"text-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def cast(g, frame, name):
@@ -65,7 +67,8 @@ def result(problems, ok, found):
 
 
 def march():
-    g = game("march", [("Island", 26), ("March of the Machines", 14), ("Mind Stone", 20)])
+    g = game("march", [("Island", 26), ("March of the Machines", 14), ("Mind Stone", 20)],
+             deal={1: {"hand": ["Island"] * 4 + ["Mind Stone", "March of the Machines", "Island"]}})
     st = {"stone": None, "before": None, "cast": False}
 
     def policy(g, f):
@@ -109,7 +112,9 @@ def march():
 
 
 def mind_bend():
-    g = game("mind-bend", [("Island", 30), ("Mind Bend", 30)], [("Forest", 30), ("Shanodin Dryads", 30)])
+    g = game("mind-bend", [("Island", 30), ("Mind Bend", 30)], [("Forest", 30), ("Shanodin Dryads", 30)],
+             deal={1: {"hand": ["Island"] * 4 + ["Mind Bend"] * 3},
+                   2: {"hand": ["Forest"] * 4 + ["Shanodin Dryads"] * 3}})
     st = {"dryad": None, "before": None, "asked": [], "cast": False}
 
     def policy(g, f):
@@ -169,7 +174,9 @@ def mind_bend():
 
 
 def mind_bend_colour():
-    g = game("mind-bend-colour", [("Island", 30), ("Mind Bend", 30)], [("Plains", 30), ("White Knight", 30)])
+    g = game("mind-bend-colour", [("Island", 30), ("Mind Bend", 30)], [("Plains", 30), ("White Knight", 30)],
+             deal={1: {"hand": ["Island"] * 4 + ["Mind Bend"] * 3},
+                   2: {"hand": ["Plains"] * 4 + ["White Knight"] * 3}})
     st = {"knight": None, "before": None, "asked": [], "cast": False, "new": None}
 
     def policy(g, f):

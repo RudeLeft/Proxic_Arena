@@ -38,14 +38,14 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BRUTE = "Boggart Brute"
 
 
-def game(name, seat1, seat2):
+def game(name, seat1, seat2, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"blocks-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def cast(g, frame, name):
@@ -53,7 +53,10 @@ def cast(g, frame, name):
 
 
 def menace():
-    g = game("menace", [("Mountain", 30), (BRUTE, 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    # The deal: lands for the Brute by turn 5, Bears for the defender.
+    g = game("menace", [("Mountain", 30), (BRUTE, 30)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Mountain"] * 4 + [BRUTE] * 3},
+                   2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"attacked": False, "blocked": 0, "asked_again": 0, "notes": [], "blocks_seen": None,
           "life_before": None, "life_after": None, "done": False, "took_back": False}
 
@@ -131,7 +134,11 @@ def menace():
 
 
 def reasons():
-    g = game("reasons", [("Mountain", 30), ("Goblin Piker", 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    # The deal: two lands in hand at once, and Pikers to spare for the
+    # opponent's turn.
+    g = game("reasons", [("Mountain", 30), ("Goblin Piker", 30)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Goblin Piker"] * 3},
+                   2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     seen = {"land": None, "sick": None, "timing": None}
 
     def note(f):

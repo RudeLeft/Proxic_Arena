@@ -31,14 +31,16 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 
 
-def game(name, one, two):
+def game(name, one, two, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"what-happened-{name}.jsonl")
-    return Game(one, two, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(one, two, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):
@@ -46,7 +48,8 @@ def stack_empty(g):
 
 
 def counters():
-    g = game("counters", [("Plains", 24), ("Soul Warden", 18), ("Ajani's Pridemate", 18)], [("Forest", 60)])
+    g = game("counters", [("Plains", 24), ("Soul Warden", 18), ("Ajani's Pridemate", 18)], [("Forest", 60)],
+             deal={1: {"hand": ["Plains"] * 4 + ["Soul Warden", "Ajani's Pridemate", "Plains"]}})
     st = {"cast": False, "why": [], "card": None}
 
     def policy(g, f):
@@ -107,7 +110,11 @@ def decking():
 
 def ringleader():
     deck = [("Mountain", 24), ("Goblin Ringleader", 12), ("Raging Goblin", 12), ("Shock", 12)]
-    g = game("ringleader", deck, [("Forest", 60)])
+    # Four lands by turn 7, then a top four of two Goblins and two others:
+    # each card marked hand or bottom.
+    g = game("ringleader", deck, [("Forest", 60)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Goblin Ringleader", "Mountain", "Shock"],
+                       "top": ["Mountain"] * 3 + ["Raging Goblin", "Shock", "Mountain", "Raging Goblin"]}})
     st = {"cast": False, "reveals": {}}
 
     def policy(g, f):

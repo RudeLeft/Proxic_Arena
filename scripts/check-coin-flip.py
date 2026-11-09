@@ -29,14 +29,14 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"coin-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def seat2_bears(g, frame):
@@ -65,7 +65,12 @@ def flips(g, seat):
 
 
 def krark():
-    g = game("krark", [("Mountain", 24), ("Krark, the Thumbless", 8), ("Lightning Bolt", 28)])
+    # The deal: Krark on turn 2 and Bolts to cast with him out. The flips
+    # themselves are Forge's coin, not the deal.
+    g = game("krark", [("Mountain", 24), ("Krark, the Thumbless", 8), ("Lightning Bolt", 28)],
+             deal={1: {"hand": ["Mountain", "Mountain", "Mountain", "Krark, the Thumbless",
+                                "Lightning Bolt", "Lightning Bolt", "Lightning Bolt"],
+                       "top": ["Mountain", "Lightning Bolt"] * 3}})
     st = {"bolts": [], "calls": [], "new_targets": []}
 
     def policy(g, f):

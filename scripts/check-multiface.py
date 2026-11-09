@@ -47,8 +47,15 @@ DECK = [("Island", 20), ("Delver of Secrets", 20), ("Opt", 20)]
 FRONT, BACK = "Delver of Secrets", "Insectile Aberration"
 MAX_TURN = 30
 
+# The deal (test-only labDeal, protocol/README.md "the Lab's deal"): the
+# opening hand and the draws after it, so the scenario reaches its moment on
+# the first game instead of waiting on Forge's shuffle.
+DEAL = {
+    1: {"hand": ["Island", "Delver of Secrets", "Island", "Island", "Island", "Island", "Delver of Secrets"], "top": ["Island", "Opt"]},
+}
+
 proc = subprocess.Popen(
-    ["java", "-jar", JAR, RES],
+    ["java", "-jar", JAR, RES, "--lab-deal"],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
     stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
 trace = open(TRACE, "w", encoding="utf-8") if TRACE else None
@@ -86,7 +93,7 @@ for line in proc.stdout:
         deck = [{"name": n, "quantity": q} for n, q in DECK]
         send({"protocolVersion": 1, "type": "START_GAME",
               "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": deck},
+              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": deck, "labDeal": DEAL[1]},
                           {"displayName": "Bob", "seatNumber": 2, "cards": deck}]})
         continue
 

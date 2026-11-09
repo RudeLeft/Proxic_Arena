@@ -65,7 +65,15 @@ def game(name, seat1, seat2=BEARS):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"card-trays-{name}.jsonl")
-    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (protocol/README.md): every deck here is a land and the
+    # spell; four lands and three of the spell in hand, lands drawn after,
+    # so the spell is cast on time. Seat 2 holds nonland cards (Thoughtseize
+    # needs one to take).
+    (land, _), (spell, _) = seat1
+    deal = {1: {"hand": [land] * 4 + [spell] * 3, "top": [land] * 4},
+            2: {"hand": ["Forest", "Forest", "Forest", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears",
+                         "Grizzly Bears"]}}
+    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):

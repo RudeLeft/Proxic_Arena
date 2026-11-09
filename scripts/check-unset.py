@@ -36,14 +36,16 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 LANDS_ONLY = [("Forest", 60)]
 
 
-def game(name, seat1, seat2=LANDS_ONLY):
+def game(name, seat1, seat2=LANDS_ONLY, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"unset-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):
@@ -63,7 +65,9 @@ def outcome(problems, ok, found):
 
 
 def sector():
-    g = game("sector", [("Plains", 16), ("Island", 16), ("Space Beleren", 12), ("Savannah Lions", 16)])
+    g = game("sector", [("Plains", 16), ("Island", 16), ("Space Beleren", 12), ("Savannah Lions", 16)],
+             deal={1: {"hand": ["Plains", "Island", "Plains", "Island", "Savannah Lions", "Savannah Lions",
+                                "Space Beleren"], "top": ["Plains", "Island", "Plains", "Island"]}})
     st = {"assigned": {}, "asked": [], "used": False, "picked": None, "turn": None, "after": None}
 
     def policy(g, f):
@@ -148,7 +152,8 @@ def contraption(crank):
     (chooseContraptionsToCrank). Cranked: creatures get +2/+0. Not: no
     bonus."""
     g = game(f"crank-{'yes' if crank else 'no'}",
-             [("Mountain", 30), ("Wrench-Rigger", 30), ("Goblin Slingshot", 15)])
+             [("Mountain", 30), ("Wrench-Rigger", 30), ("Goblin Slingshot", 15)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Wrench-Rigger"] * 3}})
     st = {"sprocket": [], "crank": [], "rigger": None, "before": None, "after": None, "turn": None}
 
     def policy(g, f):

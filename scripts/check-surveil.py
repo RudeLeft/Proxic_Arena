@@ -135,10 +135,15 @@ def leaks(trace, looked):
 def run(name, seat1, answer, done, seat2=BEARS, max_turn=24):
     """Seat 1 casts the surveil card once; `answer(g, frame, watch)` answers its questions."""
     trace = trace_of(name)
-    g = Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    spell = seat1[1][0]
+    # The Lab's deal (lab.py): lands and the spell in Alice's opening hand,
+    # a creature for Price of Fame in Bob's, so the surveil is always cast.
+    deal = {1: {"hand": [seat1[0][0]] * 4 + [spell] * 3}}
+    if seat2 == BEARS:
+        deal[2] = {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}
+    g = Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
     watch = Watch()
     st = {"cast": False}
-    spell = seat1[1][0]
 
     def policy(g, f):
         kind = f.get("kind")

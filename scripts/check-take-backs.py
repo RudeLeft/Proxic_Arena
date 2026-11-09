@@ -41,14 +41,16 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"take-backs-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):
@@ -66,7 +68,8 @@ def outcome(problems, ok, found):
 
 
 def recast():
-    g = game("recast", [("Mountain", 30), ("Hill Giant", 30)])
+    g = game("recast", [("Mountain", 30), ("Hill Giant", 30)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Hill Giant"] * 3}})
     st = {"card": None, "cancelled": False, "offered_after": None, "cast": False, "landed": False}
 
     def policy(g, f):
@@ -113,7 +116,8 @@ def recast():
 
 def retarget():
     """Spec 0058, item 1: Cancel while choosing targets, then cast it again."""
-    g = game("retarget", [("Mountain", 30), ("Shock", 30)])
+    g = game("retarget", [("Mountain", 30), ("Shock", 30)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Shock"] * 3}})
     st = {"card": None, "cancelled": False, "offered_after": None, "cast": False, "life": None,
           "after": None, "targeted": False}
 
@@ -174,7 +178,7 @@ def retarget():
 
 
 def attack_one():
-    g = game("attack-one", BEARS, [("Island", 60)])
+    g = game("attack-one", BEARS, [("Island", 60)], deal={1: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"steps": [], "life": None, "after": None, "bears": None}
 
     def policy(g, f):
@@ -229,7 +233,7 @@ def attack_one():
 
 
 def block_one():
-    g = game("block-one", BEARS, BEARS)
+    g = game("block-one", BEARS, BEARS, deal={1: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}, 2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"attacked": False, "steps": [], "life": None, "after": None, "blocker": None}
 
     def policy(g, f):

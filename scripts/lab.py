@@ -46,7 +46,7 @@ def card_of(action_id):
 
 
 class Game:
-    def __init__(self, seat1, seat2, jar=None, res=None, trace=None, jvm=(), stops=None):
+    def __init__(self, seat1, seat2, jar=None, res=None, trace=None, jvm=(), stops=None, deal=None):
         self.jar = jar or sys.argv[1]
         self.res = res or sys.argv[2]
         trace = trace if trace is not None else (sys.argv[3] if len(sys.argv) > 3 else None)
@@ -54,6 +54,12 @@ class Game:
         # Spec 0035 -- {seat: True}: the seat follows the one stops rule; a
         # seat without it is asked at every step, as before.
         self.stops = stops or {}
+        # TEST ONLY (protocol/README.md, "the Lab's deal") -- {seat:
+        # {"hand": [names], "top": [names]}}: after Forge's shuffle, the
+        # opening hand holds `hand` (the rest of it from the shuffle) and
+        # the draws after it are `top`, in order. A scenario names what
+        # its moment needs, so the shuffle cannot leave it INCONCLUSIVE.
+        self.deal = deal or {}
         self.state = {}            # seat -> latest snapshot, that seat's view
         self.ended = None          # the GAME_ENDED frame
         self.error = None          # an ERROR frame that stopped the game
@@ -72,7 +78,7 @@ class Game:
             self.stderr_path = tempfile.mktemp(suffix=".stderr.log")
         self.stderr_file = open(self.stderr_path, "w", encoding="utf-8")
         self.proc = subprocess.Popen(
-            ["java", *jvm, "-jar", self.jar, self.res],
+            ["java", *jvm, "-jar", self.jar, self.res, "--lab-deal"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr_file,
             text=True, encoding="utf-8", bufsize=1)
         # Lines arrive through a queue so the loop can notice silence.
@@ -219,12 +225,16 @@ class Game:
                             card["set"], card["number"] = entry[1], entry[2]
                         out.append(card)
                     return out
+                def seat(n, name):
+                    out = {"displayName": name, "seatNumber": n, "cards": cards(self.decks[n])}
+                    if n in self.stops:
+                        out["stops"] = self.stops[n]
+                    if n in self.deal:
+                        out["labDeal"] = {k: list(v) for k, v in self.deal[n].items()}
+                    return out
                 self.send({"protocolVersion": 1, "type": "START_GAME",
                            "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-                           "players": [dict({"displayName": "Alice", "seatNumber": 1, "cards": cards(self.decks[1])},
-                                            **({"stops": self.stops[1]} if 1 in self.stops else {})),
-                                       dict({"displayName": "Bob", "seatNumber": 2, "cards": cards(self.decks[2])},
-                                            **({"stops": self.stops[2]} if 2 in self.stops else {}))]})
+                           "players": [seat(1, "Alice"), seat(2, "Bob")]})
                 continue
             if kind == "MATCH_SNAPSHOT":
                 s = frame.get("state") or {}

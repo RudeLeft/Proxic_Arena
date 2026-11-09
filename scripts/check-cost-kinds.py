@@ -123,6 +123,69 @@ class LandKeeper(Game):
         return super().default(frame)
 
 
+def deal(hand, top=()):
+    return {"hand": list(hand), "top": list(top)}
+
+
+# The Lab's deal (protocol/README.md, test-only): each scenario's opening
+# hand and next draws, so it reaches its moment on the first game rather
+# than when the shuffle allows (CI 2026-11-08). Seat 1 plays first, and
+# draws first on turn 3. The INCONCLUSIVE branches stay as a safety net.
+P, I, S, M, F = "Plains", "Island", "Swamp", "Mountain", "Forest"
+LIONS = "Savannah Lions"
+DEALS = {
+    "tap-two": deal([P] * 4 + [LIONS] * 3, ["Diversionary Tactics", P, P, P]),
+    "crew": deal([P] * 4 + [LIONS] * 2 + ["Smuggler's Copter"], [P] * 3),
+    "atoll-pay": deal([I] * 5 + ["Coral Atoll"] * 2, [I] * 3),
+    "atoll-no": deal([I] * 5 + ["Coral Atoll"] * 2, [I] * 3),
+    "chalice": deal([P] * 5 + ["Everflowing Chalice"] * 2, [P] * 3),
+    "offspring-yes": deal([F] * 5 + ["Rust-Shield Rampager"] * 2, [F] * 4),
+    "offspring-no": deal([F] * 5 + ["Rust-Shield Rampager"] * 2, [F] * 4),
+    "gush": deal([I] * 5 + ["Gush"] * 2, [I] * 3),
+    "manamorphose": deal([F, M, F, M, M, "Manamorphose", "Manamorphose"], [M, F]),
+    "charge": deal([F] * 4 + ["Charge of the Forever-Beast", "Grizzly Bears", "Hill Giant"], [F] * 3),
+    "draw-yes": deal([I] * 4 + ["Academy Wall", "Unsummon", "Unsummon"], [I] * 3),
+    "draw-no": deal([I] * 4 + ["Academy Wall", "Unsummon", "Unsummon"], [I] * 3),
+    "exert-yes": deal([P] * 5 + ["Steward of Solidarity"] * 2, [P] * 3),
+    "exert-no": deal([P] * 5 + ["Steward of Solidarity"] * 2, [P] * 3),
+    "behold": deal([P] * 4 + ["Goldmeadow Harrier"] * 2 + ["Champion of the Clachan"],
+                   ["Goldmeadow Harrier", P, P, P]),
+    "evidence": deal([I] * 3 + ["Forensic Researcher"] + ["Opt"] * 3, ["Opt", I, "Opt", I, "Opt", I, "Opt", I]),
+    "blight": deal([M] * 5 + ["Sting-Slinger", "Hill Giant"], [M] * 3),
+    "salvo-yes": deal([M] * 4 + ["Blazing Salvo"] * 3, [M] * 2),
+    "salvo-no": deal([M] * 4 + ["Blazing Salvo"] * 3, [M] * 2),
+    "untap": deal([P] * 5 + ["Patrol Signaler"] * 2, [P] * 3),
+    "mill-yes": deal([S] * 5 + ["Sinister Concoction"] * 2, [S] * 3),
+    "mill-no": deal([S] * 5 + ["Sinister Concoction"] * 2, [S] * 3),
+    "forage": deal([F] * 3 + ["Giant Growth"] * 3 + ["Bushy Bodyguard"], ["Giant Growth", F, "Giant Growth", F, F]),
+    "gain-life": deal([F] * 3 + ["Grizzly Bears"] * 2 + ["Invigorate"] * 2, [F] * 2),
+    "to-library": deal([P] * 5 + ["Leashling"] * 2, [P] * 3),
+    "untap-type": deal([P] * 4 + [LIONS] * 2 + ["Halo Fountain"], [P] * 4),
+    "reduction": deal([F, P, F, P, "Urza's Filter", "Knight of Autumn", "Knight of Autumn"], [F, P, F]),
+    "gift-yes": deal([M] * 4 + ["Blooming Blast"] * 3, [M] * 2),
+    "gift-no": deal([M] * 4 + ["Blooming Blast"] * 3, [M] * 2),
+    "counter-yes": deal([P] * 5 + ["Moonlit Lamenter"] * 2, [P] * 3),
+    "counter-no": deal([P] * 5 + ["Moonlit Lamenter"] * 2, [P] * 3),
+    "counter-pick": deal([P, S, P, S] + ["Moonlit Lamenter"] * 2 + ["Fain, the Broker"], [P, S, P, S]),
+    "from-exile": deal([P, S, P, S, "Swords to Plowshares", "Swords to Plowshares", "Wasteland Strangler"],
+                       [P, S, "Swords to Plowshares", P]),
+    "unattach-yes": deal([P] * 4 + [LIONS] + ["Leonin Bola"] * 2, [P] * 3),
+    "unattach-no": deal([P] * 4 + [LIONS] + ["Leonin Bola"] * 2, [P] * 3),
+    "from-stack": deal([M, I, M, I, "Nivmagus Elemental", "Lightning Bolt", "Lightning Bolt"], [M, I]),
+    "creature-type": deal([F] * 3 + ["Grizzly Bears"] * 2 + ["Caller of the Hunt"] * 2, [F] * 3),
+    "add-mana": deal([M] * 5 + ["Braid of Fire"] * 2, [M] * 4),
+    "flip-yes": deal([M] * 5 + ["Karplusan Minotaur"] * 2, [M] * 4),
+    "flip-no": deal([M] * 5 + ["Karplusan Minotaur"] * 2, [M] * 4),
+    "gain-control": deal([S] * 5 + ["Herald of Leshrac"] * 2, [S] * 4),
+    "roll-dice": deal([P] * 5 + ["Clay Golem"] * 2, [P] * 5),
+    "pool-tie": deal([F, M, F, M, "Manamorphose", "Mind Stone", "Mind Stone"], [M, F]),
+    "reveal-chosen": deal([P] * 5 + ["Stalking Leonin"] * 2, [P] * 3),
+}
+# Seat 2's Bears out early, for the scenarios that aim at one.
+BEARS_DEAL = deal([F] * 4 + ["Grizzly Bears"] * 3, [F, "Grizzly Bears", F, "Grizzly Bears"])
+SEAT2_DEALS = {"charge": deal(["Plains"] * 4 + ["Indomitable Ancients"] * 3, ["Plains"] * 2)}
+
+
 def game(name, seat1, seat2=BEARS):
     if not TRACES:
         trace = ""
@@ -130,7 +193,14 @@ def game(name, seat1, seat2=BEARS):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"cost-{name}.jsonl")
-    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    dealt = {}
+    if name in DEALS:
+        dealt[1] = DEALS[name]
+    if name in SEAT2_DEALS:
+        dealt[2] = SEAT2_DEALS[name]
+    elif seat2 is BEARS:
+        dealt[2] = BEARS_DEAL
+    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=dealt)
 
 
 def stack_empty(g):
@@ -2215,6 +2285,9 @@ if __name__ == "__main__":
             verdict_, message, found = scenario()
             if verdict_ != "inconclusive":
                 break
+            # Each scenario is dealt its moment, so this should not happen:
+            # say so, so a deal that stopped working is seen.
+            print(f"{name}: inconclusive despite its deal ({message}); one more game")
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
         print(f"{name}: {verdict_.upper()}: {message}")
         if verdict_ != "ok":

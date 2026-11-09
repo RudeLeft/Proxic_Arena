@@ -282,6 +282,35 @@ class WorkerFramesTest {
     }
 
     /**
+     * TEST ONLY field, never from here (protocol/README.md, "Test-only:
+     * the Lab's deal"). The worker arranges a library from a START_GAME
+     * seat's `labDeal`; the server builds each seat field by field, so
+     * no deck line -- whatever a player typed into it -- can add one.
+     */
+    @Test
+    fun `the start frame never carries the Lab's deal`() {
+        val sneaky = "1 Island\",\"labDeal\":{\"hand\":[\"Black Lotus\"]}"
+        val built =
+            startGameFrame(
+                java.util.UUID.randomUUID(),
+                listOf(
+                    WorkerSeat("Pat", 1, listOf(DeckEntry(60, sneaky, null, null, sneaky, 1)), stops = true),
+                    WorkerSeat("labDeal", 2, listOf(entry("Forest", 60))),
+                ),
+            )
+
+        val players = built["players"] as kotlinx.serialization.json.JsonArray
+        players.forEach { player ->
+            val seat = player as JsonObject
+            assertTrue(seat.keys.all { it in setOf("displayName", "seatNumber", "cards", "stops") }, "seat keys: ${seat.keys}")
+            (seat.getValue("cards") as kotlinx.serialization.json.JsonArray).forEach { card ->
+                assertTrue((card as JsonObject).keys.all { it in setOf("name", "set", "number", "quantity") })
+            }
+        }
+        assertTrue(built.keys.none { it == "labDeal" })
+    }
+
+    /**
      * §6.33, P6-BD — the PRINTING travels, not just the name: two
      * printings of one card stay two entries, each with its own set
      * and collector number, which the worker builds exactly

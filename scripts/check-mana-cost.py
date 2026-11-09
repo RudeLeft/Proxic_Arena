@@ -31,18 +31,18 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 STRIKE = "Lightning Strike"
 
 
-def game(name, seat1, seat2):
+def game(name, seat1, seat2, deal=None):
     trace = os.path.join(TRACES, f"mana-cost-{name}.jsonl") if TRACES and os.path.isdir(TRACES) else ""
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def strike_costs(f):
     return [o.get("cost") for o in f.get("options", []) if (o.get("label") or "").startswith(STRIKE + " ·")]
 
 
-def run(name, seat1, seat2, enabler, enabler_seat):
+def run(name, seat1, seat2, enabler, enabler_seat, deal=None):
     """Play lands, cast the enabler, then read Lightning Strike's option cost."""
-    g = game(name, seat1, seat2)
+    g = game(name, seat1, seat2, deal)
     st = {"printed": None, "land": "absent", "costs": [], "enabled": False}
 
     def policy(g, f):
@@ -78,7 +78,8 @@ def result(problems, ok, found):
 
 
 def printed():
-    g, st = run("printed", [("Mountain", 30), (STRIKE, 30)], [("Forest", 30), ("Grizzly Bears", 30)], None, 0)
+    g, st = run("printed", [("Mountain", 30), (STRIKE, 30)], [("Forest", 30), ("Grizzly Bears", 30)], None, 0,
+                deal={1: {"hand": ["Mountain"] * 4 + [STRIKE] * 3}})
     found = {"printed": st["printed"], "land": st["land"], "option": st["costs"], "stopped": g.stopped_badly()}
     if not st["printed"]:
         return "inconclusive", "never had Lightning Strike in hand", found
@@ -94,7 +95,9 @@ def printed():
 
 def reduced():
     g, st = run("reduced", [("Mountain", 20), ("Island", 10), ("Goblin Electromancer", 15), (STRIKE, 15)],
-                [("Forest", 30), ("Grizzly Bears", 30)], "Goblin Electromancer", 1)
+                [("Forest", 30), ("Grizzly Bears", 30)], "Goblin Electromancer", 1,
+                deal={1: {"hand": ["Island", "Mountain", "Island", "Mountain", "Goblin Electromancer",
+                                   STRIKE, STRIKE]}})
     found = {"option": st["costs"], "printed": st["printed"], "stopped": g.stopped_badly()}
     if not st["costs"]:
         return "inconclusive", "never had Goblin Electromancer out with Lightning Strike in hand", found
@@ -108,7 +111,9 @@ def reduced():
 
 def raised():
     g, st = run("raised", [("Mountain", 30), (STRIKE, 30)],
-                [("Plains", 30), ("Thalia, Guardian of Thraben", 30)], "Thalia, Guardian of Thraben", 2)
+                [("Plains", 30), ("Thalia, Guardian of Thraben", 30)], "Thalia, Guardian of Thraben", 2,
+                deal={1: {"hand": ["Mountain"] * 4 + [STRIKE] * 3},
+                      2: {"hand": ["Plains"] * 4 + ["Thalia, Guardian of Thraben"] * 3}})
     found = {"option": st["costs"], "printed": st["printed"], "stopped": g.stopped_badly()}
     if not st["costs"]:
         return "inconclusive", "never had Thalia out with Lightning Strike in hand", found

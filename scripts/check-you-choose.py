@@ -124,14 +124,30 @@ class LandKeeper(Game):
         return super().default(frame)
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"you-choose-{name}.jsonl")
-    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return LandKeeper(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
+
+
+def dealt(hand, top=(), hand2=None, top2=()):
+    """The Lab's deal (lab.py, test-only): seat 1's opening hand and its
+    next draws, and seat 2's when the scenario needs them -- so the
+    scenario reaches its moment on the first game, not when the shuffle
+    allows (CI 2026-11-08: Blackmail cast late, after the opponent had
+    discarded to hand size, saw "an extra discard")."""
+    out = {1: {"hand": list(hand), "top": list(top)}}
+    if hand2 is not None:
+        out[2] = {"hand": list(hand2), "top": list(top2)}
+    return out
+
+
+# Seat 2's BEARS deck, dealt: Forests to cast them, Bears to aim at.
+BEARS_HAND, BEARS_TOP = 3 * ["Forest"] + 4 * ["Grizzly Bears"], ["Forest", "Grizzly Bears", "Forest", "Forest"]
 
 
 def stack_empty(g):
@@ -156,7 +172,9 @@ def protection(g, name):
 
 def protect(name, spell, kind):
     """Cast `spell` on/for seat 1's Savannah Lions; answer `kind` with the last colour offered."""
-    g = game(name, [("Plains", 24), ("Savannah Lions", 18), (spell, 18)])
+    # Lions on turn 1, the spell on turn 3.
+    g = game(name, [("Plains", 24), ("Savannah Lions", 18), (spell, 18)],
+             deal=dealt(3 * ["Plains"] + 2 * ["Savannah Lions"] + 2 * [spell], 4 * ["Plains"]))
     st = {"cast": False, "asked": [], "picked": None, "after": None}
 
     def policy(g, f):
@@ -202,7 +220,8 @@ def protect(name, spell, kind):
 
 
 def pioneer(yes):
-    g = game(f"pioneer-{'yes' if yes else 'no'}", [("Forest", 36), ("Elvish Pioneer", 24)])
+    g = game(f"pioneer-{'yes' if yes else 'no'}", [("Forest", 36), ("Elvish Pioneer", 24)],
+             deal=dealt(4 * ["Forest"] + 3 * ["Elvish Pioneer"], 4 * ["Forest"]))
     st = {"cast": False, "asked": [], "before": None, "after": None}
 
     def lands(seat=1):
@@ -283,7 +302,8 @@ def counters_of(c):
 
 
 def clone(yes):
-    g = game(f"clone-{'yes' if yes else 'no'}", [("Island", 30), ("Clone", 30)])
+    g = game(f"clone-{'yes' if yes else 'no'}", [("Island", 30), ("Clone", 30)],
+             deal=dealt(4 * ["Island"] + 3 * ["Clone"], 5 * ["Island"], BEARS_HAND, BEARS_TOP))
     st = {"clone": None, "asked": [], "copied": None, "after": None}
 
     def policy(g, f):
@@ -331,7 +351,8 @@ def clone(yes):
 
 
 def venture():
-    g = game("venture", [("Plains", 30), ("Nadaar, Selfless Paladin", 30)])
+    g = game("venture", [("Plains", 30), ("Nadaar, Selfless Paladin", 30)],
+             deal=dealt(4 * ["Plains"] + 3 * ["Nadaar, Selfless Paladin"], 4 * ["Plains"]))
     st = {"asked": [], "picked": None, "after": None}
 
     def policy(g, f):
@@ -384,7 +405,8 @@ def venture():
 
 
 def blaze():
-    g = game("blaze", [("Mountain", 36), ("Blaze", 24)])
+    g = game("blaze", [("Mountain", 36), ("Blaze", 24)],
+             deal=dealt(5 * ["Mountain"] + 2 * ["Blaze"], 4 * ["Mountain"]))
     st = {"cast": False, "asked": [], "x": None, "before": None, "after": None}
 
     def policy(g, f):
@@ -432,7 +454,10 @@ def blaze():
 def axe(pay=False):
     """pay=False: discard a card (the first option). pay=True: pay {5}, the
     LAST option -- so a worker that takes the first could not pass both."""
-    g = game("axe-five" if pay else "axe", [("Mountain", 36), ("Lightning Axe", 24)])
+    # Discard: cast at once with a full hand. {5}: six Mountains by turn 11.
+    g = game("axe-five" if pay else "axe", [("Mountain", 36), ("Lightning Axe", 24)],
+             deal=dealt(6 * ["Mountain"] + ["Lightning Axe"], 6 * ["Mountain"], BEARS_HAND, BEARS_TOP) if pay
+             else dealt(3 * ["Mountain"] + 4 * ["Lightning Axe"], 3 * ["Mountain"], BEARS_HAND, BEARS_TOP))
     st = {"cast": False, "abilities": [], "discard": [], "discarded": None, "target": None, "after": None,
           "axes": [], "grave_before": []}
 
@@ -502,7 +527,9 @@ def axe(pay=False):
 
 
 def reckoning():
-    g = game("reckoning", [("Plains", 28), ("Savannah Lions", 18), ("Divine Reckoning", 14)])
+    g = game("reckoning", [("Plains", 28), ("Savannah Lions", 18), ("Divine Reckoning", 14)],
+             deal=dealt(4 * ["Plains"] + 2 * ["Savannah Lions"] + ["Divine Reckoning"], 3 * ["Plains"],
+                        BEARS_HAND, BEARS_TOP))
     st = {"cast": False, "asked": [], "after": None}
 
     def creatures(seat):
@@ -554,7 +581,9 @@ def reckoning():
 
 
 def sting():
-    g = game("sting", [("Swamp", 24), ("Walking Corpse", 20), ("Lethal Sting", 16)])
+    g = game("sting", [("Swamp", 24), ("Walking Corpse", 20), ("Lethal Sting", 16)],
+             deal=dealt(4 * ["Swamp"] + 2 * ["Walking Corpse"] + ["Lethal Sting"], 3 * ["Swamp"],
+                        BEARS_HAND, BEARS_TOP))
     st = {"cast": False, "asked": [], "picked": None, "after": None, "target": None}
 
     def mine():
@@ -609,7 +638,9 @@ def sting():
 
 
 def guildmage():
-    g = game("guildmage", [("Forest", 14), ("Island", 14), ("Servant of the Scale", 20), ("Zameck Guildmage", 12)])
+    g = game("guildmage", [("Forest", 14), ("Island", 14), ("Servant of the Scale", 20), ("Zameck Guildmage", 12)],
+             deal=dealt(["Island", "Forest", "Forest", "Island", "Servant of the Scale", "Servant of the Scale",
+                         "Zameck Guildmage"], ["Forest", "Island", "Forest", "Island"]))
     st = {"used": False, "asked": [], "picked": None, "after": None, "hand": None}
 
     def servants():
@@ -669,7 +700,8 @@ def guildmage():
 
 
 def elspeth():
-    g = game("elspeth", [("Plains", 30), ("Savannah Lions", 16), ("Elspeth Resplendent", 14)])
+    g = game("elspeth", [("Plains", 30), ("Savannah Lions", 16), ("Elspeth Resplendent", 14)],
+             deal=dealt(5 * ["Plains"] + ["Savannah Lions", "Elspeth Resplendent"], 4 * ["Plains"]))
     st = {"used": False, "asked": [], "picked": None, "lions": None, "after": None}
 
     def policy(g, f):
@@ -737,7 +769,9 @@ def converge():
     whole difference -- blue makes X 2; colourless (the first option) or
     black makes it 1."""
     g = game("converge", [("Swamp", 10), ("Island", 10), ("Wastes", 10), ("Reflecting Pool", 10),
-                          ("Painful Truths", 20)])
+                          ("Painful Truths", 20)],
+             deal=dealt(["Reflecting Pool", "Swamp", "Island", "Wastes", "Painful Truths", "Painful Truths", "Swamp"],
+                        ["Island", "Wastes", "Swamp"]))
     st = {"cast": None, "asked": [], "picked": None, "before": None, "after": None}
     order = ["Reflecting Pool", "Swamp", "Island", "Wastes"]
 
@@ -811,7 +845,8 @@ def echo(pay):
     """Goblin War Buggy, echo {1}{R}: at its controller's next upkeep, pay
     or it is sacrificed (payCostToPreventEffect). The mana question says
     what it is for."""
-    g = game(f"echo-{'pay' if pay else 'no'}", [("Mountain", 36), ("Goblin War Buggy", 24)])
+    g = game(f"echo-{'pay' if pay else 'no'}", [("Mountain", 36), ("Goblin War Buggy", 24)],
+             deal=dealt(5 * ["Mountain"] + 2 * ["Goblin War Buggy"], 4 * ["Mountain"]))
     st = {"buggy": None, "cast_turn": None, "prompts": [], "declined": False, "after": None}
 
     def policy(g, f):
@@ -866,7 +901,9 @@ def cascade(yes):
     """Bloodbraid Elf, cascade: the Grizzly Bears it reveals may be cast
     without paying (playSaFromPlayEffect, through Forge's Play effect)."""
     g = game(f"cascade-{'yes' if yes else 'no'}",
-             [("Mountain", 14), ("Forest", 14), ("Bloodbraid Elf", 12), ("Grizzly Bears", 20)])
+             [("Mountain", 14), ("Forest", 14), ("Bloodbraid Elf", 12), ("Grizzly Bears", 20)],
+             deal=dealt(["Forest", "Mountain", "Forest", "Mountain", "Bloodbraid Elf", "Bloodbraid Elf", "Mountain"],
+                        ["Forest", "Mountain", "Forest"]))
     st = {"elf": None, "asked": [], "before": None, "after": None}
 
     def bears():
@@ -918,7 +955,9 @@ def spellskite():
     seat 1 answers with Spellskite: which target to change (chooseTarget).
     The LAST offered keeps its damage off; Spellskite takes it instead."""
     g = game("spellskite", [("Plains", 30), ("Spellskite", 10), ("Savannah Lions", 20)],
-             [("Mountain", 34), ("Arc Lightning", 26)])
+             [("Mountain", 34), ("Arc Lightning", 26)],
+             deal=dealt(4 * ["Plains"] + ["Spellskite"] + 2 * ["Savannah Lions"], 4 * ["Plains"],
+                        4 * ["Mountain"] + 3 * ["Arc Lightning"], 4 * ["Mountain"]))
     st = {"arc": False, "skite": False, "asked": [], "picked": None, "after": None, "targets": []}
 
     def mine():
@@ -1002,7 +1041,8 @@ def vote():
     """Council's Judgment: each player votes for a nonland permanent the
     caster does not control (vote, through "choose one"). Both vote for the
     LAST Bears offered; that one is exiled, the other stays."""
-    g = game("vote", [("Plains", 30), ("Council's Judgment", 30)])
+    g = game("vote", [("Plains", 30), ("Council's Judgment", 30)],
+             deal=dealt(5 * ["Plains"] + 2 * ["Council's Judgment"], 3 * ["Plains"], BEARS_HAND, BEARS_TOP))
     st = {"cast": None, "votes": [], "picked": None, "after": None}
 
     def policy(g, f):
@@ -1061,7 +1101,10 @@ def blackmail():
     (chooseCardsToRevealFromHand, asked of THEM) -- the LAST three offered --
     and the caster picks one of exactly those to be discarded."""
     g = game("blackmail", [("Swamp", 30), ("Blackmail", 30)],
-             [("Forest", 30), ("Grizzly Bears", 15), ("Giant Growth", 15)])
+             [("Forest", 30), ("Grizzly Bears", 15), ("Giant Growth", 15)],
+             # Cast on turn 1, before the opponent ever has a card to discard.
+             deal=dealt(3 * ["Swamp"] + 4 * ["Blackmail"], 3 * ["Swamp"],
+                        3 * ["Forest"] + 2 * ["Grizzly Bears"] + 2 * ["Giant Growth"], 3 * ["Forest"]))
     st = {"cast": None, "asked": [], "revealed": [], "chooser": [], "hand": None, "after": None}
 
     def policy(g, f):
@@ -1125,7 +1168,8 @@ def piles():
     (one card into pile 1), and the caster chooses (chooseCardsPile) --
     pile 2, the LAST answer. Exactly pile 2's four cards reach the hand;
     pile 1's card goes to the graveyard. Each answer names its cards."""
-    g = game("piles", [("Island", 30), ("Fact or Fiction", 30)])
+    g = game("piles", [("Island", 30), ("Fact or Fiction", 30)],
+             deal=dealt(5 * ["Island"] + 2 * ["Fact or Fiction"], 3 * ["Island"]))
     st = {"cast": None, "five": None, "pile1": [], "asked": [], "hand": None, "after": None}
 
     def policy(g, f):
@@ -1189,7 +1233,9 @@ def gift():
     """Alchemist's Gift on seat 1's own Bears: "your choice of deathtouch or
     lifelink" (chooseKeywordForPump) -- Lifelink, the LAST answer. The Bears
     is a 3/3 with lifelink and without deathtouch."""
-    g = game("gift", [("Swamp", 20), ("Forest", 16), ("Grizzly Bears", 12), ("Alchemist's Gift", 12)])
+    g = game("gift", [("Swamp", 20), ("Forest", 16), ("Grizzly Bears", 12), ("Alchemist's Gift", 12)],
+             deal=dealt(["Forest", "Forest", "Swamp", "Swamp", "Forest", "Grizzly Bears", "Alchemist's Gift"],
+                        ["Swamp", "Forest", "Swamp"]))
     st = {"cast": None, "bears": None, "asked": [], "after": None}
 
     def keywords(c):
@@ -1250,7 +1296,8 @@ def splice():
     """Lava Spike (3 to a player, Arcane) cast with two Glacial Rays in hand:
     "Splice onto Lava Spike?" (chooseCardsForSplice) -- the LAST one, then
     Pass. The opponent loses exactly 5 (3 + 2), and both Rays stay in hand."""
-    g = game("splice", [("Mountain", 30), ("Lava Spike", 10), ("Glacial Ray", 20)])
+    g = game("splice", [("Mountain", 30), ("Lava Spike", 10), ("Glacial Ray", 20)],
+             deal=dealt(4 * ["Mountain"] + ["Lava Spike"] + 2 * ["Glacial Ray"], 3 * ["Mountain"]))
     st = {"cast": None, "asked": [], "picked": None, "rays": None, "life": None, "after": None}
 
     def policy(g, f):
@@ -1311,7 +1358,8 @@ def door():
     "lock or unlock a door" (chooseSingleCardState) -- Elegant Rotunda, the
     LAST door, locked: it unlocks, and its trigger puts a +1/+1 counter on
     the Glimmer. Each answer says whether that door is locked."""
-    g = game("door", [("Plains", 36), ("Grand Entryway // Elegant Rotunda", 12), ("Keys to the House", 12)])
+    g = game("door", [("Plains", 36), ("Grand Entryway // Elegant Rotunda", 12), ("Keys to the House", 12)],
+             deal=dealt(5 * ["Plains"] + ["Grand Entryway // Elegant Rotunda", "Keys to the House"], 4 * ["Plains"]))
     st = {"room": None, "used": False, "asked": [], "glimmer": None, "after": None, "turn": None}
 
     def glimmers():
@@ -1385,7 +1433,9 @@ def thirst(artifact):
     An artifact (the LAST offered): that card alone is discarded, asked
     once. Non-artifacts: asked twice, both discarded."""
     g = game(f"thirst-{'artifact' if artifact else 'two'}",
-             [("Island", 30), ("Thirst for Knowledge", 15), ("Ornithopter", 15)])
+             [("Island", 30), ("Thirst for Knowledge", 15), ("Ornithopter", 15)],
+             # Cast on turn 5 with an Ornithopter and Islands in hand; it draws Islands.
+             deal=dealt(5 * ["Island"] + ["Thirst for Knowledge", "Ornithopter"], 6 * ["Island"]))
     st = {"cast": None, "asked": [], "picked": [], "grave": None, "after": None}
 
     def policy(g, f):
@@ -1450,7 +1500,10 @@ def gargantuan():
     question per kind, each naming it). The LAST creature offered is
     taken, the land question passed: exactly that creature reaches the
     hand, and no land does."""
-    g = game("gargantuan", [("Forest", 24), ("Grizzly Bears", 24), ("Gift of the Gargantuan", 12)])
+    # Cast on turn 5 (two Forests drawn); its top four then hold Bears.
+    g = game("gargantuan", [("Forest", 24), ("Grizzly Bears", 24), ("Gift of the Gargantuan", 12)],
+             deal=dealt(4 * ["Forest"] + ["Gift of the Gargantuan"] + 2 * ["Grizzly Bears"],
+                        ["Forest", "Forest", "Grizzly Bears", "Forest", "Grizzly Bears", "Grizzly Bears"]))
     st = {"cast": None, "asked": [], "picked": None, "hand": None, "after": None}
 
     def policy(g, f):
@@ -1508,7 +1561,8 @@ def assist():
     (choosePlayerToAssistPayment); the opponent, asked themselves, pays the
     most offered -- 2, the LAST (helpPayForAssistSpell) -- with two Forests.
     The caster taps one Island, the helper exactly two Forests."""
-    g = game("assist", [("Island", 30), ("Huddle Up", 30)], [("Forest", 60)])
+    g = game("assist", [("Island", 30), ("Huddle Up", 30)], [("Forest", 60)],
+             deal=dealt(4 * ["Island"] + 3 * ["Huddle Up"], 3 * ["Island"]))
     st = {"cast": None, "asked": [], "lands": None, "after": None}
 
     def untapped(seat, name):
@@ -1573,7 +1627,8 @@ def contest():
     stand; the opponent tops it by 2 (to 3); seat 1 tops by 1 (to 4); both
     then stop. Seat 1 wins at 4: it loses 4 life and the Bears is
     countered."""
-    g = game("contest", [("Mountain", 36), ("Mages' Contest", 24)])
+    g = game("contest", [("Mountain", 36), ("Mages' Contest", 24)],
+             deal=dealt(4 * ["Mountain"] + 3 * ["Mages' Contest"], 4 * ["Mountain"], BEARS_HAND, BEARS_TOP))
     st = {"cast": None, "asked": [], "raised": {1: 0, 2: 0}, "life": None, "bears": None, "after": None}
 
     def policy(g, f):
@@ -1647,7 +1702,9 @@ def thumb():
     controller calls Heads; when the two flips differ, they choose which
     counts (chooseFlipResult) -- Tails, the LAST, a loss: the Bangchuckers
     deals 2 to itself and dies; the opponent takes nothing."""
-    g = game("thumb", [("Mountain", 30), ("Krark's Thumb", 10), ("Goblin Bangchuckers", 20)], [("Forest", 60)])
+    # The deal puts both cards out by turn 5; the flips are still the coin's.
+    g = game("thumb", [("Mountain", 30), ("Krark's Thumb", 10), ("Goblin Bangchuckers", 20)], [("Forest", 60)],
+             deal=dealt(5 * ["Mountain"] + ["Krark's Thumb", "Goblin Bangchuckers"], 4 * ["Mountain"]))
     st = {"asked": [], "used": None, "life": None, "after": None}
 
     def policy(g, f):
@@ -1708,7 +1765,9 @@ def shield():
     (divideShield): all of it -- the LAST answer -- to the first Lions
     asked about. That one survives, the other dies, the opponent loses 2."""
     g = game("shield", [("Plains", 30), ("Savannah Lions", 18), ("Harm's Way", 12)],
-             [("Mountain", 36), ("Pyroclasm", 24)])
+             [("Mountain", 36), ("Pyroclasm", 24)],
+             deal=dealt(3 * ["Plains"] + 2 * ["Savannah Lions"] + 2 * ["Harm's Way"], 4 * ["Plains"],
+                        4 * ["Mountain"] + 3 * ["Pyroclasm"], 4 * ["Mountain"]))
     st = {"pyro": None, "way": None, "asked": [], "lions": None, "life": None, "after": None}
 
     def policy(g, f):
@@ -1790,7 +1849,10 @@ def serpent(pay):
     Yes: five poison counters, and the Bolt deals its 3. No: the Bolt is
     countered, no poison, no damage."""
     g = game(f"ward-{'pay' if pay else 'no'}", [("Mountain", 36), ("Lightning Bolt", 24)],
-             [("Swamp", 18), ("Forest", 18), ("The Serpent Society", 24)])
+             [("Swamp", 18), ("Forest", 18), ("The Serpent Society", 24)],
+             deal=dealt(3 * ["Mountain"] + 4 * ["Lightning Bolt"], 3 * ["Mountain"],
+                        ["Swamp", "Forest", "Swamp", "Forest", "The Serpent Society", "The Serpent Society", "Swamp"],
+                        ["Forest", "Swamp", "Forest"]))
     st = {"bolt": None, "serpent": None, "asked": [], "after": None}
 
     def poison(g):
@@ -1869,10 +1931,13 @@ if __name__ == "__main__":
             continue
         # A game that never reached its moment proves nothing either way:
         # up to two more, each a fresh shuffle. A WRONG answer is final.
-        for _ in range(3):
+        # Each is dealt its moment (lab.py's deal); the replays stay as a
+        # safety net, and say so when one is needed.
+        for attempt in range(3):
             result, message, found = scenario()
             if result != "inconclusive":
                 break
+            print(f"{name}: game {attempt + 1} never reached its moment ({message}); another game")
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[result])
         print(f"{name}: {result.upper()}: {message}")
         if result != "ok":

@@ -49,16 +49,25 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 OGRES = [("Mountain", 30), ("Gray Ogre", 30)]
+# The Lab's deal (protocol/README.md): seat 2's Ogre comes out on its
+# third land.
+OGRES_DEAL = {"hand": ["Mountain", "Mountain", "Mountain", "Gray Ogre", "Gray Ogre", "Mountain"],
+              "top": ["Mountain"] * 3}
 
 
-def game(name, seat1, seat2=OGRES):
+def game(name, seat1, seat2=OGRES, hand=None, top=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"numbers-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal: the opening hand and draws each scenario's moment
+    # needs, so the shuffle cannot leave it inconclusive.
+    deal = {1: {"hand": hand or [], "top": top or []}}
+    if seat2 is OGRES:
+        deal[2] = OGRES_DEAL
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def mana_value(cost):
@@ -107,7 +116,8 @@ def check_dial(f, problems, label):
 
 
 def fireball():
-    g = game("x", [("Mountain", 40), ("Fireball", 20)], [("Mountain", 60)])
+    g = game("x", [("Mountain", 40), ("Fireball", 20)], [("Mountain", 60)],
+             hand=["Mountain"] * 4 + ["Fireball"] * 3, top=["Mountain"] * 4)
     st = {"asked": None, "chosen": None, "owing": None, "costs": None}
 
     def policy(g, f):
@@ -157,7 +167,8 @@ def fireball():
 
 
 def chalice():
-    g = game("kicker", [("Mountain", 40), ("Everflowing Chalice", 20)], [("Mountain", 60)])
+    g = game("kicker", [("Mountain", 40), ("Everflowing Chalice", 20)], [("Mountain", 60)],
+             hand=["Mountain"] * 4 + ["Everflowing Chalice"] * 3, top=["Mountain"] * 3)
     st = {"asked": None, "kicked": None}
 
     def policy(g, f):
@@ -202,7 +213,8 @@ def chalice():
 
 
 def arc_lightning():
-    g = game("split", [("Mountain", 40), ("Arc Lightning", 20)])
+    g = game("split", [("Mountain", 40), ("Arc Lightning", 20)],
+             hand=["Mountain"] * 5 + ["Arc Lightning"] * 2, top=["Mountain"] * 4)
     st = {"order": [], "split": None, "ogre": None, "bob": None, "cast": False}
 
     def policy(g, f):
@@ -265,7 +277,8 @@ def arc_lightning():
 
 
 def targets():
-    g = game("targets", [("Mountain", 40), ("Arc Lightning", 20)])
+    g = game("targets", [("Mountain", 40), ("Arc Lightning", 20)],
+             hand=["Mountain"] * 4 + ["Arc Lightning"] * 3, top=["Mountain"] * 4)
     st = {"casts": 0, "asked": [], "cancelled": None, "arcs": None, "bob": None, "done": False,
           "after_cancel": None}
 
@@ -342,7 +355,8 @@ def targets():
 
 
 def harnessed():
-    g = game("energy", [("Mountain", 40), ("Harnessed Lightning", 20)])
+    g = game("energy", [("Mountain", 40), ("Harnessed Lightning", 20)],
+             hand=["Mountain"] * 5 + ["Harnessed Lightning"] * 2, top=["Mountain"] * 4)
     st = {"asked": None, "cast": False, "ogre": None}
 
     def policy(g, f):
@@ -391,7 +405,8 @@ def harnessed():
 
 def gempalm():
     """Spec 0058, item 3: Gempalm Incinerator's X, counted, in the menu and the target window."""
-    g = game("gempalm", [("Mountain", 22), ("Goblin Piker", 20), ("Gempalm Incinerator", 18)])
+    g = game("gempalm", [("Mountain", 22), ("Goblin Piker", 20), ("Gempalm Incinerator", 18)],
+             hand=["Mountain"] * 3 + ["Goblin Piker"] * 3 + ["Gempalm Incinerator"], top=["Mountain"] * 5)
     st = {"goblins": None, "line": None, "prompt": None, "cycled": False, "ogre": None, "done": False}
 
     def goblins(g):

@@ -50,7 +50,11 @@ public final class WorkerMain {
     /** Forge's card database, loaded lazily on first use. */
     private static ForgeRuntime runtime;
 
+    /** TEST ONLY -- started with --lab-deal (scripts/lab.py), so START_GAME may carry labDeal. */
+    private static boolean LAB_DEAL;
+
     public static void main(String[] args) throws Exception {
+        LAB_DEAL = net.barnflix.proxic.worker.game.LabDeal.allowed(args);
         protocol = new PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out),
                 false, StandardCharsets.UTF_8);
         // See (1) above.
@@ -229,6 +233,7 @@ public final class WorkerMain {
                     // Spec 0035 — the seats the stops rule applies to.
                     java.util.Set<Integer> stops = new java.util.HashSet<>();
                     JsonArray unresolvedAll = new JsonArray();
+                    String dealRefused = null;
 
                     for (int i = 0; i < players.size(); i++) {
                         JsonObject seat = players.get(i).getAsJsonObject();
@@ -256,8 +261,26 @@ public final class WorkerMain {
                         ForgeRuntime.BuiltDeck built =
                                 runtime.buildDeckObject(entries, name + "'s deck");
                         built.unresolved.forEach(unresolvedAll::add);
+                        // TEST ONLY -- the Mechanics Lab's deal. Accepted only
+                        // from a worker started with --lab-deal (the Lab's
+                        // command line; the server's never carries it).
+                        net.barnflix.proxic.worker.game.LabDeal deal =
+                                net.barnflix.proxic.worker.game.LabDeal.read(seat);
+                        if (deal != null) {
+                            if (!LAB_DEAL) {
+                                dealRefused = "labDeal is test-only: this worker was not started with "
+                                        + net.barnflix.proxic.worker.game.LabDeal.FLAG;
+                            } else {
+                                java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+                                entries.forEach(e -> counts.merge(e.name, e.quantity, Integer::sum));
+                                String problem = deal.problem(counts, 7);
+                                if (problem != null) {
+                                    dealRefused = problem;
+                                }
+                            }
+                        }
                         seats.add(new net.barnflix.proxic.worker.game.GameHost.Seat(
-                                name, seatNumber, built.deck));
+                                name, seatNumber, built.deck, deal));
                         // Spec 0035 — present (whatever its value): this seat
                         // follows the one stops rule. Absent: asked every
                         // time (the Mechanics Lab).
@@ -272,6 +295,10 @@ public final class WorkerMain {
                     // reaches here, something changed in between
                     // and starting anyway would be playing a game
                     // with cards missing.
+                    if (dealRefused != null) {
+                        send(error("LAB_DEAL_REFUSED", dealRefused));
+                        break;
+                    }
                     if (unresolvedAll.size() > 0) {
                         JsonObject failed = error("DECK_UNRESOLVED", "cards did not resolve");
                         failed.add("unresolved", unresolvedAll);
@@ -778,7 +805,8 @@ public final class WorkerMain {
      * that happens to exist would report healthy nonsense.
      */
     private static File resolveResRoot(String[] args) {
-        if (args.length > 0 && !args[0].isBlank()) {
+        if (args.length > 0 && !args[0].isBlank()
+                && !net.barnflix.proxic.worker.game.LabDeal.FLAG.equals(args[0])) {
             return new File(args[0]);
         }
         String env = System.getenv("PROXIC_FORGE_RES");

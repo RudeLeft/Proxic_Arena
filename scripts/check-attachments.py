@@ -39,8 +39,16 @@ SEAT1 = [("Island", 14), ("Plains", 10), ("Mountain", 14), ("Raging Goblin", 6),
 SEAT2 = [("Forest", 30), ("Grizzly Bears", 30)]
 MAX_TURN = 60  # draw-dependent: 40 left about one run in three short of the battery
 
+# The deal (test-only labDeal, protocol/README.md "the Lab's deal"): the
+# opening hand and the draws after it, so the scenario reaches its moment on
+# the first game instead of waiting on Forge's shuffle.
+DEAL = {
+    1: {"hand": ["Mountain", "Island", "Plains", "Raging Goblin", "Rabbit Battery", "Bonesplitter", "Pacifism"], "top": ["Island", "Mountain", "Raging Goblin", "Control Magic", "Island", "Plains", "Mountain", "Island"]},
+    2: {"hand": ["Forest", "Forest", "Grizzly Bears", "Forest", "Grizzly Bears", "Forest", "Grizzly Bears"]},
+}
+
 proc = subprocess.Popen(
-    ["java", "-jar", JAR, RES],
+    ["java", "-jar", JAR, RES, "--lab-deal"],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
     stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
 trace = open(TRACE, "w", encoding="utf-8") if TRACE else None
@@ -133,8 +141,8 @@ for line in proc.stdout:
             return [{"name": n, "quantity": q} for n, q in deck]
         send({"protocolVersion": 1, "type": "START_GAME",
               "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": cards(SEAT1)},
-                          {"displayName": "Bob", "seatNumber": 2, "cards": cards(SEAT2)}]})
+              "players": [{"displayName": "Alice", "seatNumber": 1, "cards": cards(SEAT1), "labDeal": DEAL[1]},
+                          {"displayName": "Bob", "seatNumber": 2, "cards": cards(SEAT2), "labDeal": DEAL[2]}]})
         continue
 
     if kind == "MATCH_SNAPSHOT":

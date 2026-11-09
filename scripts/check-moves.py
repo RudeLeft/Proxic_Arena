@@ -49,14 +49,20 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 
 
-def game(name, seat1, seat2):
+# The Lab's deal (lab.py): Bob's creatures in his opening hand.
+BOB = {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}
+
+
+def game(name, seat1, seat2, deal=None):
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"moves-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    # The Lab's deal (lab.py): each scenario's cards in the opening hand,
+    # so its moment never waits on the shuffle.
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def result(problems, ok, found):
@@ -99,7 +105,8 @@ def names(snaps):
 
 
 def destroy():
-    g = game("destroy", [("Swamp", 30), ("Murder", 30)], [("Forest", 30), ("Grizzly Bears", 30)])
+    g = game("destroy", [("Swamp", 30), ("Murder", 30)], [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": ["Swamp"] * 4 + ["Murder"] * 3, "top": ["Swamp"] * 2}, 2: BOB})
     w = Watch(g)
     st = {"cast": False, "target": None}
 
@@ -158,7 +165,9 @@ def sacrifice():
     # Plenty of each: CI 2026-11-06 twice ran out of turns before both sides
     # had a creature and seat 1 an Innocent Blood.
     g = game("sacrifice", [("Swamp", 22), ("Walking Corpse", 20), ("Innocent Blood", 18)],
-             [("Forest", 24), ("Grizzly Bears", 36)])
+             [("Forest", 24), ("Grizzly Bears", 36)],
+             deal={1: {"hand": ["Swamp"] * 4 + ["Walking Corpse"] * 2 + ["Innocent Blood"],
+                       "top": ["Swamp"] * 3}, 2: BOB})
     w = Watch(g)
     st = {"cast": False}
 
@@ -220,7 +229,10 @@ def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
     Bears -- on the battlefield, or, with `respond`, as a spell on the stack.
     `mine`: a creature Alice casts first. `wants`: {owner seat: (zone,
     where)} for each creature card that must be told moved, to both seats."""
-    g = game(name, seat1, [("Forest", 30), ("Grizzly Bears", 30)])
+    land = seat1[0][0]
+    hand = [land] * 5 + [mine, spell] if mine else [land] * 4 + [spell] * 3
+    g = game(name, seat1, [("Forest", 30), ("Grizzly Bears", 30)],
+             deal={1: {"hand": hand, "top": [land] * 4}, 2: BOB})
     w = Watch(g)
     st = {"cast": False, "targets": set()}
 

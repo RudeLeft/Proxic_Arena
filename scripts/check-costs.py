@@ -41,16 +41,27 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
+# The Lab's deal (lab.py, protocol/README.md): seat 2 has two lands and a
+# Bear on its second turn, every game -- something to aim at.
+BEARS_DEAL = {"hand": ["Forest"] * 3 + ["Grizzly Bears"] * 4, "top": ["Forest", "Grizzly Bears", "Forest"]}
 
 
-def game(name, seat1, seat2=BEARS):
+def game(name, seat1, seat2=BEARS, hand=None, top=None):
+    """`hand` / `top`: seat 1's deal -- the scenario's moment on the first
+    game, not when the shuffle allows (CI 2026-11-08). The INCONCLUSIVE
+    branches stay as the safety net."""
+    deal = {}
+    if hand or top:
+        deal[1] = {"hand": hand or [], "top": top or []}
+    if seat2 is BEARS:
+        deal[2] = BEARS_DEAL
     if not TRACES:
         trace = ""
     elif TRACES.endswith(".jsonl"):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"costs-{name}.jsonl")
-    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace)
+    return Game(seat1, seat2, jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def seat2_bears(g, frame):
@@ -143,7 +154,8 @@ def untapped(cards):
 
 
 def dismember():
-    g = game("dismember", [("Swamp", 30), ("Dismember", 30)])
+    g = game("dismember", [("Swamp", 30), ("Dismember", 30)],
+             hand=["Swamp"] * 4 + ["Dismember"] * 3)
     done = {"cast": False, "life_before": None}
 
     def policy(g, f):
@@ -267,7 +279,11 @@ def force_of_will():
 
 
 def delve():
-    g = game("delve", [("Island", 24), ("Treasure Cruise", 36)])
+    # Four Islands in hand, played on turns 1-7 (Cruise offered, not yet
+    # affordable); from turn 11 each draw past seven is discarded, so the
+    # graveyard holds four by turn 17 and the Cruise is affordable.
+    g = game("delve", [("Island", 24), ("Treasure Cruise", 36)],
+             hand=["Island"] * 4 + ["Treasure Cruise"] * 3, top=["Treasure Cruise"] * 12)
     done = {"cast": False, "before": None, "delved": 0}
     asks = Asks()
 
@@ -342,7 +358,11 @@ def cast_again(g, card):
 
 
 def convoke():
-    g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)])
+    # Turn 1: Plains, Lions (the Loxodon offered, unaffordable); turn 3:
+    # Plains, two Lions; turn 5: two Plains and three Lions pay {4}{W}.
+    g = game("convoke", [("Plains", 24), ("Savannah Lions", 18), ("Venerated Loxodon", 18)],
+             hand=["Plains", "Plains", "Plains"] + ["Savannah Lions"] * 3 + ["Venerated Loxodon"],
+             top=["Plains"] * 6)
     done = {"card": None, "tapped": []}
     asks = Asks()
 
@@ -413,7 +433,10 @@ def convoke():
 
 
 def improvise():
-    g = game("improvise", [("Island", 20), ("Ornithopter", 20), ("Reverse Engineer", 20)])
+    # Turn 1: three Ornithopters and an Island -- Reverse Engineer offered,
+    # not affordable; turn 3: the second Island makes it affordable.
+    g = game("improvise", [("Island", 20), ("Ornithopter", 20), ("Reverse Engineer", 20)],
+             hand=["Island"] * 3 + ["Ornithopter"] * 3 + ["Reverse Engineer"], top=["Island"] * 6)
     done = {"card": None, "tapped": [], "hand_before": None}
     asks = Asks()
 
@@ -487,7 +510,8 @@ def improvise():
 def affinity():
     # Half Ornithopters: four of them is the whole setup, and at a third
     # of the deck a CI run once drew only three in eighteen turns.
-    g = game("affinity", [("Island", 15), ("Ornithopter", 30), ("Thoughtcast", 15)])
+    g = game("affinity", [("Island", 15), ("Ornithopter", 30), ("Thoughtcast", 15)],
+             hand=["Island", "Island"] + ["Ornithopter"] * 4 + ["Thoughtcast"], top=["Island"] * 4)
     done = {"card": None, "hand_before": None}
 
     def policy(g, f):
@@ -539,7 +563,8 @@ def affinity():
 
 def warchief():
     """Spec 0058, item 2: a reduced cost rides on every snapshot of the owner's hand."""
-    g = game("warchief", [("Mountain", 24), ("Goblin Warchief", 18), ("Goblin Piker", 18)])
+    g = game("warchief", [("Mountain", 24), ("Goblin Warchief", 18), ("Goblin Piker", 18)],
+             hand=["Mountain"] * 4 + ["Goblin Warchief", "Goblin Piker", "Goblin Piker"], top=["Mountain"] * 4)
     st = {"before": None, "mine": None, "theirs_turn": None, "leak": False, "cast": None}
 
     def pikers(seat=1):

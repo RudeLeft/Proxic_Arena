@@ -460,3 +460,34 @@ option.payable      B8  false when Forge says the option cannot be paid
                         an unpayable choice, as before.
 ```
 
+
+## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
+
+**Never in a real game.** The Mechanics Lab (`scripts/lab.py`) may give
+a START_GAME seat a `labDeal`, so a scenario reaches its moment on the
+first game instead of waiting on the shuffle (it was INCONCLUSIVE, or
+WRONG, when the deal differed):
+
+```text
+players[i].labDeal   {"hand": [names], "top": [names]}, both optional.
+                     After Forge shuffles the library and before it
+                     draws the opening hand, the hand gets `hand` (the
+                     rest of it from the top of the shuffle) and the
+                     draws after the opening hand are `top`, in order.
+                     Everything else stays as Forge shuffled it. Names
+                     are the deck's own, each copy named once.
+```
+
+Why a player cannot use it:
+
+- The worker accepts it only when started with `--lab-deal`. Only
+  `scripts/lab.py` passes that; the server starts the worker as
+  `java -jar <jar> <res>` (`MatchWorker`). Without the switch, a seat
+  carrying it is refused: `ERROR LAB_DEAL_REFUSED`, no game.
+- The server never forwards it: `WorkerFrames.startGameFrame` builds
+  each seat field by field (`displayName`, `seatNumber`, `cards`,
+  `stops`), so nothing a player sends reaches the worker as a field
+  (`WorkerFramesTest` "the start frame never carries the Lab's deal").
+- A seat without it is dealt exactly as before: no listener is even
+  subscribed (`LabDealTest`). A deal the deck cannot make (a name it
+  lacks, more than seven for the hand) is refused before the game.

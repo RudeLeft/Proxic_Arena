@@ -37,7 +37,11 @@ def game(name):
         trace = TRACES[: -len(".jsonl")] + f"-{name}.jsonl"
     else:
         trace = os.path.join(TRACES, f"trigger-costs-{name}.jsonl")
-    return Game(DECK, [("Forest", 60)], jar=JAR, res=RES, trace=trace)
+    # The deal: a Drill Sergeant, a Mogg Fanatic, and a Mountain every turn
+    # (three untapped to pay, or fewer for "broke").
+    deal = {1: {"hand": ["Mountain"] * 4 + ["Skirk Drill Sergeant", "Mogg Fanatic", "Mountain"],
+                "top": ["Mountain"] * 4}}
+    return Game(DECK, [("Forest", 60)], jar=JAR, res=RES, trace=trace, deal=deal)
 
 
 def stack_empty(g):
