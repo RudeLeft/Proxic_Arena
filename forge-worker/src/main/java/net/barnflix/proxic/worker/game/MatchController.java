@@ -1625,6 +1625,14 @@ public final class MatchController extends GeneratedControllerBase {
                                 pending -> host.publishDecision(pending, labels)));
 
                 forge.game.card.Card card = byId.get(choice);
+                if (card == null && host.gate().closed()) {
+                    // A concession ended the game while this was asked
+                    // (§7.55): the gate now answers every question "no"
+                    // at once, and asking again would spin Forge's thread
+                    // for ever -- the game never reached its end (CI
+                    // 2026-11-09, a spectator never told the result).
+                    return chosen;
+                }
                 if (card == null) {
                     // The gate refuses a pass on a mandatory
                     // decision, so this means the answer named

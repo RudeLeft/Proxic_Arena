@@ -13,6 +13,9 @@ never inferred: a concession is a real loss, and only Forge says who won.
   targeting  seat 1 concedes halfway through casting Lightning Bolt,
              with the target question open: still Forge's result, not
              a failed match
+  discard    seat 1 concedes while asked to discard down to its hand
+             size at cleanup (CI 2026-11-09: a spectator's game never
+             ended): Forge's result all the same
   mulligan   a concession before the game proper starts is refused
              (NOT_STARTED); Abandon is the way out of a game that has
              not begun, as in Forge's own client
@@ -154,6 +157,31 @@ def targeting():
     return result(problems, "seat 1 conceded mid-cast; still Forge's result, seat 2 won", found)
 
 
+def discard():
+    g = game("discard")
+    st = {"sent": False, "kind": None}
+
+    def policy(g, f):
+        if st["sent"]:
+            return HOLD
+        kind = f.get("kind") or ""
+        if f["authorisedSeat"] == 1 and "Discard" in kind:
+            st["kind"] = kind
+            g.concede(1)
+            st["sent"] = True
+            return HOLD
+        if f["authorisedSeat"] == 1 and kind == "chooseSpellAbilityToPlay":
+            return None  # holds every card: eight at cleanup
+        return DEFAULT
+
+    g.run(policy, max_turn=12)
+    found = {"ended": ended(g), "sent": st["sent"], "kind": st["kind"]}
+    if not st["sent"]:
+        return "inconclusive", "seat 1 was never asked to discard to hand size", found
+    return result(won_by_concession(g, 1, found),
+                  "seat 1 conceded while discarding to hand size; Forge declared seat 2", found)
+
+
 def mulligan():
     g = game("mulligan")
     st = {"sent": False}
@@ -179,7 +207,8 @@ def mulligan():
     return result(problems, "refused before the game proper started (NOT_STARTED)", found)
 
 
-SCENARIOS = {"own-move": own_move, "waiting": waiting, "targeting": targeting, "mulligan": mulligan}
+SCENARIOS = {"own-move": own_move, "waiting": waiting, "targeting": targeting, "discard": discard,
+             "mulligan": mulligan}
 
 if __name__ == "__main__":
     worst = 0
