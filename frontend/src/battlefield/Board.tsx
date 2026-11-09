@@ -63,6 +63,7 @@ import {
   boxAt,
   handZoomBox,
   LIFE_R,
+  plateRects,
   MOVE_MS,
   SETTLE_EASING,
   SETTLE_MS,
@@ -114,15 +115,22 @@ import {
   pathOf,
   playerPoint,
   facingPort,
-  lifePort,
-  ride,
+  arc,
+  arcHeight,
+  arcShadow,
+  arcToRing,
+  stackCaptionBottom,
+  pointOn,
   routeAt,
   shownShare,
+  SOURCE_AT,
   STACK_READ_SCALE,
   STACK_SCALE,
   stackSpotBoxes,
-  swing,
+  studY,
+  stackBadgeRects,
   TIP_GAP,
+  topOf,
   trimmed,
   type LineKind,
   type Port,
@@ -365,6 +373,12 @@ export interface BoardProps {
    * first stack card goes. Instead of `stackOwing` when given.
    */
   stackPay?: readonly PayPip[] | null;
+  /**
+   * Spec 0066, item 5 -- the payment question is still being asked. Only
+   * then is "Still to pay" drawn alone in an empty stack slot; held for its
+   * last ball after the question, it goes with its card.
+   */
+  stackPayLive?: boolean;
   /** An attachment's host being chosen. */
   attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
@@ -842,6 +856,14 @@ function reducedMotion(): boolean {
 
 const NO_CARDS: readonly OpponentHandCard[] = [];
 
+/**
+ * Spec 0066, item 1 -- a trigger or ability rises out of its card to the
+ * stack in this long (the canvas's 520 ms); a stack card that has no card
+ * to rise from slides in (`bf-stack-in`, 260 ms). Its arrows wait for it.
+ */
+export const RISE_MS = 520;
+export const STACK_IN_MS = 260;
+
 /** The board fills its container and lays itself out for that size. */
 /**
  * Spec 0062 -- "Still to pay" with every symbol of the cost (Amendment 13's
@@ -899,6 +921,7 @@ export function Board({
   quietStack,
   stackOwing = null,
   stackPay = null,
+  stackPayLive = false,
   combat,
   stack,
   pointedStack,
@@ -932,8 +955,10 @@ export function Board({
   // instead of the front card's, and the rest of the stack fades.
   const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
   // Phase 9 W-20 -- the stack readable (the whole card, close-up size),
-  // except while something is to be chosen on the table under it.
-  const stackScale = asking ? STACK_SCALE : STACK_READ_SCALE;
+  // except while something is to be chosen on the table under it -- and
+  // (spec 0066, item 5) while "Still to pay" is shown, held a moment after
+  // the payment question for its last ball: it keeps its size till it goes.
+  const stackScale = asking || (stackPay && stackPay.length > 0) ? STACK_SCALE : STACK_READ_SCALE;
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   /** Phase 10 A-07: the board wipe's flash, keyed by when it began. */
   const [sweep, setSweep] = useState<number | null>(null);
@@ -1563,6 +1588,110 @@ export function Board({
     }
     return at;
   }, [items]);
+
+  // Spec 0066, item 1 -- a stack card's arrows wait until it has arrived.
+  // A card cast is hidden under its flight (`hiddenStack`, yours and the
+  // other player's); a trigger or ability rises out of its card (RISE_MS);
+  // anything else slides in (STACK_IN_MS). `arriving` says until when.
+  const stackEls = useRef(new Map<string, HTMLDivElement>());
+  const arriving = useRef(new Map<string, number>());
+  const rose = useRef(new Set<string>());
+  const [, setArrived] = useState(0);
+  const seenStack = previous.current
+    ? new Set(previous.current.stack.map((was) => was.s.id))
+    : null;
+  const freshOnStack = (s: StackView) =>
+    seenStack !== null && !seenStack.has(s.id) && s.id !== hiddenStack && !quietStack?.has(s.id);
+  for (const s of stack ?? []) {
+    if (
+      freshOnStack(s) &&
+      (s.kind === "trigger" || s.kind === "ability") &&
+      s.source &&
+      positions.has(s.source) &&
+      byId.has(s.source) &&
+      !reducedMotion()
+    )
+      rose.current.add(s.id);
+  }
+  // A cast card that has just landed: its stack card fades in over the
+  // flight's last moment (160 ms); its arrows wait for that too.
+  const wasHidden = useRef<string | null>(null);
+  const justLanded = wasHidden.current !== hiddenStack ? wasHidden.current : null;
+  const stackWaiting = (s: StackView) =>
+    s.id === hiddenStack ||
+    s.id === justLanded ||
+    freshOnStack(s) ||
+    (arriving.current.get(s.id) ?? 0) > performance.now();
+  useLayoutEffect(() => {
+    const was = wasHidden.current;
+    wasHidden.current = hiddenStack;
+    if (!was || was === hiddenStack) return;
+    const done = () => {
+      arriving.current.set(was, 0);
+      setArrived((n) => n + 1);
+    };
+    const el = stackEls.current.get(was);
+    const fading =
+      !reducedMotion() && el && typeof el.getAnimations === "function"
+        ? el.getAnimations().find((a) => a instanceof CSSTransition)
+        : undefined;
+    arriving.current.set(was, Infinity);
+    timers.current.push(window.setTimeout(done, fading ? 160 * 20 : 176));
+    if (fading) void fading.finished.then(done, done);
+  }, [hiddenStack]);
+  useLayoutEffect(() => {
+    const before = previous.current;
+    if (!result || !before) return;
+    const seen = new Set(before.stack.map((was) => was.s.id));
+    const g = result.geometry;
+    const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
+    const still = reducedMotion();
+    (stack ?? []).slice(0, spots.length).forEach((s, i) => {
+      if (seen.has(s.id) || s.id === hiddenStack || quietStack?.has(s.id)) return;
+      const rises = rose.current.has(s.id);
+      const ms = still ? 0 : rises ? RISE_MS : STACK_IN_MS;
+      const el = stackEls.current.get(s.id);
+      const from = s.source ? positions.get(s.source)?.box : undefined;
+      const to = spots[i]!;
+      // Arrived when its own animation ends (a click's hurry, or the jump
+      // tool's slow motion, move that end too); a timer in case none runs.
+      const arrived = () => {
+        if (!arriving.current.has(s.id)) return;
+        arriving.current.set(s.id, 0);
+        setArrived((n) => n + 1);
+      };
+      const sliding =
+        !still && !rises && el && typeof el.getAnimations === "function"
+          ? el.getAnimations().find((a) => a instanceof CSSAnimation)
+          : undefined;
+      arriving.current.set(s.id, still ? 0 : Infinity);
+      timers.current.push(
+        window.setTimeout(arrived, sliding || (rises && el?.animate) ? ms * 20 : ms + 16),
+      );
+      if (sliding) void sliding.finished.then(arrived, arrived);
+      if (!rises || !from || !el || typeof el.animate !== "function") return;
+      // Out of its card, up off the table in a short arc, growing to the
+      // stack card's size (the canvas: 520 ms, eased in and out).
+      const k0 = from.h / g.cardH;
+      const lift = g.cardH * 0.4;
+      const at = (f: number) =>
+        `translate3d(${from.x + (to.x - from.x) * f}px, ${
+          from.y + (to.y - from.y) * f - Math.sin(Math.PI * f) * lift
+        }px, 0) scale(${k0 + (to.scale - k0) * f})`;
+      const rise = el.animate(
+        [0, 0.15, 0.35, 0.5, 0.65, 0.85, 1].map((f) => ({
+          offset: f,
+          transform: at(f),
+          opacity: f === 0 ? 0 : 1,
+        })),
+        { duration: RISE_MS, easing: "cubic-bezier(0.45, 0, 0.25, 1)" },
+      );
+      // (A test's stand-in animation may have no promise.)
+      const done = rise.finished as Promise<Animation> | undefined;
+      if (done !== undefined) void done.then(arrived, arrived);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per stack
+  }, [stack]);
 
   // Damage, once per wave. Declared before the movement effect, so what
   // moves in the same update waits for the fights. Phase 10 A-13 (owner
@@ -2764,16 +2893,22 @@ export function Board({
   const lastLines = useRef(new Map<string, SVGGElement>());
   useLayoutEffect(() => {
     const now = new Map<string, SVGGElement>();
-    for (const line of linesRef.current?.querySelectorAll<SVGGElement>(":scope > [data-line]") ??
-      []) {
+    for (const line of linesRef.current?.querySelectorAll<SVGGElement>(
+      ":scope > [data-line], :scope > [data-swords]",
+    ) ?? []) {
       now.set(line.dataset.key ?? "", line.cloneNode(true) as SVGGElement);
     }
     const out = leavingRef.current;
     if (out && !reducedMotion()) {
       for (const [key, line] of lastLines.current) {
         if (now.has(key)) continue;
+        const swordsKey = line.getAttribute("data-swords");
         line.removeAttribute("data-line");
-        line.setAttribute("data-line-leaving", line.dataset.key ?? "");
+        line.removeAttribute("data-swords");
+        line.setAttribute(
+          swordsKey !== null ? "data-swords-leaving" : "data-line-leaving",
+          swordsKey ?? line.dataset.key ?? "",
+        );
         line.classList.add("bf-line-out");
         out.appendChild(line);
         timers.current.push(window.setTimeout(() => line.remove(), LINE_OUT_MS));
@@ -2803,34 +2938,50 @@ export function Board({
     const reach = Math.min(p.box.h * depth, len / 3);
     return { x: c.x + (dx / len) * reach, y: c.y + (dy / len) * reach };
   };
-  // Spec 0063 (curve B, "ride the middle"): lines leave a card's edge that
-  // faces the middle of the table (an attacker's top edge on your side,
-  // the bottom edge on the other), on its frame, never inside its picture,
-  // straight out toward the middle; and land the same way on a card.
+  // Spec 0066 (A · Soft arc, replacing spec 0063's ride along the middle):
+  // every arrow is one smooth curve that rises off the table and comes
+  // down onto the top of what it points at. An attack leaves its
+  // attacker's edge facing the middle (on its frame, never inside its
+  // picture); a stack card's arrow leaves its stud.
   const middle = g.height / 2;
   const gap = TIP_GAP * g.cardH;
-  const facing = (id: string, off = 0): Port | null => {
+  const facing = (id: string): Port | null => {
     const p = positions.get(id);
-    return p ? facingPort(p.box, p.origin, middle, off, shownShare(result.slots, p.item)) : null;
+    return p ? facingPort(p.box, p.origin, middle, 0, shownShare(result.slots, p.item)) : null;
   };
-  // A life circle, from the table's side, stopping a hair off its edge.
+  // A life circle: the arc stops a hair off its rim, never over the total.
   const lifeR = LIFE_R * g.height;
-  const lifeAt = (seat: number): Port =>
-    lifePort(playerPoint(seat, viewerSeat, where), g, lifeR + gap);
+  // Spec 0066: never across a player's picture, name or tiles.
+  const plates = plateRects(g);
+  const onto = (
+    from: Port | null,
+    to: TargetRef,
+    clear?: { top: number; bottom: number },
+  ): Route | null => {
+    if (!from) return null;
+    if ("player" in to)
+      return arcToRing(
+        from,
+        playerPoint(to.player, viewerSeat, where),
+        lifeR + gap,
+        g.cardH,
+        clear,
+        plates,
+      );
+    const p = positions.get(to.object);
+    return p ? arc(from, topOf(p.box, p.origin, gap), g.cardH, undefined, clear) : null;
+  };
   const head = sizes.line * 4.4;
   // The stack, drawn as cards at the right edge of the play area.
   const spot = stackSpotBoxes(g, (stack ?? []).length, stackScale);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
-  // A stack card's edge facing the table (its left), where it shows: the
-  // front card at the middle, one behind it on the strip above the next.
-  const stackPort = (index: number, off = 0): Port | null => {
+  // Spec 0066, item 2 -- a stack card's arrows leave its stud: a small gold
+  // diamond on its left edge, at the picture (an arrow at a player too).
+  const studOf = (index: number): Port | null => {
     const box = spot[index];
-    if (!box) return null;
-    const y =
-      index === 0
-        ? Math.min(Math.max(middle, box.y + box.h * 0.1), box.y + box.h * 0.9)
-        : (box.y + Math.min(box.y + box.h, spot[index - 1]!.y)) / 2;
-    return { at: { x: box.x - off, y }, out: { x: -1, y: 0 } };
+    return box
+      ? { at: { x: box.x - box.h * 0.02, y: studY(spot, index, g.cardH) }, out: { x: -1, y: 0 } }
+      : null;
   };
   const spotIndex = (id: string) =>
     (stack ?? []).slice(0, spot.length).findIndex((s) => s.id === id);
@@ -2847,20 +2998,6 @@ export function Board({
     if (same) same.count += 1;
     else byKey.set(key, { key, kind, from, to, route, count: 1 });
   };
-  // Where a line lands on a card: a hair off the edge facing the middle.
-  // Next to the middle (the front lines are about 12 px apart at 1080),
-  // there is less room than the arrowhead's length: the head then reaches
-  // into the card above the middle, over its bottom bar's empty middle
-  // (power/toughness and type sit at its ends) -- never over the name bar
-  // of the card below.
-  const land = (id: string): Port | null => {
-    const port = facing(id, gap);
-    if (!port) return null;
-    if (port.out.y > 0) port.at = { x: port.at.x, y: Math.min(port.at.y, middle - head * 0.95) };
-    return port;
-  };
-  const rideTo = (from: Port | null, to: Port | null, via?: number) =>
-    from && to ? ride(from, to, middle, g.cardH, via) : null;
   // Spec 0037 — a blocked attacker hits its blockers, not the player.
   // Phase 10 A-12: a blocker standing facing its attacker needs no block
   // line to it (one blocking several has lines to the others).
@@ -2871,60 +3008,114 @@ export function Board({
   }
   for (const a of combat?.attackers ?? []) {
     // Spec 0059 item 9: no attack lines at rest; the one pointed at
-    // (focused, tapped) draws its line. Spec 0063: every attacker -- a
-    // blocked one a short arrow to each of its blockers.
-    if (aimed === null || drawn(a.id) !== aimed) continue;
-    const from = facing(a.id);
-    if (blockedIds.has(a.id)) {
-      for (const b of combat?.blocks ?? []) {
-        if (b.attacker !== a.id) continue;
-        add("attack", a.id, b.blocker, rideTo(from, land(b.blocker)));
-      }
+    // (focused, tapped) draws its line. Spec 0066, item 4: a blocked one
+    // has no arrow -- its fights are crossed swords.
+    if (aimed === null || drawn(a.id) !== aimed || blockedIds.has(a.id)) continue;
+    add("attack", a.id, refKey(a.target), onto(facing(a.id), a.target));
+  }
+  // Spec 0066, item 4 (2 · Crossed swords) -- one mark between each
+  // fighting pair: in the gap where a blocker faces its attacker, under
+  // where the two overlap; for a blocker blocking another attacker too, on
+  // its block line to that one, halfway.
+  // The canvas's mark, scaled to the card; in a gap between a pair, no
+  // bigger than the gap (2026-11-08 review: it covered the blockers' names),
+  // so it covers only the cards' borders.
+  const swordsR = 11 * (g.cardW / 62) * 0.9;
+  const swords: {
+    key: string;
+    attacker: string;
+    blocker: string;
+    at: Point;
+    r: number;
+  }[] = [];
+  // The y of a card's edge facing the middle, at x (tilt included).
+  const edgeYAt = (id: string, x: number) => {
+    const p = positions.get(id)!;
+    const below = centreOf(p.box, p.origin).y > middle;
+    const a = pointOn(p.box, p.origin, 0, below ? 0 : 1);
+    const b = pointOn(p.box, p.origin, 1, below ? 0 : 1);
+    return a.y + ((b.y - a.y) * (x - a.x)) / Math.max(1e-6, b.x - a.x);
+  };
+  const bounds = (id: string) => {
+    const p = positions.get(id)!;
+    const xs = [0, 1].map((fx) => pointOn(p.box, p.origin, fx, 0.5).x);
+    return { x0: Math.min(...xs), x1: Math.max(...xs) };
+  };
+  for (const b of combat?.blocks ?? []) {
+    if (!positions.has(b.attacker) || !positions.has(b.blocker)) continue;
+    const key = `${drawn(b.attacker)}:${drawn(b.blocker)}`;
+    if (swords.some((m) => m.key === key)) continue;
+    if (faced.get(b.blocker) === drawn(b.attacker)) {
+      const a = bounds(b.attacker);
+      const d = bounds(b.blocker);
+      const lo = Math.max(a.x0, d.x0);
+      const hi = Math.min(a.x1, d.x1);
+      const x = hi > lo ? (lo + hi) / 2 : (a.x0 + a.x1 + d.x0 + d.x1) / 4;
+      const ya = edgeYAt(b.attacker, x);
+      const yd = edgeYAt(b.blocker, x);
+      swords.push({
+        key,
+        attacker: b.attacker,
+        blocker: b.blocker,
+        at: { x, y: (ya + yd) / 2 },
+        r: Math.max(5, Math.min(swordsR, Math.abs(yd - ya) / 2 + 2)),
+      });
       continue;
     }
-    const target = a.target;
-    add(
-      "attack",
-      a.id,
-      refKey(target),
-      "player" in target
-        ? rideTo(from, lifeAt(target.player), g.rail.x)
-        : rideTo(from, land(target.object)),
-    );
-  }
-  for (const b of combat?.blocks ?? []) {
-    if (faced.has(b.blocker) && faced.get(b.blocker) === drawn(b.attacker)) continue;
-    add("block", b.blocker, b.attacker, rideTo(facing(b.blocker), land(b.attacker)));
+    const route = onto(facing(b.blocker), { object: b.attacker });
+    add("block", b.blocker, b.attacker, route);
+    if (route)
+      swords.push({
+        key,
+        attacker: b.attacker,
+        blocker: b.blocker,
+        at: routeAt(route, 0.5),
+        r: swordsR,
+      });
   }
   // Spec 0043: every object, a "×9" card counting nine.
   const stackTotal = (stack ?? []).reduce((n, s) => n + (s.count ?? 1), 0);
   const focus = stackFocus(stack, pointedOnStack ?? pointedStack);
   const shown = (stack ?? []).filter((s) => s.id === focus);
+  // Spec 0066, item 1 -- the stack card whose arrows show, once it has arrived.
+  let studAt = -1;
   for (const s of shown) {
+    if (stackWaiting(s)) continue;
     // From the spell's own card on the stack (the last drawn one, for an
-    // object further down than the cards shown): its edge facing the table.
+    // object further down than the cards shown): its stud.
     const index = spotBox.has(s.id) ? spotIndex(s.id) : spot.length - 1;
-    const box = spot[index];
-    const start: Port = stackPort(index) ?? { at: where.stack, out: { x: -1, y: 0 } };
-    for (const t of s.targets) {
-      if ("player" in t) {
-        // Up or down to a life circle: from the card's top or bottom edge.
-        const life = lifeAt(t.player);
-        const up = life.at.y < start.at.y;
-        const from: Port = box
-          ? {
-              at: { x: box.x + box.w / 2, y: up ? box.y : box.y + box.h },
-              out: { x: 0, y: up ? -1 : 1 },
-            }
-          : start;
-        add("target", s.id, refKey(t), swing(from, life));
-      } else add("target", s.id, refKey(t), rideTo(start, land(t.object)));
-    }
+    const start: Port = studOf(index) ?? { at: where.stack, out: { x: -1, y: 0 } };
+    // Spec 0066 (owner, 2026-11-08): never behind a stack card -- an arc
+    // to a life circle beyond the stack goes round its cards and caption.
+    const clear = spot[0]
+      ? {
+          top: Math.min(...spot.map((b) => b.y)) - g.cardH * 0.05,
+          bottom: stackCaptionBottom(spot[0], g),
+          // The caption: wider than the card, its right edge on the card's.
+          captionLeft: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
+          captionTop: spot[0].y + spot[0].h,
+          // Each card's number and face badges, beside its name bar.
+          badges: stackBadgeRects(spot, g.cardH),
+        }
+      : undefined;
+    for (const t of s.targets) add("target", s.id, refKey(t), onto(start, t, clear));
+    if (s.targets.length > 0) studAt = index;
   }
   // Spec 0028 — an ability, faintly, back to the permanent it came from.
+  // Spec 0066: a dotted thread from the permanent's side into the stack
+  // card's left edge just under its badges -- never at the stud.
   for (const s of stack ?? []) {
-    if (!s.source || !spotBox.has(s.id)) continue;
-    add("source", s.source, s.id, rideTo(facing(s.source), stackPort(spotIndex(s.id), gap)));
+    if (!s.source || !spotBox.has(s.id) || stackWaiting(s)) continue;
+    const p = positions.get(s.source);
+    const box = spotBox.get(s.id)!;
+    if (!p) continue;
+    const to = { x: box.x - gap, y: box.y + box.h * SOURCE_AT };
+    const right = to.x >= centreOf(p.box, p.origin).x;
+    const from: Port = {
+      at: pointOn(p.box, p.origin, right ? 1 : 0, 0.35),
+      out: { x: right ? 1 : -1, y: 0 },
+    };
+    add("source", s.source, s.id, arc(from, to, g.cardH, g.cardH * 0.19));
   }
   if (attaching) {
     const from = centre(attaching.source);
@@ -3013,6 +3204,7 @@ export function Board({
           </div>
         ))}
         {(stack ?? []).length === 0 &&
+          stackPayLive &&
           stackPay &&
           stackPay.length > 0 &&
           (() => {
@@ -3057,17 +3249,22 @@ export function Board({
           return (
             <div
               key={`stack-spot:${s.id}`}
+              ref={(element) => {
+                if (element) stackEls.current.set(s.id, element);
+                else stackEls.current.delete(s.id);
+              }}
               className={`bf-slot bf-stack-slot${faded ? " bf-stack-faded" : ""}`}
+              data-rising={rose.current.has(s.id) ? "true" : undefined}
               style={{
                 width: g.cardW,
                 height: g.cardH,
                 transformOrigin: "0 0",
                 transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(${box.scale})`,
                 // Pointed at, a card lower in the stack comes to the front.
-                zIndex: pointedOnStack === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
+                zIndex: focus === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
                 ["--stack-scale" as string]: String(box.scale),
                 ...(hiddenStack === s.id ? { opacity: 0 } : {}),
-                ...(quietStack?.has(s.id) ? { animation: "none" } : {}),
+                ...(quietStack?.has(s.id) || rose.current.has(s.id) ? { animation: "none" } : {}),
               }}
             >
               <button
@@ -3137,6 +3334,15 @@ export function Board({
                   <ManaText text={stackOwing.map((m) => `{${m}}`).join("")} />
                 </span>
               )}
+              {/* Spec 0066, item 2 -- where its arrows leave from. */}
+              {i === studAt && (
+                <span
+                  className="bf-stack-stud"
+                  data-stud="true"
+                  aria-hidden="true"
+                  style={{ top: `${((studY(spot, i, g.cardH) - box.y) / box.h) * 100}%` }}
+                />
+              )}
               {/* Beside the card's name bar, so neither covers the name. */}
               <span className="bf-stack-tag" aria-hidden="true">
                 <span className="bf-stack-n">{i + 1}</span>
@@ -3161,28 +3367,32 @@ export function Board({
         })}
         {/* The stack's words, under its front card (owner 2026-10-22: the
             cards ARE the stack; the column's Stack box is gone). */}
-        {stack && stack.length > 0 && spot[0] && (
-          <div
-            className="bf-stack-caption"
-            aria-hidden="true"
-            style={{
-              // Wider than the card, its right edge on the card's: the
-              // words stay on one line without running off the table.
-              left: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
-              top: spot[0].y + spot[0].h + g.cardH * 0.05,
-              width: Math.max(spot[0].w, g.cardW * 2.6),
-              fontSize: Math.max(11, g.cardH * 0.085),
-              zIndex: Z_LINES - 99,
-            }}
-          >
-            {/* Amendment 13 (item 12) -- one line, one style: what resolves
+        {/* Spec 0066: not before its only card has landed. */}
+        {stack &&
+          stack.length > 0 &&
+          spot[0] &&
+          !(stack.length === 1 && stack[0]!.id === hiddenStack) && (
+            <div
+              className="bf-stack-caption"
+              aria-hidden="true"
+              style={{
+                // Wider than the card, its right edge on the card's: the
+                // words stay on one line without running off the table.
+                left: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
+                top: spot[0].y + spot[0].h + g.cardH * 0.05,
+                width: Math.max(spot[0].w, g.cardW * 2.6),
+                fontSize: Math.max(11, g.cardH * 0.085),
+                zIndex: Z_LINES - 99,
+              }}
+            >
+              {/* Amendment 13 (item 12) -- one line, one style: what resolves
                 next, whose, and how many wait. The card's own plate says
                 what it does, so pointing adds nothing here. */}
-            <span className="bf-stack-next">
-              {stackCaption(stack, viewerSeat, stackTotal, spot.length)}
-            </span>
-          </div>
-        )}
+              <span className="bf-stack-next">
+                {stackCaption(stack, viewerSeat, stackTotal, spot.length)}
+              </span>
+            </div>
+          )}
         {/* Spec 0063 (R2): an attacked player's life circle glows, with
             how many attack it; brighter while one of them is pointed at. */}
         {underAttack.map((u) => (
@@ -3209,12 +3419,17 @@ export function Board({
           className="bf-lines"
           width={g.width}
           height={g.height}
-          style={{ zIndex: Z_LINES }}
+          // Spec 0066, item 2 -- under the stack's cards, caption and
+          // badges (Z_LINES - 100 and up), still over every card on the table.
+          style={{ zIndex: Z_LINES - 200 }}
           aria-hidden="true"
         >
           <defs>
             <filter id="bf-glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="4" />
+            </filter>
+            <filter id="bf-shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation={g.cardH * 0.03} />
             </filter>
           </defs>
           {lines.map((line) => {
@@ -3224,8 +3439,11 @@ export function Board({
             const theme = LINE_THEME[line.kind];
             const w = sizes.line;
             // Spec 0063: the body stops under the arrowhead, which makes the point.
-            const d = pathOf(line.kind === "attach" ? route : trimmed(route, head * 0.55));
+            const pointed = line.kind !== "attach" && line.kind !== "source";
+            const d = pathOf(pointed ? trimmed(route, head * 0.55) : route);
             const chip = line.count > 1 && line.kind === "attack" ? routeAt(route, 0.5) : null;
+            // Spec 0066: a soft shadow on the felt under a lifted arc.
+            const depth = Math.min(g.cardH * 0.33, arcHeight(route) * 0.4);
             return (
               <g
                 key={line.key}
@@ -3238,44 +3456,83 @@ export function Board({
                 data-start={`${first.start.x.toFixed(1)},${first.start.y.toFixed(1)}`}
                 data-end={`${tip.x.toFixed(1)},${tip.y.toFixed(1)}`}
               >
-                <path
-                  d={d}
-                  stroke={theme.aura}
-                  strokeWidth={w * 2.6}
-                  className="bf-line-aura"
-                  filter="url(#bf-glow)"
-                  pathLength={1}
-                />
-                <path
-                  d={d}
-                  stroke={theme.body}
-                  strokeWidth={w}
-                  className="bf-line-body"
-                  pathLength={1}
-                />
-                <path
-                  d={d}
-                  stroke={theme.core}
-                  strokeWidth={w * 0.35}
-                  className="bf-line-core"
-                  pathLength={1}
-                />
-                {line.kind !== "attach" && (
-                  <polygon
-                    points={arrowHead(route, head)}
-                    fill={theme.body}
-                    stroke={theme.core}
-                    strokeWidth={w * 0.3}
-                    strokeLinejoin="round"
-                    className="bf-line-head"
-                    style={{ transformOrigin: `${tip.x}px ${tip.y}px` }}
-                  />
-                )}
-                {line.kind === "attach" && (
-                  <g fill={theme.core} stroke={theme.body}>
-                    <circle cx={first.start.x} cy={first.start.y} r={w * 1.6} />
-                    <circle cx={tip.x} cy={tip.y} r={w * 1.6} />
+                {line.kind === "source" ? (
+                  // Spec 0066 -- the thread back to an ability's source:
+                  // faint and dotted, a dot where it meets the stack card.
+                  <g className="bf-line-thread">
+                    <path
+                      d={d}
+                      stroke={theme.aura}
+                      strokeWidth={w * 1.4}
+                      className="bf-line-thread-aura"
+                      filter="url(#bf-glow)"
+                    />
+                    <path
+                      d={d}
+                      stroke={theme.body}
+                      strokeWidth={w * 0.6}
+                      strokeDasharray={`${w * 0.8} ${w * 1.7}`}
+                    />
+                    <circle
+                      cx={tip.x}
+                      cy={tip.y}
+                      r={w * 1.1}
+                      fill={theme.core}
+                      stroke={theme.body}
+                    />
                   </g>
+                ) : (
+                  <>
+                    {pointed && depth > 1 && (
+                      <path
+                        d={arcShadow(route, depth)}
+                        stroke="#000"
+                        strokeWidth={w * 1.6}
+                        className="bf-line-shadow"
+                        filter="url(#bf-shadow)"
+                        pathLength={1}
+                      />
+                    )}
+                    <path
+                      d={d}
+                      stroke={theme.aura}
+                      strokeWidth={w * 2.6}
+                      className="bf-line-aura"
+                      filter="url(#bf-glow)"
+                      pathLength={1}
+                    />
+                    <path
+                      d={d}
+                      stroke={theme.body}
+                      strokeWidth={w}
+                      className="bf-line-body"
+                      pathLength={1}
+                    />
+                    <path
+                      d={d}
+                      stroke={theme.core}
+                      strokeWidth={w * 0.35}
+                      className="bf-line-core"
+                      pathLength={1}
+                    />
+                    {pointed && (
+                      <polygon
+                        points={arrowHead(route, head)}
+                        fill={theme.body}
+                        stroke={theme.core}
+                        strokeWidth={w * 0.3}
+                        strokeLinejoin="round"
+                        className="bf-line-head"
+                        style={{ transformOrigin: `${tip.x}px ${tip.y}px` }}
+                      />
+                    )}
+                    {line.kind === "attach" && (
+                      <g fill={theme.core} stroke={theme.body}>
+                        <circle cx={first.start.x} cy={first.start.y} r={w * 1.6} />
+                        <circle cx={tip.x} cy={tip.y} r={w * 1.6} />
+                      </g>
+                    )}
+                  </>
                 )}
                 {/* Spec 0063: a pile's one arrow says how many it stands for. */}
                 {chip && (
@@ -3301,6 +3558,40 @@ export function Board({
                     </text>
                   </g>
                 )}
+              </g>
+            );
+          })}
+          {/* Spec 0066, item 4 (2 · Crossed swords): a mark between each
+              fighting pair, all combat long; pointing at an attacker
+              brightens its fights and dims the rest. */}
+          {swords.map((m) => {
+            const lead = drawn(m.attacker);
+            const hot = aimed !== null && aimed === lead;
+            const dim = aimed !== null && !hot;
+            return (
+              <g
+                key={`swords:${m.key}`}
+                className={`bf-swords${hot ? " bf-swords-hot" : ""}${dim ? " bf-swords-dim" : ""}`}
+                data-key={`swords:${m.key}`}
+                data-swords={m.key}
+                data-attacker={m.attacker}
+                data-blocker={m.blocker}
+                transform={`translate(${m.at.x.toFixed(1)} ${m.at.y.toFixed(1)})`}
+                style={{ ["--swords-delay" as string]: `${MOVE_MS}ms` }}
+              >
+                <g transform={`scale(${(m.r / 11).toFixed(3)})`} data-r={m.r.toFixed(1)}>
+                  <g className="bf-swords-mark">
+                    <circle className="bf-swords-spark" r={10} />
+                    <circle r={11} fill="#141c26" stroke="#6cc6ff" strokeWidth={1.6} />
+                    {[45, -45].map((turn) => (
+                      <g key={turn} transform={`rotate(${turn})`}>
+                        <path d="M0 -8.5 L1.3 -6.8 L1.3 3 L-1.3 3 L-1.3 -6.8 Z" fill="#e4f5ff" />
+                        <rect x={-3.6} y={3} width={7.2} height={1.6} rx={0.8} fill="#e0a44a" />
+                        <rect x={-0.9} y={4.6} width={1.8} height={3.2} fill="#b98a4a" />
+                      </g>
+                    ))}
+                  </g>
+                </g>
               </g>
             );
           })}

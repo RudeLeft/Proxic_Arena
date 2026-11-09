@@ -284,17 +284,20 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
       t.textContent,
     ]);
 
-  it("Died: rides on the creature from the table, after its shatter, to the graveyard", () => {
+  // Spec 0066, item 6: the game no longer tags a death on the battlefield
+  // ("Died", "Destroyed", "Sacrificed" are gone; fixes0066 checks none is
+  // drawn). The page still carries any tag the game gives a table card.
+  it("a table card's tag rides on it, after its shatter, to the graveyard", () => {
     const view = render(draw());
     calls.length = 0;
     view.rerender(
       draw(
         start.battlefield.filter((c) => c.id !== bears.id),
         start.hand,
-        new Map([[bears.id, "Died"]]),
+        new Map([[bears.id, "Countered by Negate"]]),
       ),
     );
-    expect(tags(view.container)).toEqual([[bears.id, "Died"]]);
+    expect(tags(view.container)).toEqual([[bears.id, "Countered by Negate"]]);
     const tag = view.container.querySelector("[data-grave-tag]")!;
     expect(tag.classList.contains("bf-return-tag")).toBe(true); // A-14's look
     const run = calls.find((c) => c.element === tag)!;

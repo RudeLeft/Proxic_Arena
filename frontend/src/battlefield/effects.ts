@@ -111,34 +111,44 @@ export function pathOf(c: Curve | Route): string {
   );
 }
 
-// --- spec 0063: "ride the middle" (owner 2026-11-07, curve B) ---------------
+// --- spec 0066: A · Soft arc (owner 2026-11-08) -------------------------------
 
 /**
  * A line made of cubic pieces end to end (each piece starts where the one
- * before ends, in the direction it ended in).
+ * before ends, in the direction it ended in). A soft arc is one piece.
  */
 export type Route = readonly Curve[];
 
 /**
  * One end of a line: where it is, and `out`, the unit direction pointing
- * away from what it belongs to -- the way the line leaves a start, and the
- * way a line comes in from at an end (it then travels along -out).
+ * away from what it belongs to -- the way the line leaves a start.
  */
 export interface Port {
   at: Point;
   out: Point;
 }
 
-/** How long, in card heights, a line takes to turn from a card's edge into the middle. */
-export const RIDE_ELBOW = 0.36;
 /** How far off its target a line's tip stops, in card heights (a hair's gap, as the canvas). */
 export const TIP_GAP = 0.03;
+/**
+ * Spec 0066 (the canvas "arrows-1108", look A): how high an arc rises off
+ * the table -- this share of the distance it travels, never lower than
+ * ARC_LOW nor higher than ARC_HIGH card heights (the canvas's 20..92 px on
+ * its 86-px cards).
+ */
+export const ARC_RISE = 0.26;
+export const ARC_LOW = 0.23;
+export const ARC_HIGH = 1.07;
+/** Spec 0066, item 2 -- the stud a stack card's arrow leaves from: its left edge, at the picture. */
+export const STUD_AT = 0.45;
+/** Where the thread back to an ability's source meets its stack card: the left edge, under the badges. */
+export const SOURCE_AT = 0.22;
 
 /**
  * A card's edge facing the middle of the table -- the top edge of a card on
  * your side, the bottom edge on the other -- at its middle, on the frame
  * (tilt included), and the way out of it, toward the middle. `off` moves
- * it that far out (a line's tip stops a hair off the card).
+ * it that far out. An attack arrow leaves from here.
  */
 export function facingPort(
   box: Box,
@@ -170,101 +180,579 @@ export function shownShare(slots: readonly Slot[], lead: string): number {
 }
 
 /**
- * A life circle (centre `ring`), from the table's side: a line comes in
- * from where it leaves the middle (the play area's edge, `g.rail.x`) and
- * stops `off` from the centre -- outside the circle, never over the total.
+ * Spec 0066 -- where an arc lands on a card: the middle of its top edge as
+ * drawn (the highest of its corners, tilt included), `off` above it. Every
+ * arc comes down onto the top of what it points at, as the canvas does.
  */
-export function lifePort(ring: Point, g: Geometry, off: number): Port {
-  const dx = g.rail.x - ring.x;
-  const dy = g.height / 2 - ring.y;
-  const len = Math.max(0.001, Math.hypot(dx, dy));
-  const out = { x: dx / len, y: dy / len };
-  return { at: { x: ring.x + out.x * off, y: ring.y + out.y * off }, out };
+export function topOf(box: Box, origin: { x: number; y: number }, off = 0): Point {
+  const corners = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ].map(([fx, fy]) => pointOn(box, origin, fx!, fy!));
+  const centre = centreOf(box, origin);
+  return { x: centre.x, y: Math.min(...corners.map((c) => c.y)) - off };
 }
 
-const straight = (a: Point, b: Point): Curve => ({
-  start: a,
-  c1: { x: a.x + (b.x - a.x) / 3, y: a.y + (b.y - a.y) / 3 },
-  c2: { x: a.x + ((b.x - a.x) * 2) / 3, y: a.y + ((b.y - a.y) * 2) / 3 },
-  end: b,
-});
+/** How high an arc that travels `dist` rises (spec 0066: higher the further it goes). */
+export function arcLift(dist: number, cardH: number): number {
+  return Math.min(ARC_HIGH * cardH, Math.max(ARC_LOW * cardH, dist * ARC_RISE));
+}
 
 /**
- * Spec 0063, curve B (the canvas "arrows-1107"): a line leaves its card's
- * edge straight out, turns into the open strip along the middle of the
- * table (y = `middle`, between the two front lines), rides it, and turns
- * out of it to land straight onto its end. Each card's turn is the same
- * shape, decided only by where the card and its target are, so the same
- * board always draws the same line, and lines from one row to one target
- * all join the same ride (they meet, never cross). `via`, if given, is
- * where along the middle the landing begins (a player's life circle, in
- * the rail: the line leaves the middle at the play area's edge); else the
- * landing turns in from the middle toward the end's edge as the start's
- * turn does. `cardH` scales the turns.
+ * Spec 0066, A · Soft arc (the canvas "arrows-1108"): one smooth curve
+ * that rises off the table like a thrown ball and comes down onto its end.
+ * One cubic piece whose two handles both sit `lift` up the screen from the
+ * straight line, so every arc bends the same way (up) and has no corner;
+ * higher the further it travels (`arcLift`). It leaves its card outward:
+ * from a card's side (a stack card's stud) straight out and rising; from
+ * a top edge rising; from a bottom edge (the other player's attacker) it
+ * never turns back up over the card it leaves. It always comes DOWN onto
+ * its end, from above.
  */
-export function ride(start: Port, end: Port, middle: number, cardH: number, via?: number): Route {
+export function arc(
+  start: Port,
+  end: Point,
+  cardH: number,
+  lift?: number,
+  clear?: Clear,
+  avoid?: readonly Point[],
+): Route {
   const s = start.at;
-  const e = end.at;
-  const vertical = (p: Port) => Math.abs(p.out.y) > 0.7;
-  const goal = via ?? e.x;
-  const h = Math.sign(goal - s.x) || 1;
-  const room = Math.max(0, h * (goal - s.x));
-  const vEnd = Math.abs(e.y - middle);
-  // Each turn wants RIDE_ELBOW of a card height along the middle (more for
-  // a far edge); when the two ends are closer than that, they share it.
-  let e1 = RIDE_ELBOW * cardH;
-  let e2 = via === undefined ? Math.max(RIDE_ELBOW * cardH, vEnd * 0.6) : 0;
-  if (e1 + e2 > room) {
-    const k = room / Math.max(0.001, e1 + e2);
-    e1 *= k;
-    e2 *= k;
+  const dx = end.x - s.x;
+  const dy = end.y - s.y;
+  const dist = Math.hypot(dx, dy);
+  const up = lift ?? arcLift(dist, cardH);
+  // Coming down onto the end: the second handle is above it.
+  let r2 = Math.max(up, 0.2 * cardH - 0.22 * dy);
+  const piece = (c1: Point): Curve => ({
+    start: s,
+    c1,
+    c2: { x: s.x + dx * 0.78, y: s.y + dy * 0.78 - r2 },
+    end,
+  });
+  if (Math.abs(start.out.x) > 0.7) {
+    // From a card's side (a stack card's stud): straight out, rising --
+    // kept only while it still bends one way (convex handles).
+    if (start.out.x * dx > 0) {
+      const c2y = s.y + dy * 0.78 - r2;
+      const x = s.x + start.out.x * Math.max(0.33 * cardH, Math.abs(dx) * 0.3);
+      // Kept above the line to the second handle: rising all the way.
+      const share = Math.min(1, (x - s.x) / (dx * 0.78));
+      // (Rising less toward a target well below: it is mostly a fall.)
+      const rise = up * 0.55 * Math.min(1, Math.max(0.25, Math.abs(dx) / Math.max(1, dy)));
+      const y = Math.min(s.y - rise, s.y + (c2y - s.y) * share - 0.08 * cardH);
+      // Landing as the canvas did; else (it would cut its target's corner)
+      // coming down more steeply onto it.
+      for (const along of [0.78, 0.9, 0.97]) {
+        const side: Curve = { start: s, c1: { x, y }, c2: { x: s.x + dx * along, y: c2y }, end };
+        if (oneBend(side) && !(avoid && crosses(side, avoid))) return [side];
+      }
+      if (avoid && end.y < s.y) {
+        // Its target close beside the card it leaves, and higher: straight
+        // up past it first, then over and down onto its top.
+        let top = Math.min(s.y, end.y) - 0.3 * cardH;
+        const climb = (y: number): Curve => ({
+          start: s,
+          c1: { x: s.x + start.out.x * Math.min(0.5 * cardH, Math.abs(dx) * 0.02), y },
+          c2: { x: end.x - dx * 0.5, y },
+          end,
+        });
+        for (let i = 0; i < 40 && crosses(climb(top), avoid) && top > 0.15 * cardH; i++)
+          top -= 0.1 * cardH;
+        if (!crosses(climb(top), avoid)) return [climb(top)];
+        // Right above the stud: round one side of it (the left, else the
+        // right, under the stack), over, and down onto it.
+        const roof = Math.max(0.15 * cardH, Math.min(...avoid.map((q) => q.y)) - 0.6 * cardH);
+        for (const far of [
+          Math.min(...avoid.map((q) => q.x)) - 0.5 * cardH,
+          Math.max(...avoid.map((q) => q.x)) + 0.5 * cardH,
+        ]) {
+          const around: Curve = {
+            start: s,
+            c1: { x: far, y: roof },
+            c2: { x: end.x + (far - end.x) * 0.15, y: roof },
+            end,
+          };
+          if (!crosses(around, avoid)) return [around];
+        }
+      }
+    } else {
+      // Its end behind the stack it leaves (a life circle in the rail,
+      // beyond the stack): spec 0066 (owner, 2026-11-08) -- never behind a
+      // stack card on its way. Out from the stud, away from the stack, and
+      // round it: over its top (`clear.top`) to a circle above the stack's
+      // middle, under its caption (`clear.bottom`) to one below; then onto
+      // the circle.
+      const over = clear?.top;
+      const below = clear !== undefined && end.y > (clear.top + clear.bottom) / 2;
+      const climb = clear ? Math.abs(s.y - (below ? clear.bottom : clear.top)) : 0;
+      const hook = (y: number): Curve => ({
+        start: s,
+        c1: {
+          x:
+            s.x +
+            start.out.x *
+              Math.max(
+                0.5 * cardH,
+                climb * 0.6,
+                below && clear?.captionLeft !== undefined
+                  ? s.x - clear.captionLeft + 0.3 * cardH
+                  : 0,
+                // (Wide of the badges beside the cards' name bars.)
+                clear?.badges?.length ? s.x - leftOf(clear.badges) + 0.6 * cardH : 0,
+              ),
+          // (Out to the side first, under the badges, then up.)
+          y: clear?.badges?.length && !below ? s.y - (s.y - y) * 0.2 : y,
+        },
+        c2: { x: end.x - dx * 0.04, y },
+        end,
+      });
+      // Round the stack: no point past the stud inside its rows.
+      const inside = (c: Curve) => clear !== undefined && throughStack(c, start, clear, cardH);
+      if (below && avoid) {
+        // A permanent below the stack's foot: under the caption, then down
+        // onto its top (else, with no room, the plain arc below).
+        const low = clear.bottom + 0.15 * cardH;
+        const c = hook(low);
+        if (low < end.y - 0.1 * cardH && !inside(c) && !crosses(c, avoid) && oneBend(c)) return [c];
+      } else if (below) {
+        // Out to the left of the stack and its caption, down past them,
+        // and round under the caption onto the circle.
+        // The first shape that clears them, lowest first.
+        const edge = Math.min(s.x, clear.captionLeft ?? s.x);
+        const under = (y: number, out: number, down: number, along: number): Curve => {
+          const left = edge - out * cardH;
+          return {
+            start: s,
+            c1: { x: left, y: s.y + (y - s.y) * down },
+            c2: { x: left + (end.x - left) * along, y },
+            end,
+          };
+        };
+        let first: Curve | null = null;
+        for (let i = 0; i < 12 && !first; i++) {
+          const low = clear.bottom + (0.3 + 0.15 * i) * cardH;
+          for (const out of [0.8, 1.4])
+            for (const down of [0.3, 0.6, 0.9])
+              for (const along of [0.9, 0.75, 0.55, 0.35]) {
+                const c = under(low, out, down, along);
+                if (!first && !inside(c) && oneBend(c)) first = c;
+              }
+        }
+        return [first ?? under(clear.bottom + 2 * cardH, 1.4, 0.9, 0.35)];
+      } else {
+        // (Never off the top of the board: the other player's life circle
+        // sits near it.)
+        let top = Math.max(
+          0.15 * cardH,
+          Math.min(Math.min(s.y, end.y) - up * 0.55, end.y - 0.2 * cardH),
+        );
+        for (let i = 0; i < 40 && over !== undefined && top > 0.15 * cardH; i++) {
+          if (!inside(hook(top))) break;
+          top -= 0.1 * cardH;
+        }
+        return [hook(top)];
+      }
+    }
   }
-  const p1 = { x: s.x + h * e1, y: middle };
-  const p2 = { x: goal - h * e2, y: middle };
-  const lead = vertical(start) ? Math.abs(middle - s.y) * 0.55 : e1 * 0.45;
-  const pieces: Curve[] = [
-    {
-      start: s,
-      c1: { x: s.x + start.out.x * lead, y: s.y + start.out.y * lead },
-      c2: { x: p1.x - h * e1 * 0.55, y: middle },
-      end: p1,
-    },
-  ];
-  if (Math.abs(p2.x - p1.x) > 0.5) pieces.push(straight(p1, p2));
-  if (via === undefined) {
-    const tail = vertical(end) ? vEnd * 0.55 : e2 * 0.45;
-    pieces.push({
-      start: p2,
-      c1: { x: p2.x + h * e2 * 0.55, y: middle },
-      c2: { x: e.x + end.out.x * tail, y: e.y + end.out.y * tail },
-      end: e,
-    });
-  } else {
-    // Into a life circle: out of the middle, then straight along `out`.
-    const far = Math.hypot(e.x - p2.x, e.y - p2.y);
-    pieces.push({
-      start: p2,
-      c1: { x: p2.x + h * Math.abs(e.x - p2.x) * 0.5, y: middle },
-      c2: { x: e.x + end.out.x * far * 0.45, y: e.y + end.out.y * far * 0.45 },
-      end: e,
-    });
-  }
-  return pieces;
+  // The handles both lifted off the straight line; one bend while neither
+  // is under 0.282 of the other (the turns at both handles agree).
+  let r1 = up;
+  if (start.out.y > 0) {
+    // From a bottom edge it never turns back up over its card: it leaves
+    // level at most, and the landing flattens to keep one bend.
+    // (Below a tilted card's edge -- 5 degrees -- 0.1 of the way across at least; and a
+    // first handle a tenth of the way long, so a steep fall has no kink.)
+    const drop = Math.max(
+      0.022 * Math.abs(dx),
+      Math.sqrt(Math.max(0, (0.1 * dist) ** 2 - (0.22 * dx) ** 2)),
+    );
+    r1 = Math.min(up, Math.max(0, 0.22 * dy - drop));
+    r2 = Math.min(r2, r1 / 0.282);
+  } else r1 = Math.max(r1, 0.282 * r2);
+  return [piece({ x: s.x + dx * 0.22, y: s.y + dy * 0.22 - r1 })];
 }
 
-/** A plain line that leaves `start` straight out and lands straight along `end.out`. */
-export function swing(start: Port, end: Port): Route {
+/**
+ * Spec 0066 -- does an arc from a stud pass behind the stack (past the
+ * stud, within its rows) or under its caption?
+ */
+function throughStack(c: Curve, start: Port, clear: Clear, cardH: number): boolean {
   const s = start.at;
-  const e = end.at;
-  const d = Math.hypot(e.x - s.x, e.y - s.y) * 0.35;
+  const m = 0.05 * cardH;
+  return routePoints([c], 64).some(
+    (p) =>
+      ((p.x - s.x) * -start.out.x > 0 && p.y > clear.top && p.y < clear.bottom + m) ||
+      (clear.captionLeft !== undefined &&
+        p.x > clear.captionLeft - m &&
+        p.y > (clear.captionTop ?? clear.bottom) &&
+        p.y < clear.bottom + m) ||
+      // (Its way out, level with the stud: a card further back has its
+      // stud in the badges' column.)
+      (Math.abs(p.y - s.y) > 0.15 * cardH &&
+        (clear.badges ?? []).some(
+          (b) => p.x > b.x0 - m && p.x < b.x1 && p.y > b.y0 - m && p.y < b.y1 + m,
+        )),
+  );
+}
+
+/** A rectangle on the board, an arc must not enter (a player's plate's picture, name or tiles). */
+export interface Rect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** The left edge of the leftmost rectangle (`fallback` for none). */
+function leftOf(rects: readonly Rect[] | undefined, fallback = Infinity): number {
+  return Math.min(fallback, ...(rects ?? []).map((r) => r.x0));
+}
+
+/** Does a curve enter any of these rectangles? */
+export function entersAny(c: Curve, rects: readonly Rect[]): boolean {
+  return routePoints([c], 64).some((p) =>
+    rects.some((r) => p.x > r.x0 && p.x < r.x1 && p.y > r.y0 && p.y < r.y1),
+  );
+}
+
+/** Does a curve pass over a card (its four corners, in order), more than 2 px in? */
+function crosses(c: Curve, poly: readonly Point[]): boolean {
+  const sign = Math.sign(
+    (poly[1]!.x - poly[0]!.x) * (poly[2]!.y - poly[0]!.y) -
+      (poly[1]!.y - poly[0]!.y) * (poly[2]!.x - poly[0]!.x),
+  );
+  return routePoints([c], 48).some((p) =>
+    poly.every((a, i) => {
+      const b = poly[(i + 1) % poly.length]!;
+      const len = Math.max(1e-9, Math.hypot(b.x - a.x, b.y - a.y));
+      return (sign * ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x))) / len > 2;
+    }),
+  );
+}
+
+/** The four corners of a card as drawn (tilt included), in order. */
+export function cornersOf(box: Box, origin: { x: number; y: number }): Point[] {
   return [
-    {
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ].map(([fx, fy]) => pointOn(box, origin, fx!, fy!));
+}
+
+/**
+ * Spec 0066 -- what an arrow from a stack card's stud goes round: the
+ * stack's rows (`top` to `bottom`, from the stud rightward) and its caption
+ * (from `captionLeft`, below `captionTop`).
+ */
+export interface Clear {
+  top: number;
+  bottom: number;
+  captionLeft?: number;
+  captionTop?: number;
+  /** The number and face badges beside the stack cards' name bars. */
+  badges?: readonly Rect[];
+}
+
+/** A cubic's handles turn the same way at both (no S-bend): its control polygon is convex. */
+function oneBend(c: Curve): boolean {
+  const turn = (a: Point, b: Point, d: Point) =>
+    (b.x - a.x) * (d.y - b.y) - (b.y - a.y) * (d.x - b.x);
+  const t1 = turn(c.start, c.c1, c.c2);
+  const t2 = turn(c.c1, c.c2, c.end);
+  // ...and never doubles back on itself at a handle (a cusp).
+  const open = (a: Point, b: Point, d: Point) => {
+    const u = { x: b.x - a.x, y: b.y - a.y };
+    const v = { x: d.x - b.x, y: d.y - b.y };
+    return (u.x * v.x + u.y * v.y) / Math.max(1e-9, Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y));
+  };
+  return t1 * t2 > 0 && open(c.start, c.c1, c.c2) > -0.35 && open(c.c1, c.c2, c.end) > -0.35;
+}
+
+/**
+ * Spec 0066 -- an arc into a life circle (centre `ring`): aimed at the
+ * centre, it stops on the rim `r` out, on the side it comes down from --
+ * never over the total.
+ */
+export function arcToRing(
+  start: Port,
+  ring: Point,
+  r: number,
+  cardH: number,
+  clear?: Clear,
+  keepOut: readonly Rect[] = [],
+): Route {
+  // Owner, 2026-11-08 ("tighter path"): from a stack card's stud to a
+  // circle beyond the stack, the tightest clear way round it.
+  if (clear && Math.abs(start.out.x) > 0.7 && (ring.x - start.at.x) * start.out.x < 0) {
+    const tight = studRound(start, ring, r, cardH, clear, keepOut);
+    if (tight) return tight;
+  }
+  const aimed = arc(start, ring, cardH, undefined, clear)[0]!;
+  const rim = ringEdge(ring, aimed.c2, r);
+  const first = arc(start, rim, cardH, undefined, clear);
+  if (keepOut.length === 0 || !entersAny(first[0]!, keepOut)) return first;
+  // A stack card's arrow to a circle below the stack's foot (your own, under
+  // the stack): out left of the stack and its caption, round under the
+  // caption, and down onto the circle's top -- two pieces, the second its
+  // landing turn (2026-11-08 review: never across the plate's picture).
+  if (clear && Math.abs(start.out.x) > 0.7 && ring.y > clear.bottom) {
+    const s = start.at;
+    const end = { x: ring.x, y: ring.y - r };
+    const left = Math.min(s.x, clear.captionLeft ?? s.x) - 0.25 * cardH;
+    for (const d of [0.35, 0.25, 0.5, 0.15]) {
+      const w = {
+        x: left,
+        y: Math.max(
+          clear.bottom + 0.12 * cardH,
+          Math.min(clear.bottom + d * cardH, end.y - 0.25 * cardH),
+        ),
+      };
+      const round: Curve = {
+        start: s,
+        c1: { x: s.x + start.out.x * Math.max(0.6 * cardH, (s.x - w.x) * 1.8), y: s.y },
+        c2: { x: w.x - 0.5 * cardH, y: w.y },
+        end: w,
+      };
+      const reach = Math.max(0.3 * cardH, Math.min(0.6 * cardH, end.y - w.y));
+      const down: Curve = {
+        start: w,
+        c1: { x: w.x + (end.x - w.x) * 0.45, y: w.y },
+        c2: { x: end.x, y: end.y - reach },
+        end,
+      };
+      if (
+        [round, down].every((c) => !entersAny(c, keepOut) && !throughStack(c, start, clear, cardH))
+      )
+        return [round, down];
+    }
+  }
+  // Spec 0066 (2026-11-08 review): never across a player's picture, name or
+  // tiles -- come in onto the circle from another side, from straight
+  // above first, landing along the circle's own radius.
+  for (const deg of [-90, -70, -110, -50, -130, -30, -150, -10, -170]) {
+    const a = (deg * Math.PI) / 180;
+    const n = { x: Math.cos(a), y: Math.sin(a) };
+    const end = { x: ring.x + n.x * r, y: ring.y + n.y * r };
+    const base = arc(start, end, cardH, undefined, clear)[0]!;
+    const far = Math.hypot(end.x - start.at.x, end.y - start.at.y);
+    for (const k of [0, 0.15, 0.3, 0.5])
+      for (const lift of [0, 0.5, 1, -0.3, -0.6, -1])
+        for (const cx of [base.c1.x, start.at.x]) {
+          let reach = Math.max(0.3 * cardH, far * k);
+          // (Not off the board's top: the other player's circle is near it.)
+          if (n.y < 0) reach = Math.min(reach, (end.y - 2) / -n.y);
+          const c2 = { x: end.x + n.x * reach, y: end.y + n.y * reach };
+          // (Rising sooner, to pass over a plate near the board's top.)
+          const high = Math.min(c2.y, end.y);
+          // (Or, round the stack's foot, dipping lower: under its caption.)
+          const c1 =
+            lift >= 0
+              ? { x: cx, y: base.c1.y + Math.min(0, high - base.c1.y) * lift }
+              : {
+                  x: cx,
+                  y: Math.max(base.c1.y, (clear?.bottom ?? base.c1.y) - lift * cardH),
+                };
+          const c: Curve = { ...base, c1, c2 };
+          // Round the stack's foot to a circle below it, the arrow can come
+          // down onto it only with a second, gentle turn at its landing.
+          const landing = clear !== undefined && end.y > clear.bottom && n.y < 0;
+          // (Out of its card, never back over it.)
+          const outward =
+            Math.abs(start.out.y) > 0.7 ? (c1.y - start.at.y) * start.out.y >= 0 : true;
+          if (
+            outward &&
+            (oneBend(c) || landing) &&
+            !entersAny(c, keepOut) &&
+            !(clear && throughStack(c, start, clear, cardH)) &&
+            routePoints([c], 32).every((p) => p.y > 0)
+          )
+            return [c];
+        }
+  }
+  // Else over the plate: up to a point just above its head and left of
+  // it, then along and down onto the circle's top -- two pieces, both
+  // turning the same way (a corner of the plate rounded, not crossed).
+  const head = keepOut.find((k) => ring.y > k.y0 && ring.y < k.y1);
+  if (head) {
+    const s = start.at;
+    const end = { x: ring.x, y: ring.y - r };
+    const w = {
+      x: Math.min(head.x0 - 0.1 * cardH, Math.max(head.x0 - 0.3 * cardH, s.x + 0.1 * cardH)),
+      y: head.y0 - Math.min(0.3 * cardH, head.y0 / 2),
+    };
+    const bend = { x: w.x - Math.max(0.5 * cardH, (w.x - s.x) * 0.4), y: w.y };
+    const rise: Curve = {
       start: s,
-      c1: { x: s.x + start.out.x * d, y: s.y + start.out.y * d },
-      c2: { x: e.x + end.out.x * d, y: e.y + end.out.y * d },
-      end: e,
-    },
-  ];
+      c1:
+        Math.abs(start.out.x) > 0.7
+          ? {
+              x: Math.min(s.x - 0.4 * cardH, leftOf(clear?.badges, s.x) - 0.6 * cardH),
+              y: s.y,
+            }
+          : { x: start.out.y < 0 ? Math.min(s.x, bend.x) : s.x, y: s.y - (s.y - w.y) * 0.5 },
+      c2: bend,
+      end: w,
+    };
+    const reach = Math.max(0.1 * cardH, Math.min(0.5 * cardH, end.y - w.y));
+    const land: Curve = {
+      start: w,
+      c1: { x: w.x + (end.x - w.x) * 0.5, y: w.y },
+      c2: { x: end.x, y: end.y - reach },
+      end,
+    };
+    if (
+      [rise, land].every(
+        (c) => !entersAny(c, keepOut) && !(clear && throughStack(c, start, clear, cardH)),
+      )
+    )
+      return [rise, land];
+    // From a stack card's stud: first out to the side under the badges,
+    // to a point left of them, then up and over, then down -- three
+    // pieces, all turning the same way.
+    if (Math.abs(start.out.x) > 0.7) {
+      const b = 0.3 * cardH;
+      const side = Math.min(s.x - b, leftOf(clear?.badges, s.x) - 0.8 * cardH);
+      // (Up past the badges' left side, to above them.)
+      const p = {
+        x: side,
+        y: Math.min(s.y - b, Math.min(s.y, ...(clear?.badges ?? []).map((q) => q.y0)) - b),
+      };
+      const lead: Curve = {
+        start: s,
+        c1: { x: s.x + start.out.x * Math.max(b, (s.x - side) * 0.8), y: s.y },
+        c2: { x: p.x, y: p.y + (s.y - p.y) * 0.85 },
+        end: p,
+      };
+      const up: Curve = {
+        start: p,
+        c1: { x: p.x, y: p.y - Math.max(b, (p.y - w.y) * 0.4) },
+        c2: bend,
+        end: w,
+      };
+      if (
+        [lead, up, land].every(
+          (c) => !entersAny(c, keepOut) && !(clear && throughStack(c, start, clear, cardH)),
+        )
+      )
+        return [lead, up, land];
+    }
+  }
+  return first;
+}
+
+/**
+ * Owner, 2026-11-08 ("tighter path") -- a stack card's arrow to a life
+ * circle beyond the stack: out level from the stud to just past the
+ * badges' column (`STUD_CLEAR` card heights), then straight up past the
+ * stack's top (or down past its caption), over (or under) to the plate,
+ * and onto the circle's top from above, never over the plate's picture,
+ * name or tiles. Three pieces, each corner rounded. Null when it cannot
+ * be done clear of them.
+ */
+export const STUD_CLEAR = 0.2;
+function studRound(
+  start: Port,
+  ring: Point,
+  r: number,
+  cardH: number,
+  clear: Clear,
+  keepOut: readonly Rect[],
+): Route | null {
+  const s = start.at;
+  const end = { x: ring.x, y: ring.y - r };
+  // (Going under the caption needs room to turn under its corner.)
+  const x =
+    Math.min(s.x, leftOf(clear.badges, s.x), clear.captionLeft ?? s.x) - 2 * STUD_CLEAR * cardH;
+  // (`x`: badges first, the caption too when going under it.)
+  const above = end.y < clear.top;
+  const lane = above ? Math.min(s.x, leftOf(clear.badges, s.x)) - STUD_CLEAR * cardH : x;
+  const head = keepOut.find((k) => ring.y > k.y0 && ring.y < k.y1);
+  // The level the arrow crosses to the plate at: over the stack (and over
+  // the plate's head, for the top circle), or under the caption -- as close
+  // to it as stays clear.
+  for (const gap of [0.15, 0.25, 0.35])
+    for (const k of [0.7, 0.9, 1]) {
+      const level = above
+        ? Math.min(clear.top, head ? head.y0 : clear.top) - gap * cardH
+        : clear.bottom + gap * cardH;
+      if (level <= 0.05 * cardH || (!above && level > end.y - 0.15 * cardH)) continue;
+      const turn = Math.min(0.4 * cardH, Math.abs(s.y - level) / 3);
+      const p = { x: lane, y: s.y + (above ? -turn : turn) };
+      const out: Curve = {
+        start: s,
+        c1: { x: lane, y: s.y },
+        c2: { x: lane, y: s.y + (p.y - s.y) * 0.5 },
+        end: p,
+      };
+      const w = {
+        x: head ? Math.min(head.x0 - 0.15 * cardH, (lane + end.x) / 2) : (lane + end.x) / 2,
+        y: level,
+      };
+      const go = Math.abs(level - p.y);
+      const rise: Curve = {
+        start: p,
+        c1: { x: lane, y: p.y + (above ? -1 : 1) * go * k },
+        c2: { x: lane + (w.x - lane) * (1.15 - k), y: level },
+        end: w,
+      };
+      const drop = Math.max(0.1 * cardH, end.y - level);
+      const land: Curve = {
+        start: w,
+        c1: { x: w.x + (end.x - w.x) * 0.5, y: level },
+        c2: { x: end.x, y: end.y - drop * 0.7 },
+        end,
+      };
+      const route = [out, rise, land];
+      if (
+        route.every((c) => !entersAny(c, keepOut) && !throughStack(c, start, clear, cardH)) &&
+        routePoints(route, 24).every((q) => q.y > 0)
+      )
+        return route;
+    }
+  return null;
+}
+
+/**
+ * Spec 0066 -- how far up off the felt an arc flies at its highest: its
+ * shadow on the felt falls about this far below it.
+ */
+export function arcHeight(r: Route): number {
+  const c = r[0]!;
+  const last = r[r.length - 1]!;
+  let most = 0;
+  for (let i = 1; i < 16; i++) {
+    const t = i / 16;
+    const p = bez(c, t);
+    const chordY = c.start.y + (last.end.y - c.start.y) * t;
+    most = Math.max(most, chordY - p.y);
+  }
+  return most;
+}
+
+/**
+ * Spec 0066 -- the soft shadow on the felt under a lifted arc: the arc's
+ * own points moved down (and a little right) by how high it is there --
+ * nothing at its ends, most at its middle (the canvas's `shadow`).
+ */
+export function arcShadow(r: Route, depth: number): string {
+  const pts = routePoints(r, 30);
+  const lengths = [0];
+  for (let i = 1; i < pts.length; i++)
+    lengths.push(
+      lengths[i - 1]! + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y),
+    );
+  const total = Math.max(0.001, lengths[lengths.length - 1]!);
+  const n = (v: number) => Math.round(v * 10) / 10;
+  return pts
+    .map((p, i) => {
+      const h = Math.sin((Math.PI * lengths[i]!) / total) * depth;
+      return `${i ? "L" : "M"} ${n(p.x + h * 0.35)} ${n(p.y + h * 0.9)}`;
+    })
+    .join(" ");
 }
 
 const bez = (c: Curve, t: number): Point => {
@@ -406,6 +894,46 @@ export function stackSpotBoxes(g: Geometry, count: number, scale = STACK_SCALE):
     rotation: 0,
     z: 0,
   }));
+}
+
+/**
+ * Spec 0066 -- the bottom of the stack's caption ("Next: ..."), under its
+ * front card: an arrow to a life circle beyond the stack passes below it.
+ */
+export function stackCaptionBottom(front: Box, g: Geometry): number {
+  return front.y + front.h + g.cardH * 0.05 + Math.max(11, g.cardH * 0.085) * 1.9;
+}
+
+/**
+ * Spec 0066 -- where each stack card's number and face badges are drawn
+ * (Board.tsx's `.bf-stack-tag`: two badges 0.15 card heights each and
+ * 4 px apart, at 1.5x whatever the stack's size, 4 px left of the card,
+ * at its top; a little room for a "×N" chip).
+ */
+export function stackBadgeRects(spots: readonly Box[], cardH: number): Rect[] {
+  return spots.map((b) => {
+    const right = b.x - 4 * b.scale;
+    const y0 = b.y + b.h * 0.01;
+    return {
+      x0: right - (0.3 * cardH + 4) * 1.5 - 0.05 * cardH,
+      x1: right,
+      y0,
+      y1: y0 + 0.15 * cardH * 1.5,
+    };
+  });
+}
+
+/**
+ * Spec 0066 -- the height of stack card `index`'s stud: at the picture
+ * (STUD_AT), or -- a card further back, whose stud would sit on a front
+ * card's badges -- just below those badges.
+ */
+export function studY(spots: readonly Box[], index: number, cardH: number): number {
+  const box = spots[index]!;
+  let y = box.y + box.h * STUD_AT;
+  for (const b of stackBadgeRects(spots, cardH))
+    if (y > b.y0 - 0.06 * cardH && y < b.y1 + 0.06 * cardH) y = b.y1 + 0.08 * cardH;
+  return y;
 }
 
 /** Where a line from inside an upright box toward `toward` leaves its edge. */

@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  * lists do show it (`otherHands`: Forge's own permission, Mindslaver or a
  * revealed hand). A card that no longer exists (a token gone from the
  * battlefield) is in no hidden zone, and keeps its id: the page still flies
- * it to the graveyard with its "Died" tag.
+ * it to the graveyard (its why, "died", for the shatter).
  */
 final class HiddenIds {
 

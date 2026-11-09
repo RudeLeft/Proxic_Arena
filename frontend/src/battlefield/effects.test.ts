@@ -1,25 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { geometry, inCombat, layout, TAPPED_ORIGIN, type Box } from "./layout";
 import {
+  arc,
+  arcHeight,
+  arcLift,
+  arcToRing,
+  ARC_HIGH,
+  ARC_LOW,
   arrowHead,
+  entersAny,
   curve,
   facingPort,
-  lifePort,
   pathOf,
   pointOn,
   rectEdge,
-  ride,
   ringEdge,
   routePoints,
   shownShare,
+  STUD_AT,
+  stackBadgeRects,
+  studY,
   TIP_GAP,
+  topOf,
+  type Route,
   STACK_READ_SCALE,
+  STACK_SCALE,
+  stackCaptionBottom,
   stackSpotBoxes,
   STACK_PEEK,
   STACK_PEEK_MIN,
 } from "./effects";
 import { combatScript } from "./fixture";
-import { anchors, LIFE_R } from "./motion";
+import { anchors, LIFE_R, plateRects } from "./motion";
 import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
 
 /**
@@ -115,14 +127,15 @@ describe("the stack, as cards (owner 2026-10-21)", () => {
 });
 
 /**
- * Spec 0063 (owner 2026-11-07, curve B "ride the middle"): an attack arrow
- * leaves its attacker's edge facing the middle straight out, rides the open
- * strip along the middle and lands straight onto its target; lines from a
- * row to one target never cross, and never pass over a card. Measured on
- * the standard boards (the owner's ten and the dev boards), every creature
- * of a side attacking, from both seats, at the supported screens.
+ * Spec 0066 (owner 2026-11-08, A · Soft arc; replaces spec 0063's ride
+ * along the middle): an arrow is one smooth curve that rises off the table
+ * and comes down onto its target -- every one bending the same way (up the
+ * screen), with no corner, higher the further it travels, a fixed-size
+ * head along its own direction. Measured on the standard boards (the
+ * owner's ten and the dev boards), every creature of a side attacking,
+ * from both seats, at the supported screens.
  */
-describe("attack arrows ride the middle (F-0063-C)", () => {
+describe("soft arcs (F-0066-C)", () => {
   const screens = [
     { width: 1920, height: 1080 },
     { width: 1920, height: 947 },
@@ -152,12 +165,13 @@ describe("attack arrows ride the middle (F-0063-C)", () => {
     const ring = anchors(g)[defender === 1 ? "viewer:life" : "opponent:life"];
     const reach = LIFE_R * g.height + TIP_GAP * g.cardH;
     return {
-      route: ride(
+      route: arcToRing(
         facingPort(l.boxes.get(id)!, TAPPED_ORIGIN, g.height / 2, 0, shownShare(l.slots, id)),
-        lifePort(ring, g, reach),
-        g.height / 2,
+        ring,
+        reach,
         g.cardH,
-        g.rail.x,
+        undefined,
+        plateRects(g),
       ),
       ring,
       reach,
@@ -182,20 +196,53 @@ describe("attack arrows ride the middle (F-0063-C)", () => {
       return (sign * ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x))) / len > inset;
     });
   };
-  /** Do two polylines properly cross (not merely touch or run together)? */
-  const cross = (a: P[], b: P[]) => {
-    const o = (p: P, q: P, r: P) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-    const eps = 1e-3;
-    const apart = (u: number, v: number) => (u > eps && v < -eps) || (u < -eps && v > eps);
-    for (let i = 1; i < a.length; i++)
-      for (let j = 1; j < b.length; j++) {
-        const [p1, p2, q1, q2] = [a[i - 1]!, a[i]!, b[j - 1]!, b[j]!];
-        if (apart(o(q1, q2, p1), o(q1, q2, p2)) && apart(o(p1, p2, q1), o(p1, p2, q2))) return true;
+  /**
+   * One smooth bend, up the screen: the turn between neighbouring steps is
+   * always the same way and small (no corner), and every point lies on or
+   * above the straight line from start to end (y grows downward).
+   */
+  function softArc(r: Route, where: string, cardH: number, tight = false, landing = false) {
+    // (Landing on your own circle below the stack: the round under the
+    // caption, then its landing turn -- two pieces.)
+    // (Or two, rounding a player's plate's corner from above.)
+    expect(r.length, `${where}: one piece`).toBeLessThanOrEqual(3);
+    const pts = routePoints(r, 96);
+    const s = pts[0]!;
+    const e = pts[pts.length - 1]!;
+    let sign = 0;
+    for (let i = 2; i < pts.length; i++) {
+      const a = { x: pts[i - 1]!.x - pts[i - 2]!.x, y: pts[i - 1]!.y - pts[i - 2]!.y };
+      const b = { x: pts[i]!.x - pts[i - 1]!.x, y: pts[i]!.y - pts[i - 1]!.y };
+      const la = Math.hypot(a.x, a.y);
+      const lb = Math.hypot(b.x, b.y);
+      if (la < 1e-6 || lb < 1e-6) continue;
+      const cross = (a.x * b.y - a.y * b.x) / (la * lb);
+      const turn = Math.atan2(cross, (a.x * b.x + a.y * b.y) / (la * lb));
+      // No corner: the drawn body (it stops under the arrowhead, the last
+      // 0.2 card heights) nowhere bent tighter than a circle 0.1 of
+      // a card high (spec 0063's knuckles: under 0.01, measured).
+      const tipNear = Math.hypot(e.x - pts[i]!.x, e.y - pts[i]!.y) < cardH * 0.2;
+      if (Math.abs(turn) > 1e-9 && !tipNear && !tight)
+        expect(lb / Math.abs(turn), `${where}: a corner at step ${i}`).toBeGreaterThan(cardH * 0.1);
+      // (Landing on your own circle below the stack from above: a second,
+      // gentle turn in its second half: its landing piece.)
+      if (Math.abs(cross) > 1e-6 && !(landing && i > pts.length * 0.45)) {
+        if (sign === 0) sign = Math.sign(cross);
+        expect(Math.sign(cross), `${where}: bends both ways at step ${i}`).toBe(sign);
       }
-    return false;
-  };
+    }
+    // Up the screen: on or above the chord (the side with the smaller y).
+    // (Not asked of a climb past a card straight above: its chord is upright.)
+    const len = Math.hypot(e.x - s.x, e.y - s.y);
+    for (const p of tight || landing ? [] : pts) {
+      const side = ((e.x - s.x) * (p.y - s.y) - (e.y - s.y) * (p.x - s.x)) / len;
+      // For a chord left to right, "above" is a negative cross; right to left, positive.
+      const above = e.x >= s.x ? -side : side;
+      expect(above, `${where}: dips below its chord`).toBeGreaterThan(-0.5);
+    }
+  }
 
-  it("leaves the attacker's edge facing the middle, straight out, and lands straight on the life circle's rim", () => {
+  it("leaves the attacker's edge facing the middle, rises, and comes down on the life circle's rim", () => {
     for (const seat of [1, 2]) {
       const { l, attackers } = attack("attack8", seat, screens[0]!);
       const g = l.geometry;
@@ -203,65 +250,77 @@ describe("attack arrows ride the middle (F-0063-C)", () => {
       for (const a of attackers) {
         const box = l.boxes.get(a.id)!;
         const { route, ring, reach } = routeOf(l, a.id, seat === 1 ? 2 : 1);
-        const first = route[0]!;
-        const last = route[route.length - 1]!;
+        const only = route[0]!;
         // On the frame's edge facing the middle: the top edge on your side, the bottom on theirs.
         const edgeAt = pointOn(box, TAPPED_ORIGIN, 0.5, seat === 1 ? 0 : 1);
-        expect(first.start.x).toBeCloseTo(edgeAt.x, 6);
-        expect(first.start.y).toBeCloseTo(edgeAt.y, 6);
-        // Straight out, toward the middle; then it rides the middle.
-        expect(first.c1.x).toBeCloseTo(first.start.x, 6);
-        expect(Math.sign(first.c1.y - first.start.y)).toBe(seat === 1 ? -1 : 1);
-        expect(first.end.y).toBeCloseTo(g.height / 2, 6);
-        // Its tip a hair off the life circle, never over the total, in from the table's side.
-        expect(Math.hypot(last.end.x - ring.x, last.end.y - ring.y)).toBeCloseTo(reach, 6);
-        expect(last.c2.x).toBeLessThan(last.end.x);
+        expect(only.start.x).toBeCloseTo(edgeAt.x, 6);
+        expect(only.start.y).toBeCloseTo(edgeAt.y, 6);
+        // It leaves outward: up from your card's top edge; from theirs, never back up over it.
+        if (seat === 1) expect(only.c1.y).toBeLessThan(only.start.y);
+        else expect(only.c1.y).toBeGreaterThanOrEqual(only.start.y);
+        // Its tip a hair off the life circle, never over the total, coming down onto it.
+        expect(Math.hypot(only.end.x - ring.x, only.end.y - ring.y)).toBeCloseTo(reach, 6);
+        expect(only.c2.y).toBeLessThan(only.end.y);
+        for (const p of routePoints(route, 48))
+          expect(Math.hypot(p.x - ring.x, p.y - ring.y)).toBeGreaterThan(reach - 0.5);
         // The arrowhead: the same size on every line, along the curve's way in.
         const size = 20;
         const pts = arrowHead(route, size)
           .split(" ")
           .map((q) => q.split(",").map(Number) as [number, number]);
-        expect(Math.abs(pts[0]![0] - last.end.x)).toBeLessThan(0.1);
-        expect(Math.abs(pts[0]![1] - last.end.y)).toBeLessThan(0.1);
+        expect(Math.abs(pts[0]![0] - only.end.x)).toBeLessThan(0.1);
+        expect(Math.abs(pts[0]![1] - only.end.y)).toBeLessThan(0.1);
         const mid = { x: (pts[1]![0] + pts[3]![0]) / 2, y: (pts[1]![1] + pts[3]![1]) / 2 };
         expect(Math.abs(Math.hypot(mid.x - pts[0]![0], mid.y - pts[0]![1]) - size)).toBeLessThan(
           0.2,
         );
-        const way = { x: last.end.x - last.c2.x, y: last.end.y - last.c2.y };
+        const way = { x: only.end.x - only.c2.x, y: only.end.y - only.c2.y };
         const axis = { x: pts[0]![0] - mid.x, y: pts[0]![1] - mid.y };
         const cos =
           (way.x * axis.x + way.y * axis.y) /
           (Math.hypot(way.x, way.y) * Math.hypot(axis.x, axis.y));
         expect(cos).toBeGreaterThan(0.999);
+        void g;
       }
     }
   });
 
-  it("a row of attackers at one target never cross, and no arrow passes over a card", () => {
+  it("every arc: one bend, up the screen, no corner; never over its own card or a life total, and on the board", () => {
     let checked = 0;
     for (const size of screens) {
       for (const name of boards) {
         for (const seat of [1, 2]) {
           const { l, attackers } = attack(name, seat, size);
+          const g = l.geometry;
           const where = `${name} ${size.width}x${size.height} seat ${seat}`;
           const leads = [
             ...new Set(attackers.map((a) => l.slots.find((s) => s.ids.includes(a.id))!.ids[0]!)),
           ];
-          const routes = leads.map((id) => ({
-            id,
-            pts: routePoints(routeOf(l, id, seat === 1 ? 2 : 1).route, 48),
-          }));
-          for (let i = 0; i < routes.length; i++)
-            for (let j = i + 1; j < routes.length; j++)
-              expect(
-                cross(routes[i]!.pts, routes[j]!.pts),
-                `${where}: ${routes[i]!.id} and ${routes[j]!.id} cross`,
-              ).toBe(false);
-          // Over no card face: the line's middle stays off every card, its own too.
-          for (const r of routes) {
-            for (const slot of l.slots) {
-              const over = r.pts.filter((p) => within(p, corners(slot.box), 0.5));
-              expect(over.length, `${where}: ${r.id}'s arrow over ${slot.ids[0]}`).toBe(0);
+          const rings = [anchors(g)["viewer:life"], anchors(g)["opponent:life"]];
+          for (const id of leads) {
+            const { route } = routeOf(l, id, seat === 1 ? 2 : 1);
+            softArc(route, `${where}: ${id}`, g.cardH);
+            // Never across a player's picture, name or tiles (2026-11-08 review).
+            expect(
+              route.some((c) => entersAny(c, plateRects(g))),
+              `${where}: ${id} across a player's plate`,
+            ).toBe(false);
+            const pts = routePoints(route, 48);
+            // Off its own card once it has left it (its own face, never crossed).
+            const own = corners(l.boxes.get(id)!);
+            expect(
+              pts.filter((p) => within(p, own, 0.5)).length,
+              `${where}: ${id} over its own card`,
+            ).toBe(0);
+            for (const ring of rings)
+              for (const p of pts)
+                expect(
+                  Math.hypot(p.x - ring.x, p.y - ring.y),
+                  `${where}: over a life total`,
+                ).toBeGreaterThanOrEqual(LIFE_R * g.height);
+            for (const p of pts) {
+              expect(p.y, `${where}: ${id} off the top`).toBeGreaterThan(0);
+              expect(p.x, `${where}: ${id} off the side`).toBeLessThan(g.width);
             }
             checked++;
           }
@@ -269,40 +328,245 @@ describe("attack arrows ride the middle (F-0063-C)", () => {
       }
     }
     expect(checked).toBeGreaterThan(200);
-    // A sweep over every board, screen and seat: about 5 s on CI's runner.
+    // A sweep over every board, screen and seat.
   }, 60_000);
 
-  it("a planeswalker: lands straight onto its edge facing the middle", () => {
-    const { l } = attack("attack8", 2, screens[0]!);
+  it("higher the further it travels", () => {
+    const { l, attackers } = attack("attack8", 1, screens[0]!);
     const g = l.geometry;
-    const walker = scenarioBoard("attack8")!.battlefield.find((c) => /Planeswalker/.test(c.types))!;
-    const attacker = l.slots.find((s) => s.row === "opponent:creature-1")!.ids[0]!;
-    const gap = TIP_GAP * g.cardH;
-    const route = ride(
-      facingPort(l.boxes.get(attacker)!, TAPPED_ORIGIN, g.height / 2),
-      facingPort(l.boxes.get(walker.id)!, TAPPED_ORIGIN, g.height / 2, gap),
-      g.height / 2,
-      g.cardH,
-    );
-    const last = route[route.length - 1]!;
-    const edge = pointOn(l.boxes.get(walker.id)!, TAPPED_ORIGIN, 0.5, 0);
-    expect(last.end.x).toBeCloseTo(edge.x, 6);
-    expect(last.end.y).toBeCloseTo(edge.y - gap, 6);
-    // Straight down onto it (your planeswalker is below the middle).
-    expect(last.c2.x).toBeCloseTo(last.end.x, 6);
-    expect(last.c2.y).toBeLessThan(last.end.y);
+    const ring = anchors(g)["opponent:life"];
+    const arcs = attackers
+      .map((a) => {
+        const r = routeOf(l, a.id, 2).route;
+        return {
+          far: Math.hypot(ring.x - r[0]!.start.x, ring.y - r[0]!.start.y),
+          up: arcHeight(r),
+        };
+      })
+      .sort((a, b) => a.far - b.far);
+    for (let i = 1; i < arcs.length; i++)
+      expect(arcs[i]!.up).toBeGreaterThanOrEqual(arcs[i - 1]!.up - 0.5);
+    // Never lower than ARC_LOW nor higher than ARC_HIGH card heights, scaled as the canvas.
+    expect(arcLift(1, g.cardH)).toBeCloseTo(ARC_LOW * g.cardH, 6);
+    expect(arcLift(1e6, g.cardH)).toBeCloseTo(ARC_HIGH * g.cardH, 6);
   });
 
-  it("the same board always draws the same arrow; ends straight across do not wander", () => {
+  it("an attacker at a planeswalker: lands on its top, coming down, never over its face", () => {
+    const walker = scenarioBoard("attack8")!.battlefield.find((c) => /Planeswalker/.test(c.types))!;
+    const seat = walker.seat === 1 ? 2 : 1;
+    const { l, attackers } = attack("attack8", seat, screens[0]!);
+    const g = l.geometry;
+    const gap = TIP_GAP * g.cardH;
+    const box = l.boxes.get(walker.id)!;
+    for (const a of attackers) {
+      const route = arc(
+        facingPort(l.boxes.get(a.id)!, TAPPED_ORIGIN, g.height / 2),
+        topOf(box, TAPPED_ORIGIN, gap),
+        g.cardH,
+      );
+      const only = route[0]!;
+      const top = Math.min(...corners(box).map((c) => c.y));
+      expect(only.end.y).toBeCloseTo(top - gap, 6);
+      expect(only.c2.y, "comes down onto it").toBeLessThan(only.end.y);
+      softArc(route, `${a.id} at the planeswalker`, g.cardH);
+      expect(
+        routePoints(route, 48).filter((p) => within(p, corners(box), 0.5)).length,
+        `${a.id} over the planeswalker's face`,
+      ).toBe(0);
+    }
+  });
+
+  it("from a stack card's stud (F-0066-B): out to the left and rising, down onto the top of any permanent or a life circle; one bend; never over its target, the caption or a life total", () => {
+    let checked = 0;
+    for (const size of screens) {
+      for (const name of boards) {
+        const { l } = attack(name, 2, size);
+        const g = l.geometry;
+        const gap = TIP_GAP * g.cardH;
+        for (const scale of [STACK_SCALE, STACK_READ_SCALE]) {
+          const spots = stackSpotBoxes(g, 2, scale);
+          const box = spots[0]!;
+          const clear = {
+            top: Math.min(...spots.map((b) => b.y)) - g.cardH * 0.05,
+            bottom: stackCaptionBottom(box, g),
+          };
+          const stud = {
+            at: { x: box.x - box.h * 0.02, y: box.y + box.h * STUD_AT },
+            out: { x: -1, y: 0 },
+          };
+          // The caption under the front card (Board.tsx: its box).
+          const wide = Math.max(box.w, g.cardW * 2.6);
+          const caption = [
+            { x: box.x + box.w - wide, y: box.y + box.h + g.cardH * 0.05 },
+            { x: box.x + box.w, y: box.y + box.h + g.cardH * 0.05 },
+            { x: box.x + box.w, y: box.y + box.h + g.cardH * 0.2 },
+            { x: box.x + box.w - wide, y: box.y + box.h + g.cardH * 0.2 },
+          ];
+          const where = `${name} ${size.width}x${size.height} x${scale}`;
+          for (const slot of l.slots) {
+            const route = arc(
+              stud,
+              topOf(slot.box, TAPPED_ORIGIN, gap),
+              g.cardH,
+              undefined,
+              clear,
+              corners(slot.box),
+            );
+            const only = route[0]!;
+            const id = slot.ids[0]!;
+            // A permanent under the stack card itself, or touching it (the stud
+            // on its edge): its arrow is under the stack card too.
+            const sb = corners(box);
+            if (corners(slot.box).some((c) => within(c, sb, -g.cardH * 0.08))) continue;
+            // A card right beside the stud (its edge within a fifth of a
+            // card): the arc climbs past it, a tight turn at the top.
+            const beside =
+              Math.max(...corners(slot.box).map((c) => c.x)) > stud.at.x - g.cardH * 0.2;
+            if (only.end.x < stud.at.x && !beside)
+              expect(only.c1.x, `${where} ${id}: out left`).toBeLessThan(stud.at.x);
+            // (A permanent beyond the stack and below it -- under the stack
+            // card's right side -- is reached round the stack's foot.)
+            if (only.end.x < stud.at.x)
+              expect(only.c1.y, `${where} ${id}: rising`).toBeLessThan(stud.at.y);
+            expect(only.c2.y, `${where} ${id}: coming down`).toBeLessThan(only.end.y);
+            softArc(route, `${where} ${id}`, g.cardH, beside);
+            const pts = routePoints(route, 48);
+            expect(
+              pts.filter((p) => within(p, corners(slot.box), 2)).length,
+              `${where}: over ${id}`,
+            ).toBe(0);
+            // (A permanent lower on the table than the caption: the arc
+            // passes under the caption, which is drawn over the lines.)
+            if (only.end.y < caption[0]!.y)
+              expect(
+                pts.filter((p) => within(p, caption, 0)).length,
+                `${where}: ${id} over the caption`,
+              ).toBe(0);
+            checked++;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
     const { l } = attack("attack8", 2, screens[0]!);
     const id = l.slots.find((s) => s.row === "opponent:creature-1")!.ids[0]!;
     expect(pathOf(routeOf(l, id, 1).route)).toBe(pathOf(routeOf(l, id, 1).route));
-    const r = ride(
-      { at: { x: 500, y: 534 }, out: { x: 0, y: 1 } },
-      { at: { x: 500, y: 560 }, out: { x: 0, y: -1 } },
-      540,
-      136,
-    );
-    for (const p of routePoints(r)) expect(p.x).toBeCloseTo(500, 6);
-  });
+  }, 60_000);
+
+  // Owner, 2026-11-08 (folded into 0066 items 2-3): an arrow at a player
+  // never passes behind a stack card -- its own or another -- nor under the
+  // caption: it leaves the stud away from the stack and goes round it.
+  it("a stack card's arrow at a player goes round the stack, never behind a stack card or the caption (F-0066-B)", () => {
+    let checked = 0;
+    for (const size of screens) {
+      for (const name of boards) {
+        for (const seat of [1, 2]) {
+          const { l } = attack(name, seat, size);
+          const g = l.geometry;
+          const gap = TIP_GAP * g.cardH;
+          for (const scale of [STACK_SCALE, STACK_READ_SCALE]) {
+            for (const count of [1, 3]) {
+              const spots = stackSpotBoxes(g, count, scale);
+              const wide = Math.max(spots[0]!.w, g.cardW * 2.6);
+              const clear = {
+                top: Math.min(...spots.map((b) => b.y)) - g.cardH * 0.05,
+                bottom: stackCaptionBottom(spots[0]!, g),
+                captionLeft: spots[0]!.x + spots[0]!.w - wide,
+                captionTop: spots[0]!.y + spots[0]!.h,
+                badges: stackBadgeRects(spots, g.cardH),
+              };
+              const caption = [
+                { x: spots[0]!.x + spots[0]!.w - wide, y: spots[0]!.y + spots[0]!.h },
+                { x: spots[0]!.x + spots[0]!.w, y: spots[0]!.y + spots[0]!.h },
+                { x: spots[0]!.x + spots[0]!.w, y: clear.bottom },
+                { x: spots[0]!.x + spots[0]!.w - wide, y: clear.bottom },
+              ];
+              // The front card's stud, and one further back's (pointed at, it comes to the front).
+              for (const box of [spots[0]!, spots[spots.length - 1]!]) {
+                const stud = {
+                  at: { x: box.x - box.h * 0.02, y: studY(spots, spots.indexOf(box), g.cardH) },
+                  out: { x: -1, y: 0 },
+                };
+                for (const who of ["viewer:life", "opponent:life"] as const) {
+                  const ring = anchors(g)[who];
+                  const route = arcToRing(
+                    stud,
+                    ring,
+                    LIFE_R * g.height + gap,
+                    g.cardH,
+                    clear,
+                    plateRects(g),
+                  );
+                  const where = `${name} ${size.width}x${size.height} seat ${seat} x${scale} ${count} card(s), from ${box === spots[0] ? "the front" : "the back"} to ${who}`;
+                  // Rounded everywhere (no corner) -- except the known limit below.
+                  const limit = clear.bottom >= ring.y - LIFE_R * g.height - gap;
+                  softArc(route, where, g.cardH, limit, true);
+                  // Owner, 2026-11-08 ("tighter path"): no wide sweep -- never
+                  // more than 0.6 card heights left of the stack's badges
+                  // (or its caption, going under it).
+                  const leftmost = Math.min(
+                    ...clear.badges.map((b) => b.x0),
+                    ring.y > clear.bottom ? clear.captionLeft : Infinity,
+                  );
+                  const far = Math.min(...routePoints(route, 48).map((p) => p.x));
+                  expect(far, `${where}: a wide sweep`).toBeGreaterThanOrEqual(
+                    leftmost - 0.6 * g.cardH,
+                  );
+                  const only = route[0]!;
+                  // (Known limit: three or more cards at reading size put the
+                  // caption below your circle's top; nothing then reaches it
+                  // from above without crossing the stack, its caption or
+                  // your plate, and it comes in across your plate.)
+                  if (clear.bottom < ring.y - LIFE_R * g.height - gap)
+                    expect(
+                      route.some((c) => entersAny(c, plateRects(g))),
+                      `${where}: across a player's plate`,
+                    ).toBe(false);
+                  // Out from the stud, away from the stack.
+                  expect(only.c1.x, `${where}: out`).toBeLessThan(stud.at.x);
+                  const pts = routePoints(route, 96);
+                  // Past its first few px, never inside any stack card or the caption.
+                  const away = pts.filter(
+                    (p) => Math.hypot(p.x - stud.at.x, p.y - stud.at.y) > g.cardH * 0.05,
+                  );
+                  for (const b of spots)
+                    expect(
+                      away.filter((p) => within(p, corners(b), 0)).length,
+                      `${where}: behind a stack card`,
+                    ).toBe(0);
+                  expect(
+                    away.filter((p) => within(p, caption, 0)).length,
+                    `${where}: under the caption`,
+                  ).toBe(0);
+                  expect(
+                    away.filter(
+                      (p) =>
+                        // (Its way out, level with the stud: a card further
+                        // back has its stud in the badges' column.)
+                        Math.abs(p.y - stud.at.y) > g.cardH * 0.15 &&
+                        // (Not in the known limit below.)
+                        clear.bottom < ring.y - LIFE_R * g.height - gap &&
+                        clear.badges.some(
+                          (b) => p.x > b.x0 && p.x < b.x1 && p.y > b.y0 && p.y < b.y1,
+                        ),
+                    ).length,
+                    `${where}: under the badges`,
+                  ).toBe(0);
+                  for (const p of pts) {
+                    expect(Math.hypot(p.x - ring.x, p.y - ring.y)).toBeGreaterThan(
+                      LIFE_R * g.height,
+                    );
+                    expect(p.y, `${where}: off the top`).toBeGreaterThan(0);
+                    expect(p.y, `${where}: off the bottom`).toBeLessThan(g.height);
+                  }
+                  checked++;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
+  }, 120_000);
 });

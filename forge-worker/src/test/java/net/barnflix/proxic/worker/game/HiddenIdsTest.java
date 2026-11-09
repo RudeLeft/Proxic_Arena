@@ -34,7 +34,7 @@ class HiddenIdsTest {
                  "moves": [{"card": "card:7", "from": {"zone": "stack"}, "to": {"zone": "hand", "seat": 1},
                             "why": "countered", "said": "Countered"},
                            {"card": "card:50", "from": {"zone": "battlefield", "seat": 2},
-                            "to": {"zone": "graveyard", "seat": 2}, "said": "Died"}],
+                            "to": {"zone": "graveyard", "seat": 2}, "why": "died"}],
                  "payments": [{"n": 21, "for": "card:7", "mana": [{"colour": "R", "from": "card:39"}]}],
                  "rolls": [{"n": 1, "source": "card:7"}],
                  "damage": {"hits": [{"source": "card:7", "target": {"object": "card:39"}}]},
@@ -65,10 +65,10 @@ class HiddenIdsTest {
         assertEquals("Lightning Bolt", line.get("name").getAsString(), "the name is history and stays");
         assertEquals(List.of("card:39").toString(),
                 bob.getAsJsonObject("action").getAsJsonArray("targets").toString().replace("\"", ""));
-        // A token that died is in no hidden zone: its move keeps its card and its tag.
+        // A token that died is in no hidden zone: its move keeps its card and its why.
         JsonObject token = bob.getAsJsonArray("moves").get(1).getAsJsonObject();
         assertEquals("card:50", token.get("card").getAsString());
-        assertEquals("Died", token.get("said").getAsString());
+        assertEquals("died", token.get("why").getAsString());
     }
 
     @Test

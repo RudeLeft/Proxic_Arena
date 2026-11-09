@@ -120,6 +120,8 @@ export default function DevBoardPage() {
     ? battlefield.map((c) => (blockerIds.has(c.id) ? { ...c, blocking: true } : c))
     : battlefield;
 
+  const aim = params.get("aim");
+
   const next = () => {
     const after = new URLSearchParams(params);
     after.set("change", String(change + 1));
@@ -137,8 +139,19 @@ export default function DevBoardPage() {
         departures={now.departures}
         combat={scene?.combat ?? derived}
         // Spec 0028: a picture for each caster, as the game gives them.
+        // `&aim=you|them` (spec 0066): every stack object aims at a player.
         stack={(scene?.stack ?? []).map((s) => ({
           ...s,
+          ...(aim
+            ? {
+                targets: [
+                  {
+                    player:
+                      aim === "you" ? now.board.viewerSeat : now.board.viewerSeat === 1 ? 2 : 1,
+                  },
+                ],
+              }
+            : {}),
           caster: avatarUrl(s.seat === 1 ? "avatar-01" : "avatar-46"),
         }))}
         pointedStack={scene?.pointedStack ?? null}

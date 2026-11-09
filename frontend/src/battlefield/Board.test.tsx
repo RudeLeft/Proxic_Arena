@@ -14,7 +14,7 @@ import {
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, inCombat, layout } from "./layout";
 import { anchors, LIFE_R, placement, RETURN_MS, type AnchorId } from "./motion";
-import { pointOn, TIP_GAP } from "./effects";
+import { pointOn, STACK_READ_SCALE, stackSpotBoxes, STUD_AT, TIP_GAP } from "./effects";
 
 /**
  * The drawn board — PHASE_07 §7.42 and §7.45, BATTLEFIELD_RENDERING.md §7
@@ -911,7 +911,7 @@ describe("Board lines and effects", () => {
     expect(lines(c, "attack")).toEqual([]);
   });
 
-  it("F-0063-C: the arrow leaves the attacker's edge facing the middle and lands a hair off its target", () => {
+  it("F-0066-C: a soft arc from the attacker's edge facing the middle to a hair off its target, its shadow on the felt", () => {
     const s = combatScript(1);
     const c = render(
       <Board
@@ -941,28 +941,35 @@ describe("Board lines and effects", () => {
       LIFE_R * g.height + TIP_GAP * g.cardH,
       0,
     );
-    // Along the open middle of the table on its way.
+    // One curve (one cubic, no ride along the middle), drawn in with its
+    // glow, a fixed head, and a soft shadow on the felt below it.
     const d = line.querySelector(".bf-line-body")!.getAttribute("d")!;
-    expect(d).toContain(` ${Math.round((g.height / 2) * 10) / 10}`);
+    expect(d.match(/C/g)).toHaveLength(1);
+    expect(d).not.toContain(` ${Math.round((g.height / 2) * 10) / 10},`);
     expect(line.querySelectorAll(".bf-line-aura[pathLength], polygon.bf-line-head")).toHaveLength(
       2,
     );
+    expect(line.querySelector(".bf-line-shadow[pathLength]")).not.toBeNull();
   });
 
-  it("F-0063-B: a blocked attacker points too -- a short arrow to each blocker, which lights up blue", () => {
+  it("F-0066-D: crossed swords between each fighting pair, no arrow to blockers; pointing brightens its fights", () => {
     const c = render(scene(2)).container;
-    const angel = c.querySelector('[data-object-id="card:201"]')!;
-    // Serra Angel is blocked by Goblin Guide and Llanowar Elves.
-    expect(angel.getAttribute("data-aims")).toBe("player:1");
-    fireEvent.pointerEnter(angel);
-    expect(lines(c, "attack").sort()).toEqual(["card:201>card:211", "card:201>card:212"]);
-    expect(angel.getAttribute("data-aimed")).toBe("true");
-    const lit = [...c.querySelectorAll<HTMLElement>("[data-pointed-blocker]")].map(
-      (e) => e.dataset.objectId,
-    );
-    expect(lit.sort()).toEqual(["card:211", "card:212"]);
-    // Each short arrow ends a hair off its blocker's edge facing the middle
-    // (your blockers' top edge), across the middle from the Angel.
+    const swords = () =>
+      [...c.querySelectorAll<SVGGElement>("[data-swords]")].map((m) => ({
+        pair: `${m.dataset.attacker}x${m.dataset.blocker}`,
+        hot: m.classList.contains("bf-swords-hot"),
+        dim: m.classList.contains("bf-swords-dim"),
+        at: m.getAttribute("transform")!,
+      }));
+    // Serra Angel is blocked by Goblin Guide and Llanowar Elves, White
+    // Knight by Grizzly Bears: a mark per pair, all combat long.
+    expect(
+      swords()
+        .map((m) => m.pair)
+        .sort(),
+    ).toEqual(["card:201xcard:211", "card:201xcard:212", "card:202xcard:213"]);
+    expect(swords().every((m) => !m.hot && !m.dim)).toBe(true);
+    // Each in the gap between the pair: on the middle, under where they overlap.
     const out = layout(
       {
         ...combatScript(2).board,
@@ -970,19 +977,71 @@ describe("Board lines and effects", () => {
       },
       size,
     );
-    for (const g of c.querySelectorAll<SVGGElement>('[data-line="attack"]')) {
-      const [x, y] = g.getAttribute("data-end")!.split(",").map(Number) as [number, number];
-      const b = out.boxes.get(g.getAttribute("data-to")!)!;
-      const top = pointOn(b, TAPPED_ORIGIN, 0.5, 0);
-      expect(x).toBeCloseTo(top.x, 0);
-      expect(y).toBeCloseTo(top.y - TIP_GAP * out.geometry.cardH, 0);
+    for (const m of c.querySelectorAll<SVGGElement>("[data-swords]")) {
+      const [x, y] = m
+        .getAttribute("transform")!
+        .replace(/[^\d. -]/g, "")
+        .trim()
+        .split(/ +/)
+        .map(Number) as [number, number];
+      expect(Math.abs(y - size.height / 2)).toBeLessThan(out.geometry.cardH * 0.1);
+      for (const id of [m.dataset.attacker!, m.dataset.blocker!]) {
+        const b = out.boxes.get(id)!;
+        expect(x).toBeGreaterThan(b.x - 1);
+        expect(x).toBeLessThan(b.x + b.w + 1);
+      }
+      // 2026-11-08 review: within the gap -- over neither card's name bar
+      // (the blocker's, facing up) nor its power/toughness and type bar
+      // (the attacker's, facing down): at most their 2-px border. The
+      // ATTACKING and BLOCKING tags, further in, are clear with them.
+      const r = Number(m.querySelector<SVGGElement>("[data-r]")!.dataset.r);
+      const edge = (id: string, fy: number) => {
+        const b = out.boxes.get(id)!;
+        const [p, q] = [0, 1].map((fx) => pointOn(b, TAPPED_ORIGIN, fx, fy));
+        return p!.y + ((q!.y - p!.y) * (x - p!.x)) / (q!.x - p!.x);
+      };
+      expect(y + r, `${m.dataset.swords} over the blocker's name`).toBeLessThanOrEqual(
+        edge(m.dataset.blocker!, 0) + 2.2,
+      );
+      expect(y - r, `${m.dataset.swords} over the attacker's bottom bar`).toBeGreaterThanOrEqual(
+        edge(m.dataset.attacker!, 1) - 2.2,
+      );
+      expect(r).toBeGreaterThanOrEqual(5);
     }
-    fireEvent.pointerLeave(angel);
+    // Pointing at the Angel: no arrow (no attack line, no block line), its
+    // two fights brighten, the Knight's dims, its blockers light up blue.
+    const angel = c.querySelector('[data-object-id="card:201"]')!;
+    expect(angel.getAttribute("data-aims")).toBe("player:1");
+    fireEvent.pointerEnter(angel);
     expect(lines(c, "attack")).toEqual([]);
+    expect(lines(c, "block")).toEqual([]);
+    expect(angel.getAttribute("data-aimed")).toBe("true");
+    expect(
+      swords()
+        .filter((m) => m.hot)
+        .map((m) => m.pair)
+        .sort(),
+    ).toEqual(["card:201xcard:211", "card:201xcard:212"]);
+    expect(
+      swords()
+        .filter((m) => m.dim)
+        .map((m) => m.pair),
+    ).toEqual(["card:202xcard:213"]);
+    const lit = [...c.querySelectorAll<HTMLElement>("[data-pointed-blocker]")].map(
+      (e) => e.dataset.objectId,
+    );
+    expect(lit.sort()).toEqual(["card:211", "card:212"]);
+    fireEvent.pointerLeave(angel);
     expect(c.querySelectorAll("[data-pointed-blocker]")).toHaveLength(0);
-    // White Knight, blocked by Grizzly Bears: its own arrow.
+    expect(swords().every((m) => !m.hot && !m.dim)).toBe(true);
+    // White Knight, blocked by Grizzly Bears: its fight, still no arrow.
     fireEvent.pointerEnter(c.querySelector('[data-object-id="card:202"]')!);
-    expect(lines(c, "attack")).toEqual(["card:202>card:213"]);
+    expect(lines(c, "attack")).toEqual([]);
+    expect(
+      swords()
+        .filter((m) => m.hot)
+        .map((m) => m.pair),
+    ).toEqual(["card:202xcard:213"]);
   });
 
   it("a line that goes fades out over 160 ms, outside the lines' count; with reduced motion it just goes", () => {
@@ -1060,26 +1119,44 @@ describe("Board lines and effects", () => {
     expect(lines(view.container, "target")).toEqual(["stack:1>card:215"]);
   });
 
-  it("spec 0063: a target line rides the middle from the stack card's edge; by the middle, its head reaches into the bottom bar above", () => {
+  it("F-0066-B: a target arc leaves the stack card's stud and comes down on the top of its target, under the stack's words and badges", () => {
     const view = render(scene(8));
-    const line = view.container.querySelector<SVGGElement>('[data-line="target"]')!;
+    const c = view.container;
+    const line = c.querySelector<SVGGElement>('[data-line="target"]')!;
     const s = combatScript(8);
     const out = layout(
       s.combat ? { ...s.board, battlefield: inCombat(s.board.battlefield, s.combat) } : s.board,
       size,
     );
+    const g = out.geometry;
     const knight = out.boxes.get("card:202")!;
-    const bottom = pointOn(knight, TAPPED_ORIGIN, 0.5, 1);
     const [ex, ey] = line.getAttribute("data-end")!.split(",").map(Number) as [number, number];
-    // White Knight stands just above the middle: the tip is in its bottom
-    // bar (the bar is 13% of the card), straight above the edge's middle.
-    expect(ex).toBeCloseTo(bottom.x, 0);
-    expect(ey).toBeLessThan(bottom.y);
-    expect(ey).toBeGreaterThan(bottom.y - knight.h * 0.132);
-    // From the stack card's left edge, at the middle of the table.
+    // The top of White Knight, a hair above it (it comes down onto it).
+    const corners = [0, 1].map((fx) => pointOn(knight, TAPPED_ORIGIN, fx, 0));
+    expect(ex).toBeCloseTo(pointOn(knight, TAPPED_ORIGIN, 0.5, 0.5).x, 0);
+    expect(ey).toBeCloseTo(Math.min(...corners.map((q) => q.y)) - TIP_GAP * g.cardH, 0);
+    // From the stud: the front stack card's left edge, at its picture.
+    const [front] = stackSpotBoxes(g, s.stack.length, STACK_READ_SCALE);
     const [sx, sy] = line.getAttribute("data-start")!.split(",").map(Number) as [number, number];
-    expect(sy).toBeCloseTo(out.geometry.height / 2, 0);
-    expect(sx).toBeGreaterThan(out.geometry.play.w / 2);
+    expect(sx).toBeCloseTo(front!.x - front!.h * 0.02, 0);
+    expect(sy).toBeCloseTo(front!.y + front!.h * STUD_AT, 0);
+    const studs = c.querySelectorAll("[data-stud]");
+    expect(studs).toHaveLength(1);
+    expect(studs[0]!.closest(".bf-stack-slot")!.querySelector('[data-order="1"]')).not.toBeNull();
+    // Under the stack's cards (their number and face badges are in them)
+    // and its caption; over every card on the table.
+    const z = (e: Element | null) => Number((e as HTMLElement).style.zIndex);
+    const linesZ = z(c.querySelector(".bf-lines"));
+    for (const slot of c.querySelectorAll(".bf-stack-slot")) expect(linesZ).toBeLessThan(z(slot));
+    expect(linesZ).toBeLessThan(z(c.querySelector(".bf-stack-caption")));
+    for (const slot of c.querySelectorAll(".bf-slot:not(.bf-stack-slot)"))
+      if (!slot.querySelector('[data-zone$=":hand"]')) expect(linesZ).toBeGreaterThan(z(slot));
+    // Pointing at the second card: it comes to the front, its stud and line.
+    fireEvent.pointerEnter(c.querySelector('[data-object-id="stack:1"]')!);
+    expect(lines(c, "target")).toEqual(["stack:1>card:215"]);
+    const now = c.querySelectorAll("[data-stud]");
+    expect(now).toHaveLength(1);
+    expect(now[0]!.closest(".bf-stack-slot")!.querySelector('[data-order="2"]')).not.toBeNull();
   });
 
   it("draws every stack object, numbered in the order they resolve (F-0028-A)", () => {
@@ -1392,12 +1469,15 @@ describe("Board lines and effects", () => {
     // attack line until one is pointed at.
     expect(c.querySelector("[data-attacked-player]")!.textContent).toBe("299 attacking");
     expect(lines(c, "attack")).toEqual([]);
-    // Spec 0063: the blocked one answers too, a short arrow to its blocker.
+    // Spec 0066: the blocked one answers too -- no arrow, its fight's
+    // crossed swords brighten.
     const blocked = c.querySelector('[data-object-id="card:5000"]')!;
     expect(blocked.getAttribute("data-aims")).toBe("player:1");
+    expect(c.querySelectorAll("[data-swords]")).toHaveLength(1);
     fireEvent.pointerEnter(blocked);
-    expect(lines(c, "attack")).toEqual(["card:5000>card:211"]);
+    expect(lines(c, "attack")).toEqual([]);
     expect(lines(c, "block")).toEqual([]);
+    expect(c.querySelector("[data-swords]")!.classList.contains("bf-swords-hot")).toBe(true);
   });
 
   it("a creature a spell killed waits for its burst before it leaves", () => {

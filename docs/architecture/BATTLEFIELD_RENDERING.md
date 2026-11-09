@@ -203,7 +203,8 @@ rather than teleports.
    target, and spec 0028's faint source line) are one SVG layer
    above the battlefield and below the hand (stacking: battlefield cards
    under 2000, a card selected to attack or block 4400 (W-14), the fights'
-   dimming 4550 and the fighters over it 4600 (Phase 10 A-13), lines 5000,
+   dimming 4550 and the fighters over it 4600 (Phase 10 A-13), lines 5000
+   (4800 since spec 0066, under the stack's cards and words),
    bursts, numbers and the fights' marks 6000, hand 10000+). Every line
    starts and ends **inside the card's picture**, never on its name or
    power/toughness bar (the mock ended its block line at 72% of the card's
@@ -222,7 +223,20 @@ rather than teleports.
    from the table's side, a card's edge facing the middle; no lanes. The
    attach line keeps the old curve, inside the picture; the stolen and
    chain tethers are unchanged. Lines draw in, glow included, over 300 ms
-   and fade out over 160 ms. *Phase 10 (2026-11-06, Amendment 15 of
+   and fade out over 160 ms. *Spec 0066 (2026-11-08, A · Soft arc, blocks
+   2 · Crossed swords) replaced the ride:* attack, target and block lines
+   are one cubic each (`effects.ts` `arc`, `arcToRing`) that rises off the
+   table (both handles lifted up the screen: one bend, no corner; higher
+   the further it goes) and comes down onto the top of its target or a
+   life circle's rim, with a soft shadow on the felt; a stack card's
+   arrows leave its gold stud (left edge, at the picture) and wait until
+   the card has arrived (cast flight, the other player's reveal flight,
+   a trigger rising from its card); an ability's source is a faint dotted
+   thread into the stack card's side under its badges. The lines' layer
+   is now 4800, under the stack's cards, caption and badges (4900+) and
+   over every card on the table. A blocked attacker has no arrow: a
+   crossed-swords mark sits between each fighting pair (in the lines'
+   layer), brightened while its attacker is pointed at. *Phase 10 (2026-11-06, Amendment 15 of
    `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage

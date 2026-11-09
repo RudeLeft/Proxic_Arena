@@ -786,7 +786,7 @@ export function GameScreen({
       : lingering && lastCasting.current
         ? { key: -1, card: lingering, battlefield: lastCasting.current.battlefield }
         : null;
-  if (going && board && !board.stack.some((entry) => entry.source === going.card.id)) {
+  if (going && board && !board.stack.some((entry) => spellOf(entry, going.card.id))) {
     if (landingChoice.current?.key === going.key) {
       flyingOnto = landingChoice.current.id;
     } else {
@@ -839,19 +839,17 @@ export function GameScreen({
   // is not also drawn on the stack: it shows there only once the card has
   // flown there, and a spell that resolves first never shows there at all.
   // Read in render (not an effect), so the first frame after the cast is
-  // covered too, before the flight exists.
-  const castNow =
-    flight && !flight.hidden && !flight.reveal
-      ? flight.card.id
-      : lingering && castingHiddenBy === null
-        ? lingering.id
-        : lastCasting.current &&
-            lastCasting.current.card.id !== casting?.id &&
-            !lastCasting.current.hidden
-          ? lastCasting.current.card.id
-          : null;
+  // covered too, before the flight exists. Spec 0066, item 1: the other
+  // player's card too, while it turns over, is held and flies (a reveal
+  // flight) -- never a second copy waiting on the stack with its arrow.
+  const castNow = castOnItsWay(
+    flight,
+    lingering?.id ?? null,
+    lastCasting.current?.card.id ?? null,
+    casting?.id ?? null,
+  );
   const hiddenStack = castNow
-    ? (board?.stack.find((entry) => entry.source === castNow)?.id ?? null)
+    ? (board?.stack.find((entry) => spellOf(entry, castNow))?.id ?? null)
     : null;
   // A stack card first drawn under a flight does not slide in again later.
   const quietStack = useRef(new Set<string>());
@@ -1614,6 +1612,7 @@ export function GameScreen({
             flyingOnto={flyingOnto}
             hiddenStack={hiddenStack}
             stackPay={stackPay}
+            stackPayLive={owingNow !== null}
             quietStack={quietStack.current}
             combat={data.combat}
             stack={stackShown}
@@ -1766,7 +1765,7 @@ export function GameScreen({
                   )}
                   {flight &&
                     (() => {
-                      const onStack = board?.stack.find((entry) => entry.source === flight.card.id);
+                      const onStack = board?.stack.find((entry) => spellOf(entry, flight.card.id));
                       return (
                         <CastingFlight
                           key={flight.key}
@@ -2192,6 +2191,36 @@ function StepLadder({
 // --- the right-hand column ------------------------------------------------------------
 
 /** Spec 0045 -- a library nearly empty ("low", 3 or fewer) or empty. */
+/**
+ * Spec 0066 -- the stack object that IS the spell cast from this card: its
+ * source is the card, and it is a spell -- not a trigger of the permanent
+ * it became (Wasteland Strangler's "When it enters..." has the same
+ * source), which rises from the card on the table instead.
+ */
+export function spellOf(entry: { source?: string | null; kind?: string }, card: string): boolean {
+  return entry.source === card && (entry.kind ?? "spell") === "spell";
+}
+
+/**
+ * Amendment 13 (item 2), spec 0066 item 1 -- the card whose spell is still on
+ * its way to the stack, so its stack card (and its arrows) wait: a cast
+ * card in the air -- yours, or the other player's turning over, held and
+ * flying (a reveal flight) -- or lingering for its balls, or cast this very
+ * frame (before its flight exists). Null for none. (A cancelled hidden cast
+ * goes back to a hand: no stack card has it as its source.)
+ */
+export function castOnItsWay(
+  flight: { card: { id: string }; hidden: boolean } | null,
+  lingering: string | null,
+  lastCast: string | null,
+  casting: string | null,
+): string | null {
+  if (flight && !flight.hidden) return flight.card.id;
+  // (The other player's too, face down while its balls fly: spec 0066.)
+  if (lingering !== null) return lingering;
+  return lastCast !== null && lastCast !== casting ? lastCast : null;
+}
+
 export function libraryWarning(count: number): "low" | "empty" | null {
   return count === 0 ? "empty" : count <= 3 ? "low" : null;
 }

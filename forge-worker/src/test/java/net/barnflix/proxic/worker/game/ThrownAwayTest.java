@@ -58,8 +58,9 @@ class ThrownAwayTest {
                 reason("hand", true, false, true, null, false, false, true));
         assertArrayEquals(new String[] {"countered", "Countered by Counterspell"},
                 reason("stack", false, false, false, "Counterspell", false, false, false));
-        // A creature Forge destroyed (Shock's lethal damage) died; A-00's why stays.
-        assertArrayEquals(new String[] {"destroyed", "Died"},
+        // Spec 0066, item 6: a creature Forge destroyed (Shock's lethal damage)
+        // has no words -- the shatter shows it -- and A-00's why stays.
+        assertArrayEquals(new String[] {"destroyed", null},
                 reason("battlefield", false, false, false, null, false, true, true));
     }
 
@@ -67,11 +68,12 @@ class ThrownAwayTest {
     void theOtherReasons() {
         assertArrayEquals(new String[] {"discarded", "Discarded"},
                 reason("hand", true, false, false, null, false, false, false));
-        assertArrayEquals(new String[] {"sacrificed", "Sacrificed"},
+        // Spec 0066, item 6: from the battlefield, the why with no words.
+        assertArrayEquals(new String[] {"sacrificed", null},
                 reason("battlefield", false, false, false, null, true, false, true));
-        assertArrayEquals(new String[] {"died", "Died"},
+        assertArrayEquals(new String[] {"died", null},
                 reason("battlefield", false, false, false, null, false, false, true));
-        assertArrayEquals(new String[] {"destroyed", "Destroyed"},
+        assertArrayEquals(new String[] {"destroyed", null},
                 reason("battlefield", false, false, false, null, false, true, false));
     }
 
@@ -104,18 +106,22 @@ class ThrownAwayTest {
     @Test
     void whatTheGameTellsGroupsByOwnerAndReason() {
         List<Moves.Move> round = List.of(
-                new Moves.Move(1, "battlefield", 2, "graveyard", 2, false, "destroyed")
-                        .withSaid("destroyed", "Died", "Grizzly Bears"),
-                new Moves.Move(2, "battlefield", 2, "graveyard", 2, false, "destroyed")
-                        .withSaid("destroyed", "Died", "Llanowar Elves"),
+                new Moves.Move(1, "hand", 2, "graveyard", 2, false, null)
+                        .withSaid("cycled", "Cycled", "Forgotten Cave"),
+                new Moves.Move(2, "hand", 2, "graveyard", 2, false, null)
+                        .withSaid("cycled", "Cycled", "Secluded Steppe"),
+                // Spec 0066, item 6: a creature that died is told nothing.
+                new Moves.Move(5, "battlefield", 2, "graveyard", 2, false, "destroyed")
+                        .withSaid("destroyed", null, "Grizzly Bears"),
                 new Moves.Move(3, "hand", 1, "graveyard", 1, false, null)
                         .withSaid("discarded", "Discarded: too many cards", "Elvish Warrior"),
                 new Moves.Move(4, "library", 1, "hand", 1, false, null));
         Map<Integer, Map<String, List<String>>> told = Moves.toldByOwner(round);
-        assertEquals(List.of("Grizzly Bears", "Llanowar Elves"), told.get(2).get("Died"));
+        assertEquals(List.of("Forgotten Cave", "Secluded Steppe"), told.get(2).get("Cycled"));
+        assertEquals(1, told.get(2).size(), "no line for the Bears: " + told);
         assertEquals(List.of("Elvish Warrior"), told.get(1).get("Discarded: too many cards"));
-        assertEquals("Died: Grizzly Bears, Llanowar Elves (Bob's)",
-                Moves.told("Died", told.get(2).get("Died"), "Bob"));
+        assertEquals("Cycled: Forgotten Cave, Secluded Steppe (Bob's)",
+                Moves.told("Cycled", told.get(2).get("Cycled"), "Bob"));
         assertEquals("Discarded, too many cards: Elvish Warrior",
                 Moves.told("Discarded: too many cards", List.of("Elvish Warrior"), null));
         assertEquals("Countered by Counterspell: Giant Growth",

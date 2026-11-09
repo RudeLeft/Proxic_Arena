@@ -33,7 +33,7 @@ import {
   type RowId,
 } from "../src/battlefield/layout";
 import { LIFE_R, MOVE_MS, SWEEP_MS, fateMs, anchors, handZoomBox } from "../src/battlefield/motion";
-import { STACK_READ_SCALE, TIP_GAP, stackSpotBoxes } from "../src/battlefield/effects";
+import { STACK_READ_SCALE, TIP_GAP, stackSpotBoxes, studY } from "../src/battlefield/effects";
 
 type Point = [number, number];
 
@@ -572,23 +572,18 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       const end = { x: line.end[0], y: line.end[1] };
       if (line.from.startsWith("stack:")) {
         // Owner 2026-10-21: from the spell's own card on the stack, drawn
-        // at the right edge of the play area -- on that card's edge. Nothing
-        // is asked on the dev board, so the stack is readable (Phase 9 W-20).
+        // at the right edge of the play area. Spec 0066: from its stud, on
+        // its left edge at the picture. Nothing is asked on the dev board,
+        // so the stack is readable (Phase 9 W-20).
         const spot = stackSpotBoxes(expected.geometry, scene.stack.length, STACK_READ_SCALE);
         const index = scene.stack.findIndex((s) => s.id === line.from);
-        const box = spot[index] ?? spot[spot.length - 1]!;
-        const onEdge =
-          start.x >= box.x - 1 &&
-          start.x <= box.x + box.w + 1 &&
-          start.y >= box.y - 1 &&
-          start.y <= box.y + box.h + 1 &&
-          Math.min(
-            Math.abs(start.x - box.x),
-            Math.abs(start.x - box.x - box.w),
-            Math.abs(start.y - box.y),
-            Math.abs(start.y - box.y - box.h),
-          ) < 1;
-        expect(onEdge, `${what}: ${line.from} starts on its card on the stack`).toBe(true);
+        const at = index >= 0 && index < spot.length ? index : spot.length - 1;
+        const box = spot[at]!;
+        expect(
+          Math.abs(start.x - (box.x - box.h * 0.02)) < 1 &&
+            Math.abs(start.y - studY(spot, at, expected.geometry.cardH)) < 1,
+          `${what}: ${line.from} starts at its stud on the stack`,
+        ).toBe(true);
       } else {
         expect(
           inside(start, outlineOf(line.from)),
@@ -615,13 +610,19 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           `${what}: ${line.kind} ends by the life circle's edge`,
         ).toBe(true);
       } else {
+        // Spec 0066: a hair above its top (a tilted card's highest corner).
         expect(
-          inside(end, outlineOf(line.to), tipGap + 1),
+          inside(end, outlineOf(line.to), tipGap + expected.geometry.cardH * 0.05 + 1),
           `${what}: ${line.kind} ends at ${line.to}`,
         ).toBe(true);
       }
     };
     checkEnds(atRest);
+    if (atRest.some((l) => l.from.startsWith("stack:")))
+      expect(
+        await page.locator("[data-stud]").count(),
+        `${what}: one stud, on the card whose arrows show`,
+      ).toBe(1);
 
     // Spec 0063: no badge or name pill; every drawn attacker -- blocked ones
     // and piles too -- draws its own arrow while pointed at (one per pile;
@@ -632,15 +633,21 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
       `${what}: no badges`,
     ).toBe(0);
     const leadOf = (id: string) => expected.slots.find((s) => s.ids.includes(id))!.ids[0]!;
+    // Spec 0066 (F-0066-D): crossed swords between each fighting pair, as
+    // drawn (one per pile and blocker), all combat long.
+    const pairs = new Set(blocks.map((b) => `${leadOf(b.attacker)}x${leadOf(b.blocker)}`));
+    const swords = await page.evaluate(() =>
+      [...document.querySelectorAll<SVGGElement>("[data-swords]")].map((m) => m.dataset.swords!),
+    );
+    expect(swords.length, `${what}: a swords mark per fight`).toBe(pairs.size);
     const attackers = scene.combat?.attackers ?? [];
     const leads = [...new Set(attackers.map((a) => leadOf(a.id)))];
     for (const lead of leads) {
       const firstOf = new Map<string, string>();
       for (const a of attackers) {
         if (leadOf(a.id) !== lead) continue;
-        const ends = blockedIds.has(a.id)
-          ? blocks.filter((b) => b.attacker === a.id).map((b) => b.blocker)
-          : [aimKey(a.target)];
+        // Spec 0066: a blocked attacker has no arrow (its fights are crossed swords).
+        const ends = blockedIds.has(a.id) ? [] : [aimKey(a.target)];
         for (const to of ends) {
           const key = to.startsWith("player:") ? to : leadOf(to);
           if (!firstOf.has(key)) firstOf.set(key, `${a.id}>${to}`);

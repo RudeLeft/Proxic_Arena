@@ -8,7 +8,7 @@ carries `moves`: where from, where to, and why a card left the battlefield.
 
   destroy    Murder on a Grizzly Bears: both seats are told card, from the
              battlefield, to its owner's graveyard, why "destroyed" (and,
-             spec 0061, the tag it carries there: "Died").
+             spec 0066, no tag: no "said", the shatter shows it).
   sacrifice  Innocent Blood (each player sacrifices a creature): both
              leave as "sacrificed", never "destroyed".
   bounce     Unsummon on Bob's Grizzly Bears: both seats told it went from
@@ -149,7 +149,7 @@ def destroy():
         return "inconclusive", "never Murdered a Grizzly Bears", found
     problems = [found["stopped"]] if found["stopped"] else []
     want = {"card": st["target"], "from": {"zone": "battlefield", "seat": 2},
-            "to": {"zone": "graveyard", "seat": 2}, "why": "destroyed", "said": "Died"}
+            "to": {"zone": "graveyard", "seat": 2}, "why": "destroyed"}
     for seat in (1, 2):
         died = [m for m in found[f"seat{seat}"] if m["from"]["zone"] == "battlefield"]
         if died != [want]:

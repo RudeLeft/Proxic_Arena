@@ -167,7 +167,14 @@ describe("abilities, mana already made, Phyrexian life (F-0062-B)", () => {
       ["G", true, "G"],
     ]);
     const c = render(
-      <Board battlefield={[]} hand={[]} viewerSeat={1} artUrl={(a) => a} stackPay={pips} />,
+      <Board
+        battlefield={[]}
+        hand={[]}
+        viewerSeat={1}
+        artUrl={(a) => a}
+        stackPay={pips}
+        stackPayLive
+      />,
     ).container;
     const pill = c.querySelector(".bf-stack-owe")!;
     expect(pill.getAttribute("aria-label")).toBe("Still to pay: 1");

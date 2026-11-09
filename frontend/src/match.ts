@@ -1772,7 +1772,8 @@ export interface SnapshotMove {
   /**
    * Spec 0061, item 4 -- the tag the card carries on its way to a graveyard,
    * in the game's words ("Cycled", "Discarded: too many cards", "Countered by
-   * Counterspell", "Died"). Only with a named card.
+   * Counterspell"). Only with a named card; never from the battlefield
+   * (spec 0066, item 6).
    */
   said?: string | null;
   /**

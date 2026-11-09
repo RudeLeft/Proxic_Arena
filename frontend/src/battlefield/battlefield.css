@@ -921,6 +921,101 @@
     stroke-dashoffset: 0;
   }
 }
+/* Spec 0066 (A · Soft arc) -- the arc's soft shadow on the felt, drawn in
+   with it; the thread back to an ability's source fades in, faint. */
+.bf-line-shadow {
+  opacity: 0.42;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.bf-line-thread {
+  opacity: 0;
+  animation: bf-line-thread 300ms ease-out forwards;
+}
+.bf-line-thread-aura {
+  opacity: 0.25;
+}
+@keyframes bf-line-thread {
+  to {
+    opacity: 0.8;
+  }
+}
+.bf-line-out .bf-line-shadow,
+.bf-line-out .bf-line-thread {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+.bf-line-out .bf-line-thread {
+  opacity: 0.8;
+}
+/* Spec 0066, item 2 -- the stud a stack card's arrows leave from: a small
+   gold diamond on its left edge, at the picture. */
+.bf-stack-stud {
+  position: absolute;
+  left: 0;
+  top: 45%;
+  width: calc(var(--card-h) * 0.04);
+  height: calc(var(--card-h) * 0.05);
+  translate: -50% -50%;
+  background: #f4c25e;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  filter: drop-shadow(0 0 2px rgb(255 244 214 / 90%));
+  pointer-events: none;
+  animation: bf-stud-in 160ms ease-out both;
+}
+@keyframes bf-stud-in {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+/* Spec 0066, item 4 (2 · Crossed swords) -- a mark between each fighting
+   pair: it clicks into place, with a little spark, as the blockers arrive;
+   pointing at an attacker brightens its fights and dims the rest. */
+.bf-swords {
+  transition: opacity 160ms ease-out;
+}
+.bf-swords-dim {
+  opacity: 0.4;
+}
+.bf-swords-mark {
+  transform-origin: 0 0;
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 70%));
+  transition: transform 160ms ease-out;
+  animation: bf-swords-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--swords-delay, 0ms) both;
+}
+.bf-swords-hot .bf-swords-mark {
+  transform: scale(1.1);
+}
+.bf-swords-spark {
+  fill: none;
+  stroke: #fff4d6;
+  stroke-width: 2.5;
+  opacity: 0;
+  transform-origin: 0 0;
+  animation: bf-swords-spark 240ms ease-out var(--swords-delay, 0ms) both;
+}
+@keyframes bf-swords-in {
+  from {
+    opacity: 0;
+    scale: 1.5;
+  }
+}
+@keyframes bf-swords-spark {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+.bf-line-out .bf-swords-mark,
+.bf-line-out .bf-swords-spark {
+  animation: none;
+}
 @keyframes bf-line-head {
   to {
     opacity: 1;
@@ -1316,14 +1411,27 @@
   .bf-line-core,
   .bf-line-head,
   .bf-line-chip,
+  .bf-line-shadow,
+  .bf-line-thread,
+  .bf-stack-stud,
+  .bf-swords-mark,
+  .bf-swords-spark,
   .bf-stack-slot,
   .bf-card.bf-targeted {
     animation: none;
   }
   .bf-line-aura,
   .bf-line-body,
-  .bf-line-core {
+  .bf-line-core,
+  .bf-line-shadow {
     stroke-dashoffset: 0;
+  }
+  .bf-line-thread {
+    opacity: 0.8;
+  }
+  .bf-swords,
+  .bf-swords-mark {
+    transition: none;
   }
   .bf-line-head,
   .bf-line-chip {

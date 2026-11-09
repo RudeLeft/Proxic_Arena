@@ -234,10 +234,12 @@ moves                     Phase 10 A-00: the cards moved since the last
                           neither destroyed nor sacrificed); said: the tag
                           the board shows on its way ("Cycled",
                           "Discarded: too many cards", "Discarded",
-                          "Countered by Counterspell", "Died",
-                          "Sacrificed", "Destroyed"); only with `card`.
-                          Each such round is also told to both players as a
-                          notice ("Died: Grizzly Bears (Bob's)")
+                          "Countered by Counterspell"); only with `card`.
+                          Spec 0066: a card leaving the battlefield
+                          ("died", "destroyed", "sacrificed") has a why
+                          but no said, and no notice. Each round with a
+                          said is also told to both players as a notice
+                          ("Cycled: Forgotten Cave (Bob's)")
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full

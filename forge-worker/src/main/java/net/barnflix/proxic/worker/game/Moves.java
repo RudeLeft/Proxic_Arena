@@ -79,10 +79,11 @@ final class Moves {
      * discarded down to hand size in the cleanup step ("Discarded: too many
      * cards"), any other discard ("Discarded"). From the stack, while another
      * card's spell or ability resolves: countered ("Countered by
-     * Counterspell"). From the battlefield: sacrificed ("Sacrificed"), a
-     * creature ("Died", why "destroyed" kept when Forge destroyed it, as
-     * Phase 10 A-00 has it), any other destroyed permanent ("Destroyed").
-     * Null when none of these is known (a spell that resolved, a mill).
+     * Counterspell"). From the battlefield: sacrificed, a creature that died
+     * (why "destroyed" kept when Forge destroyed it, as Phase 10 A-00 has
+     * it), any other destroyed permanent -- each with no words (null tag:
+     * spec 0066 item 6, the shatter shows it). Null when none of these is
+     * known (a spell that resolved, a mill).
      */
     static String[] graveReason(GraveFacts f) {
         switch (f.from()) {
@@ -100,13 +101,17 @@ final class Moves {
                         : new String[] {"countered", "Countered by " + f.counteredBy()};
             }
             case "battlefield" -> {
+                // Spec 0066, item 6 -- no words from the battlefield: the
+                // shatter (Phase 10 A-04) already shows a card dying, so no
+                // "Died", "Destroyed" or "Sacrificed" tag and no message.
+                // The why stays (A-00 and A-04 play from it).
                 if (f.sacrificed()) {
-                    return new String[] {"sacrificed", "Sacrificed"};
+                    return new String[] {"sacrificed", null};
                 }
                 if (f.creature()) {
-                    return new String[] {f.destroyed() ? "destroyed" : "died", "Died"};
+                    return new String[] {f.destroyed() ? "destroyed" : "died", null};
                 }
-                return f.destroyed() ? new String[] {"destroyed", "Destroyed"} : null;
+                return f.destroyed() ? new String[] {"destroyed", null} : null;
             }
             default -> {
                 return null;
@@ -118,8 +123,9 @@ final class Moves {
      * Spec 0061, item 4 -- what the game tells a player about cards that went
      * to a graveyard together for one reason, in the approved canvas's words:
      * "Cycled: Forgotten Cave", "Discarded, too many cards: Elvish Warrior",
-     * "Countered by Counterspell: Giant Growth", "Died: Grizzly Bears". Another
-     * player's cards say whose: "Died: Grizzly Bears (Bob's)".
+     * "Countered by Counterspell: Giant Growth". Another player's cards say
+     * whose: "Cycled: Forgotten Cave (Bob's)". (Spec 0066 item 6: nothing
+     * is told of a card dying on the battlefield.)
      */
     static String told(String said, List<String> names, String whose) {
         return said.replace(": ", ", ") + ": " + String.join(", ", names)

@@ -944,8 +944,8 @@ public final class GameHost {
 
     /**
      * Spec 0061, item 4 -- what the game tells each player about this
-     * round's cards gone to a graveyard with a reason ("Died: Grizzly Bears
-     * (Bob's)"). Graveyards are public, so both players are told; one line
+     * round's cards gone to a graveyard with a reason ("Cycled: Forgotten
+     * Cave (Bob's)"; spec 0066: never a death on the battlefield). Graveyards are public, so both players are told; one line
      * per owner and reason, so a big combat is one line, not ten.
      */
     private void tellGraveyards(Game current, java.util.List<Moves.Move> moved) {

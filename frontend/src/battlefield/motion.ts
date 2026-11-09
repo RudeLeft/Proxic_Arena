@@ -716,6 +716,33 @@ const LIFE_X = (7.4 + 216 - 1 - 10 - 23) / 900;
 const LIFE_Y = 2 + 10 + 28;
 export const LIFE_R = 27 / 900;
 
+/**
+ * Spec 0066 -- the parts of each player's plate an arrow must not cross:
+ * its picture and name (the head, left of the life banner) and its tiles.
+ * The banner itself is the life circle the arrow lands on.
+ */
+export function plateRects(g: Geometry): { x0: number; y0: number; x1: number; y1: number }[] {
+  const h = g.height;
+  const at = (v: number) => (v / 900) * h;
+  const out: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  for (const side of ["viewer", "opponent"] as const) {
+    const top = PLATE_TOP[side];
+    out.push({
+      x0: g.rail.x + at(INNER_X),
+      y0: at(top + 2 + 10),
+      x1: g.rail.x + LIFE_X * h - at(23 + 4),
+      y1: at(top + 2 + 10 + 56),
+    });
+    out.push({
+      x0: g.rail.x + at(INNER_X),
+      y0: at(top + TILES_Y),
+      x1: g.rail.x + at(7.4 + 216 - 1 - 10),
+      y1: at(top + TILES_Y + 52 + 6 + 52),
+    });
+  }
+  return out;
+}
+
 /** Where each zone is on the board: a card travels to or from here. */
 export function anchors(g: Geometry): Record<AnchorId, Point> {
   const h = g.height;
