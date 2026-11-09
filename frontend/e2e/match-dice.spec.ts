@@ -174,9 +174,16 @@ test("dice tumble on the stack; the roll, sector, sprocket and crank windows say
     await expect(die.locator(".gs-die-cube .gs-die-face")).toHaveCount(6);
     const dieBox = (await die.boundingBox())!;
     // Beside the card on the stack: touching its left edge, not elsewhere.
-    const card = (await panel
-      .locator('[data-zone="stack"][data-object-id="stack:14"]')
-      .boundingBox())!;
+    // Spec 0066: the ability rises out of Ebony Fly to its place on the
+    // stack (520 ms) while the die tumbles out beside that place -- the
+    // card is measured where it lands, once its rise is over.
+    const stackCard = panel.locator('[data-zone="stack"][data-object-id="stack:14"]');
+    await stackCard.evaluate((el) =>
+      Promise.all(
+        (el.closest(".bf-slot") ?? el).getAnimations().map((a) => a.finished.catch(() => a)),
+      ),
+    );
+    const card = (await stackCard.boundingBox())!;
     expect(
       Math.abs(dieBox.x + dieBox.width / 2 - card.x),
       "beside the card on the stack",

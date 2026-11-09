@@ -79,6 +79,27 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
           .locator('[data-zone="stack"]', { hasText: "Ajani's Pridemate" })
           .filter({ hasText: "Trigger" });
         if ((await trigger.count()) === 0) tries = 0;
+        // Phase 9 W-20: on a readable stack (nothing to choose on the table),
+        // the trigger shows its own words on its card. Read before the
+        // close-up (spec 0066): a right-click waits for the card to finish
+        // rising onto the stack, and a trigger nobody answers may resolve
+        // in that time.
+        if (
+          !sawWords &&
+          (await trigger.count()) > 0 &&
+          (await page.locator(".bf-asking").count()) === 0
+        ) {
+          const said = await trigger
+            .first()
+            .locator(".bf-stack-words")
+            .allTextContents()
+            .catch(() => [] as string[]);
+          if (said.length > 0) {
+            expect(said[0]).toMatch(/^Trigger\s*Whenever you gain life/);
+            await page.screenshot({ path: "test-results/seen/w20-trigger-words.png" });
+            sawWords = true;
+          }
+        }
         if (!closeUp && (await trigger.count()) > 0 && tries < 6) {
           tries += 1;
           await trigger
@@ -103,24 +124,6 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
               closeUp = true;
             }
             await page.keyboard.press("Escape");
-          }
-        }
-        // Phase 9 W-20: on a readable stack (nothing to choose on the table),
-        // the trigger shows its own words on its card.
-        if (
-          !sawWords &&
-          (await trigger.count()) > 0 &&
-          (await page.locator(".bf-asking").count()) === 0
-        ) {
-          const said = await trigger
-            .first()
-            .locator(".bf-stack-words")
-            .allTextContents()
-            .catch(() => [] as string[]);
-          if (said.length > 0) {
-            expect(said[0]).toMatch(/^Trigger\s*Whenever you gain life/);
-            await page.screenshot({ path: "test-results/seen/w20-trigger-words.png" });
-            sawWords = true;
           }
         }
         // F-0045-A: the counter, and where it came from.
