@@ -236,7 +236,20 @@ rather than teleports.
    is now 4800, under the stack's cards, caption and badges (4900+) and
    over every card on the table. A blocked attacker has no arrow: a
    crossed-swords mark sits between each fighting pair (in the lines'
-   layer), brightened while its attacker is pointed at. *Phase 10 (2026-11-06, Amendment 15 of
+   layer), brightened while its attacker is pointed at. *Spec 0069
+   (2026-11-09) changed the looks, not the layer:* an attack is a molten
+   blade (`Arrows.tsx` `AttackBlade`, `effects.ts` `bladePath`), at a
+   player only while pointed at, at a planeswalker or battle always and
+   never across its card; a spell or ability's pointer is a gold beam that
+   stops at its target card's top edge, with a ripple and sparks on the
+   target (a card's picture, a player's life shield -- `beamToBanner`, one
+   arc from the stack card's top edge or bottom corner -- or a card on the
+   stack); a block is a fixed-size shield-and-steel mark on the attacker's
+   picture (one per blocker, four or more one mark with the number); there
+   is no attach line at all (the `attaching` chain is removed); and while
+   targets are chosen `AimPointer.tsx` draws the beam from the card being
+   cast to the pointer (followed outside React), or, for an Aura or
+   Equipment, a preview of its tab on the creature pointed at. *Phase 10 (2026-11-06, Amendment 15 of
    `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage
@@ -345,7 +358,7 @@ tree and the one-line assertions. That trade is to be made with numbers.
 | 2 | static DOM board from a seeded fixture, data attributes from the first commit | something an agent can read and the owner can see |
 | 3 | the tier-2 Playwright bridge | proves step 2 obeys step 1 |
 | 4 | transforms, enter/exit transitions (PHASE 7 AMENDMENT 6: 250 ms; cards travel from and to their rail zones; the hand card zooms). *Phase 10 A-00 (2026-11-06):* every journey is "A · Glide" -- 450 ms along a gentle upward arc, lifted mid-flight (motion.ts `glideFrames`, run by the Web Animations API, a card that stays on the table included); CSS transitions keep only the quick settles (a hand card rising); a click or key makes what is moving finish in 100 ms (`hurry`); destinations come from the game's `moves` | now it moves |
-| 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`; as built the game draws attack, block, target and spec 0028's source line, and the chain -- attach -- line only on `/dev/board`) | now it points and glows |
+| 5 | SVG connector and effects layers: the fire, shield, crosshair and chain lines and the combat impact (PHASE 7 AMENDMENT 4, from `proxic-arena-spike-10`; as built the game draws attack, block, target and spec 0028's source line; spec 0069 removed the chain -- attach -- line) | now it points and glows |
 | 6 | density route, benchmarks against §6 | the PixiJS decision, with data |
 | 7 | this document's acceptance rows green; Phase 7 gate updated | make it official |
 

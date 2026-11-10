@@ -10,6 +10,7 @@
 // click becomes an answer only through interaction.ts's rules over the
 // options Forge sent; what a viewer may not see was never sent (§7.45).
 
+import { AimPointer } from "./AimPointer";
 import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
   createContext,
@@ -960,6 +961,26 @@ export function GameScreen({
         decision.looking.every((card) => handOrder.includes(card.id))) ||
       // W-14: the game's "What does X attack?" while a plan answers it.
       (planRef.current !== null && !DECLARE_KINDS.has(decision.kind)));
+  // Spec 0069, items 5 and 7 -- while you choose targets the beam follows
+  // your pointer from the card it is for (the card being cast, or the card
+  // whose ability it is, or the front stack card); an Aura or Equipment
+  // shows no line, only the tab it will sit in on the creature pointed at.
+  const aiming =
+    decision?.kind === "chooseTargetsFor" && !answeredForYou && !!board && !board.spectator;
+  const aimCard = casting && board && casting.seat === board.seat ? casting : null;
+  const aimSource =
+    !aimCard && decision?.about?.card
+      ? (board?.battlefield.find((c) => c.id === decision.about?.card) ?? null)
+      : null;
+  const aimAttach = !aiming
+    ? null
+    : aimCard && /\bAura\b/.test(aimCard.types)
+      ? aimCard.name
+      : aimSource &&
+          decision.about?.kind === "ability" &&
+          /\b(Equipment|Fortification)\b/.test(aimSource.types)
+        ? aimSource.name
+        : null;
 
   // Phase 9 W-14 (owner 2026-11-03, Amendment 11) -- select several, then
   // point. A click on your creature selects it (a pile, one more each
@@ -1778,6 +1799,22 @@ export function GameScreen({
                       geometry={geometry}
                       ledger={balls.current}
                       onLanded={ballsLanded}
+                    />
+                  )}
+                  {aiming && (
+                    <AimPointer
+                      key={decision.decisionId}
+                      geometry={geometry}
+                      from={
+                        aimCard
+                          ? castingBox(geometry)
+                          : aimSource
+                            ? at(aimSource.id)
+                            : board?.stack[0]
+                              ? at(board.stack[0].id)
+                              : null
+                      }
+                      attach={aimAttach}
                     />
                   )}
                   {casting && (

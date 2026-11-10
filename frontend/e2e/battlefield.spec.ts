@@ -533,8 +533,18 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
     const faces = (b: (typeof blocks)[number]) => blocks.find((x) => x.blocker === b.blocker) === b;
     const aimKey = (t: { player: number } | { object: string }) =>
       "player" in t ? `player:${t.player}` : t.object;
-    // Spec 0059 item 9: attack lines only while an attacker is pointed at.
+    // Spec 0059 item 9: attack lines at a player only while an attacker is
+    // pointed at. Spec 0069, item 1: an unblocked attack at a planeswalker
+    // or battle is always drawn (one blade per drawn attacker and target).
+    const leadIn = (id: string) => expected.slots.find((s) => s.ids.includes(id))?.ids[0] ?? id;
+    const always = new Map<string, string>();
+    for (const a of scene.combat?.attackers ?? []) {
+      if (blockedIds.has(a.id) || "player" in a.target) continue;
+      const key = `${leadIn(a.id)}>${leadIn(a.target.object)}`;
+      if (!always.has(key)) always.set(key, `attack ${a.id}>${a.target.object}`);
+    }
     const want: string[] = [
+      ...always.values(),
       ...blocks
         .filter((b) => blocksOf(b.blocker) > 1 && !faces(b))
         .map((b) => `block ${b.blocker}>${b.attacker}`),
@@ -550,7 +560,6 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           s.targets.map((t) => `target ${s.id}>${"player" in t ? `player:${t.player}` : t.object}`),
         ),
       ...scene.stack.filter((s) => s.source).map((s) => `source ${s.source}>${s.id}`),
-      ...(scene.attaching ? [`attach ${scene.attaching.source}>${scene.attaching.host}`] : []),
     ];
     const atRest = await readLines();
     expect(atRest.map((l) => `${l.kind} ${l.from}>${l.to}`).sort(), `${what}: lines`).toEqual(
@@ -653,7 +662,9 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
           if (!firstOf.has(key)) firstOf.set(key, `${a.id}>${to}`);
         }
       }
-      const pointed = [...want, ...[...firstOf.values()].map((line) => `attack ${line}`)];
+      const pointed = [
+        ...new Set([...want, ...[...firstOf.values()].map((line) => `attack ${line}`)]),
+      ];
       // The real pointer, near the card's left edge (the part a squeezed
       // line leaves showing). Not locator.hover(): a flyer bobs, so it is
       // never "stable".

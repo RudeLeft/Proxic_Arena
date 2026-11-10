@@ -841,7 +841,7 @@
   text-overflow: ellipsis;
 }
 
-/* --- lines and combat effects (PHASE 7 AMENDMENTS 4 and 7) ----------------- */
+/* --- lines and combat effects (PHASE 7 AMENDMENTS 4 and 7; spec 0069) ------ */
 
 .bf-lines {
   position: absolute;
@@ -850,58 +850,27 @@
   pointer-events: none;
   overflow: visible;
 }
-.bf-line path,
-.bf-line polygon {
-  stroke-linecap: round;
-}
 .bf-line path {
+  stroke-linecap: round;
   fill: none;
 }
-/* MTG Arena-style (owner 2026-10-21): a soft glow, a solid body with a
- * bright core, an arrowhead. Each line draws itself in from its source,
- * then the glow breathes. */
-/* Spec 0063: the glow draws in with the line, over 300 ms; the arrowhead
- * comes as the line arrives; a line that goes fades out (bf-line-out). */
-.bf-line-aura {
-  opacity: 0.32;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation:
-    bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
-    bf-line-breathe 1.8s ease-in-out 300ms infinite;
-}
-.bf-line-body,
-.bf-line-core {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-}
-.bf-line-core {
-  opacity: 0.9;
-}
-.bf-line-head {
-  opacity: 0;
-  transform: scale(0.5);
-  filter: drop-shadow(0 0 3px rgb(255 90 31 / 80%));
-  animation: bf-line-head 110ms ease-out 220ms forwards;
-}
+/* Spec 0063: a line arrives over a moment and one that goes fades out
+ * (bf-line-out); spec 0069: only opacity, transforms and dash offsets move. */
 .bf-line-chip {
   opacity: 0;
-  animation: bf-line-head 120ms ease-out 160ms forwards;
+  animation: bf-line-in 120ms ease-out 160ms forwards;
 }
 .bf-line-out {
   animation: bf-line-out 160ms ease-in forwards;
 }
-.bf-line-out path,
-.bf-line-out polygon,
+.bf-line-out .bf-blade,
+.bf-line-out .bf-beam,
+.bf-line-out .bf-line-thread,
+.bf-line-out .bf-line-shadow,
 .bf-line-out .bf-line-chip {
   animation: none;
-  stroke-dashoffset: 0;
-}
-.bf-line-out polygon,
-.bf-line-out .bf-line-chip {
   opacity: 1;
-  transform: none;
+  stroke-dashoffset: 0;
 }
 @keyframes bf-line-out {
   from {
@@ -911,14 +880,23 @@
     opacity: 0;
   }
 }
-.bf-line-attach .bf-line-aura {
-  animation: none;
-  stroke-dashoffset: 0;
-  opacity: 0.25;
+@keyframes bf-line-in {
+  to {
+    opacity: 1;
+  }
 }
 @keyframes bf-line-draw {
   to {
     stroke-dashoffset: 0;
+  }
+}
+@keyframes bf-line-breathe {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.42;
   }
 }
 /* Spec 0066 (A · Soft arc) -- the arc's soft shadow on the felt, drawn in
@@ -941,13 +919,146 @@
     opacity: 0.8;
   }
 }
-.bf-line-out .bf-line-shadow,
-.bf-line-out .bf-line-thread {
-  animation: none;
-  stroke-dashoffset: 0;
-}
 .bf-line-out .bf-line-thread {
   opacity: 0.8;
+}
+/* Spec 0069, item 1 (A2 · Molten blade): it fades in from its attacker; its
+   haze flickers and its glow breathes; embers drift up off it. */
+.bf-blade,
+.bf-beam {
+  animation: bf-arrow-in 220ms ease-out both;
+}
+@keyframes bf-arrow-in {
+  from {
+    opacity: 0;
+  }
+}
+.bf-blade-haze {
+  opacity: 0.26;
+  animation: bf-blade-heat 1.3s ease-in-out infinite;
+}
+.bf-blade-glow {
+  opacity: 0.4;
+  animation: bf-line-breathe 1.8s ease-in-out infinite;
+}
+@keyframes bf-blade-heat {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 0.34;
+    transform: translateY(-1.5px);
+  }
+  70% {
+    opacity: 0.18;
+    transform: translateY(1px);
+  }
+}
+.bf-blade-ember {
+  animation: bf-blade-ember 1.6s ease-out infinite;
+}
+@keyframes bf-blade-ember {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(4px, -16px);
+  }
+}
+/* Spec 0069, items 2-5 (T4 · Beam): a glow, a gold body, light flowing
+   along it toward what it points at. */
+.bf-beam-aura {
+  opacity: 0.35;
+}
+.bf-beam-flow {
+  stroke-dasharray: 0.015 0.035;
+  animation: bf-beam-flow 0.8s linear infinite;
+}
+@keyframes bf-beam-flow {
+  from {
+    stroke-dashoffset: 0.05;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* Spec 0069 (L3 · Ripple and sparks): rings grow outward from the ring
+   round the target and fade; small sparks fly off it. */
+.bf-ripple-ring {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bf-ripple 1.2s ease-out infinite;
+}
+@keyframes bf-ripple {
+  0% {
+    opacity: 0.9;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.7;
+  }
+}
+.bf-ripple-spark {
+  animation: bf-ripple-spark 1.2s ease-out infinite;
+}
+@keyframes bf-ripple-spark {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 var(--fly);
+  }
+}
+/* Spec 0069, item 5 -- choosing targets: the beam follows the pointer from
+   the card being cast (AimPointer.tsx), over the cards on the table. */
+.bf-pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.bf-pointer path {
+  fill: none;
+  stroke-linecap: round;
+}
+.bf-pointer [data-off="true"] {
+  display: none;
+}
+/* Spec 0069, item 7 -- choosing where an Aura or Equipment goes: no line;
+   the creature pointed at shows the tab the card will sit in. */
+.bf-tab-preview {
+  position: absolute;
+  pointer-events: none;
+  writing-mode: vertical-rl;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35em 0;
+  border: 1px dashed #f4c25e;
+  border-left: none;
+  border-radius: 0 0.35em 0.35em 0;
+  background: rgb(22 27 34 / 88%);
+  color: #f4c25e;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 0 0 10px 2px rgb(241 195 106 / 55%);
+  animation: bf-arrow-in 140ms ease-out both;
+}
+.bf-tab-preview[data-off="true"] {
+  display: none;
 }
 /* Spec 0066, item 2 -- the stud a stack card's arrows leave from: a small
    gold diamond on its left edge, at the picture. */
@@ -970,9 +1081,11 @@
     scale: 0.4;
   }
 }
-/* Spec 0066, item 4 (2 · Crossed swords) -- a mark between each fighting
-   pair: it clicks into place, with a little spark, as the blockers arrive;
-   pointing at an attacker brightens its fights and dims the rest. */
+/* Spec 0069, item 6 (B4 · Shield and steel, with the clash) -- the mark of
+   a blocker on its attacker: it clicks into place as the blocker arrives,
+   the swords swing in over the shield and strike, sparks burst once where
+   they meet; then its halo breathes and light glints along the blades.
+   Pointing at an attacker brightens its fights and dims the rest. */
 .bf-swords {
   transition: opacity 160ms ease-out;
 }
@@ -988,48 +1101,66 @@
 .bf-swords-hot .bf-swords-mark {
   transform: scale(1.1);
 }
-.bf-swords-spark {
-  fill: none;
-  stroke: #fff4d6;
-  stroke-width: 2.5;
-  opacity: 0;
-  transform-origin: 0 0;
-  animation: bf-swords-spark 240ms ease-out var(--swords-delay, 0ms) both;
-}
 @keyframes bf-swords-in {
   from {
     opacity: 0;
     scale: 1.5;
   }
 }
-@keyframes bf-swords-spark {
+.bf-swords-halo {
+  opacity: 0.3;
+  animation: bf-line-breathe 2s ease-in-out infinite;
+}
+.bf-swords-swing-r,
+.bf-swords-swing-l {
+  animation: bf-swords-swing-r 260ms cubic-bezier(0.5, 0, 0.8, 1.4) var(--swords-delay, 0ms) both;
+}
+.bf-swords-swing-l {
+  animation-name: bf-swords-swing-l;
+}
+@keyframes bf-swords-swing-r {
   from {
-    opacity: 1;
-    transform: scale(1);
+    rotate: 50deg;
   }
-  to {
+}
+@keyframes bf-swords-swing-l {
+  from {
+    rotate: -50deg;
+  }
+}
+.bf-swords-burst {
+  opacity: 0;
+  animation: bf-swords-burst 430ms ease-out calc(var(--swords-delay, 0ms) + 220ms) 1 both;
+}
+@keyframes bf-swords-burst {
+  0% {
+    opacity: 1;
+    scale: 0.4;
+  }
+  100% {
     opacity: 0;
-    transform: scale(2.8);
+    scale: 1.5;
+  }
+}
+.bf-swords-glint {
+  stroke-dasharray: 0.18 2;
+  stroke-dashoffset: 0.18;
+  animation: bf-swords-glint 2.2s ease-in-out infinite;
+}
+@keyframes bf-swords-glint {
+  0% {
+    stroke-dashoffset: 0.18;
+  }
+  45%,
+  100% {
+    stroke-dashoffset: -1;
   }
 }
 .bf-line-out .bf-swords-mark,
-.bf-line-out .bf-swords-spark {
+.bf-line-out .bf-swords-swing-r,
+.bf-line-out .bf-swords-swing-l,
+.bf-line-out .bf-swords-burst {
   animation: none;
-}
-@keyframes bf-line-head {
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@keyframes bf-line-breathe {
-  0%,
-  100% {
-    opacity: 0.22;
-  }
-  50% {
-    opacity: 0.42;
-  }
 }
 
 /* The stack, as cards (owner 2026-10-21): a spell waiting to resolve is
@@ -1406,23 +1537,30 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bf-line-aura,
-  .bf-line-body,
-  .bf-line-core,
-  .bf-line-head,
+  /* Spec 0069, item 8 -- every arrow and mark is a still picture. */
   .bf-line-chip,
   .bf-line-shadow,
   .bf-line-thread,
+  .bf-blade,
+  .bf-beam,
+  .bf-blade-haze,
+  .bf-blade-glow,
+  .bf-blade-ember,
+  .bf-beam-flow,
+  .bf-ripple-ring,
+  .bf-ripple-spark,
+  .bf-tab-preview,
   .bf-stack-stud,
   .bf-swords-mark,
-  .bf-swords-spark,
+  .bf-swords-halo,
+  .bf-swords-swing-r,
+  .bf-swords-swing-l,
+  .bf-swords-burst,
+  .bf-swords-glint,
   .bf-stack-slot,
   .bf-card.bf-targeted {
     animation: none;
   }
-  .bf-line-aura,
-  .bf-line-body,
-  .bf-line-core,
   .bf-line-shadow {
     stroke-dashoffset: 0;
   }
@@ -1433,10 +1571,13 @@
   .bf-swords-mark {
     transition: none;
   }
-  .bf-line-head,
   .bf-line-chip {
     opacity: 1;
-    transform: none;
+  }
+  .bf-swords-glint,
+  .bf-ripple-ring,
+  .bf-ripple-spark {
+    display: none;
   }
   .bf-attacked-life::before {
     transition: none;

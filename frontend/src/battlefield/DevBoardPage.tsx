@@ -157,7 +157,6 @@ export default function DevBoardPage() {
         pointedStack={scene?.pointedStack ?? null}
         // `&clock=1`: the response window's ring round the front card (spec 0028).
         clock={params.get("clock") ? `dev:${change}` : null}
-        attaching={scene?.attaching ?? null}
         damage={scene?.damage ?? null}
       />
       <div className="bf-dev-note" role="note">

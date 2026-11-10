@@ -6,7 +6,7 @@
 
 import type { BoardCard, BoardHandCard } from "./Board";
 import type { AnchorId } from "./motion";
-import type { AttachView, CombatView, DamageWave, StackView } from "./Board";
+import type { CombatView, DamageWave, StackView } from "./Board";
 
 /** mulberry32: small, fast, deterministic. */
 function random(seed: number): () => number {
@@ -382,7 +382,6 @@ export interface SyntheticScene extends SyntheticChange {
   combat: CombatView | null;
   stack: StackView[];
   pointedStack: string | null;
-  attaching: AttachView | null;
   damage: DamageWave | null;
 }
 
@@ -539,7 +538,6 @@ export function combatScript(n: number): SyntheticScene {
     combat: null,
     stack: [],
     pointedStack: null,
-    attaching: null,
     damage: null,
   };
 
@@ -671,7 +669,6 @@ export function combatScript(n: number): SyntheticScene {
   }
 
   // Equip: steps 12-13.
-  if (step === 12) scene.attaching = { source: splitter.id, host: corpse.id };
   if (step >= 13) set(splitter.id, { attachedTo: corpse.id });
 
   scene.board = { battlefield, hand, viewerSeat: you };

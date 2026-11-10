@@ -7,9 +7,9 @@ import {
   arcToRing,
   ARC_HIGH,
   ARC_LOW,
-  arrowHead,
+  beamToBanner,
+  bladePath,
   entersAny,
-  curve,
   facingPort,
   pathOf,
   pointOn,
@@ -40,21 +40,89 @@ import { SCENARIO_NAMES, scenarioBoard } from "./scenarios";
  * browser draws it.
  */
 
-describe("line curves", () => {
-  it("start and end where they are told to, the arrowhead on the end", () => {
-    const g = geometry({ width: 1920, height: 1080 });
-    for (const kind of ["attack", "block", "target", "attach"] as const) {
-      for (const lane of [-1, 0, 1]) {
-        const start = { x: 300, y: 400 };
-        const end = { x: 900 + lane * 10, y: 700 };
-        const c = curve(kind, start, end, lane);
-        expect(c.start).toEqual(start);
-        expect(c.end).toEqual(end);
+describe("spec 0069: the blade and the beam at a player", () => {
+  const screens = [
+    { width: 1920, height: 1080 },
+    { width: 1920, height: 947 },
+    { width: 2560, height: 1440 },
+    { width: 3440, height: 1440 },
+    { width: 3840, height: 2160 },
+  ];
+
+  it("the attack blade: a closed shape, widest at its attacker, a point at its tip", () => {
+    const route: Route = [
+      {
+        start: { x: 100, y: 500 },
+        c1: { x: 100, y: 300 },
+        c2: { x: 600, y: 100 },
+        end: { x: 900, y: 120 },
+      },
+    ];
+    const d = bladePath(route, 20);
+    expect(d.startsWith("M")).toBe(true);
+    expect(d.endsWith("Z")).toBe(true);
+    const pts = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({
+      x: Number(m[1]),
+      y: Number(m[2]),
+    }));
+    // Its two sides start 20 apart at the attacker and meet at the tip.
+    const first = pts[0]!;
+    const last = pts[pts.length - 1]!;
+    expect(Math.hypot(first.x - last.x, first.y - last.y)).toBeCloseTo(20, 0);
+    const mid = pts[(pts.length >> 1) - 1]!;
+    const after = pts[pts.length >> 1]!;
+    expect(Math.hypot(mid.x - 900, mid.y - 120)).toBeLessThan(0.2);
+    expect(Math.hypot(after.x - 900, after.y - 120)).toBeLessThan(0.2);
+  });
+
+  it("F-0069-C: a stack card's beam lands on the life shield's rim in one arc that never turns back past its card, and never covers the number", () => {
+    let checked = 0;
+    for (const size of screens) {
+      const g = geometry(size);
+      const r = LIFE_R * g.height + TIP_GAP * g.cardH;
+      for (const count of [1, 2, 3, 6]) {
+        const spots = stackSpotBoxes(g, count);
+        for (const card of spots) {
+          for (const side of ["viewer:life", "opponent:life"] as const) {
+            const ring = anchors(g)[side];
+            const where = `${size.width}x${size.height} ${count} on the stack, ${side}`;
+            const route = beamToBanner(card, ring, r);
+            // One arc.
+            expect(route, where).toHaveLength(1);
+            const only = route[0]!;
+            // It leaves the card's edge: the top edge for a shield above it,
+            // the bottom corner for a shield below it.
+            if (ring.y + r < card.y) expect(only.start.y, where).toBeCloseTo(card.y, 6);
+            else if (ring.y - r > card.y + card.h) {
+              expect(only.start.x, where).toBeCloseTo(card.x + card.w, 6);
+              expect(only.start.y, where).toBeCloseTo(card.y + card.h, 6);
+            }
+            // It ends on the shield's rim...
+            expect(Math.hypot(only.end.x - ring.x, only.end.y - ring.y), where).toBeCloseTo(r, 6);
+            const pts = routePoints(route, 64);
+            let before = pts[0]!;
+            for (const p of pts.slice(1)) {
+              // ...never over the number...
+              expect(Math.hypot(p.x - ring.x, p.y - ring.y), where).toBeGreaterThan(r - 0.5);
+              // ...never back toward or across its card (it only goes right)...
+              expect(p.x, where).toBeGreaterThanOrEqual(before.x - 0.01);
+              const inside =
+                p.x > card.x + 1 &&
+                p.x < card.x + card.w - 1 &&
+                p.y > card.y + 1 &&
+                p.y < card.y + card.h - 1;
+              expect(inside, where).toBe(false);
+              // ...and on the screen.
+              expect(p.y, where).toBeGreaterThanOrEqual(0);
+              expect(p.y, where).toBeLessThanOrEqual(g.height);
+              before = p;
+            }
+            checked += 1;
+          }
+        }
       }
     }
-    const c = curve("attack", { x: 0, y: 0 }, { x: 100, y: 300 });
-    const first = arrowHead(c, g.cardH * 0.2).split(" ")[0]!;
-    expect(first).toBe("100,300");
+    expect(checked).toBeGreaterThan(100);
   });
 });
 
@@ -263,23 +331,6 @@ describe("soft arcs (F-0066-C)", () => {
         expect(only.c2.y).toBeLessThan(only.end.y);
         for (const p of routePoints(route, 48))
           expect(Math.hypot(p.x - ring.x, p.y - ring.y)).toBeGreaterThan(reach - 0.5);
-        // The arrowhead: the same size on every line, along the curve's way in.
-        const size = 20;
-        const pts = arrowHead(route, size)
-          .split(" ")
-          .map((q) => q.split(",").map(Number) as [number, number]);
-        expect(Math.abs(pts[0]![0] - only.end.x)).toBeLessThan(0.1);
-        expect(Math.abs(pts[0]![1] - only.end.y)).toBeLessThan(0.1);
-        const mid = { x: (pts[1]![0] + pts[3]![0]) / 2, y: (pts[1]![1] + pts[3]![1]) / 2 };
-        expect(Math.abs(Math.hypot(mid.x - pts[0]![0], mid.y - pts[0]![1]) - size)).toBeLessThan(
-          0.2,
-        );
-        const way = { x: only.end.x - only.c2.x, y: only.end.y - only.c2.y };
-        const axis = { x: pts[0]![0] - mid.x, y: pts[0]![1] - mid.y };
-        const cos =
-          (way.x * axis.x + way.y * axis.y) /
-          (Math.hypot(way.x, way.y) * Math.hypot(axis.x, axis.y));
-        expect(cos).toBeGreaterThan(0.999);
         void g;
       }
     }

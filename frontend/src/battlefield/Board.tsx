@@ -105,10 +105,11 @@ import {
   type AnchorId,
   type Point,
 } from "./motion";
+import { AttackBlade, SwordsMark, TargetBeam } from "./Arrows";
 import {
-  arrowHead,
+  beamToBanner,
   centreOf,
-  curve,
+  ringEdge,
   effectSizes,
   LINE_THEME,
   NUMBER_MS,
@@ -131,7 +132,6 @@ import {
   stackBadgeRects,
   TIP_GAP,
   topOf,
-  trimmed,
   type LineKind,
   type Port,
   type Route,
@@ -255,12 +255,6 @@ export interface StackView {
   count?: number;
   /** Spec 0045 — what it does, in a player's words (the hover label). */
   does?: string;
-}
-
-/** An Aura or Equipment whose host is being chosen (the gold chain). */
-export interface AttachView {
-  source: string;
-  host: string;
 }
 
 /** Damage just dealt, one wave (one combat damage step, or one spell):
@@ -392,8 +386,6 @@ export interface BoardProps {
    * last ball after the question, it goes with its card.
    */
   stackPayLive?: boolean;
-  /** An attachment's host being chosen. */
-  attaching?: AttachView | null;
   /** The newest damage dealt: played once per `key`. */
   damage?: DamageWave | null;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
@@ -839,6 +831,8 @@ interface Line {
   route: Route;
   /** How many relationships it stands for: a pile's members are one line. */
   count: number;
+  /** Spec 0069 -- a target pointer's crosshair: where it locks on, and how big. */
+  aim?: { at: Point; r: number };
 }
 
 const refKey = (ref: TargetRef) => ("player" in ref ? `player:${ref.player}` : ref.object);
@@ -867,6 +861,13 @@ function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : true;
+}
+
+/** Spec 0069 -- an id for a line's own gradient. */
+function lookId(key: string): string {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0;
+  return `bf-g${(h >>> 0).toString(36)}`;
 }
 
 const NO_CARDS: readonly OpponentHandCard[] = [];
@@ -944,7 +945,6 @@ export function Board({
   clock,
   clockMs,
   handCosts,
-  attaching,
   damage,
   onPick,
   onInspect,
@@ -2973,21 +2973,6 @@ export function Board({
   const sizes = effectSizes(g);
 
   // The lines (AMENDMENT 7): every end is a drawn object or a rail point.
-  const centre = (id: string) => {
-    const p = positions.get(id);
-    return p ? centreOf(p.box, p.origin) : null;
-  };
-  // A point inside the card's picture, toward `toward` (the attach line's
-  // ends, as the mock's block line ended at 72% of the card's height).
-  const edge = (id: string, toward: Point, depth: number) => {
-    const p = positions.get(id)!;
-    const c = centreOf(p.box, p.origin);
-    const dx = toward.x - c.x;
-    const dy = toward.y - c.y;
-    const len = Math.max(0.001, Math.hypot(dx, dy));
-    const reach = Math.min(p.box.h * depth, len / 3);
-    return { x: c.x + (dx / len) * reach, y: c.y + (dy / len) * reach };
-  };
   // Spec 0066 (A · Soft arc, replacing spec 0063's ride along the middle):
   // every arrow is one smooth curve that rises off the table and comes
   // down onto the top of what it points at. An attack leaves its
@@ -3007,8 +2992,13 @@ export function Board({
     from: Port | null,
     to: TargetRef,
     clear?: { top: number; bottom: number },
+    fromCard?: Box,
   ): Route | null => {
     if (!from) return null;
+    // Spec 0069, item 3 -- a spell at a player: the beam onto that player's
+    // life shield, one gentle arc from the stack card's best edge.
+    if ("player" in to && fromCard)
+      return beamToBanner(fromCard, playerPoint(to.player, viewerSeat, where), lifeR + gap);
     if ("player" in to)
       return arcToRing(
         from,
@@ -3021,7 +3011,51 @@ export function Board({
     const p = positions.get(to.object);
     return p ? arc(from, topOf(p.box, p.origin, gap), g.cardH, undefined, clear) : null;
   };
-  const head = sizes.line * 4.4;
+  // Spec 0069, item 1 -- an attack at a permanent: from the attacker's edge
+  // facing the middle to the target's edge facing it, a soft S; it never
+  // runs across the attacked card's face.
+  const attackOnto = (attacker: string, target: string): Route | null => {
+    const from = facing(attacker);
+    const p = positions.get(target);
+    if (!from || !p) return null;
+    const to = facingPort(p.box, p.origin, middle, gap, 1);
+    const ap = positions.get(attacker)!;
+    // Face to face across the middle (a planeswalker straight above its
+    // attacker): too close for a blade between them, so it swings out
+    // round the side and comes in at the attacked card's side edge.
+    if (
+      Math.abs(to.at.x - from.at.x) < g.cardW * 0.9 &&
+      Math.hypot(to.at.x - from.at.x, to.at.y - from.at.y) < g.cardH * 0.7
+    ) {
+      const side = to.at.x < g.width * 0.42 ? 1 : -1;
+      const fx = side > 0 ? 1 : 0;
+      const up = from.out.y;
+      // From its side edge near the corner: never across its own name.
+      const s0 = pointOn(ap.box, ap.origin, side > 0 ? 1 : 0, up < 0 ? 0.14 : 0.86);
+      const e0 = pointOn(p.box, p.origin, fx, 0.55);
+      const e = { x: e0.x + side * gap, y: e0.y };
+      const reach = g.cardW * 0.9;
+      return [
+        {
+          start: s0,
+          c1: { x: s0.x + side * reach, y: s0.y + up * g.cardH * 0.08 },
+          c2: { x: e.x + side * reach, y: e.y },
+          end: e,
+        },
+      ];
+    }
+    const s = from.at;
+    const e = to.at;
+    const d = Math.max(g.cardH * 0.12, Math.hypot(e.x - s.x, e.y - s.y) * 0.4);
+    return [
+      {
+        start: s,
+        c1: { x: s.x + from.out.x * d, y: s.y + from.out.y * d },
+        c2: { x: e.x + to.out.x * d, y: e.y + to.out.y * d },
+        end: e,
+      },
+    ];
+  };
   // The stack, drawn as cards at the right edge of the play area.
   const spot = stackSpotBoxes(g, (stack ?? []).length, stackScale);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
@@ -3041,12 +3075,28 @@ export function Board({
   // lane, buried the screen and stalled the page).
   const drawn = (id: string) => positions.get(id)?.item ?? id;
   const byKey = new Map<string, Line>();
-  const add = (kind: LineKind, from: string, to: string, route: Route | null) => {
+  const add = (
+    kind: LineKind,
+    from: string,
+    to: string,
+    route: Route | null,
+    aim?: { at: Point; r: number },
+  ) => {
     if (!route) return;
     const key = `${kind}:${drawn(from)}:${to.startsWith("player:") ? to : drawn(to)}`;
     const same = byKey.get(key);
     if (same) same.count += 1;
-    else byKey.set(key, { key, kind, from, to, route, count: 1 });
+    else byKey.set(key, { key, kind, from, to, route, count: 1, ...(aim ? { aim } : {}) });
+  };
+  // Spec 0069 -- where a pointer's ripple is: round a player's life shield
+  // (never over the number); on a card, on its picture.
+  const aimOf = (to: TargetRef, route: Route | null): { at: Point; r: number } | undefined => {
+    if (!route) return undefined;
+    if ("player" in to) return { at: playerPoint(to.player, viewerSeat, where), r: lifeR + gap };
+    // On the card's picture, clear of its name and its type line.
+    const p = positions.get(to.object);
+    if (!p) return undefined;
+    return { at: pointOn(p.box, p.origin, 0.5, 0.42), r: g.cardH * 0.1 };
   };
   // Spec 0037 — a blocked attacker hits its blockers, not the player.
   // Phase 10 A-12: a blocker standing facing its attacker needs no block
@@ -3060,16 +3110,21 @@ export function Board({
     // Spec 0059 item 9: no attack lines at rest; the one pointed at
     // (focused, tapped) draws its line. Spec 0066, item 4: a blocked one
     // has no arrow -- its fights are crossed swords.
-    if (aimed === null || drawn(a.id) !== aimed || blockedIds.has(a.id)) continue;
-    add("attack", a.id, refKey(a.target), onto(facing(a.id), a.target));
+    // Spec 0069: an attack at a planeswalker or battle shows all the time --
+    // it is the unusual one, and the count at the player does not cover it.
+    if (blockedIds.has(a.id)) continue;
+    if ("player" in a.target && (aimed === null || drawn(a.id) !== aimed)) continue;
+    // Owner 2026-11-09: an attack at a planeswalker or battle stops at the
+    // edge of it that faces the attacker -- never across its card.
+    add(
+      "attack",
+      a.id,
+      refKey(a.target),
+      "object" in a.target ? attackOnto(a.id, a.target.object) : onto(facing(a.id), a.target),
+    );
   }
-  // Spec 0066, item 4 (2 · Crossed swords) -- one mark between each
-  // fighting pair: in the gap where a blocker faces its attacker, under
-  // where the two overlap; for a blocker blocking another attacker too, on
-  // its block line to that one, halfway.
-  // The canvas's mark, scaled to the card; in a gap between a pair, no
-  // bigger than the gap (2026-11-08 review: it covered the blockers' names),
-  // so it covers only the cards' borders.
+  // Spec 0069, item 6 (after spec 0066, item 4) -- one mark for each
+  // fighting pair; where each goes is settled below.
   const swordsR = 11 * (g.cardW / 62) * 0.9;
   const swords: {
     key: string;
@@ -3077,6 +3132,10 @@ export function Board({
     blocker: string;
     at: Point;
     r: number;
+    /** Where a facing blocker meets its attacker, to order the marks (spec 0069). */
+    faced?: number;
+    /** Four or more blockers, drawn as one mark with the number (spec 0069). */
+    count?: number;
   }[] = [];
   // The y of a card's edge facing the middle, at x (tilt included).
   const edgeYAt = (id: string, x: number) => {
@@ -3109,6 +3168,7 @@ export function Board({
         blocker: b.blocker,
         at: { x, y: (ya + yd) / 2 },
         r: Math.max(5, Math.min(swordsR, Math.abs(yd - ya) / 2 + 2)),
+        faced: x,
       });
       continue;
     }
@@ -3122,6 +3182,44 @@ export function Board({
         at: routeAt(route, 0.5),
         r: swordsR,
       });
+  }
+  // Spec 0069, item 6 (B4): one mark size, whatever the gap or how many
+  // block. The marks of the blockers facing an attacker sit ON the attacker's
+  // picture, in the band between its name (or its power line) on the side
+  // facing them and its ATTACKING tag: never over a name, power, type line or
+  // tag. One in the middle; two or three side by side, in the blockers'
+  // left-to-right order; four or more are one mark in the middle, with the
+  // number. A blocker not facing its attacker has its mark on its dotted bar.
+  {
+    const fixedR = g.cardW * 0.13;
+    const byAttacker = new Map<string, typeof swords>();
+    for (const m of swords) {
+      if (m.faced === undefined) {
+        m.r = fixedR;
+        continue;
+      }
+      const list = byAttacker.get(m.attacker) ?? [];
+      list.push(m);
+      byAttacker.set(m.attacker, list);
+    }
+    for (const [attacker, list] of byAttacker) {
+      const p = positions.get(attacker)!;
+      const near = centreOf(p.box, p.origin).y > middle ? 0.27 : 0.73;
+      if (list.length >= 4) {
+        const one = list[0]!;
+        one.at = pointOn(p.box, p.origin, 0.5, near);
+        one.r = fixedR;
+        one.count = list.length;
+        for (const m of list.slice(1)) swords.splice(swords.indexOf(m), 1);
+        continue;
+      }
+      list.sort((u, v) => u.faced! - v.faced!);
+      list.forEach((m, i) => {
+        const fx = list.length === 1 ? 0.5 : 0.2 + (0.6 * i) / (list.length - 1);
+        m.at = pointOn(p.box, p.origin, fx, near);
+        m.r = fixedR;
+      });
+    }
   }
   // Spec 0043: every object, a "×9" card counting nine.
   const stackTotal = (stack ?? []).reduce((n, s) => n + (s.count ?? 1), 0);
@@ -3148,7 +3246,36 @@ export function Board({
           badges: stackBadgeRects(spot, g.cardH),
         }
       : undefined;
-    for (const t of s.targets) add("target", s.id, refKey(t), onto(start, t, clear));
+    for (const t of s.targets) {
+      // Spec 0069, item 4 -- something on the stack (a counterspell's
+      // target): the ripple beside that stack card's name, left of its
+      // badges, and the beam from this card's stud to it.
+      const onStack = "object" in t && !positions.has(t.object) ? spotIndex(t.object) : -1;
+      if (onStack >= 0) {
+        const r = g.cardH * 0.1;
+        const badge = stackBadgeRects(spot, g.cardH)[onStack]!;
+        const at = { x: badge.x0 - r - gap * 2, y: (badge.y0 + badge.y1) / 2 };
+        const end = ringEdge(at, start.at, r + gap);
+        const d = Math.hypot(end.x - start.at.x, end.y - start.at.y) * 0.5;
+        add(
+          "target",
+          s.id,
+          refKey(t),
+          [
+            {
+              start: start.at,
+              c1: { x: start.at.x - d, y: start.at.y },
+              c2: { x: end.x - d * 0.35, y: end.y + (start.at.y - end.y) * 0.45 },
+              end,
+            },
+          ],
+          { at, r },
+        );
+        continue;
+      }
+      const route = onto(start, t, clear, spot[index]);
+      add("target", s.id, refKey(t), route, aimOf(t, route));
+    }
     if (s.targets.length > 0) studAt = index;
   }
   // Spec 0028 — an ability, faintly, back to the permanent it came from.
@@ -3166,15 +3293,6 @@ export function Board({
       out: { x: right ? 1 : -1, y: 0 },
     };
     add("source", s.source, s.id, arc(from, to, g.cardH, g.cardH * 0.19));
-  }
-  if (attaching) {
-    const from = centre(attaching.source);
-    const to = centre(attaching.host);
-    if (from && to) {
-      add("attach", attaching.source, attaching.host, [
-        curve("attach", edge(attaching.source, to, 0.22), edge(attaching.host, from, 0.22)),
-      ]);
-    }
   }
   const lines = [...byKey.values()];
   // Spec 0063 (R2) -- each player attacked by unblocked attackers: how many.
@@ -3478,19 +3596,41 @@ export function Board({
             <filter id="bf-glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="4" />
             </filter>
+            {/* Spec 0069: a soft bloom; the blade's heat haze; the block mark's steel. */}
+            <filter id="bf-soft" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.6" />
+            </filter>
+            <filter id="bf-heat" x="-30%" y="-30%" width="160%" height="160%">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.035 0.09"
+                numOctaves={2}
+                seed={3}
+              />
+              <feDisplacementMap in="SourceGraphic" scale={g.cardH * 0.09} />
+              <feGaussianBlur stdDeviation="5" />
+            </filter>
+            <linearGradient id="bf-steel" x1="0" y1="-1" x2="0" y2="1">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="0.5" stopColor="#bfe6ff" />
+              <stop offset="1" stopColor="#6c9cc4" />
+            </linearGradient>
+            <linearGradient id="bf-shield" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#2b4a6a" />
+              <stop offset="1" stopColor="#101a26" />
+            </linearGradient>
             <filter id="bf-shadow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation={g.cardH * 0.03} />
             </filter>
           </defs>
           {lines.map((line) => {
+            const still = reducedMotion();
             const route = line.route;
             const first = route[0]!;
             const tip = route[route.length - 1]!.end;
             const theme = LINE_THEME[line.kind];
             const w = sizes.line;
-            // Spec 0063: the body stops under the arrowhead, which makes the point.
-            const pointed = line.kind !== "attach" && line.kind !== "source";
-            const d = pathOf(pointed ? trimmed(route, head * 0.55) : route);
+            const d = pathOf(route);
             const chip = line.count > 1 && line.kind === "attack" ? routeAt(route, 0.5) : null;
             // Spec 0066: a soft shadow on the felt under a lifted arc.
             const depth = Math.min(g.cardH * 0.33, arcHeight(route) * 0.4);
@@ -3506,9 +3646,35 @@ export function Board({
                 data-start={`${first.start.x.toFixed(1)},${first.start.y.toFixed(1)}`}
                 data-end={`${tip.x.toFixed(1)},${tip.y.toFixed(1)}`}
               >
-                {line.kind === "source" ? (
+                {line.kind === "attack" ? (
+                  // Spec 0069, item 1 (A2 · Molten blade).
+                  <AttackBlade
+                    route={route}
+                    w={w}
+                    uid={lookId(line.key)}
+                    reduced={still}
+                    shadow={
+                      depth > 1 && (
+                        <path
+                          d={arcShadow(route, depth)}
+                          stroke="#000"
+                          strokeWidth={w * 1.6}
+                          className="bf-line-shadow"
+                          filter="url(#bf-shadow)"
+                          pathLength={1}
+                        />
+                      )
+                    }
+                  />
+                ) : line.kind === "target" ? (
+                  // Spec 0069, items 2-4 (T4 · Beam, L3 · Ripple and sparks):
+                  // the beam stops at the card's top edge, never over its name.
+                  <TargetBeam route={route} aim={line.aim} w={w} reduced={still} />
+                ) : (
                   // Spec 0066 -- the thread back to an ability's source:
                   // faint and dotted, a dot where it meets the stack card.
+                  // Spec 0069 -- the short bar of a blocker not facing its
+                  // attacker: the same dots, no end.
                   <g className="bf-line-thread">
                     <path
                       d={d}
@@ -3523,66 +3689,16 @@ export function Board({
                       strokeWidth={w * 0.6}
                       strokeDasharray={`${w * 0.8} ${w * 1.7}`}
                     />
-                    <circle
-                      cx={tip.x}
-                      cy={tip.y}
-                      r={w * 1.1}
-                      fill={theme.core}
-                      stroke={theme.body}
-                    />
+                    {line.kind === "source" && (
+                      <circle
+                        cx={tip.x}
+                        cy={tip.y}
+                        r={w * 1.1}
+                        fill={theme.core}
+                        stroke={theme.body}
+                      />
+                    )}
                   </g>
-                ) : (
-                  <>
-                    {pointed && depth > 1 && (
-                      <path
-                        d={arcShadow(route, depth)}
-                        stroke="#000"
-                        strokeWidth={w * 1.6}
-                        className="bf-line-shadow"
-                        filter="url(#bf-shadow)"
-                        pathLength={1}
-                      />
-                    )}
-                    <path
-                      d={d}
-                      stroke={theme.aura}
-                      strokeWidth={w * 2.6}
-                      className="bf-line-aura"
-                      filter="url(#bf-glow)"
-                      pathLength={1}
-                    />
-                    <path
-                      d={d}
-                      stroke={theme.body}
-                      strokeWidth={w}
-                      className="bf-line-body"
-                      pathLength={1}
-                    />
-                    <path
-                      d={d}
-                      stroke={theme.core}
-                      strokeWidth={w * 0.35}
-                      className="bf-line-core"
-                      pathLength={1}
-                    />
-                    {pointed && (
-                      <polygon
-                        points={arrowHead(route, head)}
-                        fill={theme.body}
-                        stroke={theme.core}
-                        strokeWidth={w * 0.3}
-                        strokeLinejoin="round"
-                        className="bf-line-head"
-                        style={{ transformOrigin: `${tip.x}px ${tip.y}px` }}
-                      />
-                    )}
-                    {line.kind === "attach" && (
-                      <g fill={theme.core} stroke={theme.body}>
-                        <circle cx={first.start.x} cy={first.start.y} r={w * 1.6} />
-                        <circle cx={tip.x} cy={tip.y} r={w * 1.6} />
-                      </g>
-                    )}
-                  </>
                 )}
                 {/* Spec 0063: a pile's one arrow says how many it stands for. */}
                 {chip && (
@@ -3630,17 +3746,7 @@ export function Board({
                 style={{ ["--swords-delay" as string]: `${MOVE_MS}ms` }}
               >
                 <g transform={`scale(${(m.r / 11).toFixed(3)})`} data-r={m.r.toFixed(1)}>
-                  <g className="bf-swords-mark">
-                    <circle className="bf-swords-spark" r={10} />
-                    <circle r={11} fill="#141c26" stroke="#6cc6ff" strokeWidth={1.6} />
-                    {[45, -45].map((turn) => (
-                      <g key={turn} transform={`rotate(${turn})`}>
-                        <path d="M0 -8.5 L1.3 -6.8 L1.3 3 L-1.3 3 L-1.3 -6.8 Z" fill="#e4f5ff" />
-                        <rect x={-3.6} y={3} width={7.2} height={1.6} rx={0.8} fill="#e0a44a" />
-                        <rect x={-0.9} y={4.6} width={1.8} height={3.2} fill="#b98a4a" />
-                      </g>
-                    ))}
-                  </g>
+                  <SwordsMark count={m.count} />
                 </g>
               </g>
             );

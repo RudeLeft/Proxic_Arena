@@ -758,7 +758,6 @@ describe("Board lines and effects", () => {
         combat={s.combat}
         stack={s.stack}
         pointedStack={s.pointedStack}
-        attaching={s.attaching}
         damage={s.damage}
       />
     );
@@ -770,15 +769,15 @@ describe("Board lines and effects", () => {
 
   it("fire lines from unblocked attackers, on pointing; blockers stand facing what they block (A-12)", () => {
     const c = render(scene(2)).container;
-    // Spec 0059 item 9: no attack line at rest.
-    expect(lines(c, "attack")).toEqual([]);
+    // Serra Angel and White Knight are blocked: they hit their blockers,
+    // not the player. The Goblin token attacks a planeswalker: its blade
+    // is always drawn (spec 0069, item 1), pointed at or not.
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
     const token = c.querySelector('[data-object-id="card:203"]')!;
     fireEvent.pointerEnter(token);
-    // Serra Angel and White Knight are blocked: they hit their blockers,
-    // not the player; the Goblin token's line is its own.
     expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
     fireEvent.pointerLeave(token);
-    expect(lines(c, "attack")).toEqual([]);
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
     // Each blocker stands facing its attacker: no shield lines.
     expect(lines(c, "block")).toEqual([]);
     const blocks = (id: string) =>
@@ -831,11 +830,12 @@ describe("Board lines and effects", () => {
     expect(halo[0]!.classList.contains("bf-attacked-hot")).toBe(false);
     const emperor = c.querySelector('[data-object-id="card:215"]')!;
     expect(emperor.getAttribute("data-attacked")).toBe("true");
-    // Nothing else glows; no attack line at rest.
+    // Nothing else glows; at rest no blade at a player, and the one at the
+    // planeswalker always (spec 0069, item 1).
     expect(c.querySelectorAll("[data-attacked]")).toHaveLength(1);
-    expect(lines(c, "attack")).toEqual([]);
-    // Pointing at the token: its line, and the Emperor glows brighter -- and
-    // nothing on the table moves for it (P10-R1).
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
+    // Pointing at the token: the Emperor glows brighter -- and nothing on
+    // the table moves for it (P10-R1).
     calls.length = 0;
     fireEvent.pointerEnter(token);
     expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
@@ -847,7 +847,7 @@ describe("Board lines and effects", () => {
     // Pointing at the Angel: your life circle brightens.
     const angel = c.querySelector('[data-object-id="card:201"]')!;
     fireEvent.pointerEnter(angel);
-    expect(lines(c, "attack")).toEqual([`card:201>player:${you}`]);
+    expect(lines(c, "attack").sort()).toEqual([`card:201>player:${you}`, "card:203>card:215"]);
     expect(c.querySelector("[data-attacked-player]")!.classList.contains("bf-attacked-hot")).toBe(
       true,
     );
@@ -867,11 +867,13 @@ describe("Board lines and effects", () => {
     ).container;
     const you = s.board.viewerSeat;
     const angel = c.querySelector<HTMLElement>('[data-object-id="card:201"]')!;
+    // (The Goblin token's blade at the planeswalker is always there: spec 0069.)
+    const atPlayer = () => lines(c, "attack").filter((l) => l.includes(">player:"));
     // The keyboard: focus shows it, leaving hides it.
     act(() => angel.focus());
-    expect(lines(c, "attack")).toEqual([`card:201>player:${you}`]);
+    expect(atPlayer()).toEqual([`card:201>player:${you}`]);
     act(() => angel.blur());
-    expect(lines(c, "attack")).toEqual([]);
+    expect(atPlayer()).toEqual([]);
     // A click focuses the card too (not :focus-visible): pointing showed the
     // line, and once the pointer leaves it is gone -- the card is not left
     // pointed at.
@@ -883,12 +885,12 @@ describe("Board lines and effects", () => {
     fireEvent.click(angel);
     fireEvent.pointerLeave(angel);
     expect(document.activeElement).toBe(angel);
-    expect(lines(c, "attack")).toEqual([]);
+    expect(atPlayer()).toEqual([]);
     expect(angel.getAttribute("data-aimed")).toBeNull();
     // Focus coming back to it later (a window closing) does not point at it either.
     act(() => angel.blur());
     act(() => angel.focus());
-    expect(lines(c, "attack")).toEqual([]);
+    expect(atPlayer()).toEqual([]);
     act(() => angel.blur());
     matches.mockRestore();
     // A touch screen has no pointing: a tap shows it, a second tap hides it.
@@ -903,15 +905,15 @@ describe("Board lines and effects", () => {
         }
       },
     );
-    const token = c.querySelector('[data-object-id="card:203"]')!;
-    fireEvent.pointerDown(token, { pointerType: "touch" });
-    fireEvent.pointerLeave(token, { pointerType: "touch" });
-    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
-    fireEvent.pointerDown(token, { pointerType: "touch" });
-    expect(lines(c, "attack")).toEqual([]);
+    const knight = c.querySelector('[data-object-id="card:202"]')!;
+    fireEvent.pointerDown(knight, { pointerType: "touch" });
+    fireEvent.pointerLeave(knight, { pointerType: "touch" });
+    expect(atPlayer()).toEqual([`card:202>player:${you}`]);
+    fireEvent.pointerDown(knight, { pointerType: "touch" });
+    expect(atPlayer()).toEqual([]);
   });
 
-  it("F-0066-C: a soft arc from the attacker's edge facing the middle to a hair off its target, its shadow on the felt", () => {
+  it("F-0066-C, F-0069-A: a molten blade from the attacker's edge facing the middle to a hair off its target, its shadow on the felt; never across a planeswalker's card", () => {
     const s = combatScript(1);
     const c = render(
       <Board
@@ -928,7 +930,7 @@ describe("Board lines and effects", () => {
     const point = (attr: string | null) => attr!.split(",").map(Number) as [number, number];
     // The other player's Angel: from its bottom edge (facing the middle)...
     fireEvent.pointerEnter(c.querySelector('[data-object-id="card:201"]')!);
-    const line = c.querySelector<SVGGElement>('[data-line="attack"]')!;
+    const line = c.querySelector<SVGGElement>('[data-line="attack"][data-from="card:201"]')!;
     const [sx, sy] = point(line.getAttribute("data-start"));
     const box = out.boxes.get("card:201")!;
     const bottom = pointOn(box, TAPPED_ORIGIN, 0.5, 1);
@@ -941,18 +943,147 @@ describe("Board lines and effects", () => {
       LIFE_R * g.height + TIP_GAP * g.cardH,
       0,
     );
-    // One curve (one cubic, no ride along the middle), drawn in with its
-    // glow, a fixed head, and a soft shadow on the felt below it.
-    const d = line.querySelector(".bf-line-body")!.getAttribute("d")!;
-    expect(d.match(/C/g)).toHaveLength(1);
-    expect(d).not.toContain(` ${Math.round((g.height / 2) * 10) / 10},`);
-    expect(line.querySelectorAll(".bf-line-aura[pathLength], polygon.bf-line-head")).toHaveLength(
-      2,
-    );
+    // Spec 0069, item 1: a molten blade -- a filled, tapering shape with its
+    // heat haze and glow, drifting embers, no arrowhead -- and a soft
+    // shadow on the felt below it.
+    expect(line.querySelectorAll(".bf-blade-body, .bf-blade-haze, .bf-blade-glow")).toHaveLength(3);
+    expect(line.querySelector(".bf-blade-body")!.getAttribute("d")!.endsWith("Z")).toBe(true);
+    expect(line.querySelectorAll(".bf-blade-ember animateMotion").length).toBeGreaterThan(3);
+    expect(line.querySelector("polygon")).toBeNull();
     expect(line.querySelector(".bf-line-shadow[pathLength]")).not.toBeNull();
+    // The Goblin token's blade at The Wandering Emperor: always drawn, and
+    // no part of it is on the planeswalker's card.
+    const walker = c.querySelector<SVGGElement>('[data-line="attack"][data-to="card:215"]')!;
+    const wb = out.boxes.get("card:215")!;
+    const corners = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ].map(([fx, fy]) => pointOn(wb, TAPPED_ORIGIN, fx!, fy!));
+    const x0 = Math.min(...corners.map((p) => p.x));
+    const x1 = Math.max(...corners.map((p) => p.x));
+    const y0 = Math.min(...corners.map((p) => p.y));
+    const y1 = Math.max(...corners.map((p) => p.y));
+    const blade = walker.querySelector(".bf-blade-body")!.getAttribute("d")!;
+    const pts = [...blade.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => [
+      Number(m[1]),
+      Number(m[2]),
+    ]);
+    expect(pts.length).toBeGreaterThan(20);
+    for (const [x, y] of pts) {
+      const inside = x! > x0 + 1 && x! < x1 - 1 && y! > y0 + 1 && y! < y1 - 1;
+      expect(inside, `blade point ${x},${y} on the planeswalker`).toBe(false);
+    }
   });
 
-  it("F-0066-D: crossed swords between each fighting pair, no arrow to blockers; pointing brightens its fights", () => {
+  /** Each block mark: where it is on its attacker's card (0..1 across and down), and its size. */
+  function marksOn(c: Element, out: ReturnType<typeof layout>) {
+    return [...c.querySelectorAll<SVGGElement>("[data-swords]")].map((m) => {
+      const [x, y] = m
+        .getAttribute("transform")!
+        .replace(/[^\d. -]/g, "")
+        .trim()
+        .split(/ +/)
+        .map(Number) as [number, number];
+      const attacker = m.dataset.attacker!;
+      const b = out.boxes.get(attacker)!;
+      const o = pointOn(b, TAPPED_ORIGIN, 0, 0);
+      const ax = pointOn(b, TAPPED_ORIGIN, 1, 0);
+      const ay = pointOn(b, TAPPED_ORIGIN, 0, 1);
+      const along = (p: { x: number; y: number }) =>
+        ((x - o.x) * (p.x - o.x) + (y - o.y) * (p.y - o.y)) / ((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
+      return {
+        attacker,
+        fx: along(ax),
+        fy: along(ay),
+        r: Number(m.querySelector<SVGGElement>("[data-r]")!.dataset.r),
+        h: b.h,
+        w: b.w,
+        count: m.querySelector<SVGGElement>("[data-count]")?.dataset.count ?? null,
+      };
+    });
+  }
+  /** On the attacker's picture: clear of its name, its power and type line, and its ATTACKING tag. */
+  function clearOfWords(m: ReturnType<typeof marksOn>[number], out: ReturnType<typeof layout>) {
+    void out;
+    const top = m.fy - m.r / m.h;
+    const bottom = m.fy + m.r / m.h;
+    const where = `mark on ${m.attacker} at ${m.fx.toFixed(2)},${m.fy.toFixed(2)}`;
+    // Inside the card, side to side.
+    expect(m.fx - m.r / m.w, where).toBeGreaterThan(0);
+    expect(m.fx + m.r / m.w, where).toBeLessThan(1);
+    if (m.fy < 0.5) {
+      // Under the name bar (the top 14%), above the tag (from 43%).
+      expect(top, where).toBeGreaterThan(0.14);
+      expect(bottom, where).toBeLessThan(0.43);
+    } else {
+      // Under the tag (to 57%), above the power and type line (the bottom 14%).
+      expect(top, where).toBeGreaterThan(0.57);
+      expect(bottom, where).toBeLessThan(0.86);
+    }
+  }
+
+  it("F-0069-F: three blockers are three marks side by side; four or more are one mark in the middle with the number", () => {
+    const s = combatScript(2);
+    const guide = s.board.battlefield.find((card) => card.id === "card:211")!;
+    const more = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ ...guide, id: `card:9${i}`, enteredAt: 900 + i }));
+    const board = (n: number) => {
+      const extra = more(n);
+      const combat = {
+        attackers: s.combat!.attackers,
+        blocks: [
+          ...s.combat!.blocks,
+          ...extra.map((x) => ({ blocker: x.id, attacker: "card:201" })),
+        ],
+      };
+      const battlefield = [...s.board.battlefield, ...extra];
+      return {
+        out: layout({ ...s.board, battlefield: inCombat(battlefield, combat) }, size),
+        view: (
+          <Board
+            battlefield={battlefield}
+            hand={s.board.hand}
+            viewerSeat={s.board.viewerSeat}
+            artUrl={art}
+            combat={combat}
+            stack={[]}
+          />
+        ),
+      };
+    };
+    // Three blockers on the Angel: three marks, the same size, in a row.
+    const three = board(1);
+    const view = render(three.view);
+    let marks = marksOn(view.container, three.out).filter((m) => m.attacker === "card:201");
+    expect(
+      marks
+        .map((m) => m.fx)
+        .sort((a, b) => a - b)
+        .map((v) => v.toFixed(2)),
+    ).toEqual(["0.20", "0.50", "0.80"]);
+    expect(marks.every((m) => m.count === null)).toBe(true);
+    for (const m of marks) clearOfWords(m, three.out);
+    const r = marks[0]!.r;
+    // Four, then five: one mark in the middle, the same size, with the number.
+    for (const n of [2, 3]) {
+      const many = board(n);
+      view.rerender(many.view);
+      marks = marksOn(view.container, many.out).filter((m) => m.attacker === "card:201");
+      expect(marks).toHaveLength(1);
+      expect(marks[0]!.fx).toBeCloseTo(0.5, 2);
+      expect(marks[0]!.r).toBeCloseTo(r, 1);
+      expect(marks[0]!.count).toBe(String(n + 2));
+      clearOfWords(marks[0]!, many.out);
+      // The Knight's one mark is untouched.
+      expect(
+        marksOn(view.container, many.out).filter((m) => m.attacker === "card:202"),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("F-0066-D, F-0069-F: a shield-and-steel mark for each fighting pair on the attacker's picture, one size; no arrow to blockers; pointing brightens its fights", () => {
     const c = render(scene(2)).container;
     const swords = () =>
       [...c.querySelectorAll<SVGGElement>("[data-swords]")].map((m) => ({
@@ -969,7 +1100,6 @@ describe("Board lines and effects", () => {
         .sort(),
     ).toEqual(["card:201xcard:211", "card:201xcard:212", "card:202xcard:213"]);
     expect(swords().every((m) => !m.hot && !m.dim)).toBe(true);
-    // Each in the gap between the pair: on the middle, under where they overlap.
     const out = layout(
       {
         ...combatScript(2).board,
@@ -977,43 +1107,34 @@ describe("Board lines and effects", () => {
       },
       size,
     );
-    for (const m of c.querySelectorAll<SVGGElement>("[data-swords]")) {
-      const [x, y] = m
-        .getAttribute("transform")!
-        .replace(/[^\d. -]/g, "")
-        .trim()
-        .split(/ +/)
-        .map(Number) as [number, number];
-      expect(Math.abs(y - size.height / 2)).toBeLessThan(out.geometry.cardH * 0.1);
-      for (const id of [m.dataset.attacker!, m.dataset.blocker!]) {
-        const b = out.boxes.get(id)!;
-        expect(x).toBeGreaterThan(b.x - 1);
-        expect(x).toBeLessThan(b.x + b.w + 1);
-      }
-      // 2026-11-08 review: within the gap -- over neither card's name bar
-      // (the blocker's, facing up) nor its power/toughness and type bar
-      // (the attacker's, facing down): at most their 2-px border. The
-      // ATTACKING and BLOCKING tags, further in, are clear with them.
-      const r = Number(m.querySelector<SVGGElement>("[data-r]")!.dataset.r);
-      const edge = (id: string, fy: number) => {
-        const b = out.boxes.get(id)!;
-        const [p, q] = [0, 1].map((fx) => pointOn(b, TAPPED_ORIGIN, fx, fy));
-        return p!.y + ((q!.y - p!.y) * (x - p!.x)) / (q!.x - p!.x);
-      };
-      expect(y + r, `${m.dataset.swords} over the blocker's name`).toBeLessThanOrEqual(
-        edge(m.dataset.blocker!, 0) + 2.2,
-      );
-      expect(y - r, `${m.dataset.swords} over the attacker's bottom bar`).toBeGreaterThanOrEqual(
-        edge(m.dataset.attacker!, 1) - 2.2,
-      );
-      expect(r).toBeGreaterThanOrEqual(5);
-    }
+    const marks = marksOn(c, out);
+    // Every mark the same size, whatever the gap and however many block.
+    expect(new Set(marks.map((m) => m.r.toFixed(1))).size).toBe(1);
+    expect(marks[0]!.r).toBeCloseTo(out.geometry.cardW * 0.13, 1);
+    // Two on the Angel, side by side; one on the Knight, in the middle.
+    const fxOf = (attacker: string) =>
+      marks
+        .filter((m) => m.attacker === attacker)
+        .map((m) => m.fx)
+        .sort((a, b) => a - b);
+    expect(fxOf("card:201")[0]).toBeCloseTo(0.2, 2);
+    expect(fxOf("card:201")[1]).toBeCloseTo(0.8, 2);
+    expect(fxOf("card:202")[0]).toBeCloseTo(0.5, 2);
+    for (const m of marks) clearOfWords(m, out);
+    // The clash: the swords swing in over the shield, sparks burst once.
+    const one = c.querySelector("[data-swords]")!;
+    expect(
+      one.querySelectorAll(
+        ".bf-swords-shield, .bf-swords-swing-r, .bf-swords-swing-l, .bf-swords-burst",
+      ),
+    ).toHaveLength(4);
+    expect(one.querySelector(".bf-swords-count")).toBeNull();
     // Pointing at the Angel: no arrow (no attack line, no block line), its
     // two fights brighten, the Knight's dims, its blockers light up blue.
     const angel = c.querySelector('[data-object-id="card:201"]')!;
     expect(angel.getAttribute("data-aims")).toBe("player:1");
     fireEvent.pointerEnter(angel);
-    expect(lines(c, "attack")).toEqual([]);
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
     expect(lines(c, "block")).toEqual([]);
     expect(angel.getAttribute("data-aimed")).toBe("true");
     expect(
@@ -1036,7 +1157,7 @@ describe("Board lines and effects", () => {
     expect(swords().every((m) => !m.hot && !m.dim)).toBe(true);
     // White Knight, blocked by Grizzly Bears: its fight, still no arrow.
     fireEvent.pointerEnter(c.querySelector('[data-object-id="card:202"]')!);
-    expect(lines(c, "attack")).toEqual([]);
+    expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
     expect(
       swords()
         .filter((m) => m.hot)
@@ -1047,11 +1168,12 @@ describe("Board lines and effects", () => {
   it("a line that goes fades out over 160 ms, outside the lines' count; with reduced motion it just goes", () => {
     vi.useFakeTimers();
     try {
-      const c = render(scene(2)).container;
-      const token = c.querySelector('[data-object-id="card:203"]')!;
+      const c = render(scene(1)).container;
+      // (Serra Angel attacks you: its blade shows only while pointed at.)
+      const token = c.querySelector('[data-object-id="card:201"]')!;
       fireEvent.pointerEnter(token);
       fireEvent.pointerLeave(token);
-      expect(lines(c, "attack")).toEqual([]);
+      expect(lines(c, "attack")).toEqual(["card:203>card:215"]);
       const leaving = c.querySelectorAll(".bf-line-out[data-line-leaving]");
       expect(leaving).toHaveLength(1);
       act(() => {
@@ -1169,11 +1291,12 @@ describe("Board lines and effects", () => {
     expect(cards[0]!.getAttribute("aria-label")).toContain("1st to resolve");
   });
 
-  it("a gold chain while Equip's host is chosen, a tag once attached", () => {
+  it("F-0069-G: no line for an Aura or Equipment, before or after it is attached; a tab once attached", () => {
     const view = render(scene(12));
-    expect(lines(view.container, "attach")).toEqual(["card:216>card:214"]);
+    expect(lines(view.container, "attach")).toEqual([]);
     view.rerender(scene(13));
     expect(lines(view.container, "attach")).toEqual([]);
+    expect(view.container.querySelectorAll(".bf-line-attach")).toHaveLength(0);
     expect(
       view.container.querySelector('[data-object-id="card:216"]')!.getAttribute("data-attached-to"),
     ).toBe("card:214");

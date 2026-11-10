@@ -29,13 +29,13 @@ export type TargetRef = { object: string } | { player: number };
 /**
  * The colours of each line (owner 2026-10-21, MTG Arena-style): one family
  * of clean, glowing arrows -- gold for a spell's target, ember for an
- * attack, steel blue for a block, copper for an attachment.
+ * attack, steel blue for a block. (Spec 0069: the attack is a molten blade,
+ * the target a beam; an attachment has no line.)
  */
 export const LINE_THEME = {
   attack: { aura: "#ff5a1f", body: "#ff7a3d", core: "#ffe1c4" },
   block: { aura: "#3aa8ff", body: "#6cc6ff", core: "#e4f5ff" },
   target: { aura: "#f0a830", body: "#f4c25e", core: "#fff4d6" },
-  attach: { aura: "#b9782f", body: "#d6a15c", core: "#ffdfac" },
   // Spec 0028 — an ability on the stack, back to the permanent it came from: faint.
   source: { aura: "#5c6472", body: "#8a8f98", core: "#d8dde4" },
 } as const;
@@ -62,38 +62,6 @@ export interface Curve {
   c1: Point;
   c2: Point;
   end: Point;
-}
-
-/**
- * A line's curve. Each kind bends as the mock's did; `lane` spreads
- * several lines into one object apart (the mock's lanes).
- */
-export function curve(kind: LineKind, start: Point, end: Point, lane = 0): Curve {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const dist = Math.max(1, Math.hypot(dx, dy));
-  const nx = -dy / dist;
-  const ny = dx / dist;
-  if (kind === "attach" || kind === "source") {
-    const bend = Math.min(40, dist * 0.08);
-    return {
-      start,
-      c1: { x: start.x + dx * 0.32 + nx * bend, y: start.y + dy * 0.32 + ny * bend },
-      c2: { x: start.x + dx * 0.68 + nx * bend, y: start.y + dy * 0.68 + ny * bend },
-      end,
-    };
-  }
-  const bend =
-    kind === "block"
-      ? Math.min(70, dist * 0.085) + lane * 41
-      : Math.min(95, dist * 0.11) + lane * 75;
-  const back = kind === "block" ? 0.7 : 0.72;
-  return {
-    start,
-    c1: { x: start.x + dx * 0.33 + nx * bend, y: start.y + dy * 0.33 + ny * bend },
-    c2: { x: start.x + dx * back - nx * bend * 0.35, y: start.y + dy * back - ny * bend * 0.35 },
-    end,
-  };
 }
 
 export function pathOf(c: Curve | Route): string {
@@ -774,6 +742,86 @@ export function routePoints(r: Route, per = 24): Point[] {
   return out;
 }
 
+/**
+ * Spec 0069, item 1 -- the attack blade: the route as a shape, `width` across where
+ * it leaves its attacker and narrowing to a point at its tip.
+ */
+export function bladePath(r: Route, width: number): string {
+  const pts = routePoints(r, 40);
+  const last = pts.length - 1;
+  const left: string[] = [];
+  const right: string[] = [];
+  const f = (n: number) => Math.round(n * 10) / 10;
+  for (let i = 0; i <= last; i++) {
+    const a = pts[Math.max(0, i - 1)]!;
+    const b = pts[Math.min(last, i + 1)]!;
+    const len = Math.max(0.001, Math.hypot(b.x - a.x, b.y - a.y));
+    const half = (width / 2) * Math.pow(1 - i / last, 0.8);
+    const nx = (-(b.y - a.y) / len) * half;
+    const ny = ((b.x - a.x) / len) * half;
+    left.push(`${f(pts[i]!.x + nx)} ${f(pts[i]!.y + ny)}`);
+    right.unshift(`${f(pts[i]!.x - nx)} ${f(pts[i]!.y - ny)}`);
+  }
+  return `M${left.join(" L")} L${right.join(" L")} Z`;
+}
+
+/**
+ * Spec 0069, item 3 -- a stack card's beam at a
+ * player always lands on that player's life banner, in one gentle arc that
+ * never turns back past the card. Which edge it leaves by depends on where
+ * the banner is:
+ *  - above the card (the top player): from the card's top edge, near its
+ *    right corner, straight up, bending right over the plate's top and down
+ *    onto the banner's top;
+ *  - below the card (the bottom player): from the card's bottom-right corner
+ *    (right of the stack's caption), out to the right, bending down onto the
+ *    banner's top, under the turn panel's button;
+ *  - beside it: a plain arc from the card's facing side.
+ */
+export function beamToBanner(card: Box, ring: Point, r: number): Route {
+  const at = (deg: number) => ({
+    x: ring.x + r * Math.cos((deg * Math.PI) / 180),
+    y: ring.y + r * Math.sin((deg * Math.PI) / 180),
+  });
+  if (ring.y + r < card.y) {
+    const s = { x: card.x + card.w * 0.86, y: card.y };
+    const e = at(-108);
+    const top = Math.max(4, e.y - r * 1.15);
+    return [
+      {
+        start: s,
+        c1: { x: s.x, y: top + (s.y - top) * 0.25 },
+        c2: { x: e.x - (e.x - s.x) * 0.22, y: top },
+        end: e,
+      },
+    ];
+  }
+  if (ring.y - r > card.y + card.h) {
+    const s = { x: card.x + card.w, y: card.y + card.h };
+    const e = at(-118);
+    return [
+      {
+        start: s,
+        c1: { x: s.x + (e.x - s.x) * 0.45, y: s.y + (e.y - s.y) * 0.1 },
+        c2: { x: e.x - r * 0.35, y: e.y - r * 0.75 },
+        end: e,
+      },
+    ];
+  }
+  const left = ring.x < card.x;
+  const s = { x: left ? card.x : card.x + card.w, y: card.y + card.h * 0.4 };
+  const e = ringEdge(ring, s, r);
+  const d = Math.hypot(e.x - s.x, e.y - s.y) * 0.4;
+  return [
+    {
+      start: s,
+      c1: { x: s.x + (left ? -d : d), y: s.y },
+      c2: { x: e.x, y: e.y - d * 0.5 },
+      end: e,
+    },
+  ];
+}
+
 /** The point `share` (0..1) of the way along a route, by length. */
 export function routeAt(r: Route, share: number): Point {
   const pts = routePoints(r);
@@ -793,53 +841,6 @@ export function routeAt(r: Route, share: number): Point {
     x: pts[i - 1]!.x + (pts[i]!.x - pts[i - 1]!.x) * t,
     y: pts[i - 1]!.y + (pts[i]!.y - pts[i - 1]!.y) * t,
   };
-}
-
-/**
- * The route with its last piece stopping `by` short of its tip, along the
- * way it arrives: the body ends under the arrowhead, so the head (not the
- * stroke's round cap) makes the point.
- */
-export function trimmed(r: Route, by: number): Route {
-  const last = r[r.length - 1]!;
-  const u = arrival(last);
-  return [
-    ...r.slice(0, -1),
-    { ...last, end: { x: last.end.x - u.x * by, y: last.end.y - u.y * by } },
-  ];
-}
-
-/** The direction the curve arrives in, at its end. */
-function arrival(c: Curve): Point {
-  let dx = c.end.x - c.c2.x;
-  let dy = c.end.y - c.c2.y;
-  if (Math.hypot(dx, dy) < 0.001) {
-    dx = c.end.x - c.c1.x;
-    dy = c.end.y - c.c1.y;
-  }
-  if (Math.hypot(dx, dy) < 0.001) {
-    dx = c.end.x - c.start.x;
-    dy = c.end.y - c.start.y;
-  }
-  const len = Math.max(0.001, Math.hypot(dx, dy));
-  return { x: dx / len, y: dy / len };
-}
-
-/** The fire line's arrowhead (the mock's attackArrow), scaled to `size`:
- * the same size on every line, along the curve's own direction at its tip. */
-export function arrowHead(route: Curve | Route, size: number): string {
-  const c = "start" in route ? route : route[route.length - 1]!;
-  const u = arrival(c);
-  const p = { x: -u.y, y: u.x };
-  const back = { x: c.end.x - u.x * size, y: c.end.y - u.y * size };
-  const half = size / 2;
-  const pts = [
-    c.end,
-    { x: back.x + p.x * half, y: back.y + p.y * half },
-    { x: back.x - u.x * size * 0.3, y: back.y - u.y * size * 0.3 },
-    { x: back.x - p.x * half, y: back.y - p.y * half },
-  ];
-  return pts.map((q) => `${Math.round(q.x * 10) / 10},${Math.round(q.y * 10) / 10}`).join(" ");
 }
 
 // --- the stack, as cards (owner 2026-10-21) -----------------------------------
