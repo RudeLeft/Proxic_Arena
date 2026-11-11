@@ -27,7 +27,7 @@ Costs paid by picking cards one at a time (tapping creatures for Voice of the Wo
 
 ## Amendments
 
-## As built (2026-11-11, not committed)
+## As built (2026-11-11)
 
 **Reproduced first.** A Mechanics Lab game (scripts/check-pay-picks.py,
 `voice`): Voice of the Woods' "tap five untapped Elves" asked five
@@ -99,7 +99,7 @@ On the canvas "pay-effects-1111" the owner chose **C · Corner sign** instead of
 | F-0070-G | Seen eye on your revealed hand card until it leaves your hand; gone after a zone change | worker test; Lab; clip |
 | F-0070-H | A card revealed to you stays visible in their hand with the eye; never leaks to anyone who didn't see it (spectators, after it leaves the hand) | worker test; Lab hidden checks |
 
-## As built, Amendment 1 (2026-11-11, not committed)
+## As built, Amendment 1 (2026-11-11)
 
 **Corner signs.** The worded Ribbon is gone: `PaySign.tsx` draws the
 canvas's C signs (its icons and colours, copied exactly) on a picked
@@ -124,7 +124,7 @@ public (spectator) view. Telepathy/Mindslaver otherHands unchanged.
 Page: the eye on your seen hand cards; their revealed cards face up in
 their hand with the eye.
 
-**Convoke balls** still fly when the cost is paid (owner not yet asked).
+**Convoke balls** still fly when the cost is paid (owner chose this, 2026-11-11).
 
 **Tests.** SeenHandsTest (F-0070-G, -H); fixes0070.test.tsx adds
 F-0070-F (sign per kind, no words) and the eye both ways (the eye tests

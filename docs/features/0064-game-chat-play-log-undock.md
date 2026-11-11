@@ -39,7 +39,7 @@ the chat window. The lobby chat is unchanged.
 
 ## Amendments
 
-### Amendment 1 -- As built (2026-11-08, not committed)
+### Amendment 1 -- As built (2026-11-08)
 
 **Where the log is written: the worker, per seat (`PlayLog`).** It
 listens to Forge's events (turn began, mulligan, land played, spell or

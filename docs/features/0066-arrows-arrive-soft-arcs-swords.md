@@ -36,7 +36,7 @@ The owner's list of 2026-11-08 after 1.52/1.53.
 
 ## Amendments
 
-**Amendment 1 — As built (2026-11-08).** Not committed. Results below are
+**Amendment 1 — As built (2026-11-08).** Results below are
 from this build (`RUN`) unless marked.
 
 *Item 1, arrows wait for their card.* `GameScreen.tsx` `castOnItsWay`: the
