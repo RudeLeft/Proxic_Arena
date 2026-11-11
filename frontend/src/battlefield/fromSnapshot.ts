@@ -85,6 +85,7 @@ function toHandCard(card: SnapshotCard): BoardHandCard {
     art: card.art,
     crop: card.crop ?? null,
     manaCost: card.manaCost,
+    ...(card.seen ? { seen: true } : {}),
   };
 }
 

@@ -354,6 +354,11 @@ public final class WorkerMain {
                             return;
                         }
                         for (String id : pending.options()) {
+                            // Spec 0070 -- a take-back is an answer, not an option:
+                            // it travels in `picking`.
+                            if (net.barnflix.proxic.worker.game.CostPicks.isUnpick(id)) {
+                                continue;
+                            }
                             JsonObject option = new JsonObject();
                             option.addProperty("actionId", id);
                             option.addProperty("label",
@@ -432,6 +437,10 @@ public final class WorkerMain {
                         // Phase 9 W-07..W-10 -- how the tray lays the question out.
                         if (GAME.arrange() != null) {
                             ask.add("arrange", GAME.arrange());
+                        }
+                        // Spec 0070 -- the cards picked so far for a cost, and what it does to them.
+                        if (GAME.picking() != null) {
+                            ask.add("picking", GAME.picking());
                         }
                         send(ask);
                     });

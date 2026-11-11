@@ -1,6 +1,9 @@
 package net.barnflix.proxic.match
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 // What the worker says, as types — PHASE_06 §6.98-§6.104.
 //
@@ -139,7 +142,26 @@ data class DecisionRequest(
      * if they let it run out (Phase 8 Amendment 4). To that seat only.
      */
     val window: Boolean = false,
-)
+    /**
+     * Spec 0070 — a cost paid by picking cards one at a time: what it does
+     * to the cards picked so far ("word", "tone", "lean") and which they
+     * are ("picked": objectId, actionId, label). The worker's facts, passed
+     * through untouched, to the asking seat only, as the whole question
+     * goes: the other player and spectators are told nothing until the
+     * cost is paid.
+     */
+    val picking: JsonObject? = null,
+) {
+    /**
+     * Spec 0070 — the take-back answers: picking a picked card again
+     * un-picks it. Answers this question accepts beside its options.
+     */
+    val unpicks: Set<String>
+        get() =
+            (picking?.get("picked") as? JsonArray).orEmpty().mapNotNull {
+                ((it as? JsonObject)?.get("actionId") as? JsonPrimitive)?.contentOrNull
+            }.toSet()
+}
 
 /** Why the worker refused an answer. §6.101's list, as it comes back. */
 enum class DecisionRefusal {

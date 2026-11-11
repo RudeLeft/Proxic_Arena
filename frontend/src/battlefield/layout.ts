@@ -139,6 +139,12 @@ export interface LayoutCard {
    * token piles. */
   token?: boolean;
   /**
+   * Spec 0070 -- picked to pay a cost not yet paid: it stands apart from its
+   * pile (so it can be marked, and clicked to take it back); "lean" -- picked
+   * to tap -- it leans as a tapped card does (TAPPED_TILT), never sideways.
+   */
+  paying?: "lean" | "mark";
+  /**
    * Spec 0003 — what this attacker attacks ("player:2", "card:N"), set
    * only while it is attacking and unblocked: such identical attackers
    * pile together, one card and one fire line.
@@ -381,6 +387,7 @@ function pileKey(
   riders: readonly LayoutCard[] | undefined,
 ): string | null {
   if (card.faceDown || !card.known) return null;
+  if (card.paying) return null;
   if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
   if (card.blocking) return null;
   if (riders) {
@@ -971,7 +978,8 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           w,
           h,
           scale: plan.scale,
-          rotation: lead.tapped ? TAPPED_TILT : 0,
+          // Spec 0070: picked to tap leans as a tapped card does.
+          rotation: lead.tapped || lead.paying === "lean" ? TAPPED_TILT : 0,
           // Left to right, so a card overlaps the one before it (§7.9);
           // up to four lines a side stay under 2000.
           z: Z_BATTLEFIELD + (lineIndex * 100 + i) * 4,

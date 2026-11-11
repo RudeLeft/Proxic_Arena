@@ -24,6 +24,13 @@ that can be followed), so the test is by id:
               Lightning Bolt from the stack to its owner's hand,
               2026-11-08) is no exception: its name is history, but its id
               is a live handle on a card now hidden
+  seen        spec 0070, Amendment 1: a card Forge revealed from another
+              seat's hand stays in this seat's otherHands marked `seen` --
+              but only while it is in that hand, in the same round (never
+              after it has left, even if it comes back unseen); the public
+              (spectator) view carries no otherHands and no `seen` at all;
+              and a seat's own hand card carries `seen` exactly when another
+              seat's board of that round shows it seen
   questions   no option offered to this seat names such a card -- except
               one Forge has just revealed to it (Blackmail: "Looking at
               Bob's hand: Grizzly Bears, Giant Growth, Grizzly Bears", then
@@ -102,6 +109,23 @@ def check(path, totals, leaks):
             rev = state.get("stateRevision")
             rounds.setdefault(rev, {})[seat] = state
             latest[seat] = state
+            if state.get("spectator") and (state.get("otherHands") or any(
+                    c.get("seen") for z in ("hand", "battlefield") for c in state.get(z, []) or [])):
+                leaks.append(f"{path}:{number} rev {rev}: the public view carries another hand or a seen mark")
+            # Spec 0070, Amendment 1 -- once every player's board of this
+            # round is in: each own hand card is marked seen exactly when
+            # another seat is shown it seen.
+            players = {s for s, v in rounds[rev].items() if not v.get("spectator")}
+            if len(players) >= 2 and (rev, "seen") not in totals["_done"] and all(
+                    len(v.get("players", [])) <= len(players) for v in rounds[rev].values()):
+                totals["_done"].add((rev, "seen"))
+                for owner in players:
+                    marked = {c["id"] for c in rounds[rev][owner].get("hand", []) if c.get("seen")}
+                    shown = {c["id"] for s2 in players if s2 != owner
+                             for c in rounds[rev][s2].get("otherHands", []) if c.get("seen")}
+                    if marked != shown & {c["id"] for c in rounds[rev][owner].get("hand", [])}:
+                        leaks.append(f"{path}:{number} rev {rev}: seat {owner}'s eye on {sorted(marked)}, "
+                                     f"but seen by the others: {sorted(shown)}")
             for text in state.get("notices", []):
                 shown = REVEAL.match(text)
                 if shown:
@@ -117,6 +141,16 @@ def check(path, totals, leaks):
                     totals["_done"].add((rev, viewer, other))
                     hand = {c["id"] for c in theirs.get("hand", [])}
                     allowed = {c["id"] for c in view.get("otherHands", [])}
+                    # Spec 0070, Amendment 1 -- a seen card only while it is
+                    # in that hand: a seen card of THEIRS that is not in it
+                    # now has left it.
+                    for c in view.get("otherHands", []):
+                        if c.get("seen") and c.get("owner") == other and c["id"] not in hand:
+                            totals["seen cards gone from the hand"] += 1
+                            leaks.append(f"{path}:{number} rev {rev}: seat {viewer} still shown {c['id']} "
+                                         f"as seen in seat {other}'s hand, which no longer holds it")
+                        elif c.get("seen") and c.get("owner") == other:
+                            totals["seen cards checked"] += 1
                     totals["snapshots compared"] += 1
                     totals["hand cards protected"] += len(hand)
                     carried = ids_in(view)

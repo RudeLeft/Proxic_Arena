@@ -65,6 +65,7 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             looking = (frame["looking"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject },
             arrange = frame["arrange"] as? JsonObject,
             window = (frame["window"] as? JsonPrimitive)?.booleanOrNull == true,
+            picking = frame["picking"] as? JsonObject,
         )
     }.getOrNull()
 

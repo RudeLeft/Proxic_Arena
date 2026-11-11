@@ -171,6 +171,24 @@ class LiveMatchTest {
         assertTrue(sent.isEmpty())
     }
 
+    /**
+     * Spec 0070 -- a card picked for a cost can be picked again to take it
+     * back: that answer is accepted beside the options, and nothing else is.
+     */
+    @Test
+    fun `a take-back of a card picked for a cost is forwarded`() {
+        val live = live()
+        val picking =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"word":"TAP","picked":[{"objectId":"card:3","actionId":"unpick:card:3"}]}""",
+            ) as kotlinx.serialization.json.JsonObject
+        live.nowAsking(question().copy(picking = picking))
+
+        assertEquals(DecisionRefusal.STALE_DECISION, live.answer(alice, 7, "unpick:card:4"))
+        assertNull(live.answer(alice, 7, "unpick:card:3"))
+        assertEquals(listOf("7/1/42/unpick:card:3"), sent)
+    }
+
     /** Passing is an answer, and it is always available. */
     @Test
     fun `a pass is forwarded`() {

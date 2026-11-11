@@ -158,6 +158,26 @@ export interface Decision {
    * out (Phase 8 Amendment 4); anything that shows you are acting pauses it.
    */
   window: boolean;
+  /**
+   * Spec 0070 -- a cost paid by picking cards one at a time: what it does to
+   * the cards picked so far, and which they are. Each is marked on the
+   * table at once (a Ribbon; a tap leans), and clicking one again takes it
+   * back with its `actionId` -- an answer the question accepts beside its
+   * options. Only the paying player is sent it. Null for every other question.
+   */
+  picking?: DecisionPicking | null;
+}
+
+/** Spec 0070 -- the cards picked so far for a cost (see Decision.picking). */
+export interface DecisionPicking {
+  /** The Ribbon's word, the game's: "TAP", "SACRIFICE", "TO HAND"... */
+  word: string;
+  /** Its colour, by what the cost does: tap, untap, sacrifice, exile, hand, library, reveal, discard, other. */
+  tone: string;
+  /** Picked to tap: the card leans as a tapped card does (never sideways before it is paid). */
+  lean: boolean;
+  /** In the order picked. */
+  picked: { objectId: string; actionId: string; label: string }[];
 }
 
 /** Item 5 -- one attacker's combat damage, to split among its blockers. */
@@ -497,6 +517,12 @@ export interface SnapshotCard {
   costWhy?: string | undefined;
   /** Spec 0058, item 8 -- a mutated creature's cards, top first. */
   merged?: MergedCard[] | undefined;
+  /**
+   * Spec 0070, Amendment 1 -- a hand card another player has seen (the
+   * eye): in your own hand, seen by them; in otherHands, revealed to you,
+   * shown until it leaves their hand.
+   */
+  seen?: boolean | undefined;
 }
 
 export interface SnapshotPlayer {
@@ -1384,6 +1410,7 @@ function asCards(value: unknown): SnapshotCard[] {
       costNow: asString(row["costNow"]) ?? undefined,
       costWhy: asString(row["costWhy"]) ?? undefined,
       merged: asMerged(row["merged"]),
+      seen: row["seen"] === true ? true : undefined,
     });
   }
   return cards;
@@ -1606,7 +1633,28 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     looking: asCards(message["looking"]),
     arrange: asArrange(message["arrange"]),
     window: message["window"] === true,
+    picking: asPicking(message["picking"]),
   };
+}
+
+/** Spec 0070 -- anything malformed is no picking at all; a pick without its ids is dropped. */
+function asPicking(value: unknown): DecisionPicking | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const word = asString(v["word"]);
+  if (!word) return null;
+  const picked = Array.isArray(v["picked"])
+    ? v["picked"].flatMap((one) => {
+        if (typeof one !== "object" || one === null) return [];
+        const p = one as Record<string, unknown>;
+        const objectId = asString(p["objectId"]);
+        const actionId = asString(p["actionId"]);
+        return objectId && actionId
+          ? [{ objectId, actionId, label: asString(p["label"]) ?? "" }]
+          : [];
+      })
+    : [];
+  return { word, tone: asString(v["tone"]) ?? "other", lean: v["lean"] === true, picked };
 }
 
 function asFight(value: unknown): DamageFight | null {

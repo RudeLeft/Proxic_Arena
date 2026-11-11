@@ -70,6 +70,19 @@ final class ViewerSnapshot {
             java.util.List<String> notices,
             int gameEpoch,
             Causes causes) {
+        return of(game, viewer, seatOf, revision, notices, gameEpoch, causes, null);
+    }
+
+    /** The same, with who has seen which hand card (spec 0070, Amendment 1); null: nobody. */
+    static JsonObject of(
+            Game game,
+            Player viewer,
+            Map<Player, Integer> seatOf,
+            long revision,
+            java.util.List<String> notices,
+            int gameEpoch,
+            Causes causes,
+            SeenHands seen) {
         // Spec 0047 -- a null viewer is the PUBLIC view, for spectators:
         // nobody's hand, no library, nothing face down, no notices.
         PlayerView viewing = viewer == null ? null : viewer.getView();
@@ -247,6 +260,12 @@ final class ViewerSnapshot {
         for (Card card : viewer == null ? java.util.List.<Card>of() : viewer.getCardsIn(ZoneType.Hand)) {
             hand.add(describe(card, viewing, seatOf));
         }
+        // Spec 0070, Amendment 1 -- the eye on each of the viewer's own hand
+        // cards another seat has seen, until it leaves the hand.
+        int viewerSeat = viewer == null ? 0 : seatOf.getOrDefault(viewer, 0);
+        if (seen != null && viewer != null) {
+            seen.markOwnHand(hand, viewerSeat);
+        }
         snapshot.add("hand", hand);
 
         // §6.37, §6.38 — OTHER players' hand cards, only those Forge
@@ -267,10 +286,22 @@ final class ViewerSnapshot {
             }
             for (Card card : player.getCardsIn(ZoneType.Hand)) {
                 CardView view = card.getView();
+                // Spec 0070, Amendment 1 -- a card Forge revealed to THIS
+                // viewer from that hand, still in it: shown to them alone,
+                // face up, with the eye, until it leaves the hand.
+                boolean sawIt = seen != null && viewer != null && seen.seenBy(card.getId(), viewerSeat);
                 if (view.canBeShownTo(viewing) && view.canFaceDownBeShownTo(viewing)) {
                     // describe() says whose hand it is: a hand card's
                     // `owner`, which `seat` (the controller) need not be.
-                    otherHands.add(describe(card, viewing, seatOf));
+                    JsonObject entry = describe(card, viewing, seatOf);
+                    if (sawIt) {
+                        entry.addProperty("seen", true);
+                    }
+                    otherHands.add(entry);
+                } else if (sawIt) {
+                    JsonObject entry = describe(card, viewing, seatOf, true);
+                    entry.addProperty("seen", true);
+                    otherHands.add(entry);
                 }
             }
         }

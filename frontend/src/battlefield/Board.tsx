@@ -154,6 +154,8 @@ import {
   type Stand,
 } from "./fights";
 import { endLifeSteps, lifeSteps, lifeStillPlaying, startLifeSteps } from "./lifeTicks";
+import { payWords, type PayMark } from "./payPicks";
+import { PaySign } from "./PaySign";
 
 export type { TargetRef } from "./effects";
 
@@ -211,6 +213,8 @@ export interface BoardHandCard {
   crop?: string | null;
   /** The printed mana cost ("{1}{R}"); null for a land. */
   manaCost?: string | null;
+  /** Spec 0070, Amendment 1 -- the other player has seen it in its hand (the eye). */
+  seen?: boolean;
 }
 
 /** Spec 0031 — a card in the opponent's hand: hidden (drawn as a back),
@@ -409,6 +413,9 @@ export interface BoardProps {
   /** Phase 9 Amendment 17 -- the targets already chosen for the spell
    * being cast: a TARGET tag, so the player sees what is picked. */
   chosenTargets?: ReadonlySet<string>;
+  /** Spec 0070 -- the cards picked so far to pay a cost: a Ribbon each (a
+   * tap leans); a click on one takes it back. */
+  payPicks?: ReadonlyMap<string, PayMark>;
   /** Phase 9 W-17 -- the cards in the sector or on the sprocket the
    * player is pointing at in the question: lit, and said ("pointed at"). */
   lit?: ReadonlySet<string>;
@@ -954,6 +961,7 @@ export function Board({
   marked,
   picked,
   chosenTargets,
+  payPicks,
   lit,
   asking,
   rail,
@@ -1068,10 +1076,16 @@ export function Board({
     };
   }
   const pinned = pins.current && pins.current.key !== released ? pins.current.boxes : null;
-  const laidOut = useMemo(
-    () => (combat ? inCombat(battlefield, combat) : battlefield),
-    [battlefield, combat],
-  );
+  const laidOut = useMemo(() => {
+    const fighting = combat ? inCombat(battlefield, combat) : battlefield;
+    // Spec 0070: a card picked to pay stands apart from its pile, and a
+    // card picked to tap leans (layout's TAPPED_TILT); paid, it is tapped.
+    if (!payPicks || payPicks.size === 0) return fighting;
+    return fighting.map((card) => {
+      const mark = payPicks.get(card.id);
+      return mark ? { ...card, paying: mark.lean ? ("lean" as const) : ("mark" as const) } : card;
+    });
+  }, [battlefield, combat, payPicks]);
   // Spec 0040 — each side's card size last time, so a side grows back only
   // with room to spare. Kept in state, so layout() itself stays pure.
   const [sideSizes, setSideSizes] = useState<Partial<Record<Side, number>>>({});
@@ -1130,10 +1144,12 @@ export function Board({
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       const isPicked = ids.some((one) => picked?.has(one));
+      const pay = ids.map((one) => payPicks?.get(one)).find((mark) => mark !== undefined);
       return {
-        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}${isPicked ? " bf-picked" : ""}`,
+        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}${isPicked ? " bf-picked" : ""}${pay ? ` bf-pay-picked bf-pay-${pay.tone}` : ""}`,
         words: [
           isPicked ? "picked to discard" : "",
+          pay ? payWords(pay) : "",
           canChoose ? "can be chosen" : "",
           dim ? "not enough mana right now" : "",
           isSelected ? "selected" : "",
@@ -1144,6 +1160,7 @@ export function Board({
         ],
         marks,
         chosen: isChosen,
+        pay,
         data: {
           "data-choosable": canChoose ? "true" : undefined,
           "data-selected": isSelected ? "true" : undefined,
@@ -1152,6 +1169,7 @@ export function Board({
           "data-chosen-target": isChosen ? "true" : undefined,
           "data-lit": isLit ? "true" : undefined,
           "data-picked": isPicked ? "true" : undefined,
+          "data-pay-picked": pay ? pay.word : undefined,
         },
         handlers: {
           // Spec 0037: and the whole stack, for "block with all of these".
@@ -1172,6 +1190,7 @@ export function Board({
     marked,
     picked,
     chosenTargets,
+    payPicks,
     lit,
     targeted,
     onPick,
@@ -1402,6 +1421,11 @@ export function Board({
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
+            {leadAct.pay && (
+              // Spec 0070, Amendment 1: picked to pay -- the cost's sign on the
+              // card's corner (beside the card, which clips its edge); no words.
+              <PaySign tone={leadAct.pay.tone} />
+            )}
             {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
                 it sits beside the card, which clips what crosses its edge. */}
             {leadAct.marks > 0 && (
@@ -1505,26 +1529,41 @@ export function Board({
         origin: HAND_ORIGIN,
         drawn,
         content: (
-          <button
-            type="button"
-            className={`bf-card bf-hand bf-look-${look}${handAct.className}`}
-            aria-label={[`${card.name}, in your hand`, pt, ...handAct.words]
-              .filter(Boolean)
-              .join(", ")}
-            {...handAct.data}
-            {...handAct.handlers}
-            data-object-id={card.id}
-            data-zone="viewer:hand"
-            data-controller="viewer"
-            data-face="up"
-            data-zoomed={zoomed ? "true" : undefined}
-            onPointerEnter={show}
-            onPointerLeave={hide}
-            onFocus={show}
-            onBlur={hide}
-          >
-            <CardFace {...drawn} />
-          </button>
+          <>
+            <button
+              type="button"
+              className={`bf-card bf-hand bf-look-${look}${handAct.className}`}
+              aria-label={[
+                `${card.name}, in your hand`,
+                pt,
+                card.seen ? `${opponentName} has seen it` : "",
+                ...handAct.words,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              {...handAct.data}
+              {...handAct.handlers}
+              data-object-id={card.id}
+              data-seen={card.seen ? "true" : undefined}
+              data-zone="viewer:hand"
+              data-controller="viewer"
+              data-face="up"
+              data-zoomed={zoomed ? "true" : undefined}
+              onPointerEnter={show}
+              onPointerLeave={hide}
+              onFocus={show}
+              onBlur={hide}
+            >
+              <CardFace {...drawn} />
+            </button>
+            {handAct.pay ? (
+              <PaySign tone={handAct.pay.tone} corner="top-left" />
+            ) : (
+              // Amendment 1: the other player has seen this card -- the eye,
+              // until it leaves your hand.
+              card.seen && <PaySign tone="reveal" seen corner="top-left" />
+            )}
+          </>
         ),
       });
     }
@@ -1563,28 +1602,34 @@ export function Board({
         origin: OPPONENT_HAND_ORIGIN,
         drawn,
         content: (
-          <button
-            type="button"
-            className={`bf-card bf-opp-hand${shown ? ` bf-look-${drawn.look} bf-opp-hand-shown` : ""}`}
-            aria-label={
-              shown
-                ? `${shown.name}, in ${opponentName}'s hand, shown to you`
-                : `Card ${i + 1} of ${opponentHand.length} in ${opponentName}'s hand`
-            }
-            disabled={!onOpponentHand}
-            onClick={onOpponentHand}
-            data-object-id={card.id}
-            data-zone="opponent:hand"
-            data-controller="opponent"
-            data-face={shown ? "up" : "down"}
-          >
-            {shown ? (
-              <CardFace {...drawn} />
-            ) : (
-              // The Proxic card back (docs/assets/brand), owner 2026-10-28.
-              <img className="bf-opp-back" src={cardBack} alt="" draggable={false} />
-            )}
-          </button>
+          <>
+            <button
+              type="button"
+              className={`bf-card bf-opp-hand${shown ? ` bf-look-${drawn.look} bf-opp-hand-shown` : ""}`}
+              aria-label={
+                shown
+                  ? `${shown.name}, in ${opponentName}'s hand, ${shown.seen ? "revealed to you" : "shown to you"}`
+                  : `Card ${i + 1} of ${opponentHand.length} in ${opponentName}'s hand`
+              }
+              disabled={!onOpponentHand}
+              onClick={onOpponentHand}
+              data-object-id={card.id}
+              data-zone="opponent:hand"
+              data-controller="opponent"
+              data-face={shown ? "up" : "down"}
+              data-seen={shown?.seen ? "true" : undefined}
+            >
+              {shown ? (
+                <CardFace {...drawn} />
+              ) : (
+                // The Proxic card back (docs/assets/brand), owner 2026-10-28.
+                <img className="bf-opp-back" src={cardBack} alt="" draggable={false} />
+              )}
+            </button>
+            {/* Amendment 1: revealed to you -- it stays shown, with the eye,
+              until it leaves their hand. */}
+            {shown?.seen && <PaySign tone="reveal" seen corner="bottom-left" />}
+          </>
         ),
       });
     });

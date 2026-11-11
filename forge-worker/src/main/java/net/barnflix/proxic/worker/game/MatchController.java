@@ -2456,10 +2456,17 @@ public final class MatchController extends GeneratedControllerBase {
                         // Phase 9 Amendment 20: Forge's "card(s)" as plain words.
                         .replace(" card(s)", amount == 1 ? "" : " cards");
         boolean saysOr = what.contains("(or:");
-        java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
-        options.forEach(left::add);
+        // Spec 0070 -- what the cost does to the cards picked for it.
+        CostPicks.Pay pay = CostPicks.of(cost == null ? null : cost.getClass().getSimpleName());
         forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
         while (chosen.size() < amount) {
+            // A card taken back is offered again, in Forge's order.
+            java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
+            options.forEach(card -> {
+                if (!chosen.contains(card)) {
+                    left.add(card);
+                }
+            });
             java.util.LinkedHashMap<String, forge.game.card.Card> byId = new java.util.LinkedHashMap<>();
             java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
             for (forge.game.card.Card card : left) {
@@ -2469,17 +2476,24 @@ public final class MatchController extends GeneratedControllerBase {
             }
             String count = amount > 1 && !what.contains("%d") ? " (" + (chosen.size() + 1) + " of " + amount + ")" : "";
             String line = what.replace("%d", String.valueOf(amount - chosen.size()));
+            java.util.List<String> picked = new java.util.ArrayList<>();
+            chosen.forEach(card -> picked.add("card:" + card.getId()));
+            host.offerPicking(CostPicks.picking(pay, chosen, player.getView()));
             try {
                 String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseCardsForCost",
-                        new java.util.ArrayList<>(byId.keySet()), !isOptional,
+                        CostPicks.answers(byId.keySet(), picked), !isOptional,
                         line + count + (isOptional && !saysOr ? " Or pass, and don't pay." : ""),
                         pending -> host.publishDecision(pending, labels));
-                forge.game.card.Card picked = byId.get(choice);
-                if (picked == null) {
+                forge.game.card.Card back = CostPicks.taken(choice, chosen);
+                if (back != null) {
+                    chosen.remove(back);
+                    continue;
+                }
+                forge.game.card.Card one = byId.get(choice);
+                if (one == null) {
                     return null; // passed: the payment is declined
                 }
-                chosen.add(picked);
-                left.remove(picked);
+                chosen.add(one);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return null;
@@ -3795,6 +3809,9 @@ public final class MatchController extends GeneratedControllerBase {
             return couldConvoke(manaCost, untappedCards, artifacts, creatures, maxReduction);
         }
         java.util.Map<forge.game.card.Card, forge.card.mana.ManaCostShard> chosen = new java.util.LinkedHashMap<>();
+        // Spec 0070 -- the colour each pick paid, so a take-back can work the
+        // cost out again from the picks left.
+        java.util.Map<forge.game.card.Card, Byte> colourOf = new java.util.LinkedHashMap<>();
         forge.game.mana.ManaCostBeingPaid remaining = new forge.game.mana.ManaCostBeingPaid(manaCost);
         java.util.List<forge.game.card.Card> left = new java.util.ArrayList<>();
         untappedCards.forEach(left::add);
@@ -3814,12 +3831,15 @@ public final class MatchController extends GeneratedControllerBase {
                 labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
             }
             String choice;
+            java.util.List<String> pickedIds = new java.util.ArrayList<>();
+            chosen.keySet().forEach(card -> pickedIds.add("card:" + card.getId()));
+            host.offerPicking(CostPicks.picking(CostPicks.TAP, chosen.keySet(), player.getView()));
             try {
                 choice = host.gate().ask(
                         actedForSeat,
                         authorisedSeat,
                         "chooseCardsForConvokeOrImprovise",
-                        new java.util.ArrayList<>(byId.keySet()),
+                        CostPicks.answers(byId.keySet(), pickedIds),
                         false,
                         "Choose " + what + " to tap for " + keyword + ". Still owed: " + remaining
                                 + " (or pass when done).",
@@ -3827,6 +3847,28 @@ public final class MatchController extends GeneratedControllerBase {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
+            }
+            forge.game.card.Card back = CostPicks.taken(choice, chosen.keySet());
+            if (back != null) {
+                // Taken back: the cost again from the picks that are left,
+                // and every card not picked offered again.
+                colourOf.remove(back);
+                chosen.clear();
+                remaining = new forge.game.mana.ManaCostBeingPaid(manaCost);
+                for (java.util.Map.Entry<forge.game.card.Card, Byte> one : colourOf.entrySet()) {
+                    forge.card.mana.ManaCostShard again = remaining.payManaViaConvoke(one.getValue());
+                    if (again != null) {
+                        chosen.put(one.getKey(), again);
+                    }
+                }
+                colourOf.keySet().retainAll(chosen.keySet());
+                left.clear();
+                untappedCards.forEach(card -> {
+                    if (!chosen.containsKey(card)) {
+                        left.add(card);
+                    }
+                });
+                continue;
             }
             forge.game.card.Card picked = byId.get(choice);
             if (picked == null) {
@@ -3848,17 +3890,23 @@ public final class MatchController extends GeneratedControllerBase {
             forge.card.mana.ManaCostShard shard = remaining.payManaViaConvoke(colour);
             if (shard != null) {
                 chosen.put(picked, shard);
-                // Spec 0062 -- a ball from the tapped creature (or artifact)
-                // to the symbol it paid; the mana payment after it is the
-                // same payment.
-                // Not while a cost is only being checked (CHECKING): that is
-                // no payment.
-                if (!CHECKING.get()) {
-                    Payments.Payment payment = host.payments().open(sa, manaCost.toString(), true);
-                    host.paid(actedForSeat, payment, sa, remaining.toString(), java.util.List.of(
-                            new Payments.Mana(Payments.colour(colour), shard.toShortString(),
-                                    "card:" + picked.getId())));
-                }
+                colourOf.put(picked, colour);
+            }
+        }
+        // Spec 0062 -- a ball from each tapped creature (or artifact) to the
+        // symbol it paid; the mana payment after it is the same payment.
+        // Spec 0070 -- once the picking is over, not as each is picked: a
+        // pick may be taken back, and the other player is shown nothing
+        // until the cost is paid.
+        if (!CHECKING.get() && !chosen.isEmpty()) {
+            Payments.Payment payment = host.payments().open(sa, manaCost.toString(), true);
+            forge.game.mana.ManaCostBeingPaid owing = new forge.game.mana.ManaCostBeingPaid(manaCost);
+            for (java.util.Map.Entry<forge.game.card.Card, forge.card.mana.ManaCostShard> one : chosen.entrySet()) {
+                byte colour = colourOf.get(one.getKey());
+                owing.payManaViaConvoke(colour);
+                host.paid(actedForSeat, payment, sa, owing.toString(), java.util.List.of(
+                        new Payments.Mana(Payments.colour(colour), one.getValue().toShortString(),
+                                "card:" + one.getKey().getId())));
             }
         }
         return chosen;
@@ -5660,9 +5708,18 @@ public final class MatchController extends GeneratedControllerBase {
             boolean addSuffix) {
         java.util.List<String> names = new java.util.ArrayList<>();
         java.util.List<Integer> ids = new java.util.ArrayList<>();
+        java.util.List<Integer> inHand = new java.util.ArrayList<>();
         for (forge.game.card.Card card : cards) {
             names.add(card.getName());
             ids.add(card.getId());
+            if (card.getZone() != null && card.getZone().is(forge.game.zone.ZoneType.Hand)) {
+                inHand.add(card.getId());
+            }
+        }
+        // Spec 0070, Amendment 1 -- another player's hand card shown to
+        // this seat: remembered until it leaves that hand (SeenHands).
+        if (to != player && zone == forge.game.zone.ZoneType.Hand) {
+            host.seenInHand(actedForSeat, inHand);
         }
         tellRevealed(names, ids, zone, to == null ? null : to.getName(), to == player, message, addSuffix);
     }
@@ -5680,8 +5737,18 @@ public final class MatchController extends GeneratedControllerBase {
             names.add(card.getName());
             ids.add(card.getId());
         }
-        tellRevealed(names, ids, zone, to == null ? null : to.getName(),
-                to != null && to.equals(player.getView()), message, addSuffix);
+        boolean own = to != null && to.equals(player.getView());
+        // Spec 0070, Amendment 1 -- as above, for Forge's view-based reveal.
+        if (!own && zone == forge.game.zone.ZoneType.Hand) {
+            java.util.List<Integer> inHand = new java.util.ArrayList<>();
+            for (forge.game.card.CardView card : cards) {
+                if (card.getZone() == forge.game.zone.ZoneType.Hand) {
+                    inHand.add(card.getId());
+                }
+            }
+            host.seenInHand(actedForSeat, inHand);
+        }
+        tellRevealed(names, ids, zone, to == null ? null : to.getName(), own, message, addSuffix);
     }
 
     /**

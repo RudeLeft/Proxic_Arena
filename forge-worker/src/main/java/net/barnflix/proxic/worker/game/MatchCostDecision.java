@@ -299,7 +299,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             forge.game.zone.ZoneType zone = cost.from.get(0);
             if (zone == forge.game.zone.ZoneType.Battlefield || zone == forge.game.zone.ZoneType.Hand) {
                 java.util.List<Card> chosen =
-                        pickCards(list, needed, "CostExile", "Exile " + needed + " from your " + zone + ".");
+                        pickCards(CostPicks.EXILE, list, needed, "CostExile", "Exile " + needed + " from your " + zone + ".");
                 return chosen == null ? null : PaymentDecision.card(chosen);
             }
             if (zone == forge.game.zone.ZoneType.Library) {
@@ -384,7 +384,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         java.util.List<Card> chosen =
-                pickCards(list, needed, "CostSacrifice",
+                pickCards(CostPicks.SACRIFICE, list, needed, "CostSacrifice",
                         "Sacrifice " + needed + " " + cost.getDescriptiveType() + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
@@ -453,15 +453,22 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 }
                 return false;
             });
+            final forge.game.card.CardCollection colours = left;
             forge.game.card.CardCollection shown = new forge.game.card.CardCollection();
-            for (int i = 0; i < needed; i++) {
-                Card next = pickOne(left, "CostReveal", "Reveal " + needed + " cards of the same colour ("
-                        + (i + 1) + " of " + needed + ").");
-                if (next == null) {
+            while (shown.size() < needed) {
+                Pick next = pick(left, shown, CostPicks.REVEAL, "CostReveal", "Reveal " + needed
+                        + " cards of the same colour (" + (shown.size() + 1) + " of " + needed + ").", false);
+                if (next.back() != null) {
+                    shown.remove(next.back());
+                } else if (next.card() == null) {
                     return null;
+                } else {
+                    shown.add(next.card());
                 }
-                shown.add(next);
-                left = forge.game.card.CardLists.filter(left, c -> c != next && c.sharesColorWith(next));
+                left = colours;
+                for (Card one : shown) {
+                    left = forge.game.card.CardLists.filter(left, c -> c != one && c.sharesColorWith(one));
+                }
             }
             return PaymentDecision.card(shown);
         }
@@ -473,7 +480,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (!ability.isCastFromPlayEffect() && valid.size() == needed) {
             return PaymentDecision.card(valid);
         }
-        java.util.List<Card> chosen = pickCards(valid, needed, "CostReveal",
+        java.util.List<Card> chosen = pickCards(CostPicks.REVEAL, valid, needed, "CostReveal",
                 "Reveal " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
@@ -521,7 +528,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         String what = forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType());
-        java.util.List<Card> chosen = pickCards(valid, needed, "CostBehold",
+        java.util.List<Card> chosen = pickCards((cost instanceof forge.game.cost.CostBeholdExile ? CostPicks.EXILE : CostPicks.BEHOLD), valid, needed, "CostBehold",
                 (cost instanceof forge.game.cost.CostBeholdExile ? "Behold and exile " : "Behold ") + what
                         + ": one you control, or one from your hand.");
         return chosen == null ? null : PaymentDecision.card(chosen);
@@ -547,17 +554,23 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 forge.game.card.CardPredicates.canExiledBy(ability, isEffect()));
         int total = forge.game.ability.AbilityUtils.calculateAmount(source, cost.getAmount(), ability);
         forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
+        final forge.game.card.CardCollection grave = new forge.game.card.CardCollection(left);
         while (!left.isEmpty()) {
             int have = forge.game.card.CardLists.getTotalCMC(chosen);
             boolean enough = have >= total;
-            Card next = pickOrDone(left, "CostCollectEvidence", "Collect evidence " + total
+            Pick next = pick(left, chosen, CostPicks.EXILE, "CostCollectEvidence", "Collect evidence " + total
                     + ": exile cards from your graveyard with total mana value " + total + " or more ("
                     + have + " so far)" + (enough ? " -- or Done." : "."), enough);
-            if (next == null) {
+            if (next.back() != null) {
+                chosen.remove(next.back());
+                left = notPicked(grave, chosen);
+                continue;
+            }
+            if (next.card() == null) {
                 break;
             }
-            chosen.add(next);
-            left.remove(next);
+            chosen.add(next.card());
+            left.remove(next.card());
         }
         return forge.game.card.CardLists.getTotalCMC(chosen) >= total ? PaymentDecision.card(chosen) : null;
     }
@@ -651,7 +664,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return one == null ? null : PaymentDecision.card(one);
         }
         if (grave.size() >= 3) {
-            java.util.List<Card> chosen = pickCards(grave, 3, "CostForage",
+            java.util.List<Card> chosen = pickCards(CostPicks.EXILE, grave, 3, "CostForage",
                     "Forage: exile three cards from your graveyard.");
             return chosen == null ? null : PaymentDecision.card(chosen);
         }
@@ -741,7 +754,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         String from = cost.getFrom() == forge.game.zone.ZoneType.Hand ? "hand" : "graveyard";
-        java.util.List<Card> chosen = pickCards(list, needed, "CostPutCardToLib", "Put "
+        java.util.List<Card> chosen = pickCards(CostPicks.TO_LIBRARY, list, needed, "CostPutCardToLib", "Put "
                 + forge.util.Lang.nounWithNumeralExceptOne(needed, "card") + " from your " + from
                 + " on top of your library.");
         return chosen == null ? null : PaymentDecision.card(chosen);
@@ -765,7 +778,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (list.size() < needed) {
             return null;
         }
-        java.util.List<Card> chosen = pickCards(list, needed, "CostUntapType", "Untap "
+        java.util.List<Card> chosen = pickCards(CostPicks.UNTAP, list, needed, "CostUntapType", "Untap "
                 + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
@@ -846,7 +859,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (list.size() < needed) {
             return null;
         }
-        java.util.List<Card> chosen = pickCards(list, needed, "CostExiledMoveToGrave", "Put "
+        java.util.List<Card> chosen = pickCards(CostPicks.TO_GRAVEYARD, list, needed, "CostExiledMoveToGrave", "Put "
                 + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
                 + " from exile into " + (needed == 1 ? "its owner's graveyard." : "their owners' graveyards."));
         return chosen == null ? null : PaymentDecision.card(chosen);
@@ -865,7 +878,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                     ? PaymentDecision.card(attached.getFirst()) : null;
         }
         if (attached.size() > 1) {
-            java.util.List<Card> chosen = pickCards(attached, cost.getAbilityAmount(ability), "CostUnattach",
+            java.util.List<Card> chosen = pickCards(CostPicks.UNATTACH, attached, cost.getAbilityAmount(ability), "CostUnattach",
                     "Unattach " + cost.getDescriptiveType() + ".");
             return chosen == null ? null : PaymentDecision.card(chosen);
         }
@@ -1018,7 +1031,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (valid.size() < needed) {
             return null;
         }
-        java.util.List<Card> chosen = pickCards(valid, needed, "CostReturn",
+        java.util.List<Card> chosen = pickCards(CostPicks.TO_HAND, valid, needed, "CostReturn",
                 "Return " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
                         + (needed == 1 ? " to its" : " to their") + " owner's hand.");
         return chosen == null ? null : PaymentDecision.card(chosen);
@@ -1070,14 +1083,19 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             while (!left.isEmpty()) {
                 int have = forge.game.card.CardLists.getTotalPower(chosen, ability);
                 boolean enough = have >= power;
-                Card next = pickOrDone(left, "CostTapType", (ability.isCrew() ? "Crew " + power : "Tap")
+                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", (ability.isCrew() ? "Crew " + power : "Tap")
                         + ": tap creatures with total power " + power + " or more (" + have + " so far)"
                         + (enough ? " -- or Done." : "."), enough);
-                if (next == null) {
+                if (next.back() != null) {
+                    chosen.remove(next.back());
+                    left = notPicked(list, chosen);
+                    continue;
+                }
+                if (next.card() == null) {
                     break;
                 }
-                chosen.add(next);
-                left.remove(next);
+                chosen.add(next.card());
+                left.remove(next.card());
             }
             return forge.game.card.CardLists.getTotalPower(chosen, ability) >= power
                     ? PaymentDecision.card(chosen) : null;
@@ -1092,15 +1110,22 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 }
                 return false;
             });
+            final forge.game.card.CardCollection sharing = left;
             forge.game.card.CardCollection tapped = new forge.game.card.CardCollection();
-            for (int i = 0; i < (needed == null ? 0 : needed); i++) {
-                Card next = pickOne(left, "CostTapType", "Tap " + needed + " " + what
-                        + " that share a creature type (" + (i + 1) + " of " + needed + ").");
-                if (next == null) {
+            while (tapped.size() < (needed == null ? 0 : needed)) {
+                Pick next = pick(left, tapped, CostPicks.TAP, "CostTapType", "Tap " + needed + " " + what
+                        + " that share a creature type (" + (tapped.size() + 1) + " of " + needed + ").", false);
+                if (next.back() != null) {
+                    tapped.remove(next.back());
+                } else if (next.card() == null) {
                     return null;
+                } else {
+                    tapped.add(next.card());
                 }
-                tapped.add(next);
-                left = forge.game.card.CardLists.filter(left, c1 -> c1 != next && c1.sharesCreatureTypeWith(next));
+                left = sharing;
+                for (Card one : tapped) {
+                    left = forge.game.card.CardLists.filter(left, c1 -> c1 != one && c1.sharesCreatureTypeWith(one));
+                }
             }
             return PaymentDecision.card(tapped);
         }
@@ -1108,20 +1133,25 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
             forge.game.card.CardCollection left = new forge.game.card.CardCollection(list);
             while (!left.isEmpty()) {
-                Card next = pickOrDone(left, "CostTapType", "Tap any number of " + what + " ("
+                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", "Tap any number of " + what + " ("
                         + chosen.size() + " so far) -- or Done.", true);
-                if (next == null) {
+                if (next.back() != null) {
+                    chosen.remove(next.back());
+                    left = notPicked(list, chosen);
+                    continue;
+                }
+                if (next.card() == null) {
                     break;
                 }
-                chosen.add(next);
-                left.remove(next);
+                chosen.add(next.card());
+                left.remove(next.card());
             }
             return PaymentDecision.card(chosen);
         }
         if (needed > list.size()) {
             return null;
         }
-        java.util.List<Card> chosen = pickCards(list, needed, "CostTapType", "Tap " + needed + " " + what + ".");
+        java.util.List<Card> chosen = pickCards(CostPicks.TAP, list, needed, "CostTapType", "Tap " + needed + " " + what + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -1131,9 +1161,37 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
      * callers tell the two apart by whether enough was chosen).
      */
     private Card pickOrDone(forge.game.card.CardCollectionView cards, String kind, String prompt, boolean done) {
+        return pick(cards, java.util.List.of(), null, kind, prompt, done).card();
+    }
+
+    /**
+     * Spec 0070 -- one pick of a cost paid card by card: a card, a card
+     * picked before taken back ([back]), or neither (a pass, or Done).
+     */
+    private record Pick(Card card, Card back) {
+    }
+
+    /** [cards] less those in [chosen], in Forge's order. */
+    private static forge.game.card.CardCollection notPicked(
+            forge.game.card.CardCollectionView cards, java.util.Collection<Card> chosen) {
+        return forge.game.card.CardLists.filter(cards, c -> !chosen.contains(c));
+    }
+
+    /**
+     * One card out of a list Forge built, for a cost that does [pay] to the
+     * cards picked for it ([chosen] so far; [pay] null: a single pick with
+     * nothing picked before it). With [done], "Done" may end the picking.
+     *
+     * Spec 0070 -- the question carries the cards picked so far and what
+     * the cost does to them (GameHost.offerPicking; to this seat only, as
+     * the whole question goes), and accepts a take-back of any of them.
+     */
+    private Pick pick(forge.game.card.CardCollectionView cards, java.util.List<Card> chosen, CostPicks.Pay pay,
+            String kind, String prompt, boolean done) {
         java.util.LinkedHashMap<String, Card> byId = new java.util.LinkedHashMap<>();
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
         for (Card card : cards) {
+            // §6.46 -- typed, like every other object id.
             String id = "cost:card:" + card.getId();
             byId.put(id, card);
             labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
@@ -1141,15 +1199,29 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (done) {
             labels.put("cost:done", "Done");
         }
+        java.util.List<String> picked = new java.util.ArrayList<>();
+        chosen.forEach(card -> picked.add("card:" + card.getId()));
+        // What backing out of this cost undoes (owner 2026-10-22).
         host.offerSubject(ability);
+        if (pay != null) {
+            host.offerPicking(CostPicks.picking(pay, chosen, player.getView()));
+        }
         try {
             String choice = host.gate().ask(
-                    actedForSeat, authorisedSeat, kind, new java.util.ArrayList<>(labels.keySet()),
+                    actedForSeat, authorisedSeat, kind, CostPicks.answers(labels.keySet(), picked),
+                    // NOT mandatory: Forge allows a cancel here, and
+                    // cancelling a cost cancels the spell, which is a
+                    // legal answer.
                     false, prompt, pending -> host.publishDecision(pending, labels));
-            return DecisionGate.PASS.equals(choice) || "cost:done".equals(choice) ? null : byId.get(choice);
+            Card back = CostPicks.taken(choice, chosen);
+            if (back != null) {
+                return new Pick(null, back);
+            }
+            return new Pick(DecisionGate.PASS.equals(choice) || "cost:done".equals(choice)
+                    ? null : byId.get(choice), null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return null;
+            return new Pick(null, null);
         }
     }
 
@@ -1198,7 +1270,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
      * pass at any point cancels the cost, as Forge's own input
      * allows.
      */
-    private java.util.List<Card> pickCards(
+    private java.util.List<Card> pickCards(CostPicks.Pay pay,
             forge.game.card.CardCollectionView cards, int needed, String kind, String prompt) {
         // Phase 9 Amendment 13 (item 3) -- say whose cost this is and that it
         // is one: "Wirewood Symbiote: return an Elf to its owner's hand to
@@ -1212,16 +1284,20 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             prompt = host.getName() + ": " + Character.toLowerCase(said.charAt(0)) + said.substring(1)
                     + " to pay its cost.";
         }
-        forge.game.card.CardCollection left = new forge.game.card.CardCollection(cards);
         java.util.List<Card> chosen = new java.util.ArrayList<>();
         while (chosen.size() < needed) {
             String remaining = needed > 1 ? " (" + (chosen.size() + 1) + " of " + needed + ")" : "";
-            Card next = pickOne(left, kind, prompt + remaining);
-            if (next == null) {
+            // Spec 0070 -- what is left is the list less what is picked: a
+            // card taken back is offered again.
+            Pick next = pick(notPicked(cards, chosen), chosen, pay, kind, prompt + remaining, false);
+            if (next.back() != null) {
+                chosen.remove(next.back());
+                continue;
+            }
+            if (next.card() == null) {
                 return null;
             }
-            chosen.add(next);
-            left.remove(next);
+            chosen.add(next.card());
         }
         return chosen;
     }
@@ -1303,31 +1379,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
      */
     private Card pickOne(
             forge.game.card.CardCollectionView cards, String kind, String prompt) {
-        java.util.LinkedHashMap<String, Card> byId = new java.util.LinkedHashMap<>();
-        java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        for (Card card : cards) {
-            // §6.46 -- typed, like every other object id.
-            String id = "cost:card:" + card.getId();
-            byId.put(id, card);
-            labels.put(id, ViewerSnapshot.nameFor(card, player.getView()));
-        }
-        // What backing out of this cost undoes (owner 2026-10-22).
-        host.offerSubject(ability);
-        try {
-            String choice =
-                    host.gate().ask(
-                            actedForSeat, authorisedSeat, kind,
-                            new java.util.ArrayList<>(byId.keySet()),
-                            // NOT mandatory: Forge allows a cancel
-                            // here, and cancelling a cost cancels the
-                            // spell, which is a legal answer.
-                            false, prompt,
-                            pending -> host.publishDecision(pending, labels));
-            return DecisionGate.PASS.equals(choice) ? null : byId.get(choice);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null;
-        }
+        return pick(cards, java.util.List.of(), null, kind, prompt, false).card();
     }
 
     /**
@@ -1363,15 +1415,22 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (type.contains("+WithDifferentNames")) {
             forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
             forge.game.card.CardCollectionView left = hand;
-            for (int i = 0; i < count; i++) {
-                Card next = pickOne(left, "CostDiscard",
-                        "Discard a card with a name not yet discarded (" + (i + 1) + " of " + count + ").");
-                if (next == null) {
+            while (chosen.size() < count) {
+                Pick next = pick(left, chosen, CostPicks.DISCARD, "CostDiscard",
+                        "Discard a card with a name not yet discarded (" + (chosen.size() + 1) + " of " + count
+                                + ").", false);
+                if (next.back() != null) {
+                    chosen.remove(next.back());
+                } else if (next.card() == null) {
                     return null;
+                } else {
+                    chosen.add(next.card());
                 }
-                chosen.add(next);
-                left = forge.game.card.CardLists.filter(left,
-                        forge.game.card.CardPredicates.sharesNameWith(next).negate());
+                left = hand;
+                for (Card one : chosen) {
+                    left = forge.game.card.CardLists.filter(left,
+                            forge.game.card.CardPredicates.sharesNameWith(one).negate());
+                }
             }
             return PaymentDecision.card(chosen);
         }
@@ -1380,7 +1439,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (valid.isEmpty()) {
             return null;
         }
-        java.util.List<Card> picked = pickCards(valid, count, "CostDiscard",
+        java.util.List<Card> picked = pickCards(CostPicks.DISCARD, valid, count, "CostDiscard",
                 "Discard " + count + " " + cost.getDescriptiveType() + " to pay the cost.");
         return picked == null ? null : PaymentDecision.card(picked);
     }

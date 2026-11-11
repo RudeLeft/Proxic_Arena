@@ -67,6 +67,7 @@ import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Boar
 import { boardFromSnapshot } from "./fromSnapshot";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
+import { PAY_HOLD_MS, payMarks, withPick, withoutPick, type PayMark } from "./payPicks";
 import { LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
@@ -411,6 +412,24 @@ export function GameScreen({
   );
   const choosable = useMemo(() => new Set(question?.onBoard.keys() ?? []), [question]);
   const chosenTargets = useMemo(() => new Set(question?.chosen ?? []), [question]);
+  // Spec 0070 -- the cards picked so far to pay a cost: marked, and a click takes one back.
+  // Held between a pick and the next question (payPicks.ts PAY_HOLD_MS).
+  const [heldPicks, setHeldPicks] = useState<ReadonlyMap<string, PayMark>>(() => new Map());
+  useEffect(() => {
+    if (decision) {
+      setHeldPicks(payMarks(decision));
+      return;
+    }
+    const timer = window.setTimeout(() => setHeldPicks(new Map()), PAY_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [decision]);
+  // Once answered (awaiting its receipt) the held marks show: the card just
+  // clicked is marked at once.
+  const answeredPick = decision !== null && game.awaiting === decision.decisionId;
+  const payPicks = useMemo(
+    () => (decision && !answeredPick ? payMarks(decision) : heldPicks),
+    [decision, answeredPick, heldPicks],
+  );
   // Owner 2026-10-21: what each hand card's cast costs right now.
   // Spec 0058, item 2: from every snapshot of your hand (`costNow`), not only
   // the options of a "what will you play" question -- so the cost stays
@@ -1070,6 +1089,16 @@ export function GameScreen({
   const lastTarget = useRef<string | null>(null);
   const pick = useCallback(
     (objectId: string, members?: readonly string[]) => {
+      // Spec 0070 -- a card picked to pay a cost, clicked again: taken back.
+      const back = payPicks.get(objectId);
+      if (back) {
+        setHeldPicks(withoutPick(payPicks, objectId));
+        setSelected(null);
+        setOffer(null);
+        setWhy(null);
+        answer(back.actionId);
+        return;
+      }
       // Spec 0061, item 3 -- discarding to hand size: a click only picks
       // the card (red outline); the act button discards it.
       if (decision?.kind === DISCARD_KIND && question?.onBoard.has(objectId)) {
@@ -1138,6 +1167,11 @@ export function GameScreen({
       const reason = result.kind === "select" ? decision?.unavailable[objectId] : undefined;
       setWhy(reason ? { objectId, text: reason } : null);
       if (result.kind === "answer") {
+        // Spec 0070: the card picked is marked at once, before the game asks again.
+        const pickedId = decision?.options.find((o) => o.actionId === result.actionId)?.objectId;
+        if (decision?.picking && pickedId) {
+          setHeldPicks(withPick(payPicks, decision.picking, pickedId));
+        }
         answer(result.actionId);
         return;
       }
@@ -1158,7 +1192,7 @@ export function GameScreen({
           : null,
       );
     },
-    [question, answer, decision, marked, aimAt, board],
+    [question, answer, decision, marked, aimAt, board, payPicks],
   );
 
   // "All attack" selects every creature that can attack; you then point.
@@ -1674,6 +1708,7 @@ export function GameScreen({
             marked={marked}
             picked={pickedNow}
             chosenTargets={chosenTargets}
+            payPicks={payPicks}
             lit={lit}
             unpayable={unpayable}
             selected={selected}

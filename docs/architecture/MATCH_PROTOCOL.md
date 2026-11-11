@@ -136,7 +136,13 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         combat damage, a number (values, canMake, keyword,
                         each, says), a split (total, targets, at, values),
                         naming a card (title, says, objects); Phase 9,
-                        field by field in protocol/README.md
+                        field by field in protocol/README.md,
+                        picking?: {word, tone, lean?, picked: [{objectId,
+                        actionId, label}]} -- a cost paid card by card: what
+                        it does to the cards picked so far and which they
+                        are; each picked's actionId ("unpick:card:N") takes
+                        it back, an answer accepted beside the options and
+                        never one of them (spec 0070; the asking seat only)
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
@@ -222,7 +228,9 @@ picture addresses (`art`, `crop`) for the cards that viewer was sent
 `stateRevision`, every player's public totals and Forge state
 (counters, designations, command zone, Ring temptations, completed
 dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
-(only what Forge reveals), `battlefield`, `graveyard`, `exile`,
+(only what Forge reveals; spec 0070: a card revealed to this viewer stays
+there, `seen`, until it leaves that hand -- and a `hand` card another seat
+has seen carries `seen` too), `battlefield`, `graveyard`, `exile`,
 `stack`, plus `notices` -- Forge's messages to this player -- and
 `action`: who searched, looked at or moved cards, in this reader's words
 (Phase 9 Amendments 12, 13; never to the seat that chose). What may

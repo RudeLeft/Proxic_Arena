@@ -227,6 +227,28 @@ class WorkerFramesTest {
         assertTrue(!decisionMessage(request.copy(arrange = null)).toString().contains("arrange"))
     }
 
+    /** Spec 0070 -- the cards picked so far for a cost reach the asking browser, as sent. */
+    @Test
+    fun `the cards picked for a cost reach the browser`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"9","actedForSeat":1,"authorisedSeat":1,"kind":"CostTapType",
+                     "stateVersion":"4","options":[{"actionId":"cost:card:4","label":"Elf"}],
+                     "picking":{"word":"TAP","tone":"tap","lean":true,
+                       "picked":[{"objectId":"card:3","actionId":"unpick:card:3","label":"Elf"}]}}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertEquals(setOf("unpick:card:3"), request.unpicks)
+        val sent = decisionMessage(request).toString()
+        assertTrue(sent.contains("\"picking\":{\"word\":\"TAP\""), sent)
+        assertTrue(sent.contains("\"actionId\":\"unpick:card:3\""), sent)
+        assertTrue(!decisionMessage(request.copy(picking = null)).toString().contains("picking"))
+        assertTrue(request.copy(picking = null).unpicks.isEmpty())
+    }
+
     @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =

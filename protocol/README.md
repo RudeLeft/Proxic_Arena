@@ -126,7 +126,15 @@ otherHands   OTHER players' hand cards Forge lets this viewer see --
              under Mindslaver the controlled player's hand, with a
              "play with your hand revealed" effect an opponent's.
              `seat` says whose. Hidden cards are never sent, not even
-             as blanks.
+             as blanks. Spec 0070, Amendment 1: also each card Forge
+             REVEALED to this viewer from that hand (Duress, Thoughtseize,
+             "reveal your hand", a reveal cost, a revealed draw --
+             PlayerController.reveal), face up and `seen: true`, until it
+             leaves that hand (any zone change, even back into it,
+             forgets it: worker SeenHands). Never to a seat it was not
+             shown to, never in the public (spectator) view
+hand[].seen  spec 0070, Amendment 1: another seat has seen this card in
+             your hand (the eye), until it leaves your hand
 ```
 
 - `face`/`faces` are sent only for a card this viewer may identify;
@@ -327,6 +335,30 @@ decision.notNow           on a priority question: each of the asked player's
                           land", why "You've already played a land this
                           turn", use "land"}). A page never answers such a
                           card on one click
+decision.picking          spec 0070, on a cost paid by picking cards one at
+                          a time (CostTapType, CostUntapType, CostSacrifice,
+                          CostExile, CostCollectEvidence, CostForage,
+                          CostReturn, CostPutCardToLib, CostReveal,
+                          CostBehold, CostDiscard, CostExiledMoveToGrave,
+                          CostUnattach, chooseCardsForCost,
+                          chooseCardsForConvokeOrImprovise): {word (the
+                          Ribbon: TAP, UNTAP, SACRIFICE, EXILE, TO HAND, TO
+                          LIBRARY, TO GRAVEYARD, REVEAL, BEHOLD, DISCARD,
+                          UNATTACH, GIVE; PAY for a cost not named), tone
+                          (tap|untap|sacrifice|exile|hand|library|reveal|
+                          discard|other), lean? (true: picked to tap -- the
+                          card leans as a tapped card does), picked
+                          [{objectId, actionId, label}] in the order
+                          picked}. Each `actionId` ("unpick:card:N") is an
+                          answer the question accepts that takes that card
+                          back -- never listed in `options` (worker
+                          CostPicks; the server's LiveMatch accepts it).
+                          To the asking seat only, as the whole question
+                          goes: the other player and spectators are told
+                          nothing until the cost is paid (Forge pays it at
+                          the end, as before). Convoke's mana balls (spec
+                          0062) are sent once the picking is over, for the
+                          same reason (scripts/check-pay-picks.py)
 decision.arrange.discard  spec 0061, item 3, on
                           chooseCardsToDiscardToMaximumHandSize: how many
                           cards are still to go (the game asks one at a

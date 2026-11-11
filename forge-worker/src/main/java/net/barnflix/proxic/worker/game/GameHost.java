@@ -181,6 +181,8 @@ public final class GameHost {
         // restart happened.
         created.subscribeToEvents(new EpochCounter());
         // Spec 0045 -- counters' origins, triggers' causes, reveals.
+        // Spec 0070, Amendment 1 -- who has seen which hand card: a new game, nobody.
+        this.seen = new SeenHands();
         Causes found = new Causes(created);
         this.causes = found;
         created.subscribeToEvents(found.new Listener());
@@ -443,6 +445,14 @@ public final class GameHost {
 
     /** Spec 0062 -- what each payment step paid, for every seat (Payments). */
     private final Payments payments = new Payments();
+
+    /** Spec 0070, Amendment 1 -- who has seen which hand card (SeenHands). */
+    private volatile SeenHands seen = new SeenHands();
+
+    /** Forge showed [seat] these cards of another player's hand (MatchController#reveal). */
+    void seenInHand(int seat, java.util.List<Integer> cardIds) {
+        seen.saw(seat, cardIds);
+    }
 
     Payments payments() {
         return payments;
@@ -922,6 +932,8 @@ public final class GameHost {
                 Moves.shuffled(movesMade, seatOfPlayer(shuffle.player()));
             } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
                 forge.game.card.CardView card = moved.card();
+                // Spec 0070, Amendment 1 -- moved: nobody has seen it where it is now.
+                seen.forget(card.getId());
                 String from = Moves.zoneName(moved.from() == null ? null : moved.from().zoneType());
                 String to = Moves.zoneName(moved.to() == null ? null : moved.to().zoneType());
                 String why = null;
@@ -1218,7 +1230,8 @@ public final class GameHost {
                             revision,
                             noticesFor(seat),
                             epoch.get(),
-                            causes);
+                            causes,
+                            seen);
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
@@ -1644,6 +1657,22 @@ public final class GameHost {
         about.addProperty("copies", String.valueOf(total));
     }
 
+    /**
+     * Spec 0070 -- a cost paid card by card: what it does to the cards
+     * picked so far, and which they are (CostPicks.picking). With the
+     * question, to the asking seat only. Set after offerSubject; cleared
+     * per question, as the facts above.
+     */
+    private volatile com.google.gson.JsonObject picking = null;
+
+    void offerPicking(com.google.gson.JsonObject picks) {
+        picking = picks;
+    }
+
+    public com.google.gson.JsonObject picking() {
+        return picking;
+    }
+
     public com.google.gson.JsonObject subject() {
         return subject;
     }
@@ -1767,6 +1796,7 @@ public final class GameHost {
         notNow = java.util.Map.of();
         owing = null;
         subject = null;
+        picking = null;
         responseWindow = false;
     }
 

@@ -223,7 +223,8 @@ class LiveMatch(
         // §6.101 — the choice must be one THIS decision offered. A
         // null actionId is a pass, which is allowed unless the
         // decision says otherwise.
-        if (actionId != null && question.options.none { it.actionId == actionId }) {
+        // Spec 0070: or a take-back of a card picked for a cost.
+        if (actionId != null && question.options.none { it.actionId == actionId } && actionId !in question.unpicks) {
             return DecisionRefusal.STALE_DECISION
         }
 

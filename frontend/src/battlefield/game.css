@@ -1429,6 +1429,101 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-weight: 700;
   font-size: calc(var(--card-h) * 0.09);
 }
+/* Spec 0070, Amendment 1 (owner 2026-11-11, look "C · Corner sign") -- a
+   card picked to pay a cost, not yet paid: a small round sign on its
+   top-right corner, half over the felt (PaySign.tsx: the canvas's icons and
+   colours), and a thin outline in the same colour. No words. A card picked
+   to tap also leans (layout's TAPPED_TILT); nothing turns sideways before
+   the cost is paid. Click it again to take it back. The same sign, an eye,
+   marks a hand card the other player has seen. */
+.bf-pay-picked {
+  --bf-pay: #b4ada4;
+}
+.bf-pay-tap {
+  --bf-pay: #f4c25e;
+}
+.bf-pay-untap {
+  --bf-pay: #ffe7a8;
+}
+.bf-pay-sacrifice {
+  --bf-pay: #ff6a2a;
+}
+.bf-pay-exile {
+  --bf-pay: #bfe3ff;
+}
+.bf-pay-hand {
+  --bf-pay: #6cc6ff;
+}
+.bf-pay-library {
+  --bf-pay: #a99bff;
+}
+.bf-pay-reveal {
+  --bf-pay: #ffffff;
+}
+.bf-card.bf-pay-picked,
+.bf-card.bf-choosable.bf-pay-picked {
+  animation: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--bf-pay) 95%, transparent),
+    0 4px 10px rgb(0 0 0 / 50%);
+}
+.bf-pay-sign {
+  position: absolute;
+  right: calc(var(--card-h) * -0.081);
+  top: calc(var(--card-h) * -0.081);
+  z-index: 3;
+  box-sizing: border-box;
+  width: calc(var(--card-h) * 0.207);
+  height: calc(var(--card-h) * 0.207);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: #0d1014;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 67%);
+  pointer-events: none;
+  animation: bf-sign-in 0.32s linear both;
+}
+/* In a hand each card hides the right of the one before it: the sign goes
+   on the left -- and in the other player's hand, whose top is off the
+   screen, at the bottom. */
+.bf-pay-sign-top-left {
+  right: auto;
+  left: calc(var(--card-h) * -0.081);
+}
+.bf-pay-sign-bottom-left {
+  right: auto;
+  left: calc(var(--card-h) * -0.081);
+  top: auto;
+  bottom: calc(var(--card-h) * -0.081);
+}
+.bf-pay-sign svg {
+  width: 64%;
+  height: 64%;
+}
+/* The canvas's pop: out of nothing, a little past full size, back. */
+@keyframes bf-sign-in {
+  0% {
+    transform: scale(0.01);
+    opacity: 0;
+  }
+  33% {
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The sign simply appears; the lean is not animated (the board glides
+     nothing under reduced motion). */
+  .bf-pay-sign {
+    animation: none;
+  }
+}
 @keyframes bf-seal-in {
   0% {
     transform: scale(0.4);
