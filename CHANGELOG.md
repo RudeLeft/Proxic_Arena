@@ -3,6 +3,33 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.56.0 — 2026-11-11
+
+Arrows with real effects, and every card you pick to pay a cost is marked as you pick it.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Arrows**
+- Attacks are a glowing molten blade from the attacker to what it attacks. At a player it shows when you point at the attacker; at a planeswalker or battle it is always there, and it never runs across the planeswalker's card.
+- A spell or ability aimed at a card is a gold beam that stops at the top of the card, with rings rippling out and small sparks -- never over the card's name.
+- A spell aimed at a player is the same beam in one gentle arc onto that player's life shield, with the same ripple; the life number stays readable.
+- A counterspell marks the spell it is aimed at on the stack.
+- While you choose targets, the beam follows your mouse from the card you are casting, and whatever you point at ripples.
+- Blocks: a shield-and-swords mark on the attacker, always the same size, with a clash and sparks when the block is made. Four or more blockers show one mark with the number. No more block arrows.
+- Auras and Equipment no longer draw a line; the card glows with what it is on.
+- With "reduce motion" on, every effect is a still picture.
+
+**Paying costs card by card**
+- When a cost asks you to pick cards one at a time (tap five Elves, crew, convoke, sacrifice, exile, discard, reveal...), each card shows a small sign in its corner the moment you pick it -- no words. Cards picked to tap lean slightly, and turn sideways only when the cost is actually paid.
+- Picked the wrong one? Click it again to take it back.
+- The other player sees nothing until the cost is paid.
+- Convoke's coloured sparks still fly when the cost is paid.
+
+**The "seen" eye**
+- A card in your hand that the other player has seen (Duress, Thoughtseize, "reveal your hand", a revealed draw, a reveal cost) keeps an eye sign until it leaves your hand.
+- A card the other player revealed to you stays visible in their hand, with the same eye, until it leaves their hand. Spectators see nothing extra.
+
 ## 1.55.0 — 2026-11-09
 
 Spectating rebuilt, life that ticks down hit by hit, and a casting card that stays in the middle.
