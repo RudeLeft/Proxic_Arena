@@ -49,8 +49,11 @@ describe("the status tray (spec 0038)", () => {
   it("counters plain, markers gold, the command zone purple and listed on a click", () => {
     const tray = (over: Partial<Player>) =>
       render(<StatusTray player={player(over)} side="opponent" />).container;
-    const counted = tray({ counters: [{ name: "POISON", count: 3 }], designations: ["Monarch"] });
-    expect(counted.querySelector(".gs-chip:not(.gs-chip-marker)")!.textContent).toBe("3 poison");
+    const counted = tray({ counters: [{ name: "ENERGY", count: 3 }], designations: ["Monarch"] });
+    expect(counted.querySelector(".gs-chip:not(.gs-chip-marker)")!.textContent).toBe("3 energy");
+    // Spec 0077 (F-0077-E): poison is the badge by the life shield, never a tray chip.
+    const poisoned = tray({ counters: [{ name: "POISON", count: 3 }] });
+    expect(poisoned.textContent).not.toMatch(/poison/i);
     expect(counted.querySelector(".gs-chip-marker")!.textContent).toBe("Monarch");
     const tempted = tray({ ringTempted: 2 });
     expect(tempted.querySelector(".gs-chip-marker")!.textContent).toBe("Ring ×2");
@@ -64,13 +67,13 @@ describe("the status tray (spec 0038)", () => {
     fireEvent.click(zones[0]!);
     // Read aloud in the plates' old words, whatever fits on screen.
     const all = tray({
-      counters: [{ name: "POISON", count: 3 }],
+      counters: [{ name: "ENERGY", count: 3 }],
       designations: ["Monarch"],
       ringTempted: 2,
       command: ["Chandra emblem", "The Ring"],
     });
     expect(all.querySelector(".pa-visually-hidden")!.textContent).toBe(
-      "RudeLeft: 3 poison  · monarch. command zone: Chandra emblem, The Ring · the Ring has tempted 2×",
+      "RudeLeft: 3 energy  · monarch. command zone: Chandra emblem, The Ring · the Ring has tempted 2×",
     );
   });
 

@@ -539,6 +539,36 @@ damage              B13 damage dealt since the last round, ONE combat
                         Combat damage to a planeswalker or battle that is
                         not a creature is read from Forge's damage
                         history (Forge sends no event for it). All public.
+                        Spec 0077 (2026-11-12): a hit on a player carries
+                        `infect: true` when Forge marked it infect -- it
+                        gave poison counters, not life (CR 120.3b); before
+                        0077 the flag was dropped and the page took it for
+                        life damage.
+life                    spec 0077: every change to a player's life or
+                        poison since the last round, in the order Forge
+                        made them: {key: "life:REV", changes: [{player,
+                        kind, amount, source?, combat?}]}; a new key is a
+                        new round
+                          kind    "damage" (Forge reported the hit before
+                                  the life it took), "loss" (any other life
+                                  lost: Sign in Blood, Gray Merchant, paying
+                                  life), "gain", "poison" (counters given:
+                                  infect, toxic; a removal is not told).
+                                  An infect hit is never "damage"
+                          amount  above 0
+                          source  "card:N": the damage's source; a
+                                  lifelink gain's source; a combat step's
+                                  poison when one card gave it all (Forge
+                                  gives it in one go, after the hits);
+                                  otherwise the card whose spell or ability
+                                  was resolving. Absent when not known, and
+                                  removed per seat when the card is by then
+                                  in a zone that seat cannot see
+                                  (HiddenIds, HID-001)
+                          combat  true for a combat damage step's (the page
+                                  plays those with the fights)
+                        Sent to every seat and the public view (life and
+                        poison are public).
 card.enteredAt      B11 Forge's game timestamp: arrival order
 card.token          B12 true on a token
 ```

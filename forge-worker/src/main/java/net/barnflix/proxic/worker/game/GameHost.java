@@ -742,7 +742,7 @@ public final class GameHost {
                 boolean combatStep = phase == forge.game.phase.PhaseType.COMBAT_FIRST_STRIKE_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_DAMAGE
                         || phase == forge.game.phase.PhaseType.COMBAT_END;
-                if (combatStep || !damageDealt.isEmpty()) {
+                if (combatStep || !damageDealt.isEmpty() || !lifeChanges.isEmpty()) {
                     publishSnapshots();
                     // Phase 10 A-13: a damage step begins -- Forge's combat as
                     // it stands now, before anyone dies, is who fights whom.
@@ -777,33 +777,13 @@ public final class GameHost {
                 if (hit.type() == forge.game.event.GameEventCardDamaged.DamageType.Deathtouch) {
                     entry.addProperty("deathtouch", true);
                 }
-            } else if (event instanceof forge.game.event.GameEventPlayerLivesChanged lives
-                    && lives.newLives() > lives.oldLives() && damageStep != null) {
-                // Phase 10 A-13: lifelink -- Forge gains the life right after
-                // the lifelinker's own damage (GameAction.dealDamage), so the
-                // source is the last hit's, when its controller gained exactly
-                // what it dealt; otherwise the gain is told without a source.
-                Game current = game;
-                if (current == null) {
-                    return;
-                }
-                for (Player player : current.getRegisteredPlayers()) {
-                    if (player.getId() != lives.player().getId()) {
-                        continue;
-                    }
-                    Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
-                    int gained = lives.newLives() - lives.oldLives();
-                    String source = null;
-                    forge.game.card.CardView last = lastSource;
-                    if (last != null && last.getController() != null
-                            && last.getController().getId() == player.getId()) {
-                        synchronized (damageDealt) {
-                            if (CombatDamage.gainedFrom(damageDealt, "card:" + last.getId(), gained)) {
-                                source = "card:" + last.getId();
-                            }
-                        }
-                    }
-                    lifeGained.add(CombatDamage.gain(seat == null ? 0 : seat, gained, source));
+            } else if (event instanceof forge.game.event.GameEventPlayerLivesChanged lives) {
+                lifeChanged(lives);
+            } else if (event instanceof forge.game.event.GameEventPlayerPoisoned poisoned) {
+                // Spec 0077 -- poison, told as poison (never as life).
+                Integer seat = seatOfPlayer(poisoned.receiver());
+                if (seat != null) {
+                    lifeChanges.poisoned(seat, poisoned.amount(), damageStep != null);
                 }
             } else if (event instanceof forge.game.event.GameEventPlayerDamaged hit && hit.amount() > 0) {
                 Game current = game;
@@ -815,10 +795,85 @@ public final class GameHost {
                         Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
                         com.google.gson.JsonObject target = new com.google.gson.JsonObject();
                         target.addProperty("player", seat == null ? 0 : seat);
-                        record(hit.source(), target, hit.amount());
+                        com.google.gson.JsonObject entry = record(hit.source(), target, hit.amount());
+                        // Spec 0077 (the bug): Forge marks an infect hit, which
+                        // gives poison and takes no life (CR 120.3b). The page
+                        // must not count it off the life total.
+                        if (hit.infect()) {
+                            entry.addProperty("infect", true);
+                        }
+                        lifeChanges.damaged(seat == null ? 0 : seat,
+                                hit.source() == null ? null : "card:" + hit.source().getId(),
+                                hit.amount(), hit.infect(), damageStep != null);
                     }
                 }
             }
+        }
+
+        /**
+         * Spec 0077 -- every life change, with its kind and source (LifeChanges);
+         * and, in a combat damage step, lifelink's gains for the fights (A-13).
+         */
+        private void lifeChanged(forge.game.event.GameEventPlayerLivesChanged lives) {
+            Integer changedSeat = seatOfPlayer(lives.player());
+            String gainSource = null;
+            forge.game.card.CardView last = lastSource;
+            if (lives.newLives() > lives.oldLives() && last != null && last.getController() != null
+                    && last.getController().getId() == lives.player().getId()) {
+                synchronized (damageDealt) {
+                    if (CombatDamage.gainedFrom(damageDealt, "card:" + last.getId(),
+                            lives.newLives() - lives.oldLives())) {
+                        gainSource = "card:" + last.getId();
+                    }
+                }
+            }
+            if (changedSeat != null) {
+                lifeChanges.lives(changedSeat, lives.oldLives(), lives.newLives(), gainSource,
+                        resolvingCard(), damageStep != null);
+            }
+            if (lives.newLives() > lives.oldLives() && damageStep != null) {
+                combatGain(lives);
+            }
+        }
+
+        private void combatGain(forge.game.event.GameEventPlayerLivesChanged lives) {
+            // Phase 10 A-13: lifelink -- Forge gains the life right after
+            // the lifelinker's own damage (GameAction.dealDamage), so the
+            // source is the last hit's, when its controller gained exactly
+            // what it dealt; otherwise the gain is told without a source.
+            Game current = game;
+            if (current == null) {
+                return;
+            }
+            for (Player player : current.getRegisteredPlayers()) {
+                if (player.getId() != lives.player().getId()) {
+                    continue;
+                }
+                Integer seat = seatOf.get(player.getOriginalLobbyPlayer());
+                int gained = lives.newLives() - lives.oldLives();
+                String source = null;
+                forge.game.card.CardView last = lastSource;
+                if (last != null && last.getController() != null
+                        && last.getController().getId() == player.getId()) {
+                    synchronized (damageDealt) {
+                        if (CombatDamage.gainedFrom(damageDealt, "card:" + last.getId(), gained)) {
+                            source = "card:" + last.getId();
+                        }
+                    }
+                }
+                lifeGained.add(CombatDamage.gain(seat == null ? 0 : seat, gained, source));
+            }
+        }
+
+        /** The card whose spell or ability is resolving now, as "card:N", or null. */
+        private String resolvingCard() {
+            Game current = game;
+            if (current == null || !current.getStack().isResolving()) {
+                return null;
+            }
+            forge.game.spellability.SpellAbility top = current.getStack().peekAbility();
+            forge.game.card.Card host = top == null ? null : top.getHostCard();
+            return host == null ? null : "card:" + host.getId();
         }
 
         private com.google.gson.JsonObject record(
@@ -850,6 +905,8 @@ public final class GameHost {
     /** Life gained while the step's damage was dealt (lifelink). */
     private final java.util.List<com.google.gson.JsonObject> lifeGained =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** Spec 0077 -- every life and poison change since the last round. */
+    private final LifeChanges lifeChanges = new LifeChanges();
     /** The source of the last hit recorded: a lifelink gain follows its source's hits. */
     private volatile forge.game.card.CardView lastSource;
 
@@ -1142,6 +1199,7 @@ public final class GameHost {
             // one, so the opening board said "game 0".
             if (event instanceof forge.game.event.GameEventGameRestarted) {
                 int now = epoch.incrementAndGet();
+                lifeChanges.clear();
                 // Both players are told, in words: the board they were
                 // looking at is gone, not rearranged.
                 for (Integer seat : seatOf.values()) {
@@ -1180,6 +1238,9 @@ public final class GameHost {
                 }
             }
         }
+        // Spec 0077 -- this round's life and poison changes, told to everyone
+        // (life is public), each with its kind; sources stripped per seat below.
+        com.google.gson.JsonObject life = lifeChanges.flush("life:" + revision);
         // Phase 10 A-00: this round's moves, each seat its own view of them.
         java.util.List<Moves.Move> moved;
         synchronized (movesMade) {
@@ -1227,6 +1288,9 @@ public final class GameHost {
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
+            if (life != null) {
+                snapshot.add("life", life.deepCopy());
+            }
             addHandCosts(snapshot, player);
             // Spec 0061 -- how many notices this seat was told in all.
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
@@ -1271,6 +1335,9 @@ public final class GameHost {
                     current, null, seatsByPlayer(current), revision, java.util.List.of(), epoch.get(), causes);
             if (damage != null) {
                 everyone.add("damage", damage.deepCopy());
+            }
+            if (life != null) {
+                everyone.add("life", life.deepCopy());
             }
             everyone.add("rolls", rollsSoFar());
             everyone.add("payments", payments.forViewer(null));

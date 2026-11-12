@@ -640,13 +640,39 @@ export interface CombatFight {
 /** One wave of damage — §7.61 B13. A new key is a new wave. */
 export interface DamageState {
   key: string;
-  hits: { source: string; target: TargetRef; amount: number; deathtouch?: boolean }[];
+  hits: {
+    source: string;
+    target: TargetRef;
+    amount: number;
+    deathtouch?: boolean;
+    /** Spec 0077 -- an infect hit: poison counters, not life (CR 120.3b). */
+    infect?: boolean;
+  }[];
   /** Phase 10 A-13 -- the damage a combat damage step dealt: which step. Absent for a spell's. */
   combat?: "first-strike" | "regular";
   /** Phase 10 A-13 -- who fought whom in that step (the dead included). */
   fights?: CombatFight[];
   /** Phase 10 A-13 -- life gained as it was dealt (lifelink), and from what when the game knows. */
   gains?: { player: number; amount: number; source?: string }[];
+}
+
+/** Spec 0077 -- one change to a player's life or poison, as the game made it. */
+export interface LifeChange {
+  player: number;
+  /** "damage" and "loss" take life, "gain" adds it, "poison" gives poison counters. */
+  kind: "damage" | "loss" | "gain" | "poison";
+  /** Always above 0. */
+  amount: number;
+  /** The card it came from ("card:N"), when the game says and this reader may know. */
+  source?: string;
+  /** In a combat damage step's damage: played with the fights. */
+  combat?: boolean;
+}
+
+/** Spec 0077 -- the round's life and poison changes, in order. A new key is a new round. */
+export interface LifeChanges {
+  key: string;
+  changes: LifeChange[];
 }
 
 /** §6.40 — the board as one seat may see it. */
@@ -719,6 +745,8 @@ export interface Snapshot {
   combat: CombatState | null;
   /** §7.61 B13 — the newest damage wave, or null. */
   damage: DamageState | null;
+  /** Spec 0077 -- this round's life and poison changes, or null. */
+  life?: LifeChanges | null;
   /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
   reveal?: SnapshotReveal | null;
   /** Phase 9 Amendment 12 -- who did what, in this reader's words. */
@@ -1243,6 +1271,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     stack: asStack(row["stack"]),
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),
+    life: asLife(row["life"]),
     reveal: asReveal(row["reveal"]),
     action: asAction(row["action"]),
   };
@@ -1511,6 +1540,35 @@ function asCombat(value: unknown): CombatState | null {
   return { attackers, blocks };
 }
 
+const LIFE_KINDS = new Set(["damage", "loss", "gain", "poison"]);
+
+/** Spec 0077 -- the round's life changes; anything malformed is left out. */
+function asLife(value: unknown): LifeChanges | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const key = asString(row["key"]);
+  if (!key) return null;
+  const changes: LifeChange[] = [];
+  for (const entry of Array.isArray(row["changes"]) ? (row["changes"] as unknown[]) : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const c = entry as Record<string, unknown>;
+    const player = asNumber(c["player"]);
+    const amount = asNumber(c["amount"]);
+    const kind = c["kind"];
+    if (player === null || amount === null || amount <= 0) continue;
+    if (typeof kind !== "string" || !LIFE_KINDS.has(kind)) continue;
+    const source = asString(c["source"]);
+    changes.push({
+      player,
+      kind: kind as LifeChange["kind"],
+      amount,
+      ...(source ? { source } : {}),
+      ...(c["combat"] === true ? { combat: true } : {}),
+    });
+  }
+  return { key, changes };
+}
+
 function asDamage(value: unknown): DamageState | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Record<string, unknown>;
@@ -1529,6 +1587,7 @@ function asDamage(value: unknown): DamageState | null {
         target,
         amount,
         ...(h["deathtouch"] === true ? { deathtouch: true } : {}),
+        ...(h["infect"] === true ? { infect: true } : {}),
       });
   }
   const step = row["combat"];

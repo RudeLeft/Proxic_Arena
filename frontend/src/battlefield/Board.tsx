@@ -152,7 +152,15 @@ import {
   type FightPlan,
   type Stand,
 } from "./fights";
-import { endLifeSteps, lifeSteps, lifeStillPlaying, startLifeSteps } from "./lifeTicks";
+import {
+  changeSteps,
+  endLifeSteps,
+  lifeSteps,
+  lifeStillPlaying,
+  planChanges,
+  startLifeSteps,
+} from "./lifeTicks";
+import type { LifeChanges } from "../match";
 import {
   badgeFrames,
   badgeSpells,
@@ -326,7 +334,14 @@ export interface StackView {
  * what Forge actually dealt (§7.61 B13). A new `key` is a new wave. */
 export interface DamageWave {
   key: string;
-  hits: readonly { source: string; target: TargetRef; amount: number; deathtouch?: boolean }[];
+  hits: readonly {
+    source: string;
+    target: TargetRef;
+    amount: number;
+    deathtouch?: boolean;
+    /** Spec 0077 -- an infect hit: poison counters, not life. */
+    infect?: boolean;
+  }[];
   /** Phase 10 A-13 -- a combat damage step's: which step, who fought whom, life gained. */
   combat?: "first-strike" | "regular";
   fights?: readonly { attacker: string; defender: TargetRef; blockers: readonly string[] }[];
@@ -450,6 +465,8 @@ export interface BoardProps {
   stackPayLive?: boolean;
   /** The newest damage dealt: played once per `key`. */
   damage?: DamageWave | null;
+  /** Spec 0077 -- the round's life and poison changes: played once per `key`. */
+  life?: LifeChanges | null;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
   onPick?: (objectId: string, members?: readonly string[]) => void;
@@ -917,6 +934,85 @@ const ATTACK_BEAT_MS = 120;
 const BLOCK_MS = 650;
 const BLOCK_BEAT_MS = 160;
 
+/** Spec 0077 -- how long a life change's number floats, its crack shows, its glow lasts. */
+const LIFE_MARK_MS = 1000;
+const LIFE_CRACK_MS = 360;
+const LIFE_GLOW_MS = 600;
+
+/** Spec 0077 -- the crack across a struck shield (the canvas's), on the shield's 46 x 54. */
+const CRACK = (
+  <svg viewBox="0 0 46 54" aria-hidden="true">
+    <path
+      d="M23 6 L20 16 L26 22 L19 33 L24 41 M26 22 L35 27 M19 33 L10 37"
+      fill="none"
+      stroke="#ff3a24"
+      strokeWidth="4"
+      opacity=".45"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M23 6 L20 16 L26 22 L19 33 L24 41 M26 22 L35 27 M19 33 L10 37"
+      fill="none"
+      stroke="#fff1e0"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+/**
+ * Spec 0077 -- the poison badge's centre, from the life shield's centre: down
+ * and to the left, touching the shield, clear of its number (game.css
+ * .gs-poison: the same offset, in the rail's 900-pixel units).
+ */
+export const POISON_DX = -31;
+export const POISON_DY = 22;
+/** The badge's ring radius, in the rail's 900-pixel units. */
+const POISON_R = 19;
+
+/** Spec 0077 -- the poison drop (PoisonBadge's), the poison mark's picture. */
+const POISON_DROP = (
+  <svg viewBox="-8 -11 16 18" aria-hidden="true" data-drop="poison">
+    <path d="M0 -10.2 C6 -1.8 7.8 2.4 6 6 A6.3 6.3 0 0 1 -6 6 C-7.8 2.4 -6 -1.8 0 -10.2Z" />
+  </svg>
+);
+
+/**
+ * Spec 0077 -- poison given: a dark pill in the badge's colours, the drop and
+ * the number, rising a little off the badge. Never the gain's bare green
+ * "+N" off the shield: a different picture in a different place.
+ */
+function poisonMark(
+  key: string,
+  badge: Point,
+  amount: number,
+  g: Geometry,
+  duration: number,
+  delay: number,
+  of: string,
+): FightMark {
+  const unit = g.height / 900;
+  return {
+    key,
+    kind: "poison",
+    style: { left: badge.x, top: badge.y, fontSize: 15 * unit },
+    frames: [
+      { offset: 0, opacity: 0, transform: "translate(-50%, -50%) scale(0.6)" },
+      { offset: 0.15, opacity: 1, transform: "translate(-50%, -110%) scale(1)" },
+      { offset: 0.75, opacity: 1, transform: "translate(-50%, -150%) scale(1)" },
+      { offset: 1, opacity: 0, transform: "translate(-50%, -170%) scale(1)" },
+    ],
+    duration,
+    delay,
+    text: `${amount}`,
+    of,
+  };
+}
+function poisonPoint(life: Point, g: Geometry): Point {
+  const unit = g.height / 900;
+  return { x: life.x + POISON_DX * unit, y: life.y + POISON_DY * unit };
+}
+
 /** A card a spell killed leaves once its burst has landed. */
 const SPELL_HIT_MS = 150;
 
@@ -927,7 +1023,19 @@ const Z_FIGHT = 4600;
 /** Phase 10 A-13 -- one mark of a fight (fights.ts): drawn, then gone when its animation ends. */
 interface FightMark {
   key: string;
-  kind: "dim" | "caption" | "hit" | "slash" | "number" | "gain" | "edge" | "plate";
+  kind:
+    | "dim"
+    | "caption"
+    | "hit"
+    | "slash"
+    | "number"
+    | "gain"
+    | "edge"
+    | "plate"
+    // Spec 0077: a life shield's crack, a gain's green glow, poison's "+N".
+    | "crack"
+    | "glow"
+    | "poison";
   style: CSSProperties;
   frames: Keyframe[];
   duration: number;
@@ -936,6 +1044,8 @@ interface FightMark {
   /** What it marks: an object id or "player:N" (for tests and the jump check). */
   of?: string;
   deathtouch?: boolean;
+  /** Spec 0077 -- a mark of poison, drawn in the badge's colours. */
+  poison?: boolean;
 }
 
 /** Phase 10 A-10 -- a merge's dimming, flash, sparks and ring, at the merged card. */
@@ -1172,6 +1282,7 @@ export function Board({
   clockMs,
   handCosts,
   damage,
+  life,
   onPick,
   onInspect,
   choosable,
@@ -2056,6 +2167,9 @@ export function Board({
             at: standOf,
             life: lifeOf,
             lifeR: LIFE_R * g.height,
+            // Spec 0077: an infect hit lands on the poison badge.
+            poison: (seat) => poisonPoint(lifeOf(seat), g),
+            poisonR: (POISON_R * g.height) / 900,
             viewerSeat,
             opponentName,
             viewerName,
@@ -2074,8 +2188,16 @@ export function Board({
       const p = positions.get(ref.object) ?? before?.at.get(ref.object);
       return p ? centreOf(p.box, p.origin) : null;
     };
+    // Spec 0077: a player's damage is shown on their shield by the life
+    // changes (the Impact look, on its own clock), not as a burst.
+    const told = new Set(
+      (life?.changes ?? [])
+        .filter((c) => !c.combat && (c.kind === "damage" || c.kind === "poison"))
+        .map((c) => c.player),
+    );
     const totals = new Map<string, { ref: TargetRef; amount: number }>();
     for (const hit of damage.hits) {
+      if ("player" in hit.target && told.has(hit.target.player)) continue;
       const k = refKey(hit.target);
       totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
     }
@@ -2111,6 +2233,133 @@ export function Board({
     spellHits.current = { ids: new Set(totals.keys()), delay: hold + SPELL_HIT_MS };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [damage, result, positions, viewerSeat]);
+
+  // Spec 0077 (owner 2026-11-12, canvas life-1112) -- every life change
+  // that is not combat's (combat's play with the fights above), once per
+  // round: damage and loss look alike (A · Impact: the shield shakes, a
+  // crack flashes, a red "−N" rises), a gain rises green with a soft glow,
+  // poison counts up on the badge with a green "+N"; each steps point by
+  // point. It lands when the resolving spell's beam does (its spark reaches
+  // the shield), at once with no beam, and after any fights still playing.
+  // All on one clock on the board, so a click hurries it (A-00).
+  const lifeRound = useRef<string | null>(null);
+  const lifeClock = useRef<Animation | null>(null);
+  useLayoutEffect(() => {
+    if (!result || !life || life.key === lifeRound.current) return;
+    lifeRound.current = life.key;
+    const root = ref.current;
+    const changes = life.changes.filter((c) => !c.combat);
+    if (changes.length === 0 || reducedMotion() || !root || typeof root.animate !== "function")
+      return;
+    const g = result.geometry;
+    const where = anchors(g);
+    const lifeOf = (seat: number) => playerPoint(seat, viewerSeat, where);
+    // A stack object that resolved in this update and targeted a player: its
+    // spark (spec 0028) is travelling to that shield now.
+    const stackNow = new Set((stack ?? []).map((s) => s.id));
+    const beamed = new Set<number>();
+    for (const { s } of previous.current?.stack ?? []) {
+      if (stackNow.has(s.id)) continue;
+      for (const t of s.targets) if ("player" in t) beamed.add(t.player);
+    }
+    const first = changes[0]!;
+    const start = Math.max(holdLeft(), beamed.has(first.player) ? RESOLVE_MS : 0);
+    const played = planChanges(changes, start);
+    const carried = lifeStillPlaying("life");
+    const steps = [...carried, ...changeSteps(played)];
+    const total =
+      Math.max(...steps.map((s) => s.at), ...played.map((p) => p.at + p.span)) + LIFE_MARK_MS;
+    lifeClock.current?.cancel();
+    const clock = root.animate([{ opacity: 1 }, { opacity: 1 }], {
+      duration: total,
+      id: "life-clock",
+    });
+    lifeClock.current = clock;
+    startLifeSteps(() => Number(clock.currentTime ?? total), steps, "life");
+    clock.onfinish = () => {
+      if (lifeClock.current === clock) endLifeSteps("life");
+    };
+    clock.oncancel = () => {
+      if (lifeClock.current === clock) endLifeSteps("life");
+    };
+    const unit = g.height / 900;
+    const added: FightMark[] = [];
+    played.forEach(({ change, at }, i) => {
+      const p = lifeOf(change.player);
+      const key = `${life.key}:${i}:${change.player}`;
+      const of = `player:${change.player}`;
+      const rise = (lift: number): Keyframe[] => [
+        { offset: 0, opacity: 0, transform: "translate(-50%, -50%) translateY(-30%)" },
+        { offset: 0.12, opacity: 1 },
+        { offset: 0.7, opacity: 1 },
+        {
+          offset: 1,
+          opacity: 0,
+          transform: `translate(-50%, -50%) translateY(-${lift}%)`,
+        },
+      ];
+      if (change.kind === "poison") {
+        added.push(
+          poisonMark(`${key}:poison`, poisonPoint(p, g), change.amount, g, LIFE_MARK_MS, at, of),
+        );
+        return;
+      }
+      if (change.kind === "gain") {
+        added.push({
+          key: `${key}:glow`,
+          kind: "glow",
+          style: {
+            left: p.x - 40 * unit,
+            top: p.y - 40 * unit,
+            width: 80 * unit,
+            height: 80 * unit,
+          },
+          frames: [
+            { offset: 0, opacity: 0 },
+            { offset: 0.2, opacity: 0.9 },
+            { offset: 1, opacity: 0 },
+          ],
+          duration: LIFE_GLOW_MS,
+          delay: at,
+          of,
+        });
+      } else {
+        // Damage and loss: one look. The crack, over the shield.
+        added.push({
+          key: `${key}:crack`,
+          kind: "crack",
+          style: {
+            left: p.x - 23 * unit,
+            top: p.y - 27 * unit,
+            width: 46 * unit,
+            height: 54 * unit,
+          },
+          frames: [
+            { offset: 0, opacity: 0 },
+            { offset: 0.15, opacity: 1 },
+            { offset: 1, opacity: 0 },
+          ],
+          duration: LIFE_CRACK_MS,
+          delay: at,
+          of,
+        });
+      }
+      // The amount rises off the shield, to its left (the canvas's).
+      added.push({
+        key: `${key}:number`,
+        kind: change.kind === "gain" ? "gain" : "number",
+        style: { left: p.x - 52 * unit, top: p.y - 4 * unit, fontSize: 34 * unit },
+        frames: rise(130),
+        duration: LIFE_MARK_MS,
+        delay: at,
+        text: `${change.kind === "gain" ? "+" : "−"}${change.amount}`,
+        of,
+      });
+    });
+    setMarks((list) => [...list, ...added]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per round
+  }, [life, result]);
+  useEffect(() => () => lifeClock.current?.cancel(), []);
 
   /**
    * Phase 10 A-13 -- play a combat damage step's fights, after any still
@@ -2149,17 +2398,17 @@ export function Board({
     // the board's life when it ends.
     startLifeSteps(
       () => Number(clock.currentTime ?? total),
-      [...carried, ...lifeSteps(plan, hold)],
+      [...carried, ...lifeSteps(plan, hold, life?.changes)],
     );
     // The fights over (or hurried to their end): everyone goes home.
     clock.onfinish = () => {
       if (fightClock.current === clock) {
-        endLifeSteps();
+        endLifeSteps("fights");
         setReleased(plan.key);
       }
     };
     clock.oncancel = () => {
-      if (fightClock.current === clock) endLifeSteps();
+      if (fightClock.current === clock) endLifeSteps("fights");
     };
     const alive = new Set(items.map((item) => item.id));
     for (const [item] of plan.fighters) {
@@ -2290,7 +2539,32 @@ export function Board({
           }
         }
         const at = box ? { x: box.x + box.w / 2, y: box.y + box.h * 0.12 } : strike.point!;
-        if (!box && strike.point) {
+        if (!box && strike.point && strike.poison) {
+          // Spec 0077: poison is not life -- the blow lands on the poison
+          // badge (strike.point is the badge): a short green slash across it,
+          // and no hurt on the shield or the screen's edge.
+          const p = strike.point;
+          const w = (POISON_R * 2.6 * g.height) / 900;
+          added.push({
+            key: key(`slash:${n}:${strike.target}`),
+            kind: "slash",
+            style: {
+              left: p.x - w / 2,
+              top: p.y,
+              width: w,
+              height: Math.max(3, g.cardH * 0.03),
+            },
+            frames: [
+              { offset: 0, opacity: 1, transform: "rotate(20deg) scaleX(0)" },
+              { offset: 0.35, opacity: 1, transform: "rotate(20deg) scaleX(1)" },
+              { offset: 1, opacity: 0, transform: "rotate(20deg) scaleX(1)" },
+            ],
+            duration: slashMs,
+            delay: hold + strike.at,
+            of: strike.target,
+            poison: true,
+          });
+        } else if (!box && strike.point) {
           // At the player: a slash across the plate, and their hurt shown --
           // the screen's red edge for you, a red glow on their plate for them.
           const p = strike.point;
@@ -2330,6 +2604,21 @@ export function Board({
             delay: hold + strike.at,
             of: strike.target,
           });
+        }
+        // Spec 0077: an infect hit gives poison -- the poison mark at the badge.
+        if (strike.poison && strike.point) {
+          added.push(
+            poisonMark(
+              key(`number:${n}:${strike.target}`),
+              strike.point,
+              strike.amount,
+              g,
+              numberMs,
+              hold + strike.at,
+              strike.target,
+            ),
+          );
+          continue;
         }
         added.push({
           key: key(`number:${n}:${strike.target}`),
@@ -5321,12 +5610,21 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
   return (
     <div
       ref={ref}
-      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}`}
+      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}`}
       data-fight={mark.kind}
       data-of={mark.of}
       style={{ ...mark.style, opacity: 0 }}
     >
-      {mark.text}
+      {mark.kind === "crack" ? (
+        CRACK
+      ) : mark.kind === "poison" ? (
+        <>
+          {POISON_DROP}
+          <span>{mark.text}</span>
+        </>
+      ) : (
+        mark.text
+      )}
     </div>
   );
 }

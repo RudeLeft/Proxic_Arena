@@ -247,6 +247,76 @@
   font-size: var(--pa-size-lg);
   letter-spacing: -0.02em;
 }
+/* Spec 0077 (A) -- poison: a round badge touching the life shield at its
+   lower left, its centre 31 left of and 22 below the shield's (Board.tsx
+   POISON_DX/DY read the same numbers: the "+N" floats from it). The shield's
+   centre is (181, 38) in the plate's padding box, so the badge's 40 x 40
+   box is at (130, 40): it overlaps the shield's left edge and stays clear of
+   its number. A ring of ten notches, one lit per counter. */
+.gs-poison {
+  position: absolute;
+  left: 130px;
+  top: 40px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  cursor: help;
+}
+.gs-poison svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.gs-poison-lit,
+.gs-poison-unlit {
+  fill: none;
+  stroke-width: 3.2;
+}
+.gs-poison-lit {
+  stroke: #9fe05a;
+}
+.gs-poison-unlit {
+  stroke: #2a3a2a;
+}
+.gs-poison-face {
+  fill: #0f1a10;
+  stroke: #3f7a32;
+  stroke-width: 1.4;
+}
+.gs-poison-drop {
+  fill: #3d8f2a;
+  opacity: 0.55;
+}
+.gs-poison-ring {
+  fill: none;
+  stroke: #9fe05a;
+  stroke-width: 2;
+  animation: gs-poison-full 0.95s ease-in-out infinite;
+}
+@keyframes gs-poison-full {
+  50% {
+    opacity: 0.35;
+  }
+}
+.gs-poison-n {
+  position: relative;
+  margin-top: 2px;
+  font: 700 var(--pa-size-md) / 1 var(--pa-card);
+  color: #eaffde;
+  text-shadow: 0 1px 2px #000;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-poison-ring {
+    animation: none;
+  }
+}
 /* The tiles (spec 0031): Library across the row, then Graveyard and
    Exile; each zone's picture faded behind the right of its tile, the
    count large on the left over it, the word under the count. */

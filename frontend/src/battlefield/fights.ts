@@ -26,7 +26,14 @@ export type FightRef = { object: string } | { player: number };
 /** A combat damage step's wave, as the game sends it (protocol/README.md, B13 + Phase 10 A-13). */
 export interface CombatWave {
   key: string;
-  hits: readonly { source: string; target: FightRef; amount: number; deathtouch?: boolean }[];
+  hits: readonly {
+    source: string;
+    target: FightRef;
+    amount: number;
+    deathtouch?: boolean;
+    /** Spec 0077 -- poison counters, not life. */
+    infect?: boolean;
+  }[];
   combat?: "first-strike" | "regular";
   fights?: readonly { attacker: string; defender: FightRef; blockers: readonly string[] }[];
   gains?: readonly { player: number; amount: number; source?: string }[];
@@ -102,6 +109,8 @@ export interface Strike {
   point?: Point;
   amount: number;
   deathtouch: boolean;
+  /** Spec 0077 -- an infect hit on a player: poison counters, not life. */
+  poison?: boolean;
   /** When it lands, from the sequence's start. */
   at: number;
 }
@@ -159,6 +168,12 @@ export interface FightInput {
   life: (seat: number) => Point;
   /** The plate's ring radius: a lunge stops at it. */
   lifeR: number;
+  /**
+   * Spec 0077 -- a player's poison badge, and its radius: an infect hit
+   * lands there, never on the life shield (poison is not life).
+   */
+  poison?: (seat: number) => Point;
+  poisonR?: number;
   viewerSeat: number;
   opponentName: string;
   /** Spec 0067 -- a spectator's board: the bottom player's name, said instead of "you"/"your". */
@@ -321,15 +336,24 @@ export function planFights(input: FightInput): FightPlan | null {
     let end: number;
     let contact: Point;
     // The struck, by drawn card or player: how much, and whether by deathtouch.
-    const struck = new Map<string, { amount: number; deathtouch: boolean; ref: FightRef }>();
+    const struck = new Map<
+      string,
+      { amount: number; deathtouch: boolean; infect: boolean; ref: FightRef }
+    >();
     for (const hit of hits) {
       const key =
         "player" in hit.target ? `player:${hit.target.player}` : itemOf(hit.target.object);
       if (!key) continue;
-      const was = struck.get(key) ?? { amount: 0, deathtouch: false, ref: hit.target };
+      const was = struck.get(key) ?? {
+        amount: 0,
+        deathtouch: false,
+        infect: false,
+        ref: hit.target,
+      };
       struck.set(key, {
         amount: was.amount + hit.amount,
         deathtouch: was.deathtouch || hit.deathtouch === true,
+        infect: was.infect || hit.infect === true,
         ref: hit.target,
       });
     }
@@ -528,16 +552,18 @@ export function planFights(input: FightInput): FightPlan | null {
         }
       } else {
         const seat = "player" in group.defender ? group.defender.player : input.viewerSeat;
-        const p = input.life(seat);
+        // Spec 0077: an infect attacker strikes the poison badge.
+        const infects = struck.get(`player:${seat}`)?.infect === true && !!input.poison;
+        const p = infects ? input.poison!(seat) : input.life(seat);
+        const ringR = infects ? (input.poisonR ?? input.lifeR * 0.7) : input.lifeR;
         const dx = p.x - ac.x;
         const dy = p.y - ac.y;
         const len = Math.max(1, Math.hypot(dx, dy));
         // Its near edge on the ring, never over the life total.
-        const stop =
-          Math.abs(dx / len) * (A.w / 2) + Math.abs(dy / len) * (A.h / 2) + input.lifeR + 2;
+        const stop = Math.abs(dx / len) * (A.w / 2) + Math.abs(dy / len) * (A.h / 2) + ringR + 2;
         lunge = { dx: dx - (dx / len) * stop, dy: dy - (dy / len) * stop };
         rear = { dx: -(dx / len) * FIGHT_REAR * 0.5 * A.h, dy: -(dy / len) * FIGHT_REAR * A.h };
-        contact = { x: p.x - (dx / len) * input.lifeR, y: p.y - (dy / len) * input.lifeR };
+        contact = { x: p.x - (dx / len) * ringR, y: p.y - (dy / len) * ringR };
       }
       const tilt = lunge.dx >= 0 ? 1 : -1;
       moves.set(group.attacker, [
@@ -571,9 +597,10 @@ export function planFights(input: FightInput): FightPlan | null {
       if (!("player" in s.ref)) continue;
       strikes.push({
         target: key,
-        point: input.life(s.ref.player),
+        point: s.infect && input.poison ? input.poison(s.ref.player) : input.life(s.ref.player),
         amount: s.amount,
         deathtouch: false,
+        ...(s.infect ? { poison: true } : {}),
         at: impact,
       });
     }

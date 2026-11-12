@@ -1662,6 +1662,56 @@
 .bf-fight-gain {
   color: #7be08a;
 }
+/* Spec 0077 -- poison given: a dark pill in the badge's colours, the drop
+   and the number, rising a little off the badge. Not the gain's bare green
+   "+N" off the shield: another picture, another place. */
+.bf-fight-poison {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.15em 0.5em 0.15em 0.35em;
+  border-radius: 999px;
+  background: #0f1a10;
+  border: 1.5px solid #9fe05a;
+  box-shadow: 0 0 8px rgb(159 224 90 / 55%);
+  font-family: var(--pa-card);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: #eaffde;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.bf-fight-poison svg {
+  width: 0.9em;
+  height: 1em;
+  fill: #6fcf3a;
+}
+/* Spec 0077 -- an infect blow across the poison badge: green, not red. */
+.bf-fight-slash.bf-fight-poisoned {
+  background: linear-gradient(90deg, transparent, #eaffde 20%, #6fcf3a 60%, transparent);
+  box-shadow: 0 0 10px #3f7a32;
+}
+/* Spec 0077 (A · Impact) -- a crack flashes across a struck shield. */
+.bf-fight-crack {
+  position: absolute;
+  pointer-events: none;
+}
+.bf-fight-crack svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Spec 0077 -- a gain's soft green glow behind the shield. */
+.bf-fight-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgb(110 230 120 / 75%) 0%, transparent 68%);
+  mix-blend-mode: screen;
+}
 /* You were hit: a red edge around the screen. */
 .bf-fight-edge {
   position: absolute;

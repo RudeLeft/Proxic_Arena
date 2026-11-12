@@ -24,7 +24,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useShownLife } from "./lifeTicks";
+import { useShownPlate } from "./lifeTicks";
+import { PoisonBadge, poisonOf } from "./PoisonBadge";
 import libraryArt from "../assets/zones/library.webp";
 import graveyardArt from "../assets/zones/graveyard.webp";
 import exileArt from "../assets/zones/exile.webp";
@@ -1787,6 +1788,7 @@ export function GameScreen({
             clockMs={RESPONSE_WINDOW_MS}
             handCosts={handCosts}
             damage={data.damage}
+            life={data.life}
             onPick={pick}
             onInspect={setInspecting}
             choosable={boardChoosable}
@@ -2583,7 +2585,8 @@ function SeatBlock({
   const exiled = board.exile.filter((card) => card.seat === player.seat).length;
   // Spec 0067, item 1 -- the life steps down at each blow of the fights
   // playing (lifeTicks), and settles on the board's when they end.
-  const shown = useShownLife(player.seat, player.life);
+  // Spec 0077 -- every other life change steps too, and poison on its badge.
+  const shown = useShownPlate(player.seat, player.life, poisonOf(player));
   const life = shown.life;
   const lifeRef = useRef<HTMLButtonElement>(null);
   const hitsSeen = useRef(shown.hits);
@@ -2603,8 +2606,9 @@ function SeatBlock({
       data-seat={player.seat}
     >
       <span className="pa-visually-hidden">
-        {player.name} ({role}): {life} life, {player.handCount} in hand, {player.libraryCount} in
-        library, {player.graveyardCount} in graveyard, {exiled} in exile.
+        {player.name} ({role}): {life} life
+        {shown.poison > 0 ? `, ${shown.poison} poison` : ""}, {player.handCount} in hand,{" "}
+        {player.libraryCount} in library, {player.graveyardCount} in graveyard, {exiled} in exile.
       </span>
       <div className="gs-seat-head">
         <span className="gs-life-face">
@@ -2655,6 +2659,8 @@ function SeatBlock({
           )}
         </button>
       </div>
+      {/* Spec 0077 (A) -- poison: a round badge touching the shield's lower left. */}
+      <PoisonBadge count={shown.poison} pulses={shown.poisonHits} />
       {/* Spec 0031 — the opponent's hand is drawn on the board, fanned down
           from the top edge; its count stays here for screen readers. */}
       {!mine && (

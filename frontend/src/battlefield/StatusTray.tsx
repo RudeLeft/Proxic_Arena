@@ -137,7 +137,10 @@ export function StatusTray({
   useEffect(() => () => setOpenSeat(null), []);
 
   const mana = MANA_ORDER.filter((c) => (player.manaPool[c] ?? 0) > 0);
-  const counters = player.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`);
+  // Spec 0077 (A) -- poison is the badge by the life shield (PoisonBadge),
+  // not a chip here; the tray keeps energy, experience and the rest.
+  const kept = player.counters.filter((c) => c.name.toUpperCase() !== "POISON");
+  const counters = kept.map((c) => `${c.count} ${c.name.toLowerCase()}`);
   const ringHeld = player.command.some((thing) => thing === "The Ring");
   const chip = (key: string, className: string, text: string, label?: string) => (
     <button
@@ -163,7 +166,7 @@ export function StatusTray({
         </span>
       ),
     })),
-    ...player.counters.map((c) => ({
+    ...kept.map((c) => ({
       key: `counter:${c.name}`,
       width: itemWidth(`${c.count} ${c.name}`, true),
       node: (
@@ -276,6 +279,10 @@ function StatusList({
   const yours = side === "viewer" && !spectating;
   const words = player.commandWords ?? [];
   const held = player.designations;
+  // Spec 0077 -- poison is the badge by the life shield, not listed here.
+  const counters = player.counters
+    .filter((c) => c.name.toUpperCase() !== "POISON")
+    .map((c) => `${c.count} ${c.name.toLowerCase()}`);
   return (
     <div
       className={`gs-status-list${peek ? " gs-win-peek" : ""}`}
@@ -301,12 +308,10 @@ function StatusList({
             </p>
           </section>
         )}
-        {player.counters.length > 0 && (
+        {counters.length > 0 && (
           <section>
             <h3 className="gs-status-sec">Counters</h3>
-            <p className="gs-status-line">
-              {player.counters.map((c) => `${c.count} ${c.name.toLowerCase()}`).join(" · ")}
-            </p>
+            <p className="gs-status-line">{counters.join(" · ")}</p>
           </section>
         )}
         {held.length > 0 && (

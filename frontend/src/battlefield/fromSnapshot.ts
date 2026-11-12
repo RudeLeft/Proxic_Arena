@@ -11,7 +11,7 @@
 // only (§7.34, §7.35) -- a wrong guess costs a glide in the wrong
 // direction, never a wrong board, because the board is the snapshot.
 
-import type { Snapshot, SnapshotCard } from "../match";
+import type { LifeChanges, Snapshot, SnapshotCard } from "../match";
 import type {
   BoardCard,
   BoardHandCard,
@@ -34,6 +34,8 @@ export interface BoardData {
   combat: CombatView | null;
   stack: StackView[];
   damage: DamageWave | null;
+  /** Spec 0077 -- the round's life and poison changes. */
+  life: LifeChanges | null;
   arrivals: Map<string, AnchorId>;
   departures: Map<string, AnchorId>;
   /** Phase 10 A-10 -- each permanent that cards merged into this update, and those cards. */
@@ -480,6 +482,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     combat: snapshot.combat,
     stack,
     damage: snapshot.damage,
+    life: snapshot.life ?? null,
     arrivals,
     departures,
     merges,

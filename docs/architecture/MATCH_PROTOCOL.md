@@ -240,7 +240,12 @@ has seen carries `seen` too), `battlefield`, `graveyard`, `exile`,
 Amendment 1: counters, mills, cards out of a graveyard; spec 0075: a
 bounce to the owner, the other player's cycling, choices and coin flips
 with `marks` pictures, an empty look). Card actions are never told as
-`notices` (spec 0075). What may
+`notices` (spec 0075). Spec 0077: `life`, the round's changes to each
+player's life and poison in Forge's order -- damage, loss, gain or poison,
+with the amount and the source where it is known and the reader may see it
+(an infect hit is poison, never damage) -- so the board can show each as
+it lands; a presentation hint like the damage wave, the totals stay the
+truth (PROTO-007). What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
