@@ -69,6 +69,7 @@ import {
   SETTLE_EASING,
   SETTLE_MS,
   glideFrames,
+  lateFade,
   hurry,
   placedNow,
   fateFrames,
@@ -342,6 +343,19 @@ export interface BoardProps {
    * drawn until the flight has landed, and it does not slide in itself.
    */
   flyingOnto?: string | null;
+  /**
+   * Spec 0072, item 1 -- the other player is casting a card from their
+   * hidden hand: the back at this place in their fan (as it was) left for
+   * the middle, and the backs after it close the gap. Applied only on the
+   * board where their hidden backs went down by one; all backs look alike.
+   */
+  handLeft?: number | null;
+  /**
+   * Spec 0072, item 3 -- their cancelled spell going back into their hidden
+   * hand: this new back makes the Glide from the middle (`from`), fading in
+   * as the cast card, on the same path, fades out.
+   */
+  castBack?: { id: string; from: (g: Geometry) => Box } | null;
   /** Where a card that left the board went (default: its controller's
    * graveyard). A card that moved to the hand needs nothing: it is still
    * drawn, and simply moves. */
@@ -942,6 +956,8 @@ export function Board({
   returns,
   graves,
   flyingOnto = null,
+  handLeft = null,
+  castBack = null,
   hiddenStack = null,
   quietStack,
   stackOwing = null,
@@ -2295,6 +2311,20 @@ export function Board({
         if (item.id === flyingOnto && item.ids.length === 1) continue;
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
+        // Spec 0072: their cancelled spell's back, from the middle, fading in.
+        if (castBack && item.id === castBack.id) {
+          glide(
+            element,
+            lateFade(
+              glideFrames(castBack.from(g), item.box, g.cardW, g.cardH, item.origin, item.origin),
+              0,
+              1,
+            ),
+            0,
+            MOVE_MS,
+          );
+          continue;
+        }
         // A-14: the other player's new card back, taking over a card going there.
         const flight = flights.get(item.id);
         if (flight) {
@@ -2356,9 +2386,27 @@ export function Board({
       // re-centring, a stolen creature crossing the table): Glide there,
       // not the old straight CSS slide. A pointed-at hand card rising is
       // not a journey: its quick CSS settle stays.
+      // Spec 0072, item 1 -- the other player cast from their hidden hand:
+      // the back at `handLeft` rose to the middle (the casting card starts
+      // there), so each back after it takes the place of the one after it
+      // and the fan closes on the gap -- not its last back vanishing.
+      const isBack = (id: string) => id.startsWith("hidden-hand:");
+      const gap =
+        handLeft !== null &&
+        [...before.mounted].filter(isBack).length === items.filter((i) => isBack(i.id)).length + 1
+          ? handLeft
+          : null;
+      const wasAt = (id: string) => {
+        if (gap !== null && isBack(id)) {
+          const [, seat, index] = id.split(":");
+          if (Number(index) >= gap)
+            return before.at.get(`hidden-hand:${seat}:${Number(index) + 1}`);
+        }
+        return before.at.get(id);
+      };
       for (const item of items) {
         if (!before.mounted.has(item.id)) continue;
-        const was = before.at.get(item.id);
+        const was = wasAt(item.id);
         if (!was) continue;
         // A-10 (owner 2026-11-06, Amendment 13): two cards become one -- the
         // table dims, both are pulled together and slam at the merged card's
@@ -2506,7 +2554,13 @@ export function Board({
         const moving =
           element.getAnimations?.().some((a) => a.playState === "running" && a.id !== "fight") ??
           false;
-        const start = moving ? placedNow(element) : null;
+        // Spec 0072: a back closing the gap sets off from the place of the
+        // back after it (the CSS transition the new place just started says
+        // nothing about that).
+        // Spec 0072: a back closing the gap sets off from the place of the
+        // back after it (the CSS transition the new place just started says
+        // nothing about that).
+        const start = moving && was === before.at.get(item.id) ? placedNow(element) : null;
         // A fight's moves are on its card, not its place: they play on.
         if (moving) for (const a of element.getAnimations()) if (a.id !== "fight") a.cancel();
         // A-14: off the table and back into a hand it can be seen in (yours,
@@ -2619,6 +2673,9 @@ export function Board({
       };
       for (const [id, d] of before.drawn) {
         if (elementsNow.has(id) || merged.has(id)) continue;
+        // Spec 0072: the back that rose to the middle is the casting card now
+        // (the fan closed on it, above): no ghost of it leaves for a pile.
+        if (gap !== null && isBack(id)) continue;
         const at = before.at.get(id);
         if (!at) continue;
         const joined = now.get(id);
@@ -2970,6 +3027,8 @@ export function Board({
     viewerSeat,
     artUrl,
     flyingOnto,
+    handLeft,
+    castBack,
     stackScale,
     pointed,
     battlefield,

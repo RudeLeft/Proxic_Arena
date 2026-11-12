@@ -22,13 +22,31 @@
 // click for the question that the card covers, the card fades almost
 // away; clicks always went through it (pointer-events: none).
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import type { SnapshotCard } from "../match";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
+import { MOVE_MS, glideFramesAs, lateFade } from "./motion";
+
+/**
+ * Spec 0072 -- the other player's card's Glide (A-00) into or out of the
+ * middle: from (or to) a place on the table, a table card turning about
+ * `origin` there.
+ */
+export interface TheirGlide {
+  box: Box;
+  origin: { x: number; y: number };
+}
+
+/** Whether the viewer asked for reduced motion (spec 0072, item 4: no glide). */
+function stillMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : true;
+}
 
 /** How much bigger than a card on the table. */
 const GROW = 2.5;
@@ -327,11 +345,21 @@ function Face({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => s
   );
 }
 
-function Back({ caster }: { caster: string | null }) {
+function Back({
+  caster,
+  captionRef,
+}: {
+  caster: string | null;
+  captionRef?: Ref<HTMLSpanElement>;
+}) {
   return (
     <>
       <span className="gs-cast-back" aria-hidden="true" />
-      {caster && <span className="gs-cast-caption">{caster} is casting a spell…</span>}
+      {caster && (
+        <span ref={captionRef} className="gs-cast-caption">
+          {caster} is casting a spell…
+        </span>
+      )}
     </>
   );
 }
@@ -346,11 +374,18 @@ export function CastingCard({
   artUrl,
   hiddenBy = null,
   asking = null,
+  theirs = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   /** Where it rose from (the card clicked in hand), when known. */
   from: Box | null;
+  /**
+   * Spec 0072 -- the other player's spell (a spectator's: either player's):
+   * where it rose from -- the middle back of their fan, a card of theirs you
+   * were shown, or a pile -- making the A-00 Glide to the middle.
+   */
+  theirs?: TheirGlide | null;
   /** Forge's "still owing", while it is being paid for (spec 0058: the last one, kept). */
   owing: string[] | null;
   /** Spec 0058, item 7 -- the cost being paid, as symbols; the printed cost when not known yet. */
@@ -372,12 +407,30 @@ export function CastingCard({
   const hidden = hiddenBy !== null;
   // Spec 0068, item 2 -- your own card fades off what you point at under
   // it; the other player's never needs to (nothing of yours waits on it).
-  const see = useSeeThrough(ref, !hidden, asking);
+  const see = useSeeThrough(ref, !hidden && !theirs, asking);
+  const captionRef = useRef<HTMLSpanElement>(null);
+  const [gliding] = useState(() => !!theirs && !stillMotion());
   const colour = emberColour(hidden ? null : card.manaCost);
   // Rise out of the hand once, when it first appears.
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || !from || typeof el.animate !== "function") return;
+    if (!el || typeof el.animate !== "function") return;
+    if (theirs) {
+      // Spec 0072, item 1 -- the Glide, 450 ms on its arc, no fade (adds
+      // no time; a click hurries it, as every Glide on the board). The
+      // words come once it is nearly there (the canvas).
+      if (!gliding) return;
+      el.animate(
+        glideFramesAs(box, theirs.box, box, geometry.cardW, geometry.cardH, theirs.origin),
+        { duration: MOVE_MS, easing: "linear" },
+      );
+      captionRef.current?.animate([{ opacity: 0 }, { opacity: 0, offset: 0.73 }, { opacity: 1 }], {
+        duration: MOVE_MS,
+        easing: "linear",
+      });
+      return;
+    }
+    if (!from) return;
     const dx = from.x + from.w / 2 - (box.x + box.w / 2);
     const dy = from.y + from.h / 2 - (box.y + box.h / 2);
     el.animate(
@@ -391,11 +444,13 @@ export function CastingCard({
   }, [card.id]);
   // Spec 0062 -- the opponent's spell is a back: no pips (its cost is not
   // even sent); the balls fly to the back itself (data-ball-for).
-  const pips = hidden ? [] : assignBalls(costPips(cost ?? card.manaCost, owing), paid ?? []);
+  const pips =
+    hidden || theirs ? [] : assignBalls(costPips(cost ?? card.manaCost, owing), paid ?? []);
   return (
     <div
       ref={ref}
-      className={`gs-cast${see ? " gs-cast-see" : ""}`}
+      className={`gs-cast${see ? " gs-cast-see" : ""}${gliding ? " gs-cast-glide" : ""}`}
+      data-from={theirs ? "theirs" : undefined}
       data-see-through={see ? "true" : undefined}
       data-object-id={card.id}
       data-ball-for={card.id}
@@ -411,7 +466,11 @@ export function CastingCard({
     >
       <Embers colour={colour} />
       <div className="gs-cast-sway">
-        {hidden ? <Back caster={hiddenBy} /> : <Face card={card} artUrl={artUrl} />}
+        {hidden ? (
+          <Back caster={hiddenBy} captionRef={captionRef} />
+        ) : (
+          <Face card={card} artUrl={artUrl} />
+        )}
       </div>
       {pips.length > 0 && (
         <div className="gs-cast-cost" aria-label={owing ? "Paying its cost" : "Its cost"}>
@@ -490,10 +549,18 @@ export function CastingFlight({
   reveal = false,
   hidden = false,
   landing = false,
+  back = null,
 }: {
   card: SnapshotCard;
   geometry: Geometry;
   to: Box | null;
+  /**
+   * Spec 0072, item 3 -- the other player's spell, cancelled: at once, the
+   * A-00 Glide back where it came from (their hand's new back, which makes
+   * the same Glide fading in as this fades out; a card of theirs you were
+   * shown; a pile), ending at `opacity`. Face up if it rose face up.
+   */
+  back?: (TheirGlide & { opacity: number }) | null;
   artUrl: (art: string) => string;
   onDone: () => void;
   reveal?: boolean;
@@ -515,6 +582,23 @@ export function CastingFlight({
   const flashRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
+    if (back) {
+      // Reduce motion: no glide, it is simply back (spec 0072, item 4).
+      if (!el || typeof el.animate !== "function" || stillMotion()) {
+        onDone();
+        return undefined;
+      }
+      const going = el.animate(
+        lateFade(
+          glideFramesAs(box, box, back.box, geometry.cardW, geometry.cardH, back.origin),
+          1,
+          back.opacity,
+        ),
+        { duration: MOVE_MS, easing: "linear", fill: "forwards" },
+      );
+      going.onfinish = onDone;
+      return () => going.cancel();
+    }
     if (!el || (!to && !reveal) || typeof el.animate !== "function") {
       onDone();
       return;
@@ -618,6 +702,7 @@ export function CastingFlight({
       className="gs-cast gs-cast-leaving"
       data-card={card.id}
       data-landing={landing ? "true" : undefined}
+      data-going={back ? "back" : undefined}
       style={{
         left: box.x,
         top: box.y,

@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 
 AUDIT, REC = sys.argv[1], sys.argv[2]
 VISIBLE = 0.15
+HANDOVER = 12
 
 
 def boards(trace, seat):
@@ -99,6 +100,21 @@ def thing_of(key, stack_card):
     return k
 
 
+def handed_over(th, points, now):
+    """Spec 0072 -- a card back of a hidden hand that appears or goes where,
+    at that very frame, another card is drawn (within HANDOVER px): one back
+    handed over to another element at the same spot, not a pop or a blink.
+    The backs of a hidden hand are anonymous by design (no hidden id: the
+    page numbers them by place), so when the other player casts from the
+    middle of the fan, the backs after it close the gap and the LAST number
+    is the one that goes; and their cancelled spell lands on the fan's new
+    last back, fading into it. Only hidden-hand backs are excused."""
+    if not str(th).startswith("hidden-hand:"):
+        return False
+    return any(other != th and math.hypot(a[0] - b[0], a[1] - b[1]) <= HANDOVER
+               for other, pts in now.items() for a in pts for b in points)
+
+
 def analyse(file, trace, seat):
     mine = boards(trace + ".jsonl", seat)
     rows = defaultdict(list)
@@ -163,9 +179,13 @@ def analyse(file, trace, seat):
                     if d > 0:
                         steps[th].append((d, t, t in gaps))
                 elif q and not p:
-                    appeared.setdefault(th, (t, q))
+                    if not handed_over(th, q, now):
+                        appeared.setdefault(th, (t, q))
                 elif p and not q:
-                    vanished[th] = (t, p)
+                    if handed_over(th, p, now):
+                        vanished.pop(th, None)
+                    else:
+                        vanished[th] = (t, p)
             prev = now
         found = []
         for th, ss in steps.items():

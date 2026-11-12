@@ -70,7 +70,10 @@ import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard"
 import { PAY_HOLD_MS, payMarks, withPick, withoutPick, type PayMark } from "./payPicks";
 import { LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
-import type { Box, Geometry } from "./layout";
+import { OPPONENT_HAND_ORIGIN, type Box, type Geometry } from "./layout";
+import { anchors, boxAt } from "./motion";
+import { castCancelled, castOrigin, hiddenInHand, type CastOrigin } from "./theirCast";
+import type { TheirGlide } from "./CastingCard";
 import {
   CastingCard,
   CastingFlight,
@@ -641,6 +644,9 @@ export function GameScreen({
     card: SnapshotCard;
     hidden: boolean;
     handCount: number;
+    /** Spec 0072 -- the other player's: where it was cast from (null: yours). */
+    origin: CastOrigin | null;
+    libraryCount: number;
     /** The battlefield while it was being cast: what is new after is it. */
     battlefield: Set<string>;
   } | null>(null);
@@ -752,10 +758,76 @@ export function GameScreen({
   // them: no sliding aside, no docking, no remembered spot (the old
   // castingSpot / docks / heldSpot).
   const castingAt = (geometry: Geometry): Box | null => (casting ? castingBox(geometry) : null);
+  // Spec 0072 -- the other player's spell (to a spectator, either
+  // player's): where it was cast from, read once, on the board where it
+  // first appears being cast (theirCast.ts). A card that was face up there
+  // (flashback from the graveyard) is shown face up the whole way.
+  const theirCast =
+    casting && board && (casting.seat !== board.seat || board.spectator) ? casting : null;
+  const originOf = useRef<{ id: string; origin: CastOrigin } | null>(null);
+  if (!casting) originOf.current = null;
+  if (theirCast && board && originOf.current?.id !== theirCast.id) {
+    originOf.current = {
+      id: theirCast.id,
+      origin: castOrigin(theirCast, board, frames.current.previous),
+    };
+  }
+  const theirOrigin =
+    theirCast && originOf.current?.id === theirCast.id ? originOf.current.origin : null;
   const castingHiddenBy =
-    casting && board && (casting.seat !== board.seat || board.spectator)
-      ? (board.players.find((p) => p.seat === casting.seat)?.name ?? "Your opponent")
+    theirCast && board && !theirOrigin?.faceUp
+      ? (board.players.find((p) => p.seat === theirCast.seat)?.name ?? "Your opponent")
       : null;
+  // Spec 0072, item 1 -- where it glides from: the middle back of their fan
+  // as it was drawn (the board before this one), a card of theirs you were
+  // shown, or a pile. Chosen once, as the card first appears.
+  const riseFrom = useRef<{ id: string; glide: TheirGlide } | null>(null);
+  if (!casting) riseFrom.current = null;
+  const lastFan = useRef<{ hidden: Box[]; shown: Map<string, Box> }>({
+    hidden: [],
+    shown: new Map(),
+  });
+  // Spec 0072, item 3 -- their spell cancelled: back where it came from, at
+  // once, in the same frame the cast card goes (decided here, while the
+  // board is drawn, not after it). Their hidden hand's new back makes the
+  // same Glide from the middle, fading in.
+  const theirBack = useRef<{
+    id: string;
+    key: number;
+    card: SnapshotCard;
+    origin: CastOrigin;
+    faceUp: boolean;
+    backId: string | null;
+  } | null>(null);
+  const [, setBackDone] = useState(0);
+  {
+    const gone = lastCasting.current;
+    if (
+      gone?.origin &&
+      board &&
+      gone.card.id !== casting?.id &&
+      theirBack.current?.id !== gone.card.id &&
+      castCancelled(gone.card, gone.origin, gone, board)
+    ) {
+      const hiddenNow = hiddenInHand(board, gone.card.seat);
+      theirBack.current = {
+        id: gone.card.id,
+        key: Date.now(),
+        card: gone.card,
+        origin: gone.origin,
+        faceUp: !gone.hidden,
+        backId:
+          gone.origin.zone === "hand" &&
+          gone.origin.side === "opponent" &&
+          !gone.origin.shown &&
+          hiddenNow > 0
+            ? `hidden-hand:${gone.card.seat}:${hiddenNow - 1}`
+            : null,
+      };
+    }
+  }
+  const backId = theirBack.current?.backId ?? null;
+  const castBack = useMemo(() => (backId ? { id: backId, from: castingBox } : null), [backId]);
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
   // W-17 -- the cards lit while a sector or sprocket choice is pointed at.
   const [lit, setLit] = useState<ReadonlySet<string>>(() => new Set());
@@ -813,7 +885,8 @@ export function GameScreen({
   // Chosen once per flight, then kept: the newest card of that name, that
   // player's, not there while it was being cast.
   const landingChoice = useRef<{ key: number; id: string } | null>(null);
-  let flyingOnto: string | null = null;
+  // Spec 0072 -- a card of theirs you were shown, cancelled: it lands on its place in their hand.
+  let flyingOnto: string | null = theirBack.current?.origin.shown ?? null;
   // Spec 0062 -- lingering for its balls, a spell already resolved is not
   // drawn on the battlefield yet either: the flight still lands there.
   const going =
@@ -842,7 +915,8 @@ export function GameScreen({
   }
   useEffect(() => {
     const before = lastCasting.current;
-    if (before && before.card.id !== casting?.id) {
+    // Spec 0072 -- the other player's spell, cancelled, is already gliding back (theirBack).
+    if (before && before.card.id !== casting?.id && theirBack.current?.id !== before.card.id) {
       // The opponent's card is a back to this viewer: cancelled, it went
       // back to their hand (one more card there); otherwise it was cast --
       // it may be on the stack, or already resolved, before this frame.
@@ -863,6 +937,8 @@ export function GameScreen({
           card: casting,
           hidden: castingHiddenBy !== null,
           handCount: handCountOf(casting.seat),
+          origin: theirCast ? theirOrigin : null,
+          libraryCount: board?.players.find((p) => p.seat === casting.seat)?.libraryCount ?? 0,
           battlefield: fieldWhileCasting.current,
         }
       : null;
@@ -1692,6 +1768,12 @@ export function GameScreen({
             returns={data.returns}
             graves={data.graves}
             flyingOnto={flyingOnto}
+            handLeft={
+              theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"
+                ? theirOrigin.back
+                : null
+            }
+            castBack={castBack}
             hiddenStack={hiddenStack}
             stackPay={stackPay}
             stackPayLive={owingNow !== null}
@@ -1815,6 +1897,22 @@ export function GameScreen({
             }
             overlay={(at, geometry) => {
               atRef.current = at;
+              // Spec 0072 -- their fan as drawn now; the casting card, first
+              // seen, rises from the fan as it was drawn just before.
+              const fan = { hidden: [] as Box[], shown: new Map<string, Box>() };
+              for (const card of data.opponentHand) {
+                const box = at(card.id);
+                if (!box) continue;
+                if (card.shown) fan.shown.set(card.id, box);
+                else fan.hidden.push(box);
+              }
+              if (theirCast && theirOrigin && riseFrom.current?.id !== theirCast.id) {
+                riseFrom.current = {
+                  id: theirCast.id,
+                  glide: placeOf(theirOrigin, lastFan.current, geometry),
+                };
+              }
+              lastFan.current = fan;
               return (
                 <>
                   {board && (
@@ -1864,8 +1962,43 @@ export function GameScreen({
                       artUrl={artUrl}
                       hiddenBy={castingHiddenBy}
                       asking={decision?.decisionId ?? null}
+                      theirs={
+                        theirCast && riseFrom.current?.id === theirCast.id
+                          ? riseFrom.current.glide
+                          : null
+                      }
                     />
                   )}
+                  {theirBack.current &&
+                    (() => {
+                      const going = theirBack.current;
+                      const place = placeOf(going.origin, fan, geometry);
+                      const own = going.backId ? at(going.backId) : null;
+                      const shown = going.origin.shown ? at(going.origin.shown) : null;
+                      return (
+                        <CastingFlight
+                          key={`back:${going.key}`}
+                          card={going.card}
+                          geometry={geometry}
+                          to={null}
+                          artUrl={artUrl}
+                          hidden={!going.faceUp}
+                          back={{
+                            box: own ?? shown ?? place.box,
+                            origin: place.origin,
+                            // Into their hand: it fades as the hand's new back
+                            // fades in on the same path; onto a card you were
+                            // shown, it lands as it; into a pile, it shrinks
+                            // and fades there, as a spell going to the stack.
+                            opacity: shown ? 1 : going.origin.zone === "hand" ? 0 : 0.3,
+                          }}
+                          onDone={() => {
+                            if (theirBack.current?.key === going.key) theirBack.current = null;
+                            setBackDone((n) => n + 1);
+                          }}
+                        />
+                      );
+                    })()}
                   {flight &&
                     (() => {
                       const onStack = board?.stack.find((entry) => spellOf(entry, flight.card.id));
@@ -4610,4 +4743,40 @@ function SpectatorOver({
       </div>
     </div>
   );
+}
+
+/**
+ * Spec 0072 -- where the other player's spell was cast from, on the table:
+ * the back that left their fan (as it was drawn), a card of theirs you were
+ * shown, their hand's place (a spectator's bottom player, whose hand is not
+ * drawn), or their pile's tile.
+ */
+function placeOf(
+  origin: CastOrigin,
+  fan: { hidden: readonly Box[]; shown: ReadonlyMap<string, Box> },
+  g: Geometry,
+): TheirGlide {
+  const where = anchors(g);
+  if (origin.zone === "hand") {
+    if (origin.side === "opponent") {
+      const box =
+        (origin.shown ? fan.shown.get(origin.shown) : undefined) ??
+        (origin.back !== null ? fan.hidden[origin.back] : undefined);
+      if (box) return { box, origin: OPPONENT_HAND_ORIGIN };
+    }
+    const at = where[`${origin.side}:hand`];
+    return {
+      box: {
+        x: at.x - g.cardW / 2,
+        y: at.y - g.cardH / 2,
+        w: g.cardW,
+        h: g.cardH,
+        scale: 1,
+        rotation: 0,
+        z: 0,
+      },
+      origin: { x: 0.5, y: 0.5 },
+    };
+  }
+  return { box: boxAt(where[`${origin.side}:${origin.zone}`], g), origin: { x: 0.5, y: 0.5 } };
 }

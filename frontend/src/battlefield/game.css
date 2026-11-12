@@ -3741,6 +3741,11 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     opacity: 0;
   }
 }
+/* Spec 0072 -- the other player's card glides in from where it was cast
+   from, solid the whole way: no fade in on the spot. */
+.gs-cast.gs-cast-glide {
+  animation: none;
+}
 .gs-cast-sway {
   position: absolute;
   inset: 0;

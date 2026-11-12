@@ -183,6 +183,64 @@ export function glideFrames(
   return frames;
 }
 
+/**
+ * Spec 0072 -- one Glide (glideFrames: from `from` to `to`, a table card of
+ * cardW x cardH turning about `origin`) drawn by a bigger element instead:
+ * the card being cast, laid out at `rest` (its own box, the same shape as a
+ * card) and turning about its centre. Every frame covers exactly what the
+ * table card would, so the casting card rising out of the other player's
+ * hand -- or going back into it while the hand's new back makes the same
+ * Glide -- follows the very path every other card on the table does.
+ */
+export function glideFramesAs(
+  rest: Box,
+  from: Box,
+  to: Box,
+  cardW: number,
+  cardH: number,
+  origin: { x: number; y: number },
+  opacity: { from: number; to: number } | null = null,
+): Keyframe[] {
+  const k = cardW / rest.w;
+  const ox = origin.x * cardW;
+  const oy = origin.y * cardH;
+  const cx = cardW / 2;
+  const cy = cardH / 2;
+  return glideFrames(from, to, cardW, cardH, origin, origin, opacity).map((frame) => {
+    const m = /translate3d\(([^p]+)px, ([^p]+)px, 0\) rotate\(([^d]+)deg\) scale\(([^)]+)\)/.exec(
+      String(frame["transform"]),
+    )!;
+    const [tx, ty, r, s] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+    const a = (r * Math.PI) / 180;
+    // Where the table card's centre is drawn, less where the casting card's is at rest.
+    const vx = (cx - ox) * s;
+    const vy = (cy - oy) * s;
+    const x = ox + tx + vx * Math.cos(a) - vy * Math.sin(a) - (rest.x + rest.w / 2);
+    const y = oy + ty + vx * Math.sin(a) + vy * Math.cos(a) - (rest.y + rest.h / 2);
+    const out: Keyframe = {
+      offset: frame.offset ?? null,
+      transform: `translate(${x}px, ${y}px) rotate(${r}deg) scale(${s * k})`,
+    };
+    if (frame["opacity"] !== undefined) out["opacity"] = frame["opacity"];
+    return out;
+  });
+}
+
+/**
+ * Spec 0072, item 3 -- when a Glide changes its opacity, only over its last
+ * quarter: the other player's cancelled spell (an upright back) hands over
+ * to their hand's new back (drawn upside down, as their fan is) close to the
+ * fan, small, rather than as a double picture across the table.
+ */
+export const LATE_FADE_FROM = 0.75;
+export function lateFade(frames: Keyframe[], from: number, to: number): Keyframe[] {
+  return frames.map((frame) => {
+    const t = Number(frame.offset ?? 0);
+    const p = Math.min(1, Math.max(0, (t - LATE_FADE_FROM) / (1 - LATE_FADE_FROM)));
+    return { ...frame, opacity: from + (to - from) * p };
+  });
+}
+
 // --- A card changing form (Phase 10 A-09) --------------------------------------
 
 /**
