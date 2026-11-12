@@ -2028,3 +2028,32 @@ img.bf-makes-pip {
   pointer-events: none;
   box-shadow: 1px 1px 3px rgb(0 0 0 / 50%);
 }
+
+/* Spec 0073 (owner 2026-11-12, canvas "piles-1112"): cards and tokens join
+ * a pile and peel off it. The spark a token grows out of (the canvas's: a
+ * white-gold flare with eight rays); the number a pile showed a moment ago,
+ * held over its badge until the card that changes it lands or lifts off.
+ * Each runs on the board's animation clock (a click hurries it); "reduce
+ * motion" never creates them. */
+.bf-token-spark {
+  position: absolute;
+  width: calc(var(--card-h) * 0.63);
+  height: calc(var(--card-h) * 0.63);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0, #ffe7a3 25%, #f1c36a55 50%, transparent 70%);
+  pointer-events: none;
+}
+.bf-token-ray {
+  position: absolute;
+  left: calc(50% - 2px);
+  top: calc(50% - 7px);
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: #fff1c0;
+  box-shadow: 0 0 6px #f1c36a;
+  transform-origin: 50% 50%;
+}
+.bf-pile {
+  transform-origin: 30% 50%;
+}

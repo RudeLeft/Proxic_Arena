@@ -155,6 +155,24 @@ import {
   type Stand,
 } from "./fights";
 import { endLifeSteps, lifeSteps, lifeStillPlaying, startLifeSteps } from "./lifeTicks";
+import {
+  badgeFrames,
+  badgeSpells,
+  boxOn,
+  PEEL_MS,
+  peelFrames,
+  peelOffset,
+  SPARK_LEAD_MS,
+  SPARK_MS,
+  sparkFrames,
+  TOKEN_AFTER_MS,
+  TOKEN_BEAT_ABILITY_MS,
+  TOKEN_BEAT_MS,
+  TOKEN_MS,
+  tokenFrames,
+  turnUp,
+  type BadgeChange,
+} from "./piles";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
 
@@ -672,6 +690,43 @@ function glide(element: HTMLElement, frames: Keyframe[], delay = 0, duration = M
   return animation;
 }
 
+/**
+ * Spec 0073 -- a pile's number changing as its cards land and lift off: the
+ * badge React drew says the newest number; until the last change it is
+ * hidden, and each number before it is held over it, from `start` cards, as
+ * a copy shown only for its own stretch of time (popping as it begins). All
+ * of it is one length of time, on the board's animation clock, so a click
+ * hurries it with the cards. The copies are the page's own, gone with
+ * their animation.
+ */
+function tickBadge(slot: HTMLElement, start: number, changes: readonly BadgeChange[]) {
+  const card = slot.querySelector<HTMLElement>(":scope > .bf-card");
+  if (!card || typeof card.animate !== "function") return;
+  for (const old of card.querySelectorAll(":scope > .bf-pile-was")) old.remove();
+  const total = Math.max(...changes.map((c) => c.at));
+  const spells = badgeSpells(start, changes);
+  const badge = card.querySelector<HTMLElement>(":scope > .bf-pile:not(.bf-pile-was)");
+  spells.forEach((spell, i) => {
+    if (spell.n < 2) return;
+    const frames = badgeFrames(spell, total, i === 0);
+    if (i === spells.length - 1) {
+      badge?.animate(frames, { duration: total, easing: "linear" });
+      return;
+    }
+    const held = document.createElement("span");
+    held.className = "bf-pile bf-pile-was";
+    held.textContent = `×${spell.n}`;
+    held.setAttribute("aria-hidden", "true");
+    held.dataset["pileWas"] = String(spell.n);
+    held.style.opacity = "0";
+    card.appendChild(held);
+    const run = held.animate(frames, { duration: total, easing: "linear" });
+    const gone = () => held.remove();
+    run.onfinish = gone;
+    run.oncancel = gone;
+  });
+}
+
 interface Ghost extends Drawn {
   id: string;
   box: Box;
@@ -715,12 +770,31 @@ interface Ghost extends Drawn {
    * to hand over to).
    */
   returning?: { zone: "hand" | "library"; seen: "sink" | "out"; back: boolean };
+  /**
+   * Spec 0073 (D · Peel off): it lifts off the top of its pile by this much
+   * (pixels) before its fate plays.
+   */
+  peel?: { dx: number; dy: number };
+  /** Spec 0073: unseen until it starts -- its pile draws it until then. */
+  waits?: boolean;
+  /** Spec 0073: killed in a fight its pile fought (it is not a wipe). */
+  inFight?: boolean;
+  /** Spec 0073: a token made -- it grows out of its source (`box`), then Glides to its pile. */
+  token?: boolean;
+  /** Spec 0073: joining from a zone tile (graveyard, exile...): it starts faint. */
+  faint?: boolean;
+  /**
+   * Spec 0073: out of the other player's hidden hand, turning face up on the
+   * way -- "back", the card back narrowing away; "face", the card widening in.
+   */
+  turn?: "back" | "face";
 }
 
 /** Phase 10 A-14 -- a tag at a destination, or one back of a riffling library: gone when its animation ends. */
 interface ReturnMark {
   key: string;
-  kind: "tag" | "riffle";
+  /** Spec 0073 -- "spark": the flare a token grows out of. */
+  kind: "tag" | "riffle" | "spark";
   style: CSSProperties;
   frames: Keyframe[];
   duration: number;
@@ -1013,6 +1087,8 @@ export function Board({
   const fightGhosts = useRef(
     new Map<string, { frames: Keyframe[]; duration: number; delay: number; shatterAt: number }>(),
   );
+  /** Spec 0073 -- when each drawn card's fight ends (its dead shatter), on the fights' clock. */
+  const fightEnds = useRef(new Map<string, number>());
   const timers = useRef<number[]>([]);
   useLayoutEffect(
     () => () => {
@@ -1037,6 +1113,8 @@ export function Board({
     /** Phase 10 A-13 -- the drawn card each object was drawn as, and what it was. */
     itemOf: Map<string, string>;
     members: Map<string, number>;
+    /** Spec 0073 -- each pile then, by its card: its members, oldest first. */
+    piles: Map<string, string[]>;
     cards: Map<string, BoardCard>;
     /** Phase 10 A-11/A-12 -- the drawn cards attacking or blocking then. */
     roles: Map<string, "attack" | "block">;
@@ -1262,6 +1340,12 @@ export function Board({
     for (const slot of result.slots) {
       const lead = byId.get(slot.ids[0]!)!;
       const count = slot.ids.length;
+      // Spec 0073 -- a card cast onto its twins counts once its flight has
+      // landed on the pile, never before.
+      const shownCount =
+        flyingOnto !== null && flyingOnto !== lead.id && slot.ids.includes(flyingOnto)
+          ? count - 1
+          : count;
       const look = lookOf(lead.kind, lead.types);
       const side = slot.row.startsWith("viewer") ? "viewer" : sideOf(lead.seat);
       const pt = figure(lead);
@@ -1390,7 +1474,7 @@ export function Board({
               ) : lead.tapped ? (
                 <span className="bf-state">TAPPED</span>
               ) : null}
-              {count > 1 && <span className="bf-pile">×{count}</span>}
+              {shownCount > 1 && <span className="bf-pile">×{shownCount}</span>}
               {/* Spec 0046 -- what a land makes, as mana symbols. */}
               {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
                 <span
@@ -1670,6 +1754,7 @@ export function Board({
     pinned,
     combat,
     aimed,
+    flyingOnto,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -1900,6 +1985,11 @@ export function Board({
     const total = hold + plan.total;
     // Any dead from an older wave have long been handed to their ghosts.
     fightGhosts.current.clear();
+    // Spec 0073 -- a pile's member that dies peels off it as its fight ends.
+    fightEnds.current.clear();
+    for (const [item, n] of plan.fighters) {
+      fightEnds.current.set(item, hold + plan.fights[n]!.shatterAt);
+    }
     // Spec 0067 -- what the older fights have still to land on a plate,
     // read before their clock goes.
     const carried = lifeStillPlaying();
@@ -1930,8 +2020,17 @@ export function Board({
     for (const [item] of plan.fighters) {
       const stand = standOf(item);
       if (!stand) continue;
-      const frames = fighterFrames(plan, item, stand.box, !alive.has(item));
-      if (!alive.has(item)) {
+      // Spec 0073: a pile whose own card died but whose others live on
+      // fights as the pile it was -- drawn now by the next of them -- and
+      // the dead peel off it as the fight ends.
+      const heir = alive.has(item)
+        ? undefined
+        : previous.current?.piles
+            .get(item)
+            ?.map((id) => positions.get(id)?.item)
+            .find((x) => x !== undefined && alive.has(x));
+      const frames = fighterFrames(plan, item, stand.box, !alive.has(item) && !heir);
+      if (!alive.has(item) && !heir) {
         // It died: its ghost fights, then shatters (A-04) after the beat.
         const fight = plan.fights[plan.fighters.get(item)!]!;
         fightGhosts.current.set(item, {
@@ -1942,7 +2041,7 @@ export function Board({
         });
         continue;
       }
-      const slot = elements.current.get(item);
+      const slot = elements.current.get(heir ?? item);
       const card = slot?.querySelector<HTMLElement>(":scope > .bf-card");
       if (!slot || !card || typeof card.animate !== "function") continue;
       card.animate(frames, {
@@ -2297,6 +2396,82 @@ export function Board({
             : { from: onStack!.box, origin: { x: 0, y: 0 }, delay: hold },
         );
       }
+      // Spec 0073 -- when each card joining a pile lands on it, and when each
+      // one leaving lifts off it: the pile's number changes then, never before.
+      const landAt = new Map<string, number>();
+      const leaveAt = new Map<string, number>();
+      // Spec 0072 -- the backs of the other player's hidden hand. Spec 0073:
+      // their land played from it leaves from the middle of the fan, as their
+      // casts do (theirCast.ts) -- which hidden card it was is never known.
+      const isBack = (id: string) => id.startsWith("hidden-hand:");
+      const backsBefore = [...before.mounted].filter(isBack);
+      const backsNow = items.filter((i) => isBack(i.id)).length;
+      const theirLand = battlefield.filter(
+        (c) => !before.cards.has(c.id) && arrivals?.get(c.id) === "opponent:hand" && now.has(c.id),
+      );
+      const lost = backsBefore.length === backsNow + 1;
+      const landGap =
+        handLeft === null && lost && theirLand.length === 1
+          ? Math.floor((backsBefore.length - 1) / 2)
+          : null;
+      const gap = handLeft !== null && lost ? handLeft : landGap;
+      const leftBack =
+        landGap !== null
+          ? before.at.get(`hidden-hand:${backsBefore[0]!.split(":")[1]}:${landGap}`)
+          : undefined;
+      const fromTheirHand = (id: string) =>
+        leftBack !== undefined && theirLand.some((c) => c.id === id);
+      const backGhost = (id: string, to: Box, toOrigin: Point): Ghost => ({
+        name: "",
+        look: "artifact",
+        type: "",
+        pt: "",
+        art: null,
+        faceDown: true,
+        side: "opponent",
+        id,
+        box: leftBack!.box,
+        origin: leftBack!.origin,
+        to,
+        toOrigin,
+        fade: false,
+        delay: hold,
+        turn: "back",
+      });
+      // Spec 0073 -- tokens made this update spark out of what made them:
+      // the stack object that resolved (the permanent whose ability it was,
+      // for an ability: Krenko), one after another. Two resolving at once,
+      // or none seen: the stack.
+      const stackAfter = new Set((stack ?? []).map((s) => s.id));
+      const resolved = before.stack.filter((e) => !stackAfter.has(e.s.id));
+      const maker = resolved.length === 1 ? resolved[0]! : undefined;
+      const makerCard =
+        maker && maker.s.kind !== "spell" && maker.s.source ? now.get(maker.s.source) : undefined;
+      const sparkAt: Point = makerCard
+        ? centreOf(makerCard.box, makerCard.origin)
+        : maker
+          ? centreOf(maker.box, { x: 0, y: 0 })
+          : where.stack;
+      const made = battlefield
+        .filter((c) => c.token === true && !before.cards.has(c.id) && now.has(c.id))
+        .map((c) => c.id)
+        .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
+      const tokenIndex = new Map(made.map((id, i) => [id, i]));
+      const madeAt = (i: number) =>
+        (maker ? hold + TOKEN_AFTER_MS : hold) +
+        i * (makerCard ? TOKEN_BEAT_ABILITY_MS : TOKEN_BEAT_MS);
+      const spark = (id: string, delay: number) => {
+        returning.push({
+          key: `spark:${id}:${performance.now()}`,
+          kind: "spark",
+          style: { left: sparkAt.x, top: sparkAt.y },
+          frames: sparkFrames(),
+          duration: SPARK_MS,
+          delay: Math.max(0, delay - SPARK_LEAD_MS),
+          of: id,
+        });
+      };
+      const joins: Ghost[] = [];
       for (const item of items) {
         if (before.mounted.has(item.id)) continue; // the same element: CSS glides it
         // The cast card is flying onto it: it appears where that lands.
@@ -2312,6 +2487,36 @@ export function Board({
             flight.delay,
             RETURN_MS,
           );
+          continue;
+        }
+        // Spec 0073: a token grows out of what made it, then Glides here.
+        const nth = tokenIndex.get(item.id);
+        if (nth !== undefined) {
+          const delay = madeAt(nth);
+          glide(
+            element,
+            tokenFrames(boxOn(sparkAt, item.box), item.box, g.cardW, g.cardH, item.origin),
+            delay,
+            TOKEN_MS,
+          );
+          spark(item.id, delay);
+          landAt.set(item.id, delay + TOKEN_MS);
+          continue;
+        }
+        // Spec 0073: out of the other player's hidden hand, from the back
+        // that left, turning face up on the way (the back narrows away).
+        if (fromTheirHand(item.id)) {
+          glide(
+            element,
+            turnUp(
+              glideFrames(leftBack!.box, item.box, g.cardW, g.cardH, leftBack!.origin, item.origin),
+              "face",
+            ),
+            hold,
+            MOVE_MS,
+          );
+          joins.push(backGhost(item.id, item.box, item.origin));
+          landAt.set(item.id, hold + MOVE_MS);
           continue;
         }
         // A new element: from wherever the object was drawn before (a
@@ -2352,6 +2557,68 @@ export function Board({
           delay,
           duration,
         );
+        landAt.set(item.id, delay + duration);
+      }
+      // Spec 0073 (A · Glide onto the pile) -- a card joining a pile it was
+      // not drawn in before has no element of its own: only the count
+      // changed. Each comes as its own card, from where it came from, and
+      // lands on the pile. (One drawn before -- your hand card -- leaves as
+      // a ghost into the pile, below; your cast card's flight lands on it.)
+      for (const slot of result.slots) {
+        const lead = slot.ids[0]!;
+        const look = drawn.get(lead);
+        const at = now.get(lead);
+        if (!look?.table || !at) continue;
+        slot.ids.forEach((id, n) => {
+          if (n === 0 || before.at.has(id) || before.cards.has(id) || id === flyingOnto) return;
+          const nth = tokenIndex.get(id);
+          if (nth !== undefined) {
+            const delay = madeAt(nth);
+            joins.push({
+              ...look,
+              id,
+              box: boxOn(sparkAt, at.box),
+              origin: at.origin,
+              to: at.box,
+              toOrigin: at.origin,
+              fade: false,
+              delay,
+              token: true,
+            });
+            spark(id, delay);
+            landAt.set(id, delay + TOKEN_MS);
+            return;
+          }
+          if (fromTheirHand(id)) {
+            joins.push({
+              ...look,
+              id,
+              box: leftBack!.box,
+              origin: leftBack!.origin,
+              to: at.box,
+              toOrigin: at.origin,
+              fade: false,
+              delay: hold,
+              turn: "face",
+            });
+            joins.push(backGhost(id, at.box, at.origin));
+            landAt.set(id, hold + MOVE_MS);
+            return;
+          }
+          const fromStack = before.stack.find((e) => e.s.card === id);
+          joins.push({
+            ...look,
+            id,
+            box: fromStack ? fromStack.box : boxAt(where[arrivals?.get(id) ?? "stack"], g),
+            origin: at.origin,
+            to: at.box,
+            toOrigin: at.origin,
+            fade: false,
+            delay: hold,
+            faint: !fromStack,
+          });
+          landAt.set(id, hold + MOVE_MS);
+        });
       }
       const stackNow = new Set((stack ?? []).map((s) => s.id));
       const pulls: { key: string; from: Point; to: Point }[] = [];
@@ -2368,12 +2635,6 @@ export function Board({
       // the back at `handLeft` rose to the middle (the casting card starts
       // there), so each back after it takes the place of the one after it
       // and the fan closes on the gap -- not its last back vanishing.
-      const isBack = (id: string) => id.startsWith("hidden-hand:");
-      const gap =
-        handLeft !== null &&
-        [...before.mounted].filter(isBack).length === items.filter((i) => isBack(i.id)).length + 1
-          ? handLeft
-          : null;
       const wasAt = (id: string) => {
         if (gap !== null && isBack(id)) {
           const [, seat, index] = id.split(":");
@@ -2649,6 +2910,65 @@ export function Board({
         });
         markReturn(id, ret, to, toOrigin, delay);
       };
+      // Spec 0073 (D · Peel off) -- a card leaving a pile lifts off its top
+      // as the number drops, then plays its fate; several from one pile
+      // fan off together. When the whole pile goes, its own card stays put
+      // (its ghost is the pile until then) and the rest peel off it.
+      const peelOf = new Map<string, { dx: number; dy: number }>();
+      const waitsOf = new Set<string>();
+      for (const [lead, ids] of before.piles) {
+        if (ids.length < 2) continue;
+        const left = ids.filter((id) => !now.has(id) && !merged.has(id) && !returns?.has(id));
+        const box = before.at.get(lead)?.box;
+        if (left.length === 0 || !box) continue;
+        const survives = ids.some((id) => now.has(id));
+        const peeling = survives ? left : left.slice(1);
+        peeling.forEach((id, i) => {
+          const o = peelOffset(i, peeling.length);
+          peelOf.set(id, { dx: o.x * box.w, dy: o.y * box.h });
+        });
+        // Until it lifts off, the pile (or its own card's ghost) draws it.
+        for (const id of left) if (survives || id !== left[0]) waitsOf.add(id);
+      }
+      // A pile's other members have no element of their own: each leaving
+      // goes as its own ghost from the pile, in the pile's look. Killed in a
+      // fight the pile fought, it lifts off as that fight ends.
+      for (const [lead, ids] of before.piles) {
+        const look = before.drawn.get(lead);
+        if (!look?.table) continue;
+        ids.forEach((id, n) => {
+          if (n === 0 || now.has(id) || merged.has(id) || returns?.has(id)) return;
+          const at = before.at.get(id);
+          if (!at) return;
+          const dest = departures?.get(id) ?? `${look.side}:graveyard`;
+          const fate: Fate | undefined = dest.endsWith(":graveyard")
+            ? "defeated"
+            : dest.endsWith(":exile")
+              ? "exiled"
+              : undefined;
+          const end = fightEnds.current.get(lead);
+          const fighting = hold > 0 && end !== undefined;
+          const elapsed = Number(fightClock.current?.currentTime ?? 0);
+          const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
+          const delay = fighting ? Math.max(0, end - elapsed) : Math.max(hold, struck);
+          const peel = peelOf.get(id);
+          leaving.push({
+            ...look,
+            id,
+            ...at,
+            to: boxAt(where[dest], g),
+            toOrigin: at.origin,
+            fade: true,
+            delay,
+            fate,
+            waits: true,
+            ...(peel ? { peel } : {}),
+            // Above the fights' dimming and fighters, as its pile's own card.
+            ...(fighting ? { inFight: true, zIndex: Z_FIGHT + 1 } : {}),
+          });
+          leaveAt.set(id, delay);
+        });
+      }
       for (const [id, d] of before.drawn) {
         if (elementsNow.has(id) || merged.has(id)) continue;
         // Spec 0072: the back that rose to the middle is the casting card now
@@ -2663,7 +2983,14 @@ export function Board({
         fightGhosts.current.delete(id);
         const elapsed = Number(fightClock.current?.currentTime ?? 0);
         const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
-        const delay = fought ? Math.max(0, fought.shatterAt - elapsed) : Math.max(hold, struck);
+        // Spec 0073: its pile fought on (the next of it drew the fight): it
+        // peels off as that fight ends.
+        const fightEnd = hold > 0 && !fought ? fightEnds.current.get(id) : undefined;
+        const delay = fought
+          ? Math.max(0, fought.shatterAt - elapsed)
+          : fightEnd !== undefined
+            ? Math.max(0, fightEnd - elapsed)
+            : Math.max(hold, struck);
         const fight = fought
           ? { frames: fought.frames, duration: fought.duration, delay: fought.delay - elapsed }
           : undefined;
@@ -2708,6 +3035,11 @@ export function Board({
           });
           continue;
         }
+        // Spec 0073: into a pile, the number ticks as it lands; out of one,
+        // as it lifts off (peeling, D, when it was defeated or exiled).
+        if (joined) landAt.set(id, delay + MOVE_MS);
+        else leaveAt.set(id, delay);
+        const peel = fate ? peelOf.get(id) : undefined;
         leaving.push(
           joined
             ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false, delay }
@@ -2721,6 +3053,10 @@ export function Board({
                 delay,
                 fate,
                 ...(fight ? { fight, zIndex: Z_FIGHT + 1 } : {}),
+                ...(peel ? { peel } : {}),
+                // A fighting card shows its fight, over the pile it leaves.
+                ...(waitsOf.has(id) && !fight ? { waits: true } : {}),
+                ...(fightEnd !== undefined ? { inFight: true, zIndex: Z_FIGHT + 1 } : {}),
               },
         );
       }
@@ -2781,11 +3117,34 @@ export function Board({
       }
       // A-07: several leaving the table at once is a board wipe -- a pale
       // flash sweeps the table first, then they all go together.
-      if (leaving.filter((ghost) => ghost.fate && !ghost.fight).length >= WIPE_AT) {
+      if (
+        leaving.filter((ghost) => ghost.fate && !ghost.fight && !ghost.inFight).length >= WIPE_AT
+      ) {
         setSweep(performance.now());
         for (const ghost of leaving) if (ghost.fate) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
       }
-      if (leaving.length > 0) setGhosts((list) => [...list, ...leaving]);
+      if (leaving.length + joins.length > 0) setGhosts((list) => [...list, ...joins, ...leaving]);
+      // Spec 0073 -- each pile's number, as the cards joining it land and the
+      // cards leaving it lift off: the number it showed, then each change at
+      // its moment (popping), on the board's animation clock (a click hurries
+      // it with the cards).
+      for (const slot of result.slots) {
+        const lead = slot.ids[0]!;
+        const was = slot.ids
+          .map((id) => (before.cards.has(id) ? before.itemOf.get(id) : undefined))
+          .find((x) => x !== undefined);
+        const then = was ? (before.piles.get(was) ?? []) : [];
+        const changes: BadgeChange[] = [];
+        for (const id of slot.ids) {
+          if (!then.includes(id) && id !== flyingOnto)
+            changes.push({ at: landAt.get(id) ?? 0, by: 1 });
+        }
+        for (const id of then) {
+          if (!slot.ids.includes(id)) changes.push({ at: leaveAt.get(id) ?? 0, by: -1 });
+        }
+        const element = elements.current.get(lead);
+        if (element && changes.some((c) => c.at > 0)) tickBadge(element, then.length, changes);
+      }
 
       // Spec 0028 — a stack object that resolved (or was countered) glows,
       // its spark runs to what it targeted, then it leaves: a spell to its
@@ -2977,11 +3336,13 @@ export function Board({
         item.ids.filter((id) => byId.has(id) && !byId.get(id)!.attachedTo).length || 1,
       );
     }
+    const piles = new Map(result.slots.map((slot) => [slot.ids[0]!, slot.ids]));
     previous.current = {
       pointed,
       tabs,
       itemOf,
       members,
+      piles,
       cards: new Map(battlefield.map((card) => [card.id, card])),
       roles,
       viewport: { width: g.width, height: g.height },
@@ -4014,7 +4375,7 @@ export function Board({
         ))}
         {ghosts.map((ghost) => (
           <GhostCard
-            key={`ghost:${ghost.id}`}
+            key={`ghost:${ghost.id}${ghost.turn === "back" ? ":back" : ""}`}
             ghost={ghost}
             cardW={g.cardW}
             cardH={g.cardH}
@@ -4094,9 +4455,33 @@ function GhostCard({
       };
     }
     // Phase 10 A-00: Glide to where it went -- first showing it was
-    // defeated or exiled (A-04, A-05), in the same animation.
+    // defeated or exiled (A-04, A-05), in the same animation. Spec 0073:
+    // out of a pile, it peels off the top first.
     const fated = ghost.fate
-      ? fateFrames(ghost.fate, ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin)
+      ? ghost.peel
+        ? peelFrames(
+            ghost.fate,
+            ghost.box,
+            ghost.to,
+            cardW,
+            cardH,
+            ghost.origin,
+            ghost.toOrigin,
+            ghost.peel.dx,
+            ghost.peel.dy,
+          )
+        : fateFrames(ghost.fate, ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin)
+      : null;
+    // Spec 0073: a token grows out of its source, then Glides to its pile;
+    // a card out of the other player's hidden hand turns face up on the way.
+    const made = ghost.token
+      ? tokenFrames(ghost.box, ghost.to, cardW, cardH, ghost.toOrigin)
+      : null;
+    const turned = ghost.turn
+      ? turnUp(
+          glideFrames(ghost.box, ghost.to, cardW, cardH, ghost.origin, ghost.toOrigin),
+          ghost.turn,
+        )
       : null;
     // A-14: Lift and glide, back to a hand or a library.
     const returned = ghost.returning
@@ -4113,6 +4498,8 @@ function GhostCard({
     const animation = element.animate(
       fated?.frames ??
         returned ??
+        made ??
+        turned ??
         glideFrames(
           ghost.box,
           ghost.to,
@@ -4120,16 +4507,19 @@ function GhostCard({
           cardH,
           ghost.origin,
           ghost.toOrigin,
-          { from: 1, to: ghost.fade ? 0.15 : 1 },
+          { from: ghost.faint ? 0.2 : 1, to: ghost.fade ? 0.15 : 1 },
           null,
           // A-17: pulled along its chain.
           ghost.chained ? { arc: PULL_ARC } : {},
         ),
       {
-        duration: fated?.duration ?? (returned ? RETURN_MS : ghost.chained ? PULL_MS : MOVE_MS),
+        duration:
+          fated?.duration ??
+          (returned ? RETURN_MS : made ? TOKEN_MS : ghost.chained ? PULL_MS : MOVE_MS),
         easing: "linear",
         delay: ghost.delay,
-        fill: "both",
+        // Spec 0073: one waiting under its pile is unseen until it starts.
+        fill: ghost.waits ? "forwards" : "both",
       },
     );
     element.classList.add("bf-moving");
@@ -4149,7 +4539,7 @@ function GhostCard({
     const back = ghost.returning?.back
       ? element.querySelector<HTMLElement>(".bf-return-back")
       : null;
-    const turned =
+    const turnedDown =
       back && typeof back.animate === "function"
         ? back.animate(returnBackFrames(), {
             duration: RETURN_MS,
@@ -4163,7 +4553,7 @@ function GhostCard({
       animation.onfinish = null;
       animation.cancel();
       fought?.cancel();
-      turned?.cancel();
+      turnedDown?.cancel();
     };
     // Runs once: a ghost goes where it was sent when it appeared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4185,11 +4575,22 @@ function GhostCard({
         height: cardH,
         ...from,
         zIndex: ghost.zIndex ?? ghost.box.z + 2000,
+        ...(ghost.waits ? { opacity: 0 } : {}),
         ...(ghost.stack ? { ["--stack-scale" as string]: String(ghost.box.scale) } : {}),
-        ...(ghost.fate ? { ["--fx-delay" as string]: `${ghost.delay}ms` } : {}),
+        ...(ghost.fate
+          ? { ["--fx-delay" as string]: `${ghost.delay + (ghost.peel ? PEEL_MS : 0)}ms` }
+          : {}),
       }}
+      data-peel={ghost.peel ? "true" : undefined}
+      data-token={ghost.token ? "true" : undefined}
+      data-turn={ghost.turn}
     >
-      {ghost.stack ? (
+      {ghost.turn === "back" ? (
+        // Spec 0073 -- the other player's card back, as their fan draws it.
+        <div className="bf-card bf-opp-hand">
+          <img className="bf-opp-back" src={cardBack} alt="" draggable={false} />
+        </div>
+      ) : ghost.stack ? (
         // Amendment 13 (item 13) -- as it was on the stack.
         <div className={`bf-card bf-stack-card bf-look-artifact${ghost.stack.whose}`}>
           <SharpCard
@@ -4296,6 +4697,25 @@ function ReturnMarkView({ mark, done }: { mark: ReturnMark; done: () => void }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const style = { ...mark.style, opacity: 0, zIndex: Z_RETURN_MARK };
+  if (mark.kind === "spark")
+    // Spec 0073 -- the flare a token grows out of, with its rays.
+    return (
+      <div
+        ref={ref}
+        className="bf-token-spark"
+        data-spark={mark.of}
+        aria-hidden="true"
+        style={style}
+      >
+        {Array.from({ length: 8 }, (_, i) => (
+          <span
+            key={i}
+            className="bf-token-ray"
+            style={{ transform: `rotate(${i * 45}deg) translateY(calc(var(--card-h) * -0.2))` }}
+          />
+        ))}
+      </div>
+    );
   return mark.kind === "tag" ? (
     <div
       ref={ref}

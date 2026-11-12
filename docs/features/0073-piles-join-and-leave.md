@@ -29,3 +29,28 @@ Identical permanents stand as one card with a "×N" badge; the pile is drawn for
 | F-0073-F | Hurry and reduce motion | page test |
 
 ## Amendments
+
+### As built (2026-11-12)
+
+Page only; the worker is untouched (no `by` on the move). The Lab says the page can tell a token's source on its own: over 39 boards where tokens appeared (10 traces: the two recorded for this, `p73-piles` and `p73-krenko`, and the older Lab traces with Raise the Alarm, Krenko, Voice of the Woods, Halo Fountain, Patrol Signaler, Steward of Solidarity, Fain, Blooming Blast, Rust-Shield Rampager's offspring), exactly one stack object left the stack in that update every time -- the spell, or the ability/trigger whose source permanent is on the table. Two at once or none seen falls back to the stack, as item 2 allows.
+
+- **Joining (A)** (`Board`, `piles.ts`): a card that joins a pile it was not drawn in before gets its own ghost from where it came from -- its stack spot (a permanent spell resolving onto its twins), a zone tile (faint, as any arrival), your hand (the hand card's existing ghost) -- and lands on the pile with A-00's Glide. Your own cast landing on its twins: the pile counts it once the flight has landed (`flyingOnto`).
+- **Their hidden hand**: their land leaves the middle back of the fan as it was drawn (`floor((n-1)/2)`, as spec 0072's casts), the fan closes on the gap (spec 0072's `handLeft` closing, now also for a land), and it turns face up half-way (35-65% of the Glide: the back narrows edge-on and goes, the face widens in -- one picture at a time). No hidden id is used: only the back count and the public arrival. Before, the fan's last back slid off to his graveyard.
+- **Tokens**: each grows out of a spark on its source (the resolved spell's stack spot, or the permanent whose ability it was) over 150 ms, then Glides; the first 230 ms in (the spell leaves at 380), the next 150 ms behind (120 for an ability, the canvas's Krenko). A token with no pile yet does the same with its own card.
+- **The badge**: each pile's number changes as each card lands or lifts off, never before, popping (the canvas's 0.4 over 240 ms). Drawn as the page's own copies of the old numbers over the badge, each shown for its stretch, on the board's animation clock -- so a click hurries it with the cards.
+- **Leaving (D)**: a card leaving a pile for a graveyard or exile lifts off the top (160 ms, to the canvas's offsets; two fan apart) as the number drops, then plays Shatter or Banished -- one animation (`peelFrames`). The pile draws it until then. When the whole pile goes, its own card shatters in place and the rest peel off it, all at the same moment. The oldest leaving: the next takes over in place (no jump). Back to a hand or library: A-14 unchanged.
+- **Combat** (A-13): a pile whose own card died but whose others live fights as the pile it was (the next of it draws the fight); its dead peel off as that fight ends, above the fight's dimming. A fight's dead are not a board wipe (A-07's flash needs three leaving outside fights; a board wipe still peels and flashes).
+- **Reduce motion**: none of it; the number simply changes.
+
+Tests: `fixes0073.test.tsx` (F-0073-A, B, C, D, F; 10 of its 11 fail with the Board change removed, the 11th is the reduce-motion "unchanged" guard).
+
+Jump check (F-0073-E), rebuilt local stack, both seats, nine Lab traces (`p73-piles`: Plains/Forest/Raise the Alarm/Path to Exile against Mountain/Forest/Stone Rain/Grizzly Bears, with land drops onto piles on both sides, Stone Rain on the newest of three Forests, two blocked Soldier tokens dying, Path on a Soldier; `p73-krenko`; and `sacrifice-innocent-blood`, `take-backs-attack-one`, `take-backs-block-one`, `costs-convoke`, `pay-picks-voice`, `cost-kinds-untap`, `mana-balls-convoke`). Before (the stack built from spec 0072's tree) and after:
+
+| Row | Before | After |
+|---|---|---|
+| 6 -- joins "not shown at all" (their hand to battlefield; new tokens) | 49 + 15 = 64 | 1 + 9 = 10 |
+| 5 -- leaves "not shown at all" (battlefield to graveyard; tokens gone) | 2 + 4 = 6 | 1 + 1 = 2 |
+
+All 12 left are on seat 2 boards where the recorder saw no change at all: the replay sends the next board while the page still holds the other player's spell reveal or rising ability on its timers (the artefact spec 0072 recorded); the same tokens are drawn sparking and gliding on a later board of the recording. Nothing new was flagged (other rows unchanged).
+
+Clips at 1920x1080, normal and quarter speed, in `Arrow videos/0073/` (Lab boards replayed into the real page): third Forest onto its pile, Bob's third Mountain out of his fan, Raise the Alarm's Soldiers one by one (they are summoning sick, so they form their own pile beside the old one, as the layout rules say), Krenko's Goblins, Stone Rain peeling one Forest off three, two Soldier tokens dying in combat. Found filming and fixed: the peeled-off card of a fight was drawn under the other attackers (now above the fight's dimming). The quarter-speed combat clip shows the deaths only (the replayed fight does not play twice).
