@@ -78,7 +78,20 @@ final class ActionReports {
         }
     }
 
-    enum Kind { SEARCH, DIG, REVEAL_TOP, REORDER, SCRY, SURVEIL, PUT_BACK, LOOK_HAND, CHOOSE_DISCARD, DISCARD, MILL }
+    enum Kind { SEARCH, DIG, REVEAL_TOP, REORDER, SCRY, SURVEIL, PUT_BACK, LOOK_HAND, CHOOSE_DISCARD, DISCARD, MILL,
+        /** Spec 0074, Amendment 1 -- a spell countered. */
+        COUNTER,
+        /** Spec 0074, Amendment 1 -- cards out of a graveyard or exile (Raise Dead, Unearth, Bojuka Bog). */
+        RETURN }
+
+    /**
+     * Spec 0074, Amendment 1 -- the kinds told to both players unless the
+     * reader did it to themselves alone (milling yourself, your own Raise
+     * Dead): what the other player does, or what happens to them.
+     */
+    static boolean toBoth(Kind kind) {
+        return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN;
+    }
 
     private final Game game;
     /** Shared with the reveals (Causes), so the page can tell which came last. */
@@ -206,7 +219,15 @@ final class ActionReports {
             return null;
         }
         Player subject = subjectOf(which == null ? root : which, actor);
-        List<Move> mine = relevant(kind, subject);
+        List<Move> mine = relevant(kind, subject, host);
+        // Spec 0074, Amendment 1 -- a counter or a return is about whose
+        // cards they were (Counterspell on your spell; Reanimate on theirs).
+        if (kind == Kind.COUNTER || kind == Kind.RETURN) {
+            if (mine.isEmpty()) {
+                return null;
+            }
+            subject = mine.get(0).owner();
+        }
         if (mine.isEmpty() && (kind == Kind.SEARCH || kind == Kind.DISCARD || kind == Kind.CHOOSE_DISCARD
                 || kind == Kind.MILL || kind == Kind.PUT_BACK || kind == Kind.DIG || kind == Kind.REVEAL_TOP)) {
             // Searched and found nothing, or nothing moved: say the look.
@@ -264,7 +285,8 @@ final class ActionReports {
         }
         for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
             Kind kind = kindOf(each);
-            if (kind != null) {
+            // Spec 0074, Amendment 1: a mill, a counter, a return hide nothing Forge shows.
+            if (kind != null && !toBoth(kind)) {
                 Player chooser = kind == Kind.DISCARD ? subjectOf(each, root.getActivatingPlayer()) : root.getActivatingPlayer();
                 return chooser == player;
             }
@@ -283,13 +305,17 @@ final class ActionReports {
         return switch (api) {
             case ChangeZone, ChangeZoneAll -> origin.contains("Library")
                     ? Kind.SEARCH
-                    : origin.contains("Hand") && destination.contains("Library") ? Kind.PUT_BACK : null;
+                    : origin.contains("Hand") && destination.contains("Library") ? Kind.PUT_BACK
+                    // Spec 0074, Amendment 1: out of a graveyard or exile.
+                    : (origin.contains("Graveyard") || origin.contains("Exile")) && !destination.isEmpty()
+                    && !destination.contains("Graveyard") ? Kind.RETURN : null;
             case Dig, DigUntil -> sa.hasParam("Reveal") && "True".equalsIgnoreCase(sa.getParam("Reveal"))
                     ? Kind.REVEAL_TOP : Kind.DIG;
             case RearrangeTopOfLibrary -> Kind.REORDER;
             case RevealHand -> sa.hasParam("Look") ? Kind.LOOK_HAND : null;
             case Discard -> "RevealYouChoose".equals(sa.getParam("Mode")) ? Kind.CHOOSE_DISCARD : Kind.DISCARD;
             case Mill -> Kind.MILL;
+            case Counter -> Kind.COUNTER;
             default -> null;
         };
     }
@@ -321,16 +347,20 @@ final class ActionReports {
     }
 
     /** The moves this kind of action is about, without the draws it also made. */
-    private List<Move> relevant(Kind kind, Player subject) {
+    private List<Move> relevant(Kind kind, Player subject, Card host) {
         // Forge can move one card twice in one effect (Cultivate reveals its
         // lands, then places them): each card once, where it ended up.
         java.util.Set<Integer> seen = new java.util.HashSet<>();
         List<Move> out = new ArrayList<>();
         for (Move move : moves) {
-            if (move.owner() != subject) {
+            boolean anyOwner = kind == Kind.COUNTER || kind == Kind.RETURN;
+            if (!anyOwner && move.owner() != subject) {
                 continue;
             }
             boolean keep = switch (kind) {
+                // Spec 0074, Amendment 1: the spell it countered (not itself).
+                case COUNTER -> move.from() == ZoneType.Stack && (host == null || move.cardId() != host.getId());
+                case RETURN -> move.from() == ZoneType.Graveyard || move.from() == ZoneType.Exile;
                 case SEARCH, DIG, REVEAL_TOP -> move.from() == ZoneType.Library;
                 case PUT_BACK -> move.from() == ZoneType.Hand && move.to() == ZoneType.Library;
                 case CHOOSE_DISCARD, DISCARD -> move.from() == ZoneType.Hand && move.to() == ZoneType.Graveyard;
@@ -379,7 +409,8 @@ final class ActionReports {
     JsonObject reportFor(Player reader, java.util.function.Predicate<Integer> revealedTo,
             java.util.function.Function<Card, JsonObject> shown, java.util.function.ToIntFunction<Player> seatOf) {
         Report report = latest;
-        if (report == null || reader == null || reader == report.chooser) {
+        if (report == null || reader == null || !tells(report.kind, reader, report.actor, report.subject,
+                report.chooser)) {
             return null;
         }
         Words w = new Words(reader, report.actor);
@@ -396,7 +427,13 @@ final class ActionReports {
         for (Move move : report.moves) {
             Card card = game.findById(move.cardId());
             String to = report.where.get(move.cardId());
-            boolean visible = card != null && (move.owner() == reader || publicZone(to) || revealedTo.test(move.cardId()));
+            // Spec 0074, Amendment 1: out of a graveyard or face-up exile, a
+            // card was public as it moved -- shown as it was there, never by
+            // its id (into the other player's hand it is hidden from now on).
+            boolean wasPublic = report.kind == Kind.RETURN && card != null
+                    && (move.from() == ZoneType.Graveyard || (move.from() == ZoneType.Exile && !card.isFaceDown()));
+            boolean visible = card != null
+                    && (move.owner() == reader || publicZone(to) || wasPublic || revealedTo.test(move.cardId()));
             JsonObject entry;
             if (visible) {
                 entry = shown.apply(card);
@@ -504,9 +541,65 @@ final class ActionReports {
                     : who + " looked at " + its + " hand and chose " + cards + " for "
                     + (r.subject == w.reader ? "you" : r.subject.getName()) + " to discard.";
             case DISCARD -> w.who(r.subject) + " discarded " + cards + ".";
-            case MILL -> who + " put the top " + r.count + " " + plural(r.count) + " of " + its
-                    + " library into " + its + " graveyard: " + cards + ".";
+            // Spec 0074, Amendment 1: one plain sentence; the cards are the pictures.
+            case MILL -> w.who(r.subject) + " milled " + r.count + " " + plural(r.count) + ".";
+            case COUNTER -> who + " countered " + its + " " + cards + ".";
+            case RETURN -> returned(r, w, visible);
         };
+    }
+
+    /**
+     * Spec 0074, Amendment 1 -- whether [reader] is shown the report: a
+     * mill, a counter or a return goes to both players unless the reader did
+     * it to themselves alone (milling yourself, your own Raise Dead); the
+     * others as before (Amendment 13, item 7: not to the one who chose).
+     */
+    static <P> boolean tells(Kind kind, P reader, P actor, P subject, P chooser) {
+        return toBoth(kind) ? !(reader == actor && reader == subject) : reader != chooser;
+    }
+
+    /** Spec 0074, Amendment 1 -- "Bob returned Grizzly Bears to their hand", "You exiled 10 cards from Bob's graveyard". */
+    private static String returned(Report r, Words w, java.util.Set<Integer> visible) {
+        String who = w.who(r.actor);
+        boolean allExiled = r.moves.stream().allMatch(m -> "exile".equals(r.where.get(m.cardId())));
+        if (allExiled) {
+            List<String> named = new ArrayList<>();
+            int hidden = 0;
+            for (Move move : r.moves) {
+                Card card = r.cards.get(move.cardId());
+                if (visible.contains(move.cardId()) && card != null) {
+                    named.add(card.getName());
+                } else {
+                    hidden++;
+                }
+            }
+            String from = r.moves.get(0).from() == ZoneType.Exile ? "exile" : w.whose(r.subject) + " graveyard";
+            return who + " exiled " + cardWords(named, hidden) + " from " + from + ".";
+        }
+        Map<String, List<String>> by = new LinkedHashMap<>();
+        Map<String, Integer> backs = new LinkedHashMap<>();
+        for (Move move : r.moves) {
+            String to = r.where.get(move.cardId());
+            String place = to == null ? "somewhere" : switch (to) {
+                case "hand" -> "to " + w.whose(move.owner()) + " hand";
+                case "battlefield" -> "to the battlefield";
+                case "graveyard" -> "to " + w.whose(move.owner()) + " graveyard";
+                case "exile" -> "into exile";
+                case "top" -> "on top of " + w.whose(move.owner()) + " library";
+                case "bottom" -> "on the bottom of " + w.whose(move.owner()) + " library";
+                default -> "into " + w.whose(move.owner()) + " library";
+            };
+            Card card = r.cards.get(move.cardId());
+            if (visible.contains(move.cardId()) && card != null) {
+                by.computeIfAbsent(place, k -> new ArrayList<>()).add(card.getName());
+            } else {
+                backs.merge(place, 1, Integer::sum);
+            }
+        }
+        List<String> parts = new ArrayList<>();
+        by.forEach((place, names) -> parts.add(and(grouped(names)) + " " + place));
+        backs.forEach((place, n) -> parts.add((n == 1 ? "a card" : n + " cards") + " " + place));
+        return who + " returned " + and(parts) + ".";
     }
 
     private static String rest(Report r) {

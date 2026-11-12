@@ -247,7 +247,10 @@ moves                     Phase 10 A-00: the cards moved since the last
                           ("died", "destroyed", "sacrificed") has a why
                           but no said, and no notice. Each round with a
                           said is also told to both players as a notice
-                          ("Cycled: Forgotten Cave (Bob's)")
+                          ("Cycled: Forgotten Cave (Bob's)") -- except a
+                          discard or a counter (spec 0074, Amendment 1:
+                          no notice, and the page shows no tag; the
+                          `action` report explains it)
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full
@@ -416,7 +419,16 @@ arrange.targets           on every target question (chooseTargetsFor):
                           (Phase 9 Amendment 17)
 snapshot.action           who did what to a library or hand, in this
                           reader's words, with only the cards it may know;
-                          never to the seat that chose (Amendment 12, 13)
+                          never to the seat that chose (Amendment 12, 13).
+                          Spec 0074, Amendment 1: also a spell countered
+                          ("Bob countered your Giant Growth.") and cards
+                          out of a graveyard or exile ("Bob returned
+                          Grizzly Bears to their hand.", "You exiled ...
+                          from Bob's graveyard."); a mill says "Bob milled
+                          10 cards."; these three go to both seats unless
+                          the reader did it to themselves alone. A card
+                          out of a graveyard or face-up exile is shown as
+                          it was there (public), never by its id
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer

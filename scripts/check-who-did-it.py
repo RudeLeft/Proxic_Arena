@@ -21,8 +21,9 @@ choices is sent no report, and no reveal tray, for it.
   seize       Thoughtseize on Bob: Bob reads "Alice looked at your hand and
               chose <card> for you to discard"
   probe       Gitaxian Probe on Bob: Bob reads "Alice looked at your hand."
-  scour       Thought Scour on Bob: "Alice put the top 2 cards of your
-              library into your graveyard: <names>"
+  scour       Thought Scour on Bob: Bob reads "You milled 2 cards." and
+              Alice "Bob milled 2 cards." (spec 0074, Amendment 1: a mill is
+              told to both unless you milled yourself)
   mindrot     Mind Rot on Bob, who chooses: Alice reads "Bob discarded
               <names>"; Bob is told nothing
 
@@ -61,7 +62,7 @@ SCENARIOS = {
     "probe": ([("Island", 30), ("Gitaxian Probe", 30)], "Gitaxian Probe", 1,
               {2: r"^Alice looked at your hand\.$"}, set(), 1),
     "scour": ([("Island", 30), ("Thought Scour", 30)], "Thought Scour", 1,
-              {2: r"^Alice put the top 2 cards of your library into your graveyard: .+\.$"}, set(), 1),
+              {1: r"^Bob milled 2 cards\.$", 2: r"^You milled 2 cards\.$"}, set(), None),
     "mindrot": ([("Swamp", 30), ("Mind Rot", 30)], "Mind Rot", 3,
                 {1: r"^Bob discarded .+\.$"}, set(), 2),
 }
@@ -134,7 +135,7 @@ def main():
         for seat, pattern in expected.items():
             if not any(re.search(pattern, a.get("said") or "") for a in seen[seat]):
                 problems.append(f"{name}: seat {seat} was never told {pattern!r}; it was told {found[name][seat]}")
-        if seen[chooser]:
+        if chooser is not None and seen[chooser]:
             problems.append(f"{name}: seat {chooser} made the choices and was still told: {found[name][chooser]}")
         for seat in backs_for:
             for a in seen[seat]:

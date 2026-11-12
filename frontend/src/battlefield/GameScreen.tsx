@@ -1769,6 +1769,8 @@ export function GameScreen({
             merges={data.merges}
             returns={data.returns}
             graves={data.graves}
+            tileMoves={data.tileMoves}
+            countered={data.countered}
             flyingOnto={flyingOnto}
             handLeft={
               theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"
@@ -2670,6 +2672,7 @@ function SeatBlock({
           }
           aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
           data-warning={libraryWarning(player.libraryCount) ?? undefined}
+          data-zone-tile={`${mine ? "viewer" : "opponent"}:library`}
         >
           <ZoneIcon zone="library" />
           <span className="gs-zone-n">{player.libraryCount}</span>
@@ -2685,6 +2688,7 @@ function SeatBlock({
           title="Graveyard"
           aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
           onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
+          data-zone-tile={`${mine ? "viewer" : "opponent"}:graveyard`}
         >
           <ZoneIcon zone="graveyard" />
           <span className="gs-zone-n">{player.graveyardCount}</span>
@@ -2696,6 +2700,7 @@ function SeatBlock({
           title="Exile"
           aria-label={`${player.name}'s exile, ${exiled} cards`}
           onClick={() => onView({ seat: player.seat, zone: "exile" })}
+          data-zone-tile={`${mine ? "viewer" : "opponent"}:exile`}
         >
           <ZoneIcon zone="exile" />
           <span className="gs-zone-n">{exiled}</span>

@@ -179,7 +179,16 @@ def analyse(file, trace, seat):
                     d = min(math.hypot(a[0] - b[0], a[1] - b[1]) for a in p for b in q)
                     path[th] += d
                     if d > 0:
-                        steps[th].append((d, t, t in gaps))
+                        # Spec 0074 -- a hidden-hand back taking the place of
+                        # the back two or more along when several leave the
+                        # middle of the fan (their discards): the backs are
+                        # anonymous, so the one numbered k is drawn from where
+                        # the back after the gap was, while the cards leaving
+                        # are drawn where it was. Handed over at both ends in
+                        # that very frame, as handed_over() reads a pop.
+                        swapped = (str(th).startswith("hidden-hand:") and handed_over(th, q, prev)
+                                   and handed_over(th, p, now))
+                        steps[th].append((d, t, t in gaps or swapped))
                 elif q and not p:
                     if not handed_over(th, q, now, prev):
                         appeared.setdefault(th, (t, q))

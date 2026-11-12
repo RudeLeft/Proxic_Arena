@@ -173,6 +173,45 @@ import {
   turnUp,
   type BadgeChange,
 } from "./piles";
+import {
+  COUNTER_GO_MS,
+  COUNTER_MS,
+  counterFrames,
+  DISCARD_BEAT_MS,
+  DISCARD_LIFT_MS,
+  DISCARD_DROP_MS,
+  DISCARD_MS,
+  discardFrames,
+  discardPose,
+  MILL_BEAT_MS,
+  MILL_MS,
+  MILL_SCALE,
+  MILL_SHOWN,
+  millFrames,
+  millOut,
+  poseOf,
+  SHOW_BEAT_MS,
+  SHOW_HOLD_MS,
+  SHOW_MS,
+  SHOW_RISE_MS,
+  showAt,
+  showFrames,
+  STRIKE_FX_MS,
+  STRIKE_MS,
+  strikeBeamFrames,
+  strikePulseFrames,
+  strikeRingFrames,
+  SWEPT_MS,
+  sweptAt,
+  sweptFrames,
+  tileFrames,
+  tileSpells,
+  CANVAS_H,
+  type Pose,
+  type ShowTo,
+  type TileChange,
+} from "./graves";
+import type { TileMove } from "./fromSnapshot";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
 
@@ -380,6 +419,13 @@ export interface BoardProps {
    * a reason, and the game's tag for it ("Cycled", "Countered by Counterspell").
    */
   graves?: ReadonlyMap<string, string>;
+  /**
+   * Spec 0074 -- the cards discarded, milled, or moved out of a graveyard or
+   * exile this update, as the game moved them (fromSnapshot's tileMoves).
+   */
+  tileMoves?: readonly TileMove[];
+  /** Spec 0074 -- the spells countered this update (each spell's own card). */
+  countered?: ReadonlySet<string>;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -727,6 +773,43 @@ function tickBadge(slot: HTMLElement, start: number, changes: readonly BadgeChan
   });
 }
 
+/**
+ * Spec 0074 -- a plate tile's number (the library's, a graveyard's, exile's)
+ * changing as its cards leave and land, as a pile's badge does (spec 0073):
+ * the number drawn is the newest, hidden until the last change; each number
+ * before it is held over it as the page's own copy, shown for its stretch,
+ * popping as it starts. One length of time, on the board's animation clock.
+ */
+function tickTile(n: HTMLElement, changes: readonly TileChange[]) {
+  if (typeof n.animate !== "function") return;
+  const tile = n.parentElement;
+  if (!tile) return;
+  for (const old of tile.querySelectorAll(":scope > .gs-zone-was")) old.remove();
+  const now = Number(n.textContent);
+  if (!Number.isFinite(now)) return;
+  const start = now - changes.reduce((sum, c) => sum + c.by, 0);
+  const total = Math.max(...changes.map((c) => c.at));
+  const spells = tileSpells(start, changes);
+  spells.forEach((spell, i) => {
+    const frames = tileFrames(spell, total, i === 0);
+    if (i === spells.length - 1) {
+      n.animate(frames, { duration: total, easing: "linear" });
+      return;
+    }
+    const held = document.createElement("span");
+    held.className = "gs-zone-n gs-zone-was";
+    held.textContent = String(spell.n);
+    held.setAttribute("aria-hidden", "true");
+    held.dataset["zoneWas"] = String(spell.n);
+    held.style.opacity = "0";
+    n.after(held);
+    const run = held.animate(frames, { duration: total, easing: "linear" });
+    const gone = () => held.remove();
+    run.onfinish = gone;
+    run.oncancel = gone;
+  });
+}
+
 interface Ghost extends Drawn {
   id: string;
   box: Box;
@@ -788,6 +871,35 @@ interface Ghost extends Drawn {
    * way -- "back", the card back narrowing away; "face", the card widening in.
    */
   turn?: "back" | "face";
+  /**
+   * Spec 0074 -- its whole movement, worked out already (graves.ts): a
+   * discard's lift and drop, a milled card's stream, a countered spell's
+   * ash, a card rising out of a graveyard or exile, a graveyard swept.
+   */
+  own?: { frames: Keyframe[]; duration: number };
+  /** Spec 0074 -- the top of a milled bundle: its number ("×9"). */
+  badge?: number;
+  /** Spec 0074 -- under the top of a milled bundle (one shadow for the bundle). */
+  bundled?: boolean;
+  /** Spec 0074 -- a countered spell: no resolve glow; grey ash rises off it. */
+  ash?: boolean;
+  /** Spec 0074 -- going into exile out of a graveyard: the pale light rises off it. */
+  motes?: boolean;
+}
+
+/**
+ * Spec 0074 (F · Struck by the beam) -- the countering spell's beam flaring,
+ * the pulse running down it, and the ripple on the countered spell bursting.
+ */
+interface Strike {
+  key: string;
+  /** The countered spell's card, for tests and the jump check. */
+  of: string;
+  d: string;
+  points: Point[];
+  ring: { at: Point; r: number };
+  w: number;
+  delay: number;
 }
 
 /** Phase 10 A-14 -- a tag at a destination, or one back of a riffling library: gone when its animation ends. */
@@ -926,6 +1038,42 @@ interface Line {
 
 const refKey = (ref: TargetRef) => ("player" in ref ? `player:${ref.player}` : ref.object);
 
+/** Spec 0066, item 2 -- where a stack card's arrows leave: its stud, on its left edge. */
+function studAtOf(spot: readonly Box[], index: number, cardH: number): Point | null {
+  const box = spot[index];
+  return box ? { x: box.x - box.h * 0.02, y: studY(spot, index, cardH) } : null;
+}
+
+/**
+ * Spec 0069, item 4 -- a beam from a stack card's stud (`from`) to another
+ * stack card (`to`, its place): the ripple beside that card's name, left of
+ * its badges. Spec 0074: a countering spell's beam strikes along this.
+ */
+function stackBeam(
+  spot: readonly Box[],
+  from: Point,
+  to: number,
+  cardH: number,
+  gap: number,
+): { route: Route; aim: { at: Point; r: number } } {
+  const r = cardH * 0.1;
+  const badge = stackBadgeRects(spot, cardH)[to]!;
+  const at = { x: badge.x0 - r - gap * 2, y: (badge.y0 + badge.y1) / 2 };
+  const end = ringEdge(at, from, r + gap);
+  const d = Math.hypot(end.x - from.x, end.y - from.y) * 0.5;
+  return {
+    route: [
+      {
+        start: from,
+        c1: { x: from.x - d, y: from.y },
+        c2: { x: end.x - d * 0.35, y: end.y + (from.y - end.y) * 0.45 },
+        end,
+      },
+    ],
+    aim: { at, r },
+  };
+}
+
 /** One thing layout() placed, ready to draw. */
 interface Item {
   id: string;
@@ -1022,6 +1170,8 @@ export function Board({
   merges,
   returns,
   graves,
+  tileMoves,
+  countered,
   flyingOnto = null,
   handLeft = null,
   hiddenStack = null,
@@ -1075,6 +1225,8 @@ export function Board({
   const [fusions, setFusions] = useState<Fusion[]>([]);
   /** Phase 10 A-14: the tags at destinations and the riffling libraries. */
   const [returnMarks, setReturnMarks] = useState<ReturnMark[]>([]);
+  /** Spec 0074: the countering spells' beams striking. */
+  const [strikes, setStrikes] = useState<Strike[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string } | null>(null);
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
@@ -1099,6 +1251,8 @@ export function Board({
   const elements = useRef(new Map<string, HTMLDivElement>());
   /** Phase 10 A-10: the merges already played (each board's are played once). */
   const playedMerges = useRef<ReadonlyMap<string, Merge> | undefined>(undefined);
+  /** Spec 0074: the tile moves already played (each board's are played once). */
+  const playedTiles = useRef<readonly TileMove[] | undefined>(undefined);
   const previous = useRef<{
     viewport: Viewport;
     at: Map<string, { box: Box; origin: { x: number; y: number } }>;
@@ -2314,12 +2468,23 @@ export function Board({
       // per destination, however many cards went there together.
       const returning: ReturnMark[] = [];
       const tagged = new Set<string>();
-      const markReturn = (id: string, ret: Return, landing: Box, origin: Point, delay: number) => {
+      const markReturn = (
+        id: string,
+        ret: Return,
+        landing: Box,
+        origin: Point,
+        delay: number,
+        // Spec 0074: out of a graveyard, it lands after rising and being shown.
+        ms = RETURN_MS,
+        // Spec 0074, Amendment 1: out of a graveyard or exile, no word pill --
+        // the report window explains it (a riffle still plays).
+        words = true,
+      ) => {
         const key = `${ret.zone}:${ret.side}:${ret.where ?? ""}`;
         if (tagged.has(key)) return;
         tagged.add(key);
         const stamp = `${key}:${id}:${performance.now()}`;
-        let land = delay + RETURN_MS;
+        let land = delay + ms;
         if (ret.zone === "library") {
           const pile = where[`${ret.side}:library`];
           if (ret.where === "shuffled") {
@@ -2338,6 +2503,7 @@ export function Board({
             }
             land += RIFFLE_MS + (RIFFLE_CARDS - 1) * RIFFLE_BEAT_MS;
           }
+          if (!words) return;
           returning.push({
             key: `tag:${stamp}`,
             kind: "tag",
@@ -2351,6 +2517,7 @@ export function Board({
           });
           return;
         }
+        if (!words) return;
         // Over the viewer's hand, under the other player's (it hangs from the top).
         const hand = where[`${ret.side}:hand`];
         const mine = ret.side === "viewer";
@@ -2438,6 +2605,327 @@ export function Board({
         delay: hold,
         turn: "back",
       });
+
+      // Spec 0074 (owner 2026-11-12, canvas "grave-1112") -- discards, mills,
+      // and cards out of a graveyard or exile, each from where the game moved
+      // it; after the spell that did it has glowed (it leaves at RESOLVE_MS).
+      const graveGhosts: Ghost[] = [];
+      /** Each plate tile's number changes as its cards leave and land (e.g. "viewer:graveyard"). */
+      const ticks = new Map<string, TileChange[]>();
+      const tick = (tile: string, at: number, by: number) =>
+        ticks.set(tile, [...(ticks.get(tile) ?? []), { at, by }]);
+      /** The tags these cards carry to a graveyard: from where, when, for how long. */
+      const graveTags: {
+        card: string;
+        from: Point;
+        delay: number;
+        lead: number;
+        move: number;
+        side: Side;
+      }[] = [];
+      // Once per board: pointing at a card re-runs this, and must not play them again.
+      const tm = tileMoves !== playedTiles.current ? (tileMoves ?? []) : [];
+      const spellLeft = before.stack.some((e) => !(stack ?? []).some((s) => s.id === e.s.id));
+      const T = hold + (spellLeft && tm.length > 0 ? RESOLVE_MS : 0);
+      const centred = { x: 0.5, y: 0.5 };
+      const tileAt = (side: Side, zone: string): Pose => ({
+        ...where[`${side}:${zone}` as AnchorId],
+        r: 0,
+        s: AT_ZONE_SCALE,
+        o: 1,
+      });
+      const faceLook = (m: TileMove): Drawn => ({
+        name: m.face.name,
+        look: lookOf(m.face.kind, m.face.types),
+        type: shortType(m.face.types),
+        pt: figure(m.face),
+        art: m.face.art ? artUrl(m.face.art) : null,
+        crop: m.face.crop ? artUrl(m.face.crop) : null,
+        faceDown: m.face.faceDown,
+        known: m.face.known,
+        side: m.to.side,
+      });
+      const backLook: Drawn = {
+        name: "",
+        look: "artifact",
+        type: "",
+        pt: "",
+        art: null,
+        faceDown: true,
+        side: "opponent",
+      };
+      const ghostAt = (
+        look: Drawn,
+        id: string,
+        at: { box: Box; origin: Point },
+        frames: Keyframe[],
+        duration: number,
+        delay: number,
+        extra: Partial<Ghost> = {},
+      ): Ghost => ({
+        ...look,
+        id,
+        box: at.box,
+        origin: at.origin,
+        to: at.box,
+        toOrigin: at.origin,
+        fade: false,
+        delay,
+        own: { frames, duration },
+        waits: true,
+        ...extra,
+      });
+      const tileBox = (side: Side, zone: string) => ({
+        box: boxAt(where[`${side}:${zone}` as AnchorId], g),
+        origin: centred,
+      });
+
+      // A · Lift and drop: discarded, one after another.
+      const discards = tm.filter((m) => m.from.zone === "hand" && m.to.zone === "graveyard");
+      /** Your hand's cards (and theirs shown to you) leaving for a graveyard: their order. */
+      const discardOrder = new Map<string, number>();
+      discards.forEach((m, i) => discardOrder.set(m.card, i));
+      // Their hidden cards: which back is which is never known -- they leave
+      // the middle of the fan (spec 0072), the fan closing on the gap.
+      const hiddenDiscards = discards.filter(
+        (m) => m.from.side === "opponent" && !before.drawn.has(m.card),
+      );
+      const lostBacks = backsBefore.length - backsNow;
+      /** Each hand that lost cards to a graveyard closes when they lift. */
+      const closeAt = new Map<Side, number>();
+      for (const m of discards) closeAt.set(m.from.side, T);
+      const discardGap =
+        gap === null && hiddenDiscards.length > 0 && lostBacks === hiddenDiscards.length
+          ? Math.floor((backsBefore.length - 1) / 2) - Math.floor((hiddenDiscards.length - 1) / 2)
+          : null;
+      if (discardGap !== null) {
+        const seat = backsBefore[0]!.split(":")[1];
+        hiddenDiscards.forEach((m, j) => {
+          const at = before.at.get(`hidden-hand:${seat}:${discardGap + j}`);
+          if (!at) return;
+          const delay = T + (discardOrder.get(m.card) ?? j) * DISCARD_BEAT_MS;
+          const from = poseOf(at.box, at.origin);
+          const to = tileAt(m.to.side, "graveyard");
+          const frames = (half: "before" | "after") =>
+            discardFrames(from, to, g.cardW, g.cardH, at.origin, true, half);
+          graveGhosts.push(
+            // Held in the fan until each lifts (no gap in it before then).
+            ghostAt(backLook, m.card, at, frames("before"), DISCARD_MS, delay, {
+              turn: "back",
+              waits: false,
+            }),
+            ghostAt(faceLook(m), m.card, at, frames("after"), DISCARD_MS, delay, {
+              fade: true,
+              waits: false,
+            }),
+          );
+          // Its tag shows once it is face up, and rides with it to the pile.
+          const upAt = DISCARD_LIFT_MS + 0.4 * DISCARD_DROP_MS;
+          const up = discardPose(upAt, from, to, g.cardH, true);
+          graveTags.push({
+            card: m.card,
+            from: { x: up.x, y: up.y - (g.cardH * up.s) / 2 - g.cardH * 0.04 },
+            delay: delay + upAt,
+            lead: 0,
+            move: DISCARD_MS - upAt,
+            side: m.to.side,
+          });
+          tick(`${m.to.side}:graveyard`, delay + DISCARD_MS, 1);
+        });
+      }
+
+      // C · Stream: milled, one after another; past ten, the rest as one bundle.
+      for (const side of ["viewer", "opponent"] as const) {
+        const milled = tm.filter(
+          (m) => m.from.zone === "library" && m.to.zone === "graveyard" && m.to.side === side,
+        );
+        if (milled.length === 0) continue;
+        const library = tileAt(side, "library");
+        const graveyard = tileAt(side, "graveyard");
+        const lib = tileBox(side, "library");
+        const shown = milled.slice(0, MILL_SHOWN);
+        const rest = milled.slice(MILL_SHOWN);
+        const one = (m: TileMove, i: number, n: number, top: boolean) => {
+          const o = millOut(i, g.rail.x, g.height, side === "opponent");
+          const out: Pose = { ...o, r: 0, s: MILL_SCALE, o: 1 };
+          const delay = T + i * MILL_BEAT_MS;
+          const frames = (half: "before" | "after") =>
+            millFrames(library, out, graveyard, g.cardW, g.cardH, centred, half);
+          if (top)
+            graveGhosts.push(
+              ghostAt(backLook, m.card, lib, frames("before"), MILL_MS, delay, { turn: "back" }),
+            );
+          graveGhosts.push(
+            ghostAt(faceLook(m), m.card, lib, frames("after"), MILL_MS, delay, {
+              ...(n > 1 && top ? { badge: n } : {}),
+              ...(n > 1 && !top ? { bundled: true } : {}),
+            }),
+          );
+          return delay;
+        };
+        shown.forEach((m, i) => {
+          const delay = one(m, i, 1, true);
+          tick(`${side}:library`, delay, -1);
+          tick(`${side}:graveyard`, delay + MILL_MS, 1);
+        });
+        if (rest.length > 0) {
+          // Every card of the bundle is drawn going, on one path; the top shows how many.
+          let delay = 0;
+          rest.forEach((m, j) => {
+            delay = one(m, MILL_SHOWN, rest.length, j === rest.length - 1);
+          });
+          tick(`${side}:library`, delay, -rest.length);
+          tick(`${side}:graveyard`, delay + MILL_MS, rest.length);
+        }
+      }
+
+      // H · Rise and show: out of a graveyard or exile -- risen, shown, then
+      // where it goes. A whole graveyard exiled at once is swept as one.
+      const outOf = tm.filter((m) => m.from.zone === "graveyard" || m.from.zone === "exile");
+      const sweeps = new Map<string, TileMove[]>();
+      for (const m of outOf) {
+        if (m.from.zone !== "graveyard" || m.to.zone !== "exile") continue;
+        const key = m.from.side;
+        sweeps.set(key, [...(sweeps.get(key) ?? []), m]);
+      }
+      for (const [key, list] of sweeps) if (list.length < 2) sweeps.delete(key);
+      for (const [side, list] of sweeps) {
+        const from = tileAt(side as Side, "graveyard");
+        const to = tileAt(side as Side, "exile");
+        list.forEach((m, i) => {
+          const held = sweptAt(i, list.length, g.rail.x, g.height, side === "opponent");
+          graveGhosts.push(
+            ghostAt(
+              faceLook(m),
+              m.card,
+              tileBox(side as Side, "graveyard"),
+              sweptFrames(from, held, to, g.cardW, g.cardH, centred),
+              SWEPT_MS,
+              T,
+              { motes: true, zIndex: Z_RETURN_MARK - 10 + i },
+            ),
+          );
+        });
+        tick(`${side}:graveyard`, T, -list.length);
+        tick(`${side}:exile`, T + SWEPT_MS, list.length);
+      }
+      /** A card risen out of a tile onto the table or into a hand: when it starts, from where. */
+      const riseOf = new Map<string, { start: number; move: TileMove }>();
+      /** The other player's new back taking over a card risen into his hidden hand. */
+      const riseInto = new Map<string, { start: number; move: TileMove }>();
+      const shows = outOf.filter((m) => !sweeps.get(m.from.side)?.includes(m));
+      shows.forEach((m, i) => {
+        const start = T + i * SHOW_BEAT_MS;
+        const fromPose = tileAt(m.from.side, m.from.zone);
+        const show = showAt(g.rail.x, g.height, m.from.side === "opponent");
+        const fromTile = tileBox(m.from.side, m.from.zone);
+        tick(`${m.from.side}:${m.from.zone}`, start, -1);
+        // A hand makes room for it as it sets off from being shown.
+        if (m.to.zone === "hand")
+          closeAt.set(
+            m.to.side,
+            Math.max(closeAt.get(m.to.side) ?? 0, start + SHOW_RISE_MS + SHOW_HOLD_MS),
+          );
+        if (m.to.zone === "battlefield" || (m.to.zone === "hand" && !m.hidden)) {
+          riseOf.set(m.card, { start, move: m });
+          return;
+        }
+        if (m.to.zone === "hand") {
+          // Into the other player's hidden hand: it turns face down near his
+          // fan, his newest back taking over on the same path.
+          const back = newBacks.shift();
+          const to = back
+            ? poseOf(back.box, back.origin)
+            : { ...where[`${m.to.side}:hand`], r: 0, s: 1, o: 1 };
+          if (back) riseInto.set(back.id, { start, move: m });
+          graveGhosts.push(
+            ghostAt(
+              faceLook(m),
+              m.card,
+              fromTile,
+              showFrames(fromPose, show, to, g.cardW, g.cardH, centred, "theirHand", "before"),
+              SHOW_MS,
+              start,
+            ),
+          );
+          if (back)
+            markReturn(
+              m.card,
+              { zone: "hand", side: m.to.side, where: null, hidden: true },
+              back.box,
+              back.origin,
+              start,
+              SHOW_MS,
+              false,
+            );
+          return;
+        }
+        const where_ = m.to.zone as ShowTo;
+        const to = tileAt(m.to.side, m.to.zone);
+        const hidden = m.to.zone === "library";
+        graveGhosts.push(
+          ghostAt(
+            faceLook(m),
+            m.card,
+            fromTile,
+            showFrames(
+              fromPose,
+              show,
+              to,
+              g.cardW,
+              g.cardH,
+              centred,
+              where_,
+              hidden ? "before" : null,
+            ),
+            SHOW_MS,
+            start,
+            m.to.zone === "exile" ? { motes: true } : {},
+          ),
+        );
+        if (hidden) {
+          graveGhosts.push(
+            ghostAt(
+              backLook,
+              m.card,
+              fromTile,
+              showFrames(fromPose, show, to, g.cardW, g.cardH, centred, "library", "after"),
+              SHOW_MS,
+              start,
+              { turn: "back" },
+            ),
+          );
+          markReturn(
+            m.card,
+            { zone: "library", side: m.to.side, where: m.where, hidden: true },
+            boxAt(where[`${m.to.side}:library`], g),
+            centred,
+            start,
+            SHOW_MS,
+            false,
+          );
+        }
+        tick(`${m.to.side}:${m.to.zone}`, start + SHOW_MS, 1);
+      });
+      /** A risen card's frames onto its place (the table, a hand), landing exactly. */
+      const risen = (
+        r: { start: number; move: TileMove },
+        box: Box,
+        origin: Point,
+        half: "after" | null,
+      ) =>
+        showFrames(
+          tileAt(r.move.from.side, r.move.from.zone),
+          showAt(g.rail.x, g.height, r.move.from.side === "opponent"),
+          poseOf(box, origin),
+          g.cardW,
+          g.cardH,
+          origin,
+          half ? "theirHand" : r.move.to.zone === "battlefield" ? "table" : "hand",
+          half,
+          box,
+        );
+
       // Spec 0073 -- tokens made this update spark out of what made them:
       // the stack object that resolved (the permanent whose ability it was,
       // for an ability: Krenko), one after another. Two resolving at once,
@@ -2501,6 +2989,28 @@ export function Board({
           );
           spark(item.id, delay);
           landAt.set(item.id, delay + TOKEN_MS);
+          continue;
+        }
+        // Spec 0074 (H · Rise and show): out of a graveyard or exile onto the
+        // table or into a hand you can see -- the same element all the way,
+        // landing as that card; or the other player's new back, taking over
+        // a card risen into his hidden hand (it turns face down near his fan).
+        const rise = riseOf.get(item.id);
+        const into = rise ? undefined : riseInto.get(item.id);
+        if (rise || into) {
+          const r = (rise ?? into)!;
+          glide(element, risen(r, item.box, item.origin, into ? "after" : null), r.start, SHOW_MS);
+          landAt.set(item.id, r.start + SHOW_MS);
+          if (rise && r.move.to.zone === "hand")
+            markReturn(
+              item.id,
+              { zone: "hand", side: r.move.to.side, where: null, hidden: false },
+              item.box,
+              item.origin,
+              r.start,
+              SHOW_MS,
+              false,
+            );
           continue;
         }
         // Spec 0073: out of the other player's hidden hand, from the back
@@ -2605,6 +3115,15 @@ export function Board({
             landAt.set(id, hold + MOVE_MS);
             return;
           }
+          // Spec 0074: out of a graveyard or exile, risen and shown first.
+          const rise = riseOf.get(id);
+          if (rise) {
+            joins.push(
+              ghostAt(look, id, at, risen(rise, at.box, at.origin, null), SHOW_MS, rise.start),
+            );
+            landAt.set(id, rise.start + SHOW_MS);
+            return;
+          }
           const fromStack = before.stack.find((e) => e.s.card === id);
           joins.push({
             ...look,
@@ -2640,6 +3159,12 @@ export function Board({
           const [, seat, index] = id.split(":");
           if (Number(index) >= gap)
             return before.at.get(`hidden-hand:${seat}:${Number(index) + 1}`);
+        }
+        // Spec 0074: their discards left the middle of the fan; it closes.
+        if (discardGap !== null && isBack(id)) {
+          const [, seat, index] = id.split(":");
+          if (Number(index) >= discardGap)
+            return before.at.get(`hidden-hand:${seat}:${Number(index) + hiddenDiscards.length}`);
         }
         return before.at.get(id);
       };
@@ -2856,10 +3381,17 @@ export function Board({
           continue;
         }
         const { delay, duration } = pace(item.id);
+        // Spec 0074: a hand closes on its discards as they lift, not before.
+        const closing =
+          item.origin === HAND_ORIGIN
+            ? closeAt.get("viewer")
+            : item.origin === OPPONENT_HAND_ORIGIN
+              ? closeAt.get("opponent")
+              : undefined;
         glide(
           element,
           glideFrames(was.box, item.box, g.cardW, g.cardH, was.origin, item.origin, null, start),
-          delay,
+          Math.max(delay, closing ?? 0),
           duration,
         );
       }
@@ -2974,8 +3506,48 @@ export function Board({
         // Spec 0072: the back that rose to the middle is the casting card now
         // (the fan closed on it, above): no ghost of it leaves for a pile.
         if (gap !== null && isBack(id)) continue;
+        // Spec 0074: nor do the backs their discards left (the fan closed on them).
+        if (discardGap !== null && isBack(id)) continue;
         const at = before.at.get(id);
         if (!at) continue;
+        // Spec 0074 (A · Lift and drop): a hand card discarded -- yours, or
+        // theirs shown to you -- lifts out of the hand and drops, face up,
+        // into its owner's graveyard; several, one after another.
+        const nth = d.table ? undefined : discardOrder.get(id);
+        if (nth !== undefined && !now.has(id)) {
+          const m = discards[nth]!;
+          const delay = T + nth * DISCARD_BEAT_MS;
+          const theirs = d.side === "opponent";
+          const from = poseOf(at.box, at.origin);
+          graveGhosts.push(
+            ghostAt(
+              d,
+              id,
+              at,
+              discardFrames(
+                from,
+                tileAt(m.to.side, "graveyard"),
+                g.cardW,
+                g.cardH,
+                at.origin,
+                theirs,
+              ),
+              DISCARD_MS,
+              delay,
+              { fade: true, waits: false, zIndex: Z_RETURN_MARK - 20 },
+            ),
+          );
+          graveTags.push({
+            card: id,
+            from: { x: from.x, y: from.y - (g.cardH * from.s) / 2 - g.cardH * 0.04 },
+            delay,
+            lead: DISCARD_LIFT_MS,
+            move: DISCARD_DROP_MS,
+            side: m.to.side,
+          });
+          tick(`${m.to.side}:graveyard`, delay + DISCARD_MS, 1);
+          continue;
+        }
         const joined = now.get(id);
         // Phase 10 A-13: killed in a fight -- it fights, then shatters after
         // the beat; anything else leaving waits for the fights to end.
@@ -3153,6 +3725,7 @@ export function Board({
       const stillThere = new Set((stack ?? []).map((s) => s.id));
       const sparks: Effect[] = [];
       const gone: Ghost[] = [];
+      const struck: Strike[] = [];
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
@@ -3193,6 +3766,88 @@ export function Board({
           : null;
         const retOrigin = handBack ? handBack.origin : { x: 0, y: 0 };
         if (ret && retTo) markReturn(s.card!, ret, retTo, retOrigin, hold);
+        // Spec 0074 (F · Struck by the beam): a countered spell never shows a
+        // resolve glow or spark; the countering spell's beam strikes it, and
+        // it crumbles to grey ash where it is, then goes to its graveyard.
+        const struckDown = !ret && !!s.card && !!countered?.has(s.card);
+        if (struckDown) {
+          const spots = before.stack.map((e) => e.box);
+          const by = before.stack.findIndex(
+            (e) =>
+              !stillThere.has(e.s.id) &&
+              e.s.targets.some((t) => "object" in t && t.object === s.id),
+          );
+          const from = by >= 0 ? studAtOf(spots, by, g.cardH) : null;
+          const to = before.stack.findIndex((e) => e.s.id === s.id);
+          if (from && to >= 0) {
+            const beam = stackBeam(spots, from, to, g.cardH, TIP_GAP * g.cardH);
+            struck.push({
+              key: `strike:${s.id}:${performance.now()}`,
+              of: s.card!,
+              d: pathOf(beam.route),
+              points: Array.from({ length: 13 }, (_, i) => routeAt(beam.route, i / 12)),
+              ring: beam.aim,
+              w: effectSizes(g).line,
+              delay: hold,
+            });
+          }
+          const at = { box, origin: { x: 0, y: 0 } };
+          const whole = box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+          gone.push(
+            ghostAt(
+              {
+                name: s.name,
+                look: "artifact",
+                type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                pt: "",
+                art: s.art ? artUrl(s.art) : null,
+                crop: s.crop ? artUrl(s.crop) : null,
+                faceDown: s.name === "Face-down",
+                known: false,
+                cost: s.manaCost ?? null,
+                side,
+              },
+              s.id,
+              at,
+              counterFrames(
+                poseOf(box, at.origin),
+                tileAt(side, "graveyard"),
+                g.cardW,
+                g.cardH,
+                at.origin,
+              ),
+              COUNTER_MS,
+              hold,
+              {
+                waits: false,
+                ash: true,
+                // Under the stack cards above it, as on the stack (the countering
+                // spell, resolving, in front of it).
+                zIndex: Z_LINES - 51 - Math.max(0, to),
+                stack: whole
+                  ? {
+                      low: artUrl(s.art!),
+                      high: closeUpOf(artUrl(s.art!)),
+                      kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                      does: s.does ?? null,
+                      whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+                    }
+                  : undefined,
+              },
+            ),
+          );
+          const top = centreOf(box, at.origin);
+          graveTags.push({
+            card: s.card!,
+            from: { x: top.x, y: top.y - box.h / 2 - g.cardH * 0.04 },
+            delay: hold + COUNTER_GO_MS,
+            lead: 0,
+            move: MOVE_MS,
+            side,
+          });
+          tick(`${side}:graveyard`, hold + COUNTER_MS, 1);
+          continue;
+        }
         for (const t of ret ? [] : s.targets) {
           const at =
             "player" in t
@@ -3287,6 +3942,58 @@ export function Board({
           const card = before.stack.find((entry) => entry.s.id === ghost.id)?.s.card;
           if (card) tagGrave(card, ghost, 0, MOVE_MS, ghost.side);
         }
+        // Spec 0074 -- a discard's tag rides with it from the hand (the other
+        // player's from when it is face up); a countered spell's from when it
+        // sets off for the graveyard.
+        for (const tag of graveTags) {
+          const said = graves.get(tag.card);
+          if (!said) continue;
+          const pile = where[`${tag.side}:graveyard`];
+          const to = { x: g.rail.x - g.cardH * 0.06, y: pile.y };
+          const { frames, duration } = graveTagFrames(
+            to.x - tag.from.x,
+            to.y - tag.from.y,
+            tag.lead,
+            tag.move,
+          );
+          returning.push({
+            key: `grave:${tag.card}:${performance.now()}`,
+            kind: "tag",
+            style: { left: tag.from.x, top: tag.from.y },
+            frames,
+            duration,
+            delay: tag.delay,
+            text: said,
+            of: tag.card,
+            grave: true,
+          });
+        }
+      }
+      if (graveGhosts.length > 0) setGhosts((list) => [...list, ...graveGhosts]);
+      if (struck.length > 0) setStrikes((list) => [...list, ...struck]);
+      // Spec 0074 -- each tile's number as its cards leave and land: the
+      // number it showed, then each change at its moment (popping), on the
+      // board's animation clock (a click hurries it with the cards).
+      // A tile already ticking counts the other cards landing in it this
+      // update too (the spell that did it, a creature that died), as each
+      // lands -- never one number early.
+      for (const ghost of [...leaving, ...gone]) {
+        if (!ghost.fade || ghost.returning || ghost.chained || ghost.own) continue;
+        const tile = Object.entries(where).find(
+          ([key, at]) =>
+            key.endsWith(":graveyard") &&
+            Math.abs(at.x - (ghost.to.x + ghost.to.w / 2)) < 1 &&
+            Math.abs(at.y - (ghost.to.y + ghost.to.h / 2)) < 1,
+        )?.[0];
+        if (!tile || !ticks.has(tile)) continue;
+        const lead = ghost.fate ? fateMs(ghost.fate) + (ghost.peel ? PEEL_MS : 0) : 0;
+        tick(tile, ghost.delay + lead + MOVE_MS, 1);
+      }
+      for (const [tile, changes] of ticks) {
+        const n = ref.current?.querySelector<HTMLElement>(
+          `[data-zone-tile="${tile}"] .gs-zone-n:not(.gs-zone-was)`,
+        );
+        if (n && changes.some((c) => c.at > 0)) tickTile(n, changes);
       }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
       if (returning.length > 0) setReturnMarks((list) => [...list, ...returning]);
@@ -3327,6 +4034,7 @@ export function Board({
 
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     playedMerges.current = merges;
+    playedTiles.current = tileMoves;
     const itemOf = new Map<string, string>();
     const members = new Map<string, number>();
     for (const item of items) {
@@ -3360,6 +4068,8 @@ export function Board({
     merges,
     returns,
     graves,
+    tileMoves,
+    countered,
     opponentName,
     viewerName,
     stack,
@@ -3706,25 +4416,8 @@ export function Board({
       // badges, and the beam from this card's stud to it.
       const onStack = "object" in t && !positions.has(t.object) ? spotIndex(t.object) : -1;
       if (onStack >= 0) {
-        const r = g.cardH * 0.1;
-        const badge = stackBadgeRects(spot, g.cardH)[onStack]!;
-        const at = { x: badge.x0 - r - gap * 2, y: (badge.y0 + badge.y1) / 2 };
-        const end = ringEdge(at, start.at, r + gap);
-        const d = Math.hypot(end.x - start.at.x, end.y - start.at.y) * 0.5;
-        add(
-          "target",
-          s.id,
-          refKey(t),
-          [
-            {
-              start: start.at,
-              c1: { x: start.at.x - d, y: start.at.y },
-              c2: { x: end.x - d * 0.35, y: end.y + (start.at.y - end.y) * 0.45 },
-              end,
-            },
-          ],
-          { at, r },
-        );
+        const beam = stackBeam(spot, start.at, onStack, g.cardH, gap);
+        add("target", s.id, refKey(t), beam.route, beam.aim);
         continue;
       }
       const route = onto(start, t, clear, spot[index]);
@@ -4389,6 +5082,16 @@ export function Board({
             done={() => setReturnMarks((list) => list.filter((x) => x.key !== m.key))}
           />
         ))}
+        {strikes.map((s) => (
+          <StrikeView
+            key={s.key}
+            strike={s}
+            width={g.width}
+            height={g.height}
+            k={g.height / CANVAS_H}
+            done={() => setStrikes((list) => list.filter((x) => x.key !== s.key))}
+          />
+        ))}
       </div>
     </div>
   );
@@ -4452,6 +5155,21 @@ function GhostCard({
       return () => {
         pulled.onfinish = null;
         pulled.cancel();
+      };
+    }
+    // Spec 0074: its whole movement, worked out already (graves.ts).
+    if (ghost.own) {
+      const run = element.animate(ghost.own.frames, {
+        duration: ghost.own.duration,
+        easing: "linear",
+        delay: ghost.delay,
+        fill: ghost.waits ? "forwards" : "both",
+      });
+      element.classList.add("bf-moving");
+      run.onfinish = done;
+      return () => {
+        run.onfinish = null;
+        run.cancel();
       };
     }
     // Phase 10 A-00: Glide to where it went -- first showing it was
@@ -4580,10 +5298,17 @@ function GhostCard({
         ...(ghost.fate
           ? { ["--fx-delay" as string]: `${ghost.delay + (ghost.peel ? PEEL_MS : 0)}ms` }
           : {}),
+        // Spec 0074: a countered spell's ash rises as the beam strikes it;
+        // an exiled card's light as it rises.
+        ...(ghost.ash ? { ["--fx-delay" as string]: `${ghost.delay + STRIKE_MS}ms` } : {}),
+        ...(ghost.motes ? { ["--fx-delay" as string]: `${ghost.delay}ms` } : {}),
       }}
       data-peel={ghost.peel ? "true" : undefined}
       data-token={ghost.token ? "true" : undefined}
       data-turn={ghost.turn}
+      data-countered={ghost.ash ? "true" : undefined}
+      data-bundle={ghost.badge}
+      data-bundled={ghost.bundled ? "true" : undefined}
     >
       {ghost.turn === "back" ? (
         // Spec 0073 -- the other player's card back, as their fan draws it.
@@ -4614,9 +5339,11 @@ function GhostCard({
           <CardFace {...ghost} />
           {ghost.fate && <FateMarks fate={ghost.fate} />}
           {ghost.returning?.back && <ReturnBack />}
+          {ghost.badge !== undefined && <span className="bf-pile">×{ghost.badge}</span>}
         </div>
       )}
-      {ghost.fate === "exiled" && <Motes />}
+      {(ghost.fate === "exiled" || ghost.motes) && <Motes />}
+      {ghost.ash && <Motes ash />}
     </div>
   );
 }
@@ -4657,6 +5384,87 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
       style={{ ...mark.style, opacity: 0 }}
     >
       {mark.text}
+    </div>
+  );
+}
+
+/**
+ * Spec 0074 (F · Struck by the beam) -- the countering spell's gold beam
+ * (spec 0069's, from its stud to the countered spell's ripple) flares, a
+ * pulse runs down it, and the ripple bursts. Each part is an animation on
+ * the board's clock (a click hurries it); gone when the beam has faded.
+ */
+function StrikeView({
+  strike,
+  width,
+  height,
+  k,
+  done,
+}: {
+  strike: Strike;
+  width: number;
+  height: number;
+  k: number;
+  done: () => void;
+}) {
+  const beam = useRef<SVGPathElement>(null);
+  const pulse = useRef<HTMLDivElement>(null);
+  const ring = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const b = beam.current;
+    if (!b || typeof b.animate !== "function" || reducedMotion()) {
+      done();
+      return;
+    }
+    const timing = {
+      duration: STRIKE_FX_MS,
+      delay: strike.delay,
+      easing: "linear",
+      fill: "both" as const,
+    };
+    const runs = [
+      b.animate(strikeBeamFrames(strike.w), timing),
+      pulse.current?.animate(strikePulseFrames(strike.points), timing),
+      ring.current?.animate(strikeRingFrames(strike.ring.r, k), timing),
+    ];
+    runs[0]!.onfinish = done;
+    return () => {
+      runs[0]!.onfinish = null;
+      for (const run of runs) run?.cancel();
+    };
+    // Runs once: a strike plays what it was given when it appeared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      className="bf-strike"
+      data-strike={strike.of}
+      aria-hidden="true"
+      style={{ zIndex: Z_LINES - 40 }}
+    >
+      <svg width={width} height={height}>
+        <path
+          ref={beam}
+          d={strike.d}
+          fill="none"
+          stroke="#f1c36a"
+          strokeWidth={strike.w}
+          strokeLinecap="round"
+          style={{ opacity: 0 }}
+        />
+      </svg>
+      <div ref={pulse} className="bf-strike-pulse" style={{ opacity: 0 }} />
+      <div
+        ref={ring}
+        className="bf-strike-ring"
+        style={{
+          left: strike.ring.at.x,
+          top: strike.ring.at.y,
+          width: strike.ring.r * 2,
+          height: strike.ring.r * 2,
+          opacity: 0,
+        }}
+      />
     </div>
   );
 }
@@ -4769,13 +5577,14 @@ const MOTES = Array.from({ length: 14 }, (_, i) => ({
   rise: 40 + ((i * 29) % 45),
   late: (i * 47) % 160,
 }));
-function Motes() {
+function Motes({ ash = false }: { ash?: boolean }) {
   return (
     <span className="bf-motes" aria-hidden="true">
       {MOTES.map((m, i) => (
         <span
           key={i}
-          className="bf-mote"
+          // Spec 0074 -- a countered spell crumbles to grey ash.
+          className={ash ? "bf-mote bf-mote-ash" : "bf-mote"}
           style={{
             left: `${m.x}%`,
             top: `${m.y}%`,

@@ -16,12 +16,14 @@ Each scenario is its own small game against Forge.
              told ("Cycled: Forgotten Cave", "... (Alice's)").
   handsize   F-0061-C, D: Alice never plays a land; at her cleanup with eight
              cards the discard question says how many (arrange.discard 1);
-             the card goes why "discarded", tag "Discarded: too many cards",
-             and both are told ("Discarded, too many cards: Mountain").
+             the card goes why "discarded", tag "Discarded: too many cards";
+             spec 0074 Amendment 1: no one is told a line for it (no
+             top-of-table notice; the report window explains what the other
+             player does).
   countered  F-0061-D: Bob casts Grizzly Bears, Alice counters it: the Bears
              goes from the stack to his graveyard, why "countered", tag
-             "Countered by Counterspell", to both seats; Bob is told
-             "Countered by Counterspell: Grizzly Bears".
+             "Countered by Counterspell", to both seats; spec 0074
+             Amendment 1: no line for it (the report window explains it).
   passed     F-0061-B: both seats follow the stops rule (spec 0035); Alice
              holds only Craw Wurms ({4}{G}{G}) and Forests. At her own Main 1
              with nothing to play she is told "Nothing you can play this turn
@@ -209,12 +211,11 @@ def handsize():
         moved = found[f"seat{seat}"]
         if [(m.get("why"), m.get("said")) for m in moved] != [("discarded", "Discarded: too many cards")]:
             problems.append(f"seat {seat} should be told the card was discarded, too many cards: {moved}")
-    if "Discarded, too many cards: Mountain" not in (g.notices.get(1) or []):
-        problems.append(f"Alice should be told 'Discarded, too many cards: Mountain': {g.notices.get(1)}")
-    if "Discarded, too many cards: Mountain (Alice's)" not in (g.notices.get(2) or []):
-        problems.append(f"Bob should be told whose: {g.notices.get(2)}")
+    for seat in (1, 2):
+        if any(n.startswith("Discarded") for n in g.notices.get(seat) or []):
+            problems.append(f"seat {seat} should be told no line for a discard (spec 0074): {g.notices.get(seat)}")
     return result(problems, "the hand-size discard says how many; the card moves as 'Discarded: too many "
-                            "cards', both told", found)
+                            "cards', no top-of-table line", found)
 
 
 # --- countered ----------------------------------------------------------------
@@ -273,10 +274,11 @@ def countered():
     # The Counterspell itself resolved: no reason, no tag.
     if any(m.get("said") for m in found["stack_to_graveyard"] if m.get("why") != "countered"):
         problems.append(f"a spell that resolved carries no tag: {found['stack_to_graveyard']}")
-    if "Countered by Counterspell: Grizzly Bears" not in (g.notices.get(2) or []):
-        problems.append(f"Bob should be told 'Countered by Counterspell: Grizzly Bears': {g.notices.get(2)}")
-    return result(problems, "a countered Bears moves as 'Countered by Counterspell', both told; the "
-                            "Counterspell that resolved has no tag", found)
+    for seat in (1, 2):
+        if any(n.startswith("Countered") for n in g.notices.get(seat) or []):
+            problems.append(f"seat {seat} should be told no line for a counter (spec 0074): {g.notices.get(seat)}")
+    return result(problems, "a countered Bears moves as 'Countered by Counterspell', no top-of-table line; "
+                            "the Counterspell that resolved has no tag", found)
 
 
 # --- passed -------------------------------------------------------------------

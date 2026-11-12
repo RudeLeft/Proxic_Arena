@@ -2057,3 +2057,51 @@ img.bf-makes-pip {
 .bf-pile {
   transform-origin: 30% 50%;
 }
+
+/* Spec 0074 (owner 2026-11-12, canvas "grave-1112"): discards, mills,
+ * countered spells, out of a graveyard. A countered spell shows no resolve
+ * glow; grey ash rises off it as the countering spell's beam strikes (the
+ * beam flaring, a pulse running down it, the ripple bursting). Each runs on
+ * the board's animation clock (a click hurries it); "reduce motion" never
+ * creates them. */
+.bf-ghost[data-countered] .bf-card,
+.bf-ghost[data-bundled] .bf-card {
+  box-shadow: none;
+}
+.bf-mote-ash {
+  width: calc(var(--card-h) * 0.04);
+  height: calc(var(--card-h) * 0.04);
+  background: #b9b3a8;
+  box-shadow: 0 0 4px #00000088;
+}
+.bf-strike {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.bf-strike svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+.bf-strike path {
+  filter: drop-shadow(0 0 4px #f1c36a);
+}
+.bf-strike-pulse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--card-h) * 0.33);
+  height: calc(var(--card-h) * 0.33);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0, #ffe7a3 30%, #f1c36a55 55%, transparent 72%);
+}
+.bf-strike-ring {
+  position: absolute;
+  border: 2px solid #f1c36a;
+  border-radius: 50%;
+  box-sizing: border-box;
+}

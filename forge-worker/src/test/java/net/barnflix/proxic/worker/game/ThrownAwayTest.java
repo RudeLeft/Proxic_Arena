@@ -115,11 +115,15 @@ class ThrownAwayTest {
                         .withSaid("destroyed", null, "Grizzly Bears"),
                 new Moves.Move(3, "hand", 1, "graveyard", 1, false, null)
                         .withSaid("discarded", "Discarded: too many cards", "Elvish Warrior"),
-                new Moves.Move(4, "library", 1, "hand", 1, false, null));
+                new Moves.Move(4, "library", 1, "hand", 1, false, null),
+                new Moves.Move(6, "stack", null, "graveyard", 1, false, null)
+                        .withSaid("countered", "Countered by Counterspell", "Giant Growth"));
         Map<Integer, Map<String, List<String>>> told = Moves.toldByOwner(round);
         assertEquals(List.of("Forgotten Cave", "Secluded Steppe"), told.get(2).get("Cycled"));
         assertEquals(1, told.get(2).size(), "no line for the Bears: " + told);
-        assertEquals(List.of("Elvish Warrior"), told.get(1).get("Discarded: too many cards"));
+        // Spec 0074, Amendment 1: a discard or a counter is no line -- the
+        // report window explains it (ActionReports).
+        assertFalse(told.containsKey(1), "no line for a discard or a counter: " + told);
         assertEquals("Cycled: Forgotten Cave, Secluded Steppe (Bob's)",
                 Moves.told("Cycled", told.get(2).get("Cycled"), "Bob"));
         assertEquals("Discarded, too many cards: Elvish Warrior",

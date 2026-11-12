@@ -42,6 +42,148 @@ export interface BoardData {
   returns: Map<string, Return>;
   /** Spec 0061, item 4 -- each card gone to a graveyard with a reason: the game's tag ("Cycled"). */
   graves: Map<string, string>;
+  /** Spec 0074 -- the cards discarded, milled, or moved out of a graveyard or exile this update. */
+  tileMoves: TileMove[];
+  /** Spec 0074 -- the spells countered this update (each spell's own card). */
+  countered: Set<string>;
+}
+
+/** Spec 0074 -- a pile on the plate a card is drawn leaving or reaching. */
+export type TileZone = "library" | "graveyard" | "exile";
+
+/** Spec 0074 -- what a card looked like where this viewer could see it. */
+export interface TileFace {
+  name: string;
+  kind: string;
+  types: string;
+  power: number | null;
+  toughness: number | null;
+  art: string | null;
+  crop: string | null;
+  faceDown: boolean;
+  known: boolean;
+}
+
+/**
+ * Spec 0074 -- one card discarded (a hand to a graveyard), milled (a library
+ * to a graveyard), or moved out of a graveyard or exile, as the game moved
+ * it. `card` is its id where this viewer saw it (the graveyard or exile it
+ * went to or came from, the hand it left): a card that went into a place
+ * hidden from the viewer (the other player's hand, a library) has no id
+ * there, so it is the one gone from the graveyard the page drew (compared,
+ * never sent on), and the page draws that public card leaving -- never an
+ * id for where it is now.
+ */
+export interface TileMove {
+  card: string;
+  from: { zone: TileZone | "hand"; side: "viewer" | "opponent" };
+  to: { zone: TileZone | "hand" | "battlefield"; side: "viewer" | "opponent" };
+  face: TileFace;
+  /** It went where this viewer cannot see it (a library, the other player's hidden hand). */
+  hidden: boolean;
+  /** Into a library: where, when the game says (A-14). */
+  where: "top" | "bottom" | "shuffled" | null;
+}
+
+function faceOf(card: SnapshotCard): TileFace {
+  return {
+    name: card.name,
+    kind: card.kind,
+    types: card.types,
+    power: card.power,
+    toughness: card.toughness,
+    art: card.art,
+    crop: card.crop ?? null,
+    faceDown: card.faceDown,
+    known: card.known,
+  };
+}
+
+const TILE_ZONES: readonly string[] = ["library", "graveyard", "exile"];
+
+/**
+ * Spec 0074 -- the round's discards, mills, and cards out of a graveyard or
+ * exile, in the order the game made them. Each has the face this viewer saw
+ * (graveyards are public; face-up exile too). A move into a place this
+ * viewer cannot see carries no card: it is paired with the card gone from
+ * that graveyard or exile on the board drawn before (the same seat's, the
+ * game's order against the board's order), animation only.
+ */
+function tileMovesOf(
+  snapshot: Snapshot,
+  previous: Snapshot | null,
+  moves: NonNullable<Snapshot["moves"]>,
+): TileMove[] {
+  if (!previous || previous.gameEpoch !== snapshot.gameEpoch) return [];
+  const viewer = snapshot.seat;
+  const side = (seat: number) => (seat === viewer ? "viewer" : "opponent");
+  const seenNow = new Set(
+    [
+      ...snapshot.battlefield,
+      ...snapshot.hand,
+      ...snapshot.otherHands,
+      ...snapshot.graveyard,
+      ...snapshot.exile,
+      ...snapshot.casting,
+    ].map((c) => c.id),
+  );
+  for (const e of snapshot.stack) if (e.source) seenNow.add(e.source);
+  const claimed = new Set(moves.flatMap((m) => (m.card ? [m.card] : [])));
+  const pile = (s: Snapshot, zone: string) =>
+    zone === "graveyard" ? s.graveyard : zone === "exile" ? s.exile : [];
+  const out: TileMove[] = [];
+  for (const move of moves) {
+    const from = move.from;
+    const to = move.to;
+    if (from.seat === null || to.seat === null) continue;
+    const fromTile = TILE_ZONES.includes(from.zone);
+    // Discarded (a hand to a graveyard) or milled (a library to a graveyard).
+    if ((from.zone === "hand" || from.zone === "library") && to.zone === "graveyard") {
+      const now = move.card ? snapshot.graveyard.find((c) => c.id === move.card) : undefined;
+      if (!now) continue;
+      out.push({
+        card: now.id,
+        from: { zone: from.zone, side: side(from.seat) },
+        to: { zone: "graveyard", side: side(to.seat) },
+        face: faceOf(now),
+        hidden: false,
+        where: null,
+      });
+      continue;
+    }
+    if (!fromTile || from.zone === "library") continue;
+    if (!["hand", "battlefield", ...TILE_ZONES].includes(to.zone) || to.zone === from.zone)
+      continue;
+    let card = move.card;
+    let was = card ? pile(previous, from.zone).find((c) => c.id === card) : undefined;
+    if (!card) {
+      // Gone from that graveyard (or exile), seen nowhere now, not named by another move.
+      was = pile(previous, from.zone).find(
+        (c) => c.seat === from.seat && !seenNow.has(c.id) && !claimed.has(c.id),
+      );
+      if (!was) continue;
+      card = was.id;
+      claimed.add(card);
+    }
+    const there =
+      was ??
+      [...snapshot.battlefield, ...snapshot.hand, ...snapshot.exile, ...snapshot.graveyard].find(
+        (c) => c.id === card,
+      );
+    if (!there) continue;
+    const hidden =
+      to.zone === "library" ||
+      (to.zone === "hand" && to.seat !== viewer && !snapshot.otherHands.some((c) => c.id === card));
+    out.push({
+      card,
+      from: { zone: from.zone as TileZone, side: side(from.seat) },
+      to: { zone: to.zone as TileMove["to"]["zone"], side: side(to.seat) },
+      face: faceOf(there),
+      hidden,
+      where: to.zone === "library" ? (move.where ?? null) : null,
+    });
+  }
+  return out;
 }
 
 function toBoardCard(card: SnapshotCard): BoardCard {
@@ -265,8 +407,18 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // Spec 0061, item 4 -- why a card went to a graveyard, as the game says.
   const graves = new Map<string, string>();
   for (const move of moves) {
+    // Spec 0074, Amendment 1 (owner 2026-11-12): no word pill for a discard
+    // or a counter -- the report window explains what the other player did.
+    if (move.why === "discarded" || move.why === "countered") continue;
     if (move.card && move.said && move.to.zone === "graveyard") graves.set(move.card, move.said);
   }
+  // Spec 0074 -- discards, mills, out of a graveyard or exile; spells countered.
+  const tileMoves = tileMovesOf(snapshot, previous, moves);
+  const countered = new Set(
+    moves.flatMap((m) =>
+      m.card && m.why === "countered" && m.from.zone === "stack" ? [m.card] : [],
+    ),
+  );
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -332,5 +484,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     merges,
     returns,
     graves,
+    tileMoves,
+    countered,
   };
 }

@@ -144,6 +144,12 @@ final class Moves {
                     || move.toSeat() == null) {
                 continue;
             }
+            // Spec 0074, Amendment 1 (owner 2026-11-12): a discard or a counter
+            // is no top-of-table line -- the report window explains what the
+            // other player did (ActionReports), and your own needs no telling.
+            if ("discarded".equals(move.why()) || "countered".equals(move.why())) {
+                continue;
+            }
             out.computeIfAbsent(move.toSeat(), k -> new java.util.LinkedHashMap<>())
                     .computeIfAbsent(move.said(), k -> new ArrayList<>())
                     .add(move.name());

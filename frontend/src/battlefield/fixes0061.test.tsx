@@ -354,6 +354,37 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
     expect([...data.graves]).toEqual([["card:62", "Cycled"]]);
   });
 
+  it("spec 0074, Amendment 1: a discard or a counter carries no tag (the report window explains it)", () => {
+    const snap = {
+      ...(fromSnapshotInput() as object),
+      moves: [
+        {
+          card: "card:62",
+          from: { zone: "hand", seat: 1 },
+          to: { zone: "graveyard", seat: 1 },
+          why: "discarded",
+          said: "Discarded: too many cards",
+        },
+        {
+          card: "card:63",
+          from: { zone: "stack", seat: null },
+          to: { zone: "graveyard", seat: 2 },
+          why: "countered",
+          said: "Countered by Counterspell",
+        },
+        {
+          card: "card:64",
+          from: { zone: "hand", seat: 2 },
+          to: { zone: "graveyard", seat: 2 },
+          why: "cycled",
+          said: "Cycled",
+        },
+      ],
+    };
+    const data = boardFromSnapshot(snap as never, null);
+    expect([...data.graves]).toEqual([["card:64", "Cycled"]]);
+  });
+
   it("the tag's frames: over the card, then by the pile, held, then gone", () => {
     const { frames, duration } = graveTagFrames(300, -200, 0, MOVE_MS);
     expect(duration).toBe(MOVE_MS + GRAVE_TAG_HOLD_MS);
