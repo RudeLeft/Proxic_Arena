@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.60.0 — 2026-11-12
+
+The last card-action words leave the table: what happened is told in the report window.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Told in the report window instead of words on the table**
+- **Bounces:** when the other player sends your card back -- "Bob returned your Grizzly Bears to your hand" (or onto or into your library). The "Back to your hand" / "On top of …" tags are gone.
+- **Cycling:** when the other player cycles -- "Bob cycled Forgotten Cave and drew a card." The "Cycled" tag and its notice are gone.
+- **Choices and coin flips:** "Bob chose white" with the colour shown, "Bob flipped a coin and lost" with a coin. Your own coin flips show to you too.
+- **Looking at an empty hand:** "Bob looked at your hand. It has no cards."
+- The small notices at the top of the table for cycling, choices, coin flips, die rolls and "Looking at …" are gone. Dice still tumble in their own window.
+
 ## 1.59.0 — 2026-11-12
 
 Discards, mills, countered spells and cards leaving a graveyard now move visibly, and what happened is explained in one place: the report window.
