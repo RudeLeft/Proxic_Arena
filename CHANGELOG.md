@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.61.0 — 2026-11-12
+
+Counters and the Ring-bearer are pictures on the card now, not words.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Counters as badges**
+- Each kind of counter on a card is a small round badge with its own picture and number: a green up-arrow for +1/+1, a red down-arrow for -1/-1, a blue lightning bolt for charge, a steel shield, a yellow stun star, and so on -- always with the number, even "1". Colour always comes with a picture, never colour alone.
+- With four or more kinds on one card, the extras fold into a grey "··· N" badge.
+- Badges never sit under the card's name, power and toughness, TAPPED, ATTACKING, the ×N pile number or the summoning-sick zZz -- they step into a second column instead.
+- Pointing at a card, and the close-up, still spell out every counter and where the last one came from.
+
+**The Ring-bearer**
+- A small gold ring on the card replaces the word "Ring-bearer". How many times the Ring has tempted you still shows on your player panel.
+
 ## 1.60.0 — 2026-11-12
 
 The last card-action words leave the table: what happened is told in the report window.
