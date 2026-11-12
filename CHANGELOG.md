@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.57.0 — 2026-11-12
+
+The other player's spells come out of their hand, and three small table fixes.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**The other player's spells**
+- When the other player casts a spell, its card back now rises out of the middle of their hand and glides to the centre, and their hand closes the gap. Before, it just faded in at the middle of your screen.
+- A spell cast from somewhere you could already see it (flashback or escape from their graveyard, a face-up card in exile, the revealed top of their library) rises from there, face up the whole way.
+- If they change their mind, the card glides back where it came from -- into their hand, turning to match their other cards, or back onto the pile.
+- Spectators see the same.
+
+**Small fixes**
+- Reports like "Alice looked at your hand and chose nothing" (Duress) now sit just above your hand instead of covering it.
+- A card the other player revealed to you stays face up at the top edge of their hand; point at it and it slides down so you can read the whole card.
+- Picking cards from a graveyard or exile to pay for something (Escape, Delve): each card you pick stays in the window, dimmed, with the same corner sign as on the table. Click it again to take it back. The other player sees nothing until you're done.
+- A card window with many cards (Uro's Escape from a big graveyard) now uses smaller cards, and only the cards scroll -- the title, the question and Pass stay in view.
+
 ## 1.56.0 — 2026-11-11
 
 Arrows with real effects, and every card you pick to pay a cost is marked as you pick it.
