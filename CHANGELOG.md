@@ -3,6 +3,28 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.62.0 — 2026-11-12
+
+Damage, life gain and poison now land visibly on a player's life shield.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Damage and life loss**
+- When a spell like Lightning Bolt hits a player, the life number holds until the gold beam lands; then the shield shakes and cracks, a red "−3" rises, and the number steps down point by point (20, 19, 18, 17).
+- Losing life without damage (Sign in Blood) looks the same.
+- Big changes step one point at a time too: Gray Merchant draining 5 counts both shields down and up together. A click hurries it along.
+
+**Life gain**
+- A green "+1" rises and the number ticks up -- every Soul Warden trigger gets its own tick. Before, most life gain showed nothing.
+
+**Poison**
+- Poison counters are a round badge touching the life shield's lower left, with a ring of 10 notches that fills as poison grows. It never covers the life number.
+- An infect creature's hit strikes the poison badge, not the life shield, so it can never be mistaken for a life change.
+
+**Fixes**
+- An infect hit was sent as ordinary damage, so a player's life briefly showed the wrong number. It now counts as poison only.
+
 ## 1.61.0 — 2026-11-12
 
 Counters and the Ring-bearer are pictures on the card now, not words.
