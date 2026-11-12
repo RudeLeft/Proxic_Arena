@@ -3,6 +3,20 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.58.0 — 2026-11-12
+
+Cards and tokens now visibly join and leave their piles on the table.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Piles (identical cards shown as one with a ×N number)**
+- A card joining a pile -- your third Forest, the other player's Mountain, a creature landing next to its twins -- glides onto it, and the number goes up (×2 → ×3) as it lands, not before.
+- The other player's land comes out of the middle of their hand and turns face up on the way.
+- New tokens spark out of what made them -- the spell (Raise the Alarm) or the card whose ability made them (Krenko) -- and arrive one after another.
+- A card leaving a pile -- one Forest of three hit by Stone Rain, two of four tokens dying in combat -- peels off the top as the number drops, then shatters or vanishes as single cards already do.
+- A click hurries it all along; with "reduce motion" on, the number simply changes.
+
 ## 1.57.0 — 2026-11-12
 
 The other player's spells come out of their hand, and three small table fixes.
