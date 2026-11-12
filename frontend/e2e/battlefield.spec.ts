@@ -295,8 +295,10 @@ async function differences(
       const frame = (el: HTMLElement, card: HTMLElement) => {
         let x = 0;
         let y = 0;
-        for (let e: HTMLElement | null = el; e && e !== card; e = e.offsetParent as HTMLElement)
-          (x += e.offsetLeft), (y += e.offsetTop);
+        for (let e: HTMLElement | null = el; e && e !== card; e = e.offsetParent as HTMLElement) {
+          x += e.offsetLeft;
+          y += e.offsetTop;
+        }
         // Its own translate (TAPPED is centred by one, the mana pill too).
         const m = new DOMMatrix(getComputedStyle(el).transform);
         x += m.e;
