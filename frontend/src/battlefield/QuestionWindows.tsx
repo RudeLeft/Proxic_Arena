@@ -643,6 +643,10 @@ export function ChoiceWindow(props: Common) {
     (c) => c.id,
   );
   const tiles = withPicked(shown, (o) => o.objectId, [...marks.keys()], boardOrder);
+  // Many cards (Escape's graveyard of eleven): smaller cards, as the search
+  // tray's, and they scroll under the title and question, which stay put.
+  const smallTiles = tiles.length > 4;
+  const scrollTiles = tiles.length > 8;
   return (
     <Tray
       geometry={props.geometry}
@@ -665,7 +669,7 @@ export function ChoiceWindow(props: Common) {
         />
       )}
       {cards ? (
-        <ul className="gs-win-tiles gs-win-list">
+        <ul className={`gs-win-tiles gs-win-list${scrollTiles ? " gs-win-tiles-scroll" : ""}`}>
           {tiles.map((t) => {
             if (t.picked !== undefined) {
               const card = cardOf(board, t.picked);
@@ -680,6 +684,7 @@ export function ChoiceWindow(props: Common) {
                     mark={mark}
                     label={label}
                     artUrl={artUrl}
+                    small={smallTiles}
                     busy={busy}
                     onAnswer={onAnswer}
                   />
@@ -691,13 +696,13 @@ export function ChoiceWindow(props: Common) {
               <li key={o.actionId}>
                 <button
                   type="button"
-                  className="gs-option gs-win-tile"
+                  className={`gs-option gs-win-tile${smallTiles ? " gs-win-tile-small" : ""}`}
                   disabled={busy}
                   aria-label={o.label ?? o.actionId}
                   data-tile-of={o.objectId ?? undefined}
                   onClick={() => onAnswer(o.actionId)}
                 >
-                  <BigCard card={cardOf(board, o.objectId)!} artUrl={artUrl} />
+                  <BigCard card={cardOf(board, o.objectId)!} artUrl={artUrl} small={smallTiles} />
                 </button>
               </li>
             );

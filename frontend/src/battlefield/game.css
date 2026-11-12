@@ -3599,6 +3599,13 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-win-tiles.gs-win-list {
   flex-direction: row;
 }
+/* Spec 0071 -- a card window whose tiles scroll (Escape's graveyard of
+   eleven): keep .gs-win-tiles-scroll's room for a picked card's outline and
+   corner sign, which .gs-win-list's padding: 0 above would take away (the
+   outlines of the top and bottom rows were cut at the scroll edge). */
+.gs-win-tiles.gs-win-list.gs-win-tiles-scroll {
+  padding: 16px;
+}
 /* Many plain choices in the tray: columns, not one long ribbon. */
 .gs-win-grid {
   display: grid;

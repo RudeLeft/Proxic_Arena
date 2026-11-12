@@ -91,3 +91,12 @@ the graveyard) and `delve` (Treasure Cruise, four) -- both INCONCLUSIVE
 ("no graveyard picking window was asked with picks") against a worker with
 the take-back turned off; check-hidden-hands.py and check-hidden-log.py
 clean on all four pay-picks traces. Already in CI's Lab list.
+
+## Amendment 1 — a card window with many cards stays on screen (owner, 2026-11-11)
+
+Found in the Escape film: eleven full-size tiles made the card window's
+body scroll, title and question with it. Owner approved: `ChoiceWindow`
+uses the small tiles (as the search tray) above 4 cards, and above 8 only
+the tiles scroll (`gs-win-tiles-scroll`, its 16px padding restored over
+`.gs-win-list`'s) under the title, question and Pass. Filmed at
+1920x1080 with Uro's eleven-card graveyard.
