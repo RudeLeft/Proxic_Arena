@@ -3,6 +3,24 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.59.0 — 2026-11-12
+
+Discards, mills, countered spells and cards leaving a graveyard now move visibly, and what happened is explained in one place: the report window.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**On the table**
+- **Discards** lift out of the hand and drop into the graveyard. The other player's discards come out of their hand and turn face up on the way, so you see what they threw away.
+- **Mills** stream off the library, face up, into the graveyard one after another; after 10, the rest go together as one bundle. The library and graveyard numbers count as each card lands.
+- **A countered spell** is struck by the counterspell's gold beam and crumbles to ash. It no longer glows or sparks at its target as if it had worked.
+- **Cards leaving a graveyard or exile** (Raise Dead, Unearth) rise and are shown big for a moment, then glide where they go. A whole graveyard exiled at once (Bojuka Bog) is swept away together.
+
+**Explained in the report window, not with words on the table**
+- The yellow "Discarded", "Countered by …" and "Back to … hand" tags and the matching notices at the top of the screen are gone.
+- Instead the report window -- the player's picture, who did it with which card, one plain sentence and the cards themselves -- tells you: "Bob discarded Swamp and Mind Rot", "Bob milled 10 cards", "Bob countered your Giant Growth", "Bob returned Grizzly Bears to their hand".
+- It opens for what the other player does, or what happens to you; your own routine moves (discarding down to seven, milling yourself) don't open one.
+
 ## 1.58.0 — 2026-11-12
 
 Cards and tokens now visibly join and leave their piles on the table.
